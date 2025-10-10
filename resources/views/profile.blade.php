@@ -146,7 +146,7 @@ async function loadProfileData() {
         if (response.ok) {
             const data = await response.json();
             updateProfileUI(data);
-            updateUserName(data.user_info);
+            updateUserName(data.profile?.personal_data || {});
         } else {
             showError('Gagal memuat data profile');
         }
@@ -164,19 +164,37 @@ function updateProfileUI(data) {
     if (!profileContent) return;
 
     const profile = data.profile || {};
+    const personalData = profile.personal_data || {};
+    const contactData = profile.contact_data || {};
+    const photoUrl = profile.photo_url;
 
     profileContent.innerHTML = `
         <div class="grid md:grid-cols-2 gap-6">
             <!-- Foto Profile -->
             <div class="flex flex-col items-center">
-                <div class="w-32 h-32 bg-gray-200 rounded-full flex items-center justify-center mb-4">
-                    <svg class="w-16 h-16 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
-                    </svg>
+                <div class="w-32 h-32 bg-gray-200 rounded-full overflow-hidden mb-4">
+                    ${photoUrl ?
+                        `<img src="${photoUrl}" alt="Profile Photo" class="w-full h-full object-cover" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                         <div class="w-full h-full bg-gray-200 rounded-full flex items-center justify-center" style="display:none;">
+                            <svg class="w-16 h-16 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                            </svg>
+                        </div>` :
+                        `<div class="w-full h-full bg-gray-200 rounded-full flex items-center justify-center">
+                            <svg class="w-16 h-16 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                            </svg>
+                        </div>`
+                    }
                 </div>
                 <div class="text-center">
-                    <h4 class="text-lg font-semibold text-gray-900">${profile.name || 'N/A'}</h4>
-                    <p class="text-sm text-gray-500">${profile.student_id || 'N/A'}</p>
+                    <h4 class="text-lg font-semibold text-gray-900">${personalData.nama || 'N/A'}</h4>
+                    <p class="text-sm text-gray-500">${personalData.nim || 'N/A'}</p>
+                    <div class="mt-2">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${personalData.status === 'Aktif' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}">
+                            ${personalData.status || 'N/A'}
+                        </span>
+                    </div>
                 </div>
             </div>
 
@@ -184,38 +202,38 @@ function updateProfileUI(data) {
             <div class="space-y-4">
                 <div>
                     <h5 class="text-sm font-medium text-gray-700 mb-1">Nama Lengkap</h5>
-                    <p class="text-gray-900">${profile.name || 'N/A'}</p>
+                    <p class="text-gray-900">${personalData.nama || 'N/A'}</p>
                 </div>
                 <div>
                     <h5 class="text-sm font-medium text-gray-700 mb-1">NIM</h5>
-                    <p class="text-gray-900">${profile.student_id || 'N/A'}</p>
+                    <p class="text-gray-900">${personalData.nim || 'N/A'}</p>
                 </div>
                 <div>
                     <h5 class="text-sm font-medium text-gray-700 mb-1">Program Studi</h5>
-                    <p class="text-gray-900">${profile.study_program || 'N/A'}</p>
+                    <p class="text-gray-900">${personalData.program_studi || 'N/A'}</p>
                 </div>
                 <div>
-                    <h5 class="text-sm font-medium text-gray-700 mb-1">Fakultas</h5>
-                    <p class="text-gray-900">${profile.faculty || 'N/A'}</p>
+                    <h5 class="text-sm font-medium text-gray-700 mb-1">Angkatan</h5>
+                    <p class="text-gray-900">${personalData.angkatan || 'N/A'}</p>
+                </div>
+                <div>
+                    <h5 class="text-sm font-medium text-gray-700 mb-1">Jenis Kelamin</h5>
+                    <p class="text-gray-900">${personalData.jenis_kelamin || 'N/A'}</p>
                 </div>
             </div>
         </div>
 
         <div class="grid md:grid-cols-2 gap-6 pt-6 border-t border-gray-200">
-            <!-- Informasi Akademik -->
+            <!-- Informasi Kelahiran -->
             <div class="space-y-4">
-                <h5 class="text-sm font-semibold text-gray-900">Informasi Akademik</h5>
+                <h5 class="text-sm font-semibold text-gray-900">Informasi Kelahiran</h5>
                 <div>
-                    <h6 class="text-sm font-medium text-gray-700 mb-1">Semester Saat Ini</h6>
-                    <p class="text-gray-900">${profile.current_semester || 'N/A'}</p>
+                    <h6 class="text-sm font-medium text-gray-700 mb-1">Tempat Lahir</h6>
+                    <p class="text-gray-900">${personalData.tempat_lahir || 'N/A'}</p>
                 </div>
                 <div>
-                    <h6 class="text-sm font-medium text-gray-700 mb-1">IPK</h6>
-                    <p class="text-gray-900">${profile.gpa || 'N/A'}</p>
-                </div>
-                <div>
-                    <h6 class="text-sm font-medium text-gray-700 mb-1">Total SKS</h6>
-                    <p class="text-gray-900">${profile.total_credits || 'N/A'}</p>
+                    <h6 class="text-sm font-medium text-gray-700 mb-1">Tanggal Lahir</h6>
+                    <p class="text-gray-900">${personalData.tanggal_lahir || 'N/A'}</p>
                 </div>
             </div>
 
@@ -224,15 +242,29 @@ function updateProfileUI(data) {
                 <h5 class="text-sm font-semibold text-gray-900">Informasi Kontak</h5>
                 <div>
                     <h6 class="text-sm font-medium text-gray-700 mb-1">Email</h6>
-                    <p class="text-gray-900">${profile.email || 'N/A'}</p>
+                    <p class="text-gray-900">${contactData.email || 'N/A'}</p>
                 </div>
                 <div>
                     <h6 class="text-sm font-medium text-gray-700 mb-1">No. HP</h6>
-                    <p class="text-gray-900">${profile.phone || 'N/A'}</p>
+                    <p class="text-gray-900">${contactData.hp || contactData.telp || 'N/A'}</p>
                 </div>
                 <div>
-                    <h6 class="text-sm font-medium text-gray-700 mb-1">Alamat</h6>
-                    <p class="text-gray-900">${profile.address || 'N/A'}</p>
+                    <h6 class="text-sm font-medium text-gray-700 mb-1">Alamat Lengkap</h6>
+                    <p class="text-gray-900">${contactData.alamat_rumah || 'N/A'}</p>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <h6 class="text-sm font-medium text-gray-700 mb-1">Kota</h6>
+                        <p class="text-gray-900">${contactData.kota || 'N/A'}</p>
+                    </div>
+                    <div>
+                        <h6 class="text-sm font-medium text-gray-700 mb-1">Provinsi</h6>
+                        <p class="text-gray-900">${contactData.propinsi || 'N/A'}</p>
+                    </div>
+                </div>
+                <div>
+                    <h6 class="text-sm font-medium text-gray-700 mb-1">Kode Pos</h6>
+                    <p class="text-gray-900">${contactData.kodepos || 'N/A'}</p>
                 </div>
             </div>
         </div>
@@ -241,8 +273,8 @@ function updateProfileUI(data) {
 
 function updateUserName(userInfo) {
     const userName = document.getElementById('userName');
-    if (userName && userInfo && userInfo.name) {
-        userName.textContent = userInfo.name;
+    if (userName && userInfo && userInfo.nama) {
+        userName.textContent = userInfo.nama;
     }
 }
 

@@ -67,6 +67,11 @@ class ClassesExtractor extends CampusScrapingService
             $this->setSession($sessionToken);
             $this->logScraping('Extracting class detail', ['session_token' => $sessionToken, 'params' => $params]);
 
+            // Check if this is a meeting detail request
+            if (!empty($params['meeting_id']) && !empty($params['courses_id'])) {
+                return $this->extractMeetingDetail($sessionToken, $params);
+            }
+
             // Build class detail URL with parameters for SIPANDAI
             $classDetailUrl = config('campus.class_detail_url');
 
@@ -101,6 +106,9 @@ class ClassesExtractor extends CampusScrapingService
                 'class_info' => $this->extractClassInfo($crawler),
                 'lecturer_info' => $this->extractLecturerInfo($crawler),
                 'schedule_info' => $this->extractScheduleInfo($crawler),
+                'attendance_info' => $this->extractAttendanceInfo($crawler),
+                'assignment_history' => $this->extractAssignmentHistory($crawler),
+                'course_materials' => $this->extractCourseMaterials($crawler),
                 'file_info' => $this->extractFileInfo($html),
                 'students_list' => $this->extractStudentsList($crawler),
                 'extracted_at' => now()->toISOString(),
@@ -116,6 +124,53 @@ class ClassesExtractor extends CampusScrapingService
         } catch (\Exception $e) {
             $this->logScrapingError('Extracting class detail', $e, ['session_token' => $sessionToken, 'params' => $params]);
             throw new CampusScrapingException('dataExtractionFailed', 'class detail', $e->getMessage());
+        }
+    }
+
+    /**
+     * Extract meeting detail data from individual meeting page
+     */
+    public function extractMeetingDetail(string $sessionToken, array $params): array
+    {
+        try {
+            $this->setSession($sessionToken);
+            $this->logScraping('Extracting meeting detail', ['session_token' => $sessionToken, 'params' => $params]);
+
+            // Build meeting detail URL
+            $meetingUrl = 'https://my.cic.ac.id/portal/sipandai/';
+            $queryString = '?mod=sipandai&act=discuss&id='.$params['meeting_id'].'&courses_id='.$params['courses_id'];
+            $fullUrl = $meetingUrl.$queryString;
+
+            // Get meeting detail HTML
+            $html = $this->get($fullUrl);
+            $crawler = $this->createCrawler($html);
+
+            // Extract meeting detail
+            $meetingDetail = [
+                'request_url' => $fullUrl,
+                'content_type' => 'meeting_detail',
+                'meeting_info' => $this->extractMeetingInfo($crawler),
+                'lecturer_info' => $this->extractMeetingLecturerInfo($crawler),
+                'schedule_info' => $this->extractMeetingScheduleInfo($crawler),
+                'rps_info' => $this->extractRpsInfo($crawler),
+                'attendance_info' => $this->extractMeetingAttendanceInfo($crawler),
+                'assignment_info' => $this->extractMeetingAssignmentInfo($crawler),
+                'conformity_info' => $this->extractConformityInfo($crawler),
+                'materials' => $this->extractMeetingMaterials($crawler),
+                'instructions' => $this->extractMeetingInstructions($crawler),
+                'extracted_at' => now()->toISOString(),
+            ];
+
+            $this->logScraping('Meeting detail extracted successfully', [
+                'meeting_id' => $params['meeting_id'],
+                'course_id' => $params['courses_id'],
+            ]);
+
+            return $meetingDetail;
+
+        } catch (\Exception $e) {
+            $this->logScrapingError('Extracting meeting detail', $e, ['session_token' => $sessionToken, 'params' => $params]);
+            throw new CampusScrapingException('dataExtractionFailed', 'meeting detail', $e->getMessage());
         }
     }
 
@@ -600,11 +655,43 @@ class ClassesExtractor extends CampusScrapingService
      */
     private function extractCourseInfo(Crawler $crawler): array
     {
-        return [
+        $courseInfo = [
             'name' => $this->extractText($crawler, ['.course-name', '.mata-kuliah', 'h1', 'h2']),
             'code' => $this->extractText($crawler, ['.course-code', '.kode-mata-kuliah']),
             'credits' => $this->extractText($crawler, ['.credits', '.sks']),
         ];
+
+        // Try to extract from join class page table structure
+        try {
+            $crawler->filter('.card .content table tr')->each(function (Crawler $row) use (&$courseInfo) {
+                $cells = $row->filter('td');
+                if ($cells->count() >= 3) {
+                    $label = trim(strtolower($cells->eq(0)->text()));
+                    $value = trim($cells->eq(2)->text());
+
+                    // Extract course name
+                    if (strpos($label, 'nama mata kuliah') !== false) {
+                        $courseInfo['name'] = $value;
+                    }
+                    // Extract course code and credits from the same field
+                    if (strpos($label, 'nama mata kuliah') !== false) {
+                        if (preg_match('/(\w+\d+)\s*-\s*([^-]+)\s*-\s*(\d+)\s*SKS/i', $value, $matches)) {
+                            $courseInfo['code'] = $matches[1];
+                            $courseInfo['name'] = trim($matches[2]);
+                            $courseInfo['credits'] = $matches[3];
+                        }
+                    }
+                    // Extract class name
+                    if (strpos($label, 'nama kelas') !== false) {
+                        $courseInfo['class_name'] = $value;
+                    }
+                }
+            });
+        } catch (\Exception $e) {
+            // Ignore extraction errors
+        }
+
+        return $courseInfo;
     }
 
     /**
@@ -623,10 +710,48 @@ class ClassesExtractor extends CampusScrapingService
      */
     private function extractLecturerInfo(Crawler $crawler): array
     {
-        return [
+        $lecturerInfo = [
             'name' => $this->extractText($crawler, ['.lecturer-name', '.dosen', '.instructor']),
             'nidn' => $this->extractText($crawler, ['.nidn', '.lecturer-id']),
+            'contact' => '',
+            'email' => '',
         ];
+
+        // Try to extract from join class page table structure
+        try {
+            $crawler->filter('.card .content table tr')->each(function (Crawler $row) use (&$lecturerInfo) {
+                $cells = $row->filter('td');
+                if ($cells->count() >= 3) {
+                    $label = trim(strtolower($cells->eq(0)->text()));
+                    $value = trim($cells->eq(2)->text());
+
+                    // Extract lecturer name
+                    if (strpos($label, 'nama dosen') !== false) {
+                        $lecturerInfo['name'] = $value;
+                        // Also extract contact and email if present in the same field
+                        if (preg_match('/^(.+?)\s*\/?\s*(.+?)\s*\/?\s*(.+)$/', $value, $matches)) {
+                            $lecturerInfo['name'] = trim($matches[1]);
+                            if (isset($matches[2]) && strpos($matches[2], '@') !== false) {
+                                $lecturerInfo['email'] = trim($matches[2]);
+                            } else {
+                                $lecturerInfo['contact'] = trim($matches[2]);
+                            }
+                            if (isset($matches[3]) && strpos($matches[3], '@') !== false) {
+                                $lecturerInfo['email'] = trim($matches[3]);
+                            }
+                        }
+                    }
+                    // Extract contact info separately
+                    if (strpos($label, 'nomor kontak dosen') !== false) {
+                        $lecturerInfo['contact_info'] = $value;
+                    }
+                }
+            });
+        } catch (\Exception $e) {
+            // Ignore extraction errors
+        }
+
+        return $lecturerInfo;
     }
 
     /**
@@ -760,5 +885,531 @@ class ClassesExtractor extends CampusScrapingService
             $this->logScrapingError('Getting classes overview', $e, ['session_token' => $sessionToken]);
             throw new CampusScrapingException('dataExtractionFailed', 'classes overview', $e->getMessage());
         }
+    }
+
+    /**
+     * Extract attendance information from join class page
+     */
+    private function extractAttendanceInfo(Crawler $crawler): array
+    {
+        $attendanceInfo = [
+            'table_headers' => [],
+            'attendance_data' => [],
+        ];
+
+        try {
+            // Look for attendance table with Presensi Kehadiran
+            $crawler->filter('.card')->each(function (Crawler $card) use (&$attendanceInfo) {
+                $headerText = $card->filter('.header .title, .header h6')->text('');
+                if (strpos($headerText, 'Presensi Kehadiran') !== false) {
+                    // Extract table headers (P.1, P.2, etc.)
+                    $attendanceTable = $card->filter('table')->first();
+                    $headerRow = $attendanceTable->filter('tr')->first();
+
+                    $headerRow->filter('th')->each(function (Crawler $th, $index) use (&$attendanceInfo) {
+                        $attendanceInfo['table_headers'][] = trim($th->text());
+                    });
+
+                    // Extract attendance data
+                    $dataRows = $attendanceTable->filter('tr')->slice(1);
+                    $dataRows->each(function (Crawler $row) use (&$attendanceInfo) {
+                        $rowData = [];
+                        $row->filter('td')->each(function (Crawler $td) use (&$rowData) {
+                            $img = $td->filter('img');
+                            if ($img->count() > 0) {
+                                $rowData[] = [
+                                    'type' => 'image',
+                                    'src' => $img->attr('src'),
+                                    'alt' => $img->attr('alt'),
+                                ];
+                            } else {
+                                $button = $td->filter('button');
+                                if ($button->count() > 0) {
+                                    $rowData[] = [
+                                        'type' => 'button',
+                                        'text' => trim($button->text()),
+                                        'title' => $button->attr('title'),
+                                        'href' => $button->filter('a')->attr('href'),
+                                    ];
+                                } else {
+                                    $rowData[] = [
+                                        'type' => 'text',
+                                        'content' => trim($td->text()),
+                                    ];
+                                }
+                            }
+                        });
+                        if (!empty($rowData)) {
+                            $attendanceInfo['attendance_data'][] = $rowData;
+                        }
+                    });
+                }
+            });
+        } catch (\Exception $e) {
+            // Ignore extraction errors
+        }
+
+        return $attendanceInfo;
+    }
+
+    /**
+     * Extract assignment history from join class page
+     */
+    private function extractAssignmentHistory(Crawler $crawler): array
+    {
+        $assignmentHistory = [
+            'assignments' => [],
+            'average_score' => null,
+        ];
+
+        try {
+            // Look for assignment history table
+            $crawler->filter('.card')->each(function (Crawler $card) use (&$assignmentHistory) {
+                $headerText = $card->filter('.header .title, .header h6')->text('');
+                if (strpos($headerText, 'Histori Upload Tugas') !== false) {
+                    $assignmentTable = $card->filter('table')->first();
+
+                    $assignmentTable->filter('tr')->slice(1)->each(function (Crawler $row) use (&$assignmentHistory) {
+                        $cells = $row->filter('td');
+                        if ($cells->count() >= 5) {
+                            $assignment = [
+                                'no' => trim($cells->eq(0)->text()),
+                                'date' => trim($cells->eq(1)->text()),
+                                'meeting' => trim($cells->eq(2)->text()),
+                                'file_info' => null,
+                                'score' => trim($cells->eq(4)->text()),
+                            ];
+
+                            // Extract file information
+                            $fileLink = $cells->eq(3)->filter('a');
+                            if ($fileLink->count() > 0) {
+                                $assignment['file_info'] = [
+                                    'href' => $fileLink->attr('href'),
+                                    'text' => trim($fileLink->text()),
+                                ];
+                            }
+
+                            $assignmentHistory['assignments'][] = $assignment;
+                        }
+                    });
+
+                    // Extract average score
+                    $assignmentTable->filter('tr')->each(function (Crawler $row) use (&$assignmentHistory) {
+                        $cells = $row->filter('td');
+                        if ($cells->count() >= 5) {
+                            $label = trim($cells->eq(3)->text());
+                            if (strpos($label, 'RATA-RATA NILAI TUGAS') !== false) {
+                                $assignmentHistory['average_score'] = trim($cells->eq(4)->text());
+                            }
+                        }
+                    });
+                }
+            });
+        } catch (\Exception $e) {
+            // Ignore extraction errors
+        }
+
+        return $assignmentHistory;
+    }
+
+    /**
+     * Extract course materials from join class page
+     */
+    private function extractCourseMaterials(Crawler $crawler): array
+    {
+        $courseMaterials = [];
+
+        try {
+            // Look for course materials table
+            $crawler->filter('.card')->each(function (Crawler $card) use (&$courseMaterials) {
+                $headerText = $card->filter('.header .title, .header h5')->text('');
+                if (strpos($headerText, 'Materi Perkuliahan') !== false) {
+                    $materialsTable = $card->filter('table')->first();
+
+                    $materialsTable->filter('tr')->each(function (Crawler $row) use (&$courseMaterials) {
+                        $cell = $row->filter('td');
+                        if ($cell->count() > 0) {
+                            $content = $cell->html();
+
+                            // Extract material information using regex
+                            if (preg_match('/<h6>(.+?)<\/h6>/', $content, $matches)) {
+                                $material = [
+                                    'title' => trim(strip_tags($matches[1])),
+                                    'content' => $content,
+                                ];
+
+                                // Extract date
+                                if (preg_match('/([A-Z]+, \d+ [A-Z]+ \d+)/', $content, $matches)) {
+                                    $material['date'] = $matches[1];
+                                }
+
+                                // Extract time
+                                if (preg_match('/Jam : (\d+:\d+)/', $content, $matches)) {
+                                    $material['time'] = $matches[1];
+                                }
+
+                                // Extract description
+                                if (preg_match('/<h6>Uraian Pokok Pembahasan : <\/h6>(.+?)(?:<hr>|$)/s', $content, $matches)) {
+                                    $material['description'] = trim(strip_tags($matches[1]));
+                                }
+
+                                // Extract join link
+                                $joinLink = $cell->filter('a');
+                                if ($joinLink->count() > 0) {
+                                    $material['join_link'] = [
+                                        'href' => $joinLink->attr('href'),
+                                        'text' => trim($joinLink->text()),
+                                    ];
+                                }
+
+                                $courseMaterials[] = $material;
+                            }
+                        }
+                    });
+                }
+            });
+        } catch (\Exception $e) {
+            // Ignore extraction errors
+        }
+
+        return $courseMaterials;
+    }
+
+    /**
+     * Extract meeting information from meeting page
+     */
+    private function extractMeetingInfo(Crawler $crawler): array
+    {
+        $meetingInfo = [
+            'title' => '',
+            'breadcrumb' => '',
+        ];
+
+        try {
+            // Extract breadcrumb/title
+            $titleElement = $crawler->filter('.header .title');
+            if ($titleElement->count() > 0) {
+                $meetingInfo['breadcrumb'] = trim($titleElement->text());
+            }
+
+            // Extract page title
+            $pageTitle = $crawler->filter('.app-page-title');
+            if ($pageTitle->count() > 0) {
+                $meetingInfo['title'] = trim($pageTitle->text());
+            }
+        } catch (\Exception $e) {
+            // Ignore extraction errors
+        }
+
+        return $meetingInfo;
+    }
+
+    /**
+     * Extract lecturer information from meeting page
+     */
+    private function extractMeetingLecturerInfo(Crawler $crawler): array
+    {
+        $lecturerInfo = [
+            'name' => '',
+        ];
+
+        try {
+            $crawler->filter('.card .content table tr')->each(function (Crawler $row) use (&$lecturerInfo) {
+                $cells = $row->filter('td');
+                if ($cells->count() >= 3) {
+                    $label = trim(strtolower($cells->eq(0)->text()));
+                    $value = trim($cells->eq(2)->text());
+
+                    if (strpos($label, 'nama dosen') !== false) {
+                        $lecturerInfo['name'] = $value;
+                    }
+                }
+            });
+        } catch (\Exception $e) {
+            // Ignore extraction errors
+        }
+
+        return $lecturerInfo;
+    }
+
+    /**
+     * Extract meeting schedule information
+     */
+    private function extractMeetingScheduleInfo(Crawler $crawler): array
+    {
+        $scheduleInfo = [
+            'date' => '',
+            'start_time' => '',
+            'attendance_time' => '',
+        ];
+
+        try {
+            $crawler->filter('.card .content table tr')->each(function (Crawler $row) use (&$scheduleInfo) {
+                $cells = $row->filter('td');
+                if ($cells->count() >= 3) {
+                    $label = trim(strtolower($cells->eq(0)->text()));
+                    $value = trim($cells->eq(2)->text());
+
+                    if (strpos($label, 'tanggal pertemuan') !== false) {
+                        $scheduleInfo['date'] = $value;
+                    } elseif (strpos($label, 'mulai kelas jam') !== false) {
+                        $scheduleInfo['start_time'] = $value;
+                    } elseif (strpos($label, 'absensi kehadiran') !== false) {
+                        // Extract attendance time from the text
+                        if (preg_match('/Absen Jam : (\d{2}:\d{2}:\d{2})/', $value, $matches)) {
+                            $scheduleInfo['attendance_time'] = $matches[1];
+                        }
+                    }
+                }
+            });
+        } catch (\Exception $e) {
+            // Ignore extraction errors
+        }
+
+        return $scheduleInfo;
+    }
+
+    /**
+     * Extract RPS information
+     */
+    private function extractRpsInfo(Crawler $crawler): array
+    {
+        $rpsInfo = [
+            'file_link' => '',
+            'file_text' => '',
+        ];
+
+        try {
+            $crawler->filter('.card .content table tr')->each(function (Crawler $row) use (&$rpsInfo) {
+                $cells = $row->filter('td');
+                if ($cells->count() >= 3) {
+                    $label = trim(strtolower($cells->eq(0)->text()));
+
+                    if (strpos($label, 'rps') !== false) {
+                        $linkElement = $cells->eq(2)->filter('a');
+                        if ($linkElement->count() > 0) {
+                            $rpsInfo['file_link'] = $linkElement->attr('href');
+                            $rpsInfo['file_text'] = trim($linkElement->text());
+                        }
+                    }
+                }
+            });
+        } catch (\Exception $e) {
+            // Ignore extraction errors
+        }
+
+        return $rpsInfo;
+    }
+
+    /**
+     * Extract meeting attendance information
+     */
+    private function extractMeetingAttendanceInfo(Crawler $crawler): array
+    {
+        $attendanceInfo = [
+            'status' => '',
+            'time' => '',
+        ];
+
+        try {
+            $crawler->filter('.card .content table tr')->each(function (Crawler $row) use (&$attendanceInfo) {
+                $cells = $row->filter('td');
+                if ($cells->count() >= 3) {
+                    $label = trim(strtolower($cells->eq(0)->text()));
+                    $value = trim($cells->eq(2)->text());
+
+                    if (strpos($label, 'absensi kehadiran') !== false) {
+                        $attendanceInfo['status'] = $value;
+                        if (preg_match('/Absen Jam : (\d{2}:\d{2}:\d{2})/', $value, $matches)) {
+                            $attendanceInfo['time'] = $matches[1];
+                        }
+                    }
+                }
+            });
+        } catch (\Exception $e) {
+            // Ignore extraction errors
+        }
+
+        return $attendanceInfo;
+    }
+
+    /**
+     * Extract meeting assignment information
+     */
+    private function extractMeetingAssignmentInfo(Crawler $crawler): array
+    {
+        $assignmentInfo = [
+            'deadline' => '',
+            'upload_link' => '',
+            'upload_text' => '',
+        ];
+
+        try {
+            $crawler->filter('.card .content table tr')->each(function (Crawler $row) use (&$assignmentInfo) {
+                $cells = $row->filter('td');
+                if ($cells->count() >= 3) {
+                    $label = trim(strtolower($cells->eq(0)->text()));
+                    $value = trim($cells->eq(1)->text());
+                    $actionCell = trim($cells->eq(2)->text());
+
+                    if (strpos($label, 'upload tugas') !== false) {
+                        $assignmentInfo['deadline'] = $value;
+
+                        $linkElement = $cells->eq(2)->filter('a');
+                        if ($linkElement->count() > 0) {
+                            $assignmentInfo['upload_link'] = $linkElement->attr('href');
+                            $assignmentInfo['upload_text'] = trim($linkElement->text());
+                        }
+                    }
+                }
+            });
+        } catch (\Exception $e) {
+            // Ignore extraction errors
+        }
+
+        return $assignmentInfo;
+    }
+
+    /**
+     * Extract conformity information
+     */
+    private function extractConformityInfo(Crawler $crawler): array
+    {
+        $conformityInfo = [
+            'description' => '',
+            'yes_button' => '',
+            'no_button' => '',
+        ];
+
+        try {
+            $crawler->filter('.card .content table tr')->each(function (Crawler $row) use (&$conformityInfo) {
+                $cells = $row->filter('td');
+                if ($cells->count() >= 1) {
+                    $text = trim($cells->eq(0)->text());
+                    if (strpos($text, 'Kesesuaian Materi') !== false) {
+                        $conformityInfo['description'] = $text;
+                    }
+                }
+
+                if ($cells->count() >= 3) {
+                    $leftCell = $cells->eq(0);
+                    $rightCell = $cells->eq(2);
+
+                    $leftLink = $leftCell->filter('a');
+                    if ($leftLink->count() > 0) {
+                        $conformityInfo['yes_button'] = [
+                            'href' => $leftLink->attr('href'),
+                            'text' => trim($leftLink->text()),
+                        ];
+                    }
+
+                    $rightLink = $rightCell->filter('a');
+                    if ($rightLink->count() > 0) {
+                        $conformityInfo['no_button'] = [
+                            'href' => $rightLink->attr('href'),
+                            'text' => trim($rightLink->text()),
+                        ];
+                    }
+                }
+            });
+        } catch (\Exception $e) {
+            // Ignore extraction errors
+        }
+
+        return $conformityInfo;
+    }
+
+    /**
+     * Extract meeting materials
+     */
+    private function extractMeetingMaterials(Crawler $crawler): array
+    {
+        $materials = [
+            'main_topic' => '',
+            'main_description' => '',
+            'main_material_iframe' => '',
+            'assignment_topic' => '',
+            'assignment_instructions' => '',
+            'assignment_material_iframe' => '',
+        ];
+
+        try {
+            $crawler->filter('.card .content table tr')->each(function (Crawler $row) use (&$materials) {
+                $cell = $row->filter('td');
+                if ($cell->count() > 0) {
+                    $content = $cell->html();
+
+                    // Extract main topic
+                    if (preg_match('/<h5>(.+?)<\/h5>/', $content, $matches)) {
+                        $materials['main_topic'] = trim(strip_tags($matches[1]));
+                    }
+
+                    // Extract main description
+                    if (preg_match('/<h5>Uraian Pokok Pembahasan : <\/h5>(.+?)<h4>/s', $content, $matches)) {
+                        $materials['main_description'] = trim(strip_tags($matches[1]));
+                    }
+
+                    // Extract main material iframe
+                    if (preg_match('/<iframe[^>]*src="([^"]*modul[^"]*)"[^>]*>/i', $content, $matches)) {
+                        $materials['main_material_iframe'] = $matches[1];
+                    }
+
+                    // Extract assignment topic
+                    if (preg_match('/<h4> Instruksi Tugas Perkuliahan ([^:]+) :<\/h4>/', $content, $matches)) {
+                        $materials['assignment_topic'] = 'Pertemuan ' . trim($matches[1]);
+                    }
+
+                    // Extract assignment instructions and due date
+                    if (preg_match('/<h4>Due Date Tugas ([^<]+) <\/h4>/', $content, $matches)) {
+                        $materials['assignment_instructions'] = $matches[1];
+                    }
+
+                    // Extract assignment material iframe
+                    if (preg_match('/<iframe[^>]*src="([^"]*latihan[^"]*)"[^>]*>/i', $content, $matches)) {
+                        $materials['assignment_material_iframe'] = $matches[1];
+                    }
+                }
+            });
+        } catch (\Exception $e) {
+            // Ignore extraction errors
+        }
+
+        return $materials;
+    }
+
+    /**
+     * Extract meeting instructions
+     */
+    private function extractMeetingInstructions(Crawler $crawler): array
+    {
+        $instructions = [
+            'deadline_text' => '',
+            'conformity_note' => '',
+        ];
+
+        try {
+            $crawler->filter('.card .content table tr')->each(function (Crawler $row) use (&$instructions) {
+                $cells = $row->filter('td');
+                if ($cells->count() >= 2) {
+                    $label = trim(strtolower($cells->eq(0)->text()));
+                    $value = trim($cells->eq(1)->text());
+
+                    if (strpos($label, 'batas waktu upload') !== false) {
+                        $instructions['deadline_text'] = $value;
+                    }
+                }
+
+                if ($cells->count() >= 1) {
+                    $text = trim($cells->eq(0)->text());
+                    if (strpos($text, 'Jika anda sudah melakukan absensi') !== false) {
+                        $instructions['conformity_note'] = $text;
+                    }
+                }
+            });
+        } catch (\Exception $e) {
+            // Ignore extraction errors
+        }
+
+        return $instructions;
     }
 }

@@ -39,6 +39,14 @@ Route::middleware(['campus.session'])->group(function () {
         return view('classes');
     })->name('classes');
 
+    Route::get('/classes/{classId}', function ($classId) {
+        return view('class-detail', ['classId' => $classId]);
+    })->name('class.detail');
+
+    Route::get('/meetings/{meetingId}', function ($meetingId) {
+        return view('meeting-detail', ['meetingId' => $meetingId]);
+    })->name('meeting.detail');
+
     Route::post('/logout', function () {
         session()->forget(['campus_session_token', 'campus_user_info']);
 

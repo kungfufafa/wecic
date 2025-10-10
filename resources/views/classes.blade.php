@@ -105,27 +105,6 @@
                         </div>
                     </div>
                 </div>
-
-                <!-- Class Detail Modal -->
-                <div id="classDetailModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-                    <div class="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden">
-                        <div class="p-4 lg:p-6 border-b border-gray-200">
-                            <div class="flex items-center justify-between">
-                                <h3 class="text-lg font-semibold text-gray-900">Detail Kelas</h3>
-                                <button onclick="closeClassDetail()" class="p-2 text-gray-500 hover:text-gray-700">
-                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                                    </svg>
-                                </button>
-                            </div>
-                        </div>
-                        <div class="p-4 lg:p-6 overflow-y-auto max-h-[70vh]">
-                            <div id="classDetailContent">
-                                Loading...
-                            </div>
-                        </div>
-                    </div>
-                </div>
             </div>
         </main>
     </div>
@@ -208,7 +187,14 @@ function updateClassesUI(data) {
 
     classesContent.innerHTML = `
         <div class="space-y-4">
-            ${classes.map(cls => `
+            ${classes.map(cls => {
+                const courseInfo = cls.course_info || {};
+                const lecturerInfo = cls.lecturer_info || {};
+                const scheduleInfo = cls.schedule || {};
+                const joinLink = cls.join_link || {};
+                const params = joinLink.params || {};
+
+                return `
                 <div class="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors">
                     <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between">
                         <div class="flex-1">
@@ -219,133 +205,53 @@ function updateClassesUI(data) {
                                     </svg>
                                 </div>
                                 <div class="flex-1">
-                                    <h4 class="font-medium text-gray-900">${cls.course_name || 'N/A'}</h4>
-                                    <p class="text-sm text-gray-600 mt-1">${cls.course_code || 'N/A'} • ${cls.credits || 0} SKS</p>
+                                    <h4 class="font-medium text-gray-900">${courseInfo.name || 'N/A'}</h4>
+                                    <p class="text-sm text-gray-600 mt-1">${courseInfo.code || 'N/A'}</p>
                                     <div class="mt-2 flex flex-wrap gap-2 text-xs">
-                                        <span class="px-2 py-1 bg-gray-100 text-gray-700 rounded">${cls.class_name || 'N/A'}</span>
-                                        <span class="px-2 py-1 bg-gray-100 text-gray-700 rounded">${cls.lecturer || 'N/A'}</span>
-                                        <span class="px-2 py-1 bg-gray-100 text-gray-700 rounded">${cls.schedule || 'N/A'}</span>
-                                        <span class="px-2 py-1 bg-gray-100 text-gray-700 rounded">${cls.room || 'N/A'}</span>
+                                        <span class="px-2 py-1 bg-blue-100 text-blue-700 rounded">
+                                            ${cls.no || 'N/A'}
+                                        </span>
+                                        <span class="px-2 py-1 bg-gray-100 text-gray-700 rounded">
+                                            ${scheduleInfo.raw || 'N/A'}
+                                        </span>
+                                        <span class="px-2 py-1 bg-green-100 text-green-700 rounded">
+                                            ${lecturerInfo.name ? lecturerInfo.name.split(' Kontak Dosen :')[0] : 'N/A'}
+                                        </span>
+                                        ${lecturerInfo.contact ? `
+                                            <span class="px-2 py-1 bg-purple-100 text-purple-700 rounded">
+                                                📱 ${lecturerInfo.contact}
+                                            </span>
+                                        ` : ''}
+                                        ${lecturerInfo.email ? `
+                                            <span class="px-2 py-1 bg-orange-100 text-orange-700 rounded">
+                                                ✉️ ${lecturerInfo.email}
+                                            </span>
+                                        ` : ''}
                                     </div>
                                 </div>
                             </div>
                         </div>
-                        <div class="mt-3 lg:mt-0 lg:ml-4">
-                            <button onclick="showClassDetail('${cls.id || ''}', '${cls.course_id || ''}', '${cls.dosen_id || ''}')" class="px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm">
+                        <div class="mt-3 lg:mt-0 lg:ml-4 flex flex-col sm:flex-row gap-2">
+                            ${joinLink.link ? `
+                                <a href="https://my.cic.ac.id/portal/sipandai/${joinLink.link}" target="_blank" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-sm inline-flex items-center justify-center font-medium">
+                                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                                    </svg>
+                                    ${joinLink.text || 'Join Kelas'}
+                                </a>
+                            ` : ''}
+                            <a href="/classes/${params.id || ''}" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm font-medium inline-flex items-center justify-center">
+                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
                                 Lihat Detail
-                            </button>
+                            </a>
                         </div>
                     </div>
                 </div>
-            `).join('')}
+            `}).join('')}
         </div>
     `;
-}
-
-async function showClassDetail(classId, courseId, dosenId) {
-    const modal = document.getElementById('classDetailModal');
-    const content = document.getElementById('classDetailContent');
-
-    modal.classList.remove('hidden');
-    content.innerHTML = '<div class="text-center py-8"><div class="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto"></div><p class="mt-2 text-gray-600">Memuat detail kelas...</p></div>';
-
-    try {
-        const response = await fetch(`/api/campus/class-detail?class_id=${classId}&course_id=${courseId}&dosen_id=${dosenId}`, {
-            headers: {
-                'Accept': 'application/json'
-            }
-        });
-
-        if (response.ok) {
-            const data = await response.json();
-            updateClassDetailUI(data);
-        } else {
-            content.innerHTML = '<div class="text-center py-8 text-red-600">Gagal memuat detail kelas</div>';
-        }
-    } catch (error) {
-        console.error('Class detail error:', error);
-        content.innerHTML = '<div class="text-center py-8 text-red-600">Terjadi kesalahan saat memuat data</div>';
-    }
-}
-
-function updateClassDetailUI(data) {
-    const content = document.getElementById('classDetailContent');
-    const detail = data.class_detail || {};
-
-    content.innerHTML = `
-        <div class="space-y-6">
-            <!-- Informasi Umum -->
-            <div>
-                <h4 class="text-lg font-semibold text-gray-900 mb-4">Informasi Kelas</h4>
-                <div class="grid md:grid-cols-2 gap-4">
-                    <div>
-                        <h5 class="text-sm font-medium text-gray-700 mb-1">Mata Kuliah</h5>
-                        <p class="text-gray-900">${detail.course_name || 'N/A'}</p>
-                    </div>
-                    <div>
-                        <h5 class="text-sm font-medium text-gray-700 mb-1">Kode Mata Kuliah</h5>
-                        <p class="text-gray-900">${detail.course_code || 'N/A'}</p>
-                    </div>
-                    <div>
-                        <h5 class="text-sm font-medium text-gray-700 mb-1">Nama Kelas</h5>
-                        <p class="text-gray-900">${detail.class_name || 'N/A'}</p>
-                    </div>
-                    <div>
-                        <h5 class="text-sm font-medium text-gray-700 mb-1">Dosen Pengajar</h5>
-                        <p class="text-gray-900">${detail.lecturer || 'N/A'}</p>
-                    </div>
-                    <div>
-                        <h5 class="text-sm font-medium text-gray-700 mb-1">Jadwal</h5>
-                        <p class="text-gray-900">${detail.schedule || 'N/A'}</p>
-                    </div>
-                    <div>
-                        <h5 class="text-sm font-medium text-gray-700 mb-1">Ruang</h5>
-                        <p class="text-gray-900">${detail.room || 'N/A'}</p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Daftar Mahasiswa -->
-            <div>
-                <h4 class="text-lg font-semibold text-gray-900 mb-4">Daftar Mahasiswa</h4>
-                <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">No</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">NIM</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nama</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                            </tr>
-                        </thead>
-                        <tbody class="bg-white divide-y divide-gray-200">
-                            ${(detail.students || []).map((student, index) => `
-                                <tr>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${index + 1}</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${student.nim || 'N/A'}</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${student.name || 'N/A'}</td>
-                                    <td class="px-6 py-4 whitespace-nowrap">
-                                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                                            Aktif
-                                        </span>
-                                    </td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                    ${(detail.students || []).length === 0 ? `
-                        <div class="text-center py-8 text-gray-500">
-                            Tidak ada data mahasiswa
-                        </div>
-                    ` : ''}
-                </div>
-            </div>
-        </div>
-    `;
-}
-
-function closeClassDetail() {
-    document.getElementById('classDetailModal').classList.add('hidden');
 }
 
 function updateUserName(userInfo) {
