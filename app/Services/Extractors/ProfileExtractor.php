@@ -47,8 +47,8 @@ class ProfileExtractor extends CampusScrapingService
             $this->cacheResponse($cacheKey, json_encode($profileData));
 
             $this->logScraping('Profile data extracted successfully', [
-                'name' => $profileData['name'],
-                'student_id' => $profileData['student_id'],
+                'name' => $profileData['personal_data']['name'] ?? 'Unknown',
+                'student_id' => $profileData['personal_data']['student_id'] ?? 'N/A',
             ]);
 
             return $profileData;

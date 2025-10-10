@@ -12,6 +12,7 @@ Route::prefix('campus')->group(function () {
 
     // Campus data routes (with authentication middleware)
     Route::middleware(['web'])->group(function () {
+        Route::get('dashboard', [CampusDataController::class, 'dashboard']);
         Route::get('profile', [CampusDataController::class, 'profile']);
         Route::get('classes', [CampusDataController::class, 'classes']);
         Route::get('class-detail', [CampusDataController::class, 'classDetail']);

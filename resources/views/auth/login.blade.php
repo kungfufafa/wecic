@@ -72,16 +72,6 @@
                     </svg>
                 </button>
             </form>
-
-            <!-- Messages -->
-            <div id="errorMessage" class="hidden mt-4 p-3 bg-red-50 border border-red-200 rounded-md text-sm">
-                <div class="flex">
-                    <svg class="w-4 h-4 text-red-400 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                    </svg>
-                    <span id="errorText" class="text-red-700"></span>
-                </div>
-            </div>
         </div>
 
         <!-- Footer -->
@@ -91,14 +81,15 @@
     </div>
 </div>
 
+<!-- Toast Container -->
+<div id="toastContainer" class="fixed top-4 right-4 z-50 space-y-2"></div>
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('loginForm');
     const loginButton = document.getElementById('loginButton');
     const buttonText = document.getElementById('buttonText');
     const loadingSpinner = document.getElementById('loadingSpinner');
-    const errorMessage = document.getElementById('errorMessage');
-    const errorText = document.getElementById('errorText');
     const togglePassword = document.getElementById('togglePassword');
     const passwordInput = document.getElementById('password');
     const eyeIcon = document.getElementById('eyeIcon');
@@ -120,7 +111,6 @@ document.addEventListener('DOMContentLoaded', function() {
         const username = document.getElementById('username').value;
         const password = passwordInput.value;
 
-        hideMessages();
         setLoading(true);
 
         try {
@@ -137,15 +127,16 @@ document.addEventListener('DOMContentLoaded', function() {
             const data = await response.json();
 
             if (response.ok && data.success) {
+                showToast('Login berhasil! Mengarahkan ke dashboard...', 'success');
                 setTimeout(() => {
                     window.location.href = '/dashboard';
-                }, 500);
+                }, 1000);
             } else {
-                showError(data.message || 'Login gagal. Periksa kembali username dan password Anda.');
+                showToast(data.message || 'Login gagal. Periksa kembali username dan password Anda.', 'error');
             }
         } catch (error) {
             console.error('Login error:', error);
-            showError('Terjadi kesalahan koneksi. Silakan coba lagi.');
+            showToast('Terjadi kesalahan koneksi. Silakan coba lagi.', 'error');
         } finally {
             setLoading(false);
         }
@@ -162,14 +153,70 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    function showError(message) {
-        errorText.textContent = message;
-        errorMessage.classList.remove('hidden');
+    // Toast notification function
+    function showToast(message, type = 'info') {
+        const toastContainer = document.getElementById('toastContainer');
+
+        const toast = document.createElement('div');
+        const toastId = 'toast-' + Date.now();
+        toast.id = toastId;
+
+        // Set colors based on type
+        const colors = {
+            success: 'bg-green-500',
+            error: 'bg-red-500',
+            warning: 'bg-yellow-500',
+            info: 'bg-blue-500'
+        };
+
+        const icons = {
+            success: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>',
+            error: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>',
+            warning: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"></path>',
+            info: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>'
+        };
+
+        toast.className = `${colors[type]} text-white px-4 py-3 rounded-lg shadow-lg flex items-center space-x-3 min-w-[300px] max-w-md transform transition-all duration-300 translate-x-full opacity-0`;
+        toast.innerHTML = `
+            <div class="flex-shrink-0">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    ${icons[type]}
+                </svg>
+            </div>
+            <div class="flex-1 text-sm font-medium">
+                ${message}
+            </div>
+            <button onclick="removeToast('${toastId}')" class="flex-shrink-0 ml-4 text-white hover:text-gray-200 transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        `;
+
+        toastContainer.appendChild(toast);
+
+        // Animate in
+        setTimeout(() => {
+            toast.classList.remove('translate-x-full', 'opacity-0');
+            toast.classList.add('translate-x-0', 'opacity-100');
+        }, 100);
+
+        // Auto remove after 5 seconds
+        setTimeout(() => {
+            removeToast(toastId);
+        }, 5000);
     }
 
-    function hideMessages() {
-        errorMessage.classList.add('hidden');
-    }
+    // Remove toast function
+    window.removeToast = function(toastId) {
+        const toast = document.getElementById(toastId);
+        if (toast) {
+            toast.classList.add('translate-x-full', 'opacity-0');
+            setTimeout(() => {
+                toast.remove();
+            }, 300);
+        }
+    };
 });
 </script>
 @endsection
