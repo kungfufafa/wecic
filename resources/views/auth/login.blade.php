@@ -76,7 +76,7 @@
 
         <!-- Footer -->
         <div class="mt-6 text-center">
-            <p class="text-xs text-gray-500">CIC - Campus Information Center</p>
+            <p class="text-xs text-gray-500">CIC - Catur Insan Cendekia</p>
         </div>
     </div>
 </div>
@@ -86,6 +86,28 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Check for session expired indicators on page load
+    const urlParams = new URLSearchParams(window.location.search);
+    const errorParam = urlParams.get('error');
+
+    if (errorParam === 'session_expired') {
+        showToast('Session Anda telah expired. Silakan login kembali.', 'warning');
+    }
+
+    // Check if there's any error message in the page (for server-side redirects)
+    const errorElements = document.querySelectorAll('.alert, .error, [class*="error"]');
+    errorElements.forEach(element => {
+        const text = element.textContent.trim();
+        if (text.includes('session') && text.includes('expired')) {
+            showToast('Session Anda telah expired. Silakan login kembali.', 'warning');
+            element.style.display = 'none'; // Hide the original error message
+        }
+    });
+
+    // Check for Laravel flash messages
+    @if(session('session_expired'))
+        showToast('Session Anda telah expired. Silakan login kembali.', 'warning');
+    @endif
     const form = document.getElementById('loginForm');
     const loginButton = document.getElementById('loginButton');
     const buttonText = document.getElementById('buttonText');
@@ -126,13 +148,29 @@ document.addEventListener('DOMContentLoaded', function() {
 
             const data = await response.json();
 
-            if (response.ok && data.success) {
+            if (response.ok && (data.status === 'success' || data.success)) {
                 showToast('Login berhasil! Mengarahkan ke dashboard...', 'success');
+
+                // Auto redirect dengan fallback refresh
                 setTimeout(() => {
                     window.location.href = '/dashboard';
-                }, 1000);
+                }, 1500);
+
+                // Fallback: refresh jika redirect tidak bekerja dalam 3 detik
+                setTimeout(() => {
+                    if (window.location.pathname === '/login') {
+                        showToast('Meng refresh halaman...', 'info');
+                        window.location.reload();
+                    }
+                }, 3000);
             } else {
-                showToast(data.message || 'Login gagal. Periksa kembali username dan password Anda.', 'error');
+                // Handle session expired message
+                let message = data.message || 'Login gagal. Periksa kembali username dan password Anda.';
+                if (message.includes('session expired') || message.includes('expired')) {
+                    showToast('Session Anda telah expired. Silakan login kembali.', 'warning');
+                } else {
+                    showToast(message, 'error');
+                }
             }
         } catch (error) {
             console.error('Login error:', error);
@@ -161,12 +199,12 @@ document.addEventListener('DOMContentLoaded', function() {
         const toastId = 'toast-' + Date.now();
         toast.id = toastId;
 
-        // Set colors based on type
+        // Set colors based on type - ensure proper colors
         const colors = {
-            success: 'bg-green-500',
-            error: 'bg-red-500',
-            warning: 'bg-yellow-500',
-            info: 'bg-blue-500'
+            success: 'bg-green-600 border-green-700',
+            error: 'bg-red-600 border-red-700',
+            warning: 'bg-yellow-600 border-yellow-700',
+            info: 'bg-blue-600 border-blue-700'
         };
 
         const icons = {
@@ -176,7 +214,7 @@ document.addEventListener('DOMContentLoaded', function() {
             info: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>'
         };
 
-        toast.className = `${colors[type]} text-white px-4 py-3 rounded-lg shadow-lg flex items-center space-x-3 min-w-[300px] max-w-md transform transition-all duration-300 translate-x-full opacity-0`;
+        toast.className = `${colors[type]} text-white px-4 py-3 rounded-lg border shadow-xl flex items-center space-x-3 min-w-[300px] max-w-md transform transition-all duration-300 translate-x-full opacity-0`;
         toast.innerHTML = `
             <div class="flex-shrink-0">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

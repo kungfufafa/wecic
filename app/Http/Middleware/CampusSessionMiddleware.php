@@ -27,7 +27,7 @@ class CampusSessionMiddleware
         $sessionToken = session('campus_session_token');
 
         // If no campus session token, redirect to login
-        if (!$sessionToken) {
+        if (! $sessionToken) {
             if ($request->expectsJson()) {
                 return response()->json([
                     'status' => 'error',
@@ -46,7 +46,7 @@ class CampusSessionMiddleware
             // Validate campus session
             $isValid = $this->sessionManager->validateSession($sessionToken);
 
-            if (!$isValid) {
+            if (! $isValid) {
                 // Clear invalid session
                 session()->forget(['campus_session_token', 'campus_user_info']);
 
@@ -61,7 +61,7 @@ class CampusSessionMiddleware
                     ], 401);
                 }
 
-                return redirect()->route('login')->with('error', 'Your campus session has expired. Please login again.');
+                return redirect()->route('login')->with('error', 'Your campus session has expired. Please login again.')->with('session_expired', true);
             }
 
             // Session is valid, continue

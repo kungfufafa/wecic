@@ -177,12 +177,12 @@ function updateClassesUI(data) {
                                         </span>
                                         ${lecturerInfo.contact ? `
                                             <span class="px-2 py-1 bg-purple-100 text-purple-700 rounded">
-                                                📱 ${lecturerInfo.contact}
+                                                Kontak: ${lecturerInfo.contact}
                                             </span>
                                         ` : ''}
                                         ${lecturerInfo.email ? `
                                             <span class="px-2 py-1 bg-orange-100 text-orange-700 rounded">
-                                                ✉️ ${lecturerInfo.email}
+                                                Email: ${lecturerInfo.email}
                                             </span>
                                         ` : ''}
                                     </div>

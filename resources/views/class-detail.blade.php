@@ -394,5 +394,7 @@ function showError(message) {
         `;
     }
 }
+
+// showToast and removeToast functions are now global (defined in layout)
 </script>
 @endsection
