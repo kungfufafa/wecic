@@ -15,6 +15,9 @@ return [
     'login_url' => env('CAMPUS_LOGIN_URL', 'https://my.cic.ac.id/portal/mahasiswa/'),
     'login_action' => env('CAMPUS_LOGIN_ACTION', 'https://my.cic.ac.id/portal/mahasiswa/?mod=loginact'),
     'dashboard_url' => env('CAMPUS_DASHBOARD_URL', 'https://my.cic.ac.id/portal/mahasiswa/?mod=student&act=dashboard'),
+    'profile_url' => env('CAMPUS_PROFILE_URL', 'https://my.cic.ac.id/portal/mahasiswa/?mod=student&act=profile'),
+    'classes_url' => env('CAMPUS_CLASSES_URL', 'https://my.cic.ac.id/portal/sipandai/?mod=sipandai&act=dashboardmahasiswa'),
+    'class_detail_url' => env('CAMPUS_CLASS_DETAIL_URL', 'https://my.cic.ac.id/portal/sipandai/?mod=sipandai&act=download'),
 
     /*
     |--------------------------------------------------------------------------

@@ -9,6 +9,7 @@ Route::get('/', function () {
     if (session('campus_session_token')) {
         return redirect()->route('dashboard');
     }
+
     return redirect()->route('login');
 })->name('home');
 
@@ -17,6 +18,7 @@ Route::get('/login', function () {
     if (session('campus_session_token')) {
         return redirect()->route('dashboard');
     }
+
     return view('auth.login');
 })->name('login');
 
@@ -29,8 +31,17 @@ Route::middleware(['campus.session'])->group(function () {
         return view('dashboard');
     })->name('dashboard');
 
+    Route::get('/profile', function () {
+        return view('profile');
+    })->name('profile');
+
+    Route::get('/classes', function () {
+        return view('classes');
+    })->name('classes');
+
     Route::post('/logout', function () {
         session()->forget(['campus_session_token', 'campus_user_info']);
+
         return redirect()->route('login')->with('success', 'Anda telah logout.');
     })->name('logout');
 });
@@ -38,6 +49,9 @@ Route::middleware(['campus.session'])->group(function () {
 // API routes for campus data (protected by campus session middleware)
 Route::prefix('api/campus')->middleware(['campus.session'])->group(function () {
     Route::get('/dashboard', [\App\Http\Controllers\API\CampusDataController::class, 'dashboard']);
+    Route::get('/profile', [\App\Http\Controllers\API\CampusDataController::class, 'profile']);
+    Route::get('/classes', [\App\Http\Controllers\API\CampusDataController::class, 'classes']);
+    Route::get('/class-detail', [\App\Http\Controllers\API\CampusDataController::class, 'classDetail']);
 });
 
 // Public API routes for authentication

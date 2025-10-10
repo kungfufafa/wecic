@@ -18,7 +18,9 @@ use Symfony\Component\DomCrawler\Crawler;
 class CampusAuthService
 {
     private Client $client;
+
     private ?CookieJar $cookieJar = null;
+
     private array $loginFormData = [];
 
     public function __construct()
@@ -27,12 +29,16 @@ class CampusAuthService
             RequestOptions::TIMEOUT => config('campus.request_timeout', 30),
             RequestOptions::CONNECT_TIMEOUT => 10,
             RequestOptions::HEADERS => [
-                'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-                'Accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-                'Accept-Language' => 'en-US,en;q=0.5',
-                'Accept-Encoding' => 'gzip, deflate',
+                'User-Agent' => config('campus.scraping.user_agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'),
+                'Accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+                'Accept-Language' => 'en-US,en;q=0.9,id;q=0.8',
+                'Accept-Encoding' => 'gzip, deflate, br',
                 'Connection' => 'keep-alive',
                 'Upgrade-Insecure-Requests' => '1',
+                'Sec-Fetch-Dest' => 'document',
+                'Sec-Fetch-Mode' => 'navigate',
+                'Sec-Fetch-Site' => 'none',
+                'Cache-Control' => 'max-age=0',
             ],
             RequestOptions::COOKIES => true,
             RequestOptions::ALLOW_REDIRECTS => [
@@ -59,22 +65,51 @@ class CampusAuthService
 
             $crawler = new Crawler($html);
 
-            // Find the login form
-            $loginForm = $crawler->filter('form')->reduce(function (Crawler $form) {
-                $action = $form->attr('action') ?? '';
-                $method = strtolower($form->attr('method') ?? 'get');
-                return Str::contains($action, 'login') || $form->filter('input[type="password"]')->count() > 0;
-            });
+            // Simple form detection - just find the first form with loginact in action
+            $forms = $crawler->filter('form');
 
-            if ($loginForm->count() === 0) {
+            if ($forms->count() === 0) {
                 throw CampusScrapingException::elementNotFound('login form', 'login page');
+            }
+
+            // Try to find form with loginact action first
+            $loginForm = null;
+            foreach ($forms as $formElement) {
+                $formCrawler = new Crawler($formElement);
+                $action = $formCrawler->attr('action') ?? '';
+
+                if (Str::contains($action, 'loginact')) {
+                    $loginForm = $formCrawler;
+                    break;
+                }
+            }
+
+            // If not found, use first form with password field
+            if (! $loginForm) {
+                foreach ($forms as $formElement) {
+                    $formCrawler = new Crawler($formElement);
+                    if ($formCrawler->filter('input[type="password"]')->count() > 0) {
+                        $loginForm = $formCrawler;
+                        break;
+                    }
+                }
+            }
+
+            // If still not found, use first form
+            if (! $loginForm) {
+                $loginForm = $forms->first();
             }
 
             // Extract form data
             $formAction = $loginForm->attr('action');
-            if (!Str::startsWith($formAction, 'http')) {
-                $baseUrl = config('campus.base_url');
-                $formAction = rtrim($baseUrl, '/') . '/' . ltrim($formAction, '/');
+            if (! Str::startsWith($formAction, 'http')) {
+                // Handle relative URLs starting with ?
+                if (Str::startsWith($formAction, '?')) {
+                    $formAction = config('campus.login_url').$formAction;
+                } else {
+                    $baseUrl = config('campus.base_url');
+                    $formAction = rtrim($baseUrl, '/').'/'.ltrim($formAction, '/');
+                }
             }
 
             // Extract all input fields
@@ -124,13 +159,17 @@ class CampusAuthService
             $this->analyzeLoginForm();
         }
 
-        $this->cookieJar = new CookieJar();
+        $this->cookieJar = new CookieJar;
 
         try {
-            // Prepare login data
+            // Prepare login data - map to CIC-specific field names
             $loginData = [];
             foreach ($this->loginFormData['fields'] as $fieldName => $fieldInfo) {
-                if ($fieldInfo['type'] === 'password') {
+                if ($fieldName === 'txt_username') {
+                    $loginData[$fieldName] = $username;
+                } elseif ($fieldName === 'txt_password') {
+                    $loginData[$fieldName] = $password;
+                } elseif ($fieldInfo['type'] === 'password') {
                     $loginData[$fieldName] = $password;
                 } elseif ($fieldInfo['type'] === 'text' || $fieldInfo['type'] === 'email') {
                     // Assume first text/email field is username
@@ -160,7 +199,7 @@ class CampusAuthService
             // Check if login was successful
             $loginSuccess = $this->isLoginSuccessful($responseHtml, $redirectHistory);
 
-            if (!$loginSuccess) {
+            if (! $loginSuccess) {
                 throw CampusAuthenticationException::invalidCredentials();
             }
 
@@ -225,13 +264,13 @@ class CampusAuthService
                 // Follow the meta refresh URL to complete the session
                 try {
                     $fullRefreshUrl = $refreshUrl;
-                    if (!Str::startsWith($refreshUrl, 'http')) {
+                    if (! Str::startsWith($refreshUrl, 'http')) {
                         $baseUrl = config('campus.login_url'); // Use login_url as base
                         // Handle URLs that start with ? (query parameters)
                         if (Str::startsWith($refreshUrl, '?')) {
-                            $fullRefreshUrl = $baseUrl . $refreshUrl;
+                            $fullRefreshUrl = $baseUrl.$refreshUrl;
                         } else {
-                            $fullRefreshUrl = rtrim($baseUrl, '/') . '/' . ltrim($refreshUrl, '/');
+                            $fullRefreshUrl = rtrim($baseUrl, '/').'/'.ltrim($refreshUrl, '/');
                         }
                     }
 
@@ -242,8 +281,9 @@ class CampusAuthService
                     $refreshHtml = (string) $refreshResponse->getBody();
 
                     // Check if after the refresh we're successfully logged in
-                    if (!$this->isSessionExpired($refreshHtml)) {
+                    if (! $this->isSessionExpired($refreshHtml)) {
                         Log::info('Session completed successfully after meta refresh');
+
                         return true;
                     }
                 } catch (\Exception $e) {
@@ -323,7 +363,7 @@ class CampusAuthService
             $hasLoginForm = $crawler->filter('form[action*="loginact"]')->count() > 0;
 
             // If there's no login form, assume it's successful but minimal content
-            if (!$hasLoginForm) {
+            if (! $hasLoginForm) {
                 return false; // Not expired - just minimal content
             }
 

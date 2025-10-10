@@ -5,433 +5,175 @@ declare(strict_types=1);
 namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
-use App\Services\Extractors\FinanceExtractor;
-use App\Services\Extractors\GradesExtractor;
-use App\Services\Extractors\ScheduleExtractor;
-use App\Services\Extractors\SipandaiExtractor;
-use App\Services\Extractors\StudentDashboardExtractor;
+use App\Services\Extractors\ClassesExtractor;
+use App\Services\Extractors\ProfileExtractor;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
 class CampusDataController extends Controller
 {
-    private StudentDashboardExtractor $dashboardExtractor;
-    private GradesExtractor $gradesExtractor;
-    private ScheduleExtractor $scheduleExtractor;
-    private SipandaiExtractor $sipandaiExtractor;
-    private FinanceExtractor $financeExtractor;
+    private ProfileExtractor $profileExtractor;
+    private ClassesExtractor $classesExtractor;
 
     public function __construct(
-        StudentDashboardExtractor $dashboardExtractor,
-        GradesExtractor $gradesExtractor,
-        ScheduleExtractor $scheduleExtractor,
-        SipandaiExtractor $sipandaiExtractor,
-        FinanceExtractor $financeExtractor
+        ProfileExtractor $profileExtractor,
+        ClassesExtractor $classesExtractor
     ) {
-        $this->dashboardExtractor = $dashboardExtractor;
-        $this->gradesExtractor = $gradesExtractor;
-        $this->scheduleExtractor = $scheduleExtractor;
-        $this->sipandaiExtractor = $sipandaiExtractor;
-        $this->financeExtractor = $financeExtractor;
+        $this->profileExtractor = $profileExtractor;
+        $this->classesExtractor = $classesExtractor;
     }
 
     /**
-     * Get dashboard data
+     * Get profile data
      */
-    public function dashboard(Request $request): JsonResponse
+    public function profile(Request $request): JsonResponse
     {
         try {
             $sessionToken = session('campus_session_token');
 
             if (!$sessionToken) {
-                return $this->unauthorizedResponse();
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'No active campus session found'
+                ], 401);
             }
 
-            $data = $this->dashboardExtractor->extractDashboardData($sessionToken);
+            $profileData = $this->profileExtractor->extractProfileData($sessionToken);
 
             return response()->json([
                 'status' => 'success',
-                'message' => 'Dashboard data retrieved successfully',
-                'data' => $data,
+                'message' => 'Profile data retrieved successfully',
+                'user_info' => $profileData['user_info'] ?? [],
+                'profile' => $profileData,
                 'meta' => [
                     'timestamp' => now()->toISOString(),
-                    'campus_session_valid' => true,
-                ],
+                    'campus_session_valid' => true
+                ]
             ]);
 
         } catch (\Exception $e) {
-            Log::error('Failed to get dashboard data', ['error' => $e->getMessage()]);
+            Log::error('Profile extraction failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
 
             return response()->json([
                 'status' => 'error',
-                'message' => 'Failed to retrieve dashboard data: ' . $e->getMessage(),
+                'message' => 'Failed to extract profile data: ' . $e->getMessage(),
                 'meta' => [
                     'timestamp' => now()->toISOString(),
-                    'campus_session_valid' => false,
-                ],
+                    'campus_session_valid' => false
+                ]
             ], 500);
         }
     }
 
     /**
-     * Get dashboard overview (lighter version)
+     * Get classes data
      */
-    public function dashboardOverview(Request $request): JsonResponse
+    public function classes(Request $request): JsonResponse
     {
         try {
             $sessionToken = session('campus_session_token');
 
             if (!$sessionToken) {
-                return $this->unauthorizedResponse();
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'No active campus session found'
+                ], 401);
             }
 
-            $data = $this->dashboardExtractor->getDashboardOverview($sessionToken);
+            $classesData = $this->classesExtractor->extractClassesData($sessionToken);
 
             return response()->json([
                 'status' => 'success',
-                'message' => 'Dashboard overview retrieved successfully',
-                'data' => $data,
+                'message' => 'Classes data retrieved successfully',
+                'user_info' => $classesData['user_info'] ?? [],
+                'classes' => $classesData['classes'] ?? [],
                 'meta' => [
                     'timestamp' => now()->toISOString(),
-                    'campus_session_valid' => true,
-                ],
+                    'campus_session_valid' => true
+                ]
             ]);
 
         } catch (\Exception $e) {
-            Log::error('Failed to get dashboard overview', ['error' => $e->getMessage()]);
+            Log::error('Classes extraction failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
 
             return response()->json([
                 'status' => 'error',
-                'message' => 'Failed to retrieve dashboard overview: ' . $e->getMessage(),
+                'message' => 'Failed to extract classes data: ' . $e->getMessage(),
                 'meta' => [
                     'timestamp' => now()->toISOString(),
-                    'campus_session_valid' => false,
-                ],
+                    'campus_session_valid' => false
+                ]
             ], 500);
         }
     }
 
     /**
-     * Get grades data
+     * Get class detail data
      */
-    public function grades(Request $request): JsonResponse
+    public function classDetail(Request $request): JsonResponse
     {
         try {
             $sessionToken = session('campus_session_token');
 
             if (!$sessionToken) {
-                return $this->unauthorizedResponse();
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'No active campus session found'
+                ], 401);
             }
 
-            $options = $request->only(['semester', 'academic_year']);
-            $data = $this->gradesExtractor->extractGrades($sessionToken, $options);
+            $classId = $request->query('id');
+            $dosenId = $request->query('dosen_id');
+            $courseId = $request->query('course_id');
+
+            if (!$classId || !$dosenId || !$courseId) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Missing required parameters: id, dosen_id, course_id'
+                ], 400);
+            }
+
+            $classDetailData = $this->classesExtractor->extractClassDetail($sessionToken, [
+                'id' => $classId,
+                'dosen_id' => $dosenId,
+                'course_id' => $courseId
+            ]);
 
             return response()->json([
                 'status' => 'success',
-                'message' => 'Grades data retrieved successfully',
-                'data' => $data,
+                'message' => 'Class detail retrieved successfully',
+                'class_detail' => $classDetailData,
                 'meta' => [
                     'timestamp' => now()->toISOString(),
                     'campus_session_valid' => true,
-                ],
+                    'class_id' => $classId,
+                    'course_id' => $courseId,
+                    'dosen_id' => $dosenId
+                ]
             ]);
 
         } catch (\Exception $e) {
-            Log::error('Failed to get grades data', ['error' => $e->getMessage()]);
-
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Failed to retrieve grades data: ' . $e->getMessage(),
-                'meta' => [
-                    'timestamp' => now()->toISOString(),
-                    'campus_session_valid' => false,
-                ],
-            ], 500);
-        }
-    }
-
-    /**
-     * Get grades summary
-     */
-    public function gradesSummary(Request $request): JsonResponse
-    {
-        try {
-            $sessionToken = session('campus_session_token');
-
-            if (!$sessionToken) {
-                return $this->unauthorizedResponse();
-            }
-
-            $data = $this->gradesExtractor->getGradesSummary($sessionToken);
-
-            return response()->json([
-                'status' => 'success',
-                'message' => 'Grades summary retrieved successfully',
-                'data' => $data,
-                'meta' => [
-                    'timestamp' => now()->toISOString(),
-                    'campus_session_valid' => true,
-                ],
+            Log::error('Class detail extraction failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'params' => $request->query()
             ]);
 
-        } catch (\Exception $e) {
-            Log::error('Failed to get grades summary', ['error' => $e->getMessage()]);
-
             return response()->json([
                 'status' => 'error',
-                'message' => 'Failed to retrieve grades summary: ' . $e->getMessage(),
+                'message' => 'Failed to extract class detail: ' . $e->getMessage(),
                 'meta' => [
                     'timestamp' => now()->toISOString(),
-                    'campus_session_valid' => false,
-                ],
+                    'campus_session_valid' => false
+                ]
             ], 500);
         }
-    }
-
-    /**
-     * Get schedule data
-     */
-    public function schedule(Request $request): JsonResponse
-    {
-        try {
-            $sessionToken = session('campus_session_token');
-
-            if (!$sessionToken) {
-                return $this->unauthorizedResponse();
-            }
-
-            $options = $request->only(['semester', 'academic_year']);
-            $data = $this->scheduleExtractor->extractSchedule($sessionToken, $options);
-
-            return response()->json([
-                'status' => 'success',
-                'message' => 'Schedule data retrieved successfully',
-                'data' => $data,
-                'meta' => [
-                    'timestamp' => now()->toISOString(),
-                    'campus_session_valid' => true,
-                ],
-            ]);
-
-        } catch (\Exception $e) {
-            Log::error('Failed to get schedule data', ['error' => $e->getMessage()]);
-
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Failed to retrieve schedule data: ' . $e->getMessage(),
-                'meta' => [
-                    'timestamp' => now()->toISOString(),
-                    'campus_session_valid' => false,
-                ],
-            ], 500);
-        }
-    }
-
-    /**
-     * Get schedule summary
-     */
-    public function scheduleSummary(Request $request): JsonResponse
-    {
-        try {
-            $sessionToken = session('campus_session_token');
-
-            if (!$sessionToken) {
-                return $this->unauthorizedResponse();
-            }
-
-            $data = $this->scheduleExtractor->getScheduleSummary($sessionToken);
-
-            return response()->json([
-                'status' => 'success',
-                'message' => 'Schedule summary retrieved successfully',
-                'data' => $data,
-                'meta' => [
-                    'timestamp' => now()->toISOString(),
-                    'campus_session_valid' => true,
-                ],
-            ]);
-
-        } catch (\Exception $e) {
-            Log::error('Failed to get schedule summary', ['error' => $e->getMessage()]);
-
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Failed to retrieve schedule summary: ' . $e->getMessage(),
-                'meta' => [
-                    'timestamp' => now()->toISOString(),
-                    'campus_session_valid' => false,
-                ],
-            ], 500);
-        }
-    }
-
-    /**
-     * Get SIPANDAI data
-     */
-    public function sipandai(Request $request): JsonResponse
-    {
-        try {
-            $sessionToken = session('campus_session_token');
-
-            if (!$sessionToken) {
-                return $this->unauthorizedResponse();
-            }
-
-            $options = $request->only(['section']);
-            $data = $this->sipandaiExtractor->extractSipandaiData($sessionToken, $options);
-
-            return response()->json([
-                'status' => 'success',
-                'message' => 'SIPANDAI data retrieved successfully',
-                'data' => $data,
-                'meta' => [
-                    'timestamp' => now()->toISOString(),
-                    'campus_session_valid' => true,
-                ],
-            ]);
-
-        } catch (\Exception $e) {
-            Log::error('Failed to get SIPANDAI data', ['error' => $e->getMessage()]);
-
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Failed to retrieve SIPANDAI data: ' . $e->getMessage(),
-                'meta' => [
-                    'timestamp' => now()->toISOString(),
-                    'campus_session_valid' => false,
-                ],
-            ], 500);
-        }
-    }
-
-    /**
-     * Get SIPANDAI overview
-     */
-    public function sipandaiOverview(Request $request): JsonResponse
-    {
-        try {
-            $sessionToken = session('campus_session_token');
-
-            if (!$sessionToken) {
-                return $this->unauthorizedResponse();
-            }
-
-            $data = $this->sipandaiExtractor->getSipandaiOverview($sessionToken);
-
-            return response()->json([
-                'status' => 'success',
-                'message' => 'SIPANDAI overview retrieved successfully',
-                'data' => $data,
-                'meta' => [
-                    'timestamp' => now()->toISOString(),
-                    'campus_session_valid' => true,
-                ],
-            ]);
-
-        } catch (\Exception $e) {
-            Log::error('Failed to get SIPANDAI overview', ['error' => $e->getMessage()]);
-
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Failed to retrieve SIPANDAI overview: ' . $e->getMessage(),
-                'meta' => [
-                    'timestamp' => now()->toISOString(),
-                    'campus_session_valid' => false,
-                ],
-            ], 500);
-        }
-    }
-
-    /**
-     * Get finance data
-     */
-    public function finance(Request $request): JsonResponse
-    {
-        try {
-            $sessionToken = session('campus_session_token');
-
-            if (!$sessionToken) {
-                return $this->unauthorizedResponse();
-            }
-
-            $options = $request->only(['semester', 'academic_year']);
-            $data = $this->financeExtractor->extractFinanceData($sessionToken, $options);
-
-            return response()->json([
-                'status' => 'success',
-                'message' => 'Finance data retrieved successfully',
-                'data' => $data,
-                'meta' => [
-                    'timestamp' => now()->toISOString(),
-                    'campus_session_valid' => true,
-                ],
-            ]);
-
-        } catch (\Exception $e) {
-            Log::error('Failed to get finance data', ['error' => $e->getMessage()]);
-
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Failed to retrieve finance data: ' . $e->getMessage(),
-                'meta' => [
-                    'timestamp' => now()->toISOString(),
-                    'campus_session_valid' => false,
-                ],
-            ], 500);
-        }
-    }
-
-    /**
-     * Get finance summary
-     */
-    public function financeSummary(Request $request): JsonResponse
-    {
-        try {
-            $sessionToken = session('campus_session_token');
-
-            if (!$sessionToken) {
-                return $this->unauthorizedResponse();
-            }
-
-            $data = $this->financeExtractor->getFinanceSummary($sessionToken);
-
-            return response()->json([
-                'status' => 'success',
-                'message' => 'Finance summary retrieved successfully',
-                'data' => $data,
-                'meta' => [
-                    'timestamp' => now()->toISOString(),
-                    'campus_session_valid' => true,
-                ],
-            ]);
-
-        } catch (\Exception $e) {
-            Log::error('Failed to get finance summary', ['error' => $e->getMessage()]);
-
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Failed to retrieve finance summary: ' . $e->getMessage(),
-                'meta' => [
-                    'timestamp' => now()->toISOString(),
-                    'campus_session_valid' => false,
-                ],
-            ], 500);
-        }
-    }
-
-    /**
-     * Standard unauthorized response
-     */
-    private function unauthorizedResponse(): JsonResponse
-    {
-        return response()->json([
-            'status' => 'error',
-            'message' => 'Unauthorized - Please login first',
-            'meta' => [
-                'timestamp' => now()->toISOString(),
-                'campus_session_valid' => false,
-            ],
-        ], 401);
     }
 }
