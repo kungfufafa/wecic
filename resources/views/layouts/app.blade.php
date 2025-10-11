@@ -20,150 +20,16 @@
     @stack('styles')
 </head>
 <body>
-    <!-- Toast Container -->
-    <div id="toastContainer" class="fixed top-4 right-4 z-50 space-y-2"></div>
-
-    @if(session()->has('success'))
-        <div class="hidden" id="successMessage">{{ session('success') }}</div>
-    @endif
-
-    @if(session()->has('error'))
-        <div class="hidden" id="errorMessage">{{ session('error') }}</div>
+    <!-- Toast Component -->
+    @if($toast)
+        <x-toast :toast="$toast" />
     @endif
 
     @yield('content')
 
     @stack('scripts')
 
-<script>
-// Global Toast Notification System
-function showToast(message, type = 'info') {
-    const toastContainer = document.getElementById('toastContainer');
-    if (!toastContainer) {
-        console.warn('Toast container not found');
-        return;
-    }
-
-    const toast = document.createElement('div');
-    const toastId = 'toast-' + Date.now();
-    toast.id = toastId;
-
-    // Set colors based on type
-    const colors = {
-        success: 'bg-green-600 border-green-700',
-        error: 'bg-red-600 border-red-700',
-        warning: 'bg-yellow-600 border-yellow-700',
-        info: 'bg-blue-600 border-blue-700'
-    };
-
-    const icons = {
-        success: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>',
-        error: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>',
-        warning: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"></path>',
-        info: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>'
-    };
-
-    toast.className = `${colors[type]} text-white px-4 py-3 rounded-lg border shadow-xl flex items-center space-x-3 min-w-[300px] max-w-md transform transition-all duration-300 translate-x-full opacity-0`;
-    toast.innerHTML = `
-        <div class="flex-shrink-0">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                ${icons[type]}
-            </svg>
-        </div>
-        <div class="flex-1 text-sm font-medium">
-            ${message}
-        </div>
-        <button onclick="removeToast('${toastId}')" class="flex-shrink-0 ml-4 text-white hover:text-gray-200 transition-colors">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-            </svg>
-        </button>
-    `;
-
-    toastContainer.appendChild(toast);
-
-    // Animate in
-    setTimeout(() => {
-        toast.classList.remove('translate-x-full', 'opacity-0');
-        toast.classList.add('translate-x-0', 'opacity-100');
-    }, 100);
-
-    // Auto remove after 5 seconds
-    setTimeout(() => {
-        removeToast(toastId);
-    }, 5000);
-}
-
-// Remove toast function
-window.removeToast = function(toastId) {
-    const toast = document.getElementById(toastId);
-    if (toast) {
-        toast.classList.add('translate-x-full', 'opacity-0');
-        setTimeout(() => {
-            toast.remove();
-        }, 300);
-    }
-};
-
-// Initialize toast system and check for flash messages
-document.addEventListener('DOMContentLoaded', function() {
-    // Check for success message
-    const successElement = document.getElementById('successMessage');
-    if (successElement) {
-        const message = successElement.textContent.trim();
-        if (message) {
-            showToast(message, 'success');
-        }
-    }
-
-    // Check for error message
-    const errorElement = document.getElementById('errorMessage');
-    if (errorElement) {
-        let message = errorElement.textContent.trim();
-        if (message) {
-            if (message.includes('logout') || message.includes('logged out')) {
-                showToast(message, 'info');
-            } else if (message.includes('session') && message.includes('expired')) {
-                showToast(message, 'warning');
-            } else {
-                showToast(message, 'error');
-            }
-        }
-    }
-
-    // Check for any alert messages in the page and convert to toasts
-    const alertElements = document.querySelectorAll('.alert, .alert-success, .alert-danger, .alert-info, .alert-warning');
-    alertElements.forEach(element => {
-        const text = element.textContent.trim();
-        if (text) {
-            let toastType = 'info';
-            let message = text;
-
-            if (element.classList.contains('alert-success') || text.includes('berhasil')) {
-                toastType = 'success';
-                message = text;
-            } else if (element.classList.contains('alert-danger') || text.includes('gagal') || text.includes('error')) {
-                toastType = 'error';
-                message = text;
-            } else if (element.classList.contains('alert-warning') || text.includes('peringatan') || text.includes('warning')) {
-                toastType = 'warning';
-                message = text;
-            } else {
-                if (text.includes('logout') || text.includes('logged out')) {
-                    message = text;
-                } else if (text.includes('session') && text.includes('expired')) {
-                    message = text;
-                    toastType = 'warning';
-                } else {
-                    message = text;
-                }
-            }
-
-            showToast(message, toastType);
-            element.style.display = 'none'; // Hide the original alert
-        }
-    });
-});
-</script>
+    <!-- Alpine.js for Toast Component -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 </body>
 </html>

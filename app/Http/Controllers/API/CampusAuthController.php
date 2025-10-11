@@ -11,6 +11,11 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 
+/**
+ * @group Authentication
+ *
+ * API endpoints for managing campus system authentication
+ */
 class CampusAuthController extends Controller
 {
     private CampusSessionManager $sessionManager;
@@ -22,6 +27,40 @@ class CampusAuthController extends Controller
 
     /**
      * Login to campus system
+     *
+     * Authenticate user with CIC portal credentials and create session.
+     *
+     * @bodyParam username string required Student NIM/username. Example: 20251030030
+     * @bodyParam password string required Student password. Example: Kanjutz123@
+     *
+     * @response {
+     *   "status": "success",
+     *   "message": "Login berhasil",
+     *   "data": {
+     *     "session_token": "abc123...",
+     *     "user_info": [],
+     *     "expires_at": "2025-10-10T18:48:21.158943Z"
+     *   },
+     *   "meta": {
+     *     "timestamp": "2025-10-10T18:28:21.197134Z",
+     *     "campus_session_valid": true
+     *   }
+     * }
+     * @response 422 {
+     *   "status": "error",
+     *   "message": "Username dan password harus diisi",
+     *   "errors": {
+     *     "username": ["The username field is required."]
+     *   }
+     * }
+     * @response 401 {
+     *   "status": "error",
+     *   "message": "Login gagal. Periksa kembali username dan password Anda.",
+     *   "meta": {
+     *     "timestamp": "2025-10-10T18:28:21.197134Z",
+     *     "campus_session_valid": false
+     *   }
+     * }
      */
     public function login(Request $request): JsonResponse
     {
@@ -89,7 +128,7 @@ class CampusAuthController extends Controller
     {
         $sessionToken = session('campus_session_token');
 
-        if (!$sessionToken) {
+        if (! $sessionToken) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'No active session found',
@@ -119,6 +158,9 @@ class CampusAuthController extends Controller
         } catch (\Exception $e) {
             Log::error('Session check failed', ['error' => $e->getMessage()]);
 
+            // Use ToastService for session expired notification
+            \App\Services\ToastService::sessionExpired();
+
             return response()->json([
                 'status' => 'error',
                 'message' => 'Failed to validate session',
@@ -137,7 +179,7 @@ class CampusAuthController extends Controller
     {
         $sessionToken = session('campus_session_token');
 
-        if (!$sessionToken) {
+        if (! $sessionToken) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'No active session found',
@@ -169,6 +211,9 @@ class CampusAuthController extends Controller
 
             // Clear invalid session
             session()->forget(['campus_session_token', 'campus_user_info']);
+
+            // Use ToastService for session expired notification
+            \App\Services\ToastService::sessionExpired('Session refresh failed. Please login again.');
 
             return response()->json([
                 'status' => 'error',

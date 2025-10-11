@@ -62,6 +62,31 @@ Route::prefix('api/campus')->middleware(['campus.session'])->group(function () {
     Route::get('/class-detail', [\App\Http\Controllers\API\CampusDataController::class, 'classDetail']);
 });
 
+// Toast test route
+Route::get('/test-toast/{type}', function ($type) {
+    $toastService = new \App\Services\ToastService;
+
+    switch ($type) {
+        case 'success':
+            \App\Services\ToastService::success('Test success message!', 'This is a test success notification.');
+            break;
+        case 'error':
+            \App\Services\ToastService::error('Test error message!', 'This is a test error notification.');
+            break;
+        case 'warning':
+            \App\Services\ToastService::sessionExpired('Test session expired message!');
+            break;
+        case 'info':
+            \App\Services\ToastService::info('Test info message!', 'This is a test info notification.');
+            break;
+        default:
+            \App\Services\ToastService::success('Default toast test!', 'Testing the unified toast system.');
+            break;
+    }
+
+    return redirect()->route('login');
+})->name('test.toast');
+
 // Public API routes for authentication
 Route::prefix('api/campus')->group(function () {
     Route::post('/login', [\App\Http\Controllers\API\CampusAuthController::class, 'login']);

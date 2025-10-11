@@ -18,6 +18,8 @@ return [
     'profile_url' => env('CAMPUS_PROFILE_URL', 'https://my.cic.ac.id/portal/mahasiswa/?mod=student&act=profile'),
     'classes_url' => env('CAMPUS_CLASSES_URL', 'https://my.cic.ac.id/portal/sipandai/?mod=sipandai&act=dashboardmahasiswa'),
     'class_detail_url' => env('CAMPUS_CLASS_DETAIL_URL', 'https://my.cic.ac.id/portal/sipandai/?mod=sipandai&act=download'),
+    'sipandai_dashboard_url' => env('CAMPUS_SIPANDAI_DASHBOARD_URL', 'https://my.cic.ac.id/portal/sipandai/?mod=sipandai&act=dashboardmahasiswa'),
+    'student_course_url' => env('CAMPUS_STUDENT_COURSE_URL', 'https://my.cic.ac.id/portal/mahasiswa/?mod=student&act=course'),
 
     /*
     |--------------------------------------------------------------------------

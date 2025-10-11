@@ -68,7 +68,7 @@ class ClassesExtractor extends CampusScrapingService
             $this->logScraping('Extracting class detail', ['session_token' => $sessionToken, 'params' => $params]);
 
             // Check if this is a meeting detail request
-            if (!empty($params['meeting_id']) && !empty($params['courses_id'])) {
+            if (! empty($params['meeting_id']) && ! empty($params['courses_id'])) {
                 return $this->extractMeetingDetail($sessionToken, $params);
             }
 
@@ -103,9 +103,7 @@ class ClassesExtractor extends CampusScrapingService
                 'request_url' => $fullUrl,
                 'content_type' => $this->detectContentType($html),
                 'course_info' => $this->extractCourseInfo($crawler),
-                'class_info' => $this->extractClassInfo($crawler),
                 'lecturer_info' => $this->extractLecturerInfo($crawler),
-                'schedule_info' => $this->extractScheduleInfo($crawler),
                 'attendance_info' => $this->extractAttendanceInfo($crawler),
                 'assignment_history' => $this->extractAssignmentHistory($crawler),
                 'course_materials' => $this->extractCourseMaterials($crawler),
@@ -656,9 +654,11 @@ class ClassesExtractor extends CampusScrapingService
     private function extractCourseInfo(Crawler $crawler): array
     {
         $courseInfo = [
-            'name' => $this->extractText($crawler, ['.course-name', '.mata-kuliah', 'h1', 'h2']),
-            'code' => $this->extractText($crawler, ['.course-code', '.kode-mata-kuliah']),
-            'credits' => $this->extractText($crawler, ['.credits', '.sks']),
+            'name' => '',
+            'code' => '',
+            'credits' => '',
+            'class_name' => '',
+            'rps_link' => '',
         ];
 
         // Try to extract from join class page table structure
@@ -667,23 +667,43 @@ class ClassesExtractor extends CampusScrapingService
                 $cells = $row->filter('td');
                 if ($cells->count() >= 3) {
                     $label = trim(strtolower($cells->eq(0)->text()));
-                    $value = trim($cells->eq(2)->text());
+                    $valueCell = $cells->eq(2); // Third cell with actual data
+                    $value = trim($valueCell->text());
 
                     // Extract course name
                     if (strpos($label, 'nama mata kuliah') !== false) {
-                        $courseInfo['name'] = $value;
-                    }
-                    // Extract course code and credits from the same field
-                    if (strpos($label, 'nama mata kuliah') !== false) {
-                        if (preg_match('/(\w+\d+)\s*-\s*([^-]+)\s*-\s*(\d+)\s*SKS/i', $value, $matches)) {
-                            $courseInfo['code'] = $matches[1];
-                            $courseInfo['name'] = trim($matches[2]);
-                            $courseInfo['credits'] = $matches[3];
+                        $boldText = $valueCell->filter('b')->first();
+                        if ($boldText->count() > 0) {
+                            $courseText = trim($boldText->text());
+                            // Extract code, name, and credits from format: "UC01024011 - Bahasa Indonesia - 2 SKS"
+                            if (preg_match('/(\w+\d+)\s*-\s*([^-]+?)\s*-\s*(\d+)\s*SKS/i', $courseText, $matches)) {
+                                $courseInfo['code'] = $matches[1];
+                                $courseInfo['name'] = trim($matches[2]);
+                                $courseInfo['credits'] = $matches[3];
+                            } else {
+                                $courseInfo['name'] = $courseText;
+                            }
+                        } else {
+                            $courseInfo['name'] = $value;
                         }
                     }
+
                     // Extract class name
                     if (strpos($label, 'nama kelas') !== false) {
-                        $courseInfo['class_name'] = $value;
+                        $boldText = $valueCell->filter('b')->first();
+                        if ($boldText->count() > 0) {
+                            $courseInfo['class_name'] = trim($boldText->text());
+                        } else {
+                            $courseInfo['class_name'] = $value;
+                        }
+                    }
+
+                    // Extract RPS link
+                    if (strpos($label, 'rps') !== false) {
+                        $linkElement = $valueCell->filter('a')->first();
+                        if ($linkElement->count() > 0) {
+                            $courseInfo['rps_link'] = $linkElement->attr('href');
+                        }
                     }
                 }
             });
@@ -695,26 +715,16 @@ class ClassesExtractor extends CampusScrapingService
     }
 
     /**
-     * Extract class information from class detail
-     */
-    private function extractClassInfo(Crawler $crawler): array
-    {
-        return [
-            'name' => $this->extractText($crawler, ['.class-name', '.kelas', '.section']),
-            'room' => $this->extractText($crawler, ['.room', '.ruangan', '.classroom']),
-        ];
-    }
-
-    /**
      * Extract lecturer information from class detail
      */
     private function extractLecturerInfo(Crawler $crawler): array
     {
         $lecturerInfo = [
-            'name' => $this->extractText($crawler, ['.lecturer-name', '.dosen', '.instructor']),
-            'nidn' => $this->extractText($crawler, ['.nidn', '.lecturer-id']),
+            'name' => '',
+            'nidn' => '',
             'contact' => '',
             'email' => '',
+            'contact_info' => '',
         ];
 
         // Try to extract from join class page table structure
@@ -723,27 +733,34 @@ class ClassesExtractor extends CampusScrapingService
                 $cells = $row->filter('td');
                 if ($cells->count() >= 3) {
                     $label = trim(strtolower($cells->eq(0)->text()));
-                    $value = trim($cells->eq(2)->text());
+                    $valueCell = $cells->eq(2); // Third cell with actual data
+                    $value = trim($valueCell->text());
 
-                    // Extract lecturer name
+                    // Extract lecturer name (from <b> tag in the value cell)
                     if (strpos($label, 'nama dosen') !== false) {
-                        $lecturerInfo['name'] = $value;
-                        // Also extract contact and email if present in the same field
-                        if (preg_match('/^(.+?)\s*\/?\s*(.+?)\s*\/?\s*(.+)$/', $value, $matches)) {
-                            $lecturerInfo['name'] = trim($matches[1]);
-                            if (isset($matches[2]) && strpos($matches[2], '@') !== false) {
-                                $lecturerInfo['email'] = trim($matches[2]);
-                            } else {
-                                $lecturerInfo['contact'] = trim($matches[2]);
-                            }
-                            if (isset($matches[3]) && strpos($matches[3], '@') !== false) {
-                                $lecturerInfo['email'] = trim($matches[3]);
-                            }
+                        $boldText = $valueCell->filter('b')->first();
+                        if ($boldText->count() > 0) {
+                            $lecturerInfo['name'] = trim($boldText->text());
+                        } else {
+                            $lecturerInfo['name'] = $value;
                         }
                     }
-                    // Extract contact info separately
+
+                    // Extract contact info (from <b> tag in the value cell)
                     if (strpos($label, 'nomor kontak dosen') !== false) {
-                        $lecturerInfo['contact_info'] = $value;
+                        $boldText = $valueCell->filter('b')->first();
+                        if ($boldText->count() > 0) {
+                            $contactText = trim($boldText->text());
+                            $lecturerInfo['contact_info'] = $contactText;
+
+                            // Extract phone and email from contact text
+                            if (preg_match('/(\d[\d\s-]+)\s*\/\s*([^@\s]+@[^@\s]+)/', $contactText, $matches)) {
+                                $lecturerInfo['contact'] = trim($matches[1]);
+                                $lecturerInfo['email'] = trim($matches[2]);
+                            }
+                        } else {
+                            $lecturerInfo['contact_info'] = $value;
+                        }
                     }
                 }
             });
@@ -752,18 +769,6 @@ class ClassesExtractor extends CampusScrapingService
         }
 
         return $lecturerInfo;
-    }
-
-    /**
-     * Extract schedule information from class detail
-     */
-    private function extractScheduleInfo(Crawler $crawler): array
-    {
-        return [
-            'day' => $this->extractText($crawler, ['.schedule-day', '.hari']),
-            'time' => $this->extractText($crawler, ['.schedule-time', '.waktu']),
-            'schedule' => $this->extractText($crawler, ['.schedule', '.jadwal']),
-        ];
     }
 
     /**
@@ -893,56 +898,236 @@ class ClassesExtractor extends CampusScrapingService
     private function extractAttendanceInfo(Crawler $crawler): array
     {
         $attendanceInfo = [
-            'table_headers' => [],
-            'attendance_data' => [],
+            'student_name' => '',
+            'meetings' => [],
+            'summary' => [],
         ];
 
         try {
+            // Debug: Count all cards
+            $allCards = $crawler->filter('.card');
+            $this->logScraping('Debug: Found '.$allCards->count().' cards');
+
             // Look for attendance table with Presensi Kehadiran
             $crawler->filter('.card')->each(function (Crawler $card) use (&$attendanceInfo) {
-                $headerText = $card->filter('.header .title, .header h6')->text('');
-                if (strpos($headerText, 'Presensi Kehadiran') !== false) {
-                    // Extract table headers (P.1, P.2, etc.)
-                    $attendanceTable = $card->filter('table')->first();
-                    $headerRow = $attendanceTable->filter('tr')->first();
+                $headerText = trim($card->filter('.header .title, .header h6')->text(''));
+                $this->logScraping('Debug: Card header text: "'.$headerText.'"');
 
-                    $headerRow->filter('th')->each(function (Crawler $th, $index) use (&$attendanceInfo) {
-                        $attendanceInfo['table_headers'][] = trim($th->text());
-                    });
+                // Extract student name from header
+                if (strpos($headerText, 'Presensi Kehadiran') !== false) {
+                    $attendanceInfo['student_name'] = trim(str_replace('Presensi Kehadiran', '', $headerText));
+                    $this->logScraping('Debug: Found attendance card for student: '.$attendanceInfo['student_name']);
+
+                    // Extract table headers (P.1, P.2, etc.)
+                    $attendanceTable = $card->filter('table');
+                    $this->logScraping('Debug: Found '.$attendanceTable->count().' tables in attendance card');
+
+                    if ($attendanceTable->count() > 0) {
+                        $attendanceTable = $attendanceTable->first();
+
+                        // Try different selectors for header row
+                        $headerRow = $attendanceTable->filter('tr')->first();
+                        $this->logScraping('Debug: Header row HTML: '.$headerRow->html());
+                        $this->logScraping('Debug: Found header row with '.$headerRow->filter('th')->count().' th elements');
+
+                        // Try to find header row that contains "P." pattern
+                        $headerRows = $attendanceTable->filter('tr');
+                        $foundHeaderRow = null;
+
+                        foreach ($headerRows as $index => $row) {
+                            $rowCrawler = new Crawler($row);
+                            $rowText = $rowCrawler->text();
+                            if (strpos($rowText, 'P.') !== false) {
+                                $foundHeaderRow = $rowCrawler;
+                                $this->logScraping('Debug: Found header row at index '.$index.' with text: '.$rowText);
+                                break;
+                            }
+                        }
+
+                        if ($foundHeaderRow) {
+                            $headerRow = $foundHeaderRow;
+                            $this->logScraping('Debug: Using found header row with '.$headerRow->filter('th')->count().' th elements');
+                            $hasHeaders = true;
+                        } else {
+                            $this->logScraping('Debug: No header row found with P. pattern, will generate meeting numbers from cell order');
+                            $hasHeaders = false;
+                        }
+
+                        $headers = [];
+                        if ($hasHeaders) {
+                            $headerRow->filter('th')->each(function (Crawler $th) use (&$headers) {
+                                $headerText = trim($th->text());
+                                // Handle both "P.1" and "P.1 <br>" formats
+                                $cleanHeaderText = preg_replace('/<br\s*\/?>/', '', $headerText);
+                                $cleanHeaderText = trim($cleanHeaderText);
+
+                                $this->logScraping('Debug: Header text: "'.$headerText.'" -> Clean: "'.$cleanHeaderText.'"');
+
+                                if (preg_match('/P\.(\d+)/', $cleanHeaderText, $matches)) {
+                                    $headers[] = [
+                                        'meeting_number' => intval($matches[1]),
+                                        'header_text' => $cleanHeaderText,
+                                    ];
+                                    $this->logScraping('Debug: Parsed header P.'.$matches[1]);
+                                }
+                            });
+
+                            $this->logScraping('Debug: Total headers parsed: '.count($headers));
+                        } else {
+                            // No headers found, generate meeting numbers from cell order
+                            $this->logScraping('Debug: No th elements found, will treat first row as data and generate meeting numbers');
+
+                            // Get the first row as data row
+                            $allRows = $attendanceTable->filter('tr');
+                            if ($allRows->count() > 0) {
+                                $firstRow = $allRows->first();
+                                $cells = $firstRow->filter('td');
+                                $this->logScraping('Debug: Found '.$cells->count().' cells in first row');
+
+                                // Generate headers from cell order (P.1, P.2, P.3, etc.)
+                                $headers = [];
+                                for ($i = 0; $i < $cells->count(); $i++) {
+                                    $headers[] = [
+                                        'meeting_number' => $i + 1,
+                                        'header_text' => 'P.'.($i + 1),
+                                    ];
+                                    $this->logScraping('Debug: Generated header P.'.($i + 1));
+                                }
+                            }
+                        }
+                    }
 
                     // Extract attendance data
-                    $dataRows = $attendanceTable->filter('tr')->slice(1);
-                    $dataRows->each(function (Crawler $row) use (&$attendanceInfo) {
-                        $rowData = [];
-                        $row->filter('td')->each(function (Crawler $td) use (&$rowData) {
-                            $img = $td->filter('img');
-                            if ($img->count() > 0) {
-                                $rowData[] = [
-                                    'type' => 'image',
-                                    'src' => $img->attr('src'),
-                                    'alt' => $img->attr('alt'),
-                                ];
-                            } else {
-                                $button = $td->filter('button');
-                                if ($button->count() > 0) {
-                                    $rowData[] = [
-                                        'type' => 'button',
-                                        'text' => trim($button->text()),
-                                        'title' => $button->attr('title'),
-                                        'href' => $button->filter('a')->attr('href'),
-                                    ];
-                                } else {
-                                    $rowData[] = [
-                                        'type' => 'text',
-                                        'content' => trim($td->text()),
+                    if ($attendanceTable->count() > 0) {
+                        $allRows = $attendanceTable->filter('tr');
+
+                        // If we generated headers from first row, we need to use all rows
+                        // If we have real headers, skip the first row
+                        if ($hasHeaders) {
+                            $dataRows = $allRows->slice(1);
+                            $this->logScraping('Debug: Found '.$dataRows->count().' data rows (skipping header)');
+                        } else {
+                            $dataRows = $allRows;
+                            $this->logScraping('Debug: Found '.$dataRows->count().' data rows (all rows are data)');
+                        }
+
+                        $meetingData = [];
+
+                        $dataRows->each(function (Crawler $row) use ($headers, &$meetingData) {
+                            $cells = $row->filter('td');
+                            $this->logScraping('Debug: Processing row with '.$cells->count().' cells');
+
+                            foreach ($cells as $index => $cell) {
+                                if (isset($headers[$index])) {
+                                    $meetingInfo = $headers[$index];
+                                    $cellCrawler = new Crawler($cell);
+
+                                    // Check for attendance status
+                                    $status = 'unknown';
+                                    $details = [];
+
+                                    $img = $cellCrawler->filter('img');
+                                    if ($img->count() > 0) {
+                                        $imgSrc = $img->attr('src');
+                                        $details['image_src'] = $imgSrc;
+
+                                        // Enhanced status detection from image filename
+                                        if (strpos($imgSrc, 'bolos.jpg') !== false) {
+                                            $status = 'absent';
+                                        } elseif (strpos($imgSrc, 'hadir.jpg') !== false || strpos($imgSrc, 'present.jpg') !== false) {
+                                            $status = 'present';
+                                        } elseif (strpos($imgSrc, 'izin.jpg') !== false || strpos($imgSrc, 'permit.jpg') !== false) {
+                                            $status = 'permit';
+                                        } elseif (strpos($imgSrc, 'sakit.jpg') !== false) {
+                                            $status = 'sick';
+                                        }
+                                    }
+
+                                    // Check for button (recent attendance)
+                                    $button = $cellCrawler->filter('button');
+                                    if ($button->count() > 0) {
+                                        $buttonText = trim($button->text());
+                                        $buttonTitle = $button->attr('title');
+                                        $buttonBgColor = $button->attr('bgcolor');
+
+                                        $details['button_text'] = $buttonText;
+                                        $details['button_title'] = $buttonTitle;
+                                        $details['button_bgcolor'] = $buttonBgColor;
+
+                                        // Extract date from button title
+                                        if ($buttonTitle && preg_match('/(\w+),\s+(\d+)\s+(\w+)\s+(\d+),\s+Jam\s+(\d+:\d+)/', $buttonTitle, $matches)) {
+                                            $details['attendance_date'] = $matches[2].' '.$matches[3].' '.$matches[4];
+                                            $details['attendance_time'] = $matches[5];
+                                        }
+
+                                        // Determine status from button text and color
+                                        if ($buttonText === 'H') {
+                                            // Check button color to distinguish between present and late
+                                            $status = ($buttonBgColor === 'green' || $buttonBgColor === '#00FF00') ? 'present' : 'late';
+                                        } elseif ($buttonText === 'A' || $buttonText === 'α') {
+                                            $status = 'absent';
+                                        } elseif ($buttonText === 'I') {
+                                            $status = 'permit';
+                                        } elseif ($buttonText === 'S') {
+                                            $status = 'sick';
+                                        }
+
+                                        // If button is red but text is 'H', it might be late
+                                        if ($buttonText === 'H' && ($buttonBgColor === 'red' || $buttonBgColor === '#FF0000')) {
+                                            $status = 'late';
+                                        }
+                                    }
+
+                                    $meetingData[] = [
+                                        'meeting_number' => $meetingInfo['meeting_number'],
+                                        'status' => $status,
+                                        'details' => $details,
                                     ];
                                 }
                             }
                         });
-                        if (!empty($rowData)) {
-                            $attendanceInfo['attendance_data'][] = $rowData;
+
+                        $this->logScraping('Debug: Total meetings parsed: '.count($meetingData));
+                        $attendanceInfo['meetings'] = $meetingData;
+
+                        // Calculate attendance summary
+                        if (! empty($meetingData)) {
+                            $totalMeetings = count($meetingData);
+                            $presentCount = 0;
+                            $absentCount = 0;
+                            $permitCount = 0;
+                            $sickCount = 0;
+
+                            foreach ($meetingData as $meeting) {
+                                switch ($meeting['status']) {
+                                    case 'present':
+                                        $presentCount++;
+                                        break;
+                                    case 'absent':
+                                        $absentCount++;
+                                        break;
+                                    case 'permit':
+                                        $permitCount++;
+                                        break;
+                                    case 'sick':
+                                        $sickCount++;
+                                        break;
+                                }
+                            }
+
+                            $attendanceInfo['summary'] = [
+                                'total_meetings' => $totalMeetings,
+                                'present' => $presentCount,
+                                'absent' => $absentCount,
+                                'permit' => $permitCount,
+                                'sick' => $sickCount,
+                                'attendance_rate' => $totalMeetings > 0 ? round(($presentCount / $totalMeetings) * 100, 1) : 0,
+                                'last_updated' => now()->toISOString(),
+                            ];
                         }
-                    });
+                    } else {
+                        $this->logScraping('Debug: No attendance table found');
+                    }
                 }
             });
         } catch (\Exception $e) {
@@ -1356,7 +1541,7 @@ class ClassesExtractor extends CampusScrapingService
 
                     // Extract assignment topic
                     if (preg_match('/<h4> Instruksi Tugas Perkuliahan ([^:]+) :<\/h4>/', $content, $matches)) {
-                        $materials['assignment_topic'] = 'Pertemuan ' . trim($matches[1]);
+                        $materials['assignment_topic'] = 'Pertemuan '.trim($matches[1]);
                     }
 
                     // Extract assignment instructions and due date
