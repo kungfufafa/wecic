@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\API\DebugController;
+use App\Http\Controllers\API\PortalActionController;
 use App\Http\Controllers\API\PortalDataController;
 use App\Http\Controllers\WebLoginController;
 use Illuminate\Support\Facades\Route;
@@ -25,6 +26,8 @@ Route::prefix('campus')->group(function () {
         Route::get('sipandai-classes', [PortalDataController::class, 'sipandaiClasses']);
         Route::get('student-course', [PortalDataController::class, 'studentCourse']);
         Route::get('merged-classes', [PortalDataController::class, 'mergedClasses']);
+        Route::post('assignments/upload', [PortalActionController::class, 'uploadAssignment']);
+        Route::post('attendance/mark', [PortalActionController::class, 'markAttendance']);
     });
 });
 

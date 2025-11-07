@@ -85,6 +85,7 @@ npm run dev               # atau npm run build untuk production assets
 | `DB_*` | Konfigurasi database utama (SQLite default). |
 | `CACHE_STORE`, `SESSION_DRIVER`, `QUEUE_CONNECTION` | Gunakan `database` agar sejalan dengan konfigurasi repo & migrasi bawaan. |
 | `CAMPUS_BASE_URL`, `CAMPUS_LOGIN_URL`, `CAMPUS_LOGIN_ACTION`, `CAMPUS_DASHBOARD_URL`, `CAMPUS_PROFILE_URL`, `CAMPUS_CLASSES_URL`, `CAMPUS_CLASS_DETAIL_URL` | URL halaman kampus tempat scraping dilakukan. Sesuaikan jika portal berubah. |
+| `CAMPUS_SIPANDAI_ASSIGNMENT_URL`, `CAMPUS_SIPANDAI_ATTENDANCE_URL` | Base URL aksi SIPANDAI untuk upload tugas dan validasi kehadiran; tambahkan parameter dinamis (`courses_id`, `id`, `pertemuan`, `course_id`) saat runtime. |
 | `CAMPUS_REQUEST_TIMEOUT`, `CAMPUS_REQUEST_DELAY`, `CAMPUS_SESSION_REFRESH_INTERVAL` | Atur timeout HTTP, jeda antar request (ms), serta interval refresh sesi (detik). |
 | `CAMPUS_SESSION_PREFIX`, `CAMPUS_AUTO_RELOGIN` | Prefix cache sesi dan flag relogin otomatis menggunakan kredensial terenkripsi. |
 | `CAMPUS_CACHE_PROFILE_TTL`, `CAMPUS_CACHE_DYNAMIC_TTL`, `CAMPUS_CACHE_HTML_TTL`, `CAMPUS_CACHE_FAILED_TTL` | Menentukan TTL cache untuk profil, data dinamis, HTML mentah, dan request gagal. |
@@ -114,6 +115,8 @@ Semua route berikut berada di `routes/api.php` (prefiks `/api/campus` + middlewa
 | `GET` | `/api/campus/sipandai-classes` | `API\PortalDataController@sipandaiClasses` | Data kelas khusus SIPANDAI dashboard. |
 | `GET` | `/api/campus/student-course` | `API\PortalDataController@studentCourse` | Data kelas dari endpoint student course (ruangan, jadwal). |
 | `GET` | `/api/campus/merged-classes` | `API\PortalDataController@mergedClasses` | Gabungan SIPANDAI + student course untuk konsumsi UI. |
+| `POST` | `/api/campus/assignments/upload` | `API\PortalActionController@uploadAssignment` | Upload tugas SIPANDAI dengan pengambilan form dinamis dan unggah file multipart. |
+| `POST` | `/api/campus/attendance/mark` | `API\PortalActionController@markAttendance` | Tandai kehadiran pertemuan SIPANDAI mengikuti parameter dinamis (`course_id`, `id`, `pertemuan`). |
 
 ### 3. API Debug (middleware `web`)
 Prefix `/api/debug` di `routes/api.php` untuk pengujian extractor secara langsung:

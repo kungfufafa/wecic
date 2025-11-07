@@ -22,3 +22,7 @@
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# CIC Portal Testing - Response files contain sensitive data
+endpoint_responses/
+test_all_endpoints.sh
