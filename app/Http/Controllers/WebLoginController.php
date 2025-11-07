@@ -4,16 +4,16 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
-use App\Services\CampusSessionManager;
+use App\Services\PortalSessionManager;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 
 class WebLoginController extends Controller
 {
-    private CampusSessionManager $sessionManager;
+    private PortalSessionManager $sessionManager;
 
-    public function __construct(CampusSessionManager $sessionManager)
+    public function __construct(PortalSessionManager $sessionManager)
     {
         $this->sessionManager = $sessionManager;
     }
@@ -80,7 +80,7 @@ class WebLoginController extends Controller
 
             return redirect()
                 ->route('dashboard')
-                ->with('success', 'Login berhasil! Selamat datang ' . ($sessionResult['user_info']['name'] ?? $username));
+                ->with('success', 'Login berhasil! Selamat datang '.($sessionResult['user_info']['name'] ?? $username));
 
         } catch (\Exception $e) {
             Log::error('Login failed', [

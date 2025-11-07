@@ -2,10 +2,10 @@
 
 namespace App\Providers;
 
-use App\Services\CampusAuthService;
-use App\Services\CampusSessionManager;
 use App\Services\Extractors\ClassesExtractor;
 use App\Services\Extractors\ProfileExtractor;
+use App\Services\PortalAuthService;
+use App\Services\PortalSessionManager;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -15,7 +15,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        $this->registerCampusServices();
+        $this->registerPortalServices();
     }
 
     /**
@@ -27,30 +27,30 @@ class AppServiceProvider extends ServiceProvider
     }
 
     /**
-     * Register campus-related services.
+     * Register portal-related services.
      */
-    private function registerCampusServices(): void
+    private function registerPortalServices(): void
     {
-        // Register CampusAuthService
-        $this->app->singleton(CampusAuthService::class, function ($app) {
-            return new CampusAuthService;
+        // Register PortalAuthService
+        $this->app->singleton(PortalAuthService::class, function ($app) {
+            return new PortalAuthService;
         });
 
-        // Register CampusSessionManager
-        $this->app->singleton(CampusSessionManager::class, function ($app) {
-            return new CampusSessionManager(
-                $app->make(CampusAuthService::class),
+        // Register PortalSessionManager
+        $this->app->singleton(PortalSessionManager::class, function ($app) {
+            return new PortalSessionManager(
+                $app->make(PortalAuthService::class),
                 $app->make('encrypter')
             );
         });
 
         // Register extractor services (only essential ones)
         $this->app->singleton(ProfileExtractor::class, function ($app) {
-            return new ProfileExtractor($app->make(CampusSessionManager::class));
+            return new ProfileExtractor($app->make(PortalSessionManager::class));
         });
 
         $this->app->singleton(ClassesExtractor::class, function ($app) {
-            return new ClassesExtractor($app->make(CampusSessionManager::class));
+            return new ClassesExtractor($app->make(PortalSessionManager::class));
         });
     }
 }

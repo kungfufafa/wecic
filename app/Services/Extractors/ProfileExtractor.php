@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Services\Extractors;
 
-use App\Exceptions\CampusScrapingException;
-use App\Services\CampusScrapingService;
+use App\Exceptions\PortalScrapingException;
+use App\Services\PortalScrapingService;
 use Symfony\Component\DomCrawler\Crawler;
 
-class ProfileExtractor extends CampusScrapingService
+class ProfileExtractor extends PortalScrapingService
 {
     /**
      * Extract student profile data
@@ -30,7 +30,7 @@ class ProfileExtractor extends CampusScrapingService
             }
 
             // Get profile HTML
-            $profileUrl = config('campus.profile_url');
+            $profileUrl = config('portal.profile_url');
             $html = $this->get($profileUrl);
             $crawler = $this->createCrawler($html);
 
@@ -55,7 +55,7 @@ class ProfileExtractor extends CampusScrapingService
 
         } catch (\Exception $e) {
             $this->logScrapingError('Extracting profile data', $e, ['session_token' => $sessionToken]);
-            throw CampusScrapingException::dataExtractionFailed('profile', $e->getMessage());
+            throw PortalScrapingException::dataExtractionFailed('profile', $e->getMessage());
         }
     }
 
@@ -493,7 +493,7 @@ class ProfileExtractor extends CampusScrapingService
                 if ($photoUrl && ! empty($photoUrl)) {
                     // Make URL absolute if needed
                     if (! str_starts_with($photoUrl, 'http')) {
-                        $baseUrl = config('campus.base_url');
+                        $baseUrl = config('portal.base_url');
                         $photoUrl = rtrim($baseUrl, '/').'/'.ltrim($photoUrl, '/');
                     }
 
@@ -515,7 +515,7 @@ class ProfileExtractor extends CampusScrapingService
         try {
             $this->setSession($sessionToken);
 
-            $profileUrl = config('campus.profile_url');
+            $profileUrl = config('portal.profile_url');
             $html = $this->get($profileUrl);
             $crawler = $this->createCrawler($html);
 
@@ -530,7 +530,7 @@ class ProfileExtractor extends CampusScrapingService
 
         } catch (\Exception $e) {
             $this->logScrapingError('Getting profile overview', $e, ['session_token' => $sessionToken]);
-            throw new CampusScrapingException('dataExtractionFailed', 'profile overview', $e->getMessage());
+            throw new PortalScrapingException('dataExtractionFailed', 'profile overview', $e->getMessage());
         }
     }
 }

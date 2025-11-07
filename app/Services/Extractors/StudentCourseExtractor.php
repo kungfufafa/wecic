@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Services\Extractors;
 
-use App\Exceptions\CampusScrapingException;
-use App\Services\CampusScrapingService;
+use App\Exceptions\PortalScrapingException;
+use App\Services\PortalScrapingService;
 use Symfony\Component\DomCrawler\Crawler;
 
-class StudentCourseExtractor extends CampusScrapingService
+class StudentCourseExtractor extends PortalScrapingService
 {
     /**
      * Extract classes data from student course endpoint (portal/mahasiswa/?mod=student&act=course)
@@ -30,7 +30,7 @@ class StudentCourseExtractor extends CampusScrapingService
             }
 
             // Get classes HTML from student course endpoint
-            $studentCourseUrl = config('campus.student_course_url', 'https://my.cic.ac.id/portal/mahasiswa/?mod=student&act=course');
+            $studentCourseUrl = config('portal.student_course_url', 'https://my.cic.ac.id/portal/mahasiswa/?mod=student&act=course');
             $html = $this->get($studentCourseUrl);
             $crawler = $this->createCrawler($html);
 
@@ -53,7 +53,7 @@ class StudentCourseExtractor extends CampusScrapingService
 
         } catch (\Exception $e) {
             $this->logScrapingError('Extracting student course data', $e, ['session_token' => $sessionToken]);
-            throw new CampusScrapingException('dataExtractionFailed', 'student course', $e->getMessage());
+            throw new PortalScrapingException('dataExtractionFailed', 'student course', $e->getMessage());
         }
     }
 

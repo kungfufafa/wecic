@@ -4,9 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use App\Exceptions\CampusConnectionException;
-use App\Exceptions\CampusScrapingException;
-use App\Services\CampusSessionManager;
+use App\Exceptions\PortalConnectionException;
+use App\Exceptions\PortalScrapingException;
 use GuzzleHttp\Client;
 use GuzzleHttp\Cookie\CookieJar;
 use GuzzleHttp\Exception\GuzzleException;
@@ -16,20 +15,22 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Symfony\Component\DomCrawler\Crawler;
 
-abstract class CampusScrapingService
+abstract class PortalScrapingService
 {
     protected Client $client;
-    protected CampusSessionManager $sessionManager;
+
+    protected PortalSessionManager $sessionManager;
+
     protected ?CookieJar $cookieJar = null;
 
-    public function __construct(CampusSessionManager $sessionManager)
+    public function __construct(PortalSessionManager $sessionManager)
     {
         $this->sessionManager = $sessionManager;
         $this->client = new Client([
-            RequestOptions::TIMEOUT => config('campus.request_timeout', 30),
+            RequestOptions::TIMEOUT => config('portal.request_timeout', 30),
             RequestOptions::CONNECT_TIMEOUT => 10,
             RequestOptions::HEADERS => [
-                'User-Agent' => config('campus.scraping.user_agent'),
+                'User-Agent' => config('portal.scraping.user_agent'),
                 'Accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
                 'Accept-Language' => 'en-US,en;q=0.5',
                 'Accept-Encoding' => 'gzip, deflate',
@@ -52,8 +53,8 @@ abstract class CampusScrapingService
     {
         $this->cookieJar = $this->sessionManager->getSessionCookieJar($sessionToken);
 
-        if (!$this->cookieJar) {
-            throw CampusScrapingException::pageNotAccessible('No valid session found');
+        if (! $this->cookieJar) {
+            throw PortalScrapingException::pageNotAccessible('No valid session found');
         }
     }
 
@@ -78,8 +79,8 @@ abstract class CampusScrapingService
      */
     protected function request(string $method, string $url, array $options = []): string
     {
-        $maxRetries = config('campus.scraping.max_retries', 3);
-        $retryDelay = config('campus.scraping.retry_delay', 1000);
+        $maxRetries = config('portal.scraping.max_retries', 3);
+        $retryDelay = config('portal.scraping.retry_delay', 1000);
         $lastException = null;
 
         for ($attempt = 1; $attempt <= $maxRetries; $attempt++) {
@@ -109,14 +110,14 @@ abstract class CampusScrapingService
                     usleep($retryDelay * 1000 * $attempt); // Exponential backoff
                 }
 
-            } catch (CampusScrapingException $e) {
+            } catch (PortalScrapingException $e) {
                 // Don't retry scraping exceptions
                 throw $e;
             }
         }
 
         // All retries failed
-        throw CampusConnectionException::networkError($url, $lastException->getMessage());
+        throw PortalConnectionException::networkError($url, $lastException->getMessage());
     }
 
     /**
@@ -127,13 +128,13 @@ abstract class CampusScrapingService
         $requestOptions = array_merge([
             RequestOptions::COOKIES => $this->cookieJar,
             RequestOptions::HEADERS => [
-                'Referer' => config('campus.base_url'),
-                'Origin' => config('campus.base_url'),
+                'Referer' => config('portal.base_url'),
+                'Origin' => config('portal.base_url'),
             ],
         ], $options);
 
         // Add delay between requests to be respectful to the campus server
-        $delay = config('campus.request_delay', 1000);
+        $delay = config('portal.request_delay', 1000);
         if ($delay > 0) {
             usleep($delay * 1000);
         }
@@ -148,7 +149,7 @@ abstract class CampusScrapingService
     {
         // Check for empty response
         if (empty($html)) {
-            throw CampusScrapingException::invalidResponse($url, 'Empty response');
+            throw PortalScrapingException::invalidResponse($url, 'Empty response');
         }
 
         // Check for session expiry indicators
@@ -162,7 +163,7 @@ abstract class CampusScrapingService
 
         foreach ($sessionExpiredIndicators as $indicator) {
             if (Str::contains(strtolower($html), $indicator)) {
-                throw CampusScrapingException::pageNotAccessible($url);
+                throw PortalScrapingException::pageNotAccessible($url);
             }
         }
 
@@ -177,13 +178,13 @@ abstract class CampusScrapingService
 
         foreach ($errorIndicators as $indicator) {
             if (Str::contains(strtolower($html), $indicator)) {
-                throw CampusScrapingException::invalidResponse($url, "Error page detected: {$indicator}");
+                throw PortalScrapingException::invalidResponse($url, "Error page detected: {$indicator}");
             }
         }
 
         // Check for blank pages (common sign of session expiry)
         if (strlen(trim($html)) < 100) {
-            throw CampusScrapingException::pageNotAccessible($url);
+            throw PortalScrapingException::pageNotAccessible($url);
         }
     }
 
@@ -221,7 +222,7 @@ abstract class CampusScrapingService
             'session_id' => $this->cookieJar ? spl_object_hash($this->cookieJar) : 'no-session',
         ];
 
-        return 'campus_scrape_' . md5(json_encode($keyData));
+        return 'campus_scrape_'.md5(json_encode($keyData));
     }
 
     /**
@@ -231,19 +232,19 @@ abstract class CampusScrapingService
     {
         // Different TTL for different types of data
         if (Str::contains($url, 'dashboard') || Str::contains($url, 'profile')) {
-            return config('campus.cache.profile_ttl', 3600);
+            return config('portal.cache.profile_ttl', 3600);
         }
 
         if (Str::contains($url, ['grade', 'nilai', 'transcript'])) {
-            return config('campus.cache.dynamic_ttl', 900);
+            return config('portal.cache.dynamic_ttl', 900);
         }
 
         if (Str::contains($url, ['schedule', 'jadwal', 'finance', 'keuangan'])) {
-            return config('campus.cache.dynamic_ttl', 900);
+            return config('portal.cache.dynamic_ttl', 900);
         }
 
         // Default HTML cache TTL
-        return config('campus.cache.html_ttl', 300);
+        return config('portal.cache.html_ttl', 300);
     }
 
     /**
@@ -263,7 +264,7 @@ abstract class CampusScrapingService
             $element = $crawler->filter($selector);
             if ($element->count() > 0) {
                 $text = trim($element->text());
-                if (!empty($text)) {
+                if (! empty($text)) {
                     return $text;
                 }
             }
@@ -281,7 +282,7 @@ abstract class CampusScrapingService
             $element = $crawler->filter($selector);
             if ($element->count() > 0) {
                 $value = $element->attr($attribute);
-                if (!empty($value)) {
+                if (! empty($value)) {
                     return $value;
                 }
             }
@@ -310,7 +311,7 @@ abstract class CampusScrapingService
                 $rowData[] = trim($cell->text());
             });
 
-            if (!empty($rowData)) {
+            if (! empty($rowData)) {
                 if (empty($headers)) {
                     $data[] = $rowData;
                 } else {

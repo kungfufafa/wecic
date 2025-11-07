@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Jobs;
 
-use App\Services\CampusSessionManager;
+use App\Services\PortalSessionManager;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -12,7 +12,7 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 
-class RefreshCampusSessionJob implements ShouldQueue
+class RefreshPortalSessionJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
@@ -39,7 +39,7 @@ class RefreshCampusSessionJob implements ShouldQueue
     /**
      * Execute the job.
      */
-    public function handle(CampusSessionManager $sessionManager): void
+    public function handle(PortalSessionManager $sessionManager): void
     {
         try {
             Log::info('Processing campus session refresh', [
@@ -48,10 +48,11 @@ class RefreshCampusSessionJob implements ShouldQueue
             ]);
 
             // Validate session exists and is active
-            if (!$sessionManager->validateSession($this->sessionToken)) {
+            if (! $sessionManager->validateSession($this->sessionToken)) {
                 Log::info('Session no longer valid, skipping refresh', [
                     'session_token' => $this->sessionToken,
                 ]);
+
                 return;
             }
 
@@ -76,6 +77,7 @@ class RefreshCampusSessionJob implements ShouldQueue
                 Log::warning('Max retry attempts reached for session refresh', [
                     'session_token' => $this->sessionToken,
                 ]);
+
                 return;
             }
 

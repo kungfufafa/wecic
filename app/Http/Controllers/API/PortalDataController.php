@@ -15,7 +15,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
-class CampusDataController extends Controller
+class PortalDataController extends Controller
 {
     private ProfileExtractor $profileExtractor;
 

@@ -4,9 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use App\Exceptions\CampusAuthenticationException;
-use App\Exceptions\CampusConnectionException;
-use App\Jobs\RefreshCampusSessionJob;
+use App\Exceptions\PortalAuthenticationException;
+use App\Jobs\RefreshPortalSessionJob;
 use GuzzleHttp\Cookie\CookieJar;
 use GuzzleHttp\Cookie\SetCookie;
 use Illuminate\Contracts\Encryption\Encrypter;
@@ -14,13 +13,15 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
-class CampusSessionManager
+class PortalSessionManager
 {
-    private CampusAuthService $authService;
+    private PortalAuthService $authService;
+
     private Encrypter $encrypter;
+
     private array $sessionData = [];
 
-    public function __construct(CampusAuthService $authService, Encrypter $encrypter)
+    public function __construct(PortalAuthService $authService, Encrypter $encrypter)
     {
         $this->authService = $authService;
         $this->encrypter = $encrypter;
@@ -46,12 +47,12 @@ class CampusSessionManager
                 'cookies' => $loginResult['cookies'],
                 'login_time' => $loginResult['session_data']['login_time'],
                 'last_activity' => now()->toISOString(),
-                'expires_at' => now()->addSeconds(config('campus.session_refresh_interval', 1200))->toISOString(),
+                'expires_at' => now()->addSeconds(config('portal.session_refresh_interval', 1200))->toISOString(),
                 'is_active' => true,
             ];
 
             // Encrypt credentials for auto-relogin
-            if (config('campus.auto_relogin', true)) {
+            if (config('portal.auto_relogin', true)) {
                 $this->sessionData['encrypted_credentials'] = $this->encryptCredentials($username, $password);
             }
 
@@ -89,9 +90,9 @@ class CampusSessionManager
      */
     public function getSession(string $sessionToken): ?array
     {
-        $cachedSession = Cache::get(config('campus.session_prefix') . $sessionToken);
+        $cachedSession = Cache::get(config('portal.session_prefix').$sessionToken);
 
-        if (!$cachedSession) {
+        if (! $cachedSession) {
             return null;
         }
 
@@ -108,18 +109,19 @@ class CampusSessionManager
     {
         $session = $this->getSession($sessionToken);
 
-        if (!$session) {
+        if (! $session) {
             return false;
         }
 
         // Check if session is marked as inactive
-        if (!$session['is_active']) {
+        if (! $session['is_active']) {
             return false;
         }
 
         // Check if session has expired
         if (now()->isAfter($session['expires_at'])) {
             $this->deactivateSession($sessionToken);
+
             return false;
         }
 
@@ -138,13 +140,13 @@ class CampusSessionManager
     {
         $session = $this->getSession($sessionToken);
 
-        if (!$session) {
-            throw CampusAuthenticationException::sessionExpired();
+        if (! $session) {
+            throw PortalAuthenticationException::sessionExpired();
         }
 
         try {
             // If auto-relogin is enabled and credentials are available
-            if (config('campus.auto_relogin', true) && isset($session['encrypted_credentials'])) {
+            if (config('portal.auto_relogin', true) && isset($session['encrypted_credentials'])) {
                 return $this->performAutoRelogin($sessionToken, $session);
             }
 
@@ -158,7 +160,7 @@ class CampusSessionManager
             ]);
 
             $this->deactivateSession($sessionToken);
-            throw CampusAuthenticationException::sessionExpired();
+            throw PortalAuthenticationException::sessionExpired();
         }
     }
 
@@ -176,7 +178,7 @@ class CampusSessionManager
             }
 
             // Remove from cache
-            Cache::forget(config('campus.session_prefix') . $sessionToken);
+            Cache::forget(config('portal.session_prefix').$sessionToken);
 
             Log::info('Campus session destroyed', ['session_token' => $sessionToken]);
 
@@ -189,7 +191,8 @@ class CampusSessionManager
             ]);
 
             // Still remove from cache even if logout fails
-            Cache::forget(config('campus.session_prefix') . $sessionToken);
+            Cache::forget(config('portal.session_prefix').$sessionToken);
+
             return false;
         }
     }
@@ -201,7 +204,7 @@ class CampusSessionManager
     {
         $session = $this->getSession($sessionToken);
 
-        if (!$session || !isset($session['cookies'])) {
+        if (! $session || ! isset($session['cookies'])) {
             return null;
         }
 
@@ -213,8 +216,8 @@ class CampusSessionManager
      */
     private function storeSession(string $sessionToken, array $sessionData): void
     {
-        $cacheKey = config('campus.session_prefix') . $sessionToken;
-        $ttl = config('campus.session_refresh_interval', 1200) * 2; // Double the refresh interval
+        $cacheKey = config('portal.session_prefix').$sessionToken;
+        $ttl = config('portal.session_refresh_interval', 1200) * 2; // Double the refresh interval
 
         Cache::put($cacheKey, $sessionData, $ttl);
     }
@@ -224,7 +227,7 @@ class CampusSessionManager
      */
     private function updateLastActivity(string $sessionToken): void
     {
-        $cacheKey = config('campus.session_prefix') . $sessionToken;
+        $cacheKey = config('portal.session_prefix').$sessionToken;
         $session = Cache::get($cacheKey);
 
         if ($session) {
@@ -262,6 +265,7 @@ class CampusSessionManager
     {
         try {
             $decrypted = $this->encrypter->decrypt($encryptedCredentials);
+
             return json_decode($decrypted, true);
         } catch (\Exception $e) {
             throw new \RuntimeException('Failed to decrypt credentials');
@@ -273,10 +277,10 @@ class CampusSessionManager
      */
     private function recreateCookieJar(array $cookies): CookieJar
     {
-        $cookieJar = new CookieJar();
+        $cookieJar = new CookieJar;
 
         foreach ($cookies as $cookieData) {
-            $cookie = SetCookie::fromString($cookieData['Name'] . '=' . $cookieData['Value']);
+            $cookie = SetCookie::fromString($cookieData['Name'].'='.$cookieData['Value']);
             $cookie->setDomain($cookieData['Domain']);
             $cookie->setPath($cookieData['Path']);
             $cookie->setExpires($cookieData['Expires']);
@@ -294,9 +298,9 @@ class CampusSessionManager
      */
     private function scheduleSessionRefresh(string $sessionToken): void
     {
-        $delay = config('campus.session_refresh_interval', 1200) - 60; // 1 minute before expiry
+        $delay = config('portal.session_refresh_interval', 1200) - 60; // 1 minute before expiry
 
-        RefreshCampusSessionJob::dispatch($sessionToken)
+        RefreshPortalSessionJob::dispatch($sessionToken)
             ->delay(now()->addSeconds($delay));
     }
 
@@ -306,7 +310,7 @@ class CampusSessionManager
     private function shouldTestSessionLiveliness(array $session): bool
     {
         $lastActivity = now()->parse($session['last_activity']);
-        $testInterval = config('campus.session_refresh_interval', 1200) / 2; // Half the refresh interval
+        $testInterval = config('portal.session_refresh_interval', 1200) / 2; // Half the refresh interval
 
         return now()->diffInSeconds($lastActivity) > $testInterval;
     }
@@ -318,14 +322,14 @@ class CampusSessionManager
     {
         try {
             $cookieJar = $this->getSessionCookieJar($sessionToken);
-            if (!$cookieJar) {
+            if (! $cookieJar) {
                 return false;
             }
 
             $this->authService->setCookieJar($cookieJar);
 
             // Make a test request to dashboard
-            $response = $this->authService->getClient()->get(config('campus.dashboard_url'), [
+            $response = $this->authService->getClient()->get(config('portal.dashboard_url'), [
                 'cookies' => $cookieJar,
                 'timeout' => 10,
             ]);
@@ -335,6 +339,7 @@ class CampusSessionManager
             // Check if session has expired
             if ($this->authService->isSessionExpired($html)) {
                 $this->deactivateSession($sessionToken);
+
                 return false;
             }
 
@@ -345,6 +350,7 @@ class CampusSessionManager
                 'session_token' => $sessionToken,
                 'error' => $e->getMessage(),
             ]);
+
             return false;
         }
     }
@@ -384,7 +390,7 @@ class CampusSessionManager
     private function extendCurrentSession(string $sessionToken, array $session): array
     {
         // Update expiry time
-        $session['expires_at'] = now()->addSeconds(config('campus.session_refresh_interval', 1200))->toISOString();
+        $session['expires_at'] = now()->addSeconds(config('portal.session_refresh_interval', 1200))->toISOString();
         $session['last_activity'] = now()->toISOString();
 
         $this->storeSession($sessionToken, $session);
@@ -402,7 +408,7 @@ class CampusSessionManager
      */
     private function deactivateSession(string $sessionToken): void
     {
-        $cacheKey = config('campus.session_prefix') . $sessionToken;
+        $cacheKey = config('portal.session_prefix').$sessionToken;
         $session = Cache::get($cacheKey);
 
         if ($session) {
@@ -421,7 +427,7 @@ class CampusSessionManager
             $this->authService->setCookieJar($cookieJar);
 
             // Try to logout (this may not always be available or necessary)
-            $this->authService->getClient()->get(config('campus.login_url'), [
+            $this->authService->getClient()->get(config('portal.login_url'), [
                 'cookies' => $cookieJar,
                 'timeout' => 10,
             ]);
@@ -439,7 +445,7 @@ class CampusSessionManager
     public function getActiveSessions(): array
     {
         $sessions = [];
-        $prefix = config('campus.session_prefix');
+        $prefix = config('portal.session_prefix');
 
         // This is a simplified approach - in production, you might want to use
         // a more efficient method to track active sessions

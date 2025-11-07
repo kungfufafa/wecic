@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use App\Exceptions\CampusAuthenticationException;
-use App\Exceptions\CampusConnectionException;
-use App\Exceptions\CampusScrapingException;
+use App\Exceptions\PortalAuthenticationException;
+use App\Exceptions\PortalConnectionException;
+use App\Exceptions\PortalScrapingException;
 use GuzzleHttp\Client;
 use GuzzleHttp\Cookie\CookieJar;
 use GuzzleHttp\Exception\GuzzleException;
@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Symfony\Component\DomCrawler\Crawler;
 
-class CampusAuthService
+class PortalAuthService
 {
     private Client $client;
 
@@ -26,10 +26,10 @@ class CampusAuthService
     public function __construct()
     {
         $this->client = new Client([
-            RequestOptions::TIMEOUT => config('campus.request_timeout', 30),
+            RequestOptions::TIMEOUT => config('portal.request_timeout', 30),
             RequestOptions::CONNECT_TIMEOUT => 10,
             RequestOptions::HEADERS => [
-                'User-Agent' => config('campus.scraping.user_agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'),
+                'User-Agent' => config('portal.scraping.user_agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'),
                 'Accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
                 'Accept-Language' => 'en-US,en;q=0.9,id;q=0.8',
                 'Accept-Encoding' => 'gzip, deflate, br',
@@ -56,11 +56,11 @@ class CampusAuthService
     public function analyzeLoginForm(): array
     {
         try {
-            $response = $this->client->get(config('campus.login_url'));
+            $response = $this->client->get(config('portal.login_url'));
             $html = (string) $response->getBody();
 
             if (empty($html) || Str::contains($html, ['error', 'not found', '404'])) {
-                throw new CampusScrapingException('invalidHtmlStructure', 'login page');
+                throw new PortalScrapingException('invalidHtmlStructure', 'login page');
             }
 
             $crawler = new Crawler($html);
@@ -69,7 +69,7 @@ class CampusAuthService
             $forms = $crawler->filter('form');
 
             if ($forms->count() === 0) {
-                throw CampusScrapingException::elementNotFound('login form', 'login page');
+                throw PortalScrapingException::elementNotFound('login form', 'login page');
             }
 
             // Try to find form with loginact action first
@@ -105,9 +105,9 @@ class CampusAuthService
             if (! Str::startsWith($formAction, 'http')) {
                 // Handle relative URLs starting with ?
                 if (Str::startsWith($formAction, '?')) {
-                    $formAction = config('campus.login_url').$formAction;
+                    $formAction = config('portal.login_url').$formAction;
                 } else {
-                    $baseUrl = config('campus.base_url');
+                    $baseUrl = config('portal.base_url');
                     $formAction = rtrim($baseUrl, '/').'/'.ltrim($formAction, '/');
                 }
             }
@@ -144,9 +144,9 @@ class CampusAuthService
         } catch (GuzzleException $e) {
             Log::error('Failed to analyze login form', [
                 'error' => $e->getMessage(),
-                'url' => config('campus.login_url'),
+                'url' => config('portal.login_url'),
             ]);
-            throw CampusConnectionException::networkError(config('campus.login_url'), $e->getMessage());
+            throw PortalConnectionException::networkError(config('portal.login_url'), $e->getMessage());
         }
     }
 
@@ -188,8 +188,8 @@ class CampusAuthService
                 RequestOptions::FORM_PARAMS => $loginData,
                 RequestOptions::COOKIES => $this->cookieJar,
                 RequestOptions::HEADERS => [
-                    'Referer' => config('campus.login_url'),
-                    'Origin' => config('campus.base_url'),
+                    'Referer' => config('portal.login_url'),
+                    'Origin' => config('portal.base_url'),
                 ],
             ]);
 
@@ -200,18 +200,18 @@ class CampusAuthService
             $loginSuccess = $this->isLoginSuccessful($responseHtml, $redirectHistory);
 
             if (! $loginSuccess) {
-                throw CampusAuthenticationException::invalidCredentials();
+                throw PortalAuthenticationException::invalidCredentials();
             }
 
             // Get dashboard to confirm session
-            $dashboardResponse = $this->client->get(config('campus.dashboard_url'), [
+            $dashboardResponse = $this->client->get(config('portal.dashboard_url'), [
                 RequestOptions::COOKIES => $this->cookieJar,
             ]);
 
             $dashboardHtml = (string) $dashboardResponse->getBody();
 
             if ($this->isSessionExpired($dashboardHtml)) {
-                throw CampusAuthenticationException::sessionExpired();
+                throw PortalAuthenticationException::sessionExpired();
             }
 
             // Extract user info from dashboard
@@ -238,7 +238,7 @@ class CampusAuthService
                 'username' => $username,
                 'error' => $e->getMessage(),
             ]);
-            throw CampusConnectionException::networkError($this->loginFormData['action'], $e->getMessage());
+            throw PortalConnectionException::networkError($this->loginFormData['action'], $e->getMessage());
         }
     }
 
@@ -265,7 +265,7 @@ class CampusAuthService
                 try {
                     $fullRefreshUrl = $refreshUrl;
                     if (! Str::startsWith($refreshUrl, 'http')) {
-                        $baseUrl = config('campus.login_url'); // Use login_url as base
+                        $baseUrl = config('portal.login_url'); // Use login_url as base
                         // Handle URLs that start with ? (query parameters)
                         if (Str::startsWith($refreshUrl, '?')) {
                             $fullRefreshUrl = $baseUrl.$refreshUrl;

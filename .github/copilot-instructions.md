@@ -11,7 +11,7 @@
 - Testing relies on Laravel's suite: `composer run test` clears config cache then executes `php artisan test`; use this path so pre-test steps stay intact.
 
 ## Architectural Expectations
-- Session handling should revolve around a dedicated `CampusSessionManager` service that encapsulates login, cookie persistence (Redis/file), and auto-relogin logic described in `README.md`.
+- Session handling should revolve around a dedicated `PortalSessionManager` service that encapsulates login, cookie persistence (Redis/file), and auto-relogin logic described in `README.md`.
 - Scraping flows must lean on Guzzle + Symfony DomCrawler; isolate per-page parsing into extractor classes (e.g., `app/Services/Extractors/GradesExtractor.php`) that validate and normalize output before controllers expose it.
 - REST endpoints belong in `routes/api.php` with thin controllers delegating to services; response envelopes should follow the `status/message/data/meta` contract from the README.
 - Cache TTLs and background jobs (session refresh, prefetch) outlined in the README should be captured in queued jobs under `app/Jobs/` and scheduled via `app/Console/Kernel.php` when introduced.

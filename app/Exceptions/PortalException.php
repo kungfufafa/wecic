@@ -6,7 +6,7 @@ namespace App\Exceptions;
 
 use Exception;
 
-class CampusException extends Exception
+class PortalException extends Exception
 {
     protected ?array $context = null;
 

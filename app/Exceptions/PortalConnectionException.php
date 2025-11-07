@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Exceptions;
 
-class CampusConnectionException extends CampusException
+class PortalConnectionException extends PortalException
 {
     public static function connectionTimeout(string $url): self
     {

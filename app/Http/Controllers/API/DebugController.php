@@ -60,7 +60,7 @@ class DebugController extends Controller
             }
 
             $startTime = microtime(true);
-            $extractor = new DashboardExtractor(app(\App\Services\CampusSessionManager::class));
+            $extractor = new DashboardExtractor(app(\App\Services\PortalSessionManager::class));
             $data = $extractor->extractDashboardData($sessionToken);
             $endTime = microtime(true);
 
@@ -131,7 +131,7 @@ class DebugController extends Controller
             }
 
             $startTime = microtime(true);
-            $extractor = new ProfileExtractor(app(\App\Services\CampusSessionManager::class));
+            $extractor = new ProfileExtractor(app(\App\Services\PortalSessionManager::class));
             $data = $extractor->extractProfileData($sessionToken);
             $endTime = microtime(true);
 
@@ -200,7 +200,7 @@ class DebugController extends Controller
             }
 
             $startTime = microtime(true);
-            $extractor = new ClassesExtractor(app(\App\Services\CampusSessionManager::class));
+            $extractor = new ClassesExtractor(app(\App\Services\PortalSessionManager::class));
             $data = $extractor->extractClassesData($sessionToken);
             $endTime = microtime(true);
 
@@ -296,7 +296,7 @@ class DebugController extends Controller
             }
 
             $startTime = microtime(true);
-            $extractor = new ClassesExtractor(app(\App\Services\CampusSessionManager::class));
+            $extractor = new ClassesExtractor(app(\App\Services\PortalSessionManager::class));
             $data = $extractor->extractClassDetail($sessionToken, $params);
             $endTime = microtime(true);
 
@@ -361,7 +361,7 @@ class DebugController extends Controller
 
         if ($sessionToken) {
             try {
-                $sessionManager = app(\App\Services\CampusSessionManager::class);
+                $sessionManager = app(\App\Services\PortalSessionManager::class);
                 $debugInfo['campus_session_valid'] = $sessionManager->validateSession($sessionToken);
             } catch (\Exception $e) {
                 $debugInfo['validation_error'] = $e->getMessage();

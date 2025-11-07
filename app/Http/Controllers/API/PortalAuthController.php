@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
-use App\Services\CampusSessionManager;
+use App\Services\PortalSessionManager;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -16,11 +16,11 @@ use Illuminate\Support\Facades\Validator;
  *
  * API endpoints for managing campus system authentication
  */
-class CampusAuthController extends Controller
+class PortalAuthController extends Controller
 {
-    private CampusSessionManager $sessionManager;
+    private PortalSessionManager $sessionManager;
 
-    public function __construct(CampusSessionManager $sessionManager)
+    public function __construct(PortalSessionManager $sessionManager)
     {
         $this->sessionManager = $sessionManager;
     }

@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace App\Services\Extractors;
 
-use App\Services\CampusScrapingService;
-use App\Services\CampusSessionManager;
+use App\Services\PortalScrapingService;
+use App\Services\PortalSessionManager;
 use Exception;
 use Symfony\Component\DomCrawler\Crawler;
 
-class DashboardExtractor extends CampusScrapingService
+class DashboardExtractor extends PortalScrapingService
 {
-    public function __construct(CampusSessionManager $sessionManager)
+    public function __construct(PortalSessionManager $sessionManager)
     {
         parent::__construct($sessionManager);
     }

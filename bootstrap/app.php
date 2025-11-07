@@ -15,7 +15,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         // Register middleware aliases
         $middleware->alias([
-            'campus.session' => \App\Http\Middleware\CampusSessionMiddleware::class,
+            'portal.session' => \App\Http\Middleware\PortalSessionMiddleware::class,
         ]);
 
         // Apply CSRF protection to web routes only

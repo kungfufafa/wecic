@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Services\Extractors;
 
-use App\Exceptions\CampusScrapingException;
-use App\Services\CampusScrapingService;
+use App\Exceptions\PortalScrapingException;
+use App\Services\PortalScrapingService;
 use Symfony\Component\DomCrawler\Crawler;
 
-class SipandaiClassesExtractor extends CampusScrapingService
+class SipandaiClassesExtractor extends PortalScrapingService
 {
     /**
      * Extract classes data from SIPANDAI dashboard (portal/sipandai/?mod=sipandai&act=dashboardmahasiswa)
@@ -30,7 +30,7 @@ class SipandaiClassesExtractor extends CampusScrapingService
             }
 
             // Get classes HTML from SIPANDAI dashboard
-            $sipandaiUrl = config('campus.sipandai_dashboard_url', 'https://my.cic.ac.id/portal/sipandai/?mod=sipandai&act=dashboardmahasiswa');
+            $sipandaiUrl = config('portal.sipandai_dashboard_url', 'https://my.cic.ac.id/portal/sipandai/?mod=sipandai&act=dashboardmahasiswa');
             $html = $this->get($sipandaiUrl);
             $crawler = $this->createCrawler($html);
 
@@ -53,7 +53,7 @@ class SipandaiClassesExtractor extends CampusScrapingService
 
         } catch (\Exception $e) {
             $this->logScrapingError('Extracting SIPANDAI classes data', $e, ['session_token' => $sessionToken]);
-            throw new CampusScrapingException('dataExtractionFailed', 'sipandai classes', $e->getMessage());
+            throw new PortalScrapingException('dataExtractionFailed', 'sipandai classes', $e->getMessage());
         }
     }
 

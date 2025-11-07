@@ -2,10 +2,10 @@
 
 namespace App\Console\Commands;
 
-use App\Services\CampusAuthService;
-use App\Services\CampusScrapingService;
-use App\Services\CampusSessionManager;
 use App\Services\Extractors\ClassesExtractor;
+use App\Services\PortalAuthService;
+use App\Services\PortalScrapingService;
+use App\Services\PortalSessionManager;
 use Illuminate\Console\Command;
 
 class ScrapeTestCommand extends Command
@@ -33,9 +33,9 @@ class ScrapeTestCommand extends Command
         $this->newLine();
 
         // Initialize services
-        $sessionManager = app(CampusSessionManager::class);
-        $scrapingService = new CampusScrapingService($sessionManager);
-        $authService = new CampusAuthService($scrapingService);
+        $sessionManager = app(PortalSessionManager::class);
+        $scrapingService = new PortalScrapingService($sessionManager);
+        $authService = new PortalAuthService($scrapingService);
         $classesExtractor = new ClassesExtractor($scrapingService);
 
         // Test URLs from user

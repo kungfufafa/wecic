@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Exceptions;
 
-class CampusScrapingException extends CampusException
+class PortalScrapingException extends PortalException
 {
     public static function elementNotFound(string $selector, string $page): self
     {

@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-use App\Http\Controllers\API\CampusDataController;
 use App\Http\Controllers\API\DebugController;
+use App\Http\Controllers\API\PortalDataController;
 use App\Http\Controllers\WebLoginController;
 use Illuminate\Support\Facades\Route;
 
@@ -13,18 +13,18 @@ Route::prefix('campus')->group(function () {
 
     // Campus data routes (with authentication middleware)
     Route::middleware(['web'])->group(function () {
-        Route::get('dashboard', [CampusDataController::class, 'dashboard']);
-        Route::get('profile', [CampusDataController::class, 'profile']);
-        Route::get('classes', [CampusDataController::class, 'classes']);
-        Route::get('class-detail', [CampusDataController::class, 'classDetail']);
-        Route::get('class-detail-by-id', [CampusDataController::class, 'classDetailById']);
-        Route::get('meeting-detail', [CampusDataController::class, 'meetingDetail']);
-        Route::get('meeting-detail-by-id', [CampusDataController::class, 'meetingDetailById']);
+        Route::get('dashboard', [PortalDataController::class, 'dashboard']);
+        Route::get('profile', [PortalDataController::class, 'profile']);
+        Route::get('classes', [PortalDataController::class, 'classes']);
+        Route::get('class-detail', [PortalDataController::class, 'classDetail']);
+        Route::get('class-detail-by-id', [PortalDataController::class, 'classDetailById']);
+        Route::get('meeting-detail', [PortalDataController::class, 'meetingDetail']);
+        Route::get('meeting-detail-by-id', [PortalDataController::class, 'meetingDetailById']);
 
         // New endpoints for different class data sources
-        Route::get('sipandai-classes', [CampusDataController::class, 'sipandaiClasses']);
-        Route::get('student-course', [CampusDataController::class, 'studentCourse']);
-        Route::get('merged-classes', [CampusDataController::class, 'mergedClasses']);
+        Route::get('sipandai-classes', [PortalDataController::class, 'sipandaiClasses']);
+        Route::get('student-course', [PortalDataController::class, 'studentCourse']);
+        Route::get('merged-classes', [PortalDataController::class, 'mergedClasses']);
     });
 });
 

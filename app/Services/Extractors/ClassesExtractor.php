@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Services\Extractors;
 
-use App\Exceptions\CampusScrapingException;
-use App\Services\CampusScrapingService;
+use App\Exceptions\PortalScrapingException;
+use App\Services\PortalScrapingService;
 use Symfony\Component\DomCrawler\Crawler;
 
-class ClassesExtractor extends CampusScrapingService
+class ClassesExtractor extends PortalScrapingService
 {
     /**
      * Extract student classes data
@@ -30,7 +30,7 @@ class ClassesExtractor extends CampusScrapingService
             }
 
             // Get classes HTML from SIPANDAI
-            $classesUrl = config('campus.classes_url');
+            $classesUrl = config('portal.classes_url');
             $html = $this->get($classesUrl);
             $crawler = $this->createCrawler($html);
 
@@ -54,7 +54,7 @@ class ClassesExtractor extends CampusScrapingService
 
         } catch (\Exception $e) {
             $this->logScrapingError('Extracting classes data', $e, ['session_token' => $sessionToken]);
-            throw new CampusScrapingException('dataExtractionFailed', 'classes', $e->getMessage());
+            throw new PortalScrapingException('dataExtractionFailed', 'classes', $e->getMessage());
         }
     }
 
@@ -73,7 +73,7 @@ class ClassesExtractor extends CampusScrapingService
             }
 
             // Build class detail URL with parameters for SIPANDAI
-            $classDetailUrl = config('campus.class_detail_url');
+            $classDetailUrl = config('portal.class_detail_url');
 
             // Add query parameters
             $queryString = '';
@@ -121,7 +121,7 @@ class ClassesExtractor extends CampusScrapingService
 
         } catch (\Exception $e) {
             $this->logScrapingError('Extracting class detail', $e, ['session_token' => $sessionToken, 'params' => $params]);
-            throw new CampusScrapingException('dataExtractionFailed', 'class detail', $e->getMessage());
+            throw new PortalScrapingException('dataExtractionFailed', 'class detail', $e->getMessage());
         }
     }
 
@@ -168,7 +168,7 @@ class ClassesExtractor extends CampusScrapingService
 
         } catch (\Exception $e) {
             $this->logScrapingError('Extracting meeting detail', $e, ['session_token' => $sessionToken, 'params' => $params]);
-            throw new CampusScrapingException('dataExtractionFailed', 'meeting detail', $e->getMessage());
+            throw new PortalScrapingException('dataExtractionFailed', 'meeting detail', $e->getMessage());
         }
     }
 
@@ -875,7 +875,7 @@ class ClassesExtractor extends CampusScrapingService
         try {
             $this->setSession($sessionToken);
 
-            $classesUrl = config('campus.classes_url');
+            $classesUrl = config('portal.classes_url');
             $html = $this->get($classesUrl);
             $crawler = $this->createCrawler($html);
 
@@ -888,7 +888,7 @@ class ClassesExtractor extends CampusScrapingService
 
         } catch (\Exception $e) {
             $this->logScrapingError('Getting classes overview', $e, ['session_token' => $sessionToken]);
-            throw new CampusScrapingException('dataExtractionFailed', 'classes overview', $e->getMessage());
+            throw new PortalScrapingException('dataExtractionFailed', 'classes overview', $e->getMessage());
         }
     }
 
