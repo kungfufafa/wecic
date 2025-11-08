@@ -3,100 +3,76 @@
 @section('title', 'Dashboard - Portal CIC')
 
 @section('content')
-<div class="min-h-screen bg-gray-50 pb-20">
-    <!-- Header -->
-    <header class="bg-white border-b border-gray-200 px-4 py-4">
-        <div class="flex items-center justify-between">
-            <div>
-                <h1 class="text-lg font-semibold text-gray-900">Dashboard</h1>
-                <p class="text-sm text-gray-500">Portal Mahasiswa CIC</p>
-            </div>
-            <div class="flex items-center space-x-3">
-                <div id="sessionStatus" class="flex items-center space-x-2 px-3 py-1.5 bg-green-50 text-green-700 text-xs rounded-full">
-                    <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                    <span>Online</span>
-                </div>
-                <form action="/logout" method="POST" class="inline">
-                    @csrf
-                    <button type="submit" class="px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 rounded-lg">
-                        Logout
-                    </button>
-                </form>
-            </div>
-        </div>
-    </header>
-
-    <!-- Main Content -->
-    <main class="p-4">
+<x-page-shell title="Dashboard" subtitle="Portal Mahasiswa CIC" active="dashboard">
                 <!-- Welcome Card -->
-                <div class="bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg p-6 text-white mb-6">
-                    <h2 class="text-xl font-semibold mb-2">Selamat Datang!</h2>
+                <div class="bg-blue-600 rounded-xl p-6 text-white mb-6 shadow-sm hover:shadow-md transition-shadow duration-300 fade-in">
+                    <h2 class="text-2xl font-bold mb-2">Selamat Datang!</h2>
                     <p id="welcomeMessage" class="text-blue-100 mb-4">Sedang memuat informasi...</p>
                     <div class="flex flex-wrap gap-4 text-sm">
                         <div class="flex items-center space-x-2">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2"/>
                             </svg>
-                            <span id="studentId">Loading...</span>
+                            <span id="studentId" class="font-medium">Loading...</span>
                         </div>
                     </div>
                 </div>
 
                 <!-- Stats Grid -->
-                <div class="grid grid-cols-2 gap-4 mb-6">
-                    <div class="bg-white rounded-lg p-4 border border-gray-200">
+                <div class="grid grid-cols-2 gap-4 mb-6 fade-in">
+                    <div class="bg-white rounded-xl p-4 border border-gray-200 hover:shadow-md transition-shadow duration-200">
                         <div class="flex items-center justify-between mb-2">
-                            <div class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                                <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                                <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
                                 </svg>
                             </div>
                         </div>
-                        <div class="text-2xl font-bold text-gray-900" id="totalCourses">-</div>
-                        <div class="text-xs text-gray-500">Mata Kuliah</div>
+                        <div class="text-3xl font-bold text-gray-900" id="totalCourses">-</div>
+                        <div class="text-sm text-gray-600 font-medium">Mata Kuliah</div>
                     </div>
 
-                    <div class="bg-white rounded-lg p-4 border border-gray-200">
+                    <div class="bg-white rounded-xl p-4 border border-gray-200 hover:shadow-md transition-shadow duration-200">
                         <div class="flex items-center justify-between mb-2">
-                            <div class="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
-                                <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                                <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
                                 </svg>
                             </div>
                         </div>
-                        <div class="text-2xl font-bold text-gray-900" id="gpa">-</div>
-                        <div class="text-xs text-gray-500">IPK</div>
+                        <div class="text-3xl font-bold text-gray-900" id="gpa">-</div>
+                        <div class="text-sm text-gray-600 font-medium">IPK</div>
                     </div>
 
-                    <div class="bg-white rounded-lg p-4 border border-gray-200">
+                    <div class="bg-white rounded-xl p-4 border border-gray-200 hover:shadow-md transition-shadow duration-200">
                         <div class="flex items-center justify-between mb-2">
-                            <div class="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
-                                <svg class="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <div class="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                                <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
                                 </svg>
                             </div>
                         </div>
-                        <div class="text-2xl font-bold text-gray-900" id="totalCredits">-</div>
-                        <div class="text-xs text-gray-500">Total SKS</div>
+                        <div class="text-3xl font-bold text-gray-900" id="totalCredits">-</div>
+                        <div class="text-sm text-gray-600 font-medium">Total SKS</div>
                     </div>
 
-                    <div class="bg-white rounded-lg p-4 border border-gray-200">
+                    <div class="bg-white rounded-xl p-4 border border-gray-200 hover:shadow-md transition-shadow duration-200">
                         <div class="flex items-center justify-between mb-2">
-                            <div class="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
-                                <svg class="w-4 h-4 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <div class="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
+                                <svg class="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                                 </svg>
                             </div>
                         </div>
-                        <div class="text-2xl font-bold text-gray-900" id="outstandingPayments">-</div>
-                        <div class="text-xs text-gray-500">Tagihan</div>
+                        <div class="text-3xl font-bold text-gray-900" id="outstandingPayments">-</div>
+                        <div class="text-sm text-gray-600 font-medium">Tagihan</div>
                     </div>
                 </div>
 
                 <!-- Status Card -->
-                <div class="bg-white rounded-lg border border-gray-200">
+                <div class="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200 fade-in">
                     <div class="p-4 border-b border-gray-200">
-                        <h3 class="text-sm font-semibold text-gray-900">Status Portal</h3>
+                        <h3 class="text-sm font-bold text-gray-900">Status Portal</h3>
                     </div>
                     <div class="p-4">
                         <div id="recentActivity" class="space-y-3 text-sm">
@@ -104,52 +80,14 @@
                                 <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                                 </svg>
-                                <span class="text-gray-500">Memuat data...</span>
+                                <span class="text-gray-500 font-medium">Memuat data...</span>
                             </div>
                         </div>
                     </div>
                 </div>
 
             </div>
-    </main>
-
-    <!-- Bottom Navigation -->
-    <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-2 z-50">
-        <div class="grid grid-cols-3 gap-1">
-            <!-- Dashboard -->
-            <a href="/dashboard" class="flex flex-col items-center py-2 px-3 text-blue-600">
-                <svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
-                </svg>
-                <span class="text-xs font-medium">Beranda</span>
-            </a>
-
-            <!-- Classes -->
-            <a href="/classes" class="flex flex-col items-center py-2 px-3 text-gray-500 hover:text-gray-700">
-                <svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
-                </svg>
-                <span class="text-xs font-medium">Kelas</span>
-            </a>
-
-            <!-- Profile -->
-            <a href="/profile" class="flex flex-col items-center py-2 px-3 text-gray-500 hover:text-gray-700">
-                <svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
-                </svg>
-                <span class="text-xs font-medium">Profile</span>
-            </a>
-        </div>
-    </nav>
-</div>
-
-<!-- Loading Overlay -->
-<div id="loadingOverlay" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-    <div class="bg-white rounded-lg p-6 flex flex-col items-center space-y-3">
-        <div class="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-        <span class="text-sm text-gray-700">Memuat data...</span>
-    </div>
-</div>
+</x-page-shell>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
@@ -159,8 +97,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
 async function loadDashboardData() {
     try {
-        showLoading(true);
-
         const response = await fetch('/api/campus/dashboard', {
             headers: {
                 'Accept': 'application/json'
@@ -176,8 +112,6 @@ async function loadDashboardData() {
     } catch (error) {
         console.error('Dashboard error:', error);
         showError('Terjadi kesalahan saat memuat data');
-    } finally {
-        showLoading(false);
     }
 }
 
@@ -237,17 +171,6 @@ function updateSessionStatus(isActive) {
         } else {
             sessionStatus.className = 'flex items-center space-x-2 px-3 py-1.5 bg-red-50 text-red-700 text-xs rounded-full';
             sessionStatus.innerHTML = '<div class="w-2 h-2 bg-red-500 rounded-full"></div><span>Offline</span>';
-        }
-    }
-}
-
-function showLoading(show) {
-    const loadingOverlay = document.getElementById('loadingOverlay');
-    if (loadingOverlay) {
-        if (show) {
-            loadingOverlay.classList.remove('hidden');
-        } else {
-            loadingOverlay.classList.add('hidden');
         }
     }
 }
