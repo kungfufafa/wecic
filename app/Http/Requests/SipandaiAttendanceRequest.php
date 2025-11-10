@@ -88,4 +88,32 @@ class SipandaiAttendanceRequest extends FormRequest
             $laravelRequest->request->set('form_values', []);
         }
     }
+
+    /**
+     * Describe body parameters for API documentation.
+     */
+    public function bodyParameters(): array
+    {
+        return [
+            'course_id' => [
+                'description' => 'Ambil dari parameter `courseid` pada URL absensi.',
+                'example' => 8810,
+            ],
+            'discussion_id' => [
+                'description' => 'Ambil dari parameter `modulesid` / `id` pada URL absensi.',
+                'example' => 30216,
+            ],
+            'meeting_number' => [
+                'description' => 'Opsional; isi dengan nilai `pertemuan` jika halaman absensi memintanya.',
+                'example' => 6,
+            ],
+            'form_values' => [
+                'description' => 'Key-value override untuk field tambahan (misal `kode`, `cmd`).',
+                'example' => [
+                    'kode' => 'd6a53600',
+                    'cmd' => 'Simpan',
+                ],
+            ],
+        ];
+    }
 }

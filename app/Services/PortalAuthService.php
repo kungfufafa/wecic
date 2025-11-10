@@ -55,8 +55,10 @@ class PortalAuthService
      */
     public function analyzeLoginForm(): array
     {
+        $loginPageUrl = PortalEndpointRegistry::url('login_page');
+
         try {
-            $response = $this->client->get(config('portal.login_url'));
+            $response = $this->client->get($loginPageUrl);
             $html = (string) $response->getBody();
 
             if (empty($html) || Str::contains($html, ['error', 'not found', '404'])) {
@@ -105,7 +107,7 @@ class PortalAuthService
             if (! Str::startsWith($formAction, 'http')) {
                 // Handle relative URLs starting with ?
                 if (Str::startsWith($formAction, '?')) {
-                    $formAction = config('portal.login_url').$formAction;
+                    $formAction = $loginPageUrl.$formAction;
                 } else {
                     $baseUrl = config('portal.base_url');
                     $formAction = rtrim($baseUrl, '/').'/'.ltrim($formAction, '/');
@@ -144,9 +146,9 @@ class PortalAuthService
         } catch (GuzzleException $e) {
             Log::error('Failed to analyze login form', [
                 'error' => $e->getMessage(),
-                'url' => config('portal.login_url'),
+                'url' => $loginPageUrl,
             ]);
-            throw PortalConnectionException::networkError(config('portal.login_url'), $e->getMessage());
+            throw PortalConnectionException::networkError($loginPageUrl, $e->getMessage());
         }
     }
 
@@ -160,6 +162,7 @@ class PortalAuthService
         }
 
         $this->cookieJar = new CookieJar;
+        $loginPageUrl = PortalEndpointRegistry::url('login_page');
 
         try {
             // Prepare login data - map to CIC-specific field names
@@ -188,7 +191,7 @@ class PortalAuthService
                 RequestOptions::FORM_PARAMS => $loginData,
                 RequestOptions::COOKIES => $this->cookieJar,
                 RequestOptions::HEADERS => [
-                    'Referer' => config('portal.login_url'),
+                    'Referer' => $loginPageUrl,
                     'Origin' => config('portal.base_url'),
                 ],
             ]);
@@ -204,7 +207,8 @@ class PortalAuthService
             }
 
             // Get dashboard to confirm session
-            $dashboardResponse = $this->client->get(config('portal.dashboard_url'), [
+            $dashboardUrl = PortalEndpointRegistry::url('dashboard');
+            $dashboardResponse = $this->client->get($dashboardUrl, [
                 RequestOptions::COOKIES => $this->cookieJar,
             ]);
 
@@ -265,7 +269,7 @@ class PortalAuthService
                 try {
                     $fullRefreshUrl = $refreshUrl;
                     if (! Str::startsWith($refreshUrl, 'http')) {
-                        $baseUrl = config('portal.login_url'); // Use login_url as base
+                        $baseUrl = PortalEndpointRegistry::url('login_page'); // Use login page as base
                         // Handle URLs that start with ? (query parameters)
                         if (Str::startsWith($refreshUrl, '?')) {
                             $fullRefreshUrl = $baseUrl.$refreshUrl;

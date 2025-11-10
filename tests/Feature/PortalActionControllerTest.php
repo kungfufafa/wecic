@@ -102,6 +102,40 @@ class PortalActionControllerTest extends TestCase
             ]);
     }
 
+    public function test_delete_assignment_requires_session(): void
+    {
+        $response = $this->deleteJson('/api/campus/assignments/submission', [
+            'submission_id' => 126663,
+            'discussion_id' => 30095,
+            'meeting_number' => 6,
+        ]);
+
+        $response->assertStatus(401)
+            ->assertJson([
+                'status' => 'error',
+            ]);
+    }
+
+    public function test_delete_assignment_success(): void
+    {
+        $this->mockServiceExpectingDeleteAssignment('token-del');
+
+        $response = $this->withSession(['campus_session_token' => 'token-del'])
+            ->deleteJson('/api/campus/assignments/submission', [
+                'submission_id' => 126663,
+                'discussion_id' => 30095,
+                'meeting_number' => 6,
+            ]);
+
+        $response->assertStatus(200)
+            ->assertJson([
+                'status' => 'success',
+                'meta' => [
+                    'source' => 'sipandai_assignment_delete',
+                ],
+            ]);
+    }
+
     private function mockServiceExpectingSubmitAssignment(string $token, UploadedFile $expectedFile): void
     {
         $this->instance(
@@ -148,6 +182,30 @@ class PortalActionControllerTest extends TestCase
                         'message' => 'Attendance recorded',
                         'data' => [
                             'alerts' => ['Hadir'],
+                        ],
+                    ]);
+            })
+        );
+    }
+
+    private function mockServiceExpectingDeleteAssignment(string $token): void
+    {
+        $this->instance(
+            SipandaiSubmissionService::class,
+            Mockery::mock(SipandaiSubmissionService::class, function (MockInterface $mock) use ($token): void {
+                $mock->shouldReceive('deleteAssignment')
+                    ->once()
+                    ->withArgs(function ($sessionToken, $submissionId, $discussionId, $meetingNumber) use ($token) {
+                        return $sessionToken === $token
+                            && $submissionId === 126663
+                            && $discussionId === 30095
+                            && $meetingNumber === 6;
+                    })
+                    ->andReturn([
+                        'success' => true,
+                        'message' => 'Assignment deleted',
+                        'data' => [
+                            'alerts' => ['Deleted'],
                         ],
                     ]);
             })

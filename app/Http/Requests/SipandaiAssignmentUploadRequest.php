@@ -115,4 +115,36 @@ class SipandaiAssignmentUploadRequest extends FormRequest
             $laravelRequest->request->set('form_values', []);
         }
     }
+
+    /**
+     * Describe body parameters for API documentation.
+     *
+     * @return array<string, array<string, mixed>>
+     */
+    public function bodyParameters(): array
+    {
+        return [
+            'course_id' => [
+                'description' => 'Ambil dari query `courses_id` pada URL upload tugas SIPANDAI.',
+                'example' => 9000,
+            ],
+            'discussion_id' => [
+                'description' => 'Ambil dari parameter `id`/`discussion_id` pada URL upload tugas.',
+                'example' => 30095,
+            ],
+            'meeting_number' => [
+                'description' => 'Ambil dari parameter `pertemuan` pada URL upload.',
+                'example' => 6,
+            ],
+            'attachment' => [
+                'description' => 'File PDF tugas mahasiswa (field `data[tugas]`).',
+            ],
+            'form_values' => [
+                'description' => 'Key-value override tambahan (misal `cmd`, `keterangan`).',
+                'example' => [
+                    'cmd' => 'Upload',
+                ],
+            ],
+        ];
+    }
 }

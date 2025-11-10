@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Extractors;
 
 use App\Exceptions\PortalScrapingException;
+use App\Services\PortalEndpointRegistry;
 use App\Services\PortalScrapingService;
 use Symfony\Component\DomCrawler\Crawler;
 
@@ -30,7 +31,7 @@ class SipandaiClassesExtractor extends PortalScrapingService
             }
 
             // Get classes HTML from SIPANDAI dashboard
-            $sipandaiUrl = config('portal.sipandai_dashboard_url', 'https://my.cic.ac.id/portal/sipandai/?mod=sipandai&act=dashboardmahasiswa');
+            $sipandaiUrl = PortalEndpointRegistry::url('sipandai_dashboard');
             $html = $this->get($sipandaiUrl);
             $crawler = $this->createCrawler($html);
 

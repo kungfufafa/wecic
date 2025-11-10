@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Extractors;
 
 use App\Exceptions\PortalScrapingException;
+use App\Services\PortalEndpointRegistry;
 use App\Services\PortalScrapingService;
 use Symfony\Component\DomCrawler\Crawler;
 
@@ -30,7 +31,7 @@ class ClassesExtractor extends PortalScrapingService
             }
 
             // Get classes HTML from SIPANDAI
-            $classesUrl = config('portal.classes_url');
+            $classesUrl = PortalEndpointRegistry::url('sipandai_dashboard');
             $html = $this->get($classesUrl);
             $crawler = $this->createCrawler($html);
 
@@ -72,27 +73,13 @@ class ClassesExtractor extends PortalScrapingService
                 return $this->extractMeetingDetail($sessionToken, $params);
             }
 
-            // Build class detail URL with parameters for SIPANDAI
-            $classDetailUrl = config('portal.class_detail_url');
+            $detailParams = array_filter([
+                'id' => $params['id'] ?? ($params['class_id'] ?? null),
+                'dosen_id' => $params['dosen_id'] ?? null,
+                'course_id' => $params['course_id'] ?? null,
+            ], static fn ($value) => $value !== null && $value !== '');
 
-            // Add query parameters
-            $queryString = '';
-            if (! empty($params['id'])) {
-                $queryString .= '&id='.$params['id'];
-            }
-            if (! empty($params['dosen_id'])) {
-                $queryString .= '&dosen_id='.$params['dosen_id'];
-            }
-            if (! empty($params['course_id'])) {
-                $queryString .= '&course_id='.$params['course_id'];
-            }
-
-            // If no specific parameters, use the ones from classes list
-            if (empty($queryString) && ! empty($params['class_id'])) {
-                $queryString = '&id='.$params['class_id'];
-            }
-
-            $fullUrl = $classDetailUrl.$queryString;
+            $fullUrl = PortalEndpointRegistry::url('course_materials', $detailParams);
 
             // Get class detail HTML
             $html = $this->get($fullUrl);
@@ -134,10 +121,10 @@ class ClassesExtractor extends PortalScrapingService
             $this->setSession($sessionToken);
             $this->logScraping('Extracting meeting detail', ['session_token' => $sessionToken, 'params' => $params]);
 
-            // Build meeting detail URL
-            $meetingUrl = 'https://my.cic.ac.id/portal/sipandai/';
-            $queryString = '?mod=sipandai&act=discuss&id='.$params['meeting_id'].'&courses_id='.$params['courses_id'];
-            $fullUrl = $meetingUrl.$queryString;
+            $fullUrl = PortalEndpointRegistry::url('discussion', array_filter([
+                'id' => $params['meeting_id'] ?? null,
+                'courses_id' => $params['courses_id'] ?? null,
+            ], static fn ($value) => $value !== null && $value !== ''));
 
             // Get meeting detail HTML
             $html = $this->get($fullUrl);
@@ -875,7 +862,7 @@ class ClassesExtractor extends PortalScrapingService
         try {
             $this->setSession($sessionToken);
 
-            $classesUrl = config('portal.classes_url');
+            $classesUrl = PortalEndpointRegistry::url('sipandai_dashboard');
             $html = $this->get($classesUrl);
             $crawler = $this->createCrawler($html);
 

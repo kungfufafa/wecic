@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Extractors;
 
 use App\Exceptions\PortalScrapingException;
+use App\Services\PortalEndpointRegistry;
 use App\Services\PortalScrapingService;
 use Symfony\Component\DomCrawler\Crawler;
 
@@ -30,7 +31,7 @@ class StudentCourseExtractor extends PortalScrapingService
             }
 
             // Get classes HTML from student course endpoint
-            $studentCourseUrl = config('portal.student_course_url', 'https://my.cic.ac.id/portal/mahasiswa/?mod=student&act=course');
+            $studentCourseUrl = PortalEndpointRegistry::url('student_course');
             $html = $this->get($studentCourseUrl);
             $crawler = $this->createCrawler($html);
 

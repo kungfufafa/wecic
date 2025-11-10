@@ -329,7 +329,8 @@ class PortalSessionManager
             $this->authService->setCookieJar($cookieJar);
 
             // Make a test request to dashboard
-            $response = $this->authService->getClient()->get(config('portal.dashboard_url'), [
+            $dashboardUrl = PortalEndpointRegistry::url('dashboard');
+            $response = $this->authService->getClient()->get($dashboardUrl, [
                 'cookies' => $cookieJar,
                 'timeout' => 10,
             ]);
@@ -427,7 +428,7 @@ class PortalSessionManager
             $this->authService->setCookieJar($cookieJar);
 
             // Try to logout (this may not always be available or necessary)
-            $this->authService->getClient()->get(config('portal.login_url'), [
+            $this->authService->getClient()->get(PortalEndpointRegistry::url('login_page'), [
                 'cookies' => $cookieJar,
                 'timeout' => 10,
             ]);

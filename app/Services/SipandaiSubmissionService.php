@@ -137,6 +137,34 @@ class SipandaiSubmissionService extends PortalScrapingService
     }
 
     /**
+     * Delete uploaded assignment entry.
+     */
+    public function deleteAssignment(
+        string $sessionToken,
+        int $submissionId,
+        int $discussionId,
+        int $meetingNumber
+    ): array {
+        $this->setSession($sessionToken);
+
+        $targetUrl = $this->buildAssignmentDeleteUrl($submissionId, $discussionId, $meetingNumber);
+        $this->logScraping('Deleting SIPANDAI assignment submission', [
+            'session_token' => $sessionToken,
+            'submission_id' => $submissionId,
+            'discussion_id' => $discussionId,
+            'meeting_number' => $meetingNumber,
+        ]);
+
+        $response = $this->dispatchRequest('GET', $targetUrl, [], $targetUrl);
+
+        return $this->buildResultPayload((string) $response->getBody(), $targetUrl, [
+            'submission_id' => $submissionId,
+            'discussion_id' => $discussionId,
+            'meeting_number' => $meetingNumber,
+        ]);
+    }
+
+    /**
      * Fetch assignment upload form and return crawler instance.
      */
     private function resolveFormForAssignment(string $targetUrl): Crawler
@@ -164,17 +192,11 @@ class SipandaiSubmissionService extends PortalScrapingService
      */
     private function buildAssignmentUrl(int $courseId, int $discussionId, int $meetingNumber): string
     {
-        $baseUrl = config('portal.sipandai_assignment_url');
-
-        $query = http_build_query([
-            'mod' => 'sipandai',
-            'act' => 'send',
+        return PortalEndpointRegistry::url('assignment_form', [
             'courses_id' => $courseId,
             'id' => $discussionId,
             'pertemuan' => $meetingNumber,
-        ], '', '&', PHP_QUERY_RFC3986);
-
-        return $this->appendQuery($baseUrl, $query, true);
+        ]);
     }
 
     /**
@@ -182,11 +204,7 @@ class SipandaiSubmissionService extends PortalScrapingService
      */
     private function buildAttendanceUrl(int $courseId, int $discussionId, ?int $meetingNumber = null): string
     {
-        $baseUrl = config('portal.sipandai_attendance_url');
-
         $params = [
-            'mod' => 'sipandai',
-            'act' => 'discuss',
             'course_id' => $courseId,
             'id' => $discussionId,
         ];
@@ -195,9 +213,16 @@ class SipandaiSubmissionService extends PortalScrapingService
             $params['pertemuan'] = $meetingNumber;
         }
 
-        $query = http_build_query($params, '', '&', PHP_QUERY_RFC3986);
+        return PortalEndpointRegistry::url('qr_attendance_page', $params);
+    }
 
-        return $this->appendQuery($baseUrl, $query, true);
+    private function buildAssignmentDeleteUrl(int $submissionId, int $discussionId, int $meetingNumber): string
+    {
+        return PortalEndpointRegistry::url('assignment_delete', [
+            'id' => $submissionId,
+            'idx' => $discussionId,
+            'pertemuan' => $meetingNumber,
+        ]);
     }
 
     /**

@@ -118,18 +118,15 @@ Semua route berikut berada di `routes/api.php` (prefiks `/api/campus` + middlewa
 | `POST` | `/api/campus/assignments/upload` | `API\PortalActionController@uploadAssignment` | Upload tugas SIPANDAI dengan pengambilan form dinamis dan unggah file multipart. |
 | `POST` | `/api/campus/attendance/mark` | `API\PortalActionController@markAttendance` | Tandai kehadiran pertemuan SIPANDAI mengikuti parameter dinamis (`course_id`, `id`, `pertemuan`). |
 
-### 3. API Debug (middleware `web`)
-Prefix `/api/debug` di `routes/api.php` untuk pengujian extractor secara langsung:
+### 3. API Support (middleware `web`)
+Endpoint pendukung integrasi berada di bawah prefix `/api/campus/support` dan `/api/campus/metadata`:
 
-| Endpoint | Fungsi |
+| Endpoint | Deskripsi |
 | --- | --- |
-| `GET /api/debug/dashboard` | Menjalankan `DashboardExtractor` dan menampilkan struktur mentah. |
-| `GET /api/debug/profile` | Memanggil `ProfileExtractor`. |
-| `GET /api/debug/classes` | Memanggil `ClassesExtractor`. |
-| `GET /api/debug/class-detail` | Contoh payload detail kelas dari extractor. |
-| `GET /api/debug/session-status` | Menunjukkan status token pada cache/session manager. |
-| `GET /api/debug/parameter-help` | Dokumentasi parameter valid untuk class/meeting detail. |
-| `GET /api/debug/test-validation` | Menjalankan `ClassDetailRequest` untuk memastikan pesan error. |
+| `GET /api/campus/support/session` | Mengecek status sesi kampus (preview token + user_info). |
+| `GET /api/campus/support/parameter-help` | Dokumentasi mapping parameter `id`, `dosen_id`, `course_id`. |
+| `GET /api/campus/support/validate-parameters` | Validasi cepat parameter sebelum memanggil extractor. |
+| `GET /api/campus/metadata/endpoints` | Daftar endpoint yang dicatat di `PortalEndpointRegistry` (bisa `?key=profile`). |
 
 ### 4. Halaman Web (middleware `portal.session` kecuali login)
 | Method | Endpoint | Deskripsi |
@@ -181,7 +178,7 @@ Daftar di atas mencakup seluruh route dari `routes/web.php` dan `routes/api.php`
 ## Observability & Debugging
 - `storage/logs/laravel.log` – log utama; gunakan `tail -f` atau `php artisan pail` untuk live streaming.
 - `php artisan tinker` – debugging session/cache secara langsung (`Cache::get('cic_session_<token>')`).
-- Debug endpoint `/api/debug/*` membantu memeriksa struktur HTML terbaru tanpa membuka UI lama.
+- Endpoint `/api/campus/support/*` membantu memeriksa struktur HTML terbaru tanpa membuka UI lama.
 - Gunakan `php artisan queue:failed` & `php artisan queue:retry` untuk menangani job refresh sesi yang gagal.
 - Dokumentasi API otomatis tersedia melalui Dedoc Scramble (`/docs/api`) saat `APP_ENV=local` atau akses dibuka.
 

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Extractors;
 
 use App\Exceptions\PortalScrapingException;
+use App\Services\PortalEndpointRegistry;
 use App\Services\PortalScrapingService;
 use Symfony\Component\DomCrawler\Crawler;
 
@@ -30,7 +31,7 @@ class ProfileExtractor extends PortalScrapingService
             }
 
             // Get profile HTML
-            $profileUrl = config('portal.profile_url');
+            $profileUrl = PortalEndpointRegistry::url('profile');
             $html = $this->get($profileUrl);
             $crawler = $this->createCrawler($html);
 
@@ -515,7 +516,7 @@ class ProfileExtractor extends PortalScrapingService
         try {
             $this->setSession($sessionToken);
 
-            $profileUrl = config('portal.profile_url');
+            $profileUrl = PortalEndpointRegistry::url('profile');
             $html = $this->get($profileUrl);
             $crawler = $this->createCrawler($html);
 

@@ -1,5 +1,27 @@
 <?php
 
+$baseUrl = rtrim(env('CAMPUS_BASE_URL', 'https://my.cic.ac.id'), '/');
+$mahasiswaBase = "{$baseUrl}/portal/mahasiswa";
+$sipandaiBase = "{$baseUrl}/portal/sipandai";
+$sipandaiViewsBase = "{$sipandaiBase}/views";
+
+$loginPageUrl = env('CAMPUS_LOGIN_URL', "{$mahasiswaBase}/");
+$loginActionUrl = env('CAMPUS_LOGIN_ACTION', "{$mahasiswaBase}/?mod=loginact");
+$dashboardUrl = env('CAMPUS_DASHBOARD_URL', "{$mahasiswaBase}/?mod=student&act=dashboard");
+$profileUrl = env('CAMPUS_PROFILE_URL', "{$mahasiswaBase}/?mod=student&act=profile");
+$studentCourseUrl = env('CAMPUS_STUDENT_COURSE_URL', "{$mahasiswaBase}/?mod=student&act=course");
+
+$sipandaiDashboardUrl = env('CAMPUS_SIPANDAI_DASHBOARD_URL', "{$sipandaiBase}/?mod=sipandai&act=dashboardmahasiswa");
+$classesUrl = env('CAMPUS_CLASSES_URL', $sipandaiDashboardUrl);
+$classDetailUrl = env('CAMPUS_CLASS_DETAIL_URL', "{$sipandaiBase}/?mod=sipandai&act=download");
+$sipandaiAssignmentUrl = env('CAMPUS_SIPANDAI_ASSIGNMENT_URL', "{$sipandaiBase}/?mod=sipandai&act=send");
+$sipandaiAttendanceUrl = env('CAMPUS_SIPANDAI_ATTENDANCE_URL', "{$sipandaiViewsBase}/validasi/demo.php?mod=sipandai&act=discuss");
+
+$discussionUrl = env('CAMPUS_SIPANDAI_DISCUSS_URL', "{$sipandaiBase}/?mod=sipandai&act=discuss");
+$assignmentSubmitUrl = env('CAMPUS_SIPANDAI_ASSIGNMENT_SUBMIT_URL', "{$sipandaiBase}/?mod=sipandai&act=sent");
+$attendanceSubmitUrl = env('CAMPUS_SIPANDAI_ATTENDANCE_SUBMIT_URL', "{$sipandaiBase}/?mod=sipandai&act=actabsen");
+$assignmentDeleteUrl = env('CAMPUS_SIPANDAI_ASSIGNMENT_DELETE_URL', "{$sipandaiBase}/?mod=sipandai&act=jobdel");
+
 return [
     /*
     |--------------------------------------------------------------------------
@@ -11,17 +33,18 @@ return [
     |
     */
 
-    'base_url' => env('CAMPUS_BASE_URL', 'https://my.cic.ac.id'),
-    'login_url' => env('CAMPUS_LOGIN_URL', 'https://my.cic.ac.id/portal/mahasiswa/'),
-    'login_action' => env('CAMPUS_LOGIN_ACTION', 'https://my.cic.ac.id/portal/mahasiswa/?mod=loginact'),
-    'dashboard_url' => env('CAMPUS_DASHBOARD_URL', 'https://my.cic.ac.id/portal/mahasiswa/?mod=student&act=dashboard'),
-    'profile_url' => env('CAMPUS_PROFILE_URL', 'https://my.cic.ac.id/portal/mahasiswa/?mod=student&act=profile'),
-    'classes_url' => env('CAMPUS_CLASSES_URL', 'https://my.cic.ac.id/portal/sipandai/?mod=sipandai&act=dashboardmahasiswa'),
-    'class_detail_url' => env('CAMPUS_CLASS_DETAIL_URL', 'https://my.cic.ac.id/portal/sipandai/?mod=sipandai&act=download'),
-    'sipandai_dashboard_url' => env('CAMPUS_SIPANDAI_DASHBOARD_URL', 'https://my.cic.ac.id/portal/sipandai/?mod=sipandai&act=dashboardmahasiswa'),
-    'student_course_url' => env('CAMPUS_STUDENT_COURSE_URL', 'https://my.cic.ac.id/portal/mahasiswa/?mod=student&act=course'),
-    'sipandai_assignment_url' => env('CAMPUS_SIPANDAI_ASSIGNMENT_URL', 'https://my.cic.ac.id/portal/sipandai/?mod=sipandai&act=send'),
-    'sipandai_attendance_url' => env('CAMPUS_SIPANDAI_ATTENDANCE_URL', 'https://my.cic.ac.id/portal/sipandai/views/validasi/demo.php'),
+    'base_url' => $baseUrl,
+    'login_url' => $loginPageUrl,
+    'login_action' => $loginActionUrl,
+    'dashboard_url' => $dashboardUrl,
+    'profile_url' => $profileUrl,
+    'classes_url' => $classesUrl,
+    'class_detail_url' => $classDetailUrl,
+    'sipandai_dashboard_url' => $sipandaiDashboardUrl,
+    'student_course_url' => $studentCourseUrl,
+    'sipandai_assignment_url' => $sipandaiAssignmentUrl,
+    'sipandai_attendance_url' => $sipandaiAttendanceUrl,
+    'sipandai_assignment_delete_url' => $assignmentDeleteUrl,
 
     /*
     |--------------------------------------------------------------------------
@@ -92,5 +115,177 @@ return [
         'encrypt_credentials' => true,
         'rate_limit_attempts' => 5,
         'rate_limit_decay' => 300, // seconds
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Portal Endpoints Map
+    |--------------------------------------------------------------------------
+    |
+    | Each endpoint listed below is sourced from the verified cURL workflow in
+    | test_all_endpoints.sh. Having a single catalogue makes the integration
+    | easier to maintain and prevents URL drift across services.
+    |
+    */
+
+    'endpoints' => [
+        'login_page' => [
+            'method' => 'GET',
+            'url' => $loginPageUrl,
+            'description' => 'Displays the CIC portal login form.',
+            'category' => 'authentication',
+            'priority' => 'high',
+            'requires_session' => false,
+        ],
+        'login' => [
+            'method' => 'POST',
+            'url' => $loginActionUrl,
+            'default_query' => [
+                'mod' => 'loginact',
+            ],
+            'description' => 'Authenticates the user and stores the PHPSESSID cookie.',
+            'category' => 'authentication',
+            'priority' => 'high',
+            'requires_session' => false,
+        ],
+        'dashboard' => [
+            'method' => 'GET',
+            'url' => $dashboardUrl,
+            'default_query' => [
+                'mod' => 'student',
+                'act' => 'dashboard',
+            ],
+            'description' => 'Main portal dashboard (Test 2).',
+            'category' => 'data',
+            'priority' => 'medium',
+            'requires_session' => true,
+        ],
+        'profile' => [
+            'method' => 'GET',
+            'url' => $profileUrl,
+            'default_query' => [
+                'mod' => 'student',
+                'act' => 'profile',
+            ],
+            'description' => 'Student profile data (Test 3).',
+            'category' => 'data',
+            'priority' => 'high',
+            'requires_session' => true,
+        ],
+        'student_course' => [
+            'method' => 'GET',
+            'url' => $studentCourseUrl,
+            'default_query' => [
+                'mod' => 'student',
+                'act' => 'course',
+            ],
+            'description' => 'Student course schedule with room info (Test 4).',
+            'category' => 'data',
+            'priority' => 'high',
+            'requires_session' => true,
+        ],
+        'sipandai_dashboard' => [
+            'method' => 'GET',
+            'url' => $sipandaiDashboardUrl,
+            'default_query' => [
+                'mod' => 'sipandai',
+                'act' => 'dashboardmahasiswa',
+            ],
+            'description' => 'SIPANDAI dashboard (Test 5).',
+            'category' => 'data',
+            'priority' => 'high',
+            'requires_session' => true,
+        ],
+        'course_materials' => [
+            'method' => 'GET',
+            'url' => $classDetailUrl,
+            'default_query' => [
+                'mod' => 'sipandai',
+                'act' => 'download',
+            ],
+            'description' => 'Course materials list for a given class (Test 6).',
+            'category' => 'data',
+            'priority' => 'high',
+            'requires_session' => true,
+            'required_params' => ['id', 'dosen_id', 'course_id'],
+        ],
+        'discussion' => [
+            'method' => 'GET',
+            'url' => $discussionUrl,
+            'default_query' => [
+                'mod' => 'sipandai',
+                'act' => 'discuss',
+            ],
+            'description' => 'Discussion/forum detail for a course material (Test 7).',
+            'category' => 'data',
+            'priority' => 'medium',
+            'requires_session' => true,
+            'required_params' => ['id', 'courses_id'],
+        ],
+        'assignment_form' => [
+            'method' => 'GET',
+            'url' => $sipandaiAssignmentUrl,
+            'default_query' => [
+                'mod' => 'sipandai',
+                'act' => 'send',
+            ],
+            'description' => 'Assignment upload form (Test 8).',
+            'category' => 'action',
+            'priority' => 'high',
+            'requires_session' => true,
+            'required_params' => ['courses_id', 'id', 'pertemuan'],
+        ],
+        'qr_attendance_page' => [
+            'method' => 'GET',
+            'url' => $sipandaiAttendanceUrl,
+            'default_query' => [
+                'mod' => 'sipandai',
+                'act' => 'discuss',
+            ],
+            'description' => 'QR attendance validation page (Test 9).',
+            'category' => 'data',
+            'priority' => 'high',
+            'requires_session' => true,
+            'required_params' => ['id', 'course_id'],
+        ],
+        'assignment_submit' => [
+            'method' => 'POST',
+            'url' => $assignmentSubmitUrl,
+            'default_query' => [
+                'mod' => 'sipandai',
+                'act' => 'sent',
+            ],
+            'description' => 'Submit assignment upload payload (Test 10).',
+            'category' => 'action',
+            'priority' => 'high',
+            'requires_session' => true,
+            'required_params' => ['courses_id', 'id', 'pertemuan'],
+        ],
+        'attendance_submit' => [
+            'method' => 'POST',
+            'url' => $attendanceSubmitUrl,
+            'default_query' => [
+                'mod' => 'sipandai',
+                'act' => 'actabsen',
+            ],
+            'description' => 'Submit QR attendance code (Test 11).',
+            'category' => 'action',
+            'priority' => 'high',
+            'requires_session' => true,
+            'required_params' => ['modulesid', 'courseid'],
+        ],
+        'assignment_delete' => [
+            'method' => 'GET',
+            'url' => $assignmentDeleteUrl,
+            'default_query' => [
+                'mod' => 'sipandai',
+                'act' => 'jobdel',
+            ],
+            'description' => 'Delete uploaded assignment entry (Test 12).',
+            'category' => 'action',
+            'priority' => 'high',
+            'requires_session' => true,
+            'required_params' => ['id', 'idx', 'pertemuan'],
+        ],
     ],
 ];

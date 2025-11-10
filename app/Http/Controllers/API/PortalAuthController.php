@@ -12,9 +12,9 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 
 /**
- * @group Authentication
+ * @group Autentikasi
  *
- * API endpoints for managing campus system authentication
+ * API untuk mengelola sesi kampus (login, validasi, hingga refresh token).
  */
 class PortalAuthController extends Controller
 {
@@ -26,12 +26,14 @@ class PortalAuthController extends Controller
     }
 
     /**
-     * Login to campus system
+     * Login ke sistem kampus.
      *
-     * Authenticate user with CIC portal credentials and create session.
+     * Kredensial kampus (NIM dan kata sandi) akan diverifikasi lalu dibuatkan
+     * sesi baru via `PortalSessionManager`. Token hasil login disimpan di session
+     * browser sehingga permintaan API lain bisa memakai `campus_session_token`.
      *
-     * @bodyParam username string required Student NIM/username. Example: 20251030030
-     * @bodyParam password string required Student password. Example: Kanjutz123@
+     * @bodyParam username string required NIM atau username mahasiswa. Example: 20251030030
+     * @bodyParam password string required Kata sandi portal kampus. Example: Kanjutz123@
      *
      * @response {
      *   "status": "success",
@@ -122,7 +124,7 @@ class PortalAuthController extends Controller
     }
 
     /**
-     * Check if current session is valid
+     * Cek status sesi kampus yang sedang aktif.
      */
     public function checkSession(Request $request): JsonResponse
     {
@@ -173,7 +175,7 @@ class PortalAuthController extends Controller
     }
 
     /**
-     * Refresh campus session
+     * Refresh sesi kampus supaya tidak kedaluwarsa.
      */
     public function refreshSession(Request $request): JsonResponse
     {
