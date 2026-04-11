@@ -157,6 +157,15 @@ class PortalActionControllerTest extends TestCase
             ->assertJsonPath('meta.campus_session_valid', false);
     }
 
+    public function test_pending_assignments_requires_session(): void
+    {
+        $response = $this->getJson('/api/assignment/pending');
+
+        $response->assertStatus(401)
+            ->assertJsonPath('status', 'error')
+            ->assertJsonPath('meta.campus_session_valid', false);
+    }
+
     public function test_attendance_today_shortcuts_success(): void
     {
         $this->mockValidCampusSession('token-shortcut');
@@ -200,6 +209,44 @@ class PortalActionControllerTest extends TestCase
                 'data' => [
                     'day' => 'Jumat',
                     'classes' => [
+                        [
+                            'course_name' => 'Algoritma',
+                            'meeting_number' => 6,
+                        ],
+                    ],
+                ],
+            ]);
+    }
+
+    public function test_pending_assignments_success(): void
+    {
+        $this->mockValidCampusSession('token-pending');
+
+        $this->instance(
+            AttendanceShortcutService::class,
+            Mockery::mock(AttendanceShortcutService::class, function (MockInterface $mock): void {
+                $mock->shouldReceive('getPendingAssignments')
+                    ->once()
+                    ->with('token-pending')
+                    ->andReturn([
+                        [
+                            'course_name' => 'Algoritma',
+                            'meeting_number' => 6,
+                            'meeting_url' => '/meeting/29808?courses_id=8837',
+                            'can_submit_directly' => false,
+                        ],
+                    ]);
+            })
+        );
+
+        $response = $this->withSession(['campus_session_token' => 'token-pending'])
+            ->getJson('/api/assignment/pending');
+
+        $response->assertOk()
+            ->assertJson([
+                'success' => true,
+                'data' => [
+                    'assignments' => [
                         [
                             'course_name' => 'Algoritma',
                             'meeting_number' => 6,

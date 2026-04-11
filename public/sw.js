@@ -1,9 +1,23 @@
-const CACHE_NAME = 'mycic-v1';
+const CACHE_NAME = 'mycic-v2';
+const PROTECTED_PAGE_CACHE_NAME = 'mycic-pages-v1';
+const STATIC_CACHE_NAME = 'mycic-static-v1';
 const OFFLINE_URL = '/offline.html';
+const PROTECTED_PAGE_PREFIXES = ['/dashboard', '/profile', '/class', '/meeting', '/exam'];
+const STATIC_ASSET_PREFIXES = ['/build/', '/icons/'];
 
 const SHELL_ASSETS = [
     OFFLINE_URL,
 ];
+
+function isProtectedNavigation(pathname) {
+    return PROTECTED_PAGE_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+}
+
+function isStaticAsset(pathname) {
+    return pathname === '/manifest.json'
+        || pathname === '/favicon.ico'
+        || STATIC_ASSET_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+}
 
 // Install: cache offline page
 self.addEventListener('install', (event) => {
@@ -19,12 +33,20 @@ self.addEventListener('activate', (event) => {
         caches.keys().then((keys) =>
             Promise.all(
                 keys
-                    .filter((key) => key !== CACHE_NAME)
+                    .filter((key) => ![CACHE_NAME, STATIC_CACHE_NAME, PROTECTED_PAGE_CACHE_NAME].includes(key))
                     .map((key) => caches.delete(key))
             )
         )
     );
     self.clients.claim();
+});
+
+self.addEventListener('message', (event) => {
+    if (event.data?.type !== 'CLEAR_AUTH_CACHES') {
+        return;
+    }
+
+    event.waitUntil(caches.delete(PROTECTED_PAGE_CACHE_NAME));
 });
 
 // Fetch: network-first, fallback to cache then offline page
@@ -43,6 +65,53 @@ self.addEventListener('fetch', (event) => {
 
     // Skip API requests — always network only
     if (url.pathname.startsWith('/api/')) {
+        return;
+    }
+
+    if (isStaticAsset(url.pathname)) {
+        event.respondWith((async () => {
+            const cache = await caches.open(STATIC_CACHE_NAME);
+            const cached = await cache.match(event.request);
+            const networkRequest = fetch(event.request)
+                .then((response) => {
+                    if (response.ok) {
+                        cache.put(event.request, response.clone());
+                    }
+
+                    return response;
+                })
+                .catch(() => cached);
+
+            return cached || networkRequest;
+        })());
+
+        return;
+    }
+
+    if (event.request.mode === 'navigate' && isProtectedNavigation(url.pathname)) {
+        event.respondWith((async () => {
+            const cache = await caches.open(PROTECTED_PAGE_CACHE_NAME);
+
+            try {
+                const networkResponse = await fetch(event.request);
+                const finalUrl = new URL(networkResponse.url);
+
+                if (networkResponse.ok && !finalUrl.pathname.startsWith('/login')) {
+                    cache.put(event.request, networkResponse.clone());
+                }
+
+                return networkResponse;
+            } catch (error) {
+                const cachedPage = await cache.match(event.request);
+
+                if (cachedPage) {
+                    return cachedPage;
+                }
+
+                return caches.match(OFFLINE_URL);
+            }
+        })());
+
         return;
     }
 

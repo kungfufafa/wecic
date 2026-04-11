@@ -10,6 +10,7 @@ $loginActionUrl = env('CAMPUS_LOGIN_ACTION', "{$mahasiswaBase}/?mod=loginact");
 $dashboardUrl = env('CAMPUS_DASHBOARD_URL', "{$mahasiswaBase}/?mod=student&act=dashboard");
 $profileUrl = env('CAMPUS_PROFILE_URL', "{$mahasiswaBase}/?mod=student&act=profile");
 $studentCourseUrl = env('CAMPUS_STUDENT_COURSE_URL', "{$mahasiswaBase}/?mod=student&act=course");
+$studentCreditUrl = env('CAMPUS_STUDENT_CREDIT_URL', "{$mahasiswaBase}/?mod=student&act=credit");
 
 $sipandaiDashboardUrl = env('CAMPUS_SIPANDAI_DASHBOARD_URL', "{$sipandaiBase}/?mod=sipandai&act=dashboardmahasiswa");
 $classesUrl = env('CAMPUS_CLASSES_URL', $sipandaiDashboardUrl);
@@ -42,6 +43,7 @@ return [
     'class_detail_url' => $classDetailUrl,
     'sipandai_dashboard_url' => $sipandaiDashboardUrl,
     'student_course_url' => $studentCourseUrl,
+    'student_credit_url' => $studentCreditUrl,
     'sipandai_assignment_url' => $sipandaiAssignmentUrl,
     'sipandai_attendance_url' => $sipandaiAttendanceUrl,
     'sipandai_assignment_delete_url' => $assignmentDeleteUrl,

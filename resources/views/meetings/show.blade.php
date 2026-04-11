@@ -14,7 +14,6 @@
                 </div>
                 <div class="flex gap-2">
                     <a href="/class" class="ghost-button">Kembali</a>
-                    <button type="button" id="meeting-refresh" class="secondary-button">Refresh</button>
                 </div>
             </div>
         </div>
@@ -32,10 +31,6 @@
             <div class="empty-shell">Belum ada materi meeting.</div>
         </div>
 
-        <details class="app-panel">
-            <summary class="cursor-pointer text-sm font-semibold text-[color:var(--ink)]">Payload mentah</summary>
-            <pre id="meeting-payload" class="mt-4 overflow-x-auto text-xs leading-6 text-[color:var(--ink-soft)]">Menunggu data.</pre>
-        </details>
     </section>
 @endsection
 
@@ -43,11 +38,6 @@
     <script>
         document.addEventListener('DOMContentLoaded', async () => {
             const app = window.portalApp;
-            const ready = await app.ensureAuthenticated();
-
-            if (!ready) {
-                return;
-            }
 
             const meetingId = @json($meetingId);
             const coursesId = @json($coursesId);
@@ -96,6 +86,9 @@
                     || materials.assignment_topic?.match(/(\d+)/)?.[1]
                     || materials.main_topic?.match(/Pertemuan\s+(\d+)/i)?.[1]
                     || null;
+                const attendanceStatusText = String(attendanceInfo.status || '').trim();
+                const attendanceRecorded = Boolean(attendanceInfo.time)
+                    || (/hadir|terlambat|izin|sakit/i.test(attendanceStatusText) && !/belum|silakan|scan|qr/i.test(attendanceStatusText));
 
                 document.getElementById('meeting-title').textContent = meetingInfo.title || `Meeting ${meetingId}`;
                 document.getElementById('meeting-subtitle').textContent = [scheduleInfo.date, lecturerInfo.name].filter(Boolean).join(' / ') || 'Detail pertemuan LMS.';
@@ -121,13 +114,28 @@
 
                 document.getElementById('meeting-actions').innerHTML = `
                     <p class="section-label">Aksi</p>
-                    <form id="attendance-form" class="mt-4 grid gap-3">
-                        <label class="grid gap-2">
-                            <span class="section-label">Kode QR / kode absensi</span>
-                            <input id="attendance-code" type="text" class="field-shell" placeholder="35533429" required>
-                        </label>
-                        <button type="submit" class="secondary-button">Absen via API</button>
-                    </form>
+                    ${attendanceRecorded ? `
+                        <div class="app-panel-muted mt-4">
+                            <p class="section-label">Absensi</p>
+                            <p class="mt-3 text-sm font-semibold text-[color:var(--ink)]">${app.escapeHtml(attendanceStatusText)}</p>
+                            ${attendanceInfo.time ? `<p class="mt-2 text-sm leading-6 text-[color:var(--ink-soft)]">Tercatat pada ${app.escapeHtml(attendanceInfo.time)}.</p>` : ''}
+                        </div>
+                    ` : `
+                        <form id="attendance-form" class="mt-4 grid gap-3">
+                            <label class="grid gap-2">
+                                <span class="section-label">Kode QR / kode absensi</span>
+                                <input id="attendance-code" type="text" class="field-shell" placeholder="35533429" required>
+                            </label>
+                            <div class="grid grid-cols-2 gap-2">
+                                <button type="button" class="secondary-button justify-center" data-qr-scan>Scan QR</button>
+                                <label class="secondary-button justify-center cursor-pointer">
+                                    Upload foto
+                                    <input type="file" class="hidden" data-qr-file accept="image/*">
+                                </label>
+                            </div>
+                            <button type="submit" class="secondary-button" data-online-required>Kirim</button>
+                        </form>
+                    `}
                     ${assignmentParams ? `
                         <form id="assignment-form" class="mt-6 grid gap-3">
                             <label class="grid gap-2">
@@ -138,7 +146,7 @@
                                 <span class="section-label">Keterangan</span>
                                 <input id="assignment-note" type="text" class="field-shell" placeholder="Opsional">
                             </label>
-                            <button type="submit" class="primary-button">Kirim tugas via API</button>
+                            <button type="submit" class="primary-button" data-online-required>Kirim tugas</button>
                         </form>
                     ` : ''}
                 `;
@@ -180,10 +188,22 @@
                 }
 
                 document.getElementById('meeting-content').innerHTML = contentParts.join('');
-                document.getElementById('meeting-payload').textContent = JSON.stringify(payload, null, 2);
+                app.refreshOnlineRequiredState();
+                const attendanceForm = document.getElementById('attendance-form');
 
-                document.getElementById('attendance-form').addEventListener('submit', async (event) => {
+                if (attendanceForm) {
+                    app.bindAttendanceQrTools(
+                        attendanceForm,
+                        document.getElementById('attendance-code')
+                    );
+                }
+
+                attendanceForm?.addEventListener('submit', async (event) => {
                     event.preventDefault();
+
+                    if (!app.requireOnlineAction('Absen meeting butuh koneksi internet.')) {
+                        return;
+                    }
 
                     const kode = document.getElementById('attendance-code').value.trim();
 
@@ -214,6 +234,10 @@
                 if (assignmentForm) {
                     assignmentForm.addEventListener('submit', async (event) => {
                         event.preventDefault();
+
+                        if (!app.requireOnlineAction('Upload tugas butuh koneksi internet.')) {
+                            return;
+                        }
 
                         const file = document.getElementById('assignment-file').files[0];
 
@@ -249,16 +273,25 @@
                 }
             };
 
+            app.primeCachedView(endpoint, render, 'detail meeting');
+
+            const ready = await app.ensureAuthenticated();
+
+            if (!ready) {
+                return;
+            }
+
             const loadMeeting = async () => {
                 try {
                     const payload = await app.request(endpoint);
                     render(payload);
+                    app.markViewSynced('Detail meeting');
                 } catch (error) {
                     app.showNotice(error.payload?.message || error.message, 'error');
                 }
             };
 
-            document.getElementById('meeting-refresh').addEventListener('click', loadMeeting);
+            app.registerSyncHandler('meeting-show', loadMeeting);
 
             await loadMeeting();
         });

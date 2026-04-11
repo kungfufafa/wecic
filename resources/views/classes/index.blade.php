@@ -48,12 +48,6 @@
     <script>
         document.addEventListener('DOMContentLoaded', async () => {
             const app = window.portalApp;
-            const ready = await app.ensureAuthenticated();
-
-            if (!ready) {
-                return;
-            }
-
             const sourceMap = {
                 main: { label: 'Utama', endpoint: '/api/class' },
                 lms: { label: 'LMS', endpoint: '/api/lms/class' },
@@ -62,6 +56,7 @@
 
             const summaryCards = document.querySelectorAll('[data-summary-value]');
             const listHost = document.getElementById('class-list');
+            let currentSource = 'main';
 
             const setActive = (current) => {
                 document.querySelectorAll('[data-class-source]').forEach((button) => {
@@ -133,6 +128,50 @@
                 `;
             };
 
+            const renderMeetingLinks = (panel, payload) => {
+                const materials = payload.class_detail?.course_materials || [];
+
+                if (!materials.length) {
+                    panel.innerHTML = '<div class="empty-shell">Belum ada pertemuan yang tersedia.</div>';
+
+                    return;
+                }
+
+                panel.innerHTML = `
+                    <div class="flex flex-wrap gap-2">
+                        ${materials.map((material, index) => {
+                            const meetingUrl = app.buildMeetingUrlFromHref(material.join_link?.href);
+                            const labelNumber = material.meeting_number || index + 1;
+
+                            if (!meetingUrl) {
+                                return `<span class="ghost-button opacity-50">Pertemuan ${app.escapeHtml(labelNumber)}</span>`;
+                            }
+
+                            return `
+                                <a href="${meetingUrl}" class="secondary-button">
+                                    Pertemuan ${app.escapeHtml(labelNumber)}
+                                </a>
+                            `;
+                        }).join('')}
+                    </div>
+                `;
+            };
+
+            const renderSource = (payload, source) => {
+                renderSummary(payload, source);
+
+                const classes = payload.classes || [];
+
+                if (!classes.length) {
+                    listHost.innerHTML = '<div class="empty-shell">Belum ada kelas pada sumber ini.</div>';
+
+                    return;
+                }
+
+                listHost.innerHTML = classes.map(renderCard).join('');
+                bindMeetingPanels();
+            };
+
             const bindMeetingPanels = () => {
                 listHost.querySelectorAll('[data-meeting-toggle]').forEach((button) => {
                     button.addEventListener('click', async () => {
@@ -156,34 +195,15 @@
                         panel.innerHTML = '<div class="empty-shell">Memuat daftar pertemuan.</div>';
                         button.textContent = 'Tutup';
 
+                        const cachedDetail = app.getCachedResponse(button.dataset.detailApi);
+
+                        if (cachedDetail) {
+                            renderMeetingLinks(panel, cachedDetail.payload);
+                        }
+
                         try {
                             const payload = await app.request(button.dataset.detailApi);
-                            const materials = payload.class_detail?.course_materials || [];
-
-                            if (!materials.length) {
-                                panel.innerHTML = '<div class="empty-shell">Belum ada pertemuan yang tersedia.</div>';
-
-                                return;
-                            }
-
-                            panel.innerHTML = `
-                                <div class="flex flex-wrap gap-2">
-                                    ${materials.map((material, index) => {
-                                        const meetingUrl = app.buildMeetingUrlFromHref(material.join_link?.href);
-                                        const labelNumber = material.meeting_number || index + 1;
-
-                                        if (!meetingUrl) {
-                                            return `<span class="ghost-button opacity-50">Pertemuan ${app.escapeHtml(labelNumber)}</span>`;
-                                        }
-
-                                        return `
-                                            <a href="${meetingUrl}" class="secondary-button">
-                                                Pertemuan ${app.escapeHtml(labelNumber)}
-                                            </a>
-                                        `;
-                                    }).join('')}
-                                </div>
-                            `;
+                            renderMeetingLinks(panel, payload);
                         } catch (error) {
                             app.showNotice(error.payload?.message || error.message, 'error');
                             panel.innerHTML = '<div class="empty-shell">Gagal memuat daftar pertemuan.</div>';
@@ -193,29 +213,40 @@
                 });
             };
 
+            app.primeCachedView(sourceMap[currentSource].endpoint, (payload) => {
+                setActive(currentSource);
+                renderSource(payload, currentSource);
+            }, 'daftar kelas utama');
+
+            const ready = await app.ensureAuthenticated();
+
+            if (!ready) {
+                return;
+            }
+
             const loadSource = async (source) => {
+                currentSource = source;
                 setActive(source);
-                listHost.innerHTML = '<div class="empty-shell">Memuat data kelas.</div>';
+                const usedCachedPayload = app.primeCachedView(sourceMap[source].endpoint, (payload) => {
+                    setActive(source);
+                    renderSource(payload, source);
+                }, `daftar kelas ${sourceMap[source].label.toLowerCase()}`);
+
+                if (!usedCachedPayload) {
+                    listHost.innerHTML = '<div class="empty-shell">Memuat data kelas.</div>';
+                }
 
                 try {
                     const payload = await app.request(sourceMap[source].endpoint);
-                    renderSummary(payload, source);
-
-                    const classes = payload.classes || [];
-
-                    if (!classes.length) {
-                        listHost.innerHTML = '<div class="empty-shell">Belum ada kelas pada sumber ini.</div>';
-
-                        return;
-                    }
-
-                    listHost.innerHTML = classes.map(renderCard).join('');
-                    bindMeetingPanels();
+                    renderSource(payload, source);
+                    app.markViewSynced(`Daftar kelas ${sourceMap[source].label.toLowerCase()}`);
                 } catch (error) {
                     app.showNotice(error.payload?.message || error.message, 'error');
                     listHost.innerHTML = '<div class="empty-shell">Gagal memuat daftar kelas.</div>';
                 }
             };
+
+            app.registerSyncHandler('class-index', () => loadSource(currentSource));
 
             document.querySelectorAll('[data-class-source]').forEach((button) => {
                 button.addEventListener('click', () => loadSource(button.dataset.classSource));

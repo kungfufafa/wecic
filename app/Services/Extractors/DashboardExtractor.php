@@ -190,46 +190,113 @@ class DashboardExtractor extends PortalScrapingService
      */
     private function resolveTotalCredits(string $sessionToken, array $classes, array $dashboardOverview): int
     {
-        $cacheKey = 'dashboard_total_credits_v2_'.md5($sessionToken);
+        $totalCredits = 0;
 
-        return cache()->remember($cacheKey, now()->addMinutes(30), function () use ($sessionToken, $classes, $dashboardOverview): int {
-            $totalCredits = 0;
+        foreach ($classes as $class) {
+            $credits = (int) preg_replace('/\D+/', '', (string) (
+                $class['credits']
+                ?? $class['course_info']['credits']
+                ?? '0'
+            ));
 
-            foreach ($classes as $class) {
-                $detailParams = $class['join_link']['params'] ?? [];
+            $totalCredits += $credits;
+        }
 
-                if (
-                    empty($detailParams['id'])
-                    || empty($detailParams['dosen_id'])
-                    || empty($detailParams['course_id'])
-                ) {
-                    continue;
-                }
+        if ($totalCredits > 0) {
+            return $totalCredits;
+        }
 
-                try {
-                    $detail = $this->classesExtractor->extractClassDetail($sessionToken, [
-                        'id' => (string) $detailParams['id'],
-                        'dosen_id' => (string) $detailParams['dosen_id'],
-                        'course_id' => (string) $detailParams['course_id'],
-                    ]);
-                } catch (\Throwable $throwable) {
-                    Log::warning('Failed to resolve course credits for dashboard summary', [
-                        'params' => $detailParams,
-                        'error' => $throwable->getMessage(),
-                    ]);
+        $overviewCredits = (int) preg_replace('/\D+/', '', (string) ($dashboardOverview['total_credits'] ?? '0'));
 
-                    continue;
-                }
+        if ($overviewCredits > 0) {
+            return $overviewCredits;
+        }
 
-                $credits = (int) preg_replace('/\D+/', '', (string) ($detail['course_info']['credits'] ?? '0'));
-                $totalCredits += $credits;
+        return $this->resolveTotalCreditsFromCreditPage($sessionToken) ?? 0;
+    }
+
+    private function resolveTotalCreditsFromCreditPage(string $sessionToken): ?int
+    {
+        $cacheKey = 'dashboard_credit_total_v1_'.md5($sessionToken);
+
+        return cache()->remember($cacheKey, now()->addMinutes(30), function (): ?int {
+            try {
+                $html = $this->get((string) config('portal.student_credit_url'));
+
+                return $this->extractCreditPageTotal($html);
+            } catch (\Throwable $throwable) {
+                Log::warning('Failed to resolve total credits from credit page', [
+                    'error' => $throwable->getMessage(),
+                ]);
+
+                return null;
             }
-
-            if ($totalCredits > 0) {
-                return $totalCredits;
-            }
-
-            return (int) preg_replace('/\D+/', '', (string) ($dashboardOverview['total_credits'] ?? '0'));
         });
+    }
+
+    private function extractCreditPageTotal(string $html): ?int
+    {
+        $crawler = $this->createCrawler($html);
+        $candidates = [];
+
+        $crawler->filter('tr, .card, .info-box, .statistic-box, .summary-item, .list-group-item')->each(function (Crawler $node) use (&$candidates): void {
+            $text = preg_replace('/\s+/', ' ', strtolower($node->text('')));
+
+            if (! is_string($text) || $text === '' || ! str_contains($text, 'sks')) {
+                return;
+            }
+
+            preg_match_all('/(\d{1,3})\s*sks/u', $text, $matches);
+
+            foreach ($matches[1] ?? [] as $match) {
+                $value = (int) $match;
+                $score = 1;
+
+                if (str_contains($text, 'total') || str_contains($text, 'jumlah')) {
+                    $score += 3;
+                }
+
+                if (str_contains($text, 'ambil') || str_contains($text, 'krs') || str_contains($text, 'reg')) {
+                    $score += 2;
+                }
+
+                if ($value >= 12 && $value <= 30) {
+                    $score += 2;
+                } elseif ($value > 60) {
+                    $score -= 3;
+                }
+
+                $candidates[] = [
+                    'value' => $value,
+                    'score' => $score,
+                ];
+            }
+        });
+
+        if ($candidates === []) {
+            preg_match_all('/(\d{1,3})\s*sks/u', strtolower($crawler->text('')), $matches);
+
+            foreach ($matches[1] ?? [] as $match) {
+                $value = (int) $match;
+                $candidates[] = [
+                    'value' => $value,
+                    'score' => $value >= 12 && $value <= 30 ? 2 : 1,
+                ];
+            }
+        }
+
+        if ($candidates === []) {
+            return null;
+        }
+
+        usort($candidates, function (array $left, array $right): int {
+            if ($left['score'] === $right['score']) {
+                return $right['value'] <=> $left['value'];
+            }
+
+            return $right['score'] <=> $left['score'];
+        });
+
+        return $candidates[0]['value'] ?? null;
     }
 }

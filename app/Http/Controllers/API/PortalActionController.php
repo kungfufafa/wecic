@@ -28,6 +28,8 @@ class PortalActionController extends CampusApiController
 
     private const ATTENDANCE_SHORTCUT_RESPONSE = 'array{success: bool, message: string, data: array{date: string, day: string, current_time: string, classes: list<array<string, mixed>>}}';
 
+    private const PENDING_ASSIGNMENTS_RESPONSE = 'array{success: bool, message: string, data: array{assignments: list<array<string, mixed>>}}';
+
     public function __construct(
         private readonly SipandaiSubmissionService $submissionService,
         private readonly AttendanceShortcutService $attendanceShortcutService
@@ -198,6 +200,35 @@ class PortalActionController extends CampusApiController
             ]);
 
             return $this->booleanResponse(false, 'Failed to resolve attendance shortcuts.', null, 500);
+        }
+    }
+
+    /**
+     * Ambil daftar tugas yang belum dikumpulkan.
+     */
+    #[Response(description: 'Daftar tugas pending berhasil diambil.', type: self::PENDING_ASSIGNMENTS_RESPONSE)]
+    #[Response(401, description: 'Endpoint ini membutuhkan sesi kampus yang aktif.', type: CampusApiController::SCRAMBLE_SESSION_ERROR_RESPONSE)]
+    #[Response(500, description: 'Daftar tugas pending gagal diambil.', type: CampusApiController::SCRAMBLE_BOOLEAN_RESPONSE)]
+    public function pendingAssignments(): JsonResponse
+    {
+        $sessionToken = $this->sessionToken();
+
+        if (! $sessionToken) {
+            return $this->missingSessionStatusResponse();
+        }
+
+        try {
+            $assignments = $this->attendanceShortcutService->getPendingAssignments($sessionToken);
+
+            return $this->booleanResponse(true, 'Pending assignments retrieved successfully.', [
+                'assignments' => $assignments,
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Failed to resolve pending assignments', [
+                'error' => $e->getMessage(),
+            ]);
+
+            return $this->booleanResponse(false, 'Failed to resolve pending assignments.', null, 500);
         }
     }
 

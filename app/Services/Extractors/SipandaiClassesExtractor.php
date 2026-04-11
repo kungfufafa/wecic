@@ -54,7 +54,7 @@ class SipandaiClassesExtractor extends PortalScrapingService
 
         } catch (\Exception $e) {
             $this->logScrapingError('Extracting SIPANDAI classes data', $e, ['session_token' => $sessionToken]);
-            throw new PortalScrapingException('dataExtractionFailed', 'sipandai classes', $e->getMessage());
+            throw PortalScrapingException::dataExtractionFailed('sipandai classes', $e->getMessage());
         }
     }
 

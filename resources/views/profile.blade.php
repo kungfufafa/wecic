@@ -43,18 +43,12 @@
     <script>
         document.addEventListener('DOMContentLoaded', async () => {
             const app = window.portalApp;
-            const ready = await app.ensureAuthenticated();
-
-            if (!ready) {
-                return;
-            }
-
-            try {
-                const payload = await app.request('/api/profile');
+            const renderProfile = (payload) => {
                 const profile = payload.profile || {};
                 const personal = profile.personal_data || {};
                 const contact = profile.contact_data || {};
                 const education = profile.education_data || {};
+                const photoPanel = document.getElementById('profile-photo-panel');
 
                 document.getElementById('profile-hero').innerHTML = `
                     <article class="app-panel-muted sm:col-span-2 lg:col-span-1">
@@ -102,7 +96,6 @@
                 ]);
 
                 if (profile.photo_url) {
-                    const photoPanel = document.getElementById('profile-photo-panel');
                     photoPanel.classList.remove('hidden');
                     photoPanel.innerHTML = `
                         <p class="section-label">Foto profil</p>
@@ -110,10 +103,33 @@
                             <img src="${app.absoluteCampusUrl(profile.photo_url)}" alt="Foto profil mahasiswa" class="h-auto w-full object-cover">
                         </div>
                     `;
+                } else {
+                    photoPanel.classList.add('hidden');
+                    photoPanel.innerHTML = '';
                 }
-            } catch (error) {
-                app.showNotice(error.payload?.message || error.message, 'error');
+            };
+
+            app.primeCachedView('/api/profile', renderProfile, 'profil mahasiswa');
+
+            const ready = await app.ensureAuthenticated();
+
+            if (!ready) {
+                return;
             }
+
+            const loadProfile = async () => {
+                try {
+                    const payload = await app.request('/api/profile');
+                    renderProfile(payload);
+                    app.markViewSynced('Profil');
+                } catch (error) {
+                    app.showNotice(error.payload?.message || error.message, 'error');
+                }
+            };
+
+            app.registerSyncHandler('profile', loadProfile);
+
+            await loadProfile();
         });
     </script>
 @endpush

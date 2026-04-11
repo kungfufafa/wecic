@@ -27,7 +27,7 @@ class ClassDetailRequest extends ApiFormRequest
              *
              * @example 5240
              */
-            'dosen_id' => ['sometimes', 'nullable', 'integer', 'regex:/^\d{4}$/', 'between:1000,9999', 'required_with:course_id'],
+            'dosen_id' => ['sometimes', 'nullable', 'integer', 'min:1', 'required_with:course_id'],
             /**
              * Identifier mata kuliah dari URL portal `act=download`.
              *
@@ -48,8 +48,7 @@ class ClassDetailRequest extends ApiFormRequest
             'id.between' => 'Parameter id harus berada di rentang 1000-9999.',
             'dosen_id.required_with' => 'Parameter dosen_id wajib diisi jika course_id dikirim.',
             'dosen_id.integer' => 'Parameter dosen_id harus berupa angka.',
-            'dosen_id.regex' => 'Parameter dosen_id harus berupa angka 4 digit.',
-            'dosen_id.between' => 'Parameter dosen_id harus berada di rentang 1000-9999.',
+            'dosen_id.min' => 'Parameter dosen_id harus berupa angka positif yang valid.',
             'course_id.required_with' => 'Parameter course_id wajib diisi jika dosen_id dikirim.',
             'course_id.integer' => 'Parameter course_id harus berupa angka.',
             'course_id.regex' => 'Parameter course_id harus berupa angka 4 digit.',

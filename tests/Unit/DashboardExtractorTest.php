@@ -27,8 +27,6 @@ class DashboardExtractorTest extends TestCase
 
     public function test_it_uses_classes_count_for_total_courses_metric(): void
     {
-        cache()->forget('dashboard_total_credits_v2_'.md5('fake-session-token'));
-
         $sessionManager = Mockery::mock(PortalSessionManager::class, function (MockInterface $mock): void {
             $mock->shouldReceive('getSessionCookieJar')
                 ->once()
@@ -48,18 +46,7 @@ class DashboardExtractorTest extends TestCase
         });
 
         $classesExtractor = Mockery::mock(ClassesExtractor::class, function (MockInterface $mock): void {
-            $mock->shouldReceive('extractClassDetail')
-                ->times(9)
-                ->with('fake-session-token', [
-                    'id' => '2265',
-                    'dosen_id' => '5240',
-                    'course_id' => '8810',
-                ])
-                ->andReturn([
-                    'course_info' => [
-                        'credits' => '3',
-                    ],
-                ]);
+            $mock->shouldIgnoreMissing();
         });
 
         $sipandaiClassesExtractor = Mockery::mock(SipandaiClassesExtractor::class, function (MockInterface $mock): void {
@@ -78,6 +65,7 @@ class DashboardExtractorTest extends TestCase
                         'course_info' => [
                             'code' => 'IF101',
                             'name' => 'Algoritma',
+                            'credits' => '3',
                         ],
                         'lecturer_info' => [
                             'name' => 'Dosen Uji',
@@ -126,7 +114,85 @@ class DashboardExtractorTest extends TestCase
         $this->assertSame('9', $data['dashboard_overview']['total_courses']);
         $this->assertSame('27', $data['dashboard_overview']['total_credits']);
         $this->assertSame(9, $data['classes_summary']['total_classes']);
+    }
 
-        cache()->forget('dashboard_total_credits_v2_'.md5('fake-session-token'));
+    public function test_it_falls_back_to_credit_page_when_dashboard_and_classes_have_no_credit_totals(): void
+    {
+        cache()->forget('dashboard_credit_total_v1_'.md5('fake-session-token'));
+
+        $sessionManager = Mockery::mock(PortalSessionManager::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('getSessionCookieJar')
+                ->once()
+                ->with('fake-session-token')
+                ->andReturn(new CookieJar);
+        });
+
+        $profileExtractor = Mockery::mock(ProfileExtractor::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('extractProfileData')
+                ->once()
+                ->with('fake-session-token')
+                ->andReturn([
+                    'user_info' => [
+                        'nama' => 'Mahasiswa Uji',
+                    ],
+                ]);
+        });
+
+        $classesExtractor = Mockery::mock(ClassesExtractor::class, function (MockInterface $mock): void {
+            $mock->shouldIgnoreMissing();
+        });
+
+        $sipandaiClassesExtractor = Mockery::mock(SipandaiClassesExtractor::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('extractSipandaiClassesData')
+                ->once()
+                ->with('fake-session-token')
+                ->andReturn([
+                    'classes' => [
+                        [
+                            'course_info' => [
+                                'code' => 'IF101',
+                                'name' => 'Algoritma',
+                            ],
+                        ],
+                    ],
+                    'semester_info' => [
+                        'semester' => '6',
+                    ],
+                ]);
+        });
+
+        $studentCourseExtractor = Mockery::mock(StudentCourseExtractor::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('extractStudentCourseData')
+                ->once()
+                ->with('fake-session-token')
+                ->andReturn([
+                    'classes' => [],
+                    'semester_info' => [
+                        'semester' => '6',
+                    ],
+                ]);
+        });
+
+        $extractor = Mockery::mock(DashboardExtractor::class, [
+            $sessionManager,
+            $profileExtractor,
+            $classesExtractor,
+            $sipandaiClassesExtractor,
+            $studentCourseExtractor,
+            new DashboardTodayClassesBuilder,
+        ])->makePartial()->shouldAllowMockingProtectedMethods();
+
+        $extractor->shouldReceive('get')
+            ->twice()
+            ->andReturn(
+                file_get_contents(base_path('tests/Fixtures/portal/sipandai_dashboard.html')),
+                '<table><tr><td>Total SKS</td><td>24 SKS</td></tr></table>'
+            );
+
+        $data = $extractor->extractDashboardData('fake-session-token');
+
+        $this->assertSame('24', $data['dashboard_overview']['total_credits']);
+
+        cache()->forget('dashboard_credit_total_v1_'.md5('fake-session-token'));
     }
 }

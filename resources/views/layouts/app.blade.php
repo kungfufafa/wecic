@@ -20,6 +20,21 @@
 </head>
 <body data-auth="@yield('auth_mode', 'required')" data-page="@yield('page_id', 'app')">
     <div id="notice-host" class="fixed right-4 top-4 z-50 w-[min(24rem,calc(100vw-2rem))]"></div>
+    <div class="qr-scanner-modal hidden" data-qr-scanner-modal aria-hidden="true">
+        <div class="qr-scanner-dialog">
+            <div class="qr-scanner-head">
+                <div>
+                    <p class="section-label">Absensi</p>
+                    <p class="qr-scanner-title">Scan kode QR</p>
+                </div>
+                <button type="button" class="ghost-button" data-qr-scanner-close>Tutup</button>
+            </div>
+            <div class="qr-scanner-view">
+                <video data-qr-scanner-video playsinline autoplay muted></video>
+            </div>
+            <p class="qr-scanner-note" data-qr-scanner-status>Arahkan kamera ke QR absensi untuk mengambil 8 digit kode pertama.</p>
+        </div>
+    </div>
 
     @php
         $navigation = [
@@ -52,6 +67,20 @@
                 </div>
             </div>
         </header>
+
+        <div class="pull-refresh-indicator" data-pull-indicator data-state="idle" aria-hidden="true">
+            <span class="pull-refresh-orb" aria-hidden="true"></span>
+            <span data-pull-copy>Tarik untuk memperbarui</span>
+        </div>
+
+        <section class="app-status-strip" aria-live="polite">
+            <span class="connection-chip" data-connection-chip data-state="online">
+                <span class="connection-chip-orb" aria-hidden="true"></span>
+                <span data-connection-label>Online</span>
+            </span>
+            <p class="app-status-note" data-sync-status data-tone="info">Online. Data terbaru akan disegarkan otomatis.</p>
+            <p class="app-status-user-meta hidden" data-user-identity></p>
+        </section>
 
         <main class="grid gap-6">
             @yield('content')

@@ -47,7 +47,7 @@
                     <input id="password" name="password" type="password" class="field-shell" autocomplete="current-password" placeholder="Password portal kampus" required>
                 </label>
 
-                <button id="login-submit" type="submit" class="primary-button w-full">Masuk</button>
+                <button id="login-submit" type="submit" class="primary-button w-full" data-online-required>Masuk</button>
             </form>
 
         </div>
@@ -64,6 +64,10 @@
             form.addEventListener('submit', async (event) => {
                 event.preventDefault();
 
+                if (!app.requireOnlineAction('Login butuh koneksi internet.')) {
+                    return;
+                }
+
                 submit.setAttribute('disabled', 'disabled');
                 submit.textContent = 'Memproses...';
 
@@ -77,6 +81,7 @@
                         redirectOnAuth: false,
                     });
 
+                    app.handleLoginSuccess(payload);
                     app.storeNotice(payload?.message || 'Login berhasil.', 'success');
                     window.location.href = '/dashboard';
                 } catch (error) {

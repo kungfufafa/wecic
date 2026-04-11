@@ -46,25 +46,27 @@ Route::get('/login', function (PortalSessionManager $sessionManager) {
     return view('auth.login');
 })->name('login');
 
-Route::view('/dashboard', 'dashboard')->name('dashboard');
-Route::view('/profile', 'profile')->name('profile');
-Route::view('/class', 'classes.index')->name('class.index');
-Route::get('/class/{id}', function (Request $request, string $id) {
-    return view('classes.show', [
-        'id' => $id,
-        'dosenId' => $request->query('dosen_id'),
-        'courseId' => $request->query('course_id'),
-    ]);
-})->name('class.show');
+Route::middleware('portal.web')->group(function (): void {
+    Route::view('/dashboard', 'dashboard')->name('dashboard');
+    Route::view('/profile', 'profile')->name('profile');
+    Route::view('/class', 'classes.index')->name('class.index');
+    Route::get('/class/{id}', function (Request $request, string $id) {
+        return view('classes.show', [
+            'id' => $id,
+            'dosenId' => $request->query('dosen_id'),
+            'courseId' => $request->query('course_id'),
+        ]);
+    })->name('class.show');
 
-Route::get('/meeting/{meeting_id}', function (Request $request, string $meeting_id) {
-    return view('meetings.show', [
-        'meetingId' => $meeting_id,
-        'coursesId' => $request->query('courses_id', $request->query('course_id')),
-    ]);
-})->name('meeting.show');
+    Route::get('/meeting/{meeting_id}', function (Request $request, string $meeting_id) {
+        return view('meetings.show', [
+            'meetingId' => $meeting_id,
+            'coursesId' => $request->query('courses_id', $request->query('course_id')),
+        ]);
+    })->name('meeting.show');
 
-Route::view('/exam', 'exams.index')->name('exam.index');
-Route::get('/exam/{id}', function (string $id) {
-    return view('exams.show', ['id' => $id]);
-})->name('exam.show');
+    Route::view('/exam', 'exams.index')->name('exam.index');
+    Route::get('/exam/{id}', function (string $id) {
+        return view('exams.show', ['id' => $id]);
+    })->name('exam.show');
+});

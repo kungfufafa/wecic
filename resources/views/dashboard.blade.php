@@ -9,7 +9,6 @@
             <div class="app-panel">
                 <p class="section-label">Ringkasan</p>
                 <h1 data-display class="mt-4 text-3xl font-semibold text-[color:var(--ink)] sm:text-4xl">Dashboard Mahasiswa</h1>
-                <p id="dashboard-summary-copy" class="mt-3 text-sm leading-7 text-[color:var(--ink-soft)]">Memuat ringkasan portal kampus.</p>
             </div>
 
             <div id="dashboard-metrics" class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -21,16 +20,25 @@
                 @endforeach
             </div>
 
-            <div class="app-panel">
-                <div class="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div class="grid gap-6 xl:grid-cols-2">
+                <div class="app-panel">
                     <div>
                         <p class="section-label">Hari ini</p>
-                        <h2 data-display class="mt-3 text-xl font-semibold text-[color:var(--ink)] sm:text-2xl">Absen dan kumpul tugas</h2>
+                        <h2 data-display class="mt-3 text-xl font-semibold text-[color:var(--ink)] sm:text-2xl">Absen hari ini</h2>
                     </div>
-                    <button id="dashboard-shortcut-refresh" type="button" class="secondary-button">Refresh</button>
+                    <div id="dashboard-attendance-shortcut" class="mt-6 grid gap-4">
+                        <div class="empty-shell">Mencari kelas yang relevan untuk absensi hari ini.</div>
+                    </div>
                 </div>
-                <div id="dashboard-shortcut" class="mt-6 grid gap-4">
-                    <div class="empty-shell">Mencari kelas yang relevan untuk hari ini.</div>
+
+                <div class="app-panel">
+                    <div>
+                        <p class="section-label">Tugas</p>
+                        <h2 data-display class="mt-3 text-xl font-semibold text-[color:var(--ink)] sm:text-2xl">Belum dikumpulkan</h2>
+                    </div>
+                    <div id="dashboard-pending-assignments" class="mt-6 grid gap-4">
+                        <div class="empty-shell">Memuat daftar tugas yang belum dikumpulkan.</div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -60,19 +68,11 @@
     <script>
         document.addEventListener('DOMContentLoaded', async () => {
             const app = window.portalApp;
-            const ready = await app.ensureAuthenticated();
-
-            if (!ready) {
-                return;
-            }
 
             const renderDashboard = (payload) => {
                 const data = payload?.data || {};
                 const overview = data.dashboard_overview || {};
                 const classesSummary = data.classes_summary || {};
-
-                document.getElementById('dashboard-summary-copy').textContent =
-                    data.timestamp ? `Data terakhir sinkron: ${app.formatDate(data.timestamp)}.` : 'Ringkasan portal kampus aktif.';
 
                 const metrics = [
                     classesSummary.total_classes || overview.total_courses || '0',
@@ -134,17 +134,14 @@
             };
 
             const renderTodayShortcut = (payload) => {
-                const host = document.getElementById('dashboard-shortcut');
+                const attendanceHost = document.getElementById('dashboard-attendance-shortcut');
                 const data = payload?.data || {};
                 const classes = data.classes || [];
 
                 if (!classes.length) {
-                    host.innerHTML = `<div class="empty-shell">Tidak ada kelas yang cocok untuk ${app.escapeHtml(data.day || 'hari ini')}.</div>`;
-
-                    return;
-                }
-
-                host.innerHTML = classes.map((klass, index) => `
+                    attendanceHost.innerHTML = `<div class="empty-shell">Tidak ada kelas yang cocok untuk ${app.escapeHtml(data.day || 'hari ini')}.</div>`;
+                } else {
+                    attendanceHost.innerHTML = classes.map((klass, index) => `
                     <article class="app-panel-muted">
                         <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                             <div class="space-y-3">
@@ -160,13 +157,32 @@
                                 ])}
                             </div>
                             <div class="grid w-full gap-4 lg:w-[21rem]">
-                                <form class="grid gap-3" data-attendance-card="${index}">
-                                    <label class="grid gap-2">
-                                        <span class="section-label">Kode QR / kode absensi</span>
-                                        <input type="text" class="field-shell" data-field="kode" placeholder="35533429" required>
-                                    </label>
-                                    <button type="submit" class="primary-button">Absen</button>
-                                </form>
+                                ${klass.attendance_status?.already_marked ? `
+                                    <div class="app-panel-muted">
+                                        <p class="section-label">Absensi</p>
+                                        <p class="mt-3 text-sm font-semibold text-[color:var(--ink)]">
+                                            ${app.escapeHtml(klass.attendance_status.label || 'Sudah tercatat')}
+                                        </p>
+                                        <p class="mt-2 text-sm leading-6 text-[color:var(--ink-soft)]">
+                                            ${app.escapeHtml(klass.attendance_status.time ? `Absensi tercatat pada ${klass.attendance_status.time}.` : 'Absensi untuk pertemuan ini sudah tercatat.')}
+                                        </p>
+                                    </div>
+                                ` : `
+                                    <form class="grid gap-3" data-attendance-card="${index}">
+                                        <label class="grid gap-2">
+                                            <span class="section-label">Kode QR / kode absensi</span>
+                                            <input type="text" class="field-shell" data-field="kode" placeholder="35533429" required>
+                                        </label>
+                                        <div class="grid grid-cols-2 gap-2">
+                                            <button type="button" class="secondary-button justify-center" data-qr-scan>Scan QR</button>
+                                            <label class="secondary-button justify-center cursor-pointer">
+                                                Upload foto
+                                                <input type="file" class="hidden" data-qr-file accept="image/*">
+                                            </label>
+                                        </div>
+                                        <button type="submit" class="primary-button" data-online-required>Absen</button>
+                                    </form>
+                                `}
                                 <form class="grid gap-3" data-assignment-card="${index}">
                                     <label class="grid gap-2">
                                         <span class="section-label">File tugas</span>
@@ -176,16 +192,23 @@
                                         <span class="section-label">Keterangan</span>
                                         <input type="text" class="field-shell" data-field="note" placeholder="Opsional">
                                     </label>
-                                    <button type="submit" class="secondary-button">Kumpul tugas</button>
+                                    <button type="submit" class="secondary-button" data-online-required>Kumpul tugas</button>
                                 </form>
                             </div>
                         </div>
                     </article>
-                `).join('');
+                    `).join('');
+                }
 
-                host.querySelectorAll('[data-attendance-card]').forEach((form, index) => {
+                attendanceHost.querySelectorAll('[data-attendance-card]').forEach((form, index) => {
+                    app.bindAttendanceQrTools(form, form.querySelector('[data-field="kode"]'));
+
                     form.addEventListener('submit', async (event) => {
                         event.preventDefault();
+
+                        if (!app.requireOnlineAction('Absen butuh koneksi internet.')) {
+                            return;
+                        }
 
                         const candidate = classes[index];
                         const kode = form.querySelector('[data-field="kode"]').value.trim();
@@ -206,15 +229,81 @@
                     });
                 });
 
-                host.querySelectorAll('[data-assignment-card]').forEach((form, index) => {
+                app.refreshOnlineRequiredState();
+            };
+
+            const renderPendingAssignments = (payload) => {
+                const assignmentHost = document.getElementById('dashboard-pending-assignments');
+                const pendingAssignments = payload?.data?.assignments || [];
+
+                if (!pendingAssignments.length) {
+                    assignmentHost.innerHTML = '<div class="empty-shell">Tidak ada tugas yang menunggu dikumpulkan.</div>';
+                } else {
+                    assignmentHost.innerHTML = pendingAssignments.map((assignment, index) => `
+                        <article class="app-panel-muted">
+                            <div class="space-y-3">
+                                <div>
+                                    <p class="section-label">Pertemuan ${app.escapeHtml(assignment.meeting_number || '-')}</p>
+                                    <h3 class="mt-3 text-lg font-semibold text-[color:var(--ink)]">${app.escapeHtml(assignment.course_name || 'Tugas')}</h3>
+                                    <p class="mt-2 text-sm text-[color:var(--ink-soft)]">${app.escapeHtml([assignment.course_code, assignment.lecturer_name].filter(Boolean).join(' / ') || '-')}</p>
+                                </div>
+                                ${app.renderKeyValueList([
+                                    { label: 'Judul', value: assignment.material_title },
+                                    { label: 'Tanggal materi', value: assignment.material_date },
+                                    { label: 'Batas waktu', value: assignment.deadline },
+                                ])}
+                                <div class="grid grid-cols-2 gap-2">
+                                    ${assignment.assignment_file_url ? `
+                                        <a href="${app.escapeHtml(app.absoluteCampusUrl(assignment.assignment_file_url))}" target="_blank" rel="noreferrer" class="secondary-button justify-center">
+                                            Buka lampiran tugas
+                                        </a>
+                                    ` : `
+                                        <span class="secondary-button justify-center opacity-50">Lampiran belum tersedia</span>
+                                    `}
+                                    <a href="${app.escapeHtml(assignment.meeting_url)}" class="ghost-button justify-center">Detail meeting</a>
+                                </div>
+                                ${assignment.can_submit_directly ? `
+                                    <form class="grid gap-3" data-assignment-card="${index}">
+                                        <label class="grid gap-2">
+                                            <span class="section-label">File tugas</span>
+                                            <input type="file" class="field-shell" data-field="attachment" accept=".pdf" required>
+                                        </label>
+                                        <label class="grid gap-2">
+                                            <span class="section-label">Keterangan</span>
+                                            <input type="text" class="field-shell" data-field="note" placeholder="Opsional">
+                                        </label>
+                                        <button type="submit" class="secondary-button" data-online-required>Kumpul tugas</button>
+                                    </form>
+                                ` : `
+                                    <div class="grid gap-3">
+                                        <p class="text-sm leading-6 text-[color:var(--ink-soft)]">Tugas tersedia, tetapi pengiriman langsung belum terbuka dari dashboard. Buka detail meeting untuk melihat instruksi lengkap.</p>
+                                        <a href="${app.escapeHtml(assignment.meeting_url)}" class="secondary-button justify-center">Buka detail meeting</a>
+                                    </div>
+                                `}
+                            </div>
+                        </article>
+                    `).join('');
+                }
+
+                assignmentHost.querySelectorAll('[data-assignment-card]').forEach((form, index) => {
                     form.addEventListener('submit', async (event) => {
                         event.preventDefault();
 
-                        const candidate = classes[index];
+                        if (!app.requireOnlineAction('Upload tugas butuh koneksi internet.')) {
+                            return;
+                        }
+
+                        const candidate = pendingAssignments[index];
                         const file = form.querySelector('[data-field="attachment"]').files[0];
 
                         if (!file) {
                             app.showNotice('Pilih file tugas terlebih dahulu.', 'warning');
+
+                            return;
+                        }
+
+                        if (!candidate.assignment_payload) {
+                            app.showNotice('Tugas ini perlu dibuka dari detail meeting terlebih dahulu.', 'warning');
 
                             return;
                         }
@@ -242,13 +331,30 @@
                         }
                     });
                 });
+
+                app.refreshOnlineRequiredState();
             };
+
+            app.primeCachedView('/api/dashboard', renderDashboard, 'ringkasan dashboard');
+            app.primeCachedView('/api/attendance/today', renderTodayShortcut, 'shortcut hari ini');
+            app.primeCachedView('/api/assignment/pending', renderPendingAssignments, 'tugas belum dikumpulkan');
+
+            const ready = await app.ensureAuthenticated();
+            let dashboardOverviewHealthy = false;
+
+            if (!ready) {
+                return;
+            }
 
             const loadDashboard = async () => {
                 try {
                     const payload = await app.request('/api/dashboard');
                     renderDashboard(payload);
+                    dashboardOverviewHealthy = true;
+                    app.markViewSynced('Dashboard');
                 } catch (error) {
+                    dashboardOverviewHealthy = false;
+                    app.setSyncStatus('Gagal memuat ringkasan dashboard.', 'error');
                     app.showNotice(error.payload?.message || error.message, 'error');
                 }
             };
@@ -257,15 +363,40 @@
                 try {
                     const payload = await app.request('/api/attendance/today');
                     renderTodayShortcut(payload);
+
+                    if (dashboardOverviewHealthy) {
+                        app.markViewSynced('Shortcut hari ini');
+                    }
                 } catch (error) {
+                    app.setSyncStatus('Gagal memuat shortcut hari ini.', 'error');
+                    document.getElementById('dashboard-attendance-shortcut').innerHTML = '<div class="empty-shell">Gagal memuat absensi hari ini.</div>';
+                    document.getElementById('dashboard-pending-assignments').innerHTML = '<div class="empty-shell">Gagal memuat daftar tugas yang belum dikumpulkan.</div>';
                     app.showNotice(error.payload?.message || error.message, 'error');
                 }
             };
 
-            document.getElementById('dashboard-shortcut-refresh').addEventListener('click', loadTodayShortcut);
+            const loadPendingAssignments = async () => {
+                try {
+                    const payload = await app.request('/api/assignment/pending');
+                    renderPendingAssignments(payload);
+
+                    if (dashboardOverviewHealthy) {
+                        app.markViewSynced('Tugas belum dikumpulkan');
+                    }
+                } catch (error) {
+                    app.setSyncStatus('Gagal memuat daftar tugas yang belum dikumpulkan.', 'error');
+                    document.getElementById('dashboard-pending-assignments').innerHTML = '<div class="empty-shell">Gagal memuat daftar tugas yang belum dikumpulkan.</div>';
+                    app.showNotice(error.payload?.message || error.message, 'error');
+                }
+            };
+
+            app.registerSyncHandler('dashboard-overview', loadDashboard);
+            app.registerSyncHandler('dashboard-shortcuts', loadTodayShortcut);
+            app.registerSyncHandler('dashboard-pending-assignments', loadPendingAssignments);
 
             await loadDashboard();
             await loadTodayShortcut();
+            await loadPendingAssignments();
         });
     </script>
 @endpush

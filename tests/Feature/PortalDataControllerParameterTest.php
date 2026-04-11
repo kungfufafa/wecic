@@ -193,6 +193,44 @@ class PortalDataControllerParameterTest extends TestCase
             ->assertJsonPath('meta.parameters.course_id', '8810');
     }
 
+    public function test_class_detail_endpoint_accepts_single_digit_dosen_id_from_upstream_url(): void
+    {
+        $this->instance(
+            PortalSessionManager::class,
+            Mockery::mock(PortalSessionManager::class, function (MockInterface $mock): void {
+                $mock->shouldReceive('validateSession')
+                    ->once()
+                    ->with('token-single-digit-dosen')
+                    ->andReturnTrue();
+            })
+        );
+
+        $this->instance(
+            ClassesExtractor::class,
+            Mockery::mock(ClassesExtractor::class, function (MockInterface $mock): void {
+                $mock->shouldReceive('extractClassDetail')
+                    ->once()
+                    ->with('token-single-digit-dosen', [
+                        'id' => 1455,
+                        'dosen_id' => 8,
+                        'course_id' => 8965,
+                    ])
+                    ->andReturn([
+                        'course_info' => ['name' => 'Bahasa Indonesia'],
+                    ]);
+            })
+        );
+
+        $response = $this->withSession(['campus_session_token' => 'token-single-digit-dosen'])
+            ->getJson('/api/class/1455?dosen_id=8&course_id=8965');
+
+        $response->assertOk()
+            ->assertJsonPath('status', 'success')
+            ->assertJsonPath('meta.parameters.id', '1455')
+            ->assertJsonPath('meta.parameters.dosen_id', '8')
+            ->assertJsonPath('meta.parameters.course_id', '8965');
+    }
+
     public function test_validate_parameters_returns_json_errors_without_accept_header(): void
     {
         $response = $this->get('/api/support/validate-parameters?id=1');
@@ -210,6 +248,17 @@ class PortalDataControllerParameterTest extends TestCase
             'application/json',
             (string) $response->headers->get('content-type')
         );
+    }
+
+    public function test_validate_parameters_accepts_single_digit_dosen_id(): void
+    {
+        $response = $this->getJson('/api/support/validate-parameters?id=1455&dosen_id=8&course_id=8965');
+
+        $response->assertOk()
+            ->assertJsonPath('status', 'success')
+            ->assertJsonPath('validation_result.valid', true)
+            ->assertJsonPath('validation_result.validated_params.dosen_id', '8')
+            ->assertJsonPath('validation_result.suggested_api_url', '/api/class/1455?dosen_id=8&course_id=8965');
     }
 
     public function test_sipandai_flow_allows_missing_dosen_id(): void

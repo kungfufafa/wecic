@@ -14,7 +14,6 @@
                 </div>
                 <div class="flex gap-2">
                     <a href="/class" class="ghost-button">Kembali</a>
-                    <button type="button" id="class-refresh" class="secondary-button">Refresh</button>
                 </div>
             </div>
         </div>
@@ -36,10 +35,6 @@
             </div>
         </div>
 
-        <details class="app-panel">
-            <summary class="cursor-pointer text-sm font-semibold text-[color:var(--ink)]">Payload mentah</summary>
-            <pre id="class-payload" class="mt-4 overflow-x-auto text-xs leading-6 text-[color:var(--ink-soft)]">Menunggu data.</pre>
-        </details>
     </section>
 @endsection
 
@@ -47,11 +42,6 @@
     <script>
         document.addEventListener('DOMContentLoaded', async () => {
             const app = window.portalApp;
-            const ready = await app.ensureAuthenticated();
-
-            if (!ready) {
-                return;
-            }
 
             const classId = @json($id);
             const dosenId = @json($dosenId);
@@ -239,20 +229,27 @@
                 } else {
                     document.getElementById('class-assignments').innerHTML = '<div class="empty-shell">Belum ada histori tugas.</div>';
                 }
-
-                document.getElementById('class-payload').textContent = JSON.stringify(payload, null, 2);
             };
+
+            app.primeCachedView(endpoint(), render, 'detail kelas');
+
+            const ready = await app.ensureAuthenticated();
+
+            if (!ready) {
+                return;
+            }
 
             const loadClassDetail = async () => {
                 try {
                     const payload = await app.request(endpoint());
                     render(payload);
+                    app.markViewSynced('Detail kelas');
                 } catch (error) {
                     app.showNotice(error.payload?.message || error.message, 'error');
                 }
             };
 
-            document.getElementById('class-refresh').addEventListener('click', loadClassDetail);
+            app.registerSyncHandler('class-show', loadClassDetail);
 
             await loadClassDetail();
         });

@@ -531,7 +531,7 @@ class ProfileExtractor extends PortalScrapingService
 
         } catch (\Exception $e) {
             $this->logScrapingError('Getting profile overview', $e, ['session_token' => $sessionToken]);
-            throw new PortalScrapingException('dataExtractionFailed', 'profile overview', $e->getMessage());
+            throw PortalScrapingException::dataExtractionFailed('profile overview', $e->getMessage());
         }
     }
 }

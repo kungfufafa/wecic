@@ -43,6 +43,7 @@ Route::middleware($sessionMiddleware)->group(function () {
         });
 
         Route::prefix('assignment')->controller(PortalActionController::class)->group(function (): void {
+            Route::get('pending', 'pendingAssignments');
             Route::post('', 'uploadAssignment');
             Route::delete('', 'deleteAssignment');
         });

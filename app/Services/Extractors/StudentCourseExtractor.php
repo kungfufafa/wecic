@@ -54,7 +54,7 @@ class StudentCourseExtractor extends PortalScrapingService
 
         } catch (\Exception $e) {
             $this->logScrapingError('Extracting student course data', $e, ['session_token' => $sessionToken]);
-            throw new PortalScrapingException('dataExtractionFailed', 'student course', $e->getMessage());
+            throw PortalScrapingException::dataExtractionFailed('student course', $e->getMessage());
         }
     }
 

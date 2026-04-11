@@ -13,6 +13,8 @@
             --ink-soft: #6b6b80;
             --line: #dddde8;
             --accent: #3d5fa0;
+            --success: #2f8a56;
+            --warning: #c9922a;
         }
 
         body {
@@ -40,6 +42,41 @@
             max-width: 22rem;
             width: 100%;
             text-align: center;
+        }
+
+        .status-strip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.6rem;
+            padding: 0.55rem 0.9rem;
+            border: 1px solid rgba(201,146,42,0.22);
+            border-radius: 999px;
+            background: rgba(255,250,240,0.92);
+            font-size: 0.78rem;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: #8d6319;
+            margin: 0 auto 1.4rem;
+        }
+
+        .status-strip.is-online {
+            border-color: rgba(47,138,86,0.22);
+            background: rgba(240,251,244,0.94);
+            color: var(--success);
+        }
+
+        .status-dot {
+            width: 0.75rem;
+            height: 0.75rem;
+            border-radius: 999px;
+            background: var(--warning);
+            box-shadow: 0 0 0 6px rgba(201,146,42,0.12);
+        }
+
+        .status-strip.is-online .status-dot {
+            background: var(--success);
+            box-shadow: 0 0 0 6px rgba(47,138,86,0.12);
         }
 
         .icon {
@@ -85,6 +122,13 @@
             margin-bottom: 2rem;
         }
 
+        .meta {
+            font-size: 0.8125rem;
+            line-height: 1.7;
+            margin-top: -1rem;
+            margin-bottom: 1.4rem;
+        }
+
         button {
             display: inline-flex;
             align-items: center;
@@ -113,6 +157,10 @@
 </head>
 <body>
     <div class="card">
+        <div id="offline-status" class="status-strip">
+            <span class="status-dot" aria-hidden="true"></span>
+            <span id="offline-status-label">Offline</span>
+        </div>
         <div class="icon">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M3 4.5h14.25M3 9h9.75M3 13.5h9.75m4.5-4.5v12m0 0-3.75-3.75M17.25 21 21 17.25" />
@@ -120,8 +168,42 @@
         </div>
         <div class="brand"><span class="brand-my">my</span><span class="brand-cic">CIC</span></div>
         <h1>Tidak ada koneksi</h1>
-        <p>Pastikan perangkat kamu terhubung ke internet, lalu coba lagi.</p>
-        <button onclick="window.location.reload()">Coba lagi</button>
+        <p id="offline-copy">Pastikan perangkat kamu terhubung ke internet, lalu coba lagi.</p>
+        <p class="meta" id="offline-meta">Begitu koneksi kembali, aplikasi akan memuat ulang dan mengambil data terbaru.</p>
+        <button id="retry-button" onclick="window.location.reload()">Coba lagi</button>
     </div>
+    <script>
+        const statusStrip = document.getElementById('offline-status');
+        const statusLabel = document.getElementById('offline-status-label');
+        const offlineCopy = document.getElementById('offline-copy');
+        const offlineMeta = document.getElementById('offline-meta');
+        const retryButton = document.getElementById('retry-button');
+
+        function reflectConnectionState() {
+            const isOnline = navigator.onLine;
+
+            statusStrip.classList.toggle('is-online', isOnline);
+            statusLabel.textContent = isOnline ? 'Online lagi' : 'Offline';
+            offlineCopy.textContent = isOnline
+                ? 'Koneksi sudah kembali. myCIC sedang memuat ulang halaman.'
+                : 'Pastikan perangkat kamu terhubung ke internet, lalu coba lagi.';
+            offlineMeta.textContent = isOnline
+                ? 'Tunggu sebentar, data terbaru akan diambil dari server.'
+                : 'Begitu koneksi kembali, aplikasi akan memuat ulang dan mengambil data terbaru.';
+            retryButton.textContent = isOnline ? 'Memuat ulang...' : 'Coba lagi';
+            retryButton.disabled = isOnline;
+
+            if (isOnline) {
+                window.setTimeout(() => {
+                    window.location.reload();
+                }, 600);
+            }
+        }
+
+        window.addEventListener('online', reflectConnectionState);
+        window.addEventListener('offline', reflectConnectionState);
+
+        reflectConnectionState();
+    </script>
 </body>
 </html>

@@ -27,7 +27,7 @@ abstract class PortalClassParameterRequest extends ApiFormRequest
              *
              * @example 5240
              */
-            'dosen_id' => ['required', 'integer', 'regex:/^\d{4}$/', 'between:1000,9999'],
+            'dosen_id' => ['required', 'integer', 'min:1'],
             /**
              * Identifier mata kuliah dari URL portal `act=download`.
              *
@@ -46,8 +46,7 @@ abstract class PortalClassParameterRequest extends ApiFormRequest
             'id.between' => 'Class ID must be between 1000 and 9999',
             'dosen_id.required' => 'Lecturer ID (parameter "dosen_id") is required',
             'dosen_id.integer' => 'Lecturer ID must be a number',
-            'dosen_id.regex' => 'Lecturer ID must be a 4-digit number (1000-9999)',
-            'dosen_id.between' => 'Lecturer ID must be between 1000 and 9999',
+            'dosen_id.min' => 'Lecturer ID must be a valid positive number',
             'course_id.required' => 'Course ID (parameter "course_id") is required',
             'course_id.integer' => 'Course ID must be a number',
             'course_id.regex' => 'Course ID must be a 4-digit number (8000-9999)',

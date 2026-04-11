@@ -55,7 +55,7 @@ class ClassesExtractor extends PortalScrapingService
 
         } catch (\Exception $e) {
             $this->logScrapingError('Extracting classes data', $e, ['session_token' => $sessionToken]);
-            throw new PortalScrapingException('dataExtractionFailed', 'classes', $e->getMessage());
+            throw PortalScrapingException::dataExtractionFailed('classes', $e->getMessage());
         }
     }
 
@@ -78,6 +78,17 @@ class ClassesExtractor extends PortalScrapingService
                 'dosen_id' => $params['dosen_id'] ?? null,
                 'course_id' => $params['course_id'] ?? null,
             ], static fn ($value) => $value !== null && $value !== '');
+            $cacheKey = 'parsed_class_detail_'.md5($sessionToken.json_encode($detailParams));
+
+            $cachedDetail = cache()->get($cacheKey);
+
+            if (is_array($cachedDetail)) {
+                $this->logScraping('Using cached parsed class detail', [
+                    'params' => $detailParams,
+                ]);
+
+                return $cachedDetail;
+            }
 
             $fullUrl = PortalEndpointRegistry::url('course_materials', $detailParams);
 
@@ -104,11 +115,13 @@ class ClassesExtractor extends PortalScrapingService
                 'content_type' => $classDetail['content_type'],
             ]);
 
+            cache()->put($cacheKey, $classDetail, now()->addMinutes(15));
+
             return $classDetail;
 
         } catch (\Exception $e) {
             $this->logScrapingError('Extracting class detail', $e, ['session_token' => $sessionToken, 'params' => $params]);
-            throw new PortalScrapingException('dataExtractionFailed', 'class detail', $e->getMessage());
+            throw PortalScrapingException::dataExtractionFailed('class detail', $e->getMessage());
         }
     }
 
@@ -120,6 +133,20 @@ class ClassesExtractor extends PortalScrapingService
         try {
             $this->setSession($sessionToken);
             $this->logScraping('Extracting meeting detail', ['session_token' => $sessionToken, 'params' => $params]);
+            $cacheKey = 'parsed_meeting_detail_'.md5($sessionToken.json_encode([
+                'meeting_id' => $params['meeting_id'] ?? null,
+                'courses_id' => $params['courses_id'] ?? null,
+            ]));
+
+            $cachedDetail = cache()->get($cacheKey);
+
+            if (is_array($cachedDetail)) {
+                $this->logScraping('Using cached parsed meeting detail', [
+                    'params' => $params,
+                ]);
+
+                return $cachedDetail;
+            }
 
             $fullUrl = PortalEndpointRegistry::url('discussion', array_filter([
                 'id' => $params['meeting_id'] ?? null,
@@ -151,11 +178,13 @@ class ClassesExtractor extends PortalScrapingService
                 'course_id' => $params['courses_id'],
             ]);
 
+            cache()->put($cacheKey, $meetingDetail, now()->addMinutes(15));
+
             return $meetingDetail;
 
         } catch (\Exception $e) {
             $this->logScrapingError('Extracting meeting detail', $e, ['session_token' => $sessionToken, 'params' => $params]);
-            throw new PortalScrapingException('dataExtractionFailed', 'meeting detail', $e->getMessage());
+            throw PortalScrapingException::dataExtractionFailed('meeting detail', $e->getMessage());
         }
     }
 
@@ -875,7 +904,7 @@ class ClassesExtractor extends PortalScrapingService
 
         } catch (\Exception $e) {
             $this->logScrapingError('Getting classes overview', $e, ['session_token' => $sessionToken]);
-            throw new PortalScrapingException('dataExtractionFailed', 'classes overview', $e->getMessage());
+            throw PortalScrapingException::dataExtractionFailed('classes overview', $e->getMessage());
         }
     }
 

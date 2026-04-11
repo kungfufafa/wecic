@@ -8,26 +8,21 @@
         <div class="grid gap-6">
             <div class="app-panel">
                 <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-                    <div>
-                        <p class="section-label">Detail ujian</p>
-                        <h1 id="exam-title" data-display class="mt-4 text-4xl font-semibold text-[color:var(--ink)]">Memuat ujian</h1>
-                        <p id="exam-subtitle" class="mt-3 text-sm leading-7 text-[color:var(--ink-soft)]">Mengambil metadata form unggah ujian dari LMS.</p>
-                    </div>
-                    <div class="flex gap-2">
-                        <a href="/exam" class="ghost-button">Kembali</a>
-                        <button type="button" id="exam-detail-refresh" class="secondary-button">Refresh</button>
-                    </div>
+                <div>
+                    <p class="section-label">Detail ujian</p>
+                    <h1 id="exam-title" data-display class="mt-4 text-4xl font-semibold text-[color:var(--ink)]">Memuat ujian</h1>
+                    <p id="exam-subtitle" class="mt-3 text-sm leading-7 text-[color:var(--ink-soft)]">Mengambil metadata form unggah ujian dari LMS.</p>
+                </div>
+                <div class="flex gap-2">
+                    <a href="/exam" class="ghost-button">Kembali</a>
                 </div>
             </div>
+        </div>
 
             <div id="exam-info" class="app-panel">
                 <div class="empty-shell">Menunggu detail ujian.</div>
             </div>
 
-            <details class="app-panel">
-                <summary class="cursor-pointer text-sm font-semibold text-[color:var(--ink)]">Payload mentah</summary>
-                <pre id="exam-payload" class="mt-4 overflow-x-auto text-xs leading-6 text-[color:var(--ink-soft)]">Menunggu data.</pre>
-            </details>
         </div>
 
         <aside class="grid gap-6">
@@ -42,12 +37,6 @@
     <script>
         document.addEventListener('DOMContentLoaded', async () => {
             const app = window.portalApp;
-            const ready = await app.ensureAuthenticated();
-
-            if (!ready) {
-                return;
-            }
-
             const examId = @json($id);
 
             const buildOverrideInputs = (fields) => {
@@ -120,7 +109,7 @@
                                 <div class="grid gap-3">
                                     ${buildOverrideInputs(form.fields)}
                                 </div>
-                                <button type="submit" class="primary-button">Upload via API</button>
+                                <button type="submit" class="primary-button" data-online-required>Kirim berkas</button>
                             </form>
                         ` : ''}
                         ${(detail.related_links || []).length ? `
@@ -135,14 +124,17 @@
                         ` : ''}
                     </div>
                 `;
-
-                document.getElementById('exam-payload').textContent = JSON.stringify(payload, null, 2);
+                app.refreshOnlineRequiredState();
 
                 const uploadForm = document.getElementById('exam-upload-form');
 
                 if (uploadForm) {
                     uploadForm.addEventListener('submit', async (event) => {
                         event.preventDefault();
+
+                        if (!app.requireOnlineAction('Upload ujian butuh koneksi internet.')) {
+                            return;
+                        }
 
                         const file = document.getElementById('exam-file').files[0];
 
@@ -178,16 +170,25 @@
                 }
             };
 
+            app.primeCachedView(`/api/exam/${examId}`, render, 'detail ujian');
+
+            const ready = await app.ensureAuthenticated();
+
+            if (!ready) {
+                return;
+            }
+
             const loadExamDetail = async () => {
                 try {
                     const payload = await app.request(`/api/exam/${examId}`);
                     render(payload);
+                    app.markViewSynced('Detail ujian');
                 } catch (error) {
                     app.showNotice(error.payload?.message || error.message, 'error');
                 }
             };
 
-            document.getElementById('exam-detail-refresh').addEventListener('click', loadExamDetail);
+            app.registerSyncHandler('exam-show', loadExamDetail);
 
             await loadExamDetail();
         });
