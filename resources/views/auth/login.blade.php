@@ -1,260 +1,90 @@
-@extends('layouts.app')
+@extends('layouts.guest')
 
-@section('title', 'Login - Portal CIC')
+@section('title', 'Login')
+@section('page_id', 'login')
 
 @section('content')
-<div class="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-    <div class="w-full max-w-md">
-        <!-- Header -->
-        <div class="text-center mb-6">
-            <div class="inline-flex items-center justify-center w-12 h-12 bg-blue-600 rounded-full mb-3">
-                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
-                </svg>
+    <section class="mx-auto grid w-full max-w-5xl gap-8 lg:grid-cols-[minmax(0,0.95fr)_minmax(22rem,0.8fr)] lg:items-center">
+        <div class="hidden space-y-6 lg:block">
+            <div class="app-panel">
+                <p class="section-label">Portal Mahasiswa</p>
+                <h1 data-display class="mt-4 text-4xl font-semibold text-[color:var(--ink)] sm:text-5xl">Akademik, satu pintu.</h1>
+                <p class="mt-4 max-w-[48ch] text-sm leading-7 text-[color:var(--ink-soft)]">
+                    Kelas, jadwal, dan ujian — dari satu portal.
+                </p>
             </div>
-            <h1 class="text-2xl font-bold text-gray-900">CIC Portal</h1>
-            <p class="text-gray-600 text-sm mt-1">Portal Mahasiswa</p>
+
+            <div class="grid gap-4 sm:grid-cols-3">
+                <article class="app-panel-muted">
+                    <p class="section-label">LMS</p>
+                    <p class="mt-3 text-sm font-medium text-[color:var(--ink)]">Materi & progres SIPANDAI.</p>
+                </article>
+                <article class="app-panel-muted">
+                    <p class="section-label">Jadwal</p>
+                    <p class="mt-3 text-sm font-medium text-[color:var(--ink)]">Kuliah & pertemuan.</p>
+                </article>
+                <article class="app-panel-muted">
+                    <p class="section-label">Ujian</p>
+                    <p class="mt-3 text-sm font-medium text-[color:var(--ink)]">Jadwal & unggah berkas.</p>
+                </article>
+            </div>
         </div>
 
-        <!-- Login Form -->
-        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <form id="loginForm" class="space-y-4">
-                @csrf
+        <div class="app-panel">
+            <div class="space-y-1">
+                <p class="section-label">Autentikasi</p>
+                <h2 data-display class="text-3xl font-semibold text-[color:var(--ink)]">Login</h2>
+            </div>
 
-                <!-- Username Field -->
-                <div>
-                    <label for="username" class="block text-sm font-medium text-gray-700 mb-1">
-                        Username
-                    </label>
-                    <input
-                        type="text"
-                        id="username"
-                        name="username"
-                        required
-                        class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="Masukkan username"
-                    >
-                </div>
+            <form id="login-form" class="mt-8 grid gap-5">
+                <label class="grid gap-2">
+                    <span class="section-label">Username</span>
+                    <input id="username" name="username" type="text" class="field-shell" autocomplete="username" placeholder="NIM atau username" required>
+                </label>
 
-                <!-- Password Field -->
-                <div>
-                    <label for="password" class="block text-sm font-medium text-gray-700 mb-1">
-                        Password
-                    </label>
-                    <div class="relative">
-                        <input
-                            type="password"
-                            id="password"
-                            name="password"
-                            required
-                            class="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                            placeholder="Masukkan password"
-                        >
-                        <button type="button" id="togglePassword" class="absolute inset-y-0 right-0 pr-3 flex items-center">
-                            <svg id="eyeIcon" class="h-4 w-4 text-gray-400 hover:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
-                            </svg>
-                        </button>
-                    </div>
-                </div>
+                <label class="grid gap-2">
+                    <span class="section-label">Password</span>
+                    <input id="password" name="password" type="password" class="field-shell" autocomplete="current-password" placeholder="Password portal kampus" required>
+                </label>
 
-                <!-- Submit Button -->
-                <button
-                    type="submit"
-                    id="loginButton"
-                    class="w-full flex justify-center py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 transition-colors"
-                >
-                    <span id="buttonText">Login</span>
-                    <svg id="loadingSpinner" class="animate-spin -ml-1 mr-2 h-4 w-4 text-white hidden" fill="none" viewBox="0 0 24 24">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                </button>
+                <button id="login-submit" type="submit" class="primary-button w-full">Masuk</button>
             </form>
+
         </div>
-
-        <!-- Footer -->
-        <div class="mt-6 text-center">
-            <p class="text-xs text-gray-500">CIC - Catur Insan Cendekia</p>
-        </div>
-    </div>
-</div>
-
-<!-- Toast Container -->
-<div id="toastContainer" class="fixed top-4 right-4 z-50 space-y-2"></div>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Check for session expired indicators on page load
-    const urlParams = new URLSearchParams(window.location.search);
-    const errorParam = urlParams.get('error');
-
-    if (errorParam === 'session_expired') {
-        showToast('Session Anda telah expired. Silakan login kembali.', 'warning');
-    }
-
-    // Check if there's any error message in the page (for server-side redirects)
-    const errorElements = document.querySelectorAll('.alert, .error, [class*="error"]');
-    errorElements.forEach(element => {
-        const text = element.textContent.trim();
-        if (text.includes('session') && text.includes('expired')) {
-            showToast('Session Anda telah expired. Silakan login kembali.', 'warning');
-            element.style.display = 'none'; // Hide the original error message
-        }
-    });
-
-    // Check for Laravel flash messages
-    @if(session('session_expired'))
-        showToast('Session Anda telah expired. Silakan login kembali.', 'warning');
-    @endif
-    const form = document.getElementById('loginForm');
-    const loginButton = document.getElementById('loginButton');
-    const buttonText = document.getElementById('buttonText');
-    const loadingSpinner = document.getElementById('loadingSpinner');
-    const togglePassword = document.getElementById('togglePassword');
-    const passwordInput = document.getElementById('password');
-    const eyeIcon = document.getElementById('eyeIcon');
-
-    // Toggle password visibility
-    togglePassword.addEventListener('click', function() {
-        const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
-        passwordInput.setAttribute('type', type);
-
-        eyeIcon.innerHTML = type === 'password'
-            ? '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>'
-            : '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/>';
-    });
-
-    // Handle form submission
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-
-        const username = document.getElementById('username').value;
-        const password = passwordInput.value;
-
-        setLoading(true);
-
-        try {
-            const response = await fetch('/login', {
-                method: 'POST',
-                headers: {
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-                },
-                body: JSON.stringify({ username: username, password: password })
-            });
-
-            const data = await response.json();
-
-            if (response.ok && (data.status === 'success' || data.success)) {
-                showToast('Login berhasil! Mengarahkan ke dashboard...', 'success');
-
-                // Auto redirect dengan fallback refresh
-                setTimeout(() => {
-                    window.location.href = '/dashboard';
-                }, 1500);
-
-                // Fallback: refresh jika redirect tidak bekerja dalam 3 detik
-                setTimeout(() => {
-                    if (window.location.pathname === '/login') {
-                        showToast('Meng refresh halaman...', 'info');
-                        window.location.reload();
-                    }
-                }, 3000);
-            } else {
-                // Handle session expired message
-                let message = data.message || 'Login gagal. Periksa kembali username dan password Anda.';
-                if (message.includes('session expired') || message.includes('expired')) {
-                    showToast('Session Anda telah expired. Silakan login kembali.', 'warning');
-                } else {
-                    showToast(message, 'error');
-                }
-            }
-        } catch (error) {
-            console.error('Login error:', error);
-            showToast('Terjadi kesalahan koneksi. Silakan coba lagi.', 'error');
-        } finally {
-            setLoading(false);
-        }
-    });
-
-    function setLoading(loading) {
-        loginButton.disabled = loading;
-        if (loading) {
-            buttonText.textContent = 'Memproses...';
-            loadingSpinner.classList.remove('hidden');
-        } else {
-            buttonText.textContent = 'Login';
-            loadingSpinner.classList.add('hidden');
-        }
-    }
-
-    // Toast notification function
-    function showToast(message, type = 'info') {
-        const toastContainer = document.getElementById('toastContainer');
-
-        const toast = document.createElement('div');
-        const toastId = 'toast-' + Date.now();
-        toast.id = toastId;
-
-        // Set colors based on type - ensure proper colors
-        const colors = {
-            success: 'bg-green-600 border-green-700',
-            error: 'bg-red-600 border-red-700',
-            warning: 'bg-yellow-600 border-yellow-700',
-            info: 'bg-blue-600 border-blue-700'
-        };
-
-        const icons = {
-            success: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>',
-            error: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>',
-            warning: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"></path>',
-            info: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>'
-        };
-
-        toast.className = `${colors[type]} text-white px-4 py-3 rounded-lg border shadow-xl flex items-center space-x-3 min-w-[300px] max-w-md transform transition-all duration-300 translate-x-full opacity-0`;
-        toast.innerHTML = `
-            <div class="flex-shrink-0">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    ${icons[type]}
-                </svg>
-            </div>
-            <div class="flex-1 text-sm font-medium">
-                ${message}
-            </div>
-            <button onclick="removeToast('${toastId}')" class="flex-shrink-0 ml-4 text-white hover:text-gray-200 transition-colors">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                </svg>
-            </button>
-        `;
-
-        toastContainer.appendChild(toast);
-
-        // Animate in
-        setTimeout(() => {
-            toast.classList.remove('translate-x-full', 'opacity-0');
-            toast.classList.add('translate-x-0', 'opacity-100');
-        }, 100);
-
-        // Auto remove after 5 seconds
-        setTimeout(() => {
-            removeToast(toastId);
-        }, 5000);
-    }
-
-    // Remove toast function
-    window.removeToast = function(toastId) {
-        const toast = document.getElementById(toastId);
-        if (toast) {
-            toast.classList.add('translate-x-full', 'opacity-0');
-            setTimeout(() => {
-                toast.remove();
-            }, 300);
-        }
-    };
-});
-</script>
+    </section>
 @endsection
+
+@push('scripts')
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const app = window.portalApp;
+            const form = document.getElementById('login-form');
+            const submit = document.getElementById('login-submit');
+
+            form.addEventListener('submit', async (event) => {
+                event.preventDefault();
+
+                submit.setAttribute('disabled', 'disabled');
+                submit.textContent = 'Memproses...';
+
+                try {
+                    const payload = await app.request('/api/auth/login', {
+                        method: 'POST',
+                        json: {
+                            username: document.getElementById('username').value,
+                            password: document.getElementById('password').value,
+                        },
+                        redirectOnAuth: false,
+                    });
+
+                    app.storeNotice(payload?.message || 'Login berhasil.', 'success');
+                    window.location.href = '/dashboard';
+                } catch (error) {
+                    app.showNotice(error.payload?.message || error.message, 'error');
+                    submit.removeAttribute('disabled');
+                    submit.textContent = 'Masuk';
+                }
+            });
+        });
+    </script>
+@endpush

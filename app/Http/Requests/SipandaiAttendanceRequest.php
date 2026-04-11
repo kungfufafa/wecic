@@ -4,13 +4,10 @@ declare(strict_types=1);
 
 namespace App\Http\Requests;
 
-use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Http\Request;
-
 /**
  * @mixin \Illuminate\Http\Request
  */
-class SipandaiAttendanceRequest extends FormRequest
+class SipandaiAttendanceRequest extends ApiFormRequest
 {
     /**
      * Determine if the user is authorized to make this request.
@@ -28,10 +25,41 @@ class SipandaiAttendanceRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'course_id' => ['required', 'integer', 'min:1'],
-            'discussion_id' => ['required', 'integer', 'min:1'],
-            'meeting_number' => ['sometimes', 'nullable', 'integer', 'min:1'],
+            /**
+             * Identifier `courseid` pada URL absensi SIPANDAI.
+             *
+             * @example 8833
+             */
+            'courseid' => ['required', 'integer', 'min:1'],
+            /**
+             * Identifier `modulesid` atau discussion/module pada URL absensi SIPANDAI.
+             *
+             * @example 30728
+             */
+            'modulesid' => ['required', 'integer', 'min:1'],
+            /**
+             * Kode QR atau unix untuk absensi perkuliahan.
+             *
+             * @example "35533429"
+             */
+            'kode' => ['required', 'string', 'min:1'],
+            /**
+             * Nomor pertemuan jika halaman absensi mengharuskannya.
+             *
+             * @example 8
+             */
+            'pertemuan' => ['sometimes', 'nullable', 'integer', 'min:1'],
+            /**
+             * Nilai tambahan yang akan digabungkan ke payload absensi portal.
+             *
+             * @var array<string, string>
+             *
+             * @example {"cmd":"Simpan"}
+             */
             'form_values' => ['sometimes', 'array'],
+            /**
+             * @ignoreParam
+             */
             'form_values.*' => ['nullable', 'string'],
         ];
     }
@@ -44,12 +72,14 @@ class SipandaiAttendanceRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'course_id.required' => 'Parameter course_id wajib diisi.',
-            'course_id.integer' => 'Parameter course_id harus berupa angka.',
-            'discussion_id.required' => 'Parameter discussion_id wajib diisi.',
-            'discussion_id.integer' => 'Parameter discussion_id harus berupa angka.',
-            'meeting_number.integer' => 'Nomor pertemuan harus berupa angka.',
-            'form_values.array' => 'form_values harus berupa array key-value.',
+            'courseid.required' => 'Parameter courseid wajib diisi.',
+            'courseid.integer' => 'Parameter courseid harus berupa angka.',
+            'modulesid.required' => 'Parameter modulesid wajib diisi.',
+            'modulesid.integer' => 'Parameter modulesid harus berupa angka.',
+            'kode.required' => 'Parameter kode (kode QR/unix) wajib diisi.',
+            'kode.string' => 'Parameter kode harus berupa string.',
+            'pertemuan.integer' => 'Parameter pertemuan harus berupa angka.',
+            'form_values.array' => 'Parameter form_values harus berupa object/array.',
         ];
     }
 
@@ -61,59 +91,59 @@ class SipandaiAttendanceRequest extends FormRequest
     public function attributes(): array
     {
         return [
-            'course_id' => 'course identifier',
-            'discussion_id' => 'discussion identifier',
-            'meeting_number' => 'meeting number',
+            'courseid' => 'course identifier (courseid)',
+            'modulesid' => 'discussion/module identifier (modulesid)',
+            'kode' => 'QR/unix attendance code',
+            'pertemuan' => 'meeting number',
+            'form_values' => 'form override values',
         ];
     }
 
+    public function courseId(): int
+    {
+        return (int) $this->validated('courseid');
+    }
+
+    public function discussionId(): int
+    {
+        return (int) $this->validated('modulesid');
+    }
+
+    public function meetingNumber(): ?int
+    {
+        $meetingNumber = $this->validated('pertemuan');
+
+        return $meetingNumber === null ? null : (int) $meetingNumber;
+    }
+
     /**
-     * Normalise form_values to array.
+     * @return array<string, string>
      */
+    public function formValues(): array
+    {
+        $values = $this->validated('form_values', []);
+
+        if (! is_array($values)) {
+            return [];
+        }
+
+        return array_filter(
+            $values,
+            static fn (mixed $value): bool => is_string($value) && $value !== ''
+        );
+    }
+
     protected function prepareForValidation(): void
     {
-        $laravelRequest = request();
+        $formValues = $this->input('form_values');
+        $legacyFormValues = is_array($formValues) ? $formValues : [];
 
-        if (! $laravelRequest instanceof Request) {
-            return;
-        }
-
-        $formValues = $laravelRequest->get('form_values');
-
-        if ($formValues === null) {
-            return;
-        }
-
-        if (! is_array($formValues)) {
-            $laravelRequest->request->set('form_values', []);
-        }
-    }
-
-    /**
-     * Describe body parameters for API documentation.
-     */
-    public function bodyParameters(): array
-    {
-        return [
-            'course_id' => [
-                'description' => 'Ambil dari parameter `courseid` pada URL absensi.',
-                'example' => 8810,
-            ],
-            'discussion_id' => [
-                'description' => 'Ambil dari parameter `modulesid` / `id` pada URL absensi.',
-                'example' => 30216,
-            ],
-            'meeting_number' => [
-                'description' => 'Opsional; isi dengan nilai `pertemuan` jika halaman absensi memintanya.',
-                'example' => 6,
-            ],
-            'form_values' => [
-                'description' => 'Key-value override untuk field tambahan (misal `kode`, `cmd`).',
-                'example' => [
-                    'kode' => 'd6a53600',
-                    'cmd' => 'Simpan',
-                ],
-            ],
-        ];
+        $this->merge([
+            'courseid' => $this->input('courseid', $this->input('course_id')),
+            'modulesid' => $this->input('modulesid', $this->input('discussion_id', $this->input('id'))),
+            'kode' => $this->input('kode', $legacyFormValues['kode'] ?? null),
+            'pertemuan' => $this->input('pertemuan', $this->input('meeting_number')),
+            'form_values' => $legacyFormValues,
+        ]);
     }
 }

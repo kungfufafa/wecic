@@ -4,14 +4,13 @@ declare(strict_types=1);
 
 namespace App\Http\Requests;
 
-use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 
 /**
  * @mixin \Illuminate\Http\Request
  */
-class SipandaiAssignmentUploadRequest extends FormRequest
+class SipandaiAssignmentUploadRequest extends ApiFormRequest
 {
     /**
      * Determine if the user is authorized to make this request.
@@ -29,12 +28,38 @@ class SipandaiAssignmentUploadRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'course_id' => ['required', 'integer', 'min:1'],
-            'discussion_id' => ['required', 'integer', 'min:1'],
-            'meeting_number' => ['required', 'integer', 'min:1'],
-            'attachment' => ['required', 'file', 'max:15360'], // 15 MB
+            /**
+             * Ambil dari query `courses_id` pada URL unggah tugas SIPANDAI.
+             *
+             * @example 9000
+             */
+            'courses_id' => ['required', 'integer', 'min:1'],
+            /**
+             * Ambil dari parameter `id` pada URL unggah tugas.
+             *
+             * Nilai ini biasanya merepresentasikan identifier diskusi atau materi.
+             *
+             * @example 30095
+             */
+            'id' => ['required', 'integer', 'min:1'],
+            /**
+             * Nomor pertemuan pada URL unggah tugas SIPANDAI.
+             *
+             * @example 6
+             */
+            'pertemuan' => ['required', 'integer', 'min:1'],
+            /**
+             * Override field tambahan dari form asli SIPANDAI bila diperlukan.
+             *
+             * @var array<string, mixed>
+             *
+             * @example {"keterangan":"Test upload"}
+             */
             'form_values' => ['sometimes', 'array'],
-            'form_values.*' => ['nullable', 'string'],
+            /**
+             * Berkas tugas mahasiswa yang akan dikirim sebagai field file SIPANDAI.
+             */
+            'attachment' => ['required', 'file', 'max:15360'], // 15 MB
         ];
     }
 
@@ -46,16 +71,16 @@ class SipandaiAssignmentUploadRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'course_id.required' => 'Parameter course_id wajib diisi.',
-            'course_id.integer' => 'Parameter course_id harus berupa angka.',
-            'discussion_id.required' => 'Parameter discussion_id wajib diisi.',
-            'discussion_id.integer' => 'Parameter discussion_id harus berupa angka.',
-            'meeting_number.required' => 'Nomor pertemuan wajib diisi.',
-            'meeting_number.integer' => 'Nomor pertemuan harus berupa angka.',
+            'courses_id.required' => 'Parameter courses_id wajib diisi.',
+            'courses_id.integer' => 'Parameter courses_id harus berupa angka.',
+            'id.required' => 'Parameter id wajib diisi.',
+            'id.integer' => 'Parameter id harus berupa angka.',
+            'pertemuan.required' => 'Parameter pertemuan wajib diisi.',
+            'pertemuan.integer' => 'Parameter pertemuan harus berupa angka.',
+            'form_values.array' => 'Parameter form_values harus berupa object/array.',
             'attachment.required' => 'File tugas wajib diunggah.',
             'attachment.file' => 'Lampiran tugas tidak valid.',
             'attachment.max' => 'Ukuran file tugas maksimal 15 MB.',
-            'form_values.array' => 'form_values harus berupa array key-value.',
         ];
     }
 
@@ -67,11 +92,37 @@ class SipandaiAssignmentUploadRequest extends FormRequest
     public function attributes(): array
     {
         return [
-            'course_id' => 'course identifier',
-            'discussion_id' => 'discussion identifier',
-            'meeting_number' => 'meeting number',
+            'courses_id' => 'course identifier',
+            'id' => 'discussion identifier',
+            'pertemuan' => 'meeting number',
+            'form_values' => 'form override values',
             'attachment' => 'assignment attachment',
         ];
+    }
+
+    public function courseId(): int
+    {
+        return (int) $this->validated('courses_id');
+    }
+
+    public function discussionId(): int
+    {
+        return (int) $this->validated('id');
+    }
+
+    public function meetingNumber(): int
+    {
+        return (int) $this->validated('pertemuan');
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function formValues(): array
+    {
+        $values = $this->validated('form_values', []);
+
+        return is_array($values) ? $values : [];
     }
 
     /**
@@ -99,52 +150,11 @@ class SipandaiAssignmentUploadRequest extends FormRequest
      */
     protected function prepareForValidation(): void
     {
-        $laravelRequest = request();
-
-        if (! $laravelRequest instanceof Request) {
-            return;
-        }
-
-        $formValues = $laravelRequest->get('form_values');
-
-        if ($formValues === null) {
-            return;
-        }
-
-        if (! is_array($formValues)) {
-            $laravelRequest->request->set('form_values', []);
-        }
-    }
-
-    /**
-     * Describe body parameters for API documentation.
-     *
-     * @return array<string, array<string, mixed>>
-     */
-    public function bodyParameters(): array
-    {
-        return [
-            'course_id' => [
-                'description' => 'Ambil dari query `courses_id` pada URL upload tugas SIPANDAI.',
-                'example' => 9000,
-            ],
-            'discussion_id' => [
-                'description' => 'Ambil dari parameter `id`/`discussion_id` pada URL upload tugas.',
-                'example' => 30095,
-            ],
-            'meeting_number' => [
-                'description' => 'Ambil dari parameter `pertemuan` pada URL upload.',
-                'example' => 6,
-            ],
-            'attachment' => [
-                'description' => 'File PDF tugas mahasiswa (field `data[tugas]`).',
-            ],
-            'form_values' => [
-                'description' => 'Key-value override tambahan (misal `cmd`, `keterangan`).',
-                'example' => [
-                    'cmd' => 'Upload',
-                ],
-            ],
-        ];
+        $this->merge([
+            'courses_id' => $this->input('courses_id', $this->input('course_id')),
+            'id' => $this->input('id', $this->input('discussion_id')),
+            'pertemuan' => $this->input('pertemuan', $this->input('meeting_number')),
+            'form_values' => $this->input('form_values', []),
+        ]);
     }
 }

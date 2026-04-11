@@ -287,5 +287,42 @@ return [
             'requires_session' => true,
             'required_params' => ['id', 'idx', 'pertemuan'],
         ],
+        'exam_upload_form' => [
+            'method' => 'GET',
+            'url' => $sipandaiBase,
+            'default_query' => [
+                'mod' => 'sipandai',
+                'act' => 'sendujian',
+            ],
+            'description' => 'Exam (UAS/UTS) upload form page.',
+            'category' => 'action',
+            'priority' => 'high',
+            'requires_session' => true,
+            'required_params' => ['id'],
+        ],
+        'exam_submit' => [
+            'method' => 'POST',
+            'url' => $sipandaiBase,
+            'default_query' => [
+                'mod' => 'sipandai',
+                'act' => 'sentujian',
+            ],
+            'description' => 'Submit exam (UAS/UTS) upload.',
+            'category' => 'action',
+            'priority' => 'high',
+            'requires_session' => true,
+        ],
+        'exam_list' => [
+            'method' => 'GET',
+            'url' => $sipandaiBase,
+            'default_query' => [
+                'mod' => 'sipandai',
+                'act' => 'ujian',
+            ],
+            'description' => 'List of exams (UAS/UTS) for student.',
+            'category' => 'data',
+            'priority' => 'high',
+            'requires_session' => true,
+        ],
     ],
 ];

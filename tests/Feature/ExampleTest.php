@@ -1,16 +1,17 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Feature;
 
-// use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class ExampleTest extends TestCase
 {
-    public function test_home_redirects_to_login_when_session_missing(): void
+    public function test_health_endpoint_is_available(): void
     {
-        $response = $this->get('/');
+        $response = $this->get('/up');
 
-        $response->assertRedirect(route('login'));
+        $response->assertOk();
     }
 }

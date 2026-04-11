@@ -166,13 +166,13 @@ class AnalyzeUrlCommand extends Command
         $this->newLine();
 
         $this->line('   2. API Endpoints:');
-        $this->line('      - GET /api/campus/class-detail-by-id?class_id={id}');
-        $this->line('      - GET /api/campus/meeting-detail-by-id?meeting_id={meeting_id}');
+        $this->line('      - GET /api/class/{id}?dosen_id={dosen_id}&course_id={course_id}');
+        $this->line('      - GET /api/meeting/{meeting_id}?courses_id={courses_id}');
         $this->newLine();
 
-        $this->line('   3. URL Generation:');
-        $this->line('      - Class detail: /classes/{id}');
-        $this->line('      - Meeting detail: /meetings/{meeting_id}');
+        $this->line('   3. API-only Usage:');
+        $this->line('      - Call /api/class/{id} directly with upstream parameters');
+        $this->line('      - Call /api/meeting/{meeting_id} directly with courses_id');
         $this->line('      - Where meeting_id is extracted from course_materials[].join_link.href');
         $this->newLine();
 

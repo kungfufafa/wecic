@@ -1,0 +1,49 @@
+{
+    "name": "myCIC",
+    "short_name": "myCIC",
+    "description": "Portal akademik mahasiswa CIC",
+    "start_url": "/dashboard",
+    "display": "standalone",
+    "orientation": "portrait",
+    "background_color": "#f9f9fc",
+    "theme_color": "#3d5fa0",
+    "lang": "id",
+    "scope": "/",
+    "icons": [
+        {
+            "src": "/icons/icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "any"
+        },
+        {
+            "src": "/icons/icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any"
+        },
+        {
+            "src": "/icons/icon-maskable-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "maskable"
+        }
+    ],
+    "shortcuts": [
+        {
+            "name": "Dashboard",
+            "url": "/dashboard",
+            "description": "Halaman utama"
+        },
+        {
+            "name": "Kelas",
+            "url": "/class",
+            "description": "Daftar kelas"
+        },
+        {
+            "name": "Ujian",
+            "url": "/exam",
+            "description": "Jadwal ujian"
+        }
+    ]
+}

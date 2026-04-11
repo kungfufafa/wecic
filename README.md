@@ -10,7 +10,7 @@ MyCIC memadukan tiga lapisan utama:
 
 ## Fitur Utama
 - Login terpusat yang menjaga sesi kampus tetap aktif tanpa blank page.
-- API kampus modern (`/api/campus/*`) lengkap dengan validasi `FormRequest` dan response envelope konsisten.
+- API kampus modern (`/api/*`) lengkap dengan validasi `FormRequest` dan response envelope konsisten.
 - Ekstraksi data dashboard, profil, jadwal, kelas, SIPANDAI, serta detail meeting lengkap dengan fallback selector.
 - Sistem cache berlapis (profile, data dinamis, HTML) berbasis database cache store untuk menekan beban scraping.
 - Middleware `portal.session` dan job `RefreshPortalSessionJob` demi pengalaman pengguna yang tidak perlu login ulang.
@@ -95,38 +95,38 @@ npm run dev               # atau npm run build untuk production assets
 ### 1. API Publik (tanpa middleware)
 | Method | Endpoint | Controller | Catatan |
 | --- | --- | --- | --- |
-| `POST` | `/api/campus/login` | `API\PortalAuthController@login` | Membuat sesi kampus baru dan menyimpan token di cache. |
-| `POST` | `/api/campus/refresh-session` | `API\PortalAuthController@refreshSession` | Perpanjang sesi aktif atau trigger auto relogin. |
-| `GET` | `/api/campus/check-session` | `API\PortalAuthController@checkSession` | Digunakan front-end untuk polling status sesi. |
-| `POST` | `/api/campus/logout` | `API\PortalAuthController@logout` | Hapus sesi dari cache & logout portal. |
+| `POST` | `/api/login` | `API\PortalAuthController@login` | Membuat sesi kampus baru dan menyimpan token di cache. |
+| `POST` | `/api/refresh-session` | `API\PortalAuthController@refreshSession` | Perpanjang sesi aktif atau trigger auto relogin. |
+| `GET` | `/api/check-session` | `API\PortalAuthController@checkSession` | Digunakan front-end untuk polling status sesi. |
+| `POST` | `/api/logout` | `API\PortalAuthController@logout` | Hapus sesi dari cache & logout portal. |
 
 ### 2. API Terproteksi `portal.session`
-Semua route berikut berada di `routes/api.php` (prefiks `/api/campus` + middleware `web` + `portal.session`):
+Semua route berikut berada di `routes/api.php` (prefiks `/api` + middleware session + `portal.session`):
 
 | Method | Endpoint | Controller@method | Data yang Dikembalikan |
 | --- | --- | --- | --- |
-| `GET` | `/api/campus/dashboard` | `API\PortalDataController@dashboard` | Ringkasan dashboard + recent activity. |
-| `GET` | `/api/campus/profile` | `API\PortalDataController@profile` | Profil mahasiswa + user info. |
-| `GET` | `/api/campus/classes` | `API\PortalDataController@classes` | Daftar kelas SIPANDAI + summary. |
-| `GET` | `/api/campus/class-detail` | `API\PortalDataController@classDetail` | Detail kelas / meeting (validasi `ClassDetailRequest`). |
-| `GET` | `/api/campus/class-detail-by-id` | `API\PortalDataController@classDetailById` | Variasi pengambilan detail berdasarkan ID. |
-| `GET` | `/api/campus/meeting-detail` | `API\PortalDataController@meetingDetail` | Detail pertemuan dari SIPANDAI. |
-| `GET` | `/api/campus/meeting-detail-by-id` | `API\PortalDataController@meetingDetailById` | Detail meeting menggunakan identifier alternatif. |
-| `GET` | `/api/campus/sipandai-classes` | `API\PortalDataController@sipandaiClasses` | Data kelas khusus SIPANDAI dashboard. |
-| `GET` | `/api/campus/student-course` | `API\PortalDataController@studentCourse` | Data kelas dari endpoint student course (ruangan, jadwal). |
-| `GET` | `/api/campus/merged-classes` | `API\PortalDataController@mergedClasses` | Gabungan SIPANDAI + student course untuk konsumsi UI. |
-| `POST` | `/api/campus/assignments/upload` | `API\PortalActionController@uploadAssignment` | Upload tugas SIPANDAI dengan pengambilan form dinamis dan unggah file multipart. |
-| `POST` | `/api/campus/attendance/mark` | `API\PortalActionController@markAttendance` | Tandai kehadiran pertemuan SIPANDAI mengikuti parameter dinamis (`course_id`, `id`, `pertemuan`). |
+| `GET` | `/api/dashboard` | `API\PortalDataController@dashboard` | Ringkasan dashboard + recent activity. |
+| `GET` | `/api/profile` | `API\PortalDataController@profile` | Profil mahasiswa + user info. |
+| `GET` | `/api/classes` | `API\PortalDataController@classes` | Daftar kelas SIPANDAI + summary. |
+| `GET` | `/api/class-detail` | `API\PortalDataController@classDetail` | Detail kelas / meeting (validasi `ClassDetailRequest`). |
+| `GET` | `/api/class-detail-by-id` | `API\PortalDataController@classDetailById` | Variasi pengambilan detail berdasarkan ID. |
+| `GET` | `/api/meeting-detail` | `API\PortalDataController@meetingDetail` | Detail pertemuan dari SIPANDAI. |
+| `GET` | `/api/meeting-detail-by-id?meeting_id={meeting_id}&course_id={course_id}` | `API\PortalDataController@meetingDetailById` | Detail meeting menggunakan identifier alternatif. |
+| `GET` | `/api/sipandai-classes` | `API\PortalDataController@sipandaiClasses` | Data kelas khusus SIPANDAI dashboard. |
+| `GET` | `/api/student-course` | `API\PortalDataController@studentCourse` | Data kelas dari endpoint student course (ruangan, jadwal). |
+| `GET` | `/api/merged-classes` | `API\PortalDataController@mergedClasses` | Gabungan SIPANDAI + student course untuk konsumsi UI. |
+| `POST` | `/api/assignments/upload` | `API\PortalActionController@uploadAssignment` | Upload tugas SIPANDAI dengan pengambilan form dinamis dan unggah file multipart. |
+| `POST` | `/api/attendance/mark` | `API\PortalActionController@markAttendance` | Tandai kehadiran pertemuan SIPANDAI mengikuti parameter dinamis (`course_id`, `id`, `pertemuan`). |
 
 ### 3. API Support (middleware `web`)
-Endpoint pendukung integrasi berada di bawah prefix `/api/campus/support` dan `/api/campus/metadata`:
+Endpoint pendukung integrasi berada di bawah prefix `/api/support` dan `/api/metadata`:
 
 | Endpoint | Deskripsi |
 | --- | --- |
-| `GET /api/campus/support/session` | Mengecek status sesi kampus (preview token + user_info). |
-| `GET /api/campus/support/parameter-help` | Dokumentasi mapping parameter `id`, `dosen_id`, `course_id`. |
-| `GET /api/campus/support/validate-parameters` | Validasi cepat parameter sebelum memanggil extractor. |
-| `GET /api/campus/metadata/endpoints` | Daftar endpoint yang dicatat di `PortalEndpointRegistry` (bisa `?key=profile`). |
+| `GET /api/support/session` | Mengecek status sesi kampus (preview token + user_info). |
+| `GET /api/support/parameter-help` | Dokumentasi mapping parameter `id`, `dosen_id`, `course_id`. |
+| `GET /api/support/validate-parameters` | Validasi cepat parameter sebelum memanggil extractor. |
+| `GET /api/metadata/endpoints` | Daftar endpoint yang dicatat di `PortalEndpointRegistry` (bisa `?key=profile`). |
 
 ### 4. Halaman Web (middleware `portal.session` kecuali login)
 | Method | Endpoint | Deskripsi |
@@ -134,7 +134,7 @@ Endpoint pendukung integrasi berada di bawah prefix `/api/campus/support` dan `/
 | `GET` | `/login` | Halaman login Blade dengan toast & validasi client-side. |
 | `POST` | `/login` | Eksekusi login via `WebLoginController`. |
 | `POST` | `/logout` | Logout UI (hapus session token & redirect ke login). |
-| `GET` | `/dashboard` | Dashboard UI modern (mengonsumsi `/api/campus/dashboard`). |
+| `GET` | `/dashboard` | Dashboard UI modern (mengonsumsi `/api/dashboard`). |
 | `GET` | `/profile` | Halaman profil yang memakai API internal. |
 | `GET` | `/classes` | Daftar kelas dengan status meeting. |
 | `GET` | `/classes/{classId}` | Detail kelas spesifik. |
@@ -161,7 +161,7 @@ Daftar di atas mencakup seluruh route dari `routes/web.php` dan `routes/api.php`
 - Pertahankan struktur response `{ status, message, data, meta }` agar front-end dan klien eksternal konsisten.
 - Validasi parameter kompleks menggunakan Form Request (`ClassDetailRequest`) daripada inline validation.
 - Gunakan `PortalSessionMiddleware` di semua route yang butuh data kampus untuk mencegah request tanpa sesi.
-- Komunikasikan status sesi di UI dengan `ToastService::sessionExpired()` dan polling `/api/campus/check-session`.
+- Komunikasikan status sesi di UI dengan `ToastService::sessionExpired()` dan polling `/api/check-session`.
 
 ### 4. Performa & Observabilitas
 - Gunakan `CACHE_STORE=database` atau Redis untuk menyimpan cache HTML/data dengan TTL berbeda (profil 1 jam, data dinamis 15 menit, HTML 5 menit, kegagalan 1 menit).
@@ -178,7 +178,7 @@ Daftar di atas mencakup seluruh route dari `routes/web.php` dan `routes/api.php`
 ## Observability & Debugging
 - `storage/logs/laravel.log` – log utama; gunakan `tail -f` atau `php artisan pail` untuk live streaming.
 - `php artisan tinker` – debugging session/cache secara langsung (`Cache::get('cic_session_<token>')`).
-- Endpoint `/api/campus/support/*` membantu memeriksa struktur HTML terbaru tanpa membuka UI lama.
+- Endpoint `/api/support/*` membantu memeriksa struktur HTML terbaru tanpa membuka UI lama.
 - Gunakan `php artisan queue:failed` & `php artisan queue:retry` untuk menangani job refresh sesi yang gagal.
 - Dokumentasi API otomatis tersedia melalui Dedoc Scramble (`/docs/api`) saat `APP_ENV=local` atau akses dibuka.
 

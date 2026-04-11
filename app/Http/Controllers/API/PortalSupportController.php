@@ -4,16 +4,32 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\API;
 
-use App\Http\Controllers\Controller;
+use App\Http\Requests\PortalParameterValidationRequest;
 use App\Services\PortalEndpointRegistry;
 use App\Services\PortalSessionManager;
+use Dedoc\Scramble\Attributes\Group;
+use Dedoc\Scramble\Attributes\QueryParameter;
+use Dedoc\Scramble\Attributes\Response;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
-class PortalSupportController extends Controller
+#[Group('Support & Metadata', 'Endpoint bantuan parameter, status sesi, dan metadata utilitas untuk integrasi portal.', 40)]
+class PortalSupportController extends CampusApiController
 {
+    private const ENDPOINTS_RESPONSE = "array{status: 'success', message: string, data: array<string, mixed>|list<array<string, mixed>>, meta: array{grouped: bool, total_endpoints: int}}";
+
+    private const PARAMETER_HELP_RESPONSE = "array{status: 'success', message: string, parameter_guide: array<string, mixed>}";
+
+    private const VALID_PARAMETER_RESPONSE = "array{status: 'success', message: string, validation_result: array{valid: true, validated_params: array<string, mixed>, suggested_api_url: string}, debug_info: array<string, mixed>}";
+
+    private const INVALID_PARAMETER_RESPONSE = "array{status: 'error', message: 'Parameter validation failed', validation_result: array{valid: false, errors: array<string, list<string>>, provided_params: array{id: mixed, dosen_id: mixed, course_id: mixed}}, debug_info: array{suggestion: string, help_url: string, example_url: string}}";
+
     public function __construct(private readonly PortalSessionManager $sessionManager) {}
 
+    #[QueryParameter('grouped', 'Jika `true`, metadata endpoint akan dikelompokkan per kategori.', type: 'boolean', example: true)]
+    #[QueryParameter('key', 'Jika diisi, hanya metadata untuk endpoint key tertentu yang dikembalikan.', type: 'string', example: 'assignment_form')]
+    #[Response(description: 'Metadata endpoint portal berhasil diambil.', type: self::ENDPOINTS_RESPONSE)]
+    #[Response(404, description: 'Key endpoint tidak ditemukan pada registry.', type: CampusApiController::SCRAMBLE_STATUS_ERROR_RESPONSE)]
     public function endpoints(Request $request): JsonResponse
     {
         $grouped = $request->boolean('grouped', true);
@@ -22,24 +38,15 @@ class PortalSupportController extends Controller
             try {
                 $endpoint = PortalEndpointRegistry::describe($key);
             } catch (\Throwable $e) {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => $e->getMessage(),
-                    'meta' => [
-                        'timestamp' => now()->toISOString(),
-                        'available_keys' => PortalEndpointRegistry::keys(),
-                    ],
-                ], 404);
+                return $this->statusError($e->getMessage(), 404, meta: [
+                    'available_keys' => PortalEndpointRegistry::keys(),
+                ]);
             }
 
-            return response()->json([
-                'status' => 'success',
-                'message' => "Endpoint metadata for {$key}",
+            return $this->statusSuccess("Endpoint metadata for {$key}", [
                 'data' => $endpoint,
-                'meta' => [
-                    'timestamp' => now()->toISOString(),
-                    'grouped' => false,
-                ],
+            ], meta: [
+                'grouped' => false,
             ]);
         }
 
@@ -47,34 +54,29 @@ class PortalSupportController extends Controller
             ? PortalEndpointRegistry::groupedByCategory()
             : PortalEndpointRegistry::all();
 
-        return response()->json([
-            'status' => 'success',
-            'message' => $grouped ? 'Grouped portal endpoints' : 'Portal endpoints list',
+        return $this->statusSuccess($grouped ? 'Grouped portal endpoints' : 'Portal endpoints list', [
             'data' => $payload,
-            'meta' => [
-                'timestamp' => now()->toISOString(),
-                'grouped' => $grouped,
-                'total_endpoints' => count(PortalEndpointRegistry::keys()),
-            ],
+        ], meta: [
+            'grouped' => $grouped,
+            'total_endpoints' => count(PortalEndpointRegistry::keys()),
         ]);
     }
 
+    #[Response(description: 'Panduan pemetaan parameter portal berhasil diambil.', type: self::PARAMETER_HELP_RESPONSE)]
     public function parameterHelp(): JsonResponse
     {
-        $helpBase = '/api/campus/support/parameter-help';
+        $helpBase = '/api/support/parameter-help';
 
-        return response()->json([
-            'status' => 'success',
-            'message' => 'Parameter help retrieved successfully',
+        return $this->statusSuccess('Parameter help retrieved successfully', [
             'parameter_guide' => [
                 'mapping_explanation' => [
                     'Portal URL: /portal/sipandai/?mod=sipandai&act=download&id=2265&dosen_id=5240&course_id=8810',
-                    'API Mapping: ?id={class_id}&dosen_id={lecturer_id}&course_id={course_id}',
-                    'Important: id parameter = class_id (NOT course_id!)',
+                    'API Mapping: /api/class/{id}?dosen_id={dosen_id}&course_id={course_id}',
+                    'Important: gunakan nama parameter yang sama seperti URL portal sumber.',
                 ],
                 'validation_rules' => [
                     'id' => [
-                        'parameter_name' => 'id (class_id)',
+                        'parameter_name' => 'id',
                         'format' => '4-digit integer',
                         'range' => '1000-9999',
                         'description' => 'Class identifier from CIC portal',
@@ -99,7 +101,7 @@ class PortalSupportController extends Controller
                     [
                         'source' => 'CIC Portal URL 1',
                         'portal_url' => '/portal/sipandai/?mod=sipandai&act=download&id=2265&dosen_id=5240&course_id=8810',
-                        'api_url' => '/api/campus/class-detail?id=2265&dosen_id=5240&course_id=8810',
+                        'api_url' => '/api/class/2265?dosen_id=5240&course_id=8810',
                         'parameters' => [
                             'id' => 2265,
                             'dosen_id' => 5240,
@@ -109,7 +111,7 @@ class PortalSupportController extends Controller
                     [
                         'source' => 'CIC Portal URL 2',
                         'portal_url' => '/portal/sipandai/?mod=sipandai&act=download&id=3142&dosen_id=1863&course_id=8861',
-                        'api_url' => '/api/campus/class-detail?id=3142&dosen_id=1863&course_id=8861',
+                        'api_url' => '/api/class/3142?dosen_id=1863&course_id=8861',
                         'parameters' => [
                             'id' => 3142,
                             'dosen_id' => 1863,
@@ -123,7 +125,7 @@ class PortalSupportController extends Controller
                         'wrong_url' => '?id=8810&dosen_id=5240&course_id=2265',
                         'problem' => 'Using course_id value as id parameter',
                         'correct_url' => '?id=2265&dosen_id=5240&course_id=8810',
-                        'explanation' => 'id parameter should be the class_id from portal URL, not course_id',
+                        'explanation' => 'id parameter should use the same id value from the portal URL, not course_id',
                     ],
                     [
                         'mistake' => 'Invalid course_id range',
@@ -136,7 +138,7 @@ class PortalSupportController extends Controller
                 'url_examples' => [
                     [
                         'method' => 'curl',
-                        'command' => 'curl "http://localhost:8000/api/campus/class-detail?id=2265&dosen_id=5240&course_id=8810"',
+                        'command' => 'curl "http://localhost:8000/api/class/2265?dosen_id=5240&course_id=8810"',
                     ],
                     [
                         'method' => 'parameter_help',
@@ -144,106 +146,36 @@ class PortalSupportController extends Controller
                     ],
                     [
                         'method' => 'validate_parameters',
-                        'command' => 'curl "http://localhost:8000/api/campus/support/validate-parameters?id=2265&dosen_id=5240&course_id=8810"',
+                        'command' => 'curl "http://localhost:8000/api/support/validate-parameters?id=2265&dosen_id=5240&course_id=8810"',
                     ],
                 ],
             ],
         ]);
     }
 
-    public function validateParameters(Request $request): JsonResponse
+    #[Response(description: 'Parameter portal valid dan siap digunakan.', type: self::VALID_PARAMETER_RESPONSE)]
+    #[Response(422, description: 'Parameter portal tidak valid.', type: self::INVALID_PARAMETER_RESPONSE)]
+    public function validateParameters(PortalParameterValidationRequest $request): JsonResponse
     {
-        $params = [
-            'id' => $request->query('id'),
-            'dosen_id' => $request->query('dosen_id'),
-            'course_id' => $request->query('course_id'),
-        ];
+        $params = $request->validated();
+        $id = (string) $params['id'];
+        $query = http_build_query([
+            'dosen_id' => $params['dosen_id'],
+            'course_id' => $params['course_id'],
+        ]);
 
-        $rules = [
-            'id' => 'required|integer|regex:/^\d{4}$/|between:1000,9999',
-            'dosen_id' => 'required|integer|regex:/^\d{4}$/|between:1000,9999',
-            'course_id' => 'required|integer|regex:/^\d{4}$/|between:8000,9999',
-        ];
-
-        $messages = [
-            'id.required' => 'Class ID (parameter "id") is required',
-            'id.integer' => 'Class ID must be a number',
-            'id.regex' => 'Class ID must be a 4-digit number (1000-9999)',
-            'id.between' => 'Class ID must be between 1000 and 9999',
-            'dosen_id.required' => 'Lecturer ID (parameter "dosen_id") is required',
-            'dosen_id.integer' => 'Lecturer ID must be a number',
-            'dosen_id.regex' => 'Lecturer ID must be a 4-digit number (1000-9999)',
-            'dosen_id.between' => 'Lecturer ID must be between 1000 and 9999',
-            'course_id.required' => 'Course ID (parameter "course_id") is required',
-            'course_id.integer' => 'Course ID must be a number',
-            'course_id.regex' => 'Course ID must be a 4-digit number (8000-9999)',
-            'course_id.between' => 'Course ID must be between 8000 and 9999. Example: course_id=8810 or course_id=8861',
-        ];
-
-        $validator = validator($params, $rules, $messages);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Parameter validation failed',
-                'validation_result' => [
-                    'valid' => false,
-                    'errors' => $validator->errors()->toArray(),
-                    'provided_params' => $params,
-                ],
-                'debug_info' => [
-                    'suggestion' => 'Check parameter mapping: id=class_id, course_id=course_id',
-                    'help_url' => '/api/campus/support/parameter-help',
-                    'example_url' => '/api/campus/support/validate-parameters?id=2265&dosen_id=5240&course_id=8810',
-                ],
-            ], 422);
-        }
-
-        return response()->json([
-            'status' => 'success',
-            'message' => 'Parameters are valid',
+        return $this->statusSuccess('Parameters are valid', [
             'validation_result' => [
                 'valid' => true,
-                'validated_params' => $validator->validated(),
-                'suggested_api_url' => '/api/campus/class-detail?'.http_build_query($params),
+                'validated_params' => $params,
+                'suggested_api_url' => "/api/class/{$id}?{$query}",
             ],
             'debug_info' => [
                 'next_steps' => [
-                    '1. Login via POST /api/campus/login',
+                    '1. Login via POST /api/auth/login',
                     '2. Gunakan parameter tervalidasi untuk request scraping',
                 ],
             ],
-        ]);
-    }
-
-    public function sessionStatus(Request $request): JsonResponse
-    {
-        $sessionToken = session('campus_session_token');
-        $userInfo = session('campus_user_info');
-
-        $debugInfo = [
-            'session_id' => session()->getId(),
-            'session_data' => session()->all(),
-            'campus_session_valid' => false,
-        ];
-
-        if ($sessionToken) {
-            try {
-                $debugInfo['campus_session_valid'] = $this->sessionManager->validateSession($sessionToken);
-            } catch (\Exception $e) {
-                $debugInfo['validation_error'] = $e->getMessage();
-            }
-        }
-
-        return response()->json([
-            'status' => 'success',
-            'session_info' => [
-                'session_valid' => ! empty($sessionToken),
-                'session_token_preview' => $sessionToken ? substr($sessionToken, 0, 20).'...' : null,
-                'user_info' => $userInfo,
-                'has_user_info' => ! empty($userInfo),
-            ],
-            'debug_info' => $debugInfo,
         ]);
     }
 }

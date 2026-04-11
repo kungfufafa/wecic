@@ -1,6 +1,5 @@
 <?php
 
-use App\Http\Middleware\VerifyCsrfTokenMiddleware;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -18,17 +17,15 @@ return Application::configure(basePath: dirname(__DIR__))
             'portal.session' => \App\Http\Middleware\PortalSessionMiddleware::class,
         ]);
 
-        // Apply CSRF protection to web routes only
-        $middleware->web(VerifyCsrfTokenMiddleware::class);
+        // Replace default CSRF middleware with our custom one that has API exceptions
+        $middleware->web(replace: [
+            \Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class => \App\Http\Middleware\VerifyCsrfTokenMiddleware::class,
+        ]);
 
         // Apply api middleware to api routes (without CSRF)
         $middleware->api([
             \Illuminate\Http\Middleware\HandleCors::class,
         ]);
-
-        // Remove CSRF from all routes and add back only to web
-        $middleware->remove(\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class);
-        $middleware->web(VerifyCsrfTokenMiddleware::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

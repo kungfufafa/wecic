@@ -4,15 +4,25 @@ declare(strict_types=1);
 
 namespace App\Services\Extractors;
 
+use App\Services\DashboardTodayClassesBuilder;
+use App\Services\PortalEndpointRegistry;
 use App\Services\PortalScrapingService;
 use App\Services\PortalSessionManager;
+use Carbon\CarbonImmutable;
 use Exception;
+use Illuminate\Support\Facades\Log;
 use Symfony\Component\DomCrawler\Crawler;
 
 class DashboardExtractor extends PortalScrapingService
 {
-    public function __construct(PortalSessionManager $sessionManager)
-    {
+    public function __construct(
+        PortalSessionManager $sessionManager,
+        private readonly ProfileExtractor $profileExtractor,
+        private readonly ClassesExtractor $classesExtractor,
+        private readonly SipandaiClassesExtractor $sipandaiClassesExtractor,
+        private readonly StudentCourseExtractor $studentCourseExtractor,
+        private readonly DashboardTodayClassesBuilder $dashboardTodayClassesBuilder
+    ) {
         parent::__construct($sessionManager);
     }
 
@@ -29,31 +39,26 @@ class DashboardExtractor extends PortalScrapingService
         try {
             $this->setSession($sessionToken);
             $this->logScraping('Extracting dashboard data', ['session_token' => $sessionToken]);
+            $reference = CarbonImmutable::now(config('app.timezone'));
 
-            // Get profile data
-            $profileExtractor = new ProfileExtractor($this->sessionManager);
-            $profileData = $profileExtractor->extractProfileData($sessionToken);
+            $profileData = $this->profileExtractor->extractProfileData($sessionToken);
+            $sipandaiClassesData = $this->sipandaiClassesExtractor->extractSipandaiClassesData($sessionToken);
+            $studentCourseData = $this->studentCourseExtractor->extractStudentCourseData($sessionToken);
 
-            // Get classes data
-            $classesExtractor = new ClassesExtractor($this->sessionManager);
-            $classesData = $classesExtractor->extractClassesData($sessionToken);
-
-            // Get dashboard overview page
-            $dashboardUrl = 'https://my.cic.ac.id/portal/sipandai/?mod=sipandai&act=dashboardmahasiswa';
+            $dashboardUrl = PortalEndpointRegistry::url('sipandai_dashboard');
             $html = $this->get($dashboardUrl);
             $crawler = $this->createCrawler($html);
 
-            // Extract dashboard overview information
             $dashboardOverview = $this->extractDashboardOverview($crawler);
-
-            // Extract recent activity
+            $dashboardOverview['total_courses'] = (string) count($sipandaiClassesData['classes'] ?? []);
+            $dashboardOverview['total_credits'] = (string) $this->resolveTotalCredits($sessionToken, $sipandaiClassesData['classes'] ?? [], $dashboardOverview);
             $recentActivity = $this->extractRecentActivity($crawler);
 
             return [
                 'user_info' => $profileData['user_info'] ?? [],
                 'dashboard_overview' => $dashboardOverview,
                 'recent_activity' => $recentActivity,
-                'classes_summary' => $this->createClassesSummary($classesData),
+                'classes_summary' => $this->createClassesSummary($sipandaiClassesData, $studentCourseData, $reference),
                 'status' => 'success',
                 'timestamp' => now()->toISOString(),
             ];
@@ -144,33 +149,87 @@ class DashboardExtractor extends PortalScrapingService
     /**
      * Create classes summary from classes data
      */
-    private function createClassesSummary(array $classesData): array
+    private function createClassesSummary(array $sipandaiClassesData, array $studentCourseData, CarbonImmutable $reference): array
     {
-        $classes = $classesData['classes'] ?? [];
+        $classes = $sipandaiClassesData['classes'] ?? [];
+        $todaySchedule = $this->dashboardTodayClassesBuilder->build(
+            $classes,
+            $studentCourseData['classes'] ?? [],
+            $reference
+        );
 
         return [
             'total_classes' => count($classes),
-            'active_semester' => $this->extractActiveSemester($classes),
-            'recent_classes' => array_slice($classes, 0, 3), // Show last 3 classes
+            'active_semester' => $this->extractActiveSemester($sipandaiClassesData, $studentCourseData),
+            'day' => $todaySchedule['day'],
+            'date' => $todaySchedule['date'],
+            'today_classes_count' => count($todaySchedule['classes']),
+            'today_classes' => $todaySchedule['classes'],
         ];
     }
 
     /**
      * Extract active semester from classes data
      */
-    private function extractActiveSemester(array $classes): string
+    private function extractActiveSemester(array $sipandaiClassesData, array $studentCourseData): string
     {
-        if (empty($classes)) {
-            return 'N/A';
+        $semester = $sipandaiClassesData['semester_info']['semester']
+            ?? $studentCourseData['semester_info']['semester']
+            ?? null;
+
+        if (is_string($semester) && trim($semester) !== '') {
+            return trim($semester);
         }
 
-        // Try to extract semester info from first class
-        $firstClass = $classes[0];
-        if (isset($firstClass['semester'])) {
-            return $firstClass['semester'];
-        }
+        return 'N/A';
+    }
 
-        // Default to current semester format
-        return 'Ganjil 2025/2026';
+    /**
+     * @param  list<array<string, mixed>>  $classes
+     * @param  array<string, mixed>  $dashboardOverview
+     */
+    private function resolveTotalCredits(string $sessionToken, array $classes, array $dashboardOverview): int
+    {
+        $cacheKey = 'dashboard_total_credits_v2_'.md5($sessionToken);
+
+        return cache()->remember($cacheKey, now()->addMinutes(30), function () use ($sessionToken, $classes, $dashboardOverview): int {
+            $totalCredits = 0;
+
+            foreach ($classes as $class) {
+                $detailParams = $class['join_link']['params'] ?? [];
+
+                if (
+                    empty($detailParams['id'])
+                    || empty($detailParams['dosen_id'])
+                    || empty($detailParams['course_id'])
+                ) {
+                    continue;
+                }
+
+                try {
+                    $detail = $this->classesExtractor->extractClassDetail($sessionToken, [
+                        'id' => (string) $detailParams['id'],
+                        'dosen_id' => (string) $detailParams['dosen_id'],
+                        'course_id' => (string) $detailParams['course_id'],
+                    ]);
+                } catch (\Throwable $throwable) {
+                    Log::warning('Failed to resolve course credits for dashboard summary', [
+                        'params' => $detailParams,
+                        'error' => $throwable->getMessage(),
+                    ]);
+
+                    continue;
+                }
+
+                $credits = (int) preg_replace('/\D+/', '', (string) ($detail['course_info']['credits'] ?? '0'));
+                $totalCredits += $credits;
+            }
+
+            if ($totalCredits > 0) {
+                return $totalCredits;
+            }
+
+            return (int) preg_replace('/\D+/', '', (string) ($dashboardOverview['total_credits'] ?? '0'));
+        });
     }
 }

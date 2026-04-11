@@ -6,6 +6,412 @@
 @source '../**/*.js';
 
 @theme {
-    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
-        'Segoe UI Symbol', 'Noto Color Emoji';
+    --font-sans: 'Manrope', ui-sans-serif, system-ui, sans-serif;
+}
+
+:root {
+    --font-display: 'Chivo', ui-sans-serif, system-ui, sans-serif;
+    --surface: oklch(0.98 0.004 255);
+    --surface-elevated: oklch(0.995 0.003 255);
+    --surface-muted: oklch(0.95 0.008 250);
+    --ink: oklch(0.24 0.014 255);
+    --ink-soft: oklch(0.49 0.012 250);
+    --line: oklch(0.89 0.01 250);
+    --accent: oklch(0.52 0.11 248);
+    --accent-strong: oklch(0.45 0.11 248);
+    --notice-success: oklch(0.61 0.12 145);
+    --notice-error: oklch(0.58 0.18 28);
+    --notice-warning: oklch(0.72 0.14 78);
+    --notice-info: oklch(0.52 0.11 248);
+}
+
+@layer base {
+    html {
+        color: var(--ink);
+        background:
+            linear-gradient(to bottom, color-mix(in oklab, var(--surface) 86%, white), var(--surface));
+    }
+
+    body {
+        min-height: 100vh;
+        color: var(--ink);
+        background:
+            linear-gradient(to right, color-mix(in oklab, var(--line) 45%, transparent) 1px, transparent 1px),
+            linear-gradient(to bottom, color-mix(in oklab, var(--line) 45%, transparent) 1px, transparent 1px),
+            linear-gradient(to bottom, color-mix(in oklab, var(--surface) 88%, white), var(--surface));
+        background-size: 32px 32px, 32px 32px, auto;
+        font-family: var(--font-sans);
+    }
+
+    h1,
+    h2,
+    h3,
+    h4,
+    [data-display] {
+        font-family: var(--font-display);
+        letter-spacing: -0.02em;
+    }
+
+    button,
+    a,
+    input,
+    textarea,
+    select {
+        transition:
+            border-color 180ms ease,
+            background-color 180ms ease,
+            color 180ms ease,
+            box-shadow 180ms ease,
+            transform 180ms ease;
+    }
+}
+
+@layer components {
+    .app-shell {
+        @apply mx-auto flex min-h-screen w-full max-w-[1280px] flex-col px-4 pb-28 pt-4 sm:px-6 sm:pb-32 lg:px-8 lg:pb-10;
+    }
+
+    .app-header {
+        @apply sticky top-4 z-30 mb-6 rounded-2xl border px-4 py-4 backdrop-blur sm:px-5;
+        border-color: color-mix(in oklab, var(--line) 84%, transparent);
+        background: color-mix(in oklab, var(--surface-elevated) 94%, white);
+        box-shadow: 0 12px 30px color-mix(in oklab, var(--ink) 8%, transparent);
+    }
+
+    .app-header-shell {
+        @apply grid gap-4 lg:grid-cols-[auto_auto_auto] lg:items-center lg:justify-between lg:gap-5;
+    }
+
+    .app-brand-row {
+        @apply flex items-center justify-between gap-3;
+    }
+
+    .app-brand-link {
+        @apply rounded-2xl px-1 py-1;
+    }
+
+    .app-nav-shell {
+        @apply gap-2 lg:inline-flex lg:w-auto lg:justify-self-center;
+    }
+
+    .app-nav-link {
+        @apply inline-flex min-h-11 items-center justify-center rounded-xl px-4 py-2.5 text-center text-sm font-semibold;
+        border: 1px solid transparent;
+        color: var(--ink-soft);
+    }
+
+    .brand-mark {
+        @apply inline-flex min-h-11 items-end gap-[0.14rem] leading-none;
+    }
+
+    .brand-mark-my {
+        @apply text-base font-semibold tracking-[-0.05em];
+        color: oklch(0.72 0.15 82);
+        transform: translateY(-0.08rem);
+    }
+
+    .brand-mark-cic {
+        @apply text-2xl font-semibold tracking-[-0.06em];
+        color: oklch(0.5 0.12 248);
+    }
+
+    .app-nav-link[aria-current='page'] {
+        background: linear-gradient(180deg, var(--accent), var(--accent-strong));
+        border-color: color-mix(in oklab, var(--accent-strong) 65%, white);
+        color: white;
+        box-shadow: 0 10px 18px color-mix(in oklab, var(--accent) 28%, transparent);
+    }
+
+    .app-nav-link:hover {
+        color: var(--ink);
+        border-color: color-mix(in oklab, var(--line) 78%, transparent);
+        background: color-mix(in oklab, var(--surface-elevated) 92%, white);
+    }
+
+    .header-logout {
+        @apply inline-flex min-h-11 items-center justify-center rounded-xl border px-4 py-2.5 text-sm font-semibold;
+        color: var(--ink);
+        border-color: color-mix(in oklab, var(--line) 82%, transparent);
+        background: color-mix(in oklab, var(--surface) 86%, white);
+    }
+
+    .header-logout:hover {
+        background: color-mix(in oklab, var(--surface-muted) 72%, white);
+        color: var(--ink);
+    }
+
+    .mobile-bottom-nav {
+        position: fixed;
+        left: 1rem;
+        right: 1rem;
+        bottom: calc(1rem + env(safe-area-inset-bottom));
+        z-index: 40;
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 0.35rem;
+        padding: 0.4rem;
+        border: 1px solid color-mix(in oklab, var(--line) 84%, transparent);
+        border-radius: 1.6rem;
+        background: color-mix(in oklab, var(--surface-elevated) 94%, white);
+    }
+
+    .mobile-bottom-nav-link {
+        @apply inline-flex min-h-12 items-center justify-center rounded-2xl px-2 py-3 text-center text-[11px] font-semibold;
+        border: 1px solid transparent;
+        color: var(--ink-soft);
+        transition:
+            border-color 180ms ease,
+            background-color 180ms ease,
+            color 180ms ease;
+    }
+
+    .mobile-bottom-nav-link[aria-current='page'] {
+        color: white;
+        border-color: transparent;
+        background: linear-gradient(180deg, var(--accent), var(--accent-strong));
+    }
+
+    .mobile-bottom-nav-link:hover {
+        color: var(--ink);
+        border-color: color-mix(in oklab, var(--line) 72%, transparent);
+        background: color-mix(in oklab, var(--surface) 88%, white);
+    }
+
+    .app-panel {
+        @apply rounded-2xl border p-5 sm:p-6;
+        border-color: color-mix(in oklab, var(--line) 88%, transparent);
+        background: color-mix(in oklab, var(--surface-elevated) 96%, white);
+        box-shadow: 0 10px 24px color-mix(in oklab, var(--ink) 5%, transparent);
+    }
+
+    .app-panel-muted {
+        @apply rounded-2xl border p-4;
+        border-color: color-mix(in oklab, var(--line) 88%, transparent);
+        background: color-mix(in oklab, var(--surface-muted) 70%, white);
+    }
+
+    .hero-metric {
+        @apply rounded-2xl border px-4 py-4;
+        border-color: color-mix(in oklab, var(--line) 88%, transparent);
+        background: color-mix(in oklab, var(--surface-elevated) 92%, white);
+    }
+
+    .hero-metric strong {
+        @apply block text-3xl font-semibold sm:text-4xl;
+        color: var(--ink);
+        font-family: var(--font-display);
+    }
+
+    .hero-metric span {
+        @apply mt-2 block text-xs uppercase tracking-[0.18em];
+        color: var(--ink-soft);
+    }
+
+    .summary-tile {
+        @apply rounded-2xl border p-4;
+        border-color: color-mix(in oklab, var(--line) 88%, transparent);
+        background: color-mix(in oklab, var(--surface-elevated) 94%, white);
+    }
+
+    .summary-tile-value {
+        @apply mt-3 block break-words text-lg font-semibold leading-7 sm:text-xl;
+        color: var(--ink);
+        font-family: var(--font-display);
+    }
+
+    .summary-tile-value.is-compact {
+        @apply text-sm font-medium leading-6 sm:text-base;
+        font-family: var(--font-sans);
+    }
+
+    .data-grid {
+        @apply grid gap-3;
+    }
+
+    .data-row {
+        @apply grid gap-1 rounded-xl border px-3 py-3 sm:grid-cols-[170px_minmax(0,1fr)] sm:items-start;
+        border-color: color-mix(in oklab, var(--line) 84%, transparent);
+        background: color-mix(in oklab, var(--surface) 92%, white);
+    }
+
+    .data-row dt {
+        @apply text-xs font-semibold uppercase tracking-[0.16em];
+        color: var(--ink-soft);
+    }
+
+    .data-row dd {
+        @apply break-words text-sm font-medium leading-6;
+        color: var(--ink);
+    }
+
+    .notice-shell {
+        @apply flex items-start gap-4 rounded-2xl border px-4 py-3 shadow-lg;
+        border-color: color-mix(in oklab, var(--notice-accent) 22%, transparent);
+        background: color-mix(in oklab, var(--surface-elevated) 92%, white);
+    }
+
+    .notice-copy {
+        @apply flex-1 text-sm font-medium leading-6;
+        color: var(--ink);
+    }
+
+    .notice-close {
+        @apply rounded-lg px-2 py-1 text-xs font-semibold;
+        color: var(--ink-soft);
+    }
+
+    .notice-close:hover {
+        background: color-mix(in oklab, var(--line) 38%, white);
+        color: var(--ink);
+    }
+
+    .primary-button {
+        @apply inline-flex min-h-11 items-center justify-center rounded-xl px-4 py-2.5 text-sm font-semibold text-white;
+        background: linear-gradient(180deg, var(--accent), var(--accent-strong));
+        box-shadow: 0 8px 18px color-mix(in oklab, var(--accent) 24%, transparent);
+    }
+
+    .primary-button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 12px 24px color-mix(in oklab, var(--accent) 32%, transparent);
+    }
+
+    .secondary-button {
+        @apply inline-flex min-h-11 items-center justify-center rounded-xl border px-4 py-2.5 text-sm font-semibold;
+        color: var(--ink);
+        border-color: color-mix(in oklab, var(--line) 84%, transparent);
+        background: color-mix(in oklab, var(--surface) 86%, white);
+    }
+
+    .secondary-button:hover {
+        background: color-mix(in oklab, var(--surface-muted) 70%, white);
+    }
+
+    .ghost-button {
+        @apply inline-flex min-h-11 items-center justify-center rounded-xl px-3 py-2.5 text-sm font-semibold;
+        color: var(--ink-soft);
+    }
+
+    .ghost-button:hover {
+        color: var(--ink);
+        background: color-mix(in oklab, var(--line) 36%, white);
+    }
+
+    .field-shell {
+        @apply w-full rounded-xl border px-3 py-3 text-sm outline-none;
+        color: var(--ink);
+        border-color: color-mix(in oklab, var(--line) 90%, transparent);
+        background: color-mix(in oklab, var(--surface-elevated) 94%, white);
+    }
+
+    .field-shell:focus {
+        border-color: color-mix(in oklab, var(--accent) 52%, white);
+        box-shadow: 0 0 0 4px color-mix(in oklab, var(--accent) 12%, transparent);
+    }
+
+    .section-label {
+        @apply text-xs font-semibold uppercase tracking-[0.2em];
+        color: var(--ink-soft);
+    }
+
+    .empty-shell {
+        @apply rounded-2xl border px-4 py-10 text-center text-sm;
+        color: var(--ink-soft);
+        border-color: color-mix(in oklab, var(--line) 88%, transparent);
+        background: color-mix(in oklab, var(--surface) 90%, white);
+    }
+
+    .compact-table {
+        @apply min-w-full border-separate border-spacing-0 text-left text-sm;
+    }
+
+    .compact-table thead th {
+        @apply border-b px-3 py-3 text-xs font-semibold uppercase tracking-[0.14em];
+        color: var(--ink-soft);
+        border-color: color-mix(in oklab, var(--line) 88%, transparent);
+    }
+
+    .compact-table tbody td {
+        @apply border-b px-3 py-3 align-top;
+        border-color: color-mix(in oklab, var(--line) 66%, transparent);
+    }
+
+    .class-record {
+        @apply rounded-2xl border p-4 sm:p-5;
+        border-color: color-mix(in oklab, var(--line) 88%, transparent);
+        background: color-mix(in oklab, var(--surface-elevated) 96%, white);
+        box-shadow: 0 10px 24px color-mix(in oklab, var(--ink) 5%, transparent);
+    }
+
+    .class-record-shell {
+        @apply grid gap-4;
+    }
+
+    .class-record-course {
+        @apply min-w-0;
+    }
+
+    .class-record-code {
+        @apply text-xs font-semibold uppercase tracking-[0.18em];
+        color: var(--accent-strong);
+    }
+
+    .class-record-title {
+        @apply mt-2 text-xl font-semibold leading-tight text-[color:var(--ink)] sm:text-2xl;
+    }
+
+    .class-record-lecturer {
+        @apply mt-3 text-sm leading-6 text-[color:var(--ink-soft)];
+    }
+
+    .class-record-stats {
+        @apply grid gap-3 sm:grid-cols-2 xl:grid-cols-4;
+    }
+
+    .class-record-stat {
+        @apply rounded-xl border px-3 py-3;
+        border-color: color-mix(in oklab, var(--line) 84%, transparent);
+        background: color-mix(in oklab, var(--surface) 92%, white);
+    }
+
+    .class-record-stat dt {
+        @apply text-[11px] font-semibold uppercase tracking-[0.16em];
+        color: var(--ink-soft);
+    }
+
+    .class-record-stat dd {
+        @apply mt-2 break-words text-sm font-semibold leading-6;
+        color: var(--ink);
+    }
+
+    .class-record-actions {
+        @apply grid grid-cols-2 gap-2 xl:grid-cols-1;
+    }
+
+    .class-record-meetings {
+        @apply mt-4 rounded-2xl border p-4;
+        border-color: color-mix(in oklab, var(--line) 84%, transparent);
+        background: color-mix(in oklab, var(--surface) 94%, white);
+    }
+
+    @media (min-width: 1280px) {
+        .class-record-shell {
+            grid-template-columns:
+                minmax(0, 1.9fr)
+                minmax(8rem, 0.85fr)
+                minmax(9rem, 1fr)
+                minmax(8rem, 0.85fr)
+                minmax(8rem, 0.85fr)
+                13rem;
+            align-items: start;
+        }
+
+        .class-record-stats {
+            display: contents;
+        }
+
+        .class-record-actions {
+            align-self: stretch;
+        }
+    }
 }

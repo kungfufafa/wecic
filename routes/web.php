@@ -2,95 +2,69 @@
 
 declare(strict_types=1);
 
+use App\Services\PortalSessionManager;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
-// Home page - redirect to login or dashboard
-Route::get('/', function () {
-    if (session('campus_session_token')) {
-        return redirect()->route('dashboard');
+Route::get('/', function (PortalSessionManager $sessionManager) {
+    $sessionToken = session('campus_session_token');
+
+    if (! $sessionToken) {
+        return redirect('/login');
     }
 
-    return redirect()->route('login');
-})->name('home');
-
-// Login page
-Route::get('/login', function () {
-    if (session('campus_session_token')) {
-        return redirect()->route('dashboard');
+    try {
+        if ($sessionManager->validateSession($sessionToken)) {
+            return redirect('/dashboard');
+        }
+    } catch (\Throwable $e) {
+        // Fall through to login and clear stale session state.
     }
+
+    session()->forget(['campus_session_token', 'campus_user_info']);
+
+    return redirect('/login');
+});
+
+Route::get('/login', function (PortalSessionManager $sessionManager) {
+    $sessionToken = session('campus_session_token');
+
+    if (! $sessionToken) {
+        return view('auth.login');
+    }
+
+    try {
+        if ($sessionManager->validateSession($sessionToken)) {
+            return redirect('/dashboard');
+        }
+    } catch (\Throwable $e) {
+        // Render login below after clearing stale session state.
+    }
+
+    session()->forget(['campus_session_token', 'campus_user_info']);
 
     return view('auth.login');
 })->name('login');
 
-// Handle login POST request
-Route::post('/login', [\App\Http\Controllers\WebLoginController::class, 'login'])->name('login.post');
+Route::view('/dashboard', 'dashboard')->name('dashboard');
+Route::view('/profile', 'profile')->name('profile');
+Route::view('/class', 'classes.index')->name('class.index');
+Route::get('/class/{id}', function (Request $request, string $id) {
+    return view('classes.show', [
+        'id' => $id,
+        'dosenId' => $request->query('dosen_id'),
+        'courseId' => $request->query('course_id'),
+    ]);
+})->name('class.show');
 
-// Dashboard (protected by campus session middleware)
-Route::middleware(['portal.session'])->group(function () {
-    Route::get('/dashboard', function () {
-        return view('dashboard');
-    })->name('dashboard');
+Route::get('/meeting/{meeting_id}', function (Request $request, string $meeting_id) {
+    return view('meetings.show', [
+        'meetingId' => $meeting_id,
+        'coursesId' => $request->query('courses_id', $request->query('course_id')),
+    ]);
+})->name('meeting.show');
 
-    Route::get('/profile', function () {
-        return view('profile');
-    })->name('profile');
-
-    Route::get('/classes', function () {
-        return view('classes');
-    })->name('classes');
-
-    Route::get('/classes/{classId}', function ($classId) {
-        return view('class-detail', ['classId' => $classId]);
-    })->name('class.detail');
-
-    Route::get('/meetings/{meetingId}', function ($meetingId) {
-        return view('meeting-detail', ['meetingId' => $meetingId]);
-    })->name('meeting.detail');
-
-    Route::post('/logout', function () {
-        session()->forget(['campus_session_token', 'campus_user_info']);
-
-        return redirect()->route('login')->with('success', 'Anda telah logout.');
-    })->name('logout');
-});
-
-// API routes for campus data (protected by campus session middleware)
-Route::prefix('api/campus')->middleware(['portal.session'])->group(function () {
-    Route::get('/dashboard', [\App\Http\Controllers\API\PortalDataController::class, 'dashboard']);
-    Route::get('/profile', [\App\Http\Controllers\API\PortalDataController::class, 'profile']);
-    Route::get('/classes', [\App\Http\Controllers\API\PortalDataController::class, 'classes']);
-    Route::get('/class-detail', [\App\Http\Controllers\API\PortalDataController::class, 'classDetail']);
-});
-
-// Toast test route
-Route::get('/test-toast/{type}', function ($type) {
-    $toastService = new \App\Services\ToastService;
-
-    switch ($type) {
-        case 'success':
-            \App\Services\ToastService::success('Test success message!', 'This is a test success notification.');
-            break;
-        case 'error':
-            \App\Services\ToastService::error('Test error message!', 'This is a test error notification.');
-            break;
-        case 'warning':
-            \App\Services\ToastService::sessionExpired('Test session expired message!');
-            break;
-        case 'info':
-            \App\Services\ToastService::info('Test info message!', 'This is a test info notification.');
-            break;
-        default:
-            \App\Services\ToastService::success('Default toast test!', 'Testing the unified toast system.');
-            break;
-    }
-
-    return redirect()->route('login');
-})->name('test.toast');
-
-// Public API routes for authentication
-Route::prefix('api/campus')->group(function () {
-    Route::post('/login', [\App\Http\Controllers\API\PortalAuthController::class, 'login']);
-    Route::get('/check-session', [\App\Http\Controllers\API\PortalAuthController::class, 'checkSession']);
-    Route::post('/refresh-session', [\App\Http\Controllers\API\PortalAuthController::class, 'refreshSession']);
-    Route::post('/logout', [\App\Http\Controllers\API\PortalAuthController::class, 'logout']);
-});
+Route::view('/exam', 'exams.index')->name('exam.index');
+Route::get('/exam/{id}', function (string $id) {
+    return view('exams.show', ['id' => $id]);
+})->name('exam.show');

@@ -663,7 +663,7 @@ class ClassesExtractor extends PortalScrapingService
                         if ($boldText->count() > 0) {
                             $courseText = trim($boldText->text());
                             // Extract code, name, and credits from format: "UC01024011 - Bahasa Indonesia - 2 SKS"
-                            if (preg_match('/(\w+\d+)\s*-\s*([^-]+?)\s*-\s*(\d+)\s*SKS/i', $courseText, $matches)) {
+                            if (preg_match('/^([A-Z0-9]+)\s*-\s*(.+)\s*-\s*(\d+)\s*SKS$/i', $courseText, $matches)) {
                                 $courseInfo['code'] = $matches[1];
                                 $courseInfo['name'] = trim($matches[2]);
                                 $courseInfo['credits'] = $matches[3];
@@ -1081,6 +1081,7 @@ class ClassesExtractor extends PortalScrapingService
                         if (! empty($meetingData)) {
                             $totalMeetings = count($meetingData);
                             $presentCount = 0;
+                            $lateCount = 0;
                             $absentCount = 0;
                             $permitCount = 0;
                             $sickCount = 0;
@@ -1089,6 +1090,9 @@ class ClassesExtractor extends PortalScrapingService
                                 switch ($meeting['status']) {
                                     case 'present':
                                         $presentCount++;
+                                        break;
+                                    case 'late':
+                                        $lateCount++;
                                         break;
                                     case 'absent':
                                         $absentCount++;
@@ -1104,11 +1108,12 @@ class ClassesExtractor extends PortalScrapingService
 
                             $attendanceInfo['summary'] = [
                                 'total_meetings' => $totalMeetings,
-                                'present' => $presentCount,
+                                'present' => $presentCount + $lateCount,
+                                'late' => $lateCount,
                                 'absent' => $absentCount,
                                 'permit' => $permitCount,
                                 'sick' => $sickCount,
-                                'attendance_rate' => $totalMeetings > 0 ? round(($presentCount / $totalMeetings) * 100, 1) : 0,
+                                'attendance_rate' => $totalMeetings > 0 ? round((($presentCount + $lateCount) / $totalMeetings) * 100, 1) : 0,
                                 'last_updated' => now()->toISOString(),
                             ];
                         }
@@ -1208,7 +1213,12 @@ class ClassesExtractor extends PortalScrapingService
                                 $material = [
                                     'title' => trim(strip_tags($matches[1])),
                                     'content' => $content,
+                                    'meeting_number' => null,
                                 ];
+
+                                if (preg_match('/Pertemuan\s+(\d+)/i', $material['title'], $meetingMatches)) {
+                                    $material['meeting_number'] = (int) $meetingMatches[1];
+                                }
 
                                 // Extract date
                                 if (preg_match('/([A-Z]+, \d+ [A-Z]+ \d+)/', $content, $matches)) {
@@ -1221,7 +1231,7 @@ class ClassesExtractor extends PortalScrapingService
                                 }
 
                                 // Extract description
-                                if (preg_match('/<h6>Uraian Pokok Pembahasan : <\/h6>(.+?)(?:<hr>|$)/s', $content, $matches)) {
+                                if (preg_match('/<h6>Uraian Pokok Pembahasan : <\/h6>(.+?)(?:<a\b|<hr>|$)/is', $content, $matches)) {
                                     $material['description'] = trim(strip_tags($matches[1]));
                                 }
 
@@ -1232,6 +1242,10 @@ class ClassesExtractor extends PortalScrapingService
                                         'href' => $joinLink->attr('href'),
                                         'text' => trim($joinLink->text()),
                                     ];
+
+                                    if ($material['meeting_number'] === null && preg_match('/Pertemuan\s+(\d+)/i', $material['join_link']['text'], $meetingMatches)) {
+                                        $material['meeting_number'] = (int) $meetingMatches[1];
+                                    }
                                 }
 
                                 $courseMaterials[] = $material;
@@ -1528,7 +1542,10 @@ class ClassesExtractor extends PortalScrapingService
 
                     // Extract assignment topic
                     if (preg_match('/<h4> Instruksi Tugas Perkuliahan ([^:]+) :<\/h4>/', $content, $matches)) {
-                        $materials['assignment_topic'] = 'Pertemuan '.trim($matches[1]);
+                        $topic = trim(strip_tags($matches[1]));
+                        $materials['assignment_topic'] = str_starts_with(strtolower($topic), 'pertemuan')
+                            ? $topic
+                            : 'Pertemuan '.$topic;
                     }
 
                     // Extract assignment instructions and due date

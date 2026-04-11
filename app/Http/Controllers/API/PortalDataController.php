@@ -4,20 +4,39 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\API;
 
-use App\Http\Controllers\Controller;
 use App\Http\Requests\ClassDetailRequest;
+use App\Http\Requests\SipandaiFlowRequest;
+use App\Http\Requests\SipandaiMeetingDetailRequest;
 use App\Services\Extractors\ClassesExtractor;
 use App\Services\Extractors\DashboardExtractor;
 use App\Services\Extractors\ProfileExtractor;
 use App\Services\Extractors\SipandaiClassesExtractor;
 use App\Services\Extractors\StudentCourseExtractor;
 use App\Services\PortalEndpointRegistry;
+use Dedoc\Scramble\Attributes\Group;
+use Dedoc\Scramble\Attributes\PathParameter;
+use Dedoc\Scramble\Attributes\Response;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
-class PortalDataController extends Controller
+#[Group('Portal Data', 'Endpoint pembacaan data profil, kelas, detail materi, dan alur data SIPANDAI.', 20)]
+class PortalDataController extends CampusApiController
 {
+    private const DASHBOARD_RESPONSE = "array{status: 'success', message: string, data: array{user_info: array<string, mixed>, dashboard_overview: array<string, mixed>, recent_activity: list<array<string, mixed>>, classes_summary: array<string, mixed>, status: string, timestamp: string}, meta: array{timestamp: string, campus_session_valid: true}}";
+
+    private const PROFILE_RESPONSE = "array{status: 'success', message: string, user_info: array<string, mixed>, profile: array<string, mixed>, meta: array{timestamp: string, campus_session_valid: true}}";
+
+    private const CLASSES_RESPONSE = "array{status: 'success', message: string, user_info: array<string, mixed>, classes: list<array<string, mixed>>, meta: array{timestamp: string, campus_session_valid: true}}";
+
+    private const CLASS_DETAIL_RESPONSE = "array{status: 'success', message: string, class_detail: array<string, mixed>, meta: array{timestamp: string, campus_session_valid: true, parameters?: array<string, mixed>, meeting_id?: string, courses_id?: string, id?: string}}";
+
+    private const CLASSES_WITH_SEMESTER_RESPONSE = "array{status: 'success', message: string, user_info: array<string, mixed>, classes: list<array<string, mixed>>, semester_info: array<string, mixed>, meta: array{timestamp: string, campus_session_valid: true, data_source: string}}";
+
+    private const MERGED_CLASSES_RESPONSE = "array{status: 'success', message: string, user_info: array<string, mixed>, classes: list<array<string, mixed>>, semester_info: array<string, mixed>, data_sources: array<string, bool>, meta: array{timestamp: string, campus_session_valid: true, data_source: string}}";
+
+    private const FLOW_RESPONSE = "array{status: 'success', message: string, data: array{course_detail: array<string, mixed>, meeting_detail: array<string, mixed>|null, links: array<string, string>}, meta: array{timestamp: string, campus_session_valid: true, script_reference: list<int>}}";
+
     private ProfileExtractor $profileExtractor;
 
     private ClassesExtractor $classesExtractor;
@@ -47,42 +66,18 @@ class PortalDataController extends Controller
      *
      * Menggabungkan ringkasan profil, kelas aktif, dan aktivitas terbaru dari DASHBOARD SIPANDAI.
      */
+    #[Response(description: 'Ringkasan dashboard portal berhasil diambil.', type: self::DASHBOARD_RESPONSE)]
+    #[Response(401, description: 'Endpoint ini membutuhkan sesi kampus yang aktif.', type: CampusApiController::SCRAMBLE_SESSION_ERROR_RESPONSE)]
+    #[Response(500, description: 'Data dashboard gagal diambil.', type: CampusApiController::SCRAMBLE_STATUS_ERROR_RESPONSE)]
     public function dashboard(Request $request): JsonResponse
     {
-        try {
-            $sessionToken = $this->currentSessionToken();
-
-            if (! $sessionToken) {
-                return $this->missingSessionResponse();
-            }
-
+        return $this->withCampusSession('Dashboard extraction failed', 'Failed to extract dashboard data', function (string $sessionToken): JsonResponse {
             $dashboardData = $this->dashboardExtractor->extractDashboardData($sessionToken);
 
-            return response()->json([
-                'status' => 'success',
-                'message' => 'Dashboard data retrieved successfully',
+            return $this->statusSuccess('Dashboard data retrieved successfully', [
                 'data' => $dashboardData,
-                'meta' => [
-                    'timestamp' => now()->toISOString(),
-                    'campus_session_valid' => true,
-                ],
-            ]);
-
-        } catch (\Exception $e) {
-            Log::error('Dashboard extraction failed', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-            ]);
-
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Failed to extract dashboard data: '.$e->getMessage(),
-                'meta' => [
-                    'timestamp' => now()->toISOString(),
-                    'campus_session_valid' => false,
-                ],
-            ], 500);
-        }
+            ], campusSessionValid: true);
+        });
     }
 
     /**
@@ -90,85 +85,37 @@ class PortalDataController extends Controller
      *
      * Menyediakan data pribadi, kontak, pendidikan, dan metadata waktu ekstraksi.
      */
+    #[Response(description: 'Profil mahasiswa berhasil diambil.', type: self::PROFILE_RESPONSE)]
+    #[Response(401, description: 'Endpoint ini membutuhkan sesi kampus yang aktif.', type: CampusApiController::SCRAMBLE_SESSION_ERROR_RESPONSE)]
+    #[Response(500, description: 'Profil mahasiswa gagal diambil.', type: CampusApiController::SCRAMBLE_STATUS_ERROR_RESPONSE)]
     public function profile(Request $request): JsonResponse
     {
-        try {
-            $sessionToken = $this->currentSessionToken();
-
-            if (! $sessionToken) {
-                return $this->missingSessionResponse();
-            }
-
+        return $this->withCampusSession('Profile extraction failed', 'Failed to extract profile data', function (string $sessionToken): JsonResponse {
             $profileData = $this->profileExtractor->extractProfileData($sessionToken);
 
-            return response()->json([
-                'status' => 'success',
-                'message' => 'Profile data retrieved successfully',
+            return $this->statusSuccess('Profile data retrieved successfully', [
                 'user_info' => $profileData['user_info'] ?? [],
                 'profile' => $profileData,
-                'meta' => [
-                    'timestamp' => now()->toISOString(),
-                    'campus_session_valid' => true,
-                ],
-            ]);
-
-        } catch (\Exception $e) {
-            Log::error('Profile extraction failed', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-            ]);
-
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Failed to extract profile data: '.$e->getMessage(),
-                'meta' => [
-                    'timestamp' => now()->toISOString(),
-                    'campus_session_valid' => false,
-                ],
-            ], 500);
-        }
+            ], campusSessionValid: true);
+        });
     }
 
     /**
-     * Ambil daftar kelas versi SIPANDAI lengkap dengan info akademik.
+     * Ambil daftar kelas dari LMS/SIPANDAI.
      */
+    #[Response(description: 'Daftar kelas LMS/SIPANDAI berhasil diambil.', type: self::CLASSES_RESPONSE)]
+    #[Response(401, description: 'Endpoint ini membutuhkan sesi kampus yang aktif.', type: CampusApiController::SCRAMBLE_SESSION_ERROR_RESPONSE)]
+    #[Response(500, description: 'Daftar kelas gagal diambil.', type: CampusApiController::SCRAMBLE_STATUS_ERROR_RESPONSE)]
     public function classes(Request $request): JsonResponse
     {
-        try {
-            $sessionToken = $this->currentSessionToken();
-
-            if (! $sessionToken) {
-                return $this->missingSessionResponse();
-            }
-
+        return $this->withCampusSession('Classes extraction failed', 'Failed to extract classes data', function (string $sessionToken): JsonResponse {
             $classesData = $this->classesExtractor->extractClassesData($sessionToken);
 
-            return response()->json([
-                'status' => 'success',
-                'message' => 'Classes data retrieved successfully',
+            return $this->statusSuccess('Classes data retrieved successfully', [
                 'user_info' => $classesData['user_info'] ?? [],
                 'classes' => $classesData['classes'] ?? [],
-                'meta' => [
-                    'timestamp' => now()->toISOString(),
-                    'campus_session_valid' => true,
-                ],
-            ]);
-
-        } catch (\Exception $e) {
-            Log::error('Classes extraction failed', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-            ]);
-
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Failed to extract classes data: '.$e->getMessage(),
-                'meta' => [
-                    'timestamp' => now()->toISOString(),
-                    'campus_session_valid' => false,
-                ],
-            ], 500);
-        }
+            ], campusSessionValid: true);
+        });
     }
 
     /**
@@ -176,215 +123,67 @@ class PortalDataController extends Controller
      *
      * Param `id`, `dosen_id`, dan `course_id` mengikuti struktur URL `act=download`.
      */
+    #[PathParameter('id', 'Identifier `id` dari link kelas portal SIPANDAI.', type: 'integer', example: 2265)]
+    #[Response(description: 'Detail kelas berhasil diambil.', type: self::CLASS_DETAIL_RESPONSE)]
+    #[Response(401, description: 'Endpoint ini membutuhkan sesi kampus yang aktif.', type: CampusApiController::SCRAMBLE_SESSION_ERROR_RESPONSE)]
+    #[Response(404, description: 'Identifier `id` tidak ditemukan pada daftar kelas aktif.', type: CampusApiController::SCRAMBLE_STATUS_ERROR_RESPONSE)]
+    #[Response(422, description: 'Parameter detail kelas tidak valid.', type: CampusApiController::SCRAMBLE_VALIDATION_ERROR_RESPONSE)]
+    #[Response(500, description: 'Detail kelas gagal diambil.', type: CampusApiController::SCRAMBLE_STATUS_ERROR_RESPONSE)]
     public function classDetail(ClassDetailRequest $request): JsonResponse
     {
-        try {
-            $sessionToken = $this->currentSessionToken();
+        return $this->withCampusSession('Class detail extraction failed', 'Failed to extract class detail', function (string $sessionToken) use ($request): JsonResponse {
+            $validated = $request->validated();
+            $resolvedParameters = $validated;
 
-            if (! $sessionToken) {
-                return $this->missingSessionResponse();
+            if (empty($validated['dosen_id']) || empty($validated['course_id'])) {
+                $resolvedParameters = $this->getClassParametersFromClassesList($sessionToken, (string) $validated['id']) ?? [];
+
+                if ($resolvedParameters === []) {
+                    return $this->statusError("Class ID {$validated['id']} not found in classes list", 404, campusSessionValid: true);
+                }
             }
 
-            // Validate input using form request
-            $validated = $request->validated();
-
             Log::info('Class detail request validated', [
-                'parameters' => $validated,
+                'parameters' => $resolvedParameters,
             ]);
 
-            $classDetailData = $this->classesExtractor->extractClassDetail($sessionToken, $validated);
+            $classDetailData = $this->classesExtractor->extractClassDetail($sessionToken, $resolvedParameters);
 
-            return response()->json([
-                'status' => 'success',
-                'message' => 'Class detail retrieved successfully',
+            return $this->statusSuccess('Class detail retrieved successfully', [
                 'class_detail' => $classDetailData,
-                'meta' => [
-                    'timestamp' => now()->toISOString(),
-                    'campus_session_valid' => true,
-                    'parameters' => $validated,
-                ],
-            ]);
-
-        } catch (\Exception $e) {
-            Log::error('Class detail extraction failed', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-                'params' => $request->query(),
-            ]);
-
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Failed to extract class detail: '.$e->getMessage(),
-                'meta' => [
-                    'timestamp' => now()->toISOString(),
-                    'campus_session_valid' => false,
-                ],
-            ], 500);
-        }
+            ], meta: [
+                'id' => (string) ($resolvedParameters['id'] ?? $validated['id']),
+                'parameters' => $resolvedParameters,
+            ], campusSessionValid: true);
+        }, $request->query());
     }
 
     /**
      * Ambil detail pertemuan SIPANDAI berdasarkan query `meeting_id` + `courses_id`.
      */
-    public function meetingDetail(Request $request): JsonResponse
+    #[PathParameter('meeting_id', 'Identifier `meeting_id` dari link diskusi atau materi SIPANDAI.', type: 'integer', example: 445)]
+    #[Response(description: 'Detail pertemuan berhasil diambil.', type: self::CLASS_DETAIL_RESPONSE)]
+    #[Response(401, description: 'Endpoint ini membutuhkan sesi kampus yang aktif.', type: CampusApiController::SCRAMBLE_SESSION_ERROR_RESPONSE)]
+    #[Response(422, description: 'Parameter detail pertemuan tidak valid.', type: CampusApiController::SCRAMBLE_VALIDATION_ERROR_RESPONSE)]
+    #[Response(500, description: 'Detail pertemuan gagal diambil.', type: CampusApiController::SCRAMBLE_STATUS_ERROR_RESPONSE)]
+    public function meetingDetail(SipandaiMeetingDetailRequest $request): JsonResponse
     {
-        try {
-            $sessionToken = $this->currentSessionToken();
-
-            if (! $sessionToken) {
-                return $this->missingSessionResponse();
-            }
-
-            $meetingId = $request->query('meeting_id');
-            $courseId = $request->query('courses_id');
-
-            if (! $meetingId || ! $courseId) {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'Missing required parameters: meeting_id, courses_id',
-                ], 400);
-            }
+        return $this->withCampusSession('Meeting detail extraction failed', 'Failed to extract meeting detail', function (string $sessionToken) use ($request): JsonResponse {
+            $meetingId = $request->meetingId();
+            $coursesId = $request->coursesId();
 
             $meetingDetailData = $this->classesExtractor->extractClassDetail($sessionToken, [
                 'meeting_id' => $meetingId,
-                'courses_id' => $courseId,
+                'courses_id' => $coursesId,
             ]);
 
-            return response()->json([
-                'status' => 'success',
-                'message' => 'Meeting detail retrieved successfully',
+            return $this->statusSuccess('Meeting detail retrieved successfully', [
                 'class_detail' => $meetingDetailData,
-                'meta' => [
-                    'timestamp' => now()->toISOString(),
-                    'campus_session_valid' => true,
-                    'meeting_id' => $meetingId,
-                    'course_id' => $courseId,
-                ],
-            ]);
-
-        } catch (\Exception $e) {
-            Log::error('Meeting detail extraction failed', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-                'params' => $request->query(),
-            ]);
-
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Failed to extract meeting detail: '.$e->getMessage(),
-                'meta' => [
-                    'timestamp' => now()->toISOString(),
-                    'campus_session_valid' => false,
-                ],
-            ], 500);
-        }
-    }
-
-    /**
-     * Ambil detail kelas berdasarkan `class_id` dari daftar SIPANDAI.
-     *
-     * Endpoint ini otomatis mencari parameter `id/dosen_id/course_id` dari daftar kelas terbaru sebelum memanggil extractor.
-     */
-    public function classDetailById(Request $request): JsonResponse
-    {
-        try {
-            $sessionToken = $this->currentSessionToken();
-
-            if (! $sessionToken) {
-                return $this->missingSessionResponse();
-            }
-
-            $classId = $request->query('class_id');
-            if (! $classId) {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'Missing required parameter: class_id',
-                ], 400);
-            }
-
-            // Get the correct parameters from classes list
-            $params = $this->getClassParametersFromClassesList($sessionToken, $classId);
-
-            if (! $params) {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => "Class ID {$classId} not found in classes list",
-                ], 404);
-            }
-
-            Log::info("Using parameters from classes list for class ID {$classId}", [
-                'params' => $params,
-            ]);
-
-            $classDetailData = $this->classesExtractor->extractClassDetail($sessionToken, $params);
-
-            return response()->json([
-                'status' => 'success',
-                'message' => 'Class detail retrieved successfully',
-                'class_detail' => $classDetailData,
-                'meta' => [
-                    'timestamp' => now()->toISOString(),
-                    'campus_session_valid' => true,
-                    'class_id' => $classId,
-                ],
-            ]);
-
-        } catch (\Exception $e) {
-            Log::error('Class detail by ID extraction failed', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-                'params' => $request->query(),
-            ]);
-
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Failed to extract class detail: '.$e->getMessage(),
-                'meta' => [
-                    'timestamp' => now()->toISOString(),
-                    'campus_session_valid' => false,
-                ],
-            ], 500);
-        }
-    }
-
-    /**
-     * Menentukan apakah hasil ekstraksi kelas memuat konten yang relevan.
-     */
-    private function isValidClassDetail(array $data): bool
-    {
-        // Verifikasi apakah ada informasi mata kuliah yang berarti
-        $hasCourseInfo = ! empty($data['course_info']['name']) || ! empty($data['course_info']['code']);
-
-        // Verifikasi apakah ada konten tambahan (absensi, tugas, materi, dll.)
-        $hasContent = false;
-        if (! empty($data['attendance_info']['meetings'])) {
-            $hasContent = true;
-        }
-        if (! empty($data['assignment_history']['assignments'])) {
-            $hasContent = true;
-        }
-        if (! empty($data['course_materials'])) {
-            $hasContent = true;
-        }
-        if (! empty($data['students_list'])) {
-            $hasContent = true;
-        }
-
-        // If we have course info OR any content, consider it valid
-        return $hasCourseInfo || $hasContent;
-    }
-
-    private function currentSessionToken(): ?string
-    {
-        return session('campus_session_token');
-    }
-
-    private function missingSessionResponse(): JsonResponse
-    {
-        return response()->json([
-            'status' => 'error',
-            'message' => 'No active campus session found',
-        ], 401);
+            ], meta: [
+                'meeting_id' => $meetingId,
+                'courses_id' => $coursesId,
+            ], campusSessionValid: true);
+        }, $request->query());
     }
 
     private function buildFlowLinks(array $params): array
@@ -394,7 +193,7 @@ class PortalDataController extends Controller
         try {
             if (! empty($params['dosen_id'])) {
                 $links['course_materials'] = PortalEndpointRegistry::url('course_materials', [
-                    'id' => $params['discussion_id'],
+                    'id' => $params['id'],
                     'dosen_id' => $params['dosen_id'],
                     'course_id' => $params['course_id'],
                 ]);
@@ -405,8 +204,8 @@ class PortalDataController extends Controller
 
         try {
             $links['discussion'] = PortalEndpointRegistry::url('discussion', [
-                'id' => $params['meeting_id'] ?? $params['discussion_id'],
-                'courses_id' => $params['course_id'],
+                'id' => $params['meeting_id'] ?? $params['id'],
+                'courses_id' => $params['courses_id'] ?? $params['course_id'],
             ]);
         } catch (\Throwable $e) {
             //
@@ -414,9 +213,9 @@ class PortalDataController extends Controller
 
         try {
             $links['assignment_form'] = PortalEndpointRegistry::url('assignment_form', [
-                'courses_id' => $params['course_id'],
-                'id' => $params['discussion_id'],
-                'pertemuan' => $params['meeting_number'],
+                'courses_id' => $params['courses_id'] ?? $params['course_id'],
+                'id' => $params['id'],
+                'pertemuan' => $params['pertemuan'],
             ]);
         } catch (\Throwable $e) {
             //
@@ -426,8 +225,8 @@ class PortalDataController extends Controller
             if (! empty($params['submission_id'])) {
                 $links['assignment_delete'] = PortalEndpointRegistry::url('assignment_delete', [
                     'id' => $params['submission_id'],
-                    'idx' => $params['discussion_id'],
-                    'pertemuan' => $params['meeting_number'],
+                    'idx' => $params['id'],
+                    'pertemuan' => $params['pertemuan'],
                 ]);
             }
         } catch (\Throwable $e) {
@@ -437,7 +236,7 @@ class PortalDataController extends Controller
         try {
             $links['qr_attendance'] = PortalEndpointRegistry::url('qr_attendance_page', [
                 'course_id' => $params['course_id'],
-                'id' => $params['meeting_id'] ?? $params['discussion_id'],
+                'id' => $params['meeting_id'] ?? $params['id'],
             ]);
         } catch (\Throwable $e) {
             //
@@ -484,79 +283,21 @@ class PortalDataController extends Controller
     }
 
     /**
-     * Ambil detail pertemuan berdasarkan identifier `meeting_id`.
+     * Get the correct parameters for an upstream `id` from the classes list.
      */
-    public function meetingDetailById(Request $request): JsonResponse
-    {
-        try {
-            $sessionToken = $this->currentSessionToken();
-
-            if (! $sessionToken) {
-                return $this->missingSessionResponse();
-            }
-
-            $meetingId = $request->query('meeting_id');
-            if (! $meetingId) {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'Missing required parameter: meeting_id',
-                ], 400);
-            }
-
-            // Get courses_id from session or use default
-            $courseId = session('current_class_course_id', '8861');
-
-            $meetingDetailData = $this->classesExtractor->extractClassDetail($sessionToken, [
-                'meeting_id' => $meetingId,
-                'courses_id' => $courseId,
-            ]);
-
-            return response()->json([
-                'status' => 'success',
-                'message' => 'Meeting detail retrieved successfully',
-                'class_detail' => $meetingDetailData,
-                'meta' => [
-                    'timestamp' => now()->toISOString(),
-                    'campus_session_valid' => true,
-                    'meeting_id' => $meetingId,
-                    'course_id' => $courseId,
-                ],
-            ]);
-
-        } catch (\Exception $e) {
-            Log::error('Meeting detail by ID extraction failed', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-                'params' => $request->query(),
-            ]);
-
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Failed to extract meeting detail: '.$e->getMessage(),
-                'meta' => [
-                    'timestamp' => now()->toISOString(),
-                    'campus_session_valid' => false,
-                ],
-            ], 500);
-        }
-    }
-
-    /**
-     * Get the correct parameters for a class ID from the classes list
-     */
-    private function getClassParametersFromClassesList(string $sessionToken, string $classId): ?array
+    private function getClassParametersFromClassesList(string $sessionToken, string $id): ?array
     {
         try {
             // First, try to get from cache
             $cacheKey = 'class_parameters_mapping_'.md5($sessionToken);
             $cachedMapping = cache($cacheKey);
 
-            if ($cachedMapping && isset($cachedMapping[$classId])) {
-                Log::info("Using cached parameters for class ID {$classId}", [
-                    'params' => $cachedMapping[$classId],
+            if ($cachedMapping && isset($cachedMapping[$id])) {
+                Log::info("Using cached parameters for class ID {$id}", [
+                    'params' => $cachedMapping[$id],
                 ]);
 
-                return $cachedMapping[$classId];
+                return $cachedMapping[$id];
             }
 
             // Extract classes data to get parameter mapping
@@ -572,11 +313,6 @@ class PortalDataController extends Controller
                         $parametersMapping[$params['id']] = $params;
                     }
 
-                    // Also store by class_no if different
-                    if (isset($class['no'])) {
-                        $parametersMapping[$class['no']] = $params;
-                    }
-
                     Log::info('Mapped parameters for class', [
                         'class_no' => $class['no'] ?? null,
                         'params_id' => $params['id'] ?? null,
@@ -589,12 +325,12 @@ class PortalDataController extends Controller
             cache([$cacheKey => $parametersMapping], now()->addMinutes(30));
 
             // Return parameters for requested class ID
-            return $parametersMapping[$classId] ?? null;
+            return $parametersMapping[$id] ?? null;
 
         } catch (\Exception $e) {
             Log::error('Failed to get class parameters from classes list', [
                 'error' => $e->getMessage(),
-                'class_id' => $classId,
+                'id' => $id,
             ]);
 
             return null;
@@ -602,227 +338,69 @@ class PortalDataController extends Controller
     }
 
     /**
-     * Get SIPANDAI dashboard classes data
+     * Ambil jadwal perkuliahan dari portal mahasiswa.
      */
-    public function sipandaiClasses(Request $request): JsonResponse
-    {
-        try {
-            $sessionToken = $this->currentSessionToken();
-
-            if (! $sessionToken) {
-                return $this->missingSessionResponse();
-            }
-
-            $classesData = $this->sipandaiClassesExtractor->extractSipandaiClassesData($sessionToken);
-
-            return response()->json([
-                'status' => 'success',
-                'message' => 'SIPANDAI classes data retrieved successfully',
-                'user_info' => $classesData['student_info'] ?? [],
-                'classes' => $classesData['classes'] ?? [],
-                'semester_info' => $classesData['semester_info'] ?? [],
-                'meta' => [
-                    'timestamp' => now()->toISOString(),
-                    'campus_session_valid' => true,
-                    'data_source' => 'sipandai_dashboard',
-                ],
-            ]);
-
-        } catch (\Exception $e) {
-            Log::error('SIPANDAI classes extraction failed', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-            ]);
-
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Failed to extract SIPANDAI classes data: '.$e->getMessage(),
-                'meta' => [
-                    'timestamp' => now()->toISOString(),
-                    'campus_session_valid' => false,
-                ],
-            ], 500);
-        }
-    }
-
-    /**
-     * Ambil jadwal portal mahasiswa beserta informasi ruang kelas.
-     */
+    #[Response(description: 'Jadwal perkuliahan mahasiswa berhasil diambil.', type: self::CLASSES_WITH_SEMESTER_RESPONSE)]
+    #[Response(401, description: 'Endpoint ini membutuhkan sesi kampus yang aktif.', type: CampusApiController::SCRAMBLE_SESSION_ERROR_RESPONSE)]
+    #[Response(500, description: 'Jadwal mahasiswa gagal diambil.', type: CampusApiController::SCRAMBLE_STATUS_ERROR_RESPONSE)]
     public function studentCourse(Request $request): JsonResponse
     {
-        try {
-            $sessionToken = $this->currentSessionToken();
-
-            if (! $sessionToken) {
-                return $this->missingSessionResponse();
-            }
-
+        return $this->withCampusSession('Student course extraction failed', 'Failed to extract student course data', function (string $sessionToken): JsonResponse {
             $classesData = $this->studentCourseExtractor->extractStudentCourseData($sessionToken);
 
-            return response()->json([
-                'status' => 'success',
-                'message' => 'Student course data retrieved successfully',
+            return $this->statusSuccess('Student course data retrieved successfully', [
                 'user_info' => $classesData['student_info'] ?? [],
                 'classes' => $classesData['classes'] ?? [],
                 'semester_info' => $classesData['semester_info'] ?? [],
-                'meta' => [
-                    'timestamp' => now()->toISOString(),
-                    'campus_session_valid' => true,
-                    'data_source' => 'student_course',
-                ],
-            ]);
-
-        } catch (\Exception $e) {
-            Log::error('Student course extraction failed', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-            ]);
-
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Failed to extract student course data: '.$e->getMessage(),
-                'meta' => [
-                    'timestamp' => now()->toISOString(),
-                    'campus_session_valid' => false,
-                ],
-            ], 500);
-        }
+            ], meta: [
+                'data_source' => 'student_course',
+            ], campusSessionValid: true);
+        });
     }
 
     /**
-     * Ambil daftar kelas gabungan (SIPANDAI + portal mahasiswa).
+     * Ambil daftar kelas utama API.
      *
-     * Data SIPANDAI dipakai untuk informasi join/link materi, sedangkan data
-     * `student_course` melengkapi info ruangan, kelas, dan jadwal rinci. Hasil akhirnya
-     * adalah satu struktur kelas dengan atribut `class_room_info` sudah terisi.
+     * Data LMS/SIPANDAI dipakai untuk informasi materi dan tautan aksi, sedangkan
+     * data jadwal mahasiswa melengkapi ruang kelas dan jadwal rinci.
      */
+    #[Response(description: 'Daftar kelas utama API berhasil diambil.', type: self::MERGED_CLASSES_RESPONSE)]
+    #[Response(401, description: 'Endpoint ini membutuhkan sesi kampus yang aktif.', type: CampusApiController::SCRAMBLE_SESSION_ERROR_RESPONSE)]
+    #[Response(500, description: 'Daftar kelas gabungan gagal diambil.', type: CampusApiController::SCRAMBLE_STATUS_ERROR_RESPONSE)]
     public function mergedClasses(Request $request): JsonResponse
     {
-        try {
-            $sessionToken = $this->currentSessionToken();
-
-            if (! $sessionToken) {
-                return $this->missingSessionResponse();
-            }
-
+        return $this->withCampusSession('Merged classes extraction failed', 'Failed to extract merged classes data', function (string $sessionToken): JsonResponse {
             $sipandaiData = $this->sipandaiClassesExtractor->extractSipandaiClassesData($sessionToken);
             $studentCourseData = $this->studentCourseExtractor->extractStudentCourseData($sessionToken);
             $mergedData = $this->buildMergedClassesPayload($sipandaiData, $studentCourseData);
 
-            return response()->json([
-                'status' => 'success',
-                'message' => 'Merged classes data retrieved successfully',
+            return $this->statusSuccess('Merged classes data retrieved successfully', [
                 'user_info' => $mergedData['student_info'] ?? [],
                 'classes' => $mergedData['classes'] ?? [],
                 'semester_info' => $mergedData['semester_info'] ?? [],
                 'data_sources' => $mergedData['data_sources'] ?? [],
-                'meta' => [
-                    'timestamp' => now()->toISOString(),
-                    'campus_session_valid' => true,
-                    'data_source' => 'merged',
-                ],
-            ]);
-
-        } catch (\Exception $e) {
-            Log::error('Merged classes extraction failed', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-            ]);
-
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Failed to extract merged classes data: '.$e->getMessage(),
-                'meta' => [
-                    'timestamp' => now()->toISOString(),
-                    'campus_session_valid' => false,
-                ],
-            ], 500);
-        }
+            ], meta: [
+                'data_source' => 'merged',
+            ], campusSessionValid: true);
+        });
     }
 
     /**
-     * Ringkas daftar kelas berdasarkan skrip test_all_endpoints (Test 4 & 5).
-     */
-    public function classesOverview(Request $request): JsonResponse
-    {
-        try {
-            $sessionToken = $this->currentSessionToken();
-
-            if (! $sessionToken) {
-                return $this->missingSessionResponse();
-            }
-
-            $sipandai = $this->sipandaiClassesExtractor->extractSipandaiClassesData($sessionToken);
-            $studentCourse = $this->studentCourseExtractor->extractStudentCourseData($sessionToken);
-            $merged = $this->buildMergedClassesPayload($sipandai, $studentCourse);
-
-            return response()->json([
-                'status' => 'success',
-                'message' => 'Classes overview retrieved successfully',
-                'data' => [
-                    'sipandai' => $sipandai,
-                    'student_course' => $studentCourse,
-                    'merged' => $merged,
-                ],
-                'meta' => [
-                    'timestamp' => now()->toISOString(),
-                    'campus_session_valid' => true,
-                    'script_reference' => [4, 5],
-                ],
-            ]);
-
-        } catch (\Exception $e) {
-            Log::error('Classes overview extraction failed', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-            ]);
-
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Failed to build classes overview: '.$e->getMessage(),
-                'meta' => [
-                    'timestamp' => now()->toISOString(),
-                    'campus_session_valid' => false,
-                ],
-            ], 500);
-        }
-    }
-
-    /**
-     * Alur data SIPANDAI lengkap (materi, diskusi, form tugas, dan QR absensi).
+     * Alur kerja LMS/SIPANDAI lengkap.
      *
      * Meniru Test 6-9 pada `test_all_endpoints.sh`.
      */
-    public function sipandaiFlow(Request $request): JsonResponse
+    #[Response(description: 'Alur kerja LMS/SIPANDAI berhasil dirangkai.', type: self::FLOW_RESPONSE)]
+    #[Response(401, description: 'Endpoint ini membutuhkan sesi kampus yang aktif.', type: CampusApiController::SCRAMBLE_SESSION_ERROR_RESPONSE)]
+    #[Response(422, description: 'Parameter alur SIPANDAI tidak valid.', type: CampusApiController::SCRAMBLE_VALIDATION_ERROR_RESPONSE)]
+    #[Response(500, description: 'Alur data SIPANDAI gagal diproses.', type: CampusApiController::SCRAMBLE_STATUS_ERROR_RESPONSE)]
+    public function sipandaiFlow(SipandaiFlowRequest $request): JsonResponse
     {
-        $validator = validator($request->all(), [
-            'course_id' => ['required', 'integer', 'min:1'],
-            'discussion_id' => ['required', 'integer', 'min:1'],
-            'meeting_number' => ['required', 'integer', 'min:1'],
-            'meeting_id' => ['sometimes', 'integer', 'min:1'],
-            'submission_id' => ['sometimes', 'integer', 'min:1'],
-            'dosen_id' => ['sometimes', 'integer', 'min:1'],
-        ]);
+        $params = $request->validated();
 
-        if ($validator->fails()) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Invalid parameters',
-                'errors' => $validator->errors(),
-            ], 422);
-        }
-
-        $params = $validator->validated();
-
-        try {
-            $sessionToken = $this->currentSessionToken();
-
-            if (! $sessionToken) {
-                return $this->missingSessionResponse();
-            }
-
+        return $this->withCampusSession('SIPANDAI flow extraction failed', 'Failed to execute SIPANDAI flow', function (string $sessionToken) use ($params): JsonResponse {
             $courseDetailParams = [
-                'id' => $params['discussion_id'],
+                'id' => $params['id'],
                 'course_id' => $params['course_id'],
             ];
 
@@ -836,42 +414,21 @@ class PortalDataController extends Controller
             if (! empty($params['meeting_id'])) {
                 $meetingDetail = $this->classesExtractor->extractClassDetail($sessionToken, [
                     'meeting_id' => $params['meeting_id'],
-                    'courses_id' => $params['course_id'],
+                    'courses_id' => $params['courses_id'] ?? $params['course_id'],
                 ]);
             }
 
             $links = $this->buildFlowLinks($params);
 
-            return response()->json([
-                'status' => 'success',
-                'message' => 'SIPANDAI flow data retrieved successfully',
+            return $this->statusSuccess('SIPANDAI flow data retrieved successfully', [
                 'data' => [
                     'course_detail' => $courseDetail,
                     'meeting_detail' => $meetingDetail,
                     'links' => $links,
                 ],
-                'meta' => [
-                    'timestamp' => now()->toISOString(),
-                    'campus_session_valid' => true,
-                    'script_reference' => [6, 7, 8, 9],
-                ],
-            ]);
-
-        } catch (\Exception $e) {
-            Log::error('SIPANDAI flow extraction failed', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-                'params' => $params,
-            ]);
-
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Failed to execute SIPANDAI flow: '.$e->getMessage(),
-                'meta' => [
-                    'timestamp' => now()->toISOString(),
-                    'campus_session_valid' => false,
-                ],
-            ], 500);
-        }
+            ], meta: [
+                'script_reference' => [6, 7, 8, 9],
+            ], campusSessionValid: true);
+        }, $params);
     }
 }

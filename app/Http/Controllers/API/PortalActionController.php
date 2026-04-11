@@ -4,22 +4,34 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\API;
 
-use App\Http\Controllers\Controller;
 use App\Http\Requests\SipandaiAssignmentDeleteRequest;
 use App\Http\Requests\SipandaiAssignmentUploadRequest;
 use App\Http\Requests\SipandaiAttendanceRequest;
+use App\Http\Requests\SipandaiExamDetailRequest;
+use App\Http\Requests\SipandaiExamUploadRequest;
+use App\Services\AttendanceShortcutService;
 use App\Services\SipandaiSubmissionService;
+use Dedoc\Scramble\Attributes\Group;
+use Dedoc\Scramble\Attributes\PathParameter;
+use Dedoc\Scramble\Attributes\Response;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
 
-/**
- * @group SIPANDAI - Aksi
- *
- * Endpoint untuk mengeksekusi aksi langsung terhadap portal SIPANDAI (upload tugas & absensi).
- */
-class PortalActionController extends Controller
+#[Group('SIPANDAI - Aksi', 'Endpoint untuk mengirim aksi langsung ke portal SIPANDAI seperti unggah tugas, absensi, dan unggah ujian.', 30)]
+class PortalActionController extends CampusApiController
 {
-    public function __construct(private readonly SipandaiSubmissionService $submissionService) {}
+    private const ACTION_RESULT_RESPONSE = 'array{success: bool, message: string, data: array<string, mixed>|null}';
+
+    private const EXAM_LIST_RESPONSE = 'array{success: bool, message: string, data: array{exams: list<array<string, mixed>>}}';
+
+    private const EXAM_DETAIL_RESPONSE = 'array{success: bool, message: string, data: array{exam_detail: array<string, mixed>}}';
+
+    private const ATTENDANCE_SHORTCUT_RESPONSE = 'array{success: bool, message: string, data: array{date: string, day: string, current_time: string, classes: list<array<string, mixed>>}}';
+
+    public function __construct(
+        private readonly SipandaiSubmissionService $submissionService,
+        private readonly AttendanceShortcutService $attendanceShortcutService
+    ) {}
 
     /**
      * Upload tugas SIPANDAI.
@@ -28,47 +40,34 @@ class PortalActionController extends Controller
      * dengan override yang dikirim klien, lalu mengunggah berkas PDF secara multipart.
      * Wajib dipanggil dalam kondisi sudah login (memiliki `campus_session_token`).
      *
-     * - `course_id` → ambil dari query `courses_id` pada URL upload (contoh `...&courses_id=9000`).
-     * - `discussion_id` → ambil dari query `id` pada URL upload (contoh `id=30095`).
-     * - `meeting_number` → nilai `pertemuan` pada URL upload (contoh `pertemuan=6`).
+     * - `courses_id` → ambil dari query `courses_id` pada URL upload (contoh `...&courses_id=9000`).
+     * - `id` → ambil dari query `id` pada URL upload (contoh `id=30095`).
+     * - `pertemuan` → nilai `pertemuan` pada URL upload (contoh `pertemuan=6`).
      * - `attachment` → upload file PDF yang akan dikirim sebagai `data[tugas]`.
      * - `form_values` → optional, untuk override field lain di form upload (misal `keterangan`, `cmd`, dsb.).
-     *
-     * @bodyParam course_id integer required Ambil dari query `courses_id` pada URL upload SIPANDAI (contoh `...?courses_id=9000`). Example: 9000
-     * @bodyParam discussion_id integer required Ambil dari query `id`/`discussion_id` pada URL upload (contoh `id=30095`). Example: 30095
-     * @bodyParam meeting_number integer required Ambil dari query `pertemuan` pada URL upload (contoh `pertemuan=6`). Example: 6
-     * @bodyParam attachment file required Berkas PDF yang akan dikirim sebagai `data[tugas]` pada form SIPANDAI.
-     * @bodyParam form_values object optional Key-value tambahan untuk override field form (misal `keterangan`, `cmd`, dll.). Kosongkan jika tidak ada override.
      */
+    #[Response(description: 'Unggah tugas berhasil diproses oleh SIPANDAI.', type: self::ACTION_RESULT_RESPONSE)]
+    #[Response(401, description: 'Endpoint ini membutuhkan sesi kampus yang aktif.', type: CampusApiController::SCRAMBLE_SESSION_ERROR_RESPONSE)]
+    #[Response(422, description: 'Payload unggah tugas tidak valid.', type: CampusApiController::SCRAMBLE_VALIDATION_ERROR_RESPONSE)]
+    #[Response(500, description: 'Unggah tugas gagal diproses.', type: CampusApiController::SCRAMBLE_BOOLEAN_RESPONSE)]
     public function uploadAssignment(SipandaiAssignmentUploadRequest $request): JsonResponse
     {
-        $sessionToken = session('campus_session_token');
+        $sessionToken = $this->sessionToken();
 
         if (! $sessionToken) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'No active campus session found',
-                'data' => null,
-                'meta' => [
-                    'timestamp' => now()->toISOString(),
-                    'campus_session_valid' => false,
-                ],
-            ], 401);
+            return $this->missingSessionBooleanResponse();
         }
-
-        $validated = $request->validated();
-        $overrides = $this->stringifyOverrides($validated['form_values'] ?? []);
 
         try {
             $attachment = $request->attachment();
 
             $result = $this->submissionService->submitAssignment(
                 $sessionToken,
-                (int) $validated['course_id'],
-                (int) $validated['discussion_id'],
-                (int) $validated['meeting_number'],
+                $request->courseId(),
+                $request->discussionId(),
+                $request->meetingNumber(),
                 $attachment,
-                $overrides
+                $request->formValues()
             );
 
             return $this->buildResponse($result, 'sipandai_assignment_upload');
@@ -76,59 +75,39 @@ class PortalActionController extends Controller
         } catch (\Throwable $e) {
             Log::error('Failed to upload SIPANDAI assignment', [
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-                'course_id' => $validated['course_id'],
-                'discussion_id' => $validated['discussion_id'],
+                'courses_id' => $request->input('courses_id'),
+                'id' => $request->input('id'),
             ]);
 
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Failed to upload assignment: '.$e->getMessage(),
-                'data' => null,
-                'meta' => [
-                    'timestamp' => now()->toISOString(),
-                    'campus_session_valid' => false,
-                    'source' => 'sipandai_assignment_upload',
-                ],
-            ], 500);
+            return $this->booleanResponse(false, 'Failed to upload assignment.', null, 500);
         }
     }
 
     /**
      * Hapus tugas yang pernah diunggah di SIPANDAI.
      *
-     * - `submission_id` → ambil dari parameter `id` pada URL hapus (contoh: `...?act=jobdel&id=126663&idx=30095&pertemuan=6`).
-     * - `discussion_id` → nilai `idx` pada URL hapus; biasanya sama dengan `id` materi/diskusi.
-     * - `meeting_number` → nilai `pertemuan` pada URL hapus.
-     *
-     * @bodyParam submission_id integer required Ambil dari parameter `id` di link hapus SIPANDAI. Example: 126663
-     * @bodyParam discussion_id integer required Ambil dari parameter `idx`/`discussion_id` pada link hapus. Example: 30095
-     * @bodyParam meeting_number integer required Ambil dari parameter `pertemuan` pada link hapus. Example: 6
+     * - `id` → ambil dari parameter `id` pada URL hapus (contoh: `...?act=jobdel&id=126663&idx=30095&pertemuan=6`).
+     * - `idx` → nilai `idx` pada URL hapus; biasanya sama dengan `id` materi/diskusi.
+     * - `pertemuan` → nilai `pertemuan` pada URL hapus.
      */
+    #[Response(description: 'Penghapusan tugas berhasil diproses oleh SIPANDAI.', type: self::ACTION_RESULT_RESPONSE)]
+    #[Response(401, description: 'Endpoint ini membutuhkan sesi kampus yang aktif.', type: CampusApiController::SCRAMBLE_SESSION_ERROR_RESPONSE)]
+    #[Response(422, description: 'Payload hapus tugas tidak valid.', type: CampusApiController::SCRAMBLE_VALIDATION_ERROR_RESPONSE)]
+    #[Response(500, description: 'Penghapusan tugas gagal diproses.', type: CampusApiController::SCRAMBLE_BOOLEAN_RESPONSE)]
     public function deleteAssignment(SipandaiAssignmentDeleteRequest $request): JsonResponse
     {
-        $sessionToken = session('campus_session_token');
+        $sessionToken = $this->sessionToken();
 
         if (! $sessionToken) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'No active campus session found',
-                'data' => null,
-                'meta' => [
-                    'timestamp' => now()->toISOString(),
-                    'campus_session_valid' => false,
-                ],
-            ], 401);
+            return $this->missingSessionBooleanResponse();
         }
-
-        $validated = $request->validated();
 
         try {
             $result = $this->submissionService->deleteAssignment(
                 $sessionToken,
-                (int) $validated['submission_id'],
-                (int) $validated['discussion_id'],
-                (int) $validated['meeting_number']
+                $request->submissionId(),
+                $request->discussionId(),
+                $request->meetingNumber()
             );
 
             return $this->buildResponse($result, 'sipandai_assignment_delete');
@@ -136,66 +115,49 @@ class PortalActionController extends Controller
         } catch (\Throwable $e) {
             Log::error('Failed to delete SIPANDAI assignment', [
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-                'submission_id' => $validated['submission_id'],
-                'discussion_id' => $validated['discussion_id'],
+                'id' => $request->input('id'),
+                'idx' => $request->input('idx'),
             ]);
 
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Failed to delete assignment: '.$e->getMessage(),
-                'data' => null,
-                'meta' => [
-                    'timestamp' => now()->toISOString(),
-                    'campus_session_valid' => false,
-                    'source' => 'sipandai_assignment_delete',
-                ],
-            ], 500);
+            return $this->booleanResponse(false, 'Failed to delete assignment.', null, 500);
         }
     }
 
     /**
      * Tandai kehadiran pertemuan SIPANDAI.
      *
-     * Mengisi form absensi (GET/POST) sesuai struktur halaman SIPANDAI. Endpoint
-     * ini otomatis mendeteksi apakah absensi butuh parameter `pertemuan` atau hanya
-     * kode QR saja, kemudian mengirim payload yang valid ke server kampus.
+     * Mengisi form absensi langsung ke server SIPANDAI dengan kode QR/unix.
+     * Endpoint ini mengirim POST request ke URL absensi dengan payload kode dan cmd=Simpan.
      *
-     * - `course_id` → nilai `courseid` pada URL absensi QR (contoh `courseid=8810`).
-     * - `discussion_id` → nilai `modulesid` / `id` diskusi pada URL absensi (contoh `modulesid=30216`).
-     * - `meeting_number` → opsional; isi jika halaman absensi menampilkan `pertemuan=X`.
-     * - `form_values` → field tambahan untuk override (misalnya `kode=d6a53600`, `cmd=Simpan`).
+     * URL yang dipanggil: `/portal/sipandai/?mod=sipandai&act=actabsen&modulesid={modulesid}&courseid={courseid}`
      *
-     * @bodyParam course_id integer required Ambil dari parameter `courseid` pada URL absensi. Example: 8810
-     * @bodyParam discussion_id integer required Ambil dari parameter `modulesid` / `id` pada URL absensi. Example: 30216
-     * @bodyParam meeting_number integer optional Ambil dari parameter `pertemuan` jika tersedia. Example: 6
-     * @bodyParam form_values object optional Key-value override (misal `kode=d6a53600`, `cmd=Simpan`). Kosongkan bila tidak perlu override.
+     * - `courseid` → nilai `courseid` pada URL absensi QR (contoh `courseid=8833`).
+     * - `modulesid` → nilai `modulesid` pada URL absensi (contoh `modulesid=30728`).
+     * - `kode` → kode QR/unix untuk absensi (contoh `35533429`).
+     * - `pertemuan` → opsional; nomor pertemuan untuk referensi.
      */
+    #[Response(description: 'Absensi berhasil dikirim ke SIPANDAI.', type: self::ACTION_RESULT_RESPONSE)]
+    #[Response(401, description: 'Endpoint ini membutuhkan sesi kampus yang aktif.', type: CampusApiController::SCRAMBLE_SESSION_ERROR_RESPONSE)]
+    #[Response(422, description: 'Payload absensi tidak valid.', type: CampusApiController::SCRAMBLE_VALIDATION_ERROR_RESPONSE)]
+    #[Response(500, description: 'Absensi gagal diproses.', type: CampusApiController::SCRAMBLE_BOOLEAN_RESPONSE)]
     public function markAttendance(SipandaiAttendanceRequest $request): JsonResponse
     {
-        $sessionToken = session('campus_session_token');
+        $sessionToken = $this->sessionToken();
 
         if (! $sessionToken) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'No active campus session found',
-                'data' => null,
-                'meta' => [
-                    'timestamp' => now()->toISOString(),
-                    'campus_session_valid' => false,
-                ],
-            ], 401);
+            return $this->missingSessionBooleanResponse();
         }
 
-        $validated = $request->validated();
-        $overrides = $this->stringifyOverrides($validated['form_values'] ?? []);
+        $overrides = array_merge($request->formValues(), [
+            'kode' => (string) $request->validated('kode'),
+        ]);
 
         try {
             $result = $this->submissionService->submitAttendance(
                 $sessionToken,
-                (int) $validated['course_id'],
-                (int) $validated['discussion_id'],
-                isset($validated['meeting_number']) ? (int) $validated['meeting_number'] : null,
+                $request->courseId(),
+                $request->discussionId(),
+                $request->meetingNumber(),
                 $overrides
             );
 
@@ -204,21 +166,137 @@ class PortalActionController extends Controller
         } catch (\Throwable $e) {
             Log::error('Failed to submit SIPANDAI attendance', [
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-                'course_id' => $validated['course_id'],
-                'discussion_id' => $validated['discussion_id'],
+                'courseid' => $request->input('courseid'),
+                'modulesid' => $request->input('modulesid'),
             ]);
 
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Failed to submit attendance: '.$e->getMessage(),
-                'data' => null,
-                'meta' => [
-                    'timestamp' => now()->toISOString(),
-                    'campus_session_valid' => false,
-                    'source' => 'sipandai_attendance',
-                ],
-            ], 500);
+            return $this->booleanResponse(false, 'Failed to mark attendance.', null, 500);
+        }
+    }
+
+    /**
+     * Ambil kandidat shortcut absensi dan tugas untuk jadwal hari ini.
+     */
+    #[Response(description: 'Shortcut absensi hari ini berhasil diambil.', type: self::ATTENDANCE_SHORTCUT_RESPONSE)]
+    #[Response(401, description: 'Endpoint ini membutuhkan sesi kampus yang aktif.', type: CampusApiController::SCRAMBLE_SESSION_ERROR_RESPONSE)]
+    #[Response(500, description: 'Shortcut absensi hari ini gagal diambil.', type: CampusApiController::SCRAMBLE_BOOLEAN_RESPONSE)]
+    public function todayAttendanceShortcuts(): JsonResponse
+    {
+        $sessionToken = $this->sessionToken();
+
+        if (! $sessionToken) {
+            return $this->missingSessionStatusResponse();
+        }
+
+        try {
+            $shortcuts = $this->attendanceShortcutService->getTodayShortcuts($sessionToken);
+
+            return $this->booleanResponse(true, 'Attendance shortcuts retrieved successfully.', $shortcuts);
+        } catch (\Throwable $e) {
+            Log::error('Failed to resolve attendance shortcuts', [
+                'error' => $e->getMessage(),
+            ]);
+
+            return $this->booleanResponse(false, 'Failed to resolve attendance shortcuts.', null, 500);
+        }
+    }
+
+    /**
+     * Ambil daftar ujian UTS/UAS yang tersedia di SIPANDAI.
+     */
+    #[Response(description: 'Daftar ujian SIPANDAI berhasil diambil.', type: self::EXAM_LIST_RESPONSE)]
+    #[Response(401, description: 'Endpoint ini membutuhkan sesi kampus yang aktif.', type: CampusApiController::SCRAMBLE_SESSION_ERROR_RESPONSE)]
+    #[Response(500, description: 'Daftar ujian gagal diambil.', type: CampusApiController::SCRAMBLE_BOOLEAN_RESPONSE)]
+    public function listExams(): JsonResponse
+    {
+        $sessionToken = $this->sessionToken();
+
+        if (! $sessionToken) {
+            return $this->missingSessionBooleanResponse();
+        }
+
+        try {
+            $exams = $this->submissionService->getExamList($sessionToken);
+
+            return $this->booleanResponse(true, 'Exam list retrieved successfully.', [
+                'exams' => $exams,
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Failed to fetch SIPANDAI exam list', [
+                'error' => $e->getMessage(),
+            ]);
+
+            return $this->booleanResponse(false, 'Failed to fetch exam list.', null, 500);
+        }
+    }
+
+    /**
+     * Ambil detail/form upload ujian UTS/UAS dari halaman `sendujian`.
+     */
+    #[PathParameter('id', 'Identifier ujian dari daftar `/exams` atau parameter `id` pada URL halaman unggah ujian SIPANDAI.', type: 'integer', example: 8833)]
+    #[Response(description: 'Detail dan metadata form unggah ujian berhasil diambil.', type: self::EXAM_DETAIL_RESPONSE)]
+    #[Response(401, description: 'Endpoint ini membutuhkan sesi kampus yang aktif.', type: CampusApiController::SCRAMBLE_SESSION_ERROR_RESPONSE)]
+    #[Response(422, description: 'Identifier ujian tidak valid.', type: CampusApiController::SCRAMBLE_VALIDATION_ERROR_RESPONSE)]
+    #[Response(500, description: 'Detail ujian gagal diambil.', type: CampusApiController::SCRAMBLE_BOOLEAN_RESPONSE)]
+    public function examDetail(SipandaiExamDetailRequest $request): JsonResponse
+    {
+        $sessionToken = $this->sessionToken();
+
+        if (! $sessionToken) {
+            return $this->missingSessionBooleanResponse();
+        }
+
+        try {
+            $examDetail = $this->submissionService->getExamDetail($sessionToken, $request->examId());
+
+            return $this->booleanResponse(true, 'Exam detail retrieved successfully.', [
+                'exam_detail' => $examDetail,
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Failed to fetch SIPANDAI exam detail', [
+                'error' => $e->getMessage(),
+                'id' => $request->input('id'),
+            ]);
+
+            return $this->booleanResponse(false, 'Failed to fetch exam detail.', null, 500);
+        }
+    }
+
+    /**
+     * Upload berkas UTS/UAS ke SIPANDAI.
+     *
+     * - `id` → ambil dari parameter `id` pada URL upload ujian (`act=sendujian`).
+     * - `attachment` → file ujian yang akan diunggah.
+     * - `form_values` → optional, override field tambahan dari form upload ujian.
+     */
+    #[Response(description: 'Unggah ujian berhasil diproses oleh SIPANDAI.', type: self::ACTION_RESULT_RESPONSE)]
+    #[Response(401, description: 'Endpoint ini membutuhkan sesi kampus yang aktif.', type: CampusApiController::SCRAMBLE_SESSION_ERROR_RESPONSE)]
+    #[Response(422, description: 'Payload unggah ujian tidak valid.', type: CampusApiController::SCRAMBLE_VALIDATION_ERROR_RESPONSE)]
+    #[Response(500, description: 'Unggah ujian gagal diproses.', type: CampusApiController::SCRAMBLE_BOOLEAN_RESPONSE)]
+    public function uploadExam(SipandaiExamUploadRequest $request): JsonResponse
+    {
+        $sessionToken = $this->sessionToken();
+
+        if (! $sessionToken) {
+            return $this->missingSessionBooleanResponse();
+        }
+
+        try {
+            $result = $this->submissionService->submitExam(
+                $sessionToken,
+                $request->examId(),
+                $request->attachment(),
+                $request->formValues()
+            );
+
+            return $this->buildResponse($result, 'sipandai_exam_upload');
+        } catch (\Throwable $e) {
+            Log::error('Failed to upload SIPANDAI exam', [
+                'error' => $e->getMessage(),
+                'id' => $request->input('id'),
+            ]);
+
+            return $this->booleanResponse(false, 'Failed to upload exam.', null, 500);
         }
     }
 
@@ -229,33 +307,6 @@ class PortalActionController extends Controller
     {
         $statusCode = $result['success'] ? 200 : 422;
 
-        return response()->json([
-            'status' => $result['success'] ? 'success' : 'error',
-            'message' => $result['message'],
-            'data' => $result['data'] ?? null,
-            'meta' => [
-                'timestamp' => now()->toISOString(),
-                'campus_session_valid' => $result['success'],
-                'source' => $source,
-            ],
-        ], $statusCode);
-    }
-
-    /**
-     * Normalise override values to strings.
-     */
-    private function stringifyOverrides(array $overrides): array
-    {
-        return array_map(static function ($value) {
-            if (is_bool($value)) {
-                return $value ? '1' : '0';
-            }
-
-            if (is_array($value)) {
-                return json_encode($value, JSON_THROW_ON_ERROR);
-            }
-
-            return (string) $value;
-        }, $overrides);
+        return $this->booleanResponse($result['success'], $result['message'], $result['data'] ?? null, $statusCode);
     }
 }

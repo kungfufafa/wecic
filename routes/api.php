@@ -3,39 +3,66 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\API\PortalActionController;
+use App\Http\Controllers\API\PortalAuthController;
 use App\Http\Controllers\API\PortalDataController;
 use App\Http\Controllers\API\PortalSupportController;
-use App\Http\Controllers\WebLoginController;
 use Illuminate\Support\Facades\Route;
 
-// API routes for campus authentication (without CSRF protection)
-Route::prefix('campus')->group(function () {
-    Route::post('login', [WebLoginController::class, 'login']);
+// Session-aware middleware stack for campus API routes (cookie + session, no CSRF).
+$sessionMiddleware = [
+    \Illuminate\Cookie\Middleware\EncryptCookies::class,
+    \Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse::class,
+    \Illuminate\Session\Middleware\StartSession::class,
+    \Illuminate\View\Middleware\ShareErrorsFromSession::class,
+];
 
-    // Campus data routes (with authentication middleware)
-    Route::middleware(['web'])->group(function () {
-        Route::get('dashboard', [PortalDataController::class, 'dashboard']);
-        Route::get('profile', [PortalDataController::class, 'profile']);
-        Route::get('classes', [PortalDataController::class, 'classes']);
-        Route::get('class-detail', [PortalDataController::class, 'classDetail']);
-        Route::get('class-detail-by-id', [PortalDataController::class, 'classDetailById']);
-        Route::get('meeting-detail', [PortalDataController::class, 'meetingDetail']);
-        Route::get('meeting-detail-by-id', [PortalDataController::class, 'meetingDetailById']);
+// Proxied endpoints use the original upstream portal parameter names as primary input.
+// Compatibility aliases may still be accepted in request classes for older clients.
+Route::middleware($sessionMiddleware)->group(function () {
+    Route::prefix('auth')->controller(PortalAuthController::class)->group(function (): void {
+        Route::post('login', 'login');
+        Route::get('session', 'checkSession');
+        Route::post('session/refresh', 'refreshSession');
+        Route::post('logout', 'logout');
+    });
 
-        // New endpoints for different class data sources
-        Route::get('sipandai-classes', [PortalDataController::class, 'sipandaiClasses']);
-        Route::get('student-course', [PortalDataController::class, 'studentCourse']);
-        Route::get('merged-classes', [PortalDataController::class, 'mergedClasses']);
-        Route::get('classes/overview', [PortalDataController::class, 'classesOverview']);
-        Route::get('sipandai-flow', [PortalDataController::class, 'sipandaiFlow']);
-        Route::post('assignments/upload', [PortalActionController::class, 'uploadAssignment']);
-        Route::post('attendance/mark', [PortalActionController::class, 'markAttendance']);
-        Route::delete('assignments/submission', [PortalActionController::class, 'deleteAssignment']);
+    Route::middleware('portal.session')->group(function (): void {
+        Route::controller(PortalDataController::class)->group(function (): void {
+            Route::get('dashboard', 'dashboard');
+            Route::get('profile', 'profile');
+            Route::get('class', 'mergedClasses');
+            Route::get('class/{id}', 'classDetail');
+            Route::get('meeting/{meeting_id}', 'meetingDetail');
+            Route::prefix('lms')->group(function (): void {
+                Route::get('class', 'classes');
+                Route::get('flow', 'sipandaiFlow');
+            });
+            Route::prefix('schedule')->group(function (): void {
+                Route::get('class', 'studentCourse');
+            });
+        });
 
-        // Support + metadata
-        Route::get('support/session', [PortalSupportController::class, 'sessionStatus']);
-        Route::get('support/parameter-help', [PortalSupportController::class, 'parameterHelp']);
-        Route::get('support/validate-parameters', [PortalSupportController::class, 'validateParameters']);
-        Route::get('metadata/endpoints', [PortalSupportController::class, 'endpoints']);
+        Route::prefix('assignment')->controller(PortalActionController::class)->group(function (): void {
+            Route::post('', 'uploadAssignment');
+            Route::delete('', 'deleteAssignment');
+        });
+
+        Route::get('attendance/today', [PortalActionController::class, 'todayAttendanceShortcuts']);
+        Route::post('attendance', [PortalActionController::class, 'markAttendance']);
+
+        Route::prefix('exam')->controller(PortalActionController::class)->group(function (): void {
+            Route::get('', 'listExams');
+            Route::post('', 'uploadExam');
+            Route::get('{id}', 'examDetail');
+        });
+    });
+
+    Route::prefix('support')->controller(PortalSupportController::class)->group(function (): void {
+        Route::get('parameter-help', 'parameterHelp');
+        Route::get('validate-parameters', 'validateParameters');
+    });
+
+    Route::prefix('metadata')->controller(PortalSupportController::class)->group(function (): void {
+        Route::get('endpoints', 'endpoints');
     });
 });

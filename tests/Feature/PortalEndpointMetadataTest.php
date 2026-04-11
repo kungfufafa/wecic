@@ -10,7 +10,7 @@ class PortalEndpointMetadataTest extends TestCase
 {
     public function test_endpoints_index_returns_grouped_data(): void
     {
-        $response = $this->getJson('/api/campus/metadata/endpoints');
+        $response = $this->getJson('/api/metadata/endpoints');
 
         $response->assertOk()
             ->assertJsonPath('status', 'success')
@@ -26,7 +26,7 @@ class PortalEndpointMetadataTest extends TestCase
 
     public function test_endpoints_show_returns_single_endpoint(): void
     {
-        $response = $this->getJson('/api/campus/metadata/endpoints?key=profile');
+        $response = $this->getJson('/api/metadata/endpoints?key=profile');
 
         $response->assertOk()
             ->assertJsonPath('status', 'success')
