@@ -137,16 +137,38 @@ class PortalAuthService
             ];
 
             Log::info('Login form analyzed successfully', [
+                'domain' => 'campus_auth',
+                'event' => 'login_form_analyzed',
                 'action' => $formAction,
                 'field_count' => count($formFields),
+                'metric' => [
+                    'name' => 'campus_auth_events_total',
+                    'type' => 'counter',
+                    'value' => 1,
+                    'tags' => [
+                        'event' => 'login_form_analyzed',
+                        'component' => class_basename(static::class),
+                    ],
+                ],
             ]);
 
             return $this->loginFormData;
 
         } catch (GuzzleException $e) {
             Log::error('Failed to analyze login form', [
+                'domain' => 'campus_auth',
+                'event' => 'login_form_analysis_failed',
                 'error' => $e->getMessage(),
                 'url' => $loginPageUrl,
+                'metric' => [
+                    'name' => 'campus_auth_events_total',
+                    'type' => 'counter',
+                    'value' => 1,
+                    'tags' => [
+                        'event' => 'login_form_analysis_failed',
+                        'component' => class_basename(static::class),
+                    ],
+                ],
             ]);
             throw PortalConnectionException::networkError($loginPageUrl, $e->getMessage());
         }
@@ -222,8 +244,20 @@ class PortalAuthService
             $userInfo = $this->extractUserInfo($dashboardHtml);
 
             Log::info('Campus login successful', [
-                'username' => $username,
+                'domain' => 'campus_auth',
+                'event' => 'login_succeeded',
+                'username_fingerprint' => $this->fingerprint($username),
                 'user_info' => array_keys($userInfo),
+                'cookie_count' => count($this->cookieJar?->toArray() ?? []),
+                'metric' => [
+                    'name' => 'campus_auth_events_total',
+                    'type' => 'counter',
+                    'value' => 1,
+                    'tags' => [
+                        'event' => 'login_succeeded',
+                        'component' => class_basename(static::class),
+                    ],
+                ],
             ]);
 
             return [
@@ -239,8 +273,19 @@ class PortalAuthService
 
         } catch (GuzzleException $e) {
             Log::error('Campus login failed', [
-                'username' => $username,
+                'domain' => 'campus_auth',
+                'event' => 'login_failed',
+                'username_fingerprint' => $this->fingerprint($username),
                 'error' => $e->getMessage(),
+                'metric' => [
+                    'name' => 'campus_auth_events_total',
+                    'type' => 'counter',
+                    'value' => 1,
+                    'tags' => [
+                        'event' => 'login_failed',
+                        'component' => class_basename(static::class),
+                    ],
+                ],
             ]);
             throw PortalConnectionException::networkError($this->loginFormData['action'], $e->getMessage());
         }
@@ -474,5 +519,10 @@ class PortalAuthService
     public function getClient(): Client
     {
         return $this->client;
+    }
+
+    private function fingerprint(string $value): string
+    {
+        return substr(hash_hmac('sha256', $value, (string) (config('app.key') ?: 'campus-auth-observability')), 0, 16);
     }
 }

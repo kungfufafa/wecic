@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Exceptions\PortalScrapingException;
 use App\Http\Middleware\VerifyCsrfTokenMiddleware;
 use App\Services\AttendanceShortcutService;
 use App\Services\PortalSessionManager;
@@ -64,6 +65,35 @@ class PortalActionControllerTest extends TestCase
         $response->assertStatus(200)
             ->assertJson([
                 'success' => true,
+            ]);
+    }
+
+    public function test_upload_assignment_returns_unauthorized_when_upstream_session_has_expired(): void
+    {
+        $file = UploadedFile::fake()->create('task.pdf', 128, 'application/pdf');
+
+        $this->mockValidCampusSession('token-expired-upload');
+        $this->instance(
+            SipandaiSubmissionService::class,
+            Mockery::mock(SipandaiSubmissionService::class, function (MockInterface $mock): void {
+                $mock->shouldReceive('submitAssignment')
+                    ->once()
+                    ->andThrow(PortalScrapingException::pageNotAccessible('assignment form'));
+            })
+        );
+
+        $response = $this->withSession(['campus_session_token' => 'token-expired-upload'])
+            ->post('/api/assignment', [
+                'courses_id' => 9000,
+                'id' => 29833,
+                'pertemuan' => 2,
+                'attachment' => $file,
+            ], ['Accept' => 'application/json']);
+
+        $response->assertStatus(401)
+            ->assertJson([
+                'success' => false,
+                'message' => 'Campus session has expired. Please login again.',
             ]);
     }
 
@@ -136,6 +166,51 @@ class PortalActionControllerTest extends TestCase
                 'meeting_number' => 2,
                 'form_values' => [
                     'kode' => '35533429',
+                ],
+            ]);
+
+        $response->assertOk()
+            ->assertJson([
+                'success' => true,
+                'data' => [
+                    'status' => 'marked',
+                ],
+            ]);
+    }
+
+    public function test_mark_attendance_can_resolve_target_from_shortcut_context(): void
+    {
+        $this->mockValidCampusSession('token-context');
+
+        $this->instance(
+            AttendanceShortcutService::class,
+            Mockery::mock(AttendanceShortcutService::class, function (MockInterface $mock): void {
+                $mock->shouldReceive('resolveAttendanceShortcutForClass')
+                    ->once()
+                    ->with('token-context', [
+                        'class_id' => 2265,
+                        'dosen_id' => 5240,
+                        'course_id' => 8810,
+                    ])
+                    ->andReturn([
+                        'attendance_payload' => [
+                            'courseid' => '8837',
+                            'modulesid' => '29808',
+                            'pertemuan' => 2,
+                        ],
+                    ]);
+            })
+        );
+
+        $this->mockServiceExpectingSubmitAttendance('token-context');
+
+        $response = $this->withSession(['campus_session_token' => 'token-context'])
+            ->postJson('/api/attendance', [
+                'kode' => '35533429',
+                'shortcut_context' => [
+                    'class_id' => 2265,
+                    'dosen_id' => 5240,
+                    'course_id' => 8810,
                 ],
             ]);
 

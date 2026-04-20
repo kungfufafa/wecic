@@ -4,32 +4,20 @@
 @section('page_id', 'exam-show')
 
 @section('content')
-    <section class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(24rem,0.9fr)]">
-        <div class="grid gap-6">
-            <div class="app-panel">
-                <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-                <div>
-                    <p class="section-label">Detail ujian</p>
-                    <h1 id="exam-title" data-display class="mt-4 text-4xl font-semibold text-[color:var(--ink)]">Memuat ujian</h1>
-                    <p id="exam-subtitle" class="mt-3 text-sm leading-7 text-[color:var(--ink-soft)]">Mengambil metadata form unggah ujian dari LMS.</p>
-                </div>
-                <div class="flex gap-2">
-                    <a href="/exam" class="ghost-button">Kembali</a>
-                </div>
-            </div>
-        </div>
+    <section class="page-shell">
+        <section id="exam-hero" class="page-hero">
+            <div class="empty-shell">Menunggu ringkasan ujian.</div>
+        </section>
 
-            <div id="exam-info" class="app-panel">
+        <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(24rem,0.9fr)]">
+            <section id="exam-info" class="section-shell">
                 <div class="empty-shell">Menunggu detail ujian.</div>
-            </div>
+            </section>
 
-        </div>
-
-        <aside class="grid gap-6">
-            <div id="exam-upload-shell" class="app-panel">
+            <aside id="exam-upload-shell" class="section-shell">
                 <div class="empty-shell">Form unggah akan muncul jika tersedia.</div>
-            </div>
-        </aside>
+            </aside>
+        </div>
     </section>
 @endsection
 
@@ -58,50 +46,103 @@
                 const detail = payload.data?.exam_detail || {};
                 const form = detail.form || {};
                 const isUploadReady = Boolean(form.available);
+                const hero = document.getElementById('exam-hero');
 
-                document.getElementById('exam-title').textContent = detail.title || `Ujian ${examId}`;
-                document.getElementById('exam-subtitle').textContent = `${detail.status || 'Status tidak tersedia'} / ${detail.description || 'Tanpa deskripsi tambahan'}`;
-
-                document.getElementById('exam-info').innerHTML = `
-                    <p class="section-label">Informasi utama</p>
-                    <div class="mt-4 grid gap-4">
-                        <div class="app-panel-muted">
-                            ${app.renderKeyValueList([
-                                { label: 'Exam ID', value: detail.exam_id },
-                                { label: 'Status', value: detail.status },
-                                { label: 'Request URL', value: detail.request_url },
-                                { label: 'Action URL', value: form.action_url },
-                                { label: 'Field file', value: form.file_field },
-                            ])}
+                hero.innerHTML = `
+                    <div class="page-hero-shell">
+                        <div class="page-hero-main">
+                            <p class="section-label">Detail ujian</p>
+                            <h1 data-display class="page-hero-title is-wide">${app.escapeHtml(detail.title || 'Detail ujian')}</h1>
+                            <p class="page-hero-copy">${app.escapeHtml(detail.description || 'Periksa status ujian, kebutuhan unggah, dan tautan terkait sebelum mengirim berkas.')}</p>
+                            <div class="page-meta-row">
+                                ${detail.status ? `<span class="meta-pill is-accent">${app.escapeHtml(detail.status)}</span>` : ''}
+                                ${detail.exam_id ? `<span class="meta-pill">${app.escapeHtml(detail.exam_id)}</span>` : ''}
+                                <span class="meta-pill">${isUploadReady ? 'Form upload siap' : 'Menunggu form upload'}</span>
+                            </div>
                         </div>
-                        ${(detail.alerts || []).length ? `
-                            <div class="app-panel-muted">
-                                <p class="section-label">Alert</p>
-                                <ul class="mt-4 grid gap-2 text-sm text-[color:var(--ink)]">
-                                    ${(detail.alerts || []).map((alert) => `<li class="rounded-xl border border-[color:var(--line)] bg-white px-3 py-3">${app.escapeHtml(alert)}</li>`).join('')}
-                                </ul>
-                            </div>
-                        ` : ''}
-                        ${(detail.requirements || []).length ? `
-                            <div class="app-panel-muted">
-                                <p class="section-label">Persyaratan</p>
-                                <ul class="mt-4 grid gap-2 text-sm text-[color:var(--ink)]">
-                                    ${(detail.requirements || []).map((requirement) => `<li class="rounded-xl border border-[color:var(--line)] bg-white px-3 py-3">${app.escapeHtml(requirement)}</li>`).join('')}
-                                </ul>
-                            </div>
-                        ` : ''}
+                        <div class="page-hero-actions">
+                            <a href="/exam" class="ghost-button">Kembali ke daftar</a>
+                            ${isUploadReady ? '<a href="#exam-upload-shell" class="primary-button">Buka upload</a>' : ''}
+                        </div>
                     </div>
                 `;
 
-                document.getElementById('exam-upload-shell').innerHTML = `
-                    <p class="section-label">Upload berkas</p>
-                    <div class="mt-4 grid gap-4">
-                        <div class="app-panel-muted">
-                            <p class="text-sm font-semibold text-[color:var(--ink)]">${isUploadReady ? 'Form unggah tersedia.' : 'Form unggah belum tersedia.'}</p>
-                            <p class="mt-2 text-sm leading-7 text-[color:var(--ink-soft)]">Gunakan file PDF, ZIP, atau RAR sesuai kebutuhan ujian.</p>
+                document.getElementById('exam-info').innerHTML = `
+                    <div class="section-head">
+                        <div class="section-head-main">
+                            <h2 data-display class="section-title">Informasi ujian</h2>
+                            <p class="section-copy">Rangkuman metadata ujian, endpoint form asli, dan catatan penting yang dibaca dari portal kampus.</p>
+                            <div class="page-meta-row">
+                                ${detail.status ? `<span class="meta-pill is-accent">${app.escapeHtml(detail.status)}</span>` : ''}
+                                ${detail.exam_id ? `<span class="meta-pill">${app.escapeHtml(detail.exam_id)}</span>` : ''}
+                            </div>
                         </div>
+                        <div class="page-action-row">
+                            <a href="/exam" class="ghost-button">Kembali ke daftar</a>
+                        </div>
+                    </div>
+                    <div class="property-grid mt-6">
+                        <div class="property-panel">
+                            ${app.renderKeyValueList([
+                                { label: 'Judul', value: detail.title },
+                                { label: 'Exam ID', value: detail.exam_id },
+                                { label: 'Status', value: detail.status },
+                                { label: 'Request URL', value: detail.request_url },
+                            ])}
+                        </div>
+                        <div class="property-panel">
+                            ${app.renderKeyValueList([
+                                { label: 'Action URL', value: form.action_url },
+                                { label: 'Field file', value: form.file_field },
+                                { label: 'Deskripsi', value: detail.description },
+                            ])}
+                        </div>
+                    </div>
+                    ${((detail.alerts || []).length || (detail.requirements || []).length) ? `
+                        <div class="grid gap-4 mt-6">
+                            ${(detail.alerts || []).length ? `
+                                <div class="surface-card">
+                                    <p class="section-label">Alert</p>
+                                    <div class="surface-stack mt-4">
+                                        ${(detail.alerts || []).map((alert) => `
+                                            <div class="surface-card-soft">
+                                                <p class="surface-card-copy">${app.escapeHtml(alert)}</p>
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                </div>
+                            ` : ''}
+                            ${(detail.requirements || []).length ? `
+                                <div class="surface-card">
+                                    <p class="section-label">Persyaratan</p>
+                                    <div class="surface-stack mt-4">
+                                        ${(detail.requirements || []).map((requirement) => `
+                                            <div class="surface-card-soft">
+                                                <p class="surface-card-copy">${app.escapeHtml(requirement)}</p>
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                </div>
+                            ` : ''}
+                        </div>
+                    ` : ''}
+                `;
+
+                document.getElementById('exam-upload-shell').innerHTML = `
+                    <div class="section-head">
+                        <div class="section-head-main">
+                            <h2 data-display class="section-title">Upload berkas</h2>
+                            <p class="section-copy">Gunakan panel ini hanya ketika form dari portal kampus menyatakan unggah tersedia.</p>
+                        </div>
+                    </div>
+                    <div class="surface-card mt-6">
+                        <p class="section-label">Kesiapan form</p>
+                        <p class="surface-card-title mt-3">${isUploadReady ? 'Form unggah tersedia.' : 'Form unggah belum tersedia.'}</p>
+                        <p class="surface-card-copy">Gunakan file PDF, ZIP, atau RAR sesuai kebutuhan ujian.</p>
+                    </div>
+                    <div class="mt-4 grid gap-4">
                         ${isUploadReady ? `
-                            <form id="exam-upload-form" class="grid gap-3">
+                            <form id="exam-upload-form" class="surface-card grid gap-3">
                                 <label class="grid gap-2">
                                     <span class="section-label">Lampiran</span>
                                     <input id="exam-file" type="file" class="field-shell" required>
@@ -113,13 +154,16 @@
                             </form>
                         ` : ''}
                         ${(detail.related_links || []).length ? `
-                            <div class="grid gap-2">
-                                ${(detail.related_links || []).map((link) => `
-                                    <a href="${app.absoluteCampusUrl(link.url)}" target="_blank" rel="noreferrer" class="secondary-button justify-between">
-                                        ${app.escapeHtml(link.text || link.url)}
-                                        <span aria-hidden="true">/</span>
-                                    </a>
-                                `).join('')}
+                            <div class="surface-card">
+                                <p class="section-label">Tautan terkait</p>
+                                <div class="surface-stack mt-4">
+                                    ${(detail.related_links || []).map((link) => `
+                                        <a href="${app.absoluteCampusUrl(link.url)}" target="_blank" rel="noreferrer" class="secondary-button justify-between">
+                                            ${app.escapeHtml(link.text || link.url)}
+                                            <span aria-hidden="true">/</span>
+                                        </a>
+                                    `).join('')}
+                                </div>
                             </div>
                         ` : ''}
                     </div>

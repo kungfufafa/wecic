@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\API;
 
+use App\Exceptions\PortalAuthenticationException;
+use App\Exceptions\PortalScrapingException;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
@@ -97,6 +99,19 @@ abstract class CampusApiController extends Controller
         return $this->booleanResponse(false, 'No active session. Please login first.', null, 401);
     }
 
+    protected function expiredSessionBooleanResponse(): JsonResponse
+    {
+        session()->forget(['campus_session_token', 'campus_user_info']);
+
+        return $this->booleanResponse(false, 'Campus session has expired. Please login again.', null, 401);
+    }
+
+    protected function isCampusSessionExpiredException(\Throwable $throwable): bool
+    {
+        return $throwable instanceof PortalAuthenticationException
+            || ($throwable instanceof PortalScrapingException && $throwable->getCode() === 403);
+    }
+
     protected function withCampusSession(
         string $failureLogMessage,
         string $clientErrorPrefix,
@@ -112,6 +127,12 @@ abstract class CampusApiController extends Controller
         try {
             return $callback($sessionToken);
         } catch (\Throwable $throwable) {
+            if ($this->isCampusSessionExpiredException($throwable)) {
+                session()->forget(['campus_session_token', 'campus_user_info']);
+
+                return $this->statusError('Campus session has expired. Please login again.', 401, campusSessionValid: false);
+            }
+
             Log::error($failureLogMessage, array_merge([
                 'error' => $throwable->getMessage(),
                 'trace' => $throwable->getTraceAsString(),

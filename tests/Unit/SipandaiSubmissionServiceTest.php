@@ -68,6 +68,35 @@ class SipandaiSubmissionServiceTest extends TestCase
         $this->assertSame('marked', $result['data']['status']);
     }
 
+    public function test_submit_attendance_accepts_short_success_response_from_direct_submit(): void
+    {
+        config(['portal.request_delay' => 0]);
+
+        $sessionManager = $this->createMock(PortalSessionManager::class);
+        $sessionManager->expects($this->once())
+            ->method('getSessionCookieJar')
+            ->with('token-short-response')
+            ->willReturn(CookieJar::fromArray([], 'my.cic.ac.id'));
+
+        $service = new SipandaiSubmissionService($sessionManager);
+
+        $handler = new MockHandler([
+            new Response(200, [], $this->attendanceScannerPageHtml()),
+            new Response(200, [], '<div>Absensi berhasil</div>'),
+        ]);
+
+        $this->setNonPublicProperty($service, 'client', new Client([
+            'handler' => HandlerStack::create($handler),
+        ]));
+
+        $result = $service->submitAttendance('token-short-response', 8837, 30216, 9, [
+            'kode' => '35533429',
+        ]);
+
+        $this->assertTrue($result['success']);
+        $this->assertSame('marked', $result['data']['status']);
+    }
+
     public function test_determine_upload_status_prioritizes_failure_phrases(): void
     {
         $service = new SipandaiSubmissionService($this->createMock(PortalSessionManager::class));

@@ -91,6 +91,19 @@ class AttendanceShortcutServiceTest extends TestCase
                             ],
                         ],
                     ]);
+
+                $mock->shouldReceive('extractMeetingDetail')
+                    ->once()
+                    ->with('token-123', [
+                        'meeting_id' => '445',
+                        'courses_id' => '8810',
+                    ])
+                    ->andReturn([
+                        'attendance_info' => [
+                            'status' => 'Hadir Absen Jam : 09:35:00',
+                            'time' => '09:35:00',
+                        ],
+                    ]);
             }),
             Mockery::mock(SipandaiClassesExtractor::class, function (MockInterface $mock): void {
                 $mock->shouldReceive('extractSipandaiClassesData')
@@ -131,9 +144,9 @@ class AttendanceShortcutServiceTest extends TestCase
         );
 
         $this->assertTrue($result['classes'][0]['attendance_status']['already_marked']);
-        $this->assertSame('late', $result['classes'][0]['attendance_status']['status']);
-        $this->assertSame('Terlambat', $result['classes'][0]['attendance_status']['label']);
-        $this->assertSame('09:35', $result['classes'][0]['attendance_status']['time']);
+        $this->assertSame('present', $result['classes'][0]['attendance_status']['status']);
+        $this->assertSame('Hadir', $result['classes'][0]['attendance_status']['label']);
+        $this->assertSame('09:35:00', $result['classes'][0]['attendance_status']['time']);
     }
 
     public function test_it_keeps_shortcut_attendance_action_when_only_absent_placeholder_exists(): void
@@ -202,6 +215,20 @@ class AttendanceShortcutServiceTest extends TestCase
                                     ],
                                 ],
                             ],
+                        ],
+                    ]);
+
+                $mock->shouldReceive('extractMeetingDetail')
+                    ->once()
+                    ->with('token-456', [
+                        'meeting_id' => '445',
+                        'courses_id' => '8810',
+                        'fresh' => true,
+                    ])
+                    ->andReturn([
+                        'attendance_info' => [
+                            'status' => 'Silakan scan QR untuk absensi',
+                            'time' => '',
                         ],
                     ]);
             }),
@@ -286,6 +313,20 @@ class AttendanceShortcutServiceTest extends TestCase
                                     'meeting' => '1',
                                 ],
                             ],
+                        ],
+                    ]);
+
+                $mock->shouldReceive('extractMeetingDetail')
+                    ->once()
+                    ->with('token-789', [
+                        'meeting_id' => '441',
+                        'courses_id' => '8810',
+                        'fresh' => true,
+                    ])
+                    ->andReturn([
+                        'attendance_info' => [
+                            'status' => '',
+                            'time' => '',
                         ],
                     ]);
 
@@ -443,5 +484,93 @@ class AttendanceShortcutServiceTest extends TestCase
         $this->assertTrue($pendingAssignments[0]['can_submit_directly']);
         $this->assertSame('/meeting/32993?courses_id=9186', $pendingAssignments[0]['meeting_url']);
         $this->assertSame('9186', $pendingAssignments[0]['assignment_payload']['courses_id']);
+    }
+
+    public function test_it_uses_latest_detected_material_for_display_when_today_material_is_missing(): void
+    {
+        $service = new AttendanceShortcutService(
+            Mockery::mock(ClassesExtractor::class, function (MockInterface $mock): void {
+                $mock->shouldReceive('extractClassDetail')
+                    ->once()
+                    ->with('token-202', [
+                        'id' => '2265',
+                        'dosen_id' => '5240',
+                        'course_id' => '8810',
+                    ])
+                    ->andReturn([
+                        'course_materials' => [
+                            [
+                                'title' => 'Pertemuan 14',
+                                'date' => '10 April 2026',
+                                'meeting_number' => 14,
+                                'join_link' => [
+                                    'href' => '?id=454&courses_id=8810',
+                                ],
+                            ],
+                        ],
+                        'attendance_info' => [
+                            'summary' => [
+                                'total_meetings' => 14,
+                            ],
+                            'meetings' => [],
+                        ],
+                    ]);
+
+                $mock->shouldReceive('extractMeetingDetail')
+                    ->once()
+                    ->with('token-202', [
+                        'meeting_id' => '454',
+                        'courses_id' => '8810',
+                        'fresh' => true,
+                    ])
+                    ->andReturn([
+                        'attendance_info' => [
+                            'status' => '',
+                            'time' => '',
+                        ],
+                    ]);
+            }),
+            Mockery::mock(SipandaiClassesExtractor::class, function (MockInterface $mock): void {
+                $mock->shouldReceive('extractSipandaiClassesData')
+                    ->once()
+                    ->with('token-202')
+                    ->andReturn([
+                        'classes' => [
+                            [
+                                'schedule' => [
+                                    'day' => 'Senin',
+                                    'start_time' => '09:30:00',
+                                    'end_time' => '11:00:00',
+                                    'formatted_time' => '09:30 - 11:00',
+                                ],
+                                'course_info' => [
+                                    'code' => 'IF101',
+                                    'name' => 'Algoritma',
+                                ],
+                                'lecturer_info' => [
+                                    'name' => 'Dosen Uji',
+                                ],
+                                'join_link' => [
+                                    'params' => [
+                                        'id' => '2265',
+                                        'dosen_id' => '5240',
+                                        'course_id' => '8810',
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ]);
+            }),
+        );
+
+        $result = $service->getTodayShortcuts(
+            'token-202',
+            CarbonImmutable::create(2026, 4, 13, 10, 0, 0, 'Asia/Jakarta')
+        );
+
+        $this->assertSame(15, $result['classes'][0]['meeting_number']);
+        $this->assertSame('Pertemuan 14', $result['classes'][0]['today_material']['title']);
+        $this->assertSame(14, $result['classes'][0]['today_material']['meeting_number']);
+        $this->assertFalse($result['classes'][0]['attendance_target_reliable']);
     }
 }

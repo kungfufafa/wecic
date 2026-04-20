@@ -760,7 +760,7 @@ class SipandaiSubmissionService extends PortalScrapingService
         try {
             $response = $this->client->request($method, $url, $requestOptions);
             $html = (string) $response->getBody();
-            $this->validateResponse($html, $url);
+            $this->validateResponse($html, $url, allowShortResponse: true);
 
             return $response;
         } catch (\Exception $e) {

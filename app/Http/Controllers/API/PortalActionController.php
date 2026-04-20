@@ -75,6 +75,10 @@ class PortalActionController extends CampusApiController
             return $this->buildResponse($result, 'sipandai_assignment_upload');
 
         } catch (\Throwable $e) {
+            if ($this->isCampusSessionExpiredException($e)) {
+                return $this->expiredSessionBooleanResponse();
+            }
+
             Log::error('Failed to upload SIPANDAI assignment', [
                 'error' => $e->getMessage(),
                 'courses_id' => $request->input('courses_id'),
@@ -82,6 +86,7 @@ class PortalActionController extends CampusApiController
             ]);
 
             return $this->booleanResponse(false, 'Failed to upload assignment.', null, 500);
+
         }
     }
 
@@ -115,6 +120,10 @@ class PortalActionController extends CampusApiController
             return $this->buildResponse($result, 'sipandai_assignment_delete');
 
         } catch (\Throwable $e) {
+            if ($this->isCampusSessionExpiredException($e)) {
+                return $this->expiredSessionBooleanResponse();
+            }
+
             Log::error('Failed to delete SIPANDAI assignment', [
                 'error' => $e->getMessage(),
                 'id' => $request->input('id'),
@@ -122,6 +131,7 @@ class PortalActionController extends CampusApiController
             ]);
 
             return $this->booleanResponse(false, 'Failed to delete assignment.', null, 500);
+
         }
     }
 
@@ -155,17 +165,41 @@ class PortalActionController extends CampusApiController
         ]);
 
         try {
+            $courseId = $request->courseId();
+            $discussionId = $request->discussionId();
+            $meetingNumber = $request->meetingNumber();
+
+            if (! $request->hasDirectAttendancePayload()) {
+                $shortcutContext = $request->shortcutContext();
+                $resolvedShortcut = $shortcutContext !== null
+                    ? $this->attendanceShortcutService->resolveAttendanceShortcutForClass($sessionToken, $shortcutContext)
+                    : null;
+
+                if ($resolvedShortcut === null || empty($resolvedShortcut['attendance_payload'])) {
+                    return $this->booleanResponse(false, 'Target absensi terbaru belum bisa ditentukan untuk kelas ini.', null, 422);
+                }
+
+                $resolvedPayload = $resolvedShortcut['attendance_payload'];
+                $courseId = (int) $resolvedPayload['courseid'];
+                $discussionId = (int) $resolvedPayload['modulesid'];
+                $meetingNumber = isset($resolvedPayload['pertemuan']) ? (int) $resolvedPayload['pertemuan'] : null;
+            }
+
             $result = $this->submissionService->submitAttendance(
                 $sessionToken,
-                $request->courseId(),
-                $request->discussionId(),
-                $request->meetingNumber(),
+                $courseId,
+                $discussionId,
+                $meetingNumber,
                 $overrides
             );
 
             return $this->buildResponse($result, 'sipandai_attendance');
 
         } catch (\Throwable $e) {
+            if ($this->isCampusSessionExpiredException($e)) {
+                return $this->expiredSessionBooleanResponse();
+            }
+
             Log::error('Failed to submit SIPANDAI attendance', [
                 'error' => $e->getMessage(),
                 'courseid' => $request->input('courseid'),
@@ -173,6 +207,7 @@ class PortalActionController extends CampusApiController
             ]);
 
             return $this->booleanResponse(false, 'Failed to mark attendance.', null, 500);
+
         }
     }
 
@@ -195,6 +230,10 @@ class PortalActionController extends CampusApiController
 
             return $this->booleanResponse(true, 'Attendance shortcuts retrieved successfully.', $shortcuts);
         } catch (\Throwable $e) {
+            if ($this->isCampusSessionExpiredException($e)) {
+                return $this->expiredSessionBooleanResponse();
+            }
+
             Log::error('Failed to resolve attendance shortcuts', [
                 'error' => $e->getMessage(),
             ]);
@@ -224,6 +263,10 @@ class PortalActionController extends CampusApiController
                 'assignments' => $assignments,
             ]);
         } catch (\Throwable $e) {
+            if ($this->isCampusSessionExpiredException($e)) {
+                return $this->expiredSessionBooleanResponse();
+            }
+
             Log::error('Failed to resolve pending assignments', [
                 'error' => $e->getMessage(),
             ]);
@@ -253,6 +296,10 @@ class PortalActionController extends CampusApiController
                 'exams' => $exams,
             ]);
         } catch (\Throwable $e) {
+            if ($this->isCampusSessionExpiredException($e)) {
+                return $this->expiredSessionBooleanResponse();
+            }
+
             Log::error('Failed to fetch SIPANDAI exam list', [
                 'error' => $e->getMessage(),
             ]);
@@ -284,6 +331,10 @@ class PortalActionController extends CampusApiController
                 'exam_detail' => $examDetail,
             ]);
         } catch (\Throwable $e) {
+            if ($this->isCampusSessionExpiredException($e)) {
+                return $this->expiredSessionBooleanResponse();
+            }
+
             Log::error('Failed to fetch SIPANDAI exam detail', [
                 'error' => $e->getMessage(),
                 'id' => $request->input('id'),
@@ -322,6 +373,10 @@ class PortalActionController extends CampusApiController
 
             return $this->buildResponse($result, 'sipandai_exam_upload');
         } catch (\Throwable $e) {
+            if ($this->isCampusSessionExpiredException($e)) {
+                return $this->expiredSessionBooleanResponse();
+            }
+
             Log::error('Failed to upload SIPANDAI exam', [
                 'error' => $e->getMessage(),
                 'id' => $request->input('id'),

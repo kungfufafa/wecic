@@ -54,6 +54,8 @@ class ProfileExtractor extends PortalScrapingService
 
             return $profileData;
 
+        } catch (PortalScrapingException $e) {
+            throw $e;
         } catch (\Exception $e) {
             $this->logScrapingError('Extracting profile data', $e, ['session_token' => $sessionToken]);
             throw PortalScrapingException::dataExtractionFailed('profile', $e->getMessage());

@@ -21,6 +21,11 @@ class PortalScrapingException extends PortalException
         return new self("Failed to extract {$data}: {$reason}", 422);
     }
 
+    public static function invalidResponse(string $url, string $reason): self
+    {
+        return new self("Invalid response from {$url}: {$reason}", 422);
+    }
+
     public static function pageNotAccessible(string $url): self
     {
         return new self("Page not accessible: {$url}", 403);

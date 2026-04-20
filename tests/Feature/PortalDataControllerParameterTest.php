@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Exceptions\PortalScrapingException;
 use App\Services\Extractors\ClassesExtractor;
 use App\Services\Extractors\DashboardExtractor;
 use App\Services\PortalSessionManager;
@@ -359,6 +360,33 @@ class PortalDataControllerParameterTest extends TestCase
             ->assertJsonPath('data.classes_summary.today_classes_count', 1)
             ->assertJsonPath('data.classes_summary.today_classes.0.course_name', 'Algoritma')
             ->assertJsonPath('data.classes_summary.today_classes.0.room', 'Ruang 301');
+    }
+
+    public function test_dashboard_route_returns_unauthorized_when_upstream_session_has_expired_during_scraping(): void
+    {
+        $this->mockValidCampusSession('token-upstream-expired');
+
+        $this->instance(
+            DashboardExtractor::class,
+            Mockery::mock(DashboardExtractor::class, function (MockInterface $mock): void {
+                $mock->shouldReceive('extractDashboardData')
+                    ->once()
+                    ->with('token-upstream-expired')
+                    ->andThrow(PortalScrapingException::pageNotAccessible('dashboard'));
+            })
+        );
+
+        $response = $this->withSession([
+            'campus_session_token' => 'token-upstream-expired',
+            'campus_user_info' => ['nama' => 'Mahasiswa Uji'],
+        ])->getJson('/api/dashboard');
+
+        $response->assertStatus(401)
+            ->assertJsonPath('status', 'error')
+            ->assertJsonPath('message', 'Campus session has expired. Please login again.')
+            ->assertJsonPath('meta.campus_session_valid', false);
+
+        $response->assertSessionMissing('campus_session_token');
     }
 
     private function mockValidCampusSession(string $token): void

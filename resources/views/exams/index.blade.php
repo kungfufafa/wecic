@@ -4,23 +4,64 @@
 @section('page_id', 'exam-index')
 
 @section('content')
-    <section class="grid gap-6">
-        <div class="app-panel">
-            <div class="flex flex-col gap-4">
-                <div>
-                    <p class="section-label">Ujian</p>
-                    <h1 data-display class="mt-4 text-3xl font-semibold text-[color:var(--ink)] sm:text-4xl">Daftar ujian aktif</h1>
-                    <p class="mt-3 text-sm leading-7 text-[color:var(--ink-soft)]">Pantau status unggah dan buka detail ujian untuk setiap mata kuliah.</p>
+    <section class="page-shell">
+        <section class="page-hero">
+            <div class="page-hero-shell">
+                <div class="page-hero-main">
+                    <p class="section-label">Pusat ujian</p>
+                    <h1 data-display class="page-hero-title is-wide">Agenda ujian dan unggah berkas.</h1>
+                    <p id="exam-hero-copy" class="page-hero-copy">
+                        Memuat daftar ujian yang bisa dibuka dari portal kampus dan membantu Anda berpindah ke detail pengumpulan.
+                    </p>
+                    <div class="page-meta-row">
+                        <span class="meta-pill is-accent">Ujian aktif</span>
+                        <span id="exam-status-pill" class="meta-pill">Menunggu sinkron</span>
+                    </div>
+                </div>
+                <div class="page-hero-actions">
+                    <a href="/dashboard" class="ghost-button">Kembali ke dashboard</a>
                 </div>
             </div>
+        </section>
+
+        <div id="exam-summary" class="dense-metric-grid">
+            @foreach (['Total ujian', 'Terjadwal', 'Perlu ditinjau'] as $metric)
+                <article class="dense-metric">
+                    <span class="dense-metric-label">{{ $metric }}</span>
+                    <strong class="dense-metric-value" data-exam-metric>-</strong>
+                    <p class="dense-metric-copy">
+                        @if ($metric === 'Total ujian')
+                            Semua entri ujian yang berhasil terdeteksi.
+                        @elseif ($metric === 'Terjadwal')
+                            Entri yang sudah memiliki metadata jadwal.
+                        @else
+                            Ujian yang statusnya belum final atau masih aktif.
+                        @endif
+                    </p>
+                </article>
+            @endforeach
         </div>
 
-        <div id="exam-mobile-list" class="grid gap-4 md:hidden">
-            <div class="empty-shell">Memuat daftar ujian.</div>
-        </div>
+        <section class="section-shell md:hidden">
+            <div class="section-head">
+                <div class="section-head-main">
+                    <h2 data-display class="section-title">Daftar ujian</h2>
+                    <p class="section-copy">Tampilan kartu untuk akses cepat di perangkat kecil saat berpindah antar detail ujian.</p>
+                </div>
+            </div>
+            <div id="exam-mobile-list" class="mt-6 stack-list">
+                <div class="empty-shell">Memuat daftar ujian.</div>
+            </div>
+        </section>
 
-        <div class="app-panel hidden md:block">
-            <div class="overflow-x-auto">
+        <section class="section-shell hidden md:block">
+            <div class="section-head">
+                <div class="section-head-main">
+                    <h2 data-display class="section-title">Daftar ujian</h2>
+                    <p class="section-copy">Mode tabel memudahkan pemindaian kode mata kuliah, jadwal, dan status dalam satu layar.</p>
+                </div>
+            </div>
+            <div class="table-shell mt-6 overflow-x-auto">
                 <table class="compact-table">
                     <thead>
                         <tr>
@@ -38,7 +79,7 @@
                     </tbody>
                 </table>
             </div>
-        </div>
+        </section>
     </section>
 @endsection
 
@@ -49,25 +90,49 @@
 
             const tableBody = document.getElementById('exam-table');
             const mobileList = document.getElementById('exam-mobile-list');
+            const heroCopy = document.getElementById('exam-hero-copy');
+            const statusPill = document.getElementById('exam-status-pill');
+            const metricNodes = document.querySelectorAll('[data-exam-metric]');
 
             const renderExamCards = (exams) => exams.map((exam) => `
-                <article class="app-panel">
-                    <div class="flex flex-col gap-4">
-                        <div>
-                            <p class="section-label">${app.escapeHtml(exam.course_code || '-')}</p>
-                            <h2 data-display class="mt-3 text-xl font-semibold text-[color:var(--ink)]">${app.escapeHtml(exam.course_name || '-')}</h2>
+                <article class="stack-item">
+                    <div class="stack-item-shell">
+                        <div class="stack-item-main">
+                            <div class="space-y-3">
+                                <div class="page-meta-row">
+                                    <span class="stack-item-kicker">${app.escapeHtml(exam.course_code || '-')}</span>
+                                    <span class="meta-pill">${app.escapeHtml(exam.status || 'Tanpa status')}</span>
+                                </div>
+                                <div>
+                                    <h2 data-display class="stack-item-title">${app.escapeHtml(exam.course_name || '-')}</h2>
+                                    <p class="stack-item-copy">${app.escapeHtml(exam.schedule || 'Jadwal belum tersedia')}</p>
+                                </div>
+                            </div>
                         </div>
-                        ${app.renderKeyValueList([
-                            { label: 'Jadwal', value: exam.schedule },
-                            { label: 'Status', value: exam.status },
-                        ])}
-                        <a href="/exam/${app.escapeHtml(exam.id)}" class="secondary-button self-start">Detail ujian</a>
+                        <div class="stack-item-aside">
+                            <div class="surface-card-soft">
+                                <p class="section-label">Aksi ujian</p>
+                                <div class="surface-card-actions">
+                                    <a href="/exam/${app.escapeHtml(exam.id)}" class="primary-button w-full justify-center">Detail ujian</a>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </article>
             `).join('');
 
             const renderExams = (payload) => {
                 const exams = payload.data?.exams || [];
+                const scheduledCount = exams.filter((exam) => Boolean(String(exam.schedule || '').trim() && exam.schedule !== '-')).length;
+                const reviewCount = exams.filter((exam) => !/selesai|closed|ditutup|final/i.test(String(exam.status || ''))).length;
+
+                metricNodes[0].textContent = exams.length || '0';
+                metricNodes[1].textContent = scheduledCount || '0';
+                metricNodes[2].textContent = reviewCount || '0';
+                statusPill.textContent = exams.length ? `${exams.length} entri aktif` : 'Belum ada entri';
+                heroCopy.textContent = exams.length
+                    ? `${exams.length} ujian berhasil dimuat. Prioritaskan entri yang belum final dan buka detail untuk melihat kesiapan unggah berkas.`
+                    : 'Belum ada ujian yang muncul pada portal aktif. Coba segarkan lagi saat data akademik tersedia.';
 
                 if (!exams.length) {
                     tableBody.innerHTML = '<tr><td colspan="5" class="py-8 text-center text-sm text-[color:var(--ink-soft)]">Belum ada data ujian.</td></tr>';
@@ -82,7 +147,7 @@
                         <td>${app.escapeHtml(exam.course_code || '-')}</td>
                         <td>${app.escapeHtml(exam.course_name || '-')}</td>
                         <td>${app.escapeHtml(exam.schedule || '-')}</td>
-                        <td>${app.escapeHtml(exam.status || '-')}</td>
+                        <td><span class="meta-pill">${app.escapeHtml(exam.status || '-')}</span></td>
                         <td class="text-right">
                             <a href="/exam/${app.escapeHtml(exam.id)}" class="secondary-button">Detail</a>
                         </td>

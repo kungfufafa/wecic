@@ -223,7 +223,7 @@ class PortalApp {
         this.refreshOnlineRequiredState();
 
         if (!isOnline) {
-            this.setSyncStatus('Internet terputus. Data terakhir akan dipakai bila tersedia.', 'warning');
+            this.setSyncStatus('Data terakhir dipakai bila tersedia.', 'warning');
 
             if (announce && previousState !== false) {
                 this.showNotice('Koneksi internet terputus. Menampilkan data terakhir yang tersimpan.', 'warning');
@@ -233,10 +233,10 @@ class PortalApp {
         }
 
         if (previousState === false) {
-            this.setSyncStatus('Koneksi kembali. Menyegarkan data terbaru...', 'success');
+            this.setSyncStatus('Menyegarkan data terbaru...', 'info');
 
             if (announce) {
-                this.showNotice('Koneksi kembali. Data terbaru sedang disinkronkan.', 'success');
+                this.showNotice('Koneksi kembali. Data terbaru sedang disinkronkan.', 'info');
             }
 
             void this.runSyncHandlers();
@@ -245,7 +245,7 @@ class PortalApp {
         }
 
         if (!document.querySelector('[data-sync-status]')?.textContent?.trim()) {
-            this.setSyncStatus('Online. Data terbaru akan disegarkan otomatis.', 'info');
+            this.setSyncStatus('Data terbaru disegarkan otomatis.', 'info');
         }
     }
 
@@ -263,7 +263,7 @@ class PortalApp {
         }
 
         this.isSyncing = true;
-        this.setSyncStatus('Online. Menyegarkan data terbaru...', 'info');
+        this.setSyncStatus('Menyegarkan data terbaru...', 'info');
 
         let refreshedCount = 0;
 
@@ -279,12 +279,12 @@ class PortalApp {
         this.isSyncing = false;
 
         if (refreshedCount > 0) {
-            this.setSyncStatus(`Online. Tersinkron ${this.formatTimeOnly(new Date())}.`, 'success');
+            this.setSyncStatus(`Tersinkron ${this.formatTimeOnly(new Date())}.`, 'success');
 
             return;
         }
 
-        this.setSyncStatus('Online. Tidak ada data yang perlu disegarkan.', 'info');
+        this.setSyncStatus('Tidak ada pembaruan.', 'info');
     }
 
     async request(url, options = {}) {
@@ -334,7 +334,7 @@ class PortalApp {
 
             if (response.status === 401 && options.redirectOnAuth !== false && document.body.dataset.auth === 'required') {
                 this.clearAuthSnapshot();
-                this.storeNotice(payload?.message || 'Sesi kampus sudah berakhir.', 'warning');
+                this.storeNotice(payload?.message || 'Sesi kampus sudah berakhir.', 'error');
                 window.location.href = '/login';
 
                 return null;
@@ -542,20 +542,45 @@ class PortalApp {
     }
 
     extractAttendanceCode(value) {
-        const digits = String(value || '').replace(/\D+/g, '');
+        const normalizedValue = String(value || '').trim();
 
-        if (digits.length < 8) {
+        if (normalizedValue === '') {
             return null;
         }
 
-        return digits.slice(0, 8);
+        const codeCandidates = Array.from(normalizedValue.matchAll(/[a-f\d]{8,64}/gi))
+            .map((match) => ({
+                value: match[0],
+                index: match.index ?? Number.MAX_SAFE_INTEGER,
+                hasHexLetters: /[a-f]/i.test(match[0]),
+                isHinted: /(?:kode|unix|qr|code)[^a-f\d]{0,20}$/i.test(normalizedValue.slice(Math.max(0, (match.index ?? 0) - 20), match.index ?? 0)),
+            }))
+            .sort((left, right) => {
+                if (left.isHinted !== right.isHinted) {
+                    return left.isHinted ? -1 : 1;
+                }
+
+                if (left.hasHexLetters !== right.hasHexLetters) {
+                    return left.hasHexLetters ? -1 : 1;
+                }
+
+                return left.index - right.index;
+            });
+
+        const code = codeCandidates[0]?.value;
+
+        if (!code) {
+            return null;
+        }
+
+        return code.slice(0, 8).toLowerCase();
     }
 
     fillAttendanceCode(input, rawValue) {
         const code = this.extractAttendanceCode(rawValue);
 
         if (!code) {
-            this.showNotice('QR terdeteksi, tetapi tidak menemukan 8 digit kode absensi.', 'warning');
+            this.showNotice('QR terdeteksi, tetapi tidak menemukan kode absensi yang valid.', 'warning');
 
             return false;
         }
@@ -566,6 +591,23 @@ class PortalApp {
         this.showNotice(`Kode absensi ${code} terisi otomatis.`, 'success');
 
         return true;
+    }
+
+    requestFormSubmit(form) {
+        if (!(form instanceof HTMLFormElement)) {
+            return;
+        }
+
+        if (typeof form.requestSubmit === 'function') {
+            form.requestSubmit();
+
+            return;
+        }
+
+        form.dispatchEvent(new Event('submit', {
+            bubbles: true,
+            cancelable: true,
+        }));
     }
 
     getQrCanvasContext(width, height) {
@@ -599,7 +641,7 @@ class PortalApp {
         }
     }
 
-    async decodeQrFromFile(file, input) {
+    async decodeQrFromFile(file, input, options = {}) {
         try {
             const imageUrl = URL.createObjectURL(file);
             const image = await new Promise((resolve, reject) => {
@@ -635,7 +677,16 @@ class PortalApp {
                 return false;
             }
 
-            return this.fillAttendanceCode(input, rawValue);
+            const didFill = this.fillAttendanceCode(input, rawValue);
+
+            if (didFill) {
+                options.onDetected?.(input.value, {
+                    source: 'file',
+                    input,
+                });
+            }
+
+            return didFill;
         } catch (error) {
             this.showNotice('Foto QR gagal diproses.', 'error');
 
@@ -643,7 +694,7 @@ class PortalApp {
         }
     }
 
-    async openQrScanner(input) {
+    async openQrScanner(input, options = {}) {
         if (!navigator.mediaDevices?.getUserMedia) {
             this.showNotice('Kamera tidak tersedia di perangkat ini.', 'warning');
 
@@ -674,7 +725,7 @@ class PortalApp {
 
             modal.classList.remove('hidden');
             modal.setAttribute('aria-hidden', 'false');
-            this.setQrScannerStatus('Arahkan kamera ke QR absensi untuk mengambil 8 digit kode pertama.');
+            this.setQrScannerStatus('Arahkan kamera ke QR absensi untuk mengambil 8 karakter pertama kode.');
 
             const scanFrame = async () => {
                 if (!this.qrScannerState.stream) {
@@ -700,6 +751,10 @@ class PortalApp {
 
                         if (rawValue && this.fillAttendanceCode(input, rawValue)) {
                             await this.closeQrScanner();
+                            options.onDetected?.(input.value, {
+                                source: 'camera',
+                                input,
+                            });
 
                             return;
                         }
@@ -746,7 +801,7 @@ class PortalApp {
             modal.setAttribute('aria-hidden', 'true');
         }
 
-        this.setQrScannerStatus('Arahkan kamera ke QR absensi untuk mengambil 8 digit kode pertama.');
+        this.setQrScannerStatus('Arahkan kamera ke QR absensi untuk mengambil 8 karakter pertama kode.');
     }
 
     setQrScannerStatus(message, tone = 'info') {
@@ -760,12 +815,12 @@ class PortalApp {
         status.dataset.tone = tone;
     }
 
-    bindAttendanceQrTools(container, input) {
+    bindAttendanceQrTools(container, input, options = {}) {
         const scanButton = container.querySelector('[data-qr-scan]');
         const fileInput = container.querySelector('[data-qr-file]');
 
         scanButton?.addEventListener('click', async () => {
-            await this.openQrScanner(input);
+            await this.openQrScanner(input, options);
         });
 
         fileInput?.addEventListener('change', async () => {
@@ -775,7 +830,7 @@ class PortalApp {
                 return;
             }
 
-            await this.decodeQrFromFile(file, input);
+            await this.decodeQrFromFile(file, input, options);
             fileInput.value = '';
         });
     }
@@ -970,11 +1025,11 @@ class PortalApp {
     }
 
     buildOfflineCacheMessage(label, isStale) {
-        return `Offline. Menampilkan ${label} terakhir${isStale ? ' yang mungkin sudah lama' : ''}.`;
+        return `Menampilkan ${label} terakhir${isStale ? ' yang mungkin sudah lama' : ''}.`;
     }
 
     markViewSynced(label) {
-        this.setSyncStatus(`Online. ${label} diperbarui ${this.formatTimeOnly(new Date())}.`, 'success');
+        this.setSyncStatus(`${label} diperbarui ${this.formatTimeOnly(new Date())}.`, 'success');
     }
 
     requireOnlineAction(message = 'Fitur ini butuh koneksi internet.') {
@@ -1045,8 +1100,10 @@ class PortalApp {
 
         const notice = document.createElement('div');
         notice.className = 'notice-shell';
+        notice.dataset.tone = type;
         notice.style.setProperty('--notice-accent', toneMap[type] || toneMap.info);
         notice.innerHTML = `
+            <div class="notice-mark" aria-hidden="true"></div>
             <div class="notice-copy">${this.escapeHtml(message)}</div>
             <button type="button" class="notice-close" aria-label="Tutup notifikasi">Tutup</button>
         `;

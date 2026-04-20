@@ -19,8 +19,6 @@ class PortalSessionManager
 
     private Encrypter $encrypter;
 
-    private array $sessionData = [];
-
     public function __construct(PortalAuthService $authService, Encrypter $encrypter)
     {
         $this->authService = $authService;
@@ -32,6 +30,11 @@ class PortalSessionManager
      */
     public function createSession(string $username, string $password): array
     {
+        $startedAt = microtime(true);
+        $this->logSessionEvent('login_started', username: $username, context: [
+            'auto_relogin_enabled' => config('portal.auto_relogin', true),
+        ]);
+
         try {
             // Login to campus system
             $loginResult = $this->authService->login($username, $password);
@@ -40,45 +43,37 @@ class PortalSessionManager
             $sessionToken = $this->generateSessionToken();
 
             // Prepare session data
-            $this->sessionData = [
-                'token' => $sessionToken,
-                'username' => $username,
-                'user_info' => $loginResult['user_info'],
-                'cookies' => $loginResult['cookies'],
-                'login_time' => $loginResult['session_data']['login_time'],
-                'last_activity' => now()->toISOString(),
-                'expires_at' => now()->addSeconds(config('portal.session_refresh_interval', 1200))->toISOString(),
-                'is_active' => true,
-            ];
+            $sessionData = $this->buildSessionData($sessionToken, $username, $loginResult);
 
             // Encrypt credentials for auto-relogin
             if (config('portal.auto_relogin', true)) {
-                $this->sessionData['encrypted_credentials'] = $this->encryptCredentials($username, $password);
+                $sessionData['encrypted_credentials'] = $this->encryptCredentials($username, $password);
             }
 
             // Store session in cache
-            $this->storeSession($sessionToken, $this->sessionData);
+            $this->storeSession($sessionToken, $sessionData);
 
             // Schedule session refresh job
             $this->scheduleSessionRefresh($sessionToken);
 
-            Log::info('Campus session created successfully', [
-                'session_token' => $sessionToken,
-                'username' => $username,
-                'expires_at' => $this->sessionData['expires_at'],
+            $this->logSessionEvent('login_succeeded', sessionToken: $sessionToken, username: $username, session: $sessionData, context: [
+                'expires_at' => $sessionData['expires_at'],
+                'duration_ms' => $this->durationMs($startedAt),
+                'cookie_count' => count($sessionData['cookies'] ?? []),
+                'user_info_field_count' => count($loginResult['user_info'] ?? []),
             ]);
 
             return [
                 'success' => true,
                 'session_token' => $sessionToken,
                 'user_info' => $loginResult['user_info'],
-                'expires_at' => $this->sessionData['expires_at'],
+                'expires_at' => $sessionData['expires_at'],
             ];
 
         } catch (\Exception $e) {
-            Log::error('Failed to create campus session', [
-                'username' => $username,
+            $this->logSessionEvent('login_failed', level: 'error', username: $username, context: [
                 'error' => $e->getMessage(),
+                'duration_ms' => $this->durationMs($startedAt),
             ]);
 
             throw $e;
@@ -90,16 +85,14 @@ class PortalSessionManager
      */
     public function getSession(string $sessionToken): ?array
     {
-        $cachedSession = Cache::get(config('portal.session_prefix').$sessionToken);
+        $cachedSession = $this->loadSession($sessionToken);
 
         if (! $cachedSession) {
             return null;
         }
 
         // Update last activity
-        $this->updateLastActivity($sessionToken);
-
-        return $cachedSession;
+        return $this->updateLastActivity($sessionToken, $cachedSession);
     }
 
     /**
@@ -107,28 +100,50 @@ class PortalSessionManager
      */
     public function validateSession(string $sessionToken): bool
     {
-        $session = $this->getSession($sessionToken);
+        $startedAt = microtime(true);
+        $session = $this->loadSession($sessionToken);
 
         if (! $session) {
+            $this->logSessionEvent('validate_cache_miss', level: 'warning', sessionToken: $sessionToken, context: [
+                'duration_ms' => $this->durationMs($startedAt),
+            ]);
+
             return false;
         }
 
         // Check if session is marked as inactive
         if (! $session['is_active']) {
+            $this->logSessionEvent('validate_inactive', level: 'info', sessionToken: $sessionToken, session: $session, context: [
+                'duration_ms' => $this->durationMs($startedAt),
+            ]);
+
             return false;
         }
 
         // Check if session has expired
         if (now()->isAfter($session['expires_at'])) {
-            $this->deactivateSession($sessionToken);
+            $this->deactivateSession($sessionToken, 'ttl_expired', [
+                'expires_at' => $session['expires_at'] ?? null,
+                'duration_ms' => $this->durationMs($startedAt),
+            ]);
 
             return false;
         }
 
         // Optionally test session by making a request to campus
-        if ($this->shouldTestSessionLiveliness($session)) {
-            return $this->testSessionLiveliness($sessionToken);
+        if ($this->shouldTestSessionLiveliness($session) && ! $this->testSessionLiveliness($sessionToken, $session)) {
+            $this->logSessionEvent('validate_upstream_invalid', level: 'warning', sessionToken: $sessionToken, session: $session, context: [
+                'duration_ms' => $this->durationMs($startedAt),
+            ]);
+
+            return false;
         }
+
+        $updatedSession = $this->updateLastActivity($sessionToken, $session);
+        $this->logSessionEvent('validate_succeeded', level: 'debug', sessionToken: $sessionToken, session: $updatedSession, context: [
+            'upstream_check_performed' => $this->shouldTestSessionLiveliness($session),
+            'duration_ms' => $this->durationMs($startedAt),
+        ]);
 
         return true;
     }
@@ -138,28 +153,46 @@ class PortalSessionManager
      */
     public function refreshSession(string $sessionToken): array
     {
-        $session = $this->getSession($sessionToken);
+        $startedAt = microtime(true);
+        $session = $this->loadSession($sessionToken);
 
         if (! $session) {
+            $this->logSessionEvent('refresh_rejected_missing_session', level: 'warning', sessionToken: $sessionToken, context: [
+                'duration_ms' => $this->durationMs($startedAt),
+            ]);
             throw PortalAuthenticationException::sessionExpired();
         }
 
         try {
             // If auto-relogin is enabled and credentials are available
             if (config('portal.auto_relogin', true) && isset($session['encrypted_credentials'])) {
-                return $this->performAutoRelogin($sessionToken, $session);
+                $result = $this->performAutoRelogin($sessionToken, $session);
+                $this->logSessionEvent('refresh_succeeded', sessionToken: $sessionToken, session: $this->loadSession($sessionToken), context: [
+                    'strategy' => 'auto_relogin',
+                    'duration_ms' => $this->durationMs($startedAt),
+                ]);
+
+                return $result;
             }
 
             // Otherwise, try to extend current session
-            return $this->extendCurrentSession($sessionToken, $session);
-
-        } catch (\Exception $e) {
-            Log::error('Failed to refresh campus session', [
-                'session_token' => $sessionToken,
-                'error' => $e->getMessage(),
+            $result = $this->extendCurrentSession($sessionToken, $session);
+            $this->logSessionEvent('refresh_succeeded', sessionToken: $sessionToken, session: $this->loadSession($sessionToken), context: [
+                'strategy' => 'extend_existing',
+                'duration_ms' => $this->durationMs($startedAt),
             ]);
 
-            $this->deactivateSession($sessionToken);
+            return $result;
+
+        } catch (\Exception $e) {
+            $this->logSessionEvent('refresh_failed', level: 'error', sessionToken: $sessionToken, session: $session, context: [
+                'error' => $e->getMessage(),
+                'duration_ms' => $this->durationMs($startedAt),
+            ]);
+
+            $this->deactivateSession($sessionToken, 'refresh_failed', [
+                'error' => $e->getMessage(),
+            ]);
             throw PortalAuthenticationException::sessionExpired();
         }
     }
@@ -169,8 +202,9 @@ class PortalSessionManager
      */
     public function destroySession(string $sessionToken): bool
     {
+        $startedAt = microtime(true);
         try {
-            $session = $this->getSession($sessionToken);
+            $session = $this->loadSession($sessionToken);
 
             if ($session) {
                 // Attempt to logout from campus system
@@ -178,31 +212,38 @@ class PortalSessionManager
             }
 
             // Remove from cache
-            Cache::forget(config('portal.session_prefix').$sessionToken);
+            Cache::forget($this->cacheKey($sessionToken));
 
-            Log::info('Campus session destroyed', ['session_token' => $sessionToken]);
+            $this->logSessionEvent('logout_succeeded', sessionToken: $sessionToken, session: $session, context: [
+                'duration_ms' => $this->durationMs($startedAt),
+            ]);
 
             return true;
 
         } catch (\Exception $e) {
-            Log::error('Error destroying campus session', [
-                'session_token' => $sessionToken,
+            $this->logSessionEvent('logout_failed', level: 'error', sessionToken: $sessionToken, session: $this->loadSession($sessionToken), context: [
                 'error' => $e->getMessage(),
+                'duration_ms' => $this->durationMs($startedAt),
             ]);
 
             // Still remove from cache even if logout fails
-            Cache::forget(config('portal.session_prefix').$sessionToken);
+            Cache::forget($this->cacheKey($sessionToken));
 
             return false;
         }
     }
 
+    public function invalidateSession(string $sessionToken, string $reason = 'manual', array $context = []): void
+    {
+        $this->deactivateSession($sessionToken, $reason, $context);
+    }
+
     /**
      * Get cookie jar for a session
      */
-    public function getSessionCookieJar(string $sessionToken): ?CookieJar
+    public function getSessionCookieJar(string $sessionToken, bool $touch = true): ?CookieJar
     {
-        $session = $this->getSession($sessionToken);
+        $session = $touch ? $this->getSession($sessionToken) : $this->loadSession($sessionToken);
 
         if (! $session || ! isset($session['cookies'])) {
             return null;
@@ -216,24 +257,27 @@ class PortalSessionManager
      */
     private function storeSession(string $sessionToken, array $sessionData): void
     {
-        $cacheKey = config('portal.session_prefix').$sessionToken;
         $ttl = config('portal.session_refresh_interval', 1200) * 2; // Double the refresh interval
 
-        Cache::put($cacheKey, $sessionData, $ttl);
+        Cache::put($this->cacheKey($sessionToken), $sessionData, $ttl);
+    }
+
+    private function loadSession(string $sessionToken): ?array
+    {
+        $session = Cache::get($this->cacheKey($sessionToken));
+
+        return is_array($session) ? $session : null;
     }
 
     /**
      * Update last activity time for session
      */
-    private function updateLastActivity(string $sessionToken): void
+    private function updateLastActivity(string $sessionToken, array $session): array
     {
-        $cacheKey = config('portal.session_prefix').$sessionToken;
-        $session = Cache::get($cacheKey);
+        $session['last_activity'] = now()->toISOString();
+        $this->storeSession($sessionToken, $session);
 
-        if ($session) {
-            $session['last_activity'] = now()->toISOString();
-            Cache::put($cacheKey, $session);
-        }
+        return $session;
     }
 
     /**
@@ -298,10 +342,14 @@ class PortalSessionManager
      */
     private function scheduleSessionRefresh(string $sessionToken): void
     {
-        $delay = config('portal.session_refresh_interval', 1200) - 60; // 1 minute before expiry
+        $delay = max(config('portal.session_refresh_interval', 1200) - 60, 0); // 1 minute before expiry
 
         RefreshPortalSessionJob::dispatch($sessionToken)
             ->delay(now()->addSeconds($delay));
+
+        $this->logSessionEvent('refresh_scheduled', level: 'debug', sessionToken: $sessionToken, session: $this->loadSession($sessionToken), context: [
+            'delay_seconds' => $delay,
+        ]);
     }
 
     /**
@@ -312,20 +360,26 @@ class PortalSessionManager
         $lastActivity = now()->parse($session['last_activity']);
         $testInterval = config('portal.session_refresh_interval', 1200) / 2; // Half the refresh interval
 
-        return now()->diffInSeconds($lastActivity) > $testInterval;
+        return $lastActivity->diffInSeconds(now()) > $testInterval;
     }
 
     /**
      * Test if session is still alive by making a request
      */
-    private function testSessionLiveliness(string $sessionToken): bool
+    private function testSessionLiveliness(string $sessionToken, array $session): bool
     {
+        $startedAt = microtime(true);
+
         try {
-            $cookieJar = $this->getSessionCookieJar($sessionToken);
-            if (! $cookieJar) {
+            if (! isset($session['cookies']) || ! is_array($session['cookies']) || $session['cookies'] === []) {
+                $this->logSessionEvent('liveness_check_failed_missing_cookies', level: 'warning', sessionToken: $sessionToken, session: $session, context: [
+                    'duration_ms' => $this->durationMs($startedAt),
+                ]);
+
                 return false;
             }
 
+            $cookieJar = $this->recreateCookieJar($session['cookies'] ?? []);
             $this->authService->setCookieJar($cookieJar);
 
             // Make a test request to dashboard
@@ -339,17 +393,23 @@ class PortalSessionManager
 
             // Check if session has expired
             if ($this->authService->isSessionExpired($html)) {
-                $this->deactivateSession($sessionToken);
+                $this->deactivateSession($sessionToken, 'upstream_session_expired', [
+                    'duration_ms' => $this->durationMs($startedAt),
+                ]);
 
                 return false;
             }
 
+            $this->logSessionEvent('liveness_check_succeeded', level: 'debug', sessionToken: $sessionToken, session: $session, context: [
+                'duration_ms' => $this->durationMs($startedAt),
+            ]);
+
             return true;
 
         } catch (\Exception $e) {
-            Log::warning('Session liveliness test failed', [
-                'session_token' => $sessionToken,
+            $this->logSessionEvent('liveness_check_failed', level: 'warning', sessionToken: $sessionToken, session: $session, context: [
                 'error' => $e->getMessage(),
+                'duration_ms' => $this->durationMs($startedAt),
             ]);
 
             return false;
@@ -362,27 +422,30 @@ class PortalSessionManager
     private function performAutoRelogin(string $sessionToken, array $session): array
     {
         $credentials = $this->decryptCredentials($session['encrypted_credentials']);
+        $username = (string) ($credentials['username'] ?? $session['username']);
+        $password = (string) ($credentials['password'] ?? '');
 
-        // Create new session with same credentials
-        $newSessionResult = $this->createSession(
-            $credentials['username'],
-            $credentials['password']
-        );
+        if ($password === '') {
+            throw new \RuntimeException('Stored session credentials are incomplete.');
+        }
 
-        // Update existing session token with new data
-        $this->sessionData['token'] = $sessionToken; // Keep original token
-        $this->sessionData['username'] = $session['username']; // Keep original username
-        $this->storeSession($sessionToken, $this->sessionData);
+        $loginResult = $this->authService->login($username, $password);
+        $sessionData = $this->buildSessionData($sessionToken, $username, $loginResult);
+
+        if (config('portal.auto_relogin', true)) {
+            $sessionData['encrypted_credentials'] = $this->encryptCredentials($username, $password);
+        }
+
+        $this->storeSession($sessionToken, $sessionData);
 
         // Schedule next refresh
         $this->scheduleSessionRefresh($sessionToken);
 
-        Log::info('Campus session auto-relogin successful', [
+        return [
+            'success' => true,
             'session_token' => $sessionToken,
-            'username' => $credentials['username'],
-        ]);
-
-        return $newSessionResult;
+            'expires_at' => $sessionData['expires_at'],
+        ];
     }
 
     /**
@@ -407,14 +470,22 @@ class PortalSessionManager
     /**
      * Deactivate a session
      */
-    private function deactivateSession(string $sessionToken): void
+    private function deactivateSession(string $sessionToken, string $reason = 'manual', array $context = []): void
     {
-        $cacheKey = config('portal.session_prefix').$sessionToken;
+        $cacheKey = $this->cacheKey($sessionToken);
         $session = Cache::get($cacheKey);
 
         if ($session) {
             $session['is_active'] = false;
             Cache::put($cacheKey, $session, 60); // Keep for 1 minute for reference
+
+            $this->logSessionEvent('invalidated', level: 'warning', sessionToken: $sessionToken, session: $session, context: array_merge([
+                'reason' => $reason,
+            ], $context));
+        } else {
+            $this->logSessionEvent('invalidated_missing_session', level: 'warning', sessionToken: $sessionToken, context: array_merge([
+                'reason' => $reason,
+            ], $context));
         }
     }
 
@@ -426,18 +497,116 @@ class PortalSessionManager
         try {
             $cookieJar = $this->recreateCookieJar($session['cookies']);
             $this->authService->setCookieJar($cookieJar);
+            $client = $this->authService->getClient();
 
-            // Try to logout (this may not always be available or necessary)
-            $this->authService->getClient()->get(PortalEndpointRegistry::url('login_page'), [
-                'cookies' => $cookieJar,
-                'timeout' => 10,
-            ]);
+            foreach (['student_logout', 'sipandai_logout'] as $endpoint) {
+                try {
+                    $client->request(PortalEndpointRegistry::method($endpoint), PortalEndpointRegistry::url($endpoint), [
+                        'cookies' => $cookieJar,
+                        'timeout' => 10,
+                    ]);
+                } catch (\Exception $e) {
+                    $this->logSessionEvent('logout_endpoint_failed', level: 'warning', session: $session, context: [
+                        'endpoint' => $endpoint,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
 
         } catch (\Exception $e) {
-            Log::warning('Campus logout request failed', [
+            $this->logSessionEvent('logout_request_failed', level: 'warning', session: $session, context: [
                 'error' => $e->getMessage(),
             ]);
         }
+    }
+
+    private function buildSessionData(string $sessionToken, string $username, array $loginResult): array
+    {
+        return [
+            'token' => $sessionToken,
+            'username' => $username,
+            'user_info' => $loginResult['user_info'],
+            'cookies' => $loginResult['cookies'],
+            'login_time' => $loginResult['session_data']['login_time'],
+            'last_activity' => now()->toISOString(),
+            'expires_at' => now()->addSeconds(config('portal.session_refresh_interval', 1200))->toISOString(),
+            'is_active' => true,
+        ];
+    }
+
+    private function cacheKey(string $sessionToken): string
+    {
+        return config('portal.session_prefix').$sessionToken;
+    }
+
+    private function logSessionEvent(
+        string $event,
+        string $level = 'info',
+        ?string $sessionToken = null,
+        ?string $username = null,
+        ?array $session = null,
+        array $context = []
+    ): void {
+        $eventContext = array_merge([
+            'domain' => 'campus_session',
+            'event' => $event,
+            'component' => self::class,
+            'session_token_fingerprint' => $sessionToken !== null
+                ? $this->fingerprint($sessionToken)
+                : (isset($session['token']) ? $this->fingerprint((string) $session['token']) : null),
+            'username_fingerprint' => $username !== null
+                ? $this->fingerprint($username)
+                : (isset($session['username']) ? $this->fingerprint((string) $session['username']) : null),
+            'session_state' => $session !== null ? $this->sessionStateSnapshot($session) : null,
+            'metric' => [
+                'name' => 'campus_session_events_total',
+                'type' => 'counter',
+                'value' => 1,
+                'tags' => [
+                    'event' => $event,
+                    'component' => class_basename(static::class),
+                    'level' => $level,
+                ],
+            ],
+        ], $context);
+
+        $eventContext = array_filter($eventContext, static fn (mixed $value): bool => $value !== null);
+
+        match ($level) {
+            'debug' => Log::debug("campus_session.{$event}", $eventContext),
+            'warning' => Log::warning("campus_session.{$event}", $eventContext),
+            'error' => Log::error("campus_session.{$event}", $eventContext),
+            default => Log::info("campus_session.{$event}", $eventContext),
+        };
+    }
+
+    /**
+     * @param  array<string, mixed>  $session
+     * @return array<string, mixed>
+     */
+    private function sessionStateSnapshot(array $session): array
+    {
+        return array_filter([
+            'is_active' => $session['is_active'] ?? null,
+            'expires_at' => $session['expires_at'] ?? null,
+            'last_activity' => $session['last_activity'] ?? null,
+            'login_time' => $session['login_time'] ?? null,
+        ], static fn (mixed $value): bool => $value !== null);
+    }
+
+    private function fingerprint(string $value): string
+    {
+        return substr(hash_hmac('sha256', $value, $this->fingerprintKey()), 0, 16);
+    }
+
+    private function fingerprintKey(): string
+    {
+        return (string) (config('app.key') ?: 'campus-session-observability');
+    }
+
+    private function durationMs(float $startedAt): int
+    {
+        return (int) round((microtime(true) - $startedAt) * 1000);
     }
 
     /**

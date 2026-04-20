@@ -7,12 +7,14 @@ $sipandaiViewsBase = "{$sipandaiBase}/views";
 
 $loginPageUrl = env('CAMPUS_LOGIN_URL', "{$mahasiswaBase}/");
 $loginActionUrl = env('CAMPUS_LOGIN_ACTION', "{$mahasiswaBase}/?mod=loginact");
+$logoutUrl = env('CAMPUS_LOGOUT_URL', "{$mahasiswaBase}/?mod=logout");
 $dashboardUrl = env('CAMPUS_DASHBOARD_URL', "{$mahasiswaBase}/?mod=student&act=dashboard");
 $profileUrl = env('CAMPUS_PROFILE_URL', "{$mahasiswaBase}/?mod=student&act=profile");
 $studentCourseUrl = env('CAMPUS_STUDENT_COURSE_URL', "{$mahasiswaBase}/?mod=student&act=course");
 $studentCreditUrl = env('CAMPUS_STUDENT_CREDIT_URL', "{$mahasiswaBase}/?mod=student&act=credit");
 
 $sipandaiDashboardUrl = env('CAMPUS_SIPANDAI_DASHBOARD_URL', "{$sipandaiBase}/?mod=sipandai&act=dashboardmahasiswa");
+$sipandaiLogoutUrl = env('CAMPUS_SIPANDAI_LOGOUT_URL', "{$sipandaiBase}/controllers/logout.php");
 $classesUrl = env('CAMPUS_CLASSES_URL', $sipandaiDashboardUrl);
 $classDetailUrl = env('CAMPUS_CLASS_DETAIL_URL', "{$sipandaiBase}/?mod=sipandai&act=download");
 $sipandaiAssignmentUrl = env('CAMPUS_SIPANDAI_ASSIGNMENT_URL', "{$sipandaiBase}/?mod=sipandai&act=send");
@@ -37,11 +39,13 @@ return [
     'base_url' => $baseUrl,
     'login_url' => $loginPageUrl,
     'login_action' => $loginActionUrl,
+    'logout_url' => $logoutUrl,
     'dashboard_url' => $dashboardUrl,
     'profile_url' => $profileUrl,
     'classes_url' => $classesUrl,
     'class_detail_url' => $classDetailUrl,
     'sipandai_dashboard_url' => $sipandaiDashboardUrl,
+    'sipandai_logout_url' => $sipandaiLogoutUrl,
     'student_course_url' => $studentCourseUrl,
     'student_credit_url' => $studentCreditUrl,
     'sipandai_assignment_url' => $sipandaiAssignmentUrl,
@@ -149,6 +153,25 @@ return [
             'category' => 'authentication',
             'priority' => 'high',
             'requires_session' => false,
+        ],
+        'student_logout' => [
+            'method' => 'GET',
+            'url' => $logoutUrl,
+            'default_query' => [
+                'mod' => 'logout',
+            ],
+            'description' => 'Logs out from the mahasiswa portal session.',
+            'category' => 'authentication',
+            'priority' => 'medium',
+            'requires_session' => true,
+        ],
+        'sipandai_logout' => [
+            'method' => 'GET',
+            'url' => $sipandaiLogoutUrl,
+            'description' => 'Logs out from the SIPANDAI portal session.',
+            'category' => 'authentication',
+            'priority' => 'medium',
+            'requires_session' => true,
         ],
         'dashboard' => [
             'method' => 'GET',

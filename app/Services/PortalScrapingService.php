@@ -23,6 +23,8 @@ abstract class PortalScrapingService
 
     protected ?CookieJar $cookieJar = null;
 
+    protected ?string $sessionToken = null;
+
     public function __construct(PortalSessionManager $sessionManager)
     {
         $this->sessionManager = $sessionManager;
@@ -51,9 +53,13 @@ abstract class PortalScrapingService
      */
     public function setSession(string $sessionToken): void
     {
+        $this->sessionToken = $sessionToken;
         $this->cookieJar = $this->sessionManager->getSessionCookieJar($sessionToken);
 
         if (! $this->cookieJar) {
+            $this->invalidateCurrentSession('cookie_jar_missing', [
+                'source' => static::class,
+            ]);
             throw PortalScrapingException::pageNotAccessible('No valid session found');
         }
     }
@@ -145,7 +151,7 @@ abstract class PortalScrapingService
     /**
      * Validate the HTML response
      */
-    protected function validateResponse(string $html, string $url): void
+    protected function validateResponse(string $html, string $url, bool $allowShortResponse = false): void
     {
         // Check for empty response
         if (empty($html)) {
@@ -163,6 +169,11 @@ abstract class PortalScrapingService
 
         foreach ($sessionExpiredIndicators as $indicator) {
             if (Str::contains(strtolower($html), $indicator)) {
+                $this->invalidateCurrentSession('session_expired_indicator_detected', [
+                    'source' => static::class,
+                    'indicator' => $indicator,
+                    'url' => $url,
+                ]);
                 throw PortalScrapingException::pageNotAccessible($url);
             }
         }
@@ -183,8 +194,20 @@ abstract class PortalScrapingService
         }
 
         // Check for blank pages (common sign of session expiry)
-        if (strlen(trim($html)) < 100) {
+        if (! $allowShortResponse && strlen(trim($html)) < 100) {
+            $this->invalidateCurrentSession('blank_response_detected', [
+                'source' => static::class,
+                'url' => $url,
+                'response_length' => strlen(trim($html)),
+            ]);
             throw PortalScrapingException::pageNotAccessible($url);
+        }
+    }
+
+    protected function invalidateCurrentSession(string $reason, array $context = []): void
+    {
+        if ($this->sessionToken !== null) {
+            $this->sessionManager->invalidateSession($this->sessionToken, $reason, $context);
         }
     }
 

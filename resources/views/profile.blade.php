@@ -4,37 +4,48 @@
 @section('page_id', 'profile')
 
 @section('content')
-    <section class="grid gap-6 lg:grid-cols-[minmax(0,0.88fr)_minmax(0,1.12fr)]">
-        <div class="grid gap-6">
-            <div class="app-panel">
-                <p class="section-label">Profil</p>
-                <h1 data-display class="mt-4 text-3xl font-semibold text-[color:var(--ink)] sm:text-4xl">Identitas Mahasiswa</h1>
-                <div id="profile-hero" class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
-                    <div class="empty-shell">Memuat profil.</div>
-                </div>
-            </div>
-            <div id="profile-photo-panel" class="app-panel hidden"></div>
-        </div>
+    <section class="page-shell">
+        <section id="profile-hero" class="page-hero">
+            <div class="empty-shell">Memuat identitas mahasiswa.</div>
+        </section>
 
-        <div class="grid gap-6">
-            <section class="app-panel">
-                <p class="section-label">Data pribadi</p>
-                <div id="profile-personal" class="mt-4">
-                    <div class="empty-shell">Belum ada data pribadi.</div>
-                </div>
-            </section>
-            <section class="app-panel">
-                <p class="section-label">Kontak</p>
-                <div id="profile-contact" class="mt-4">
-                    <div class="empty-shell">Belum ada data kontak.</div>
-                </div>
-            </section>
-            <section class="app-panel">
-                <p class="section-label">Riwayat pendidikan</p>
-                <div id="profile-education" class="mt-4">
-                    <div class="empty-shell">Belum ada data pendidikan.</div>
-                </div>
-            </section>
+        <div class="grid gap-6 lg:grid-cols-[18rem_minmax(0,1fr)]">
+            <section id="profile-photo-panel" class="section-shell hidden"></section>
+            <div class="grid gap-6">
+                <section class="section-shell">
+                    <div class="section-head">
+                        <div class="section-head-main">
+                            <h2 data-display class="section-title">Data pribadi</h2>
+                            <p class="section-copy">Informasi inti mahasiswa yang digunakan sebagai rujukan identitas akademik di portal.</p>
+                        </div>
+                    </div>
+                    <div id="profile-personal" class="mt-6">
+                        <div class="empty-shell">Belum ada data pribadi.</div>
+                    </div>
+                </section>
+                <section class="section-shell">
+                    <div class="section-head">
+                        <div class="section-head-main">
+                            <h2 data-display class="section-title">Kontak</h2>
+                            <p class="section-copy">Saluran komunikasi dan alamat yang tersimpan pada data kampus aktif.</p>
+                        </div>
+                    </div>
+                    <div id="profile-contact" class="mt-6">
+                        <div class="empty-shell">Belum ada data kontak.</div>
+                    </div>
+                </section>
+                <section class="section-shell">
+                    <div class="section-head">
+                        <div class="section-head-main">
+                            <h2 data-display class="section-title">Pendidikan</h2>
+                            <p class="section-copy">Riwayat pendidikan dasar yang dipakai sistem untuk validasi data mahasiswa.</p>
+                        </div>
+                    </div>
+                    <div id="profile-education" class="mt-6">
+                        <div class="empty-shell">Belum ada data pendidikan.</div>
+                    </div>
+                </section>
+            </div>
         </div>
     </section>
 @endsection
@@ -49,20 +60,41 @@
                 const contact = profile.contact_data || {};
                 const education = profile.education_data || {};
                 const photoPanel = document.getElementById('profile-photo-panel');
+                const hero = document.getElementById('profile-hero');
 
-                document.getElementById('profile-hero').innerHTML = `
-                    <article class="app-panel-muted sm:col-span-2 lg:col-span-1">
-                        <p class="section-label">Nama</p>
-                        <p class="mt-3 text-2xl font-semibold text-[color:var(--ink)]">${app.escapeHtml(personal.nama || 'Mahasiswa')}</p>
-                    </article>
-                    <article class="app-panel-muted">
-                        <p class="section-label">NIM</p>
-                        <p class="mt-3 text-sm font-medium text-[color:var(--ink)]">${app.escapeHtml(personal.nim || '-')}</p>
-                    </article>
-                    <article class="app-panel-muted">
-                        <p class="section-label">Program studi</p>
-                        <p class="mt-3 text-sm font-medium text-[color:var(--ink)]">${app.escapeHtml(personal.program_studi || '-')}</p>
-                    </article>
+                hero.innerHTML = `
+                    <div class="page-hero-shell">
+                        <div class="page-hero-main">
+                            <p class="section-label">Profil mahasiswa</p>
+                            <h1 data-display class="page-hero-title is-wide">${app.escapeHtml(personal.nama || 'Profil mahasiswa')}</h1>
+                            <p class="page-hero-copy">
+                                ${app.escapeHtml(
+                                    [
+                                        personal.program_studi,
+                                        personal.status,
+                                        personal.angkatan ? `angkatan ${personal.angkatan}` : null,
+                                    ].filter(Boolean).join(' · ') || 'Data profil akademik mahasiswa aktif.'
+                                )}
+                            </p>
+                            <div class="page-meta-row">
+                                ${personal.nim ? `<span class="meta-pill is-accent">${app.escapeHtml(personal.nim)}</span>` : ''}
+                                ${personal.status ? `<span class="meta-pill">${app.escapeHtml(personal.status)}</span>` : ''}
+                                ${personal.angkatan ? `<span class="meta-pill">${app.escapeHtml(`Angkatan ${personal.angkatan}`)}</span>` : ''}
+                            </div>
+                        </div>
+                        <div class="page-hero-grid lg:w-[22rem]">
+                            <div class="page-hero-panel">
+                                <p class="section-label">Kontak utama</p>
+                                <p class="page-hero-panel-title">${app.escapeHtml(contact.email || contact.hp || 'Belum ada kontak utama')}</p>
+                                <p class="page-hero-panel-copy">${app.escapeHtml(contact.kota || contact.propinsi || 'Tambahkan data kontak di portal kampus jika masih kosong.')}</p>
+                            </div>
+                            <div class="page-hero-panel">
+                                <p class="section-label">Asal pendidikan</p>
+                                <p class="page-hero-panel-title">${app.escapeHtml(education.asal_sekolah || 'Belum ada asal sekolah')}</p>
+                                <p class="page-hero-panel-copy">${app.escapeHtml(education.tingkat_pendidikan || education.kota_sekolah || 'Riwayat pendidikan dasar belum lengkap.')}</p>
+                            </div>
+                        </div>
+                    </div>
                 `;
 
                 document.getElementById('profile-personal').innerHTML = app.renderKeyValueList([
@@ -98,8 +130,13 @@
                 if (profile.photo_url) {
                     photoPanel.classList.remove('hidden');
                     photoPanel.innerHTML = `
-                        <p class="section-label">Foto profil</p>
-                        <div class="mt-4 overflow-hidden rounded-2xl border border-[color:var(--line)]">
+                        <div class="section-head">
+                            <div class="section-head-main">
+                                <h2 data-display class="section-title">Foto profil</h2>
+                                <p class="section-copy">Pratinjau foto mahasiswa yang tersimpan di sistem akademik CIC.</p>
+                            </div>
+                        </div>
+                        <div class="mt-6 overflow-hidden rounded-[1rem] border border-[color:var(--line-soft)] bg-[color:var(--surface-muted)]">
                             <img src="${app.absoluteCampusUrl(profile.photo_url)}" alt="Foto profil mahasiswa" class="h-auto w-full object-cover">
                         </div>
                     `;

@@ -15,6 +15,9 @@ class DashboardTodayClassesBuilder
      *     date: string,
      *     day: string,
      *     classes: list<array{
+     *         class_id: string|null,
+     *         dosen_id: string|null,
+     *         course_id: string|null,
      *         course_code: string|null,
      *         course_name: string|null,
      *         lecturer_name: string|null,
@@ -48,6 +51,9 @@ class DashboardTodayClassesBuilder
             $studentCourseClass = $studentCourseMap[$this->buildCourseKey($sipandaiClass)] ?? null;
 
             $todayClasses[] = [
+                'class_id' => isset($sipandaiClass['join_link']['params']['id']) ? (string) $sipandaiClass['join_link']['params']['id'] : null,
+                'dosen_id' => isset($sipandaiClass['join_link']['params']['dosen_id']) ? (string) $sipandaiClass['join_link']['params']['dosen_id'] : null,
+                'course_id' => isset($sipandaiClass['join_link']['params']['course_id']) ? (string) $sipandaiClass['join_link']['params']['course_id'] : null,
                 'course_code' => $sipandaiClass['course_info']['code'] ?? null,
                 'course_name' => $sipandaiClass['course_info']['name'] ?? null,
                 'lecturer_name' => $sipandaiClass['lecturer_info']['name'] ?? null,

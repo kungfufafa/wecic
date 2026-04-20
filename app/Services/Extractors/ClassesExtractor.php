@@ -53,6 +53,8 @@ class ClassesExtractor extends PortalScrapingService
 
             return $classesData;
 
+        } catch (PortalScrapingException $e) {
+            throw $e;
         } catch (\Exception $e) {
             $this->logScrapingError('Extracting classes data', $e, ['session_token' => $sessionToken]);
             throw PortalScrapingException::dataExtractionFailed('classes', $e->getMessage());
@@ -119,6 +121,8 @@ class ClassesExtractor extends PortalScrapingService
 
             return $classDetail;
 
+        } catch (PortalScrapingException $e) {
+            throw $e;
         } catch (\Exception $e) {
             $this->logScrapingError('Extracting class detail', $e, ['session_token' => $sessionToken, 'params' => $params]);
             throw PortalScrapingException::dataExtractionFailed('class detail', $e->getMessage());
@@ -133,12 +137,13 @@ class ClassesExtractor extends PortalScrapingService
         try {
             $this->setSession($sessionToken);
             $this->logScraping('Extracting meeting detail', ['session_token' => $sessionToken, 'params' => $params]);
+            $forceFresh = (bool) ($params['fresh'] ?? false);
             $cacheKey = 'parsed_meeting_detail_'.md5($sessionToken.json_encode([
                 'meeting_id' => $params['meeting_id'] ?? null,
                 'courses_id' => $params['courses_id'] ?? null,
             ]));
 
-            $cachedDetail = cache()->get($cacheKey);
+            $cachedDetail = $forceFresh ? null : cache()->get($cacheKey);
 
             if (is_array($cachedDetail)) {
                 $this->logScraping('Using cached parsed meeting detail', [
@@ -182,6 +187,8 @@ class ClassesExtractor extends PortalScrapingService
 
             return $meetingDetail;
 
+        } catch (PortalScrapingException $e) {
+            throw $e;
         } catch (\Exception $e) {
             $this->logScrapingError('Extracting meeting detail', $e, ['session_token' => $sessionToken, 'params' => $params]);
             throw PortalScrapingException::dataExtractionFailed('meeting detail', $e->getMessage());

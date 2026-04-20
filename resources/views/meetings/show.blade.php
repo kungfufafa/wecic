@@ -4,33 +4,23 @@
 @section('page_id', 'meeting-show')
 
 @section('content')
-    <section class="grid gap-6">
-        <div class="app-panel">
-            <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-                <div>
-                    <p class="section-label">Pertemuan</p>
-                    <h1 id="meeting-title" data-display class="mt-4 text-4xl font-semibold text-[color:var(--ink)]">Memuat detail meeting</h1>
-                    <p id="meeting-subtitle" class="mt-3 text-sm leading-7 text-[color:var(--ink-soft)]">Membaca detail materi dan aktivitas pertemuan dari LMS.</p>
-                </div>
-                <div class="flex gap-2">
-                    <a href="/class" class="ghost-button">Kembali</a>
-                </div>
-            </div>
-        </div>
+    <section class="page-shell">
+        <section id="meeting-hero" class="page-hero">
+            <div class="empty-shell">Menunggu ringkasan meeting.</div>
+        </section>
 
         <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(24rem,0.9fr)]">
-            <div id="meeting-info" class="app-panel">
+            <section id="meeting-info" class="section-shell">
                 <div class="empty-shell">Menunggu detail meeting.</div>
-            </div>
-            <div id="meeting-actions" class="app-panel">
+            </section>
+            <aside id="meeting-actions" class="section-shell">
                 <div class="empty-shell">Belum ada aksi meeting.</div>
-            </div>
+            </aside>
         </div>
 
-        <div id="meeting-content" class="app-panel">
+        <section id="meeting-content" class="section-shell">
             <div class="empty-shell">Belum ada materi meeting.</div>
-        </div>
-
+        </section>
     </section>
 @endsection
 
@@ -74,12 +64,9 @@
                 const meetingInfo = detail.meeting_info || {};
                 const lecturerInfo = detail.lecturer_info || {};
                 const scheduleInfo = detail.schedule_info || {};
-                const rpsInfo = detail.rps_info || {};
                 const attendanceInfo = detail.attendance_info || {};
                 const assignmentInfo = detail.assignment_info || {};
-                const conformityInfo = detail.conformity_info || {};
                 const materials = detail.materials || {};
-                const instructions = detail.instructions || {};
                 const assignmentParams = parseAssignmentParams(assignmentInfo.upload_link);
                 const inferredMeetingNumber =
                     assignmentParams?.pertemuan
@@ -89,21 +76,56 @@
                 const attendanceStatusText = String(attendanceInfo.status || '').trim();
                 const attendanceRecorded = Boolean(attendanceInfo.time)
                     || (/hadir|terlambat|izin|sakit/i.test(attendanceStatusText) && !/belum|silakan|scan|qr/i.test(attendanceStatusText));
+                const hero = document.getElementById('meeting-hero');
 
-                document.getElementById('meeting-title').textContent = meetingInfo.title || `Meeting ${meetingId}`;
-                document.getElementById('meeting-subtitle').textContent = [scheduleInfo.date, lecturerInfo.name].filter(Boolean).join(' / ') || 'Detail pertemuan LMS.';
+                hero.innerHTML = `
+                    <div class="page-hero-shell">
+                        <div class="page-hero-main">
+                            <p class="section-label">Pertemuan kelas</p>
+                            <h1 data-display class="page-hero-title is-wide">${app.escapeHtml(materials.main_topic || materials.assignment_topic || 'Detail meeting')}</h1>
+                            <p class="page-hero-copy">${app.escapeHtml(
+                                [
+                                    scheduleInfo.date,
+                                    scheduleInfo.start_time,
+                                    lecturerInfo.name,
+                                ].filter(Boolean).join(' · ') || 'Periksa materi utama, presensi, dan instruksi tugas pada pertemuan ini.'
+                            )}</p>
+                            <div class="page-meta-row">
+                                ${inferredMeetingNumber ? `<span class="meta-pill is-accent">Pertemuan ${app.escapeHtml(inferredMeetingNumber)}</span>` : ''}
+                                ${scheduleInfo.date ? `<span class="meta-pill">${app.escapeHtml(scheduleInfo.date)}</span>` : ''}
+                                <span class="meta-pill">${attendanceRecorded ? 'Absensi tercatat' : 'Absensi tersedia'}</span>
+                            </div>
+                        </div>
+                        <div class="page-hero-actions">
+                            <a href="/class" class="ghost-button">Kembali ke kelas</a>
+                        </div>
+                    </div>
+                `;
 
                 document.getElementById('meeting-info').innerHTML = `
-                    <p class="section-label">Ringkasan</p>
-                    <div class="mt-4 grid gap-4 lg:grid-cols-2">
-                        <div class="app-panel-muted">
+                    <div class="section-head">
+                        <div class="section-head-main">
+                            <h2 data-display class="section-title">Informasi meeting</h2>
+                            <p class="section-copy">Struktur inti pertemuan, jadwal, dan pengajar ditata di sini sebelum aksi presensi atau tugas dilakukan.</p>
+                            <div class="page-meta-row">
+                                ${inferredMeetingNumber ? `<span class="meta-pill is-accent">Pertemuan ${app.escapeHtml(inferredMeetingNumber)}</span>` : ''}
+                                ${scheduleInfo.date ? `<span class="meta-pill">${app.escapeHtml(scheduleInfo.date)}</span>` : ''}
+                                ${lecturerInfo.name ? `<span class="meta-pill">${app.escapeHtml(lecturerInfo.name)}</span>` : ''}
+                            </div>
+                        </div>
+                        <div class="page-action-row">
+                            <a href="/class" class="ghost-button">Kembali ke kelas</a>
+                        </div>
+                    </div>
+                    <div class="property-grid mt-6">
+                        <div class="property-panel">
                             ${app.renderKeyValueList([
                                 { label: 'Dosen', value: lecturerInfo.name },
                                 { label: 'Tanggal', value: scheduleInfo.date },
                                 { label: 'Mulai', value: scheduleInfo.start_time },
                             ])}
                         </div>
-                        <div class="app-panel-muted">
+                        <div class="property-panel">
                             ${app.renderKeyValueList([
                                 { label: 'Pertemuan', value: inferredMeetingNumber },
                                 { label: 'Kode kelas', value: coursesId },
@@ -113,18 +135,23 @@
                 `;
 
                 document.getElementById('meeting-actions').innerHTML = `
-                    <p class="section-label">Aksi</p>
+                    <div class="section-head">
+                        <div class="section-head-main">
+                            <h2 data-display class="section-title">Aksi</h2>
+                            <p class="section-copy">Presensi dan pengumpulan tugas ditempatkan di sisi yang sama agar alur meeting terasa lebih ringkas.</p>
+                        </div>
+                    </div>
                     ${attendanceRecorded ? `
-                        <div class="app-panel-muted mt-4">
+                        <div class="surface-card mt-6">
                             <p class="section-label">Absensi</p>
-                            <p class="mt-3 text-sm font-semibold text-[color:var(--ink)]">${app.escapeHtml(attendanceStatusText)}</p>
-                            ${attendanceInfo.time ? `<p class="mt-2 text-sm leading-6 text-[color:var(--ink-soft)]">Tercatat pada ${app.escapeHtml(attendanceInfo.time)}.</p>` : ''}
+                            <p class="surface-card-title mt-3">${app.escapeHtml(attendanceStatusText)}</p>
+                            ${attendanceInfo.time ? `<p class="surface-card-copy">Tercatat pada ${app.escapeHtml(attendanceInfo.time)}.</p>` : ''}
                         </div>
                     ` : `
-                        <form id="attendance-form" class="mt-4 grid gap-3">
+                        <form id="attendance-form" class="surface-card mt-6 grid gap-3">
                             <label class="grid gap-2">
                                 <span class="section-label">Kode QR / kode absensi</span>
-                                <input id="attendance-code" type="text" class="field-shell" placeholder="35533429" required>
+                                <input id="attendance-code" type="text" class="field-shell" placeholder="009bfb3e" required>
                             </label>
                             <div class="grid grid-cols-2 gap-2">
                                 <button type="button" class="secondary-button justify-center" data-qr-scan>Scan QR</button>
@@ -133,11 +160,11 @@
                                     <input type="file" class="hidden" data-qr-file accept="image/*">
                                 </label>
                             </div>
-                            <button type="submit" class="secondary-button" data-online-required>Kirim</button>
+                            <button type="submit" class="primary-button" data-online-required>Kirim absensi</button>
                         </form>
                     `}
                     ${assignmentParams ? `
-                        <form id="assignment-form" class="mt-6 grid gap-3">
+                        <form id="assignment-form" class="surface-card mt-4 grid gap-3">
                             <label class="grid gap-2">
                                 <span class="section-label">Upload tugas</span>
                                 <input id="assignment-file" type="file" accept=".pdf" class="field-shell" required>
@@ -155,30 +182,48 @@
 
                 if (materials.main_topic || materials.main_description) {
                     contentParts.push(`
-                        <article class="app-panel-muted">
-                            <p class="section-label">Materi utama</p>
-                            <h2 data-display class="mt-3 text-2xl font-semibold text-[color:var(--ink)]">${app.escapeHtml(materials.main_topic || 'Materi')}</h2>
-                            ${materials.main_description ? `<p class="mt-4 text-sm leading-7 text-[color:var(--ink-soft)]">${app.escapeHtml(materials.main_description)}</p>` : ''}
-                            ${materials.main_material_iframe ? `<a href="${app.absoluteCampusUrl(materials.main_material_iframe)}" target="_blank" rel="noreferrer" class="secondary-button mt-4">Buka materi utama</a>` : ''}
+                        <article class="stack-item">
+                            <div class="stack-item-shell">
+                                <div class="stack-item-main">
+                                    <span class="stack-item-kicker">Materi utama</span>
+                                    <div>
+                                        <h2 data-display class="stack-item-title">${app.escapeHtml(materials.main_topic || 'Materi')}</h2>
+                                        ${materials.main_description ? `<p class="stack-item-copy">${app.escapeHtml(materials.main_description)}</p>` : ''}
+                                    </div>
+                                </div>
+                                <div class="stack-item-aside">
+                                    <div class="surface-card-soft">
+                                        <p class="section-label">Lampiran</p>
+                                        <div class="surface-card-actions">
+                                            ${materials.main_material_iframe ? `<a href="${app.absoluteCampusUrl(materials.main_material_iframe)}" target="_blank" rel="noreferrer" class="secondary-button w-full justify-center">Buka materi utama</a>` : '<span class="secondary-button w-full justify-center opacity-50">Tidak ada lampiran</span>'}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </article>
                     `);
                 }
 
                 if (materials.assignment_topic || materials.assignment_instructions || materials.assignment_material_iframe) {
                     contentParts.push(`
-                        <article class="app-panel-muted">
-                            <p class="section-label">Tugas perkuliahan</p>
-                            <h2 data-display class="mt-3 text-2xl font-semibold text-[color:var(--ink)]">${app.escapeHtml(materials.assignment_topic || assignmentInfo.upload_text || 'Instruksi tugas')}</h2>
-                            ${materials.assignment_instructions ? `
-                                <p class="mt-4 text-sm leading-7 text-[color:var(--ink-soft)]">
-                                    Batas waktu: ${app.escapeHtml(materials.assignment_instructions)}
-                                </p>
-                            ` : ''}
-                            ${materials.assignment_material_iframe ? `
-                                <a href="${app.absoluteCampusUrl(materials.assignment_material_iframe)}" target="_blank" rel="noreferrer" class="secondary-button mt-4">
-                                    Buka lampiran tugas
-                                </a>
-                            ` : ''}
+                        <article class="stack-item">
+                            <div class="stack-item-shell">
+                                <div class="stack-item-main">
+                                    <span class="stack-item-kicker">Tugas perkuliahan</span>
+                                    <div>
+                                        <h2 data-display class="stack-item-title">${app.escapeHtml(materials.assignment_topic || assignmentInfo.upload_text || 'Instruksi tugas')}</h2>
+                                        ${materials.assignment_instructions ? `<p class="stack-item-copy">Batas waktu: ${app.escapeHtml(materials.assignment_instructions)}</p>` : ''}
+                                    </div>
+                                </div>
+                                <div class="stack-item-aside">
+                                    <div class="surface-card-soft">
+                                        <p class="section-label">Lampiran tugas</p>
+                                        <div class="surface-card-actions">
+                                            ${materials.assignment_material_iframe ? `<a href="${app.absoluteCampusUrl(materials.assignment_material_iframe)}" target="_blank" rel="noreferrer" class="secondary-button w-full justify-center">Buka lampiran</a>` : '<span class="secondary-button w-full justify-center opacity-50">Tidak ada lampiran</span>'}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </article>
                     `);
                 }
@@ -187,25 +232,48 @@
                     contentParts.push('<div class="empty-shell">Belum ada materi atau instruksi tambahan pada pertemuan ini.</div>');
                 }
 
-                document.getElementById('meeting-content').innerHTML = contentParts.join('');
+                document.getElementById('meeting-content').innerHTML = `
+                    <div class="section-head">
+                        <div class="section-head-main">
+                            <h2 data-display class="section-title">Konten meeting</h2>
+                            <p class="section-copy">Materi utama dan instruksi tugas dipisah agar lebih mudah dipindai saat kelas sedang berlangsung.</p>
+                        </div>
+                    </div>
+                    <div class="mt-6 stack-list">
+                        ${contentParts.join('')}
+                    </div>
+                `;
+
                 app.refreshOnlineRequiredState();
                 const attendanceForm = document.getElementById('attendance-form');
 
                 if (attendanceForm) {
                     app.bindAttendanceQrTools(
                         attendanceForm,
-                        document.getElementById('attendance-code')
+                        document.getElementById('attendance-code'),
+                        {
+                            onDetected: () => {
+                                app.showNotice('QR terbaca. Mengirim absensi...', 'info');
+                                app.requestFormSubmit(attendanceForm);
+                            },
+                        }
                     );
                 }
 
                 attendanceForm?.addEventListener('submit', async (event) => {
                     event.preventDefault();
 
+                    if (attendanceForm.dataset.submitting === 'true') {
+                        return;
+                    }
+
                     if (!app.requireOnlineAction('Absen meeting butuh koneksi internet.')) {
                         return;
                     }
 
                     const kode = document.getElementById('attendance-code').value.trim();
+
+                    attendanceForm.dataset.submitting = 'true';
 
                     try {
                         const body = {
@@ -226,6 +294,8 @@
                         app.showNotice(result?.message || 'Absensi berhasil dikirim.', 'success');
                     } catch (error) {
                         app.showNotice(error.payload?.message || error.message, 'error');
+                    } finally {
+                        delete attendanceForm.dataset.submitting;
                     }
                 });
 

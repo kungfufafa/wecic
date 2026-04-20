@@ -24,12 +24,12 @@ class AttendanceShortcutService
      *     classes: list<array<string, mixed>>
      * }
      */
-    public function getTodayShortcuts(string $sessionToken, ?CarbonImmutable $reference = null): array
+    public function getTodayShortcuts(string $sessionToken, ?CarbonImmutable $reference = null, ?array $classes = null): array
     {
         $reference ??= CarbonImmutable::now(config('app.timezone'));
 
         $attendanceClasses = [];
-        $classes = collect($this->sipandaiClassesExtractor->extractSipandaiClassesData($sessionToken)['classes'] ?? [])
+        $classes = collect($classes ?? ($this->sipandaiClassesExtractor->extractSipandaiClassesData($sessionToken)['classes'] ?? []))
             ->filter(fn (array $class): bool => $this->isScheduledToday($class, $reference))
             ->values()
             ->all();
@@ -44,6 +44,7 @@ class AttendanceShortcutService
             $candidate = $this->resolveAttendanceCandidate($class, $detail, $reference);
 
             if ($candidate !== []) {
+                $candidate = $this->hydrateAttendanceStatusFromMeeting($sessionToken, $candidate);
                 $attendanceClasses[] = $candidate;
             }
         }
@@ -118,6 +119,45 @@ class AttendanceShortcutService
     }
 
     /**
+     * @param  array{class_id:int,dosen_id:int,course_id:int}  $classContext
+     * @return array<string, mixed>|null
+     */
+    public function resolveAttendanceShortcutForClass(
+        string $sessionToken,
+        array $classContext,
+        ?CarbonImmutable $reference = null
+    ): ?array {
+        $reference ??= CarbonImmutable::now(config('app.timezone'));
+
+        $class = [
+            'join_link' => [
+                'params' => [
+                    'id' => (string) $classContext['class_id'],
+                    'dosen_id' => (string) $classContext['dosen_id'],
+                    'course_id' => (string) $classContext['course_id'],
+                ],
+            ],
+            'course_info' => [],
+            'lecturer_info' => [],
+            'schedule' => [],
+        ];
+
+        $detail = $this->resolveClassDetail($sessionToken, $class);
+
+        if ($detail === null) {
+            return null;
+        }
+
+        $candidate = $this->resolveAttendanceCandidate($class, $detail, $reference);
+
+        if ($candidate === []) {
+            return null;
+        }
+
+        return $this->hydrateAttendanceStatusFromMeeting($sessionToken, $candidate);
+    }
+
+    /**
      * @param  array<string, mixed>  $class
      * @param  array<string, mixed>  $detail
      * @return array<string, mixed>
@@ -134,9 +174,11 @@ class AttendanceShortcutService
         }
 
         $material = $this->findTodayMaterial($detail['course_materials'] ?? [], $reference);
+        $referenceMaterial = $material ?? $this->findLatestMaterial($detail['course_materials'] ?? []);
         $fallbackMeetingNumber = $this->resolveFallbackMeetingNumber($detail);
         $meetingNumber = $material['meeting_number'] ?? $fallbackMeetingNumber;
         $meetingId = $this->extractQueryValue($material['join_link']['href'] ?? null, 'id')
+            ?? $this->extractQueryValue($referenceMaterial['join_link']['href'] ?? null, 'id')
             ?? $this->extractMeetingIdFromAttendancePayload($courseId, $detail);
         $attendanceStatus = $this->resolveAttendanceStatus($detail['attendance_info']['meetings'] ?? [], $meetingNumber);
 
@@ -158,10 +200,12 @@ class AttendanceShortcutService
                 'end_time' => $class['schedule']['end_time'] ?? null,
             ],
             'today_material' => [
-                'title' => $material['title'] ?? 'Pertemuan terdekat belum terdeteksi dari materi.',
-                'date' => $material['date'] ?? null,
-                'time' => $material['time'] ?? null,
+                'title' => $referenceMaterial['title'] ?? 'Materi terbaru belum terdeteksi.',
+                'date' => $referenceMaterial['date'] ?? null,
+                'time' => $referenceMaterial['time'] ?? null,
+                'meeting_number' => $referenceMaterial['meeting_number'] ?? null,
             ],
+            'attendance_target_reliable' => $material !== null,
             'active_now' => $this->isActiveNow($class, $reference),
             'attendance_status' => $attendanceStatus,
             'attendance_payload' => [
@@ -175,6 +219,39 @@ class AttendanceShortcutService
                 'pertemuan' => $meetingNumber,
             ],
         ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $candidate
+     * @return array<string, mixed>
+     */
+    private function hydrateAttendanceStatusFromMeeting(string $sessionToken, array $candidate): array
+    {
+        $meetingId = (string) ($candidate['meeting_id'] ?? '');
+        $coursesId = (string) ($candidate['assignment_payload']['courses_id'] ?? '');
+
+        if ($meetingId === '' || $coursesId === '') {
+            return $candidate;
+        }
+
+        $meetingDetail = $this->resolveMeetingDetail(
+            $sessionToken,
+            $meetingId,
+            $coursesId,
+            ! ($candidate['attendance_status']['already_marked'] ?? false)
+        );
+
+        if ($meetingDetail === null) {
+            return $candidate;
+        }
+
+        $meetingAttendanceStatus = $this->resolveMeetingAttendanceStatus($meetingDetail['attendance_info'] ?? []);
+
+        if ($meetingAttendanceStatus['already_marked'] || ! ($candidate['attendance_status']['already_marked'] ?? false)) {
+            $candidate['attendance_status'] = $meetingAttendanceStatus;
+        }
+
+        return $candidate;
     }
 
     /**
@@ -254,12 +331,13 @@ class AttendanceShortcutService
         }
     }
 
-    private function resolveMeetingDetail(string $sessionToken, string $meetingId, string $coursesId): ?array
+    private function resolveMeetingDetail(string $sessionToken, string $meetingId, string $coursesId, bool $fresh = false): ?array
     {
         try {
             return $this->classesExtractor->extractMeetingDetail($sessionToken, [
                 'meeting_id' => $meetingId,
                 'courses_id' => $coursesId,
+                ...($fresh ? ['fresh' => true] : []),
             ]);
         } catch (\Throwable $throwable) {
             Log::warning('Skipping meeting while resolving pending assignments', [
@@ -367,6 +445,38 @@ class AttendanceShortcutService
         }
 
         return null;
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $materials
+     * @return array<string, mixed>|null
+     */
+    private function findLatestMaterial(array $materials): ?array
+    {
+        if ($materials === []) {
+            return null;
+        }
+
+        $latestMaterial = null;
+        $latestSortKey = null;
+
+        foreach (array_values($materials) as $index => $material) {
+            $meetingNumber = isset($material['meeting_number']) ? (int) $material['meeting_number'] : ($index + 1);
+            $parsedDate = $this->parsePortalDate($material['date'] ?? null);
+            $sortKey = [
+                $parsedDate?->timestamp ?? 0,
+                $meetingNumber,
+                $index,
+            ];
+
+            if ($latestSortKey === null || $sortKey > $latestSortKey) {
+                $material['meeting_number'] = $meetingNumber;
+                $latestMaterial = $material;
+                $latestSortKey = $sortKey;
+            }
+        }
+
+        return $latestMaterial;
     }
 
     private function parsePortalDate(?string $value): ?CarbonImmutable
@@ -530,6 +640,41 @@ class AttendanceShortcutService
             'absent' => 'Absen',
             default => null,
         };
+    }
+
+    /**
+     * @param  array<string, mixed>  $attendanceInfo
+     * @return array{already_marked: bool, status: string|null, label: string|null, time: string|null}
+     */
+    private function resolveMeetingAttendanceStatus(array $attendanceInfo): array
+    {
+        $statusText = strtolower(trim((string) ($attendanceInfo['status'] ?? '')));
+        $attendanceTime = isset($attendanceInfo['time']) && trim((string) $attendanceInfo['time']) !== ''
+            ? (string) $attendanceInfo['time']
+            : null;
+
+        $normalizedStatus = match (true) {
+            str_contains($statusText, 'terlambat') => 'late',
+            str_contains($statusText, 'izin') => 'permit',
+            str_contains($statusText, 'sakit') => 'sick',
+            str_contains($statusText, 'hadir') => 'present',
+            str_contains($statusText, 'absen') => 'absent',
+            default => null,
+        };
+
+        $alreadyMarked = $attendanceTime !== null
+            || (
+                $normalizedStatus !== null
+                && ! preg_match('/belum|silakan|scan|qr/', $statusText)
+                && in_array($normalizedStatus, ['present', 'late', 'permit', 'sick'], true)
+            );
+
+        return [
+            'already_marked' => $alreadyMarked,
+            'status' => $normalizedStatus,
+            'label' => $normalizedStatus !== null ? $this->attendanceLabel($normalizedStatus) : null,
+            'time' => $attendanceTime,
+        ];
     }
 
     /**
