@@ -4,98 +4,60 @@
 @section('page_id', 'profile')
 
 @section('content')
-    <section class="page-shell">
-        <section id="profile-hero" class="page-hero">
-            <div class="empty-shell">Memuat identitas mahasiswa.</div>
-        </section>
+    <div class="row row-cards">
+        <div class="col-lg-4 d-none" id="profile-photo-panel"></div>
 
-        <div class="grid gap-6 lg:grid-cols-[18rem_minmax(0,1fr)]">
-            <section id="profile-photo-panel" class="section-shell hidden"></section>
-            <div class="grid gap-6">
-                <section class="section-shell">
-                    <div class="section-head">
-                        <div class="section-head-main">
-                            <h2 data-display class="section-title">Data pribadi</h2>
-                            <p class="section-copy">Informasi inti mahasiswa yang digunakan sebagai rujukan identitas akademik di portal.</p>
+        <div class="col-12" id="profile-main-panel">
+            <div class="row row-cards">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Data pribadi</h3>
+                        </div>
+                        <div class="card-body" id="profile-personal">
+                            {!! '<div class="alert alert-secondary mb-0">Belum ada data pribadi.</div>' !!}
                         </div>
                     </div>
-                    <div id="profile-personal" class="mt-6">
-                        <div class="empty-shell">Belum ada data pribadi.</div>
-                    </div>
-                </section>
-                <section class="section-shell">
-                    <div class="section-head">
-                        <div class="section-head-main">
-                            <h2 data-display class="section-title">Kontak</h2>
-                            <p class="section-copy">Saluran komunikasi dan alamat yang tersimpan pada data kampus aktif.</p>
+                </div>
+
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Kontak</h3>
+                        </div>
+                        <div class="card-body" id="profile-contact">
+                            {!! '<div class="alert alert-secondary mb-0">Belum ada data kontak.</div>' !!}
                         </div>
                     </div>
-                    <div id="profile-contact" class="mt-6">
-                        <div class="empty-shell">Belum ada data kontak.</div>
-                    </div>
-                </section>
-                <section class="section-shell">
-                    <div class="section-head">
-                        <div class="section-head-main">
-                            <h2 data-display class="section-title">Pendidikan</h2>
-                            <p class="section-copy">Riwayat pendidikan dasar yang dipakai sistem untuk validasi data mahasiswa.</p>
+                </div>
+
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Pendidikan</h3>
+                        </div>
+                        <div class="card-body" id="profile-education">
+                            {!! '<div class="alert alert-secondary mb-0">Belum ada data pendidikan.</div>' !!}
                         </div>
                     </div>
-                    <div id="profile-education" class="mt-6">
-                        <div class="empty-shell">Belum ada data pendidikan.</div>
-                    </div>
-                </section>
+                </div>
             </div>
         </div>
-    </section>
+    </div>
 @endsection
 
 @push('scripts')
     <script>
         document.addEventListener('DOMContentLoaded', async () => {
             const app = window.portalApp;
+
             const renderProfile = (payload) => {
                 const profile = payload.profile || {};
                 const personal = profile.personal_data || {};
                 const contact = profile.contact_data || {};
                 const education = profile.education_data || {};
                 const photoPanel = document.getElementById('profile-photo-panel');
-                const hero = document.getElementById('profile-hero');
-
-                hero.innerHTML = `
-                    <div class="page-hero-shell">
-                        <div class="page-hero-main">
-                            <p class="section-label">Profil mahasiswa</p>
-                            <h1 data-display class="page-hero-title is-wide">${app.escapeHtml(personal.nama || 'Profil mahasiswa')}</h1>
-                            <p class="page-hero-copy">
-                                ${app.escapeHtml(
-                                    [
-                                        personal.program_studi,
-                                        personal.status,
-                                        personal.angkatan ? `angkatan ${personal.angkatan}` : null,
-                                    ].filter(Boolean).join(' · ') || 'Data profil akademik mahasiswa aktif.'
-                                )}
-                            </p>
-                            <div class="page-meta-row">
-                                ${personal.nim ? `<span class="meta-pill is-accent">${app.escapeHtml(personal.nim)}</span>` : ''}
-                                ${personal.status ? `<span class="meta-pill">${app.escapeHtml(personal.status)}</span>` : ''}
-                                ${personal.angkatan ? `<span class="meta-pill">${app.escapeHtml(`Angkatan ${personal.angkatan}`)}</span>` : ''}
-                            </div>
-                        </div>
-                        <div class="page-hero-grid lg:w-[22rem]">
-                            <div class="page-hero-panel">
-                                <p class="section-label">Kontak utama</p>
-                                <p class="page-hero-panel-title">${app.escapeHtml(contact.email || contact.hp || 'Belum ada kontak utama')}</p>
-                                <p class="page-hero-panel-copy">${app.escapeHtml(contact.kota || contact.propinsi || 'Tambahkan data kontak di portal kampus jika masih kosong.')}</p>
-                            </div>
-                            <div class="page-hero-panel">
-                                <p class="section-label">Asal pendidikan</p>
-                                <p class="page-hero-panel-title">${app.escapeHtml(education.asal_sekolah || 'Belum ada asal sekolah')}</p>
-                                <p class="page-hero-panel-copy">${app.escapeHtml(education.tingkat_pendidikan || education.kota_sekolah || 'Riwayat pendidikan dasar belum lengkap.')}</p>
-                            </div>
-                        </div>
-                    </div>
-                `;
+                const mainPanel = document.getElementById('profile-main-panel');
 
                 document.getElementById('profile-personal').innerHTML = app.renderKeyValueList([
                     { label: 'Nama', value: personal.nama },
@@ -128,21 +90,24 @@
                 ]);
 
                 if (profile.photo_url) {
-                    photoPanel.classList.remove('hidden');
+                    photoPanel.classList.remove('d-none');
+                    mainPanel.classList.remove('col-12');
+                    mainPanel.classList.add('col-lg-8');
                     photoPanel.innerHTML = `
-                        <div class="section-head">
-                            <div class="section-head-main">
-                                <h2 data-display class="section-title">Foto profil</h2>
-                                <p class="section-copy">Pratinjau foto mahasiswa yang tersimpan di sistem akademik CIC.</p>
+                        <div class="card">
+                            <div class="card-header">
+                                <h3 class="card-title">Foto profil</h3>
                             </div>
-                        </div>
-                        <div class="mt-6 overflow-hidden rounded-[1rem] border border-[color:var(--line-soft)] bg-[color:var(--surface-muted)]">
-                            <img src="${app.absoluteCampusUrl(profile.photo_url)}" alt="Foto profil mahasiswa" class="h-auto w-full object-cover">
+                            <div class="card-body">
+                                <img src="${app.absoluteCampusUrl(profile.photo_url)}" alt="Foto profil mahasiswa" class="img-fluid rounded">
+                            </div>
                         </div>
                     `;
                 } else {
-                    photoPanel.classList.add('hidden');
+                    photoPanel.classList.add('d-none');
                     photoPanel.innerHTML = '';
+                    mainPanel.classList.remove('col-lg-8');
+                    mainPanel.classList.add('col-12');
                 }
             };
 
@@ -154,11 +119,11 @@
                 return;
             }
 
-            const loadProfile = async () => {
+            const loadProfile = async ({ force = false } = {}) => {
                 try {
-                    const payload = await app.request('/api/profile');
+                    const payload = await app.request('/api/profile', { fresh: force });
                     renderProfile(payload);
-                    app.markViewSynced('Profil');
+                    app.markViewSynced('Profil', payload, { force });
                 } catch (error) {
                     app.showNotice(error.payload?.message || error.message, 'error');
                 }

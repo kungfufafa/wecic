@@ -1,9 +1,9 @@
-const CACHE_NAME = 'mycic-v2';
-const PROTECTED_PAGE_CACHE_NAME = 'mycic-pages-v1';
-const STATIC_CACHE_NAME = 'mycic-static-v1';
+const CACHE_NAME = 'mycic-v3';
+const PROTECTED_PAGE_CACHE_NAME = 'mycic-pages-v2';
+const STATIC_CACHE_NAME = 'mycic-static-v2';
 const OFFLINE_URL = '/offline.html';
 const PROTECTED_PAGE_PREFIXES = ['/dashboard', '/profile', '/class', '/meeting', '/exam'];
-const STATIC_ASSET_PREFIXES = ['/build/', '/icons/'];
+const STATIC_ASSET_PREFIXES = ['/build/', '/icons/', '/vendor/'];
 
 const SHELL_ASSETS = [
     OFFLINE_URL,

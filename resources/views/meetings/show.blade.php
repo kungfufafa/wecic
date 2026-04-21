@@ -4,24 +4,19 @@
 @section('page_id', 'meeting-show')
 
 @section('content')
-    <section class="page-shell">
-        <section id="meeting-hero" class="page-hero">
-            <div class="empty-shell">Menunggu ringkasan meeting.</div>
-        </section>
+    <div id="meeting-hero">
+        {!! '<div class="alert alert-secondary mb-4">Menunggu ringkasan meeting.</div>' !!}
+    </div>
 
-        <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(24rem,0.9fr)]">
-            <section id="meeting-info" class="section-shell">
-                <div class="empty-shell">Menunggu detail meeting.</div>
-            </section>
-            <aside id="meeting-actions" class="section-shell">
-                <div class="empty-shell">Belum ada aksi meeting.</div>
-            </aside>
+    <div class="row row-cards">
+        <div class="col-lg-8" id="meeting-content">
+            {!! '<div class="alert alert-secondary mb-0">Menunggu materi meeting.</div>' !!}
         </div>
 
-        <section id="meeting-content" class="section-shell">
-            <div class="empty-shell">Belum ada materi meeting.</div>
-        </section>
-    </section>
+        <div class="col-lg-4" id="meeting-actions">
+            {!! '<div class="alert alert-secondary mb-0">Belum ada aksi meeting.</div>' !!}
+        </div>
+    </div>
 @endsection
 
 @push('scripts')
@@ -59,205 +54,218 @@
                 };
             };
 
+            const inferMeetingNumber = (materials) => {
+                return materials.assignment_topic?.match(/(\d+)/)?.[1]
+                    || materials.main_topic?.match(/Pertemuan\s+(\d+)/i)?.[1]
+                    || null;
+            };
+
+            const deriveAssignmentParams = (assignmentInfo, materials) => {
+                const directParams = parseAssignmentParams(assignmentInfo.upload_link);
+
+                if (directParams) {
+                    return directParams;
+                }
+
+                const hasAssignmentContent = Boolean(
+                    materials.assignment_topic
+                    || materials.assignment_instructions
+                    || materials.assignment_material_iframe
+                    || String(assignmentInfo.upload_text || '').trim()
+                    || String(assignmentInfo.deadline || '').trim()
+                );
+                const inferredMeetingNumber = inferMeetingNumber(materials);
+
+                if (!hasAssignmentContent || !coursesId || !meetingId || !inferredMeetingNumber) {
+                    return null;
+                }
+
+                return {
+                    courses_id: String(coursesId),
+                    id: String(meetingId),
+                    pertemuan: String(inferredMeetingNumber),
+                };
+            };
+
             const render = (payload) => {
                 const detail = payload.class_detail || {};
-                const meetingInfo = detail.meeting_info || {};
                 const lecturerInfo = detail.lecturer_info || {};
                 const scheduleInfo = detail.schedule_info || {};
                 const attendanceInfo = detail.attendance_info || {};
                 const assignmentInfo = detail.assignment_info || {};
                 const materials = detail.materials || {};
-                const assignmentParams = parseAssignmentParams(assignmentInfo.upload_link);
-                const inferredMeetingNumber =
-                    assignmentParams?.pertemuan
-                    || materials.assignment_topic?.match(/(\d+)/)?.[1]
-                    || materials.main_topic?.match(/Pertemuan\s+(\d+)/i)?.[1]
-                    || null;
+                const assignmentParams = deriveAssignmentParams(assignmentInfo, materials);
+                const assignmentSubmission = assignmentInfo.submission || null;
+                const assignmentFileInfo = assignmentSubmission?.file_info || null;
+                const assignmentDeletePayload = assignmentInfo.delete_payload || null;
+                const assignmentAlreadyUploaded = assignmentInfo.status === 'uploaded' && assignmentFileInfo;
+                const inferredMeetingNumber = assignmentParams?.pertemuan || inferMeetingNumber(materials);
                 const attendanceStatusText = String(attendanceInfo.status || '').trim();
                 const attendanceRecorded = Boolean(attendanceInfo.time)
                     || (/hadir|terlambat|izin|sakit/i.test(attendanceStatusText) && !/belum|silakan|scan|qr/i.test(attendanceStatusText));
                 const hero = document.getElementById('meeting-hero');
 
                 hero.innerHTML = `
-                    <div class="page-hero-shell">
-                        <div class="page-hero-main">
-                            <p class="section-label">Pertemuan kelas</p>
-                            <h1 data-display class="page-hero-title is-wide">${app.escapeHtml(materials.main_topic || materials.assignment_topic || 'Detail meeting')}</h1>
-                            <p class="page-hero-copy">${app.escapeHtml(
-                                [
-                                    scheduleInfo.date,
-                                    scheduleInfo.start_time,
-                                    lecturerInfo.name,
-                                ].filter(Boolean).join(' · ') || 'Periksa materi utama, presensi, dan instruksi tugas pada pertemuan ini.'
-                            )}</p>
-                            <div class="page-meta-row">
-                                ${inferredMeetingNumber ? `<span class="meta-pill is-accent">Pertemuan ${app.escapeHtml(inferredMeetingNumber)}</span>` : ''}
-                                ${scheduleInfo.date ? `<span class="meta-pill">${app.escapeHtml(scheduleInfo.date)}</span>` : ''}
-                                <span class="meta-pill">${attendanceRecorded ? 'Absensi tercatat' : 'Absensi tersedia'}</span>
-                            </div>
-                        </div>
-                        <div class="page-hero-actions">
-                            <a href="/class" class="ghost-button">Kembali ke kelas</a>
-                        </div>
+                    <div class="mb-4">
+                        ${app.renderPageHeader({
+                            pretitle: 'Pertemuan kelas',
+                            title: materials.main_topic || materials.assignment_topic || 'Detail meeting',
+                            actions: [
+                                '<a href="/class" class="btn btn-outline-secondary">Kembali ke kelas</a>',
+                            ],
+                        })}
                     </div>
-                `;
-
-                document.getElementById('meeting-info').innerHTML = `
-                    <div class="section-head">
-                        <div class="section-head-main">
-                            <h2 data-display class="section-title">Informasi meeting</h2>
-                            <p class="section-copy">Struktur inti pertemuan, jadwal, dan pengajar ditata di sini sebelum aksi presensi atau tugas dilakukan.</p>
-                            <div class="page-meta-row">
-                                ${inferredMeetingNumber ? `<span class="meta-pill is-accent">Pertemuan ${app.escapeHtml(inferredMeetingNumber)}</span>` : ''}
-                                ${scheduleInfo.date ? `<span class="meta-pill">${app.escapeHtml(scheduleInfo.date)}</span>` : ''}
-                                ${lecturerInfo.name ? `<span class="meta-pill">${app.escapeHtml(lecturerInfo.name)}</span>` : ''}
-                            </div>
-                        </div>
-                        <div class="page-action-row">
-                            <a href="/class" class="ghost-button">Kembali ke kelas</a>
-                        </div>
-                    </div>
-                    <div class="property-grid mt-6">
-                        <div class="property-panel">
-                            ${app.renderKeyValueList([
-                                { label: 'Dosen', value: lecturerInfo.name },
-                                { label: 'Tanggal', value: scheduleInfo.date },
-                                { label: 'Mulai', value: scheduleInfo.start_time },
-                            ])}
-                        </div>
-                        <div class="property-panel">
-                            ${app.renderKeyValueList([
-                                { label: 'Pertemuan', value: inferredMeetingNumber },
-                                { label: 'Kode kelas', value: coursesId },
-                            ])}
-                        </div>
-                    </div>
+                    ${app.renderStatCards([
+                        { label: 'Tanggal', value: scheduleInfo.date || '-', note: 'Tanggal pelaksanaan meeting.' },
+                        { label: 'Mulai', value: scheduleInfo.start_time || '-', note: 'Jam mulai yang tercatat.' },
+                        { label: 'Dosen', value: lecturerInfo.name || '-', note: 'Pengampu meeting ini.' },
+                        { label: 'Status', value: attendanceRecorded ? 'Tercatat' : 'Tersedia', note: 'Kondisi absensi saat ini.' },
+                    ])}
                 `;
 
                 document.getElementById('meeting-actions').innerHTML = `
-                    <div class="section-head">
-                        <div class="section-head-main">
-                            <h2 data-display class="section-title">Aksi</h2>
-                            <p class="section-copy">Presensi dan pengumpulan tugas ditempatkan di sisi yang sama agar alur meeting terasa lebih ringkas.</p>
-                        </div>
-                    </div>
-                    ${attendanceRecorded ? `
-                        <div class="surface-card mt-6">
-                            <p class="section-label">Absensi</p>
-                            <p class="surface-card-title mt-3">${app.escapeHtml(attendanceStatusText)}</p>
-                            ${attendanceInfo.time ? `<p class="surface-card-copy">Tercatat pada ${app.escapeHtml(attendanceInfo.time)}.</p>` : ''}
-                        </div>
-                    ` : `
-                        <form id="attendance-form" class="surface-card mt-6 grid gap-3">
-                            <label class="grid gap-2">
-                                <span class="section-label">Kode QR / kode absensi</span>
-                                <input id="attendance-code" type="text" class="field-shell" placeholder="009bfb3e" required>
-                            </label>
-                            <div class="grid grid-cols-2 gap-2">
-                                <button type="button" class="secondary-button justify-center" data-qr-scan>Scan QR</button>
-                                <label class="secondary-button justify-center cursor-pointer">
-                                    Upload foto
-                                    <input type="file" class="hidden" data-qr-file accept="image/*">
-                                </label>
+                    <div class="d-flex flex-column gap-3">
+                        <div class="card">
+                            <div class="card-header">
+                                <h3 class="card-title">Presensi</h3>
                             </div>
-                            <button type="submit" class="primary-button" data-online-required>Kirim absensi</button>
-                        </form>
-                    `}
-                    ${assignmentParams ? `
-                        <form id="assignment-form" class="surface-card mt-4 grid gap-3">
-                            <label class="grid gap-2">
-                                <span class="section-label">Upload tugas</span>
-                                <input id="assignment-file" type="file" accept=".pdf" class="field-shell" required>
-                            </label>
-                            <label class="grid gap-2">
-                                <span class="section-label">Keterangan</span>
-                                <input id="assignment-note" type="text" class="field-shell" placeholder="Opsional">
-                            </label>
-                            <button type="submit" class="primary-button" data-online-required>Kirim tugas</button>
-                        </form>
-                    ` : ''}
+                            <div class="card-body">
+                                ${attendanceRecorded ? `
+                                    <div class="alert alert-success mb-0">
+                                        <div class="d-flex align-items-center gap-2">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-md" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M5 12l5 5l10 -10" /></svg>
+                                            <div>
+                                                <div class="fw-semibold">${app.escapeHtml(attendanceStatusText || 'Absensi tercatat')}</div>
+                                                ${attendanceInfo.time ? `<div class="text-success small">${app.escapeHtml(`Tercatat pada ${attendanceInfo.time}`)}</div>` : ''}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ` : `
+                                    <form id="attendance-form">
+                                        <div class="mb-3">
+                                            <label for="attendance-code" class="form-label">Kode absen / QR</label>
+                                            <input id="attendance-code" type="text" class="form-control" placeholder="Ketik kode di sini" required>
+                                        </div>
+                                        <div class="row g-2 mb-3">
+                                            <div class="col-sm-5">
+                                                <button type="button" class="btn btn-outline-primary w-100" data-qr-scan>
+                                                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-sm me-1" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 7v-1a2 2 0 0 1 2 -2h2" /><path d="M4 17v1a2 2 0 0 0 2 2h2" /><path d="M16 4h2a2 2 0 0 1 2 2v1" /><path d="M16 20h2a2 2 0 0 0 2 -2v-1" /><path d="M5 12l14 0" /></svg>
+                                                    Kamera
+                                                </button>
+                                            </div>
+                                            <div class="col-sm-7">
+                                                <input type="file" class="form-control" data-qr-file accept="image/*" title="Pilih gambar QR">
+                                            </div>
+                                        </div>
+                                        <button type="submit" class="btn btn-primary w-100" data-online-required>Kirim absensi</button>
+                                    </form>
+                                `}
+                            </div>
+                        </div>
+
+                        ${assignmentAlreadyUploaded ? `
+                        <div class="card">
+                            <div class="card-header">
+                                <h3 class="card-title">Tugas</h3>
+                            </div>
+                            <div class="card-body">
+                                <div class="alert alert-success mb-3">
+                                    <div class="fw-semibold">Tugas sudah diupload.</div>
+                                    ${assignmentSubmission?.date ? `<div class="text-success small">Diupload pada ${app.escapeHtml(assignmentSubmission.date)}</div>` : ''}
+                                </div>
+                                <div class="d-grid gap-2">
+                                    <a href="${app.absoluteCampusUrl(assignmentFileInfo.href)}" target="_blank" rel="noreferrer" class="btn btn-primary">Lihat tugas</a>
+                                    ${app.buildCampusDownloadUrl(assignmentFileInfo.href) ? `<a href="${app.buildCampusDownloadUrl(assignmentFileInfo.href)}" class="btn btn-outline-primary">Download tugas</a>` : ''}
+                                    ${assignmentDeletePayload ? '<button type="button" class="btn btn-outline-danger" id="assignment-delete" data-online-required>Hapus tugas</button>' : ''}
+                                </div>
+                                ${assignmentSubmission?.score ? `<div class="text-secondary small mt-3">Nilai: ${app.escapeHtml(assignmentSubmission.score)}</div>` : ''}
+                            </div>
+                        </div>
+                        ` : assignmentParams ? `
+                        <div class="card">
+                            <div class="card-header">
+                                <h3 class="card-title">Upload Tugas</h3>
+                            </div>
+                            <div class="card-body">
+                                <form id="assignment-form">
+                                    <div class="mb-3">
+                                        <label for="assignment-file" class="form-label">File tugas (PDF)</label>
+                                        <input id="assignment-file" type="file" accept=".pdf" class="form-control" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="assignment-note" class="form-label">Keterangan opsional</label>
+                                        <textarea id="assignment-note" class="form-control" rows="2" placeholder="Tambahkan catatan..."></textarea>
+                                    </div>
+                                    <button type="submit" class="btn btn-primary w-100" data-online-required>Kirim tugas</button>
+                                </form>
+                            </div>
+                        </div>
+                        ` : ''}
+                    </div>
                 `;
 
                 const contentParts = [];
 
                 if (materials.main_topic || materials.main_description) {
                     contentParts.push(`
-                        <article class="stack-item">
-                            <div class="stack-item-shell">
-                                <div class="stack-item-main">
-                                    <span class="stack-item-kicker">Materi utama</span>
-                                    <div>
-                                        <h2 data-display class="stack-item-title">${app.escapeHtml(materials.main_topic || 'Materi')}</h2>
-                                        ${materials.main_description ? `<p class="stack-item-copy">${app.escapeHtml(materials.main_description)}</p>` : ''}
-                                    </div>
-                                </div>
-                                <div class="stack-item-aside">
-                                    <div class="surface-card-soft">
-                                        <p class="section-label">Lampiran</p>
-                                        <div class="surface-card-actions">
-                                            ${materials.main_material_iframe ? `<a href="${app.absoluteCampusUrl(materials.main_material_iframe)}" target="_blank" rel="noreferrer" class="secondary-button w-full justify-center">Buka materi utama</a>` : '<span class="secondary-button w-full justify-center opacity-50">Tidak ada lampiran</span>'}
+                        <div class="card mb-3">
+                            <div class="card-body">
+                                <div class="row align-items-center">
+                                    <div class="col">
+                                        <div class="text-secondary text-uppercase small mb-2 d-flex align-items-center gap-2">
+                                            <span class="badge bg-primary-lt">Materi Utama</span>
                                         </div>
+                                        <h3 class="h3 mb-2">${app.escapeHtml(materials.main_topic || 'Materi')}</h3>
+                                        ${materials.main_description ? `<div class="text-secondary mb-0">${app.escapeHtml(materials.main_description)}</div>` : ''}
+                                    </div>
+                                    <div class="col-12 col-md-auto mt-3 mt-md-0">
+                                        ${materials.main_material_iframe
+                                            ? `<div class="d-flex flex-wrap gap-2"><a href="${app.absoluteCampusUrl(materials.main_material_iframe)}" target="_blank" rel="noreferrer" class="btn btn-primary">Buka materi</a><a href="${app.buildCampusDownloadUrl(materials.main_material_iframe)}" class="btn btn-outline-primary">Download</a></div>`
+                                            : app.renderDisabledButton('Tidak ada lampiran')}
                                     </div>
                                 </div>
                             </div>
-                        </article>
+                        </div>
                     `);
                 }
 
                 if (materials.assignment_topic || materials.assignment_instructions || materials.assignment_material_iframe) {
                     contentParts.push(`
-                        <article class="stack-item">
-                            <div class="stack-item-shell">
-                                <div class="stack-item-main">
-                                    <span class="stack-item-kicker">Tugas perkuliahan</span>
-                                    <div>
-                                        <h2 data-display class="stack-item-title">${app.escapeHtml(materials.assignment_topic || assignmentInfo.upload_text || 'Instruksi tugas')}</h2>
-                                        ${materials.assignment_instructions ? `<p class="stack-item-copy">Batas waktu: ${app.escapeHtml(materials.assignment_instructions)}</p>` : ''}
-                                    </div>
-                                </div>
-                                <div class="stack-item-aside">
-                                    <div class="surface-card-soft">
-                                        <p class="section-label">Lampiran tugas</p>
-                                        <div class="surface-card-actions">
-                                            ${materials.assignment_material_iframe ? `<a href="${app.absoluteCampusUrl(materials.assignment_material_iframe)}" target="_blank" rel="noreferrer" class="secondary-button w-full justify-center">Buka lampiran</a>` : '<span class="secondary-button w-full justify-center opacity-50">Tidak ada lampiran</span>'}
+                        <div class="card mb-3">
+                            <div class="card-body">
+                                <div class="row align-items-center">
+                                    <div class="col">
+                                        <div class="text-secondary text-uppercase small mb-2 d-flex align-items-center gap-2">
+                                            <span class="badge bg-warning-lt">Tugas Perkuliahan</span>
                                         </div>
+                                        <h3 class="h3 mb-2">${app.escapeHtml(materials.assignment_topic || assignmentInfo.upload_text || 'Instruksi tugas')}</h3>
+                                        ${materials.assignment_instructions ? `<div class="text-secondary mb-0">Batas waktu: <span class="fw-medium text-warning">${app.escapeHtml(materials.assignment_instructions)}</span></div>` : ''}
+                                    </div>
+                                    <div class="col-12 col-md-auto mt-3 mt-md-0">
+                                        ${materials.assignment_material_iframe
+                                            ? `<div class="d-flex flex-wrap gap-2"><a href="${app.absoluteCampusUrl(materials.assignment_material_iframe)}" target="_blank" rel="noreferrer" class="btn btn-outline-warning">Lampiran tugas</a><a href="${app.buildCampusDownloadUrl(materials.assignment_material_iframe)}" class="btn btn-warning">Download</a></div>`
+                                            : app.renderDisabledButton('Tidak ada lampiran')}
                                     </div>
                                 </div>
                             </div>
-                        </article>
+                        </div>
                     `);
                 }
 
-                if (!contentParts.length) {
-                    contentParts.push('<div class="empty-shell">Belum ada materi atau instruksi tambahan pada pertemuan ini.</div>');
-                }
-
-                document.getElementById('meeting-content').innerHTML = `
-                    <div class="section-head">
-                        <div class="section-head-main">
-                            <h2 data-display class="section-title">Konten meeting</h2>
-                            <p class="section-copy">Materi utama dan instruksi tugas dipisah agar lebih mudah dipindai saat kelas sedang berlangsung.</p>
-                        </div>
-                    </div>
-                    <div class="mt-6 stack-list">
-                        ${contentParts.join('')}
-                    </div>
-                `;
+                document.getElementById('meeting-content').innerHTML = contentParts.length 
+                    ? `<div class="d-flex flex-column">${contentParts.join('')}</div>`
+                    : app.renderEmptyState('Belum ada materi atau instruksi tambahan pada pertemuan ini.', 'secondary');
 
                 app.refreshOnlineRequiredState();
                 const attendanceForm = document.getElementById('attendance-form');
 
                 if (attendanceForm) {
-                    app.bindAttendanceQrTools(
-                        attendanceForm,
-                        document.getElementById('attendance-code'),
-                        {
-                            onDetected: () => {
-                                app.showNotice('QR terbaca. Mengirim absensi...', 'info');
-                                app.requestFormSubmit(attendanceForm);
-                            },
-                        }
-                    );
+                    app.bindAttendanceQrTools(attendanceForm, document.getElementById('attendance-code'), {
+                        onDetected: () => {
+                            app.showNotice('QR terbaca. Mengirim absensi...', 'info');
+                            app.requestFormSubmit(attendanceForm);
+                        },
+                    });
                 }
 
                 attendanceForm?.addEventListener('submit', async (event) => {
@@ -341,6 +349,34 @@
                         }
                     });
                 }
+
+                const assignmentDeleteButton = document.getElementById('assignment-delete');
+
+                assignmentDeleteButton?.addEventListener('click', async () => {
+                    if (!app.requireOnlineAction('Hapus tugas butuh koneksi internet.')) {
+                        return;
+                    }
+
+                    if (!window.confirm('Hapus tugas yang sudah diupload untuk meeting ini?')) {
+                        return;
+                    }
+
+                    assignmentDeleteButton.disabled = true;
+
+                    try {
+                        const result = await app.request('/api/assignment', {
+                            method: 'DELETE',
+                            json: assignmentDeletePayload,
+                        });
+
+                        app.showNotice(result?.message || 'Tugas berhasil dihapus.', 'success');
+                        await loadMeeting({ force: true });
+                    } catch (error) {
+                        app.showNotice(error.payload?.message || error.message, 'error');
+                    } finally {
+                        assignmentDeleteButton.disabled = false;
+                    }
+                });
             };
 
             app.primeCachedView(endpoint, render, 'detail meeting');
@@ -351,11 +387,11 @@
                 return;
             }
 
-            const loadMeeting = async () => {
+            const loadMeeting = async ({ force = false } = {}) => {
                 try {
-                    const payload = await app.request(endpoint);
+                    const payload = await app.request(endpoint, { fresh: force });
                     render(payload);
-                    app.markViewSynced('Detail meeting');
+                    app.markViewSynced('Detail meeting', payload, { force });
                 } catch (error) {
                     app.showNotice(error.payload?.message || error.message, 'error');
                 }

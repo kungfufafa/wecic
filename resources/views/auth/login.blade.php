@@ -4,77 +4,52 @@
 @section('page_id', 'login')
 
 @section('content')
-    <section class="mx-auto grid w-full max-w-5xl gap-8 lg:grid-cols-[minmax(0,0.95fr)_minmax(22rem,0.8fr)] lg:items-center">
-        <div class="hidden space-y-6 lg:block">
-            <div class="app-panel">
-                <p class="section-label">Portal Mahasiswa</p>
-                <h1 data-display class="mt-4 text-4xl font-semibold text-[color:var(--ink)] sm:text-5xl">Akademik, satu pintu.</h1>
-                <p class="mt-4 max-w-[48ch] text-sm leading-7 text-[color:var(--ink-soft)]">
-                    Kelas, jadwal, dan ujian — dari satu portal.
-                </p>
+    <div class="text-center mb-5 mt-3">
+        <a href="{{ route('login') }}" class="text-decoration-none d-inline-block">
+            <div class="avatar avatar-md bg-primary text-white rounded-3 mb-4 shadow-sm" style="width: 56px; height: 56px;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                    <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+                    <path d="M12 3l8 4.5l0 9l-8 4.5l-8 -4.5l0 -9l8 -4.5" />
+                    <path d="M12 12l8 -4.5" />
+                    <path d="M12 12l0 9" />
+                    <path d="M12 12l-8 -4.5" />
+                </svg>
+            </div>
+        </a>
+        <h1 class="h2 fw-bold text-dark mb-2">Welcome to myCIC</h1>
+        <p class="text-secondary m-0">Sistem Informasi Akademik</p>
+    </div>
+
+    <div class="px-sm-4">
+        <form id="login-form">
+            <div class="mb-3">
+                <label for="username" class="form-label fw-semibold text-dark">Username</label>
+                <input id="username" name="username" type="text" class="form-control" autocomplete="username" placeholder="NIM atau username" required>
             </div>
 
-            <div class="grid gap-4 sm:grid-cols-3">
-                <article class="app-panel-muted">
-                    <p class="section-label">LMS</p>
-                    <p class="mt-3 text-sm font-medium text-[color:var(--ink)]">Materi & progres SIPANDAI.</p>
-                </article>
-                <article class="app-panel-muted">
-                    <p class="section-label">Jadwal</p>
-                    <p class="mt-3 text-sm font-medium text-[color:var(--ink)]">Kuliah & pertemuan.</p>
-                </article>
-                <article class="app-panel-muted">
-                    <p class="section-label">Ujian</p>
-                    <p class="mt-3 text-sm font-medium text-[color:var(--ink)]">Jadwal & unggah berkas.</p>
-                </article>
+            <div class="mb-4">
+                <label for="password" class="form-label fw-semibold text-dark">Password</label>
+                <div class="input-group input-group-flat bg-white rounded-3 shadow-sm border-0">
+                    <input id="password" name="password" type="password" class="form-control" autocomplete="current-password" placeholder="Password portal kampus" required>
+                    <span class="input-group-text">
+                        <a href="#" class="link-secondary text-decoration-none" id="password-visibility-toggle" title="Tampilkan password" data-bs-toggle="tooltip">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" /><path d="M21 12c-2.4 4 -5.4 6 -9 6c-3.6 0 -6.6 -2 -9 -6c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6" /></svg>
+                        </a>
+                    </span>
+                </div>
             </div>
+
+            <div class="form-footer mt-5">
+                <button id="login-submit" type="submit" class="btn btn-primary btn-3 w-100" data-online-required>Continue</button>
+            </div>
+        </form>
+
+        <div class="text-center mt-5">
+            <p class="text-secondary small">
+                Gunakan akun portal kampus untuk masuk.
+            </p>
         </div>
-
-        <div class="app-panel">
-            <div class="space-y-1">
-                <p class="section-label">Autentikasi</p>
-                <h2 data-display class="text-3xl font-semibold text-[color:var(--ink)]">Login</h2>
-            </div>
-
-            <form id="login-form" class="mt-8 grid gap-5">
-                <label class="grid gap-2">
-                    <span class="section-label">Username</span>
-                    <input id="username" name="username" type="text" class="field-shell" autocomplete="username" placeholder="NIM atau username" required>
-                </label>
-
-                <label class="grid gap-2">
-                    <span class="section-label">Password</span>
-                    <div class="password-field-shell">
-                        <input id="password" name="password" type="password" class="field-shell password-field-input" autocomplete="current-password" placeholder="Password portal kampus" required>
-                        <button
-                            id="password-visibility-toggle"
-                            type="button"
-                            class="password-field-toggle"
-                            data-state="hidden"
-                            aria-controls="password"
-                            aria-label="Tampilkan password"
-                            aria-pressed="false"
-                        >
-                            <svg data-password-icon="hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 15.5c2.05-2.333 4.717-3.5 8-3.5s5.95 1.167 8 3.5" />
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 9.5 7 12" />
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m10 8 1.25 3" />
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m14 8-1.25 3" />
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m19 9.5-2 2.5" />
-                            </svg>
-                            <svg data-password-icon="shown" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.9" d="M2.036 12.322a1.012 1.012 0 0 1 0-.644C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.433 0 .644C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.964-7.178Z" />
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.9" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-                            </svg>
-                        </button>
-                    </div>
-                </label>
-
-                <button id="login-submit" type="submit" class="primary-button w-full" data-online-required>Masuk</button>
-            </form>
-
-        </div>
-    </section>
+    </div>
 @endsection
 
 @push('scripts')
@@ -91,9 +66,17 @@
                 passwordToggle.dataset.state = isVisible ? 'shown' : 'hidden';
                 passwordToggle.setAttribute('aria-pressed', isVisible ? 'true' : 'false');
                 passwordToggle.setAttribute('aria-label', isVisible ? 'Sembunyikan password' : 'Tampilkan password');
+                passwordToggle.setAttribute('data-bs-original-title', isVisible ? 'Sembunyikan password' : 'Tampilkan password');
+                
+                if (isVisible) {
+                    passwordToggle.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M10.585 10.587a2 2 0 0 0 2.829 2.828" /><path d="M16.681 16.673a8.717 8.717 0 0 1 -4.681 1.327c-3.6 0 -6.6 -2 -9 -6c1.272 -2.12 2.712 -3.678 4.32 -4.674m2.86 -1.146a9.055 9.055 0 0 1 1.82 -.18c3.6 0 6.6 2 9 6c-.666 1.11 -1.379 2.067 -2.138 2.87" /><path d="M3 3l18 18" /></svg>';
+                } else {
+                    passwordToggle.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" /><path d="M21 12c-2.4 4 -5.4 6 -9 6c-3.6 0 -6.6 -2 -9 -6c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6" /></svg>';
+                }
             };
 
-            passwordToggle?.addEventListener('click', () => {
+            passwordToggle?.addEventListener('click', (e) => {
+                e.preventDefault();
                 syncPasswordToggle(passwordInput.type === 'password');
                 passwordInput.focus({ preventScroll: true });
             });

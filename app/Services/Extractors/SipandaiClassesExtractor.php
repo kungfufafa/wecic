@@ -27,7 +27,7 @@ class SipandaiClassesExtractor extends PortalScrapingService
             if ($cachedData) {
                 $this->logScraping('Using cached SIPANDAI classes data');
 
-                return json_decode($cachedData, true);
+                return $this->withSyncMeta(json_decode($cachedData, true), 'server_cache');
             }
 
             // Get classes HTML from SIPANDAI dashboard
@@ -50,7 +50,7 @@ class SipandaiClassesExtractor extends PortalScrapingService
                 'classes_count' => count($classesData['classes']),
             ]);
 
-            return $classesData;
+            return $this->withSyncMeta($classesData, 'upstream');
 
         } catch (PortalScrapingException $e) {
             throw $e;

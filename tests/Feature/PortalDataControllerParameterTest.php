@@ -8,6 +8,7 @@ use App\Exceptions\PortalScrapingException;
 use App\Services\Extractors\ClassesExtractor;
 use App\Services\Extractors\DashboardExtractor;
 use App\Services\PortalSessionManager;
+use App\Services\SipandaiSubmissionService;
 use Mockery;
 use Mockery\MockInterface;
 use Tests\TestCase;
@@ -46,6 +47,142 @@ class PortalDataControllerParameterTest extends TestCase
         $response->assertOk()
             ->assertJsonPath('status', 'success')
             ->assertJsonPath('meta.courses_id', '8861');
+    }
+
+    public function test_meeting_detail_endpoint_marks_assignment_as_uploaded_when_history_exists_for_same_meeting(): void
+    {
+        $this->mockValidCampusSession('token-uploaded-meeting');
+
+        $this->instance(
+            ClassesExtractor::class,
+            Mockery::mock(ClassesExtractor::class, function (MockInterface $mock): void {
+                $mock->shouldReceive('extractClassDetail')
+                    ->once()
+                    ->with('token-uploaded-meeting', [
+                        'meeting_id' => '33317',
+                        'courses_id' => '9198',
+                    ])
+                    ->andReturn([
+                        'request_url' => 'https://my.cic.ac.id/portal/sipandai/?mod=sipandai&act=discuss&id=33317&courses_id=9198',
+                        'meeting_info' => ['breadcrumb' => 'Beranda > Kelas > Pertemuan 5'],
+                        'assignment_info' => [
+                            'deadline' => ':',
+                            'upload_link' => '',
+                            'upload_text' => '',
+                        ],
+                        'materials' => [
+                            'assignment_topic' => 'Pertemuan 5',
+                            'assignment_instructions' => 'Senin, 20 April 2026',
+                            'assignment_material_iframe' => '../files/latihan/task.pdf',
+                        ],
+                    ]);
+
+                $mock->shouldReceive('extractClassesData')
+                    ->once()
+                    ->with('token-uploaded-meeting')
+                    ->andReturn([
+                        'classes' => [
+                            [
+                                'join_link' => [
+                                    'params' => [
+                                        'id' => '1688',
+                                        'dosen_id' => '2744',
+                                        'course_id' => '9198',
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ]);
+
+                $mock->shouldReceive('extractClassDetail')
+                    ->once()
+                    ->with('token-uploaded-meeting', [
+                        'id' => '1688',
+                        'dosen_id' => '2744',
+                        'course_id' => '9198',
+                    ])
+                    ->andReturn([
+                        'assignment_history' => [
+                            'assignments' => [
+                                [
+                                    'meeting' => '5',
+                                    'date' => 'Selasa, 21 April 2026',
+                                    'score' => '0',
+                                    'file_info' => [
+                                        'href' => '../files/tugasmhs/9198-5-20251030030-a14.pdf',
+                                        'text' => 'Open File',
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ]);
+            })
+        );
+        $this->instance(
+            SipandaiSubmissionService::class,
+            Mockery::mock(SipandaiSubmissionService::class, function (MockInterface $mock): void {
+                $mock->shouldReceive('inspectAssignmentSubmissionState')
+                    ->once()
+                    ->with('token-uploaded-meeting', 9198, 33317, 5)
+                    ->andReturn([
+                        'status' => 'uploaded',
+                        'delete_payload' => [
+                            'id' => '126663',
+                            'idx' => '33317',
+                            'pertemuan' => '5',
+                        ],
+                        'file_info' => [
+                            'href' => '../files/tugasmhs/9198-5-20251030030-a14.pdf',
+                            'text' => 'Open File',
+                        ],
+                    ]);
+            })
+        );
+
+        $response = $this->withSession(['campus_session_token' => 'token-uploaded-meeting'])
+            ->getJson('/api/meeting/33317?courses_id=9198');
+
+        $response->assertOk()
+            ->assertJsonPath('class_detail.assignment_info.status', 'uploaded')
+            ->assertJsonPath('class_detail.assignment_info.submission.file_info.href', '../files/tugasmhs/9198-5-20251030030-a14.pdf')
+            ->assertJsonPath('class_detail.assignment_info.submission.date', 'Selasa, 21 April 2026')
+            ->assertJsonPath('class_detail.assignment_info.delete_payload.id', '126663');
+    }
+
+    public function test_dashboard_endpoint_returns_sync_meta_for_fresh_request(): void
+    {
+        $this->mockValidCampusSession('token-dashboard');
+
+        $this->instance(
+            DashboardExtractor::class,
+            Mockery::mock(DashboardExtractor::class, function (MockInterface $mock): void {
+                $mock->shouldReceive('extractDashboardData')
+                    ->once()
+                    ->with('token-dashboard')
+                    ->andReturn([
+                        'dashboard_overview' => [],
+                        'recent_activity' => [],
+                        'classes_summary' => [],
+                        'status' => 'success',
+                        'timestamp' => '2026-04-21T10:00:00+07:00',
+                        '_sync' => [
+                            'data_origin' => 'upstream',
+                            'synced_at' => '2026-04-21T10:00:00+07:00',
+                        ],
+                    ]);
+            })
+        );
+
+        $response = $this->withSession(['campus_session_token' => 'token-dashboard'])
+            ->getJson('/api/dashboard?fresh=1');
+
+        $response->assertOk()
+            ->assertJsonPath('status', 'success')
+            ->assertJsonPath('meta.requested_fresh', true)
+            ->assertJsonPath('meta.data_origin', 'upstream')
+            ->assertJsonPath('meta.synced_at', '2026-04-21T10:00:00+07:00');
+
+        $this->assertArrayNotHasKey('_sync', $response->json('data'));
     }
 
     public function test_meeting_detail_endpoint_requires_courses_id_parameter(): void

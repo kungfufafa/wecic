@@ -27,7 +27,7 @@ class StudentCourseExtractor extends PortalScrapingService
             if ($cachedData) {
                 $this->logScraping('Using cached student course data');
 
-                return json_decode($cachedData, true);
+                return $this->withSyncMeta(json_decode($cachedData, true), 'server_cache');
             }
 
             // Get classes HTML from student course endpoint
@@ -50,7 +50,7 @@ class StudentCourseExtractor extends PortalScrapingService
                 'classes_count' => count($classesData['classes']),
             ]);
 
-            return $classesData;
+            return $this->withSyncMeta($classesData, 'upstream');
 
         } catch (PortalScrapingException $e) {
             throw $e;

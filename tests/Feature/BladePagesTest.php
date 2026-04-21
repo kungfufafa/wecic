@@ -49,6 +49,9 @@ class BladePagesTest extends TestCase
         $this->withSession(['campus_session_token' => 'token-dashboard'])
             ->get('/dashboard')
             ->assertOk()
+            ->assertSee('data-sync-alert', false)
+            ->assertSee('Data terakhir siap dipakai. Sinkronkan ke server bila perlu.')
+            ->assertSee('Sinkronkan server')
             ->assertSee('Tarik untuk memperbarui')
             ->assertDontSee('Aktivitas terbaru');
     }
@@ -85,11 +88,21 @@ class BladePagesTest extends TestCase
 
         $this->withSession(['campus_session_token' => 'token-class'])
             ->get('/class')
-            ->assertOk();
+            ->assertOk()
+            ->assertSee('Lihat pertemuan', false)
+            ->assertDontSee('return \\`', false)
+            ->assertDontSee('P\\${app.escapeHtml(labelNumber)}', false);
 
         $this->withSession(['campus_session_token' => 'token-class'])
             ->get('/class/2265?dosen_id=5240&course_id=8810')
-            ->assertOk();
+            ->assertOk()
+            ->assertSee('const endpoint = () => {', false)
+            ->assertDontSee('courseInfo.code ? app.renderBadge(courseInfo.code, \'primary\') : \'\'', false)
+            ->assertDontSee('materials.length ? app.renderBadge(`${materials.length} materi`, \'info\') : \'\'', false)
+            ->assertDontSee('return \\`', false)
+            ->assertDontSee('\\${app.escapeHtml(materialLabel)}', false)
+            ->assertDontSee('return \\\\\\`', false)
+            ->assertDontSee('\\${app.renderBadge(isAbsent ? \'Absen\' : \'Hadir\'', false);
     }
 
     public function test_meeting_and_exam_pages_render(): void
@@ -98,7 +111,17 @@ class BladePagesTest extends TestCase
 
         $this->withSession(['campus_session_token' => 'token-detail'])
             ->get('/meeting/445?courses_id=8861')
-            ->assertOk();
+            ->assertOk()
+            ->assertSee('const deriveAssignmentParams =', false)
+            ->assertSee('id: String(meetingId)', false)
+            ->assertSee('courses_id: String(coursesId)', false)
+            ->assertDontSee('Periksa materi utama, presensi, dan instruksi tugas pada pertemuan ini.', false)
+            ->assertDontSee('inferredMeetingNumber ? app.renderBadge(`Pertemuan ${inferredMeetingNumber}`, \'primary\') : \'\'', false)
+            ->assertDontSee('scheduleInfo.date ? app.renderBadge(scheduleInfo.date, \'secondary\') : \'\'', false)
+            ->assertDontSee('app.renderBadge(attendanceRecorded ? \'Absensi tercatat\' : \'Absensi tersedia\'', false)
+            ->assertDontSee('${attendanceRecorded ? \\`', false)
+            ->assertDontSee('\\${app.escapeHtml(attendanceStatusText', false)
+            ->assertDontSee('contentParts.push(\\`', false);
 
         $this->withSession(['campus_session_token' => 'token-detail'])
             ->get('/exam')

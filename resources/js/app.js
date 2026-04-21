@@ -9,7 +9,7 @@ class PortalApp {
         this.isSyncing = false;
         this.cacheNamespace = 'mycic-cache-v3';
         this.authSnapshotKey = `${this.cacheNamespace}:auth`;
-        this.protectedPageCacheName = 'mycic-pages-v1';
+        this.protectedPageCacheName = 'mycic-pages-v2';
         this.authRequest = null;
         this.pullRefreshState = {
             active: false,
@@ -46,6 +46,7 @@ class PortalApp {
         this.restoreNotice();
         this.bindLogout();
         this.bindConnectionListeners();
+        this.bindSyncRefreshButton();
         this.bindPullToRefresh();
         this.updateConnectionState(navigator.onLine, { announce: false });
         this.pruneExpiredCacheEntries();
@@ -71,6 +72,18 @@ class PortalApp {
         });
     }
 
+    bindSyncRefreshButton() {
+        document.querySelectorAll('[data-sync-refresh]').forEach((button) => {
+            button.addEventListener('click', async () => {
+                if (!this.requireOnlineAction('Sinkronisasi server butuh koneksi internet.')) {
+                    return;
+                }
+
+                await this.runSyncHandlers({ force: true });
+            });
+        });
+    }
+
     bindQrScannerUi() {
         const modal = document.querySelector('[data-qr-scanner-modal]');
 
@@ -78,10 +91,17 @@ class PortalApp {
             return;
         }
 
-        modal.addEventListener('click', (event) => {
-            if (event.target === modal) {
-                void this.closeQrScanner();
+        this.qrScannerState.modal = window.bootstrap?.Modal?.getOrCreateInstance(modal, {
+            backdrop: 'static',
+            keyboard: true,
+        }) || null;
+
+        modal.addEventListener('hidden.bs.modal', () => {
+            if (!this.qrScannerState.stream && !this.qrScannerState.rafId) {
+                return;
             }
+
+            void this.closeQrScanner({ preserveHiddenState: true });
         });
 
         modal.querySelector('[data-qr-scanner-close]')?.addEventListener('click', () => {
@@ -190,7 +210,7 @@ class PortalApp {
                 refreshing: true,
             });
 
-            await this.runSyncHandlers();
+            await this.runSyncHandlers({ force: true });
 
             this.pullRefreshState.refreshing = false;
             this.resetPullIndicator();
@@ -213,7 +233,7 @@ class PortalApp {
         this.onlineState = isOnline;
 
         document.querySelectorAll('[data-connection-chip]').forEach((element) => {
-            element.dataset.state = isOnline ? 'online' : 'offline';
+            element.className = `badge ${isOnline ? 'bg-green-lt text-green' : 'bg-yellow-lt text-yellow'}`;
         });
 
         document.querySelectorAll('[data-connection-label]').forEach((element) => {
@@ -221,6 +241,7 @@ class PortalApp {
         });
 
         this.refreshOnlineRequiredState();
+        this.setSyncRefreshButtonState();
 
         if (!isOnline) {
             this.setSyncStatus('Data terakhir dipakai bila tersedia.', 'warning');
@@ -233,10 +254,10 @@ class PortalApp {
         }
 
         if (previousState === false) {
-            this.setSyncStatus('Menyegarkan data terbaru...', 'info');
+            this.setSyncStatus('Koneksi kembali. Memuat ulang data aplikasi...', 'info');
 
             if (announce) {
-                this.showNotice('Koneksi kembali. Data terbaru sedang disinkronkan.', 'info');
+                this.showNotice('Koneksi kembali. Data aplikasi sedang dimuat ulang.', 'info');
             }
 
             void this.runSyncHandlers();
@@ -245,7 +266,7 @@ class PortalApp {
         }
 
         if (!document.querySelector('[data-sync-status]')?.textContent?.trim()) {
-            this.setSyncStatus('Data terbaru disegarkan otomatis.', 'info');
+            this.setSyncStatus(this.defaultSyncStatusMessage(), 'info');
         }
     }
 
@@ -257,19 +278,20 @@ class PortalApp {
         this.syncHandlers.set(key, handler);
     }
 
-    async runSyncHandlers() {
+    async runSyncHandlers({ force = false } = {}) {
         if (this.isSyncing || !navigator.onLine || this.syncHandlers.size === 0) {
             return;
         }
 
         this.isSyncing = true;
-        this.setSyncStatus('Menyegarkan data terbaru...', 'info');
+        this.setSyncRefreshButtonState({ syncing: true, force });
+        this.setSyncStatus(force ? 'Memeriksa server kampus...' : 'Memuat ulang data aplikasi...', 'info');
 
         let refreshedCount = 0;
 
         for (const handler of this.syncHandlers.values()) {
             try {
-                await handler();
+                await handler({ force });
                 refreshedCount += 1;
             } catch (error) {
                 console.error('Sync handler failed', error);
@@ -277,21 +299,19 @@ class PortalApp {
         }
 
         this.isSyncing = false;
+        this.setSyncRefreshButtonState();
 
-        if (refreshedCount > 0) {
-            this.setSyncStatus(`Tersinkron ${this.formatTimeOnly(new Date())}.`, 'success');
-
-            return;
+        if (refreshedCount === 0) {
+            this.setSyncStatus(force ? 'Belum ada data yang bisa disegarkan dari server.' : 'Tidak ada pembaruan halaman.', 'info');
         }
-
-        this.setSyncStatus('Tidak ada pembaruan.', 'info');
     }
 
     async request(url, options = {}) {
         const method = String(options.method || 'GET').toUpperCase();
-        const requestUrl = new URL(url, window.location.origin);
-        const cachePolicy = this.resolveCachePolicy(requestUrl, method, options);
-        const cachedResponse = cachePolicy ? this.readCachedResponse(requestUrl) : null;
+        const requestUrl = this.buildRequestUrl(url, options);
+        const cacheUrl = this.normalizeCacheUrl(requestUrl);
+        const cachePolicy = this.resolveCachePolicy(cacheUrl, method, options);
+        const cachedResponse = cachePolicy ? this.readCachedResponse(cacheUrl) : null;
 
         if (!navigator.onLine) {
             if (cachedResponse) {
@@ -348,7 +368,7 @@ class PortalApp {
             }
 
             if (cachePolicy && payload && typeof payload === 'object') {
-                this.writeCachedResponse(requestUrl, payload, cachePolicy);
+                this.writeCachedResponse(cacheUrl, payload, cachePolicy);
             }
 
             return payload;
@@ -424,7 +444,7 @@ class PortalApp {
 
         document.querySelectorAll('[data-user-identity]').forEach((element) => {
             element.textContent = userIdentity;
-            element.classList.toggle('hidden', userIdentity === '');
+            element.classList.toggle('d-none', userIdentity === '');
         });
     }
 
@@ -507,6 +527,26 @@ class PortalApp {
         this.clearAuthSnapshot();
         this.clearCachedResponses();
         this.clearProtectedPageCache();
+    }
+
+    setSyncRefreshButtonState({ syncing = false, force = false } = {}) {
+        document.querySelectorAll('[data-sync-refresh]').forEach((button) => {
+            button.disabled = syncing || !navigator.onLine;
+        });
+
+        document.querySelectorAll('[data-sync-refresh-icon]').forEach((icon) => {
+            icon.classList.toggle('d-none', syncing);
+        });
+
+        document.querySelectorAll('[data-sync-refresh-spinner]').forEach((spinner) => {
+            spinner.classList.toggle('d-none', !syncing);
+        });
+
+        document.querySelectorAll('[data-sync-refresh-label]').forEach((label) => {
+            label.textContent = syncing
+                ? (force ? 'Memeriksa server...' : 'Memuat ulang...')
+                : 'Sinkronkan server';
+        });
     }
 
     refreshOnlineRequiredState() {
@@ -723,7 +763,7 @@ class PortalApp {
             video.srcObject = stream;
             await video.play();
 
-            modal.classList.remove('hidden');
+            this.qrScannerState.modal?.show();
             modal.setAttribute('aria-hidden', 'false');
             this.setQrScannerStatus('Arahkan kamera ke QR absensi untuk mengambil 8 karakter pertama kode.');
 
@@ -777,7 +817,7 @@ class PortalApp {
         }
     }
 
-    async closeQrScanner() {
+    async closeQrScanner({ preserveHiddenState = false } = {}) {
         const modal = document.querySelector('[data-qr-scanner-modal]');
         const video = modal?.querySelector('[data-qr-scanner-video]');
 
@@ -796,8 +836,10 @@ class PortalApp {
             video.srcObject = null;
         }
 
-        if (modal) {
-            modal.classList.add('hidden');
+        if (modal && !preserveHiddenState) {
+            this.qrScannerState.modal?.hide();
+            modal.setAttribute('aria-hidden', 'true');
+        } else if (modal) {
             modal.setAttribute('aria-hidden', 'true');
         }
 
@@ -813,6 +855,7 @@ class PortalApp {
 
         status.textContent = message;
         status.dataset.tone = tone;
+        status.className = `alert mb-0 ${this.alertTone(tone)}`;
     }
 
     bindAttendanceQrTools(container, input, options = {}) {
@@ -841,14 +884,16 @@ class PortalApp {
 
     setPullIndicator({ distance = 0, armed = false, refreshing = false }) {
         const indicator = document.querySelector('[data-pull-indicator]');
+        const spinner = indicator?.querySelector('[data-pull-spinner]');
 
         if (!indicator) {
             return;
         }
 
-        indicator.classList.toggle('is-visible', distance > 0 || refreshing);
+        indicator.classList.toggle('d-none', !(distance > 0 || refreshing));
         indicator.dataset.state = refreshing ? 'refreshing' : armed ? 'armed' : 'idle';
-        indicator.style.setProperty('--pull-distance', `${distance}px`);
+        indicator.className = `alert text-center mb-3 ${refreshing ? 'alert-info' : armed ? 'alert-primary' : 'alert-secondary'}${distance > 0 || refreshing ? '' : ' d-none'}`;
+        spinner?.classList.toggle('d-none', !refreshing);
 
         const label = indicator.querySelector('[data-pull-copy]');
 
@@ -867,14 +912,15 @@ class PortalApp {
 
     resetPullIndicator() {
         const indicator = document.querySelector('[data-pull-indicator]');
+        const spinner = indicator?.querySelector('[data-pull-spinner]');
 
         if (!indicator) {
             return;
         }
 
         indicator.dataset.state = 'idle';
-        indicator.style.setProperty('--pull-distance', '0px');
-        indicator.classList.remove('is-visible');
+        indicator.className = 'alert alert-info text-center mb-3 d-none';
+        spinner?.classList.add('d-none');
 
         const label = indicator.querySelector('[data-pull-copy]');
 
@@ -884,7 +930,7 @@ class PortalApp {
     }
 
     getCachedResponse(url) {
-        const requestUrl = new URL(url, window.location.origin);
+        const requestUrl = this.normalizeCacheUrl(new URL(url, window.location.origin));
         const record = this.readCachedResponse(requestUrl);
 
         if (!record) {
@@ -909,7 +955,7 @@ class PortalApp {
         const cacheLabel = label || cached.label || 'data';
 
         if (navigator.onLine) {
-            this.setSyncStatus(`Menampilkan ${cacheLabel} tersimpan. Memeriksa pembaruan...`, 'info');
+            this.setSyncStatus(`Menampilkan ${cacheLabel} tersimpan. Sinkronkan ke server bila perlu.`, 'info');
         } else {
             this.setSyncStatus(this.buildOfflineCacheMessage(cacheLabel, cached.isStale), 'warning');
         }
@@ -925,6 +971,24 @@ class PortalApp {
         const key = `${requestUrl.pathname}${requestUrl.search}`;
 
         return this.cachePolicies.find((policy) => policy.pattern.test(key) || policy.pattern.test(requestUrl.pathname)) || null;
+    }
+
+    buildRequestUrl(url, options = {}) {
+        const requestUrl = new URL(url, window.location.origin);
+
+        if (options.fresh === true) {
+            requestUrl.searchParams.set('fresh', '1');
+        }
+
+        return requestUrl;
+    }
+
+    normalizeCacheUrl(requestUrl) {
+        const normalizedUrl = new URL(requestUrl.toString());
+
+        normalizedUrl.searchParams.delete('fresh');
+
+        return normalizedUrl;
     }
 
     buildCacheKey(requestUrl) {
@@ -1007,6 +1071,7 @@ class PortalApp {
             cache_mode: mode,
             cached_at: record.cached_at,
             cache_is_stale: record.isStale,
+            data_origin: 'device_cache',
         };
 
         return payload;
@@ -1028,8 +1093,29 @@ class PortalApp {
         return `Menampilkan ${label} terakhir${isStale ? ' yang mungkin sudah lama' : ''}.`;
     }
 
-    markViewSynced(label) {
-        this.setSyncStatus(`${label} diperbarui ${this.formatTimeOnly(new Date())}.`, 'success');
+    markViewSynced(label, payload = null, { force = false } = {}) {
+        const syncTime = this.formatTimeOnly(new Date());
+        const dataOrigin = payload?.meta?.data_origin || null;
+
+        if (force) {
+            if (dataOrigin === 'device_cache') {
+                this.setSyncStatus(`${label} tetap memakai data tersimpan ${syncTime}. Server belum terjangkau.`, 'warning');
+
+                return;
+            }
+
+            this.setSyncStatus(`${label} disegarkan dari server ${syncTime}.`, 'success');
+
+            return;
+        }
+
+        if (dataOrigin === 'server_cache') {
+            this.setSyncStatus(`${label} dimuat ${syncTime}. Server masih mengirim data tersimpan.`, 'info');
+
+            return;
+        }
+
+        this.setSyncStatus(`${label} dimuat ulang ${syncTime}.`, 'success');
     }
 
     requireOnlineAction(message = 'Fitur ini butuh koneksi internet.') {
@@ -1043,10 +1129,25 @@ class PortalApp {
     }
 
     setSyncStatus(message, tone = 'info') {
+        const alertToneMap = {
+            info: 'alert-info',
+            success: 'alert-success',
+            warning: 'alert-warning',
+            error: 'alert-danger',
+        };
+
         document.querySelectorAll('[data-sync-status]').forEach((element) => {
             element.textContent = message;
             element.dataset.tone = tone;
         });
+
+        document.querySelectorAll('[data-sync-alert]').forEach((element) => {
+            element.className = `alert mb-4 ${alertToneMap[tone] || alertToneMap.info}`;
+        });
+    }
+
+    defaultSyncStatusMessage() {
+        return 'Data terakhir siap dipakai. Sinkronkan ke server bila perlu.';
     }
 
     extractUserIdentity(userInfo) {
@@ -1059,6 +1160,125 @@ class PortalApp {
         }
 
         return String(value).charAt(0).toUpperCase() + String(value).slice(1);
+    }
+
+    alertTone(type = 'secondary') {
+        const tones = {
+            secondary: 'alert-secondary',
+            info: 'alert-info',
+            success: 'alert-success',
+            warning: 'alert-warning',
+            danger: 'alert-danger',
+            error: 'alert-danger',
+            primary: 'alert-primary',
+        };
+
+        return tones[type] || tones.secondary;
+    }
+
+    badgeTone(type = 'secondary') {
+        const tones = {
+            primary: 'badge bg-blue-lt text-blue',
+            secondary: 'badge bg-secondary-lt text-secondary',
+            success: 'badge bg-green-lt text-green',
+            warning: 'badge bg-yellow-lt text-yellow',
+            danger: 'badge bg-red-lt text-red',
+            error: 'badge bg-red-lt text-red',
+            info: 'badge bg-azure-lt text-azure',
+            dark: 'badge bg-dark text-white',
+        };
+
+        return tones[type] || tones.secondary;
+    }
+
+    renderBadge(label, type = 'secondary') {
+        return `<span class="${this.badgeTone(type)}">${this.escapeHtml(label)}</span>`;
+    }
+
+    renderPageHeader({ pretitle = '', title = '', description = '', badges = [], actions = [] } = {}) {
+        const safeBadges = badges.filter(Boolean).join('');
+        const safeActions = actions.filter(Boolean).join('');
+
+        return `
+            <div class="page-header d-print-none">
+                <div class="row align-items-center">
+                    <div class="col">
+                        ${pretitle ? `<div class="page-pretitle">${this.escapeHtml(pretitle)}</div>` : ''}
+                        <h2 class="page-title">${this.escapeHtml(title)}</h2>
+                        ${description ? `<div class="text-secondary">${this.escapeHtml(description)}</div>` : ''}
+                        ${safeBadges ? `<div class="d-flex flex-wrap gap-2 mt-3">${safeBadges}</div>` : ''}
+                    </div>
+                    ${safeActions ? `
+                        <div class="col-auto ms-auto d-print-none">
+                            <div class="btn-list">
+                                ${safeActions}
+                            </div>
+                        </div>
+                    ` : ''}
+                </div>
+            </div>
+        `;
+    }
+
+    renderStatCards(items = [], colClass = 'col-sm-6 col-xl-3') {
+        const safeItems = items.filter((item) => item && item.value !== undefined);
+
+        if (!safeItems.length) {
+            return '';
+        }
+
+        return `
+            <div class="row row-cards mb-4">
+                ${safeItems.map((item) => `
+                    <div class="${colClass}">
+                        <div class="card card-sm h-100">
+                            <div class="card-body">
+                                <div class="text-secondary text-uppercase small mb-1">${this.escapeHtml(item.label || '')}</div>
+                                <div class="h2 mb-1">${this.escapeHtml(item.value || '-')}</div>
+                                ${item.note ? `<div class="text-secondary small">${this.escapeHtml(item.note)}</div>` : ''}
+                            </div>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    }
+
+    renderInlineStats(items = [], colClass = 'col-md-4') {
+        const safeItems = items.filter((item) => item && item.value !== undefined);
+
+        if (!safeItems.length) {
+            return '';
+        }
+
+        return `
+            <div class="row g-3">
+                ${safeItems.map((item) => `
+                    <div class="${colClass}">
+                        <div class="text-secondary text-uppercase small mb-1">${this.escapeHtml(item.label || '')}</div>
+                        <div class="fw-semibold">${this.escapeHtml(item.value || '-')}</div>
+                        ${item.note ? `<div class="text-secondary small mt-1">${this.escapeHtml(item.note)}</div>` : ''}
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    }
+
+    renderEmptyState(message, type = 'secondary', subtitle = '') {
+        if (['danger', 'error', 'warning'].includes(type)) {
+            return `<div class="alert ${this.alertTone(type)} mb-0" role="alert">${this.escapeHtml(message)}</div>`;
+        }
+
+        return `
+            <div class="empty py-4">
+                <p class="empty-title mb-1">${this.escapeHtml(message)}</p>
+                ${subtitle ? `<p class="empty-subtitle text-secondary">${this.escapeHtml(subtitle)}</p>` : ''}
+            </div>
+        `;
+    }
+
+    renderDisabledButton(label) {
+        return `<span class="btn btn-outline-secondary disabled" aria-disabled="true">${this.escapeHtml(label)}</span>`;
     }
 
     storeNotice(message, type = 'info') {
@@ -1090,26 +1310,26 @@ class PortalApp {
         }
 
         const toneMap = {
-            success: 'var(--notice-success)',
-            error: 'var(--notice-error)',
-            warning: 'var(--notice-warning)',
-            info: 'var(--notice-info)',
+            success: 'success',
+            error: 'danger',
+            warning: 'warning',
+            info: 'info',
         };
 
         host.innerHTML = '';
 
         const notice = document.createElement('div');
-        notice.className = 'notice-shell';
-        notice.dataset.tone = type;
-        notice.style.setProperty('--notice-accent', toneMap[type] || toneMap.info);
+        notice.className = `alert alert-${toneMap[type] || toneMap.info} alert-dismissible shadow-sm mb-0`;
+        notice.setAttribute('role', 'alert');
         notice.innerHTML = `
-            <div class="notice-mark" aria-hidden="true"></div>
-            <div class="notice-copy">${this.escapeHtml(message)}</div>
-            <button type="button" class="notice-close" aria-label="Tutup notifikasi">Tutup</button>
+            <div class="d-flex align-items-start gap-3">
+                <div class="fw-medium flex-fill">${this.escapeHtml(message)}</div>
+                <button type="button" class="btn-close" aria-label="Tutup notifikasi"></button>
+            </div>
         `;
 
         host.appendChild(notice);
-        notice.querySelector('.notice-close')?.addEventListener('click', () => {
+        notice.querySelector('.btn-close')?.addEventListener('click', () => {
             host.innerHTML = '';
         });
 
@@ -1157,6 +1377,22 @@ class PortalApp {
         } catch (error) {
             return normalizedPath;
         }
+    }
+
+    buildCampusDownloadUrl(path, filename = null) {
+        if (!path) {
+            return null;
+        }
+
+        const params = new URLSearchParams({
+            path: String(path),
+        });
+
+        if (filename) {
+            params.set('name', String(filename));
+        }
+
+        return `/api/support/download?${params.toString()}`;
     }
 
     buildMeetingUrlFromHref(href) {
@@ -1283,14 +1519,14 @@ class PortalApp {
         const rows = entries
             .filter((entry) => entry.value !== undefined && entry.value !== null && entry.value !== '')
             .map((entry) => `
-                <div class="data-row">
-                    <dt>${this.escapeHtml(entry.label)}</dt>
-                    <dd>${this.escapeHtml(entry.value)}</dd>
+                <div class="col-sm-6 col-xl-4">
+                    <div class="text-secondary text-uppercase small mb-1">${this.escapeHtml(entry.label)}</div>
+                    <div class="fw-semibold">${this.escapeHtml(entry.value)}</div>
                 </div>
             `)
             .join('');
 
-        return rows ? `<dl class="data-grid">${rows}</dl>` : '<div class="empty-shell">Tidak ada data.</div>';
+        return rows ? `<div class="row g-3">${rows}</div>` : this.renderEmptyState('Tidak ada data.', 'secondary');
     }
 }
 

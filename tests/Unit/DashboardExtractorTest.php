@@ -102,7 +102,7 @@ class DashboardExtractorTest extends TestCase
         });
 
         $attendanceShortcutService = Mockery::mock(AttendanceShortcutService::class, function (MockInterface $mock): void {
-            $mock->shouldReceive('getTodayShortcuts')
+            $mock->shouldReceive('getTodayShortcutsSnapshot')
                 ->once()
                 ->with('fake-session-token', Mockery::type(\Carbon\CarbonImmutable::class), Mockery::type('array'))
                 ->andReturn([
@@ -137,6 +137,10 @@ class DashboardExtractorTest extends TestCase
                                 'courses_id' => '8810',
                             ],
                         ],
+                    ],
+                    '_sync' => [
+                        'data_origin' => 'upstream',
+                        'synced_at' => '2026-04-11T10:00:00+07:00',
                     ],
                 ]);
         });
@@ -223,11 +227,15 @@ class DashboardExtractorTest extends TestCase
         });
 
         $attendanceShortcutService = Mockery::mock(AttendanceShortcutService::class, function (MockInterface $mock): void {
-            $mock->shouldReceive('getTodayShortcuts')
+            $mock->shouldReceive('getTodayShortcutsSnapshot')
                 ->once()
                 ->with('fake-session-token', Mockery::type(\Carbon\CarbonImmutable::class), Mockery::type('array'))
                 ->andReturn([
                     'classes' => [],
+                    '_sync' => [
+                        'data_origin' => 'upstream',
+                        'synced_at' => '2026-04-11T10:00:00+07:00',
+                    ],
                 ]);
         });
 
@@ -251,6 +259,192 @@ class DashboardExtractorTest extends TestCase
         $data = $extractor->extractDashboardData('fake-session-token');
 
         $this->assertSame('24', $data['dashboard_overview']['total_credits']);
+
+        cache()->forget('dashboard_credit_total_v1_'.md5('fake-session-token'));
+    }
+
+    public function test_it_marks_dashboard_data_as_cached_when_attendance_shortcuts_use_cached_details(): void
+    {
+        $sessionManager = Mockery::mock(PortalSessionManager::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('getSessionCookieJar')
+                ->once()
+                ->with('fake-session-token')
+                ->andReturn(new CookieJar);
+        });
+
+        $profileExtractor = Mockery::mock(ProfileExtractor::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('extractProfileData')
+                ->once()
+                ->with('fake-session-token')
+                ->andReturn([
+                    'user_info' => [
+                        'nama' => 'Mahasiswa Uji',
+                    ],
+                ]);
+        });
+
+        $classesExtractor = Mockery::mock(ClassesExtractor::class, function (MockInterface $mock): void {
+            $mock->shouldIgnoreMissing();
+        });
+
+        $sipandaiClassesExtractor = Mockery::mock(SipandaiClassesExtractor::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('extractSipandaiClassesData')
+                ->once()
+                ->with('fake-session-token')
+                ->andReturn([
+                    'classes' => [
+                        [
+                            'schedule' => [
+                                'day' => 'Senin',
+                                'start_time' => '09:30:00',
+                                'end_time' => '11:00:00',
+                                'formatted_time' => '09:30 - 11:00',
+                            ],
+                            'course_info' => [
+                                'code' => 'IF101',
+                                'name' => 'Algoritma',
+                                'credits' => '3',
+                            ],
+                        ],
+                    ],
+                    'semester_info' => [
+                        'semester' => '6',
+                    ],
+                ]);
+        });
+
+        $studentCourseExtractor = Mockery::mock(StudentCourseExtractor::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('extractStudentCourseData')
+                ->once()
+                ->with('fake-session-token')
+                ->andReturn([
+                    'classes' => [],
+                    'semester_info' => [
+                        'semester' => '6',
+                    ],
+                ]);
+        });
+
+        $attendanceShortcutService = Mockery::mock(AttendanceShortcutService::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('getTodayShortcutsSnapshot')
+                ->once()
+                ->with('fake-session-token', Mockery::type(\Carbon\CarbonImmutable::class), Mockery::type('array'))
+                ->andReturn([
+                    'classes' => [],
+                    '_sync' => [
+                        'data_origin' => 'server_cache',
+                        'synced_at' => '2026-04-11T10:00:00+07:00',
+                    ],
+                ]);
+        });
+
+        $extractor = Mockery::mock(DashboardExtractor::class, [
+            $sessionManager,
+            $profileExtractor,
+            $classesExtractor,
+            $sipandaiClassesExtractor,
+            $studentCourseExtractor,
+            new DashboardTodayClassesBuilder,
+            $attendanceShortcutService,
+        ])->makePartial()->shouldAllowMockingProtectedMethods();
+
+        $extractor->shouldReceive('get')
+            ->once()
+            ->andReturn(file_get_contents(base_path('tests/Fixtures/portal/sipandai_dashboard.html')));
+
+        $data = $extractor->extractDashboardData('fake-session-token');
+
+        $this->assertSame('server_cache', $data['_sync']['data_origin']);
+    }
+
+    public function test_it_marks_dashboard_data_as_cached_when_credit_total_uses_cached_fallback(): void
+    {
+        cache()->put('dashboard_credit_total_v1_'.md5('fake-session-token'), 24, now()->addMinutes(30));
+
+        $sessionManager = Mockery::mock(PortalSessionManager::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('getSessionCookieJar')
+                ->once()
+                ->with('fake-session-token')
+                ->andReturn(new CookieJar);
+        });
+
+        $profileExtractor = Mockery::mock(ProfileExtractor::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('extractProfileData')
+                ->once()
+                ->with('fake-session-token')
+                ->andReturn([
+                    'user_info' => [
+                        'nama' => 'Mahasiswa Uji',
+                    ],
+                ]);
+        });
+
+        $classesExtractor = Mockery::mock(ClassesExtractor::class, function (MockInterface $mock): void {
+            $mock->shouldIgnoreMissing();
+        });
+
+        $sipandaiClassesExtractor = Mockery::mock(SipandaiClassesExtractor::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('extractSipandaiClassesData')
+                ->once()
+                ->with('fake-session-token')
+                ->andReturn([
+                    'classes' => [
+                        [
+                            'course_info' => [
+                                'code' => 'IF101',
+                                'name' => 'Algoritma',
+                            ],
+                        ],
+                    ],
+                    'semester_info' => [
+                        'semester' => '6',
+                    ],
+                ]);
+        });
+
+        $studentCourseExtractor = Mockery::mock(StudentCourseExtractor::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('extractStudentCourseData')
+                ->once()
+                ->with('fake-session-token')
+                ->andReturn([
+                    'classes' => [],
+                    'semester_info' => [
+                        'semester' => '6',
+                    ],
+                ]);
+        });
+
+        $attendanceShortcutService = Mockery::mock(AttendanceShortcutService::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('getTodayShortcutsSnapshot')
+                ->once()
+                ->with('fake-session-token', Mockery::type(\Carbon\CarbonImmutable::class), Mockery::type('array'))
+                ->andReturn([
+                    'classes' => [],
+                    '_sync' => [
+                        'data_origin' => 'upstream',
+                        'synced_at' => '2026-04-11T10:00:00+07:00',
+                    ],
+                ]);
+        });
+
+        $extractor = Mockery::mock(DashboardExtractor::class, [
+            $sessionManager,
+            $profileExtractor,
+            $classesExtractor,
+            $sipandaiClassesExtractor,
+            $studentCourseExtractor,
+            new DashboardTodayClassesBuilder,
+            $attendanceShortcutService,
+        ])->makePartial()->shouldAllowMockingProtectedMethods();
+
+        $extractor->shouldReceive('get')
+            ->once()
+            ->andReturn(file_get_contents(base_path('tests/Fixtures/portal/sipandai_dashboard.html')));
+
+        $data = $extractor->extractDashboardData('fake-session-token');
+
+        $this->assertSame('24', $data['dashboard_overview']['total_credits']);
+        $this->assertSame('server_cache', $data['_sync']['data_origin']);
 
         cache()->forget('dashboard_credit_total_v1_'.md5('fake-session-token'));
     }
@@ -331,7 +525,7 @@ class DashboardExtractorTest extends TestCase
         });
 
         $attendanceShortcutService = Mockery::mock(AttendanceShortcutService::class, function (MockInterface $mock): void {
-            $mock->shouldReceive('getTodayShortcuts')
+            $mock->shouldReceive('getTodayShortcutsSnapshot')
                 ->once()
                 ->with('fake-session-token', Mockery::type(\Carbon\CarbonImmutable::class), Mockery::type('array'))
                 ->andReturn([
@@ -366,6 +560,10 @@ class DashboardExtractorTest extends TestCase
                                 'courses_id' => '8810',
                             ],
                         ],
+                    ],
+                    '_sync' => [
+                        'data_origin' => 'upstream',
+                        'synced_at' => '2026-04-11T10:00:00+07:00',
                     ],
                 ]);
         });

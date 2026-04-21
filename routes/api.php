@@ -56,6 +56,8 @@ Route::middleware($sessionMiddleware)->group(function () {
             Route::post('', 'uploadExam');
             Route::get('{id}', 'examDetail');
         });
+
+        Route::get('support/download', [PortalSupportController::class, 'downloadFile']);
     });
 
     Route::prefix('support')->controller(PortalSupportController::class)->group(function (): void {

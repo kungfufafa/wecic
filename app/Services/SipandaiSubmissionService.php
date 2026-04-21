@@ -184,6 +184,99 @@ class SipandaiSubmissionService extends PortalScrapingService
     }
 
     /**
+     * Inspect assignment upload page to detect existing uploaded file and delete payload.
+     *
+     * @return array{
+     *     status: 'uploaded'|'not_uploaded'|'upload_unavailable'|'unknown',
+     *     delete_payload: array{id: string, idx: string, pertemuan: string}|null,
+     *     file_info: array{href: string, text: string}|null
+     * }
+     */
+    public function inspectAssignmentSubmissionState(
+        string $sessionToken,
+        int $courseId,
+        int $discussionId,
+        int $meetingNumber
+    ): array {
+        $this->setSession($sessionToken);
+
+        $targetUrl = $this->buildAssignmentUrl($courseId, $discussionId, $meetingNumber);
+        $html = $this->get($targetUrl);
+        $crawler = $this->createCrawler($html);
+
+        $deletePayload = $this->extractAssignmentDeletePayload($crawler);
+        $fileInfo = $this->extractAssignmentUploadedFileInfo($crawler);
+
+        if ($deletePayload !== null || $fileInfo !== null || $this->hasUploadedFileInResponse($html)) {
+            return [
+                'status' => 'uploaded',
+                'delete_payload' => $deletePayload,
+                'file_info' => $fileInfo,
+            ];
+        }
+
+        $forms = $crawler->filter('form');
+
+        if ($forms->count() > 0) {
+            foreach ($forms as $node) {
+                $formCrawler = new Crawler($node);
+
+                if ($formCrawler->filter('input[type="file"]')->count() > 0) {
+                    return [
+                        'status' => 'not_uploaded',
+                        'delete_payload' => null,
+                        'file_info' => null,
+                    ];
+                }
+            }
+
+            return [
+                'status' => 'upload_unavailable',
+                'delete_payload' => null,
+                'file_info' => null,
+            ];
+        }
+
+        return [
+            'status' => 'unknown',
+            'delete_payload' => null,
+            'file_info' => null,
+        ];
+    }
+
+    /**
+     * @return array{filename: string, content_type: string, contents: string}
+     */
+    public function downloadCampusFile(string $sessionToken, string $path, ?string $suggestedName = null): array
+    {
+        $this->setSession($sessionToken);
+
+        $downloadUrl = $this->resolveCampusFileUrl($path);
+        $response = $this->client->request('GET', $downloadUrl, [
+            RequestOptions::COOKIES => $this->cookieJar,
+            RequestOptions::HEADERS => [
+                'Referer' => config('portal.base_url'),
+                'Origin' => config('portal.base_url'),
+            ],
+        ]);
+
+        $contentType = trim(explode(';', $response->getHeaderLine('Content-Type'))[0] ?: 'application/octet-stream');
+        $contents = (string) $response->getBody();
+
+        if (str_starts_with(strtolower($contentType), 'text/html')) {
+            $this->validateResponse($contents, $downloadUrl, allowShortResponse: true);
+
+            throw PortalScrapingException::invalidResponse($downloadUrl, 'Expected file response');
+        }
+
+        return [
+            'filename' => $this->resolveDownloadFilename($response, $downloadUrl, $suggestedName),
+            'content_type' => $contentType,
+            'contents' => $contents,
+        ];
+    }
+
+    /**
      * Upload exam (UAS/UTS) file to SIPANDAI portal via direct POST.
      *
      * @param  string  $sessionToken  Active session token
@@ -514,6 +607,39 @@ class SipandaiSubmissionService extends PortalScrapingService
         }
 
         return $forms->first();
+    }
+
+    private function resolveCampusFileUrl(string $path): string
+    {
+        $rawPath = trim($path);
+
+        if ($rawPath === '') {
+            throw PortalScrapingException::invalidHtmlStructure('empty download path');
+        }
+
+        if (Str::startsWith($rawPath, ['http://', 'https://'])) {
+            $host = (string) parse_url(config('portal.base_url'), PHP_URL_HOST);
+            $rawHost = (string) parse_url($rawPath, PHP_URL_HOST);
+
+            if ($host === '' || ! hash_equals($host, $rawHost)) {
+                throw PortalScrapingException::invalidResponse($rawPath, 'External file host is not allowed');
+            }
+
+            return $rawPath;
+        }
+
+        $normalizedPath = preg_replace('#^(?:\.\./|\.\/)+#', '', str_replace('\\', '/', $rawPath));
+        $normalizedPath = ltrim((string) $normalizedPath, '/');
+
+        if (Str::startsWith($normalizedPath, 'portal/files/')) {
+            return rtrim(config('portal.base_url'), '/').'/'.$normalizedPath;
+        }
+
+        if (Str::startsWith($normalizedPath, 'files/')) {
+            return rtrim(config('portal.base_url'), '/').'/portal/'.$normalizedPath;
+        }
+
+        throw PortalScrapingException::invalidResponse($rawPath, 'Unsupported campus file path');
     }
 
     /**
@@ -1087,6 +1213,101 @@ class SipandaiSubmissionService extends PortalScrapingService
             'code' => 'unknown',
             'message' => 'Delete status could not be determined. Please verify manually.',
         ];
+    }
+
+    /**
+     * @return array{id: string, idx: string, pertemuan: string}|null
+     */
+    private function extractAssignmentDeletePayload(Crawler $crawler): ?array
+    {
+        $deleteLink = $crawler->filter('a[href*="jobdel"]')->first();
+
+        if ($deleteLink->count() === 0) {
+            return null;
+        }
+
+        $href = (string) ($deleteLink->attr('href') ?? '');
+        parse_str((string) parse_url($href, PHP_URL_QUERY), $query);
+
+        $submissionId = $query['id'] ?? null;
+        $discussionId = $query['idx'] ?? null;
+        $meetingNumber = $query['pertemuan'] ?? null;
+
+        if (! is_scalar($submissionId) || ! is_scalar($discussionId) || ! is_scalar($meetingNumber)) {
+            return null;
+        }
+
+        return [
+            'id' => (string) $submissionId,
+            'idx' => (string) $discussionId,
+            'pertemuan' => (string) $meetingNumber,
+        ];
+    }
+
+    /**
+     * @return array{href: string, text: string}|null
+     */
+    private function extractAssignmentUploadedFileInfo(Crawler $crawler): ?array
+    {
+        $links = $crawler->filter('a[href]');
+
+        foreach ($links as $node) {
+            $linkCrawler = new Crawler($node);
+            $href = trim((string) ($linkCrawler->attr('href') ?? ''));
+            $text = $this->cleanText($linkCrawler->text());
+            $haystack = strtolower($href.' '.$text);
+
+            if ($href === '') {
+                continue;
+            }
+
+            if (! Str::contains($haystack, ['open file', 'download', '.pdf', '.doc', '.zip', 'lihat file'])) {
+                continue;
+            }
+
+            return [
+                'href' => $href,
+                'text' => $text !== '' ? $text : $href,
+            ];
+        }
+
+        return null;
+    }
+
+    private function resolveDownloadFilename(ResponseInterface $response, string $downloadUrl, ?string $suggestedName = null): string
+    {
+        $sanitizedSuggestedName = $this->sanitizeDownloadFilename($suggestedName);
+
+        if ($sanitizedSuggestedName !== null) {
+            return $sanitizedSuggestedName;
+        }
+
+        $contentDisposition = $response->getHeaderLine('Content-Disposition');
+
+        if ($contentDisposition !== '') {
+            if (preg_match("/filename\\*=UTF-8''([^;]+)/i", $contentDisposition, $matches) === 1) {
+                return $this->sanitizeDownloadFilename(rawurldecode($matches[1])) ?? 'download';
+            }
+
+            if (preg_match('/filename=\"?([^\";]+)\"?/i', $contentDisposition, $matches) === 1) {
+                return $this->sanitizeDownloadFilename($matches[1]) ?? 'download';
+            }
+        }
+
+        $path = (string) parse_url($downloadUrl, PHP_URL_PATH);
+
+        return $this->sanitizeDownloadFilename(basename($path)) ?? 'download';
+    }
+
+    private function sanitizeDownloadFilename(?string $filename): ?string
+    {
+        if (! is_string($filename) || trim($filename) === '') {
+            return null;
+        }
+
+        $sanitized = basename(str_replace('\\', '/', trim($filename)));
+
+        return $sanitized !== '' ? $sanitized : null;
     }
 
     /**

@@ -27,7 +27,7 @@ class ClassesExtractor extends PortalScrapingService
             if ($cachedData) {
                 $this->logScraping('Using cached classes data');
 
-                return json_decode($cachedData, true);
+                return $this->withSyncMeta(json_decode($cachedData, true), 'server_cache');
             }
 
             // Get classes HTML from SIPANDAI
@@ -51,7 +51,7 @@ class ClassesExtractor extends PortalScrapingService
                 'classes_count' => count($classesData['classes']),
             ]);
 
-            return $classesData;
+            return $this->withSyncMeta($classesData, 'upstream');
 
         } catch (PortalScrapingException $e) {
             throw $e;
@@ -82,14 +82,14 @@ class ClassesExtractor extends PortalScrapingService
             ], static fn ($value) => $value !== null && $value !== '');
             $cacheKey = 'parsed_class_detail_'.md5($sessionToken.json_encode($detailParams));
 
-            $cachedDetail = cache()->get($cacheKey);
+            $cachedDetail = $this->shouldForceFresh($params) ? null : cache()->get($cacheKey);
 
             if (is_array($cachedDetail)) {
                 $this->logScraping('Using cached parsed class detail', [
                     'params' => $detailParams,
                 ]);
 
-                return $cachedDetail;
+                return $this->withSyncMeta($cachedDetail, 'server_cache');
             }
 
             $fullUrl = PortalEndpointRegistry::url('course_materials', $detailParams);
@@ -119,7 +119,7 @@ class ClassesExtractor extends PortalScrapingService
 
             cache()->put($cacheKey, $classDetail, now()->addMinutes(15));
 
-            return $classDetail;
+            return $this->withSyncMeta($classDetail, 'upstream');
 
         } catch (PortalScrapingException $e) {
             throw $e;
@@ -137,7 +137,7 @@ class ClassesExtractor extends PortalScrapingService
         try {
             $this->setSession($sessionToken);
             $this->logScraping('Extracting meeting detail', ['session_token' => $sessionToken, 'params' => $params]);
-            $forceFresh = (bool) ($params['fresh'] ?? false);
+            $forceFresh = $this->shouldForceFresh($params);
             $cacheKey = 'parsed_meeting_detail_'.md5($sessionToken.json_encode([
                 'meeting_id' => $params['meeting_id'] ?? null,
                 'courses_id' => $params['courses_id'] ?? null,
@@ -150,7 +150,7 @@ class ClassesExtractor extends PortalScrapingService
                     'params' => $params,
                 ]);
 
-                return $cachedDetail;
+                return $this->withSyncMeta($cachedDetail, 'server_cache');
             }
 
             $fullUrl = PortalEndpointRegistry::url('discussion', array_filter([
@@ -185,7 +185,7 @@ class ClassesExtractor extends PortalScrapingService
 
             cache()->put($cacheKey, $meetingDetail, now()->addMinutes(15));
 
-            return $meetingDetail;
+            return $this->withSyncMeta($meetingDetail, 'upstream');
 
         } catch (PortalScrapingException $e) {
             throw $e;
@@ -1199,6 +1199,14 @@ class ClassesExtractor extends PortalScrapingService
                                 $assignment['file_info'] = [
                                     'href' => $fileLink->attr('href'),
                                     'text' => trim($fileLink->text()),
+                                ];
+                            }
+
+                            $deleteLink = $row->filter('a[href*="jobdel"]');
+                            if ($deleteLink->count() > 0) {
+                                $assignment['delete_info'] = [
+                                    'href' => $deleteLink->first()->attr('href'),
+                                    'text' => trim($deleteLink->first()->text()),
                                 ];
                             }
 

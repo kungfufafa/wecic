@@ -80,13 +80,30 @@ abstract class CampusApiController extends Controller
         ], $payload), $statusCode);
     }
 
-    protected function booleanResponse(bool $success, string $message, mixed $data = null, int $statusCode = 200): JsonResponse
+    protected function booleanResponse(bool $success, string $message, mixed $data = null, int $statusCode = 200, array $meta = []): JsonResponse
     {
-        return response()->json([
+        $payload = [
             'success' => $success,
             'message' => $message,
             'data' => $data,
-        ], $statusCode);
+        ];
+
+        if ($meta !== []) {
+            $payload['meta'] = array_merge([
+                'timestamp' => now()->toISOString(),
+            ], $meta);
+        }
+
+        return response()->json($payload, $statusCode);
+    }
+
+    protected function consumeSyncMeta(array &$payload, array $meta = []): array
+    {
+        $syncMeta = is_array($payload['_sync'] ?? null) ? $payload['_sync'] : [];
+
+        unset($payload['_sync']);
+
+        return array_merge($syncMeta, $meta);
     }
 
     protected function missingSessionStatusResponse(): JsonResponse

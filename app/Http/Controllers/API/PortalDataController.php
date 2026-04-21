@@ -13,6 +13,7 @@ use App\Services\Extractors\ProfileExtractor;
 use App\Services\Extractors\SipandaiClassesExtractor;
 use App\Services\Extractors\StudentCourseExtractor;
 use App\Services\PortalEndpointRegistry;
+use App\Services\SipandaiSubmissionService;
 use Dedoc\Scramble\Attributes\Group;
 use Dedoc\Scramble\Attributes\PathParameter;
 use Dedoc\Scramble\Attributes\Response;
@@ -47,18 +48,22 @@ class PortalDataController extends CampusApiController
 
     private StudentCourseExtractor $studentCourseExtractor;
 
+    private SipandaiSubmissionService $submissionService;
+
     public function __construct(
         ProfileExtractor $profileExtractor,
         ClassesExtractor $classesExtractor,
         DashboardExtractor $dashboardExtractor,
         SipandaiClassesExtractor $sipandaiClassesExtractor,
-        StudentCourseExtractor $studentCourseExtractor
+        StudentCourseExtractor $studentCourseExtractor,
+        SipandaiSubmissionService $submissionService
     ) {
         $this->profileExtractor = $profileExtractor;
         $this->classesExtractor = $classesExtractor;
         $this->dashboardExtractor = $dashboardExtractor;
         $this->sipandaiClassesExtractor = $sipandaiClassesExtractor;
         $this->studentCourseExtractor = $studentCourseExtractor;
+        $this->submissionService = $submissionService;
     }
 
     /**
@@ -71,12 +76,15 @@ class PortalDataController extends CampusApiController
     #[Response(500, description: 'Data dashboard gagal diambil.', type: CampusApiController::SCRAMBLE_STATUS_ERROR_RESPONSE)]
     public function dashboard(Request $request): JsonResponse
     {
-        return $this->withCampusSession('Dashboard extraction failed', 'Failed to extract dashboard data', function (string $sessionToken): JsonResponse {
+        return $this->withCampusSession('Dashboard extraction failed', 'Failed to extract dashboard data', function (string $sessionToken) use ($request): JsonResponse {
             $dashboardData = $this->dashboardExtractor->extractDashboardData($sessionToken);
+            $syncMeta = $this->consumeSyncMeta($dashboardData, [
+                'requested_fresh' => $request->boolean('fresh'),
+            ]);
 
             return $this->statusSuccess('Dashboard data retrieved successfully', [
                 'data' => $dashboardData,
-            ], campusSessionValid: true);
+            ], meta: $syncMeta, campusSessionValid: true);
         });
     }
 
@@ -90,13 +98,16 @@ class PortalDataController extends CampusApiController
     #[Response(500, description: 'Profil mahasiswa gagal diambil.', type: CampusApiController::SCRAMBLE_STATUS_ERROR_RESPONSE)]
     public function profile(Request $request): JsonResponse
     {
-        return $this->withCampusSession('Profile extraction failed', 'Failed to extract profile data', function (string $sessionToken): JsonResponse {
+        return $this->withCampusSession('Profile extraction failed', 'Failed to extract profile data', function (string $sessionToken) use ($request): JsonResponse {
             $profileData = $this->profileExtractor->extractProfileData($sessionToken);
+            $syncMeta = $this->consumeSyncMeta($profileData, [
+                'requested_fresh' => $request->boolean('fresh'),
+            ]);
 
             return $this->statusSuccess('Profile data retrieved successfully', [
                 'user_info' => $profileData['user_info'] ?? [],
                 'profile' => $profileData,
-            ], campusSessionValid: true);
+            ], meta: $syncMeta, campusSessionValid: true);
         });
     }
 
@@ -108,13 +119,16 @@ class PortalDataController extends CampusApiController
     #[Response(500, description: 'Daftar kelas gagal diambil.', type: CampusApiController::SCRAMBLE_STATUS_ERROR_RESPONSE)]
     public function classes(Request $request): JsonResponse
     {
-        return $this->withCampusSession('Classes extraction failed', 'Failed to extract classes data', function (string $sessionToken): JsonResponse {
+        return $this->withCampusSession('Classes extraction failed', 'Failed to extract classes data', function (string $sessionToken) use ($request): JsonResponse {
             $classesData = $this->classesExtractor->extractClassesData($sessionToken);
+            $syncMeta = $this->consumeSyncMeta($classesData, [
+                'requested_fresh' => $request->boolean('fresh'),
+            ]);
 
             return $this->statusSuccess('Classes data retrieved successfully', [
                 'user_info' => $classesData['user_info'] ?? [],
                 'classes' => $classesData['classes'] ?? [],
-            ], campusSessionValid: true);
+            ], meta: $syncMeta, campusSessionValid: true);
         });
     }
 
@@ -148,10 +162,14 @@ class PortalDataController extends CampusApiController
             ]);
 
             $classDetailData = $this->classesExtractor->extractClassDetail($sessionToken, $resolvedParameters);
+            $syncMeta = $this->consumeSyncMeta($classDetailData, [
+                'requested_fresh' => $request->boolean('fresh'),
+            ]);
 
             return $this->statusSuccess('Class detail retrieved successfully', [
                 'class_detail' => $classDetailData,
             ], meta: [
+                ...$syncMeta,
                 'id' => (string) ($resolvedParameters['id'] ?? $validated['id']),
                 'parameters' => $resolvedParameters,
             ], campusSessionValid: true);
@@ -176,14 +194,274 @@ class PortalDataController extends CampusApiController
                 'meeting_id' => $meetingId,
                 'courses_id' => $coursesId,
             ]);
+            $meetingDetailData = $this->enrichMeetingDetailAssignmentInfo($sessionToken, $meetingDetailData, $coursesId);
+            $syncMeta = $this->consumeSyncMeta($meetingDetailData, [
+                'requested_fresh' => $request->boolean('fresh'),
+            ]);
 
             return $this->statusSuccess('Meeting detail retrieved successfully', [
                 'class_detail' => $meetingDetailData,
             ], meta: [
+                ...$syncMeta,
                 'meeting_id' => $meetingId,
                 'courses_id' => $coursesId,
             ], campusSessionValid: true);
         }, $request->query());
+    }
+
+    /**
+     * @param  array<string, mixed>  $meetingDetailData
+     * @return array<string, mixed>
+     */
+    private function enrichMeetingDetailAssignmentInfo(string $sessionToken, array $meetingDetailData, string $coursesId): array
+    {
+        $assignmentInfo = is_array($meetingDetailData['assignment_info'] ?? null)
+            ? $meetingDetailData['assignment_info']
+            : [];
+        $materials = is_array($meetingDetailData['materials'] ?? null)
+            ? $meetingDetailData['materials']
+            : [];
+
+        $hasAssignmentContent = ! empty($materials['assignment_topic'])
+            || ! empty($materials['assignment_instructions'])
+            || ! empty($materials['assignment_material_iframe'])
+            || trim((string) ($assignmentInfo['upload_link'] ?? '')) !== ''
+            || trim((string) ($assignmentInfo['upload_text'] ?? '')) !== '';
+
+        if (! $hasAssignmentContent) {
+            $meetingDetailData['assignment_info'] = $assignmentInfo;
+
+            return $meetingDetailData;
+        }
+
+        $meetingNumber = $this->inferMeetingNumberFromMeetingDetail($meetingDetailData);
+        if ($meetingNumber === null) {
+            $assignmentInfo['status'] = trim((string) ($assignmentInfo['upload_link'] ?? '')) !== ''
+                ? 'not_uploaded'
+                : 'unresolved';
+            $meetingDetailData['assignment_info'] = $assignmentInfo;
+
+            return $meetingDetailData;
+        }
+
+        $assignmentInfo['meeting_number'] = $meetingNumber;
+
+        try {
+            $classParameters = $this->getClassParametersFromCourseId($sessionToken, $coursesId);
+
+            if ($classParameters !== null) {
+                $classDetailData = $this->classesExtractor->extractClassDetail($sessionToken, $classParameters);
+
+                $submission = collect($classDetailData['assignment_history']['assignments'] ?? [])
+                    ->first(fn (mixed $item): bool => is_array($item) && (string) ($item['meeting'] ?? '') === $meetingNumber);
+
+                if (is_array($submission)) {
+                    $assignmentInfo['status'] = 'uploaded';
+                    $assignmentInfo['submission'] = $submission;
+
+                    $deletePayload = $this->extractDeletePayloadFromAssignmentHistory($submission);
+                    if ($deletePayload !== null) {
+                        $assignmentInfo['delete_payload'] = $deletePayload;
+                    }
+
+                    $assignmentPageState = $this->resolveAssignmentPageState(
+                        $sessionToken,
+                        $coursesId,
+                        $meetingDetailData,
+                        $assignmentInfo
+                    );
+
+                    if ($assignmentPageState !== null) {
+                        if (($assignmentPageState['delete_payload'] ?? null) !== null) {
+                            $assignmentInfo['delete_payload'] = $assignmentPageState['delete_payload'];
+                        }
+
+                        if (($assignmentPageState['file_info'] ?? null) !== null && empty($assignmentInfo['submission']['file_info'])) {
+                            $assignmentInfo['submission']['file_info'] = $assignmentPageState['file_info'];
+                        }
+                    }
+
+                    $meetingDetailData['assignment_info'] = $assignmentInfo;
+
+                    return $meetingDetailData;
+                }
+            }
+        } catch (\Throwable $throwable) {
+            Log::warning('Failed to enrich meeting assignment info from class detail', [
+                'courses_id' => $coursesId,
+                'meeting_number' => $meetingNumber,
+                'error' => $throwable->getMessage(),
+            ]);
+        }
+
+        $assignmentInfo['status'] = trim((string) ($assignmentInfo['upload_link'] ?? '')) !== ''
+            ? 'not_uploaded'
+            : 'upload_unavailable';
+        $meetingDetailData['assignment_info'] = $assignmentInfo;
+
+        return $meetingDetailData;
+    }
+
+    /**
+     * @param  array<string, mixed>  $meetingDetailData
+     */
+    private function inferMeetingNumberFromMeetingDetail(array $meetingDetailData): ?string
+    {
+        $candidates = [
+            $meetingDetailData['materials']['assignment_topic'] ?? null,
+            $meetingDetailData['materials']['main_topic'] ?? null,
+            $meetingDetailData['conformity_info']['description'] ?? null,
+            $meetingDetailData['meeting_info']['breadcrumb'] ?? null,
+            $meetingDetailData['meeting_info']['title'] ?? null,
+        ];
+
+        foreach ($candidates as $candidate) {
+            if (! is_string($candidate) || trim($candidate) === '') {
+                continue;
+            }
+
+            if (preg_match('/Pertemuan\s+(\d+)/i', $candidate, $matches) === 1) {
+                return (string) $matches[1];
+            }
+        }
+
+        return null;
+    }
+
+    private function getClassParametersFromCourseId(string $sessionToken, string $courseId): ?array
+    {
+        try {
+            $cacheKey = 'class_parameters_mapping_'.md5($sessionToken);
+            $cachedMapping = cache($cacheKey);
+
+            if (is_array($cachedMapping) && isset($cachedMapping['by_course_id'][$courseId])) {
+                return $cachedMapping['by_course_id'][$courseId];
+            }
+
+            $classesData = $this->classesExtractor->extractClassesData($sessionToken);
+            $mapping = [
+                'by_id' => [],
+                'by_course_id' => [],
+            ];
+
+            foreach ($classesData['classes'] ?? [] as $class) {
+                if (! isset($class['join_link']['params']) || ! is_array($class['join_link']['params'])) {
+                    continue;
+                }
+
+                $params = $class['join_link']['params'];
+
+                if (isset($params['id'])) {
+                    $mapping['by_id'][(string) $params['id']] = $params;
+                }
+
+                if (isset($params['course_id'])) {
+                    $mapping['by_course_id'][(string) $params['course_id']] = $params;
+                }
+            }
+
+            cache([$cacheKey => $mapping], now()->addMinutes(30));
+
+            return $mapping['by_course_id'][$courseId] ?? null;
+        } catch (\Throwable $throwable) {
+            Log::warning('Failed to resolve class parameters from course id', [
+                'course_id' => $courseId,
+                'error' => $throwable->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $assignmentHistoryItem
+     * @return array{id: string, idx: string, pertemuan: string}|null
+     */
+    private function extractDeletePayloadFromAssignmentHistory(array $assignmentHistoryItem): ?array
+    {
+        $deleteHref = $assignmentHistoryItem['delete_info']['href'] ?? null;
+
+        if (! is_string($deleteHref) || trim($deleteHref) === '') {
+            return null;
+        }
+
+        parse_str((string) parse_url($deleteHref, PHP_URL_QUERY), $query);
+
+        $submissionId = $query['id'] ?? null;
+        $discussionId = $query['idx'] ?? null;
+        $meetingNumber = $query['pertemuan'] ?? null;
+
+        if (! is_scalar($submissionId) || ! is_scalar($discussionId) || ! is_scalar($meetingNumber)) {
+            return null;
+        }
+
+        return [
+            'id' => (string) $submissionId,
+            'idx' => (string) $discussionId,
+            'pertemuan' => (string) $meetingNumber,
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $meetingDetailData
+     * @param  array<string, mixed>  $assignmentInfo
+     * @return array{
+     *     status: string,
+     *     delete_payload: array{id: string, idx: string, pertemuan: string}|null,
+     *     file_info: array{href: string, text: string}|null
+     * }|null
+     */
+    private function resolveAssignmentPageState(
+        string $sessionToken,
+        string $coursesId,
+        array $meetingDetailData,
+        array $assignmentInfo
+    ): ?array {
+        $meetingNumber = $assignmentInfo['meeting_number'] ?? null;
+
+        if (! is_string($meetingNumber) || trim($meetingNumber) === '') {
+            return null;
+        }
+
+        $discussionId = $this->extractDiscussionIdFromMeetingDetail($meetingDetailData);
+
+        if ($discussionId === null) {
+            return null;
+        }
+
+        try {
+            return $this->submissionService->inspectAssignmentSubmissionState(
+                $sessionToken,
+                (int) $coursesId,
+                (int) $discussionId,
+                (int) $meetingNumber
+            );
+        } catch (\Throwable $throwable) {
+            Log::warning('Failed to inspect assignment submission state from assignment page', [
+                'courses_id' => $coursesId,
+                'discussion_id' => $discussionId,
+                'meeting_number' => $meetingNumber,
+                'error' => $throwable->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $meetingDetailData
+     */
+    private function extractDiscussionIdFromMeetingDetail(array $meetingDetailData): ?string
+    {
+        $requestUrl = $meetingDetailData['request_url'] ?? null;
+
+        if (! is_string($requestUrl) || trim($requestUrl) === '') {
+            return null;
+        }
+
+        parse_str((string) parse_url($requestUrl, PHP_URL_QUERY), $query);
+
+        return is_scalar($query['id'] ?? null) ? (string) $query['id'] : null;
     }
 
     private function buildFlowLinks(array $params): array
@@ -345,14 +623,18 @@ class PortalDataController extends CampusApiController
     #[Response(500, description: 'Jadwal mahasiswa gagal diambil.', type: CampusApiController::SCRAMBLE_STATUS_ERROR_RESPONSE)]
     public function studentCourse(Request $request): JsonResponse
     {
-        return $this->withCampusSession('Student course extraction failed', 'Failed to extract student course data', function (string $sessionToken): JsonResponse {
+        return $this->withCampusSession('Student course extraction failed', 'Failed to extract student course data', function (string $sessionToken) use ($request): JsonResponse {
             $classesData = $this->studentCourseExtractor->extractStudentCourseData($sessionToken);
+            $syncMeta = $this->consumeSyncMeta($classesData, [
+                'requested_fresh' => $request->boolean('fresh'),
+            ]);
 
             return $this->statusSuccess('Student course data retrieved successfully', [
                 'user_info' => $classesData['student_info'] ?? [],
                 'classes' => $classesData['classes'] ?? [],
                 'semester_info' => $classesData['semester_info'] ?? [],
             ], meta: [
+                ...$syncMeta,
                 'data_source' => 'student_course',
             ], campusSessionValid: true);
         });
@@ -369,9 +651,11 @@ class PortalDataController extends CampusApiController
     #[Response(500, description: 'Daftar kelas gabungan gagal diambil.', type: CampusApiController::SCRAMBLE_STATUS_ERROR_RESPONSE)]
     public function mergedClasses(Request $request): JsonResponse
     {
-        return $this->withCampusSession('Merged classes extraction failed', 'Failed to extract merged classes data', function (string $sessionToken): JsonResponse {
+        return $this->withCampusSession('Merged classes extraction failed', 'Failed to extract merged classes data', function (string $sessionToken) use ($request): JsonResponse {
             $sipandaiData = $this->sipandaiClassesExtractor->extractSipandaiClassesData($sessionToken);
+            $sipandaiSyncMeta = $this->consumeSyncMeta($sipandaiData);
             $studentCourseData = $this->studentCourseExtractor->extractStudentCourseData($sessionToken);
+            $studentCourseSyncMeta = $this->consumeSyncMeta($studentCourseData);
             $mergedData = $this->buildMergedClassesPayload($sipandaiData, $studentCourseData);
 
             return $this->statusSuccess('Merged classes data retrieved successfully', [
@@ -380,6 +664,12 @@ class PortalDataController extends CampusApiController
                 'semester_info' => $mergedData['semester_info'] ?? [],
                 'data_sources' => $mergedData['data_sources'] ?? [],
             ], meta: [
+                'requested_fresh' => $request->boolean('fresh'),
+                'data_origin' => in_array('server_cache', [
+                    $sipandaiSyncMeta['data_origin'] ?? null,
+                    $studentCourseSyncMeta['data_origin'] ?? null,
+                ], true) ? 'server_cache' : 'upstream',
+                'synced_at' => now()->toISOString(),
                 'data_source' => 'merged',
             ], campusSessionValid: true);
         });

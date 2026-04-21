@@ -45,13 +45,17 @@ class DashboardExtractor extends PortalScrapingService
             $reference = CarbonImmutable::now(config('app.timezone'));
 
             $profileData = $this->profileExtractor->extractProfileData($sessionToken);
+            $profileSync = $this->takeSyncMeta($profileData);
             $sipandaiClassesData = $this->sipandaiClassesExtractor->extractSipandaiClassesData($sessionToken);
+            $sipandaiClassesSync = $this->takeSyncMeta($sipandaiClassesData);
             $studentCourseData = $this->studentCourseExtractor->extractStudentCourseData($sessionToken);
-            $attendanceShortcuts = $this->attendanceShortcutService->getTodayShortcuts(
+            $studentCourseSync = $this->takeSyncMeta($studentCourseData);
+            $attendanceShortcuts = $this->attendanceShortcutService->getTodayShortcutsSnapshot(
                 $sessionToken,
                 $reference,
                 $sipandaiClassesData['classes'] ?? []
             );
+            $attendanceShortcutsSync = $this->takeSyncMeta($attendanceShortcuts);
 
             $dashboardUrl = PortalEndpointRegistry::url('sipandai_dashboard');
             $html = $this->get($dashboardUrl);
@@ -59,17 +63,24 @@ class DashboardExtractor extends PortalScrapingService
 
             $dashboardOverview = $this->extractDashboardOverview($crawler);
             $dashboardOverview['total_courses'] = (string) count($sipandaiClassesData['classes'] ?? []);
-            $dashboardOverview['total_credits'] = (string) $this->resolveTotalCredits($sessionToken, $sipandaiClassesData['classes'] ?? [], $dashboardOverview);
+            $creditSync = [];
+            $dashboardOverview['total_credits'] = (string) $this->resolveTotalCredits($sessionToken, $sipandaiClassesData['classes'] ?? [], $dashboardOverview, $creditSync);
             $recentActivity = $this->extractRecentActivity($crawler);
 
-            return [
+            return $this->withSyncMeta([
                 'user_info' => $profileData['user_info'] ?? [],
                 'dashboard_overview' => $dashboardOverview,
                 'recent_activity' => $recentActivity,
                 'classes_summary' => $this->createClassesSummary($sipandaiClassesData, $studentCourseData, $attendanceShortcuts['classes'] ?? [], $reference),
                 'status' => 'success',
                 'timestamp' => now()->toISOString(),
-            ];
+            ], $this->resolveDashboardDataOrigin([
+                $profileSync,
+                $sipandaiClassesSync,
+                $studentCourseSync,
+                $attendanceShortcutsSync,
+                $creditSync,
+            ]));
 
         } catch (PortalScrapingException $e) {
             throw $e;
@@ -295,7 +306,7 @@ class DashboardExtractor extends PortalScrapingService
      * @param  list<array<string, mixed>>  $classes
      * @param  array<string, mixed>  $dashboardOverview
      */
-    private function resolveTotalCredits(string $sessionToken, array $classes, array $dashboardOverview): int
+    private function resolveTotalCredits(string $sessionToken, array $classes, array $dashboardOverview, ?array &$syncMeta = null): int
     {
         $totalCredits = 0;
 
@@ -319,26 +330,59 @@ class DashboardExtractor extends PortalScrapingService
             return $overviewCredits;
         }
 
-        return $this->resolveTotalCreditsFromCreditPage($sessionToken) ?? 0;
+        return $this->resolveTotalCreditsFromCreditPage($sessionToken, $syncMeta) ?? 0;
     }
 
-    private function resolveTotalCreditsFromCreditPage(string $sessionToken): ?int
+    private function resolveTotalCreditsFromCreditPage(string $sessionToken, ?array &$syncMeta = null): ?int
     {
         $cacheKey = 'dashboard_credit_total_v1_'.md5($sessionToken);
 
-        return cache()->remember($cacheKey, now()->addMinutes(30), function (): ?int {
-            try {
-                $html = $this->get((string) config('portal.student_credit_url'));
+        if (! $this->shouldForceFresh()) {
+            $cachedTotal = cache()->get($cacheKey);
 
-                return $this->extractCreditPageTotal($html);
-            } catch (\Throwable $throwable) {
-                Log::warning('Failed to resolve total credits from credit page', [
-                    'error' => $throwable->getMessage(),
-                ]);
+            if ($cachedTotal !== null) {
+                $syncMeta = [
+                    'data_origin' => 'server_cache',
+                ];
 
-                return null;
+                return $cachedTotal;
             }
-        });
+        }
+
+        try {
+            $html = $this->get((string) config('portal.student_credit_url'));
+            $resolvedTotal = $this->extractCreditPageTotal($html);
+
+            cache()->put($cacheKey, $resolvedTotal, now()->addMinutes(30));
+
+            return $resolvedTotal;
+        } catch (\Throwable $throwable) {
+            Log::warning('Failed to resolve total credits from credit page', [
+                'error' => $throwable->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
+
+    private function takeSyncMeta(array &$payload): array
+    {
+        $sync = is_array($payload['_sync'] ?? null) ? $payload['_sync'] : [];
+
+        unset($payload['_sync']);
+
+        return $sync;
+    }
+
+    private function resolveDashboardDataOrigin(array $syncEntries): string
+    {
+        foreach ($syncEntries as $syncEntry) {
+            if (($syncEntry['data_origin'] ?? null) === 'server_cache') {
+                return 'server_cache';
+            }
+        }
+
+        return 'upstream';
     }
 
     private function extractCreditPageTotal(string $html): ?int

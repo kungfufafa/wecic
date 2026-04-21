@@ -5,149 +5,194 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', config('app.name'))</title>
-    {{-- PWA --}}
     <link rel="manifest" href="/manifest.json">
-    <meta name="theme-color" content="#0352A1">
+    <meta name="theme-color" content="#066fd1">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="myCIC">
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet">
-    @vite(['resources/css/app.css', 'resources/js/app.js'])
+    <link rel="stylesheet" href="/vendor/tabler/css/tabler.min.css">
+    @vite(['resources/js/app.js'])
 </head>
 <body data-auth="@yield('auth_mode', 'required')" data-page="@yield('page_id', 'app')">
-    <div id="notice-host" class="fixed right-4 top-4 z-50 w-[min(24rem,calc(100vw-2rem))]"></div>
-    <div class="qr-scanner-modal hidden" data-qr-scanner-modal aria-hidden="true">
-        <div class="qr-scanner-dialog">
-            <div class="qr-scanner-head">
-                <div>
-                    <p class="section-label">Absensi</p>
-                    <p class="qr-scanner-title">Scan kode QR</p>
+    <div id="notice-host" class="toast-container position-fixed top-0 end-0 p-3"></div>
+
+    <div class="modal modal-blur fade" tabindex="-1" aria-hidden="true" data-qr-scanner-modal>
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div>
+                        <div class="text-secondary text-uppercase small">Absensi</div>
+                        <h5 class="modal-title">Scan kode QR</h5>
+                    </div>
+                    <button type="button" class="btn-close" aria-label="Tutup" data-qr-scanner-close></button>
                 </div>
-                <button type="button" class="ghost-button" data-qr-scanner-close>Tutup</button>
+                <div class="modal-body">
+                    <div class="ratio ratio-1x1 rounded border overflow-hidden bg-secondary-lt mb-3">
+                        <video class="w-100 h-100 object-fit-cover" data-qr-scanner-video playsinline autoplay muted></video>
+                    </div>
+                    <div class="alert alert-info mb-0" data-qr-scanner-status role="alert">
+                        Arahkan kamera ke QR absensi untuk mengambil 8 karakter pertama kode.
+                    </div>
+                </div>
             </div>
-            <div class="qr-scanner-view">
-                <video data-qr-scanner-video playsinline autoplay muted></video>
-            </div>
-            <p class="qr-scanner-note" data-qr-scanner-status>Arahkan kamera ke QR absensi untuk mengambil 8 karakter pertama kode.</p>
         </div>
     </div>
 
     @php
         $navigation = [
             [
-                'href' => '/dashboard',
+                'href' => route('dashboard'),
                 'label' => 'Dashboard',
-                'active' => request()->is('dashboard'),
-                'icon' => 'dashboard',
+                'active' => request()->routeIs('dashboard'),
+                'icon' => <<<'SVG'
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-1" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M5 12l-2 0l9 -9l9 9l-2 0" />
+                        <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7" />
+                        <path d="M9 21v-6a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v6" />
+                    </svg>
+                SVG,
             ],
             [
-                'href' => '/class',
+                'href' => route('class.index'),
                 'label' => 'Kelas',
-                'active' => request()->is('class') || request()->is('class/*') || request()->is('meeting/*'),
-                'icon' => 'class',
+                'active' => request()->routeIs('class.*') || request()->routeIs('meeting.show'),
+                'icon' => <<<'SVG'
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-1" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M3 7l9 -4l9 4l-9 4z" />
+                        <path d="M3 12l9 4l9 -4" />
+                        <path d="M3 17l9 4l9 -4" />
+                    </svg>
+                SVG,
             ],
             [
-                'href' => '/exam',
+                'href' => route('exam.index'),
                 'label' => 'Ujian',
-                'active' => request()->is('exam') || request()->is('exam/*'),
-                'icon' => 'exam',
+                'active' => request()->routeIs('exam.*'),
+                'icon' => <<<'SVG'
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-1" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M9 11l3 3l8 -8" />
+                        <path d="M20 12v7a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h9" />
+                    </svg>
+                SVG,
             ],
             [
-                'href' => '/profile',
+                'href' => route('profile'),
                 'label' => 'Profil',
-                'active' => request()->is('profile'),
-                'icon' => 'profile',
+                'active' => request()->routeIs('profile'),
+                'icon' => <<<'SVG'
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-1" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0" />
+                        <path d="M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" />
+                    </svg>
+                SVG,
             ],
         ];
 
-        $navigationIcons = [
-            'dashboard' => <<<'SVG'
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4.75 10.75 12 5l7.25 5.75V19a1.25 1.25 0 0 1-1.25 1.25h-3.5V13h-5v7.25H6A1.25 1.25 0 0 1 4.75 19v-8.25Z" />
-                </svg>
-            SVG,
-            'class' => <<<'SVG'
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4.75 6.75A1.75 1.75 0 0 1 6.5 5h11A1.75 1.75 0 0 1 19.25 6.75v10.5A1.75 1.75 0 0 1 17.5 19h-11a1.75 1.75 0 0 1-1.75-1.75V6.75Z" />
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M8 9h8M8 12h8M8 15h4.5" />
-                </svg>
-            SVG,
-            'exam' => <<<'SVG'
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M8.25 4.75h6.5l4.5 4.5v9A1.75 1.75 0 0 1 17.5 20h-11a1.75 1.75 0 0 1-1.75-1.75v-11A1.75 1.75 0 0 1 6.5 5.5h1.75Z" />
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M14.75 4.75v4.5h4.5M8.5 13h7M8.5 16h4.5" />
-                </svg>
-            SVG,
-            'profile' => <<<'SVG'
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 12.25a3.75 3.75 0 1 0 0-7.5 3.75 3.75 0 0 0 0 7.5Z" />
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M5.5 19.25a6.5 6.5 0 0 1 13 0" />
-                </svg>
-            SVG,
-        ];
-    @endphp
-
-    @php
         $hideStatusStrip = trim($__env->yieldContent('hide_status_strip')) === '1';
     @endphp
 
-    <div class="app-shell">
-        <header class="app-header">
-            <div class="app-header-shell">
-                <div class="app-brand-row">
-                    <a href="/dashboard" data-display class="brand-mark app-brand-link" aria-label="myCIC">
-                        <span class="brand-mark-my">my</span><span class="brand-mark-cic">CIC</span>
-                    </a>
+    <div class="page">
+        <header class="navbar navbar-expand-md d-print-none">
+            <div class="container-xl">
+                <button
+                    class="navbar-toggler"
+                    type="button"
+                    data-bs-toggle="collapse"
+                    data-bs-target="#navbar-menu"
+                    aria-controls="navbar-menu"
+                    aria-expanded="false"
+                    aria-label="Toggle navigation"
+                >
+                    <span class="navbar-toggler-icon"></span>
+                </button>
 
-                    <button type="button" class="header-logout lg:hidden" data-logout>Logout</button>
+                <div class="navbar-brand navbar-brand-autodark d-none-navbar-horizontal pe-0 pe-md-3">
+                    <a href="{{ route('dashboard') }}" class="text-decoration-none text-reset fw-bold" aria-label="myCIC">myCIC</a>
                 </div>
 
-                <nav class="app-nav-shell hidden lg:inline-flex" aria-label="Navigasi utama">
-                    @foreach ($navigation as $item)
-                        <a href="{{ $item['href'] }}" class="app-nav-link" @if($item['active']) aria-current="page" @endif>{{ $item['label'] }}</a>
-                    @endforeach
-                </nav>
+                <div class="navbar-nav flex-row order-md-last">
+                    <div class="nav-item dropdown">
+                        <a href="#" class="nav-link d-flex lh-1 p-0 px-2" data-bs-toggle="dropdown" aria-label="Open user menu">
+                            <span class="avatar avatar-sm">M</span>
+                            <div class="d-none d-xl-block ps-2">
+                                <div data-user-identity>Mahasiswa</div>
+                                <div class="mt-1 small text-secondary">Portal kampus</div>
+                            </div>
+                        </a>
+                        <div class="dropdown-menu dropdown-menu-end dropdown-menu-arrow">
+                            <div class="dropdown-item-text d-xl-none">
+                                <div class="fw-semibold" data-user-identity>Mahasiswa</div>
+                                <div class="small text-secondary">Portal kampus</div>
+                            </div>
+                            <div class="dropdown-divider d-xl-none"></div>
+                            <a href="{{ route('profile') }}" class="dropdown-item">Profil</a>
+                            <button type="button" class="dropdown-item" data-logout>Logout</button>
+                        </div>
+                    </div>
+                </div>
 
-                <div class="hidden items-center justify-end lg:flex">
-                    <button type="button" class="header-logout" data-logout>Logout</button>
+                <div class="collapse navbar-collapse" id="navbar-menu">
+                    <ul class="navbar-nav">
+                        @foreach ($navigation as $item)
+                            <li class="nav-item">
+                                <a href="{{ $item['href'] }}" class="nav-link @if($item['active']) active @endif" @if($item['active']) aria-current="page" @endif>
+                                    <span class="nav-link-icon d-md-none d-lg-inline-block">{!! $item['icon'] !!}</span>
+                                    <span class="nav-link-title">{{ $item['label'] }}</span>
+                                </a>
+                            </li>
+                        @endforeach
+                    </ul>
                 </div>
             </div>
         </header>
 
-        <div class="pull-refresh-indicator" data-pull-indicator data-state="idle" aria-hidden="true">
-            <span class="pull-refresh-orb" aria-hidden="true"></span>
-            <span data-pull-copy>Tarik untuk memperbarui</span>
+        <div class="page-wrapper">
+            <div class="page-body">
+                <div class="container-xl">
+                    <div class="alert alert-info text-center mb-3 d-none" data-pull-indicator aria-hidden="true">
+                        <span class="spinner-border spinner-border-sm me-2 d-none" data-pull-spinner aria-hidden="true"></span>
+                        <span data-pull-copy>Tarik untuk memperbarui</span>
+                    </div>
+
+                    @unless ($hideStatusStrip)
+                        <div class="alert alert-info mb-4" data-sync-alert role="status">
+                            <div class="d-flex flex-column flex-sm-row align-items-sm-center justify-content-between w-100 gap-3">
+                                <div class="d-flex flex-wrap align-items-center gap-2">
+                                    <span class="badge bg-green-lt text-green" data-connection-chip>
+                                        <span data-connection-label>Online</span>
+                                    </span>
+                                    <span data-sync-status>Data terakhir siap dipakai. Sinkronkan ke server bila perlu.</span>
+                                </div>
+                                <div class="d-flex align-items-center gap-2 mt-2 mt-sm-0">
+                                    <span class="text-secondary small d-none" data-user-identity></span>
+                                    <button
+                                        type="button"
+                                        class="btn btn-info btn-sm d-inline-flex align-items-center justify-content-center px-2"
+                                        data-sync-refresh
+                                        data-online-required
+                                        aria-label="Sinkronkan server"
+                                        title="Sinkronkan server"
+                                    >
+                                        <span class="d-inline-flex align-items-center justify-content-center" data-sync-refresh-icon aria-hidden="true">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" stroke-width="2.2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4" /><path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4" /></svg>
+                                        </span>
+                                        <span class="spinner-border spinner-border-sm d-none" data-sync-refresh-spinner aria-hidden="true"></span>
+                                        <span class="visually-hidden" data-sync-refresh-label>Sinkronkan server</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    @endunless
+
+                    @yield('content')
+                </div>
+            </div>
         </div>
-
-        @unless ($hideStatusStrip)
-            <section class="app-status-strip" aria-live="polite">
-                <span class="connection-chip" data-connection-chip data-state="online">
-                    <span class="connection-chip-orb" aria-hidden="true"></span>
-                    <span data-connection-label>Online</span>
-                </span>
-                <p class="app-status-note" data-sync-status data-tone="info">Data terbaru disegarkan otomatis.</p>
-                <p class="app-status-user-meta hidden" data-user-identity></p>
-            </section>
-        @endunless
-
-        <main class="grid gap-6">
-            @yield('content')
-        </main>
     </div>
 
-    <nav class="mobile-bottom-nav lg:hidden" aria-label="Navigasi bawah" data-mobile-nav>
-        @foreach ($navigation as $item)
-            <a href="{{ $item['href'] }}" class="mobile-bottom-nav-link" @if($item['active']) aria-current="page" @endif>
-                <span class="mobile-bottom-nav-icon">{!! $navigationIcons[$item['icon']] !!}</span>
-                <span class="mobile-bottom-nav-label">{{ $item['label'] }}</span>
-            </a>
-        @endforeach
-    </nav>
-
+    <script src="/vendor/tabler/js/tabler.min.js"></script>
     @stack('scripts')
     <script>
         if ('serviceWorker' in navigator) {

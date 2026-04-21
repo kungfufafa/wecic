@@ -42,7 +42,13 @@ class PortalActionController extends CampusApiController
      * dengan override yang dikirim klien, lalu mengunggah berkas PDF secara multipart.
      * Wajib dipanggil dalam kondisi sudah login (memiliki `campus_session_token`).
      *
-     * - `courses_id` → ambil dari query `courses_id` pada URL upload (contoh `...&courses_id=9000`).
+     * Opsi payload:
+     * - `courses_id` + `id` + `pertemuan` → gunakan jika sudah punya URL upload tugas mentah.
+     * - `courses_id` + `meeting_id` → gunakan jika hanya tahu detail meeting; backend akan mencari `id` dan `pertemuan` otomatis.
+     *
+     * Detail parameter:
+     * - `courses_id` → ambil dari query `courses_id` pada URL upload atau URL meeting.
+     * - `meeting_id` → ambil dari path `/meeting/{meeting_id}` bila ingin backend menyelesaikan target upload otomatis.
      * - `id` → ambil dari query `id` pada URL upload (contoh `id=30095`).
      * - `pertemuan` → nilai `pertemuan` pada URL upload (contoh `pertemuan=6`).
      * - `attachment` → upload file PDF yang akan dikirim sebagai `data[tugas]`.
@@ -62,12 +68,31 @@ class PortalActionController extends CampusApiController
 
         try {
             $attachment = $request->attachment();
+            $courseId = $request->courseId();
+            $discussionId = $request->discussionId();
+            $meetingNumber = $request->meetingNumber();
+
+            if (! $request->hasDirectAssignmentPayload()) {
+                $resolvedPayload = $this->attendanceShortcutService->resolveAssignmentUploadPayload(
+                    $sessionToken,
+                    $request->meetingId(),
+                    $courseId
+                );
+
+                if ($resolvedPayload === null) {
+                    return $this->booleanResponse(false, 'Target upload tugas belum bisa ditentukan untuk meeting ini.', null, 422);
+                }
+
+                $courseId = (int) $resolvedPayload['courses_id'];
+                $discussionId = (int) $resolvedPayload['id'];
+                $meetingNumber = (int) $resolvedPayload['pertemuan'];
+            }
 
             $result = $this->submissionService->submitAssignment(
                 $sessionToken,
-                $request->courseId(),
-                $request->discussionId(),
-                $request->meetingNumber(),
+                $courseId,
+                $discussionId,
+                $meetingNumber,
                 $attachment,
                 $request->formValues()
             );
@@ -257,11 +282,14 @@ class PortalActionController extends CampusApiController
         }
 
         try {
-            $assignments = $this->attendanceShortcutService->getPendingAssignments($sessionToken);
+            $pendingAssignmentsData = $this->attendanceShortcutService->getPendingAssignmentsSnapshot($sessionToken);
+            $syncMeta = $this->consumeSyncMeta($pendingAssignmentsData, [
+                'requested_fresh' => request()->boolean('fresh'),
+            ]);
 
             return $this->booleanResponse(true, 'Pending assignments retrieved successfully.', [
-                'assignments' => $assignments,
-            ]);
+                'assignments' => $pendingAssignmentsData['assignments'] ?? [],
+            ], meta: $syncMeta);
         } catch (\Throwable $e) {
             if ($this->isCampusSessionExpiredException($e)) {
                 return $this->expiredSessionBooleanResponse();

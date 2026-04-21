@@ -27,7 +27,7 @@ class ProfileExtractor extends PortalScrapingService
             if ($cachedData) {
                 $this->logScraping('Using cached profile data');
 
-                return json_decode($cachedData, true);
+                return $this->withSyncMeta(json_decode($cachedData, true), 'server_cache');
             }
 
             // Get profile HTML
@@ -52,7 +52,7 @@ class ProfileExtractor extends PortalScrapingService
                 'student_id' => $profileData['personal_data']['student_id'] ?? 'N/A',
             ]);
 
-            return $profileData;
+            return $this->withSyncMeta($profileData, 'upstream');
 
         } catch (PortalScrapingException $e) {
             throw $e;

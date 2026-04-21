@@ -26,16 +26,70 @@ class AttendanceShortcutService
      */
     public function getTodayShortcuts(string $sessionToken, ?CarbonImmutable $reference = null, ?array $classes = null): array
     {
+        return $this->collectTodayShortcuts($sessionToken, $reference, $classes);
+    }
+
+    public function getPendingAssignments(string $sessionToken, int $limit = 20): array
+    {
+        return $this->collectPendingAssignments($sessionToken, $limit);
+    }
+
+    /**
+     * @return array{
+     *     date: string,
+     *     day: string,
+     *     current_time: string,
+     *     classes: list<array<string, mixed>>,
+     *     _sync: array{data_origin: string, synced_at: string}
+     * }
+     */
+    public function getTodayShortcutsSnapshot(string $sessionToken, ?CarbonImmutable $reference = null, ?array $classes = null): array
+    {
+        $syncOrigins = [];
+        $payload = $this->collectTodayShortcuts($sessionToken, $reference, $classes, $syncOrigins);
+        $payload['_sync'] = $this->buildSyncMeta($syncOrigins);
+
+        return $payload;
+    }
+
+    /**
+     * @return array{
+     *     assignments: list<array<string, mixed>>,
+     *     _sync: array{data_origin: string, synced_at: string}
+     * }
+     */
+    public function getPendingAssignmentsSnapshot(string $sessionToken, int $limit = 20): array
+    {
+        $syncOrigins = [];
+
+        return [
+            'assignments' => $this->collectPendingAssignments($sessionToken, $limit, $syncOrigins),
+            '_sync' => $this->buildSyncMeta($syncOrigins),
+        ];
+    }
+
+    private function collectTodayShortcuts(
+        string $sessionToken,
+        ?CarbonImmutable $reference = null,
+        ?array $classes = null,
+        ?array &$syncOrigins = null
+    ): array {
         $reference ??= CarbonImmutable::now(config('app.timezone'));
 
+        if ($classes === null) {
+            $classesPayload = $this->sipandaiClassesExtractor->extractSipandaiClassesData($sessionToken);
+            $this->consumeSyncMeta($classesPayload, $syncOrigins);
+            $classes = $classesPayload['classes'] ?? [];
+        }
+
         $attendanceClasses = [];
-        $classes = collect($classes ?? ($this->sipandaiClassesExtractor->extractSipandaiClassesData($sessionToken)['classes'] ?? []))
+        $classes = collect($classes)
             ->filter(fn (array $class): bool => $this->isScheduledToday($class, $reference))
             ->values()
             ->all();
 
         foreach ($classes as $class) {
-            $detail = $this->resolveClassDetail($sessionToken, $class);
+            $detail = $this->resolveClassDetail($sessionToken, $class, $syncOrigins);
 
             if ($detail === null) {
                 continue;
@@ -44,7 +98,7 @@ class AttendanceShortcutService
             $candidate = $this->resolveAttendanceCandidate($class, $detail, $reference);
 
             if ($candidate !== []) {
-                $candidate = $this->hydrateAttendanceStatusFromMeeting($sessionToken, $candidate);
+                $candidate = $this->hydrateAttendanceStatusFromMeeting($sessionToken, $candidate, $syncOrigins);
                 $attendanceClasses[] = $candidate;
             }
         }
@@ -65,39 +119,37 @@ class AttendanceShortcutService
     /**
      * @return list<array<string, mixed>>
      */
-    public function getPendingAssignments(string $sessionToken, int $limit = 4): array
+    private function collectPendingAssignments(string $sessionToken, int $limit = 20, ?array &$syncOrigins = null): array
     {
         $originalDelay = (int) config('portal.request_delay', 1000);
         config(['portal.request_delay' => min($originalDelay, 250)]);
 
         try {
             $pendingAssignments = [];
-            $classes = collect($this->sipandaiClassesExtractor->extractSipandaiClassesData($sessionToken)['classes'] ?? [])
+            $classesPayload = $this->sipandaiClassesExtractor->extractSipandaiClassesData($sessionToken);
+            $this->consumeSyncMeta($classesPayload, $syncOrigins);
+            $classes = collect($classesPayload['classes'] ?? [])
                 ->sortBy(fn (array $class): int => (int) (($class['join_link']['params']['course_id'] ?? 0)))
                 ->values()
                 ->all();
-            $classScanCount = 0;
-            $classScanLimit = 4;
 
             foreach ($classes as $class) {
-                if ($classScanCount >= $classScanLimit || count($pendingAssignments) >= $limit) {
+                if (count($pendingAssignments) >= $limit) {
                     break;
                 }
 
-                $detail = $this->resolveClassDetail($sessionToken, $class);
+                $detail = $this->resolveClassDetail($sessionToken, $class, $syncOrigins);
 
                 if ($detail === null) {
                     continue;
                 }
-
-                $classScanCount++;
 
                 foreach ($this->resolvePendingAssignmentCandidates($class, $detail) as $candidate) {
                     if (count($pendingAssignments) >= $limit) {
                         break 2;
                     }
 
-                    $meetingDetail = $this->resolveMeetingDetail($sessionToken, $candidate['meeting_id'], $candidate['courses_id']);
+                    $meetingDetail = $this->resolveMeetingDetail($sessionToken, $candidate['meeting_id'], $candidate['courses_id'], false, $syncOrigins);
 
                     if ($meetingDetail === null) {
                         continue;
@@ -107,7 +159,6 @@ class AttendanceShortcutService
 
                     if ($assignment !== null) {
                         $pendingAssignments[] = $assignment;
-                        break;
                     }
                 }
             }
@@ -155,6 +206,40 @@ class AttendanceShortcutService
         }
 
         return $this->hydrateAttendanceStatusFromMeeting($sessionToken, $candidate);
+    }
+
+    /**
+     * @return array{courses_id: string, id: string, pertemuan: int}|null
+     */
+    public function resolveAssignmentUploadPayload(
+        string $sessionToken,
+        int|string $meetingId,
+        int|string $coursesId
+    ): ?array {
+        $meetingId = trim((string) $meetingId);
+        $coursesId = trim((string) $coursesId);
+
+        if ($meetingId === '' || $coursesId === '') {
+            return null;
+        }
+
+        $meetingDetail = $this->resolveMeetingDetail($sessionToken, $meetingId, $coursesId);
+
+        $resolvedPayload = $meetingDetail !== null
+            ? $this->resolveAssignmentPayloadFromMeetingDetail($meetingDetail, $meetingId, $coursesId)
+            : null;
+
+        if ($resolvedPayload !== null) {
+            return $resolvedPayload;
+        }
+
+        $freshMeetingDetail = $this->resolveMeetingDetail($sessionToken, $meetingId, $coursesId, true);
+
+        if ($freshMeetingDetail === null) {
+            return null;
+        }
+
+        return $this->resolveAssignmentPayloadFromMeetingDetail($freshMeetingDetail, $meetingId, $coursesId);
     }
 
     /**
@@ -225,7 +310,7 @@ class AttendanceShortcutService
      * @param  array<string, mixed>  $candidate
      * @return array<string, mixed>
      */
-    private function hydrateAttendanceStatusFromMeeting(string $sessionToken, array $candidate): array
+    private function hydrateAttendanceStatusFromMeeting(string $sessionToken, array $candidate, ?array &$syncOrigins = null): array
     {
         $meetingId = (string) ($candidate['meeting_id'] ?? '');
         $coursesId = (string) ($candidate['assignment_payload']['courses_id'] ?? '');
@@ -238,7 +323,8 @@ class AttendanceShortcutService
             $sessionToken,
             $meetingId,
             $coursesId,
-            ! ($candidate['attendance_status']['already_marked'] ?? false)
+            ! ($candidate['attendance_status']['already_marked'] ?? false),
+            $syncOrigins
         );
 
         if ($meetingDetail === null) {
@@ -295,14 +381,14 @@ class AttendanceShortcutService
 
         usort($pendingAssignments, fn (array $left, array $right): int => $right['meeting_number'] <=> $left['meeting_number']);
 
-        return array_slice($pendingAssignments, 0, 1);
+        return $pendingAssignments;
     }
 
     /**
      * @param  array<string, mixed>  $class
      * @return array<string, mixed>|null
      */
-    private function resolveClassDetail(string $sessionToken, array $class): ?array
+    private function resolveClassDetail(string $sessionToken, array $class, ?array &$syncOrigins = null): ?array
     {
         $params = $class['join_link']['params'] ?? [];
         $classId = $params['id'] ?? null;
@@ -314,11 +400,14 @@ class AttendanceShortcutService
         }
 
         try {
-            return $this->classesExtractor->extractClassDetail($sessionToken, [
+            $detail = $this->classesExtractor->extractClassDetail($sessionToken, [
                 'id' => $classId,
                 'dosen_id' => $dosenId,
                 'course_id' => $courseId,
             ]);
+            $this->consumeSyncMeta($detail, $syncOrigins);
+
+            return $detail;
         } catch (\Throwable $throwable) {
             Log::warning('Skipping class while resolving attendance shortcuts', [
                 'class_id' => $classId,
@@ -331,14 +420,22 @@ class AttendanceShortcutService
         }
     }
 
-    private function resolveMeetingDetail(string $sessionToken, string $meetingId, string $coursesId, bool $fresh = false): ?array
-    {
+    private function resolveMeetingDetail(
+        string $sessionToken,
+        string $meetingId,
+        string $coursesId,
+        bool $fresh = false,
+        ?array &$syncOrigins = null
+    ): ?array {
         try {
-            return $this->classesExtractor->extractMeetingDetail($sessionToken, [
+            $detail = $this->classesExtractor->extractMeetingDetail($sessionToken, [
                 'meeting_id' => $meetingId,
                 'courses_id' => $coursesId,
                 ...($fresh ? ['fresh' => true] : []),
             ]);
+            $this->consumeSyncMeta($detail, $syncOrigins);
+
+            return $detail;
         } catch (\Throwable $throwable) {
             Log::warning('Skipping meeting while resolving pending assignments', [
                 'meeting_id' => $meetingId,
@@ -392,6 +489,97 @@ class AttendanceShortcutService
                 'id' => $candidate['meeting_id'],
                 'pertemuan' => $candidate['meeting_number'],
             ],
+        ];
+    }
+
+    /**
+     * @return array{courses_id: string, id: string, pertemuan: int}|null
+     */
+    private function resolveAssignmentPayloadFromMeetingDetail(array $meetingDetail, string $meetingId, string $coursesId): ?array
+    {
+        $assignmentPayload = $this->extractAssignmentPayloadFromUploadLink(
+            (string) (($meetingDetail['assignment_info']['upload_link'] ?? '') ?: '')
+        );
+
+        if ($assignmentPayload !== null) {
+            return $assignmentPayload;
+        }
+
+        $meetingNumber = $this->inferMeetingNumberFromMaterials($meetingDetail['materials'] ?? []);
+
+        if ($meetingNumber === null) {
+            return null;
+        }
+
+        return [
+            'courses_id' => $coursesId,
+            'id' => $meetingId,
+            'pertemuan' => $meetingNumber,
+        ];
+    }
+
+    /**
+     * @return array{courses_id: string, id: string, pertemuan: int}|null
+     */
+    private function extractAssignmentPayloadFromUploadLink(string $href): ?array
+    {
+        $coursesId = $this->extractQueryValue($href, 'courses_id');
+        $discussionId = $this->extractQueryValue($href, 'id');
+        $meetingNumber = $this->extractQueryValue($href, 'pertemuan');
+
+        if ($coursesId === null || $discussionId === null || $meetingNumber === null) {
+            return null;
+        }
+
+        return [
+            'courses_id' => $coursesId,
+            'id' => $discussionId,
+            'pertemuan' => (int) $meetingNumber,
+        ];
+    }
+
+    private function inferMeetingNumberFromMaterials(array $materials): ?int
+    {
+        $candidates = [
+            (string) ($materials['assignment_topic'] ?? ''),
+            (string) ($materials['main_topic'] ?? ''),
+        ];
+
+        foreach ($candidates as $candidate) {
+            if (preg_match('/(\d+)/', $candidate, $matches) === 1) {
+                return (int) $matches[1];
+            }
+        }
+
+        return null;
+    }
+
+    private function consumeSyncMeta(array &$payload, ?array &$syncOrigins = null): void
+    {
+        $syncMeta = is_array($payload['_sync'] ?? null) ? $payload['_sync'] : [];
+
+        unset($payload['_sync']);
+
+        if ($syncOrigins === null) {
+            return;
+        }
+
+        $dataOrigin = $syncMeta['data_origin'] ?? null;
+
+        if (is_string($dataOrigin) && $dataOrigin !== '') {
+            $syncOrigins[] = $dataOrigin;
+        }
+    }
+
+    /**
+     * @param  list<string>  $syncOrigins
+     * @return array{data_origin: string, synced_at: string}
+     */
+    private function buildSyncMeta(array $syncOrigins): array
+    {
+        return [
+            'data_origin' => in_array('server_cache', $syncOrigins, true) ? 'server_cache' : 'upstream',
+            'synced_at' => now()->toISOString(),
         ];
     }
 

@@ -68,6 +68,68 @@ class PortalActionControllerTest extends TestCase
             ]);
     }
 
+    public function test_upload_assignment_can_resolve_target_from_meeting_context(): void
+    {
+        $file = UploadedFile::fake()->create('task.pdf', 128, 'application/pdf');
+
+        $this->mockValidCampusSession('token-meeting-upload');
+        $this->instance(
+            AttendanceShortcutService::class,
+            Mockery::mock(AttendanceShortcutService::class, function (MockInterface $mock): void {
+                $mock->shouldReceive('resolveAssignmentUploadPayload')
+                    ->once()
+                    ->with('token-meeting-upload', 33244, 9202)
+                    ->andReturn([
+                        'courses_id' => '9202',
+                        'id' => '33244',
+                        'pertemuan' => 5,
+                    ]);
+            })
+        );
+        $this->mockServiceExpectingSubmitAssignmentWithPayload('token-meeting-upload', $file, 9202, 33244, 5);
+
+        $response = $this->withSession(['campus_session_token' => 'token-meeting-upload'])
+            ->post('/api/assignment', [
+                'courses_id' => 9202,
+                'meeting_id' => 33244,
+                'attachment' => $file,
+            ], ['Accept' => 'application/json']);
+
+        $response->assertOk()
+            ->assertJson([
+                'success' => true,
+            ]);
+    }
+
+    public function test_upload_assignment_returns_unprocessable_when_meeting_context_cannot_be_resolved(): void
+    {
+        $file = UploadedFile::fake()->create('task.pdf', 128, 'application/pdf');
+
+        $this->mockValidCampusSession('token-meeting-missing');
+        $this->instance(
+            AttendanceShortcutService::class,
+            Mockery::mock(AttendanceShortcutService::class, function (MockInterface $mock): void {
+                $mock->shouldReceive('resolveAssignmentUploadPayload')
+                    ->once()
+                    ->with('token-meeting-missing', 33244, 9202)
+                    ->andReturnNull();
+            })
+        );
+
+        $response = $this->withSession(['campus_session_token' => 'token-meeting-missing'])
+            ->post('/api/assignment', [
+                'courses_id' => 9202,
+                'meeting_id' => 33244,
+                'attachment' => $file,
+            ], ['Accept' => 'application/json']);
+
+        $response->assertStatus(422)
+            ->assertJson([
+                'success' => false,
+                'message' => 'Target upload tugas belum bisa ditentukan untuk meeting ini.',
+            ]);
+    }
+
     public function test_upload_assignment_returns_unauthorized_when_upstream_session_has_expired(): void
     {
         $file = UploadedFile::fake()->create('task.pdf', 128, 'application/pdf');
@@ -296,19 +358,24 @@ class PortalActionControllerTest extends TestCase
     public function test_pending_assignments_success(): void
     {
         $this->mockValidCampusSession('token-pending');
-
         $this->instance(
             AttendanceShortcutService::class,
             Mockery::mock(AttendanceShortcutService::class, function (MockInterface $mock): void {
-                $mock->shouldReceive('getPendingAssignments')
+                $mock->shouldReceive('getPendingAssignmentsSnapshot')
                     ->once()
                     ->with('token-pending')
                     ->andReturn([
-                        [
-                            'course_name' => 'Algoritma',
-                            'meeting_number' => 6,
-                            'meeting_url' => '/meeting/29808?courses_id=8837',
-                            'can_submit_directly' => false,
+                        'assignments' => [
+                            [
+                                'course_name' => 'Algoritma',
+                                'meeting_number' => 6,
+                                'meeting_url' => '/meeting/29808?courses_id=8837',
+                                'can_submit_directly' => false,
+                            ],
+                        ],
+                        '_sync' => [
+                            'data_origin' => 'server_cache',
+                            'synced_at' => '2026-04-21T07:00:00+07:00',
                         ],
                     ]);
             })
@@ -328,7 +395,8 @@ class PortalActionControllerTest extends TestCase
                         ],
                     ],
                 ],
-            ]);
+            ])
+            ->assertJsonPath('meta.data_origin', 'server_cache');
     }
 
     public function test_delete_assignment_requires_session(): void
@@ -465,19 +533,29 @@ class PortalActionControllerTest extends TestCase
 
     private function mockServiceExpectingSubmitAssignment(string $token, UploadedFile $expectedFile): void
     {
+        $this->mockServiceExpectingSubmitAssignmentWithPayload($token, $expectedFile, 9000, 29833, 2);
+    }
+
+    private function mockServiceExpectingSubmitAssignmentWithPayload(
+        string $token,
+        UploadedFile $expectedFile,
+        int $courseId,
+        int $discussionId,
+        int $meetingNumber
+    ): void {
         $this->instance(
             SipandaiSubmissionService::class,
-            Mockery::mock(SipandaiSubmissionService::class, function (MockInterface $mock) use ($token, $expectedFile): void {
+            Mockery::mock(SipandaiSubmissionService::class, function (MockInterface $mock) use ($token, $expectedFile, $courseId, $discussionId, $meetingNumber): void {
                 $mock->shouldReceive('submitAssignment')
                     ->once()
-                    ->withArgs(function ($sessionToken, $courseId, $discussionId, $meetingNumber, $file, $overrides) use ($token, $expectedFile) {
+                    ->withArgs(function ($sessionToken, $actualCourseId, $actualDiscussionId, $actualMeetingNumber, $file, $overrides) use ($token, $expectedFile, $courseId, $discussionId, $meetingNumber) {
                         return $sessionToken === $token
-                            && $courseId === 9000
-                            && $discussionId === 29833
-                            && $meetingNumber === 2
+                            && $actualCourseId === $courseId
+                            && $actualDiscussionId === $discussionId
+                            && $actualMeetingNumber === $meetingNumber
                             && $file instanceof UploadedFile
                             && $file->getClientOriginalName() === $expectedFile->getClientOriginalName()
-                            && isset($overrides['keterangan']);
+                            && (isset($overrides['keterangan']) || $overrides === []);
                     })
                     ->andReturn([
                         'success' => true,

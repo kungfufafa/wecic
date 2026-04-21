@@ -2,65 +2,43 @@
 
 @section('title', 'Dashboard')
 @section('page_id', 'dashboard')
-@section('hide_status_strip', '1')
 
 @section('content')
-    <section class="page-shell dashboard-shell">
-        <section class="dashboard-focus-grid">
-            <article class="section-shell dashboard-focus-card" data-dashboard-focus="class">
-                <div class="empty-shell">Menyusun fokus kelas hari ini.</div>
-            </article>
-            <article class="section-shell dashboard-focus-card" data-dashboard-focus="assignment">
-                <div class="empty-shell">Menyusun deadline terdekat.</div>
-            </article>
-        </section>
 
-        <div class="grid gap-6 lg:grid-cols-[minmax(0,1.18fr)_minmax(21rem,0.82fr)]">
-            <section class="section-shell">
-                <div class="section-head">
-                    <div class="section-head-main">
-                        <h2 data-display class="section-title dashboard-section-title">Jadwal hari ini</h2>
-                        <p class="section-copy dashboard-section-copy">Buka meeting yang relevan, lalu ekspand panel absensi hanya saat Anda benar-benar siap mengirim.</p>
+    <div class="row row-cards mb-4">
+        @foreach ([
+            ['label' => 'Mata kuliah', 'note' => 'Jumlah kelas yang sedang aktif.'],
+            ['label' => 'IPK', 'note' => 'Ringkasan terakhir.'],
+            ['label' => 'Total SKS', 'note' => 'Kredit terkumpul.'],
+            ['label' => 'Tagihan', 'note' => 'Nominal yang perlu dipantau.'],
+        ] as $metric)
+            <div class="col-sm-6 col-xl-3">
+                <div class="card card-sm h-100">
+                    <div class="card-body">
+                        <div class="text-secondary text-uppercase small mb-1">{{ $metric['label'] }}</div>
+                        <div class="h1 mb-1" data-dashboard-metric>-</div>
+                        <div class="text-secondary small">{{ $metric['note'] }}</div>
                     </div>
                 </div>
-                <div id="dashboard-class-summary" class="mt-6 stack-list">
-                    <div class="empty-shell">Memuat jadwal kuliah hari ini.</div>
-                </div>
-            </section>
+            </div>
+        @endforeach
+    </div>
 
-            <section class="section-shell">
-                <div class="section-head">
-                    <div class="section-head-main">
-                        <h2 data-display class="section-title dashboard-section-title">Tugas</h2>
-                        <p class="section-copy dashboard-section-copy">Lihat deadline lebih dulu, lalu buka panel unggah hanya untuk tugas yang memang siap dikumpulkan sekarang.</p>
-                    </div>
-                </div>
-                <div id="dashboard-pending-assignments" class="mt-6 stack-list">
-                    <div class="empty-shell">Memuat daftar tugas yang belum dikumpulkan.</div>
-                </div>
-            </section>
+    <div class="row row-cards">
+        <div class="col-lg-6">
+            <h2 class="h3 mb-3">Jadwal hari ini</h2>
+            <div id="dashboard-class-summary">
+                {!! '<div class="alert alert-secondary mb-0 shadow-sm">Memuat jadwal kuliah hari ini.</div>' !!}
+            </div>
         </div>
 
-        <div id="dashboard-metrics" class="dashboard-summary-grid">
-            @foreach (['Mata kuliah', 'IPK', 'Total SKS', 'Tagihan'] as $metric)
-                <article class="summary-tile dashboard-summary-card">
-                    <span class="dense-metric-label dashboard-summary-label">{{ $metric }}</span>
-                    <strong class="summary-tile-value dashboard-summary-value" data-dashboard-metric>-</strong>
-                    <p class="summary-tile-copy dashboard-summary-copy">
-                        @if ($metric === 'Mata kuliah')
-                            Referensi jumlah kelas yang sedang aktif.
-                        @elseif ($metric === 'IPK')
-                            Ringkasan akademik terakhir yang tercatat.
-                        @elseif ($metric === 'Total SKS')
-                            Kredit yang sudah terkumpul sampai saat ini.
-                        @else
-                            Angka finansial yang masih perlu dipantau.
-                        @endif
-                    </p>
-                </article>
-            @endforeach
+        <div class="col-lg-6">
+            <h2 class="h3 mb-3">Tugas aktif</h2>
+            <div id="dashboard-pending-assignments">
+                {!! '<div class="alert alert-secondary mb-0 shadow-sm">Memuat daftar tugas yang belum dikumpulkan.</div>' !!}
+            </div>
         </div>
-    </section>
+    </div>
 @endsection
 
 @push('scripts')
@@ -72,196 +50,128 @@
             let latestClassesSummary = null;
             let latestAssignments = [];
 
-            const renderFocusStrip = () => {
-                const classHost = document.querySelector('[data-dashboard-focus="class"]');
-                const assignmentHost = document.querySelector('[data-dashboard-focus="assignment"]');
-                const todayClasses = latestClassesSummary?.today_classes || [];
-                const nextClass = todayClasses.find((klass) => klass.attendance?.actionable) || todayClasses[0] || null;
-                const urgentAssignment = latestAssignments[0] || null;
-
-                if (classHost) {
-                    if (!nextClass) {
-                        classHost.innerHTML = `
-                            <p class="section-label">Fokus kelas</p>
-                            <h2 data-display class="dashboard-focus-title">Tidak ada kelas aktif.</h2>
-                            <p class="dashboard-focus-copy">Gunakan waktu kosong ini untuk mengecek tugas yang belum dikumpulkan atau membuka ulang materi terakhir.</p>
-                            <div class="dashboard-focus-actions">
-                                <a href="/class" class="ghost-button">Lihat semua kelas</a>
-                            </div>
-                        `;
-                    } else {
-                        const focusBadge = nextClass.attendance?.actionable ? 'Perlu absen' : 'Kelas berikutnya';
-                        const actionHref = nextClass.attendance?.meeting_url || '/class';
-                        const focusNote = nextClass.attendance?.actionable
-                            ? 'Absensi aktif terdeteksi. Buka meeting untuk konteks kelas, lalu buka panel absensi di bawah saat siap.'
-                            : 'Buka detail meeting jika Anda perlu materi, presensi, atau instruksi kelas terdekat.';
-
-                        classHost.innerHTML = `
-                            <div class="dashboard-focus-head">
-                                <div>
-                                    <p class="section-label">Fokus kelas</p>
-                                    <h2 data-display class="dashboard-focus-title">${app.escapeHtml(nextClass.course_name || 'Kelas hari ini')}</h2>
-                                </div>
-                                <span class="meta-pill ${nextClass.attendance?.actionable ? 'is-accent' : 'is-sky'} dashboard-pill">${app.escapeHtml(focusBadge)}</span>
-                            </div>
-                            <p class="dashboard-focus-meta">${app.escapeHtml([nextClass.course_code, nextClass.class_name, nextClass.schedule?.time].filter(Boolean).join(' · ') || 'Jadwal aktif')}</p>
-                            <p class="dashboard-focus-copy">${app.escapeHtml(focusNote)}</p>
-                            <div class="dashboard-focus-actions">
-                                <a href="${app.escapeHtml(actionHref)}" class="primary-button">${nextClass.attendance?.actionable ? 'Buka meeting aktif' : 'Lihat detail meeting'}</a>
-                                <a href="/class" class="ghost-button">Daftar kelas</a>
-                            </div>
-                        `;
-                    }
-                }
-
-                if (assignmentHost) {
-                    if (!urgentAssignment) {
-                        assignmentHost.innerHTML = `
-                            <p class="section-label">Deadline terdekat</p>
-                            <h2 data-display class="dashboard-focus-title">Tidak ada tugas mendesak.</h2>
-                            <p class="dashboard-focus-copy">Semua tugas yang tertangkap di dashboard sudah aman atau belum memiliki deadline aktif.</p>
-                            <div class="dashboard-focus-actions">
-                                <a href="/exam" class="ghost-button">Buka ujian</a>
-                            </div>
-                        `;
-                    } else {
-                        const deadlineTone = /hari ini/i.test(String(urgentAssignment.deadline || '')) ? 'is-warning' : 'is-gold';
-                        const canDirectSubmit = Boolean(urgentAssignment.can_submit_directly);
-
-                        assignmentHost.innerHTML = `
-                            <div class="dashboard-focus-head">
-                                <div>
-                                    <p class="section-label">Deadline terdekat</p>
-                                    <h2 data-display class="dashboard-focus-title">${app.escapeHtml(urgentAssignment.course_name || 'Tugas aktif')}</h2>
-                                </div>
-                                ${urgentAssignment.deadline ? `<span class="meta-pill ${deadlineTone} dashboard-pill">${app.escapeHtml(urgentAssignment.deadline)}</span>` : ''}
-                            </div>
-                            <p class="dashboard-focus-meta">${app.escapeHtml([urgentAssignment.course_code, urgentAssignment.lecturer_name].filter(Boolean).join(' · ') || 'Tugas aktif')}</p>
-                            <p class="dashboard-focus-copy">${app.escapeHtml(
-                                canDirectSubmit
-                                    ? 'Berkas bisa dikumpulkan langsung dari dashboard, tetapi panel unggah disembunyikan sampai Anda membutuhkannya.'
-                                    : 'Buka detail meeting untuk melihat lampiran, instruksi, dan langkah pengumpulan yang lengkap.'
-                            )}</p>
-                            <div class="dashboard-focus-actions">
-                                <a href="${app.escapeHtml(urgentAssignment.meeting_url || '#dashboard-pending-assignments')}" class="primary-button">${canDirectSubmit ? 'Buka tugas utama' : 'Lihat detail meeting'}</a>
-                                <a href="#dashboard-pending-assignments" class="ghost-button">Lihat daftar tugas</a>
-                            </div>
-                        `;
-                    }
-                }
-            };
-
             const renderDashboard = (payload) => {
                 const data = payload?.data || {};
                 const overview = data.dashboard_overview || {};
                 const classesSummary = data.classes_summary || {};
+                const summaryHost = document.getElementById('dashboard-class-summary');
+                const todayClasses = classesSummary.today_classes || [];
+                const dayLabel = classesSummary.day || 'Hari ini';
 
-                const metrics = [
+                [
                     classesSummary.total_classes || overview.total_courses || '0',
                     overview.gpa || '0.00',
                     classesSummary.total_credits || overview.total_credits || '0',
                     overview.outstanding_payments || 'Rp 0',
-                ];
-
-                document.querySelectorAll('[data-dashboard-metric]').forEach((element, index) => {
-                    element.textContent = metrics[index] || '-';
+                ].forEach((value, index) => {
+                    document.querySelectorAll('[data-dashboard-metric]')[index].textContent = value || '-';
                 });
 
-                const summaryHost = document.getElementById('dashboard-class-summary');
-                const todayClasses = classesSummary.today_classes || [];
-                const dayLabel = classesSummary.day || 'Hari ini';
                 latestClassesSummary = classesSummary;
-
-                app.setSyncStatus(todayClasses.length ? `Jadwal ${dayLabel.toLowerCase()} sedang disiapkan.` : 'Belum ada jadwal kuliah untuk hari ini.', todayClasses.length ? 'info' : 'warning');
-                renderFocusStrip();
+                app.setSyncStatus(
+                    todayClasses.length ? `Jadwal ${dayLabel.toLowerCase()} sedang disiapkan.` : 'Belum ada jadwal kuliah untuk hari ini.',
+                    todayClasses.length ? 'info' : 'warning'
+                );
 
                 if (!todayClasses.length) {
-                    summaryHost.innerHTML = `<div class="empty-shell">Tidak ada jadwal kuliah untuk ${app.escapeHtml(dayLabel)}.</div>`;
-                } else {
-                    summaryHost.innerHTML = `
-                        ${todayClasses.map((klass, index) => `
-                            <article class="surface-card dashboard-card">
-                                <div class="grid gap-4">
-                                    <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                                        <div class="space-y-3">
-                                            <div class="page-meta-row">
-                                                <span class="stack-item-kicker dashboard-card-kicker">${app.escapeHtml([klass.course_code, klass.class_name].filter(Boolean).join(' / ') || 'Kelas')}</span>
-                                            </div>
-                                            <div>
-                                                <h3 class="stack-item-title dashboard-card-title">${app.escapeHtml(klass.course_name || 'Kelas')}</h3>
-                                                <p class="surface-card-copy dashboard-card-meta">${app.escapeHtml(klass.lecturer_name || 'Dosen belum tersedia')}</p>
-                                            </div>
+                    summaryHost.innerHTML = app.renderEmptyState(`Tidak ada jadwal kuliah untuk ${dayLabel}.`, 'secondary');
+
+                    return;
+                }
+
+                summaryHost.innerHTML = todayClasses.map((klass, index) => {
+                    let statusColor = 'secondary';
+                    if (klass.attendance?.actionable) statusColor = 'primary';
+                    else if (klass.attendance?.status?.already_marked) statusColor = 'success';
+                    else if (klass.attendance?.available) statusColor = 'warning';
+
+                    return `
+                    <div class="card mb-3 shadow-sm">
+                        <div class="card-body">
+                            <div class="row g-3 align-items-center mb-3">
+                                <div class="col">
+                                    <div class="d-flex align-items-center gap-2 mb-1">
+                                        <div class="text-secondary small fw-semibold d-flex align-items-center gap-1">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" /><path d="M12 7v5l3 3" /></svg>
+                                            ${app.escapeHtml(klass.schedule?.time || 'Jadwal belum tersedia')}
                                         </div>
-                                        <p class="section-meta dashboard-card-time lg:text-right">${app.escapeHtml(klass.schedule?.time || 'Jadwal belum tersedia')}</p>
+                                        <span class="text-secondary">·</span>
+                                        <div class="text-secondary small fw-semibold text-uppercase">${app.escapeHtml([klass.course_code, klass.class_name].filter(Boolean).join(' · ') || 'Kelas')}</div>
                                     </div>
-                                    <div class="grid gap-3 md:grid-cols-3">
-                                        ${[
-                                            ['Ruang', klass.room || '-'],
-                                            ['Pertemuan', klass.attendance?.meeting_number || '-'],
-                                            ['Materi', klass.attendance?.today_material?.title && klass.attendance?.today_material?.title !== 'Materi terbaru belum terdeteksi.' ? klass.attendance?.today_material?.title : '-'],
-                                        ].map(([label, value]) => `
-                                            <div class="surface-card-soft dashboard-subcard">
-                                                <p class="section-label dashboard-subcard-label">${app.escapeHtml(label)}</p>
-                                                <p class="surface-card-title dashboard-subcard-value">${app.escapeHtml(value)}</p>
-                                            </div>
-                                        `).join('')}
-                                    </div>
-                                    <div class="grid gap-3 lg:grid-cols-[minmax(0,1fr)_14rem]">
-                                        ${klass.attendance?.actionable ? `
-                                            <details class="dashboard-action-disclosure">
-                                                <summary class="dashboard-action-summary">
-                                                    <div class="dashboard-action-summary-copy">
-                                                        <p class="section-label dashboard-subcard-label">Absensi aktif</p>
-                                                        <p class="dashboard-action-title">Buka panel absensi saat siap.</p>
-                                                    </div>
-                                                    <span class="secondary-button dashboard-action-trigger">Buka panel</span>
-                                                </summary>
-                                                <form class="dashboard-action-form" data-attendance-card="${index}">
-                                                    <label class="grid gap-2">
-                                                        <span class="section-label dashboard-subcard-label">Kode QR / kode absensi</span>
-                                                        <input type="text" class="field-shell" data-field="kode" placeholder="009bfb3e" required>
-                                                    </label>
-                                                    <div class="grid grid-cols-2 gap-2">
-                                                        <button type="button" class="secondary-button justify-center" data-qr-scan>Scan QR</button>
-                                                        <label class="secondary-button justify-center cursor-pointer">
-                                                            Upload foto
-                                                            <input type="file" class="hidden" data-qr-file accept="image/*">
-                                                        </label>
-                                                    </div>
-                                                    <button type="submit" class="primary-button" data-online-required>Absen sekarang</button>
-                                                </form>
-                                            </details>
-                                        ` : klass.attendance?.status?.already_marked ? `
-                                            <div class="surface-card-soft dashboard-subcard">
-                                                <p class="section-label dashboard-subcard-label">Absensi</p>
-                                                <p class="surface-card-title dashboard-subcard-value">${app.escapeHtml(klass.attendance?.status?.label || 'Sudah tercatat')}</p>
-                                                <p class="surface-card-copy dashboard-card-copy">
-                                                    ${app.escapeHtml(klass.attendance?.status?.time ? `Tercatat ${klass.attendance.status.time}.` : 'Sudah tercatat.')}
-                                                </p>
-                                            </div>
-                                        ` : klass.attendance?.available ? `
-                                            <div class="surface-card-soft dashboard-subcard">
-                                                <p class="section-label dashboard-subcard-label">Absensi</p>
-                                                <p class="surface-card-title dashboard-subcard-value">Buka detail kelas.</p>
-                                                <p class="surface-card-copy dashboard-card-copy">Absensi belum tersedia dari dashboard.</p>
-                                            </div>
-                                        ` : `
-                                            <div class="surface-card-soft dashboard-subcard">
-                                                <p class="section-label dashboard-subcard-label">Absensi</p>
-                                                <p class="surface-card-title dashboard-subcard-value">Belum ada absensi aktif.</p>
-                                            </div>
-                                        `}
-                                        <div class="flex items-start lg:justify-end">
-                                            ${klass.attendance?.meeting_url ? `
-                                                <a href="${app.escapeHtml(klass.attendance.meeting_url)}" class="ghost-button w-full justify-center lg:w-auto">Detail meeting</a>
-                                            ` : '<span class="ghost-button w-full justify-center opacity-50 lg:w-auto">Detail meeting</span>'}
-                                        </div>
+                                    <h3 class="h2 mb-1 fw-bold text-dark">${app.escapeHtml(klass.course_name || 'Kelas')}</h3>
+                                    <div class="text-muted d-flex flex-wrap align-items-center gap-2 small">
+                                        <span class="d-flex align-items-center gap-1">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-user" width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0" /><path d="M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" /></svg>
+                                            ${app.escapeHtml(klass.lecturer_name || 'Dosen belum tersedia')}
+                                        </span>
+                                        <span class="text-secondary">·</span>
+                                        <span class="d-flex align-items-center gap-1">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-map-pin" width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 11a3 3 0 1 0 6 0a3 3 0 0 0 -6 0" /><path d="M17.657 16.657l-4.243 4.243a2 2 0 0 1 -2.827 0l-4.244 -4.243a8 8 0 1 1 11.314 0z" /></svg>
+                                            ${app.escapeHtml(klass.room || '-')}
+                                        </span>
                                     </div>
                                 </div>
-                            </article>
-                        `).join('')}
+                                <div class="col-auto">
+                                    ${klass.attendance?.meeting_url
+                                        ? `<a href="${app.escapeHtml(klass.attendance.meeting_url)}" class="btn btn-outline-secondary btn-icon" aria-label="Detail meeting">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-arrow-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M5 12l14 0" /><path d="M13 18l6 -6" /><path d="M13 6l6 6" /></svg>
+                                           </a>`
+                                        : app.renderDisabledButton('Detail meeting')}
+                                </div>
+                            </div>
+
+                            <hr class="my-3">
+
+                            <div class="mb-3 d-flex flex-wrap gap-3 text-secondary small">
+                                <div><strong>Pertemuan:</strong> ${app.escapeHtml(klass.attendance?.meeting_number || '-')}</div>
+                                <div><strong>Materi:</strong> <span class="fst-italic">${app.escapeHtml(klass.attendance?.today_material?.title && klass.attendance?.today_material?.title !== 'Materi terbaru belum terdeteksi.' ? klass.attendance?.today_material?.title : '-')}</span></div>
+                            </div>
+
+                            <div class="bg-${statusColor}-lt p-3 rounded">
+                                ${klass.attendance?.actionable ? `
+                                    <div class="fw-bold text-${statusColor} mb-2">Waktunya Absensi!</div>
+                                    <form class="row g-2 align-items-center" data-attendance-card="${index}">
+                                        <div class="col-md-5">
+                                            <input type="text" class="form-control bg-white" data-field="kode" placeholder="Kode / PIN" required>
+                                        </div>
+                                        <div class="col-md-auto d-grid">
+                                            <button type="button" class="btn btn-outline-${statusColor} bg-white" data-qr-scan>
+                                                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-qrcode" width="20" height="20" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 4m0 1a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z" /><path d="M7 17l0 .01" /><path d="M14 4m0 1a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z" /><path d="M7 7l0 .01" /><path d="M4 14m0 1a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z" /><path d="M17 7l0 .01" /><path d="M14 14l3 0" /><path d="M20 14l0 .01" /><path d="M14 14l0 3" /><path d="M14 20l3 0" /><path d="M17 17l3 0" /><path d="M20 17l0 3" /></svg>
+                                                Scan QR
+                                            </button>
+                                        </div>
+                                        <div class="col-md-auto">
+                                            <input type="file" class="form-control bg-white d-none" id="qr-file-${index}" data-qr-file accept="image/*">
+                                            <label class="btn btn-outline-${statusColor} bg-white mb-0" for="qr-file-${index}">
+                                                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-photo" width="20" height="20" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M15 8h.01" /><path d="M3 6a3 3 0 0 1 3 -3h12a3 3 0 0 1 3 3v12a3 3 0 0 1 -3 3h-12a3 3 0 0 1 -3 -3v-12z" /><path d="M3 16l5 -5c.928 -.893 2.072 -.893 3 0l5 5" /><path d="M14 14l1 -1c.928 -.893 2.072 -.893 3 0l3 3" /></svg>
+                                                Upload QR
+                                            </label>
+                                        </div>
+                                        <div class="col-md-auto ms-auto d-grid mt-3 mt-md-0">
+                                            <button type="submit" class="btn btn-${statusColor}" data-online-required>Kirim Absen</button>
+                                        </div>
+                                    </form>
+                                ` : klass.attendance?.status?.already_marked ? `
+                                    <div class="d-flex align-items-center gap-2 text-${statusColor}">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-check" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M5 12l5 5l10 -10" /></svg>
+                                        <div>
+                                            <div class="fw-semibold">${app.escapeHtml(klass.attendance?.status?.label || 'Sudah tercatat')}</div>
+                                            <div class="small opacity-75">${app.escapeHtml(klass.attendance?.status?.time ? `Tercatat ${klass.attendance.status.time}.` : 'Absensi sudah tercatat.')}</div>
+                                        </div>
+                                    </div>
+                                ` : klass.attendance?.available ? `
+                                    <div class="d-flex align-items-center gap-2 text-${statusColor}">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-alert-circle" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" /><path d="M12 8v4" /><path d="M12 16h.01" /></svg>
+                                        <span class="fw-semibold">Absensi tersedia, buka detail kelas untuk melanjutkan.</span>
+                                    </div>
+                                ` : `
+                                    <div class="text-secondary small">Belum ada absensi aktif untuk sesi ini.</div>
+                                `}
+                            </div>
+                        </div>
+                    </div>
                     `;
-                }
+                }).join('');
 
                 summaryHost.querySelectorAll('[data-attendance-card]').forEach((form) => {
                     const classIndex = Number(form.dataset.attendanceCard);
@@ -328,64 +238,80 @@
                 const assignmentHost = document.getElementById('dashboard-pending-assignments');
                 const pendingAssignments = payload?.data?.assignments || [];
                 latestAssignments = pendingAssignments;
-                renderFocusStrip();
 
                 if (!pendingAssignments.length) {
-                    assignmentHost.innerHTML = '<div class="empty-shell">Tidak ada tugas yang menunggu dikumpulkan.</div>';
-                } else {
-                    assignmentHost.innerHTML = pendingAssignments.map((assignment, index) => `
-                        <article class="surface-card dashboard-card">
-                            <div class="grid gap-4">
-                                <div class="space-y-3">
-                                    <div>
-                                        <h3 class="stack-item-title dashboard-card-title">${app.escapeHtml(assignment.course_name || 'Tugas')}</h3>
-                                        <p class="surface-card-copy dashboard-card-meta">${app.escapeHtml([assignment.course_code, assignment.lecturer_name].filter(Boolean).join(' / ') || '')}</p>
-                                    </div>
-                                    ${assignment.material_title && assignment.material_title !== assignment.course_name ? `
-                                        <p class="stack-item-copy dashboard-card-copy">${app.escapeHtml(assignment.material_title)}</p>
-                                    ` : ''}
-                                    <div class="page-meta-row">
-                                        ${assignment.deadline ? `<span class="meta-pill dashboard-pill">${app.escapeHtml(assignment.deadline)}</span>` : ''}
-                                    </div>
-                                </div>
-                                <div class="grid gap-3">
-                                    <div class="stack-item-actions">
-                                        ${assignment.assignment_file_url ? `
-                                            <a href="${app.escapeHtml(app.absoluteCampusUrl(assignment.assignment_file_url))}" target="_blank" rel="noreferrer" class="secondary-button justify-center">
-                                                Buka lampiran
-                                            </a>
-                                        ` : `
-                                            <span class="secondary-button justify-center opacity-50">Lampiran belum ada</span>
-                                        `}
-                                        <a href="${app.escapeHtml(assignment.meeting_url)}" class="ghost-button justify-center">Detail meeting</a>
-                                    </div>
-                                    ${assignment.can_submit_directly ? `
-                                        <details class="dashboard-action-disclosure">
-                                            <summary class="dashboard-action-summary">
-                                                <div class="dashboard-action-summary-copy">
-                                                    <p class="section-label dashboard-subcard-label">Unggah cepat</p>
-                                                    <p class="dashboard-action-title">Buka panel saat file sudah siap.</p>
-                                                </div>
-                                                <span class="secondary-button dashboard-action-trigger">Buka panel</span>
-                                            </summary>
-                                            <form class="dashboard-action-form" data-assignment-card="${index}">
-                                                <label class="grid gap-2">
-                                                    <span class="section-label dashboard-subcard-label">File</span>
-                                                    <input type="file" class="field-shell" data-field="attachment" accept=".pdf" required>
-                                                </label>
-                                                <button type="submit" class="primary-button" data-online-required>Kumpul sekarang</button>
-                                            </form>
-                                        </details>
-                                    ` : `
-                                        <div class="surface-card-soft dashboard-subcard">
-                                            <p class="surface-card-title dashboard-subcard-value">Buka detail meeting.</p>
-                                        </div>
-                                    `}
-                                </div>
-                            </div>
-                        </article>
-                    `).join('');
+                    assignmentHost.innerHTML = app.renderEmptyState('Tidak ada tugas yang menunggu dikumpulkan.', 'secondary');
+
+                    return;
                 }
+
+                assignmentHost.innerHTML = pendingAssignments.map((assignment, index) => {
+                    const isUrgent = /hari ini/i.test(String(assignment.deadline || ''));
+                    const statusColor = isUrgent ? 'warning' : 'info';
+
+                    return `
+                    <div class="card mb-3 shadow-sm">
+                        <div class="card-body">
+                            <div class="d-flex flex-wrap align-items-start gap-2 mb-3">
+                                <div class="me-auto">
+                                    <div class="d-flex align-items-center gap-2 mb-1">
+                                        <div class="text-secondary small fw-semibold text-uppercase">${app.escapeHtml([assignment.course_code, assignment.lecturer_name].filter(Boolean).join(' · ') || '')}</div>
+                                    </div>
+                                    <h3 class="h2 mb-1 fw-bold text-dark">${app.escapeHtml(assignment.course_name || 'Tugas')}</h3>
+                                    ${assignment.material_title && assignment.material_title !== assignment.course_name ? `
+                                        <p class="text-secondary mb-0 small">${app.escapeHtml(assignment.material_title)}</p>
+                                    ` : ''}
+                                </div>
+                                ${assignment.deadline ? `
+                                    <div class="text-${statusColor} small fw-bold d-flex align-items-center gap-1">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" /><path d="M12 7v5l3 3" /></svg>
+                                        ${app.escapeHtml(assignment.deadline)}
+                                    </div>
+                                ` : ''}
+                            </div>
+
+                            <hr class="my-3">
+
+                            <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+                                <div class="d-flex flex-wrap gap-2">
+                                    ${assignment.assignment_file_url
+                                        ? `<a href="${app.escapeHtml(app.absoluteCampusUrl(assignment.assignment_file_url))}" target="_blank" rel="noreferrer" class="btn btn-outline-secondary btn-sm">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-paperclip" width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M15 7l-6.5 6.5a1.5 1.5 0 0 0 3 3l6.5 -6.5a3 3 0 0 0 -6 -6l-6.5 6.5a4.5 4.5 0 0 0 9 9l6.5 -6.5" /></svg>
+                                            Buka Lampiran
+                                           </a>`
+                                        : app.renderDisabledButton('Lampiran belum ada', 'btn-sm')}
+                                </div>
+                                <a href="${app.escapeHtml(assignment.meeting_url)}" class="text-decoration-none text-primary fw-semibold small d-flex align-items-center gap-1">
+                                    Detail Meeting
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-external-link" width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 6h-6a2 2 0 0 0 -2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-6" /><path d="M11 13l9 -9" /><path d="M15 4h5v5" /></svg>
+                                </a>
+                            </div>
+
+                            <div class="bg-${statusColor}-lt p-3 rounded">
+                                ${assignment.can_submit_directly ? `
+                                    <div class="fw-bold text-${statusColor} mb-2 d-flex align-items-center gap-1">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-upload" width="18" height="18" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2 -2v-2" /><path d="M7 9l5 -5l5 5" /><path d="M12 4l0 12" /></svg>
+                                        Kumpulkan File (.pdf)
+                                    </div>
+                                    <form class="row g-2" data-assignment-card="${index}">
+                                        <div class="col-md-8">
+                                            <input type="file" class="form-control bg-white" data-field="attachment" accept=".pdf" required>
+                                        </div>
+                                        <div class="col-md-4 d-grid">
+                                            <button type="submit" class="btn btn-${statusColor}" data-online-required>Upload Tugas</button>
+                                        </div>
+                                    </form>
+                                ` : `
+                                    <div class="text-secondary small d-flex align-items-center gap-1">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-info-circle" width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" /><path d="M12 9h.01" /><path d="M11 12h1v4h1" /></svg>
+                                        Buka Detail Meeting untuk instruksi pengumpulan tugas ini.
+                                    </div>
+                                `}
+                            </div>
+                        </div>
+                    </div>
+                    `;
+                }).join('');
 
                 assignmentHost.querySelectorAll('[data-assignment-card]').forEach((form) => {
                     form.addEventListener('submit', async (event) => {
@@ -444,12 +370,12 @@
                 return;
             }
 
-            loadDashboard = async () => {
+            loadDashboard = async ({ force = false } = {}) => {
                 try {
-                    const payload = await app.request('/api/dashboard');
+                    const payload = await app.request('/api/dashboard', { fresh: force });
                     renderDashboard(payload);
                     dashboardOverviewHealthy = true;
-                    app.markViewSynced('Dashboard');
+                    app.markViewSynced('Dashboard', payload, { force });
                 } catch (error) {
                     dashboardOverviewHealthy = false;
                     app.setSyncStatus('Gagal memuat ringkasan dashboard.', 'error');
@@ -457,17 +383,17 @@
                 }
             };
 
-            loadPendingAssignments = async () => {
+            loadPendingAssignments = async ({ force = false } = {}) => {
                 try {
-                    const payload = await app.request('/api/assignment/pending');
+                    const payload = await app.request('/api/assignment/pending', { fresh: force });
                     renderPendingAssignments(payload);
 
                     if (dashboardOverviewHealthy) {
-                        app.markViewSynced('Tugas');
+                        app.markViewSynced('Tugas', payload, { force });
                     }
                 } catch (error) {
                     app.setSyncStatus('Gagal memuat daftar tugas yang belum dikumpulkan.', 'error');
-                    document.getElementById('dashboard-pending-assignments').innerHTML = '<div class="empty-shell">Gagal memuat daftar tugas yang belum dikumpulkan.</div>';
+                    document.getElementById('dashboard-pending-assignments').innerHTML = app.renderEmptyState('Gagal memuat daftar tugas yang belum dikumpulkan.', 'danger');
                     app.showNotice(error.payload?.message || error.message, 'error');
                 }
             };

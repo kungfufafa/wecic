@@ -4,14 +4,17 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\API;
 
+use App\Http\Requests\PortalFileDownloadRequest;
 use App\Http\Requests\PortalParameterValidationRequest;
 use App\Services\PortalEndpointRegistry;
 use App\Services\PortalSessionManager;
+use App\Services\SipandaiSubmissionService;
 use Dedoc\Scramble\Attributes\Group;
 use Dedoc\Scramble\Attributes\QueryParameter;
 use Dedoc\Scramble\Attributes\Response;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 
 #[Group('Support & Metadata', 'Endpoint bantuan parameter, status sesi, dan metadata utilitas untuk integrasi portal.', 40)]
 class PortalSupportController extends CampusApiController
@@ -24,7 +27,10 @@ class PortalSupportController extends CampusApiController
 
     private const INVALID_PARAMETER_RESPONSE = "array{status: 'error', message: 'Parameter validation failed', validation_result: array{valid: false, errors: array<string, list<string>>, provided_params: array{id: mixed, dosen_id: mixed, course_id: mixed}}, debug_info: array{suggestion: string, help_url: string, example_url: string}}";
 
-    public function __construct(private readonly PortalSessionManager $sessionManager) {}
+    public function __construct(
+        private readonly PortalSessionManager $sessionManager,
+        private readonly SipandaiSubmissionService $submissionService
+    ) {}
 
     #[QueryParameter('grouped', 'Jika `true`, metadata endpoint akan dikelompokkan per kategori.', type: 'boolean', example: true)]
     #[QueryParameter('key', 'Jika diisi, hanya metadata untuk endpoint key tertentu yang dikembalikan.', type: 'string', example: 'assignment_form')]
@@ -151,6 +157,34 @@ class PortalSupportController extends CampusApiController
                 ],
             ],
         ]);
+    }
+
+    public function downloadFile(PortalFileDownloadRequest $request): SymfonyResponse|JsonResponse
+    {
+        $sessionToken = $this->sessionToken();
+
+        if (! $sessionToken) {
+            return $this->missingSessionStatusResponse();
+        }
+
+        try {
+            $download = $this->submissionService->downloadCampusFile(
+                $sessionToken,
+                $request->campusPath(),
+                $request->downloadName()
+            );
+
+            return response($download['contents'], 200, [
+                'Content-Type' => $download['content_type'],
+                'Content-Disposition' => sprintf('attachment; filename="%s"', addslashes($download['filename'])),
+            ]);
+        } catch (\Throwable $throwable) {
+            if ($this->isCampusSessionExpiredException($throwable)) {
+                return $this->statusError('Campus session has expired. Please login again.', 401, campusSessionValid: false);
+            }
+
+            return $this->statusError('File download failed: '.$throwable->getMessage(), 500, campusSessionValid: false);
+        }
     }
 
     #[Response(description: 'Parameter portal valid dan siap digunakan.', type: self::VALID_PARAMETER_RESPONSE)]

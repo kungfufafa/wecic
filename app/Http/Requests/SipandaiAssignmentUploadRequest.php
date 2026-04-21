@@ -35,19 +35,33 @@ class SipandaiAssignmentUploadRequest extends ApiFormRequest
              */
             'courses_id' => ['required', 'integer', 'min:1'],
             /**
+             * Identifier meeting dari URL `/meeting/{meeting_id}?courses_id=...`.
+             *
+             * Jika dikirim, backend akan mencoba menyelesaikan `id` dan `pertemuan`
+             * otomatis dari detail meeting, sehingga klien tidak perlu mengetahui
+             * URL upload tugas mentah dari portal.
+             *
+             * @example 30095
+             */
+            'meeting_id' => ['sometimes', 'nullable', 'integer', 'min:1'],
+            /**
              * Ambil dari parameter `id` pada URL unggah tugas.
              *
              * Nilai ini biasanya merepresentasikan identifier diskusi atau materi.
              *
              * @example 30095
              */
-            'id' => ['required', 'integer', 'min:1'],
+            'id' => ['sometimes', 'nullable', 'integer', 'min:1'],
             /**
              * Nomor pertemuan pada URL unggah tugas SIPANDAI.
              *
              * @example 6
              */
-            'pertemuan' => ['required', 'integer', 'min:1'],
+            'pertemuan' => ['sometimes', 'nullable', 'integer', 'min:1'],
+            /**
+             * Berkas tugas mahasiswa yang akan dikirim sebagai field file SIPANDAI.
+             */
+            'attachment' => ['required', 'file', 'max:15360'], // 15 MB
             /**
              * Override field tambahan dari form asli SIPANDAI bila diperlukan.
              *
@@ -56,10 +70,6 @@ class SipandaiAssignmentUploadRequest extends ApiFormRequest
              * @example {"keterangan":"Test upload"}
              */
             'form_values' => ['sometimes', 'array'],
-            /**
-             * Berkas tugas mahasiswa yang akan dikirim sebagai field file SIPANDAI.
-             */
-            'attachment' => ['required', 'file', 'max:15360'], // 15 MB
         ];
     }
 
@@ -73,9 +83,8 @@ class SipandaiAssignmentUploadRequest extends ApiFormRequest
         return [
             'courses_id.required' => 'Parameter courses_id wajib diisi.',
             'courses_id.integer' => 'Parameter courses_id harus berupa angka.',
-            'id.required' => 'Parameter id wajib diisi.',
+            'meeting_id.integer' => 'Parameter meeting_id harus berupa angka.',
             'id.integer' => 'Parameter id harus berupa angka.',
-            'pertemuan.required' => 'Parameter pertemuan wajib diisi.',
             'pertemuan.integer' => 'Parameter pertemuan harus berupa angka.',
             'form_values.array' => 'Parameter form_values harus berupa object/array.',
             'attachment.required' => 'File tugas wajib diunggah.',
@@ -93,10 +102,11 @@ class SipandaiAssignmentUploadRequest extends ApiFormRequest
     {
         return [
             'courses_id' => 'course identifier',
+            'meeting_id' => 'meeting identifier',
             'id' => 'discussion identifier',
             'pertemuan' => 'meeting number',
-            'form_values' => 'form override values',
             'attachment' => 'assignment attachment',
+            'form_values' => 'form override values',
         ];
     }
 
@@ -110,9 +120,24 @@ class SipandaiAssignmentUploadRequest extends ApiFormRequest
         return (int) $this->validated('id');
     }
 
+    public function meetingId(): int
+    {
+        return (int) $this->validated('meeting_id');
+    }
+
     public function meetingNumber(): int
     {
         return (int) $this->validated('pertemuan');
+    }
+
+    public function hasDirectAssignmentPayload(): bool
+    {
+        return $this->filled('id') && $this->filled('pertemuan');
+    }
+
+    public function hasMeetingContext(): bool
+    {
+        return $this->filled('meeting_id');
     }
 
     /**
@@ -152,9 +177,27 @@ class SipandaiAssignmentUploadRequest extends ApiFormRequest
     {
         $this->merge([
             'courses_id' => $this->input('courses_id', $this->input('course_id')),
+            'meeting_id' => $this->input('meeting_id'),
             'id' => $this->input('id', $this->input('discussion_id')),
             'pertemuan' => $this->input('pertemuan', $this->input('meeting_number')),
             'form_values' => $this->input('form_values', []),
         ]);
+    }
+
+    public function withValidator($validator): void
+    {
+        $validator->after(function ($validator): void {
+            if ($this->hasDirectAssignmentPayload() || $this->hasMeetingContext()) {
+                return;
+            }
+
+            if (! $this->filled('id') && ! $this->filled('meeting_id')) {
+                $validator->errors()->add('id', 'Parameter id atau meeting_id wajib diisi.');
+            }
+
+            if (! $this->filled('meeting_id') && ! $this->filled('pertemuan')) {
+                $validator->errors()->add('pertemuan', 'Parameter pertemuan wajib diisi jika meeting_id tidak dikirim.');
+            }
+        });
     }
 }

@@ -25,6 +25,8 @@ abstract class PortalScrapingService
 
     protected ?string $sessionToken = null;
 
+    protected string $lastDataOrigin = 'upstream';
+
     public function __construct(PortalSessionManager $sessionManager)
     {
         $this->sessionManager = $sessionManager;
@@ -211,15 +213,34 @@ abstract class PortalScrapingService
         }
     }
 
+    protected function shouldForceFresh(array $context = []): bool
+    {
+        if (($context['fresh'] ?? false) === true) {
+            return true;
+        }
+
+        return app()->bound('request') && request()->boolean('fresh');
+    }
+
     /**
      * Get cached response if available
      */
     protected function getCachedResponse(string $url, string $method = 'GET', array $options = []): ?string
     {
-        $cacheKey = $this->generateCacheKey($url, $method, $options);
-        $ttl = $this->getCacheTtl($url);
+        if ($this->shouldForceFresh($options)) {
+            $this->lastDataOrigin = 'upstream';
 
-        return Cache::get($cacheKey);
+            return null;
+        }
+
+        $cacheKey = $this->generateCacheKey($url, $method, $options);
+        $cachedValue = Cache::get($cacheKey);
+
+        if ($cachedValue !== null) {
+            $this->lastDataOrigin = 'server_cache';
+        }
+
+        return $cachedValue;
     }
 
     /**
@@ -231,6 +252,18 @@ abstract class PortalScrapingService
         $ttl = $this->getCacheTtl($url);
 
         Cache::put($cacheKey, $html, $ttl);
+        $this->lastDataOrigin = 'upstream';
+    }
+
+    protected function withSyncMeta(array $payload, ?string $dataOrigin = null): array
+    {
+        $payload['_sync'] = [
+            'data_origin' => $dataOrigin ?? $this->lastDataOrigin,
+            'requested_fresh' => $this->shouldForceFresh(),
+            'synced_at' => now()->toISOString(),
+        ];
+
+        return $payload;
     }
 
     /**
@@ -242,7 +275,7 @@ abstract class PortalScrapingService
             'url' => $url,
             'method' => $method,
             'options' => $options,
-            'session_id' => $this->cookieJar ? spl_object_hash($this->cookieJar) : 'no-session',
+            'session_id' => $this->sessionToken ?? 'no-session',
         ];
 
         return 'campus_scrape_'.md5(json_encode($keyData));

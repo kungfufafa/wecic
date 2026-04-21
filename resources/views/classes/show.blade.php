@@ -4,28 +4,25 @@
 @section('page_id', 'class-show')
 
 @section('content')
-    <section class="page-shell">
-        <section id="class-hero" class="page-hero">
-            <div class="empty-shell">Menunggu ringkasan kelas.</div>
-        </section>
+    <div id="class-hero">
+        {!! '<div class="alert alert-secondary mb-4">Menunggu ringkasan kelas.</div>' !!}
+    </div>
 
-        <section id="class-info" class="section-shell">
-            <div class="empty-shell">Menunggu detail kelas.</div>
-        </section>
-
-        <section id="class-materials" class="section-shell">
-            <div class="empty-shell">Belum ada materi.</div>
-        </section>
-
-        <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(24rem,0.9fr)]">
-            <section id="class-attendance" class="section-shell">
-                <div class="empty-shell">Belum ada data presensi.</div>
-            </section>
-            <section id="class-assignments" class="section-shell">
-                <div class="empty-shell">Belum ada histori tugas.</div>
-            </section>
+    <div class="row row-cards">
+        <div class="col-lg-8" id="class-materials">
+            {!! '<div class="alert alert-secondary mb-0">Menunggu materi kelas.</div>' !!}
         </div>
-    </section>
+
+        <div class="col-lg-4 d-flex flex-column gap-3">
+            <div id="class-attendance">
+                {!! '<div class="alert alert-secondary mb-0">Belum ada data presensi.</div>' !!}
+            </div>
+
+            <div id="class-assignments">
+                {!! '<div class="alert alert-secondary mb-0">Belum ada histori tugas.</div>' !!}
+            </div>
+        </div>
+    </div>
 @endsection
 
 @push('scripts')
@@ -59,108 +56,67 @@
                 const assignments = detail.assignment_history || {};
                 const materials = detail.course_materials || [];
                 const hero = document.getElementById('class-hero');
+                const attendanceMeetings = attendance.meetings || [];
+                const attendanceSummary = attendance.summary || {};
 
                 hero.innerHTML = `
-                    <div class="page-hero-shell">
-                        <div class="page-hero-main">
-                            <p class="section-label">Detail kelas</p>
-                            <h1 data-display class="page-hero-title is-wide">${app.escapeHtml(courseInfo.name || 'Informasi kelas')}</h1>
-                            <p class="page-hero-copy">${app.escapeHtml(
-                                [
-                                    courseInfo.class_name,
-                                    courseInfo.credits ? `${courseInfo.credits} SKS` : null,
-                                    lecturerInfo.name,
-                                ].filter(Boolean).join(' · ') || 'Lihat struktur kelas, materi, presensi, dan riwayat tugas dalam satu halaman.'
-                            )}</p>
-                            <div class="page-meta-row">
-                                ${courseInfo.code ? `<span class="meta-pill is-accent">${app.escapeHtml(courseInfo.code)}</span>` : ''}
-                                ${courseInfo.class_name ? `<span class="meta-pill">${app.escapeHtml(courseInfo.class_name)}</span>` : ''}
-                                ${materials.length ? `<span class="meta-pill">${app.escapeHtml(`${materials.length} materi`)}</span>` : ''}
-                            </div>
-                        </div>
-                        <div class="page-hero-actions">
-                            <a href="/class" class="ghost-button">Kembali ke daftar</a>
-                        </div>
+                    <div class="mb-4">
+                        ${app.renderPageHeader({
+                            pretitle: 'Detail kelas',
+                            title: courseInfo.name || 'Informasi kelas',
+                            description: [
+                                courseInfo.class_name,
+                                courseInfo.credits ? `${courseInfo.credits} SKS` : null,
+                                lecturerInfo.name,
+                            ].filter(Boolean).join(' · ') || 'Lihat struktur kelas, materi, presensi, dan riwayat tugas dalam satu halaman.',
+                            actions: [
+                                '<a href="/class" class="btn btn-outline-secondary">Kembali ke daftar</a>',
+                            ],
+                        })}
                     </div>
+                    ${app.renderStatCards([
+                        { label: 'Dosen', value: lecturerInfo.name || '-', note: 'Pengampu utama kelas ini.' },
+                        { label: 'SKS', value: courseInfo.credits || '-', note: 'Bobot kredit mata kuliah.' },
+                        { label: 'Materi', value: materials.length || '0', note: 'Materi yang terdeteksi saat ini.' },
+                        { label: 'Presensi', value: attendanceSummary.total_meetings ?? attendanceMeetings.length ?? 0, note: 'Pertemuan yang tercatat di portal.' },
+                    ])}
                 `;
 
-                document.getElementById('class-info').innerHTML = `
-                    <div class="section-head">
-                        <div class="section-head-main">
-                            <h2 data-display class="section-title">Ringkasan kelas</h2>
-                            <p class="section-copy">Identitas mata kuliah dan pengajar utama dirangkum di sini sebelum masuk ke materi dan aktivitas kelas.</p>
-                            <div class="page-meta-row">
-                                ${courseInfo.code ? `<span class="meta-pill is-accent">${app.escapeHtml(courseInfo.code)}</span>` : ''}
-                                ${courseInfo.class_name ? `<span class="meta-pill">${app.escapeHtml(courseInfo.class_name)}</span>` : ''}
-                                ${courseInfo.credits ? `<span class="meta-pill">${app.escapeHtml(courseInfo.credits)} SKS</span>` : ''}
-                            </div>
-                        </div>
-                        <div class="page-action-row">
-                            <a href="/class" class="ghost-button">Kembali ke daftar</a>
-                        </div>
-                    </div>
-                    <div class="property-grid mt-6">
-                        <div class="property-panel">
-                            ${app.renderKeyValueList([
-                                { label: 'Kode', value: courseInfo.code },
-                                { label: 'Nama', value: courseInfo.name },
-                                { label: 'Kelas', value: courseInfo.class_name },
-                                { label: 'SKS', value: courseInfo.credits },
-                            ])}
-                        </div>
-                        <div class="property-panel">
-                            ${app.renderKeyValueList([
-                                { label: 'Dosen', value: lecturerInfo.name },
-                                { label: 'Kontak', value: lecturerInfo.contact_info || lecturerInfo.contact },
-                                { label: 'Email', value: lecturerInfo.email },
-                            ])}
-                        </div>
-                    </div>
-                `;
+                // class-info has been removed to reduce redundancy, as hero stat cards provide the necessary context.
 
                 if (materials.length) {
                     document.getElementById('class-materials').innerHTML = `
-                        <div class="section-head">
-                            <div class="section-head-main">
-                                <h2 data-display class="section-title">Materi</h2>
-                                <p class="section-copy">Setiap materi ditata sebagai jalur baca cepat menuju detail meeting dan dokumen pendukung.</p>
-                            </div>
-                            <p class="section-meta">${materials.length} item</p>
-                        </div>
-                        <div class="mt-6 stack-list">
+                        <div class="d-flex flex-column gap-3 mb-4">
                             ${materials.map((material, index) => {
                                 const meetingUrl = app.buildMeetingUrlFromHref(material.join_link?.href);
-                                const materialLabel = material.meeting_number ? `Materi ${material.meeting_number}` : `Materi ${index + 1}`;
+                                const materialLabel = material.meeting_number ? `Pertemuan ${material.meeting_number}` : `Pertemuan ${index + 1}`;
 
                                 return `
-                                    <article class="stack-item">
-                                        <div class="stack-item-shell">
-                                            <div class="stack-item-main">
-                                                <div class="space-y-3">
-                                                    <span class="stack-item-kicker">${app.escapeHtml(materialLabel)}</span>
-                                                    <div>
-                                                        <h3 class="stack-item-title">${app.escapeHtml(material.title || 'Tanpa judul')}</h3>
-                                                        <p class="stack-item-copy">${app.escapeHtml([material.date, material.time].filter(Boolean).join(' / ') || '-')}</p>
-                                                    </div>
-                                                    ${material.description ? `<p class="stack-item-copy">${app.escapeHtml(material.description)}</p>` : ''}
+                                    <div class="list-group-item px-4 py-3 rounded border" style="border-top-width: 1px;">
+                                        <div class="row align-items-center">
+                                            <div class="col">
+                                                <div class="d-flex align-items-center gap-2 mb-2">
+                                                    <span class="badge bg-primary-lt">${app.escapeHtml(materialLabel)}</span>
+                                                    <span class="text-secondary small">${app.escapeHtml([material.date, material.time].filter(Boolean).join(' • ') || 'Jadwal belum ditentukan')}</span>
                                                 </div>
+                                                <h4 class="h3 mb-1">${app.escapeHtml(material.title || 'Materi Perkuliahan')}</h4>
+                                                ${material.description ? `<div class="text-secondary small mt-2">${app.escapeHtml(material.description)}</div>` : ''}
                                             </div>
-                                            <div class="stack-item-aside">
-                                                <div class="surface-card-soft">
-                                                    <p class="section-label">Akses cepat</p>
-                                                    <div class="surface-card-actions">
-                                                        ${meetingUrl ? `<a href="${meetingUrl}" class="primary-button w-full justify-center">Detail meeting</a>` : '<span class="secondary-button w-full justify-center opacity-50">Meeting belum tersedia</span>'}
-                                                    </div>
-                                                </div>
+                                            <div class="col-12 col-md-auto mt-3 mt-md-0">
+                                                ${meetingUrl ? `<a href="${meetingUrl}" class="btn btn-primary-lt w-100">Buka Pertemuan</a>` : `<button class="btn btn-outline-secondary w-100 disabled" title="Belum tersedia">Belum tersedia</button>`}
                                             </div>
                                         </div>
-                                    </article>
+                                    </div>
                                 `;
                             }).join('')}
                         </div>
                     `;
                 } else {
-                    document.getElementById('class-materials').innerHTML = '<div class="empty-shell">Belum ada materi perkuliahan.</div>';
+                    document.getElementById('class-materials').innerHTML = `
+                        <div class="list-group-item py-4 rounded border" style="border-top-width: 1px;">
+                            ${app.renderEmptyState('Belum ada materi perkuliahan.', 'secondary')}
+                        </div>
+                    `;
                 }
 
                 if (attendance.summary || (attendance.meetings || []).length) {
@@ -171,115 +127,105 @@
                     const absentMeetings = Number(summary.absent ?? 0);
 
                     document.getElementById('class-attendance').innerHTML = `
-                        <div class="section-head">
-                            <div class="section-head-main">
-                                <h2 data-display class="section-title">Presensi</h2>
-                                <p class="section-copy">Pantau total kehadiran, pertemuan yang terlewat, dan riwayat absensi yang tercatat.</p>
+                        <div class="card">
+                            <div class="card-header">
+                                <h3 class="card-title">Presensi</h3>
                             </div>
-                        </div>
-                        <div class="dense-metric-grid mt-6">
-                            ${[
-                                ['Total', totalMeetings, 'Jumlah pertemuan yang tercatat'],
-                                ['Hadir', presentMeetings, 'Pertemuan yang sudah dihadiri'],
-                                ['Absen', absentMeetings, 'Pertemuan tanpa kehadiran'],
-                            ].map(([label, value, note]) => `
-                                <article class="dense-metric">
-                                    <span class="dense-metric-label">${app.escapeHtml(label)}</span>
-                                    <strong class="dense-metric-value">${app.escapeHtml(value ?? '0')}</strong>
-                                    <p class="dense-metric-copy">${app.escapeHtml(note)}</p>
-                                </article>
-                            `).join('')}
-                        </div>
-                        ${meetings.length ? `
-                            <details class="surface-card mt-6">
-                                <summary class="cursor-pointer text-sm font-semibold text-[color:var(--ink)]">Riwayat per pertemuan</summary>
-                                <div class="table-shell mt-4 overflow-x-auto">
-                                    <table class="compact-table min-w-[28rem]">
+                            <div class="card-body pb-0">
+                                <div class="mb-3">
+                                    ${app.renderInlineStats([
+                                        { label: 'Total', value: totalMeetings },
+                                        { label: 'Hadir', value: presentMeetings },
+                                        { label: 'Absen', value: absentMeetings },
+                                    ])}
+                                </div>
+                            </div>
+                            ${meetings.length ? `
+                                <div class="table-responsive">
+                                    <table class="table table-vcenter card-table table-sm">
                                         <thead>
                                             <tr>
                                                 <th>Pertemuan</th>
                                                 <th>Status</th>
-                                                <th>Tanggal / Jam</th>
+                                                <th>Tanggal</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             ${meetings.map((meeting) => {
                                                 const normalizedStatus = String(meeting.status || '').toLowerCase();
                                                 const isAbsent = normalizedStatus === 'absent';
-                                                const label = isAbsent ? 'Absen' : 'Hadir';
-                                                const pillClass = isAbsent ? 'meta-pill is-danger' : 'meta-pill is-success';
                                                 const details = meeting.details || {};
                                                 const scheduleMeta = [details.attendance_date, details.attendance_time].filter(Boolean).join(' / ');
 
                                                 return `
                                                     <tr>
-                                                        <td class="font-semibold text-[color:var(--ink)]">Pertemuan ${app.escapeHtml(meeting.meeting_number)}</td>
-                                                        <td><span class="${pillClass}">${label}</span></td>
-                                                        <td>${app.escapeHtml(scheduleMeta || '-')}</td>
+                                                        <td>P${app.escapeHtml(meeting.meeting_number)}</td>
+                                                        <td>${app.renderBadge(isAbsent ? 'Absen' : 'Hadir', isAbsent ? 'danger' : 'success')}</td>
+                                                        <td class="text-secondary small">${app.escapeHtml(scheduleMeta || '-')}</td>
                                                     </tr>
                                                 `;
                                             }).join('')}
                                         </tbody>
                                     </table>
                                 </div>
-                            </details>
-                        ` : ''}
+                            ` : ''}
+                        </div>
                     `;
                 } else {
-                    document.getElementById('class-attendance').innerHTML = '<div class="empty-shell">Belum ada data presensi.</div>';
+                    document.getElementById('class-attendance').innerHTML = `
+                        <div class="card">
+                            <div class="card-body">
+                                ${app.renderEmptyState('Belum ada data presensi.', 'secondary')}
+                            </div>
+                        </div>
+                    `;
                 }
 
                 if ((assignments.assignments || []).length) {
                     document.getElementById('class-assignments').innerHTML = `
-                        <div class="section-head">
-                            <div class="section-head-main">
-                                <h2 data-display class="section-title">Tugas</h2>
-                                <p class="section-copy">Riwayat file yang pernah dikumpulkan dan nilai yang sudah kembali dari portal.</p>
+                        <div class="card mb-3">
+                            <div class="card-header">
+                                <h3 class="card-title">Riwayat Tugas</h3>
                             </div>
-                        </div>
-                        <div class="mt-6 stack-list">
-                            ${(assignments.assignments || []).map((assignment) => {
-                                const fileInfo = assignment.file_info || {};
-                                const submissionUrl = app.absoluteCampusUrl(fileInfo.href);
+                            <div class="list-group list-group-flush">
+                                ${(assignments.assignments || []).map((assignment) => {
+                                    const fileInfo = assignment.file_info || {};
+                                    const submissionUrl = app.absoluteCampusUrl(fileInfo.href);
+                                    const isGraded = assignment.score && assignment.score.toLowerCase() !== 'belum ada nilai';
 
-                                return `
-                                    <article class="stack-item">
-                                        <div class="stack-item-shell">
-                                            <div class="stack-item-main">
-                                                <div class="space-y-3">
-                                                    <span class="stack-item-kicker">${app.escapeHtml(assignment.meeting || `Pertemuan ${assignment.no}`)}</span>
-                                                    <div>
-                                                        <h3 class="stack-item-title">${app.escapeHtml(assignment.score || 'Belum ada nilai')}</h3>
-                                                        <p class="stack-item-copy">${app.escapeHtml(assignment.date || '-')}</p>
+                                    return `
+                                        <div class="list-group-item">
+                                            <div class="row align-items-center">
+                                                <div class="col">
+                                                    <div class="text-secondary small mb-1">${app.escapeHtml(assignment.date || 'Tanggal tidak tersedia')}</div>
+                                                    <div class="fw-semibold text-body mb-2">Tugas ${app.escapeHtml(assignment.meeting || `Pertemuan ${assignment.no}`)}</div>
+                                                    <div class="d-flex flex-wrap gap-2 align-items-center">
+                                                        ${isGraded 
+                                                            ? app.renderBadge(`Nilai: ${assignment.score}`, 'success') 
+                                                            : app.renderBadge('Belum dinilai', 'warning')}
+                                                        ${fileInfo.text ? app.renderBadge(fileInfo.text, 'secondary') : ''}
                                                     </div>
                                                 </div>
-                                                <div>
-                                                    ${app.renderKeyValueList([
-                                                        { label: 'File', value: fileInfo.text },
-                                                        { label: 'Nilai', value: assignment.score },
-                                                    ])}
-                                                </div>
-                                            </div>
-                                            <div class="stack-item-aside">
-                                                <div class="surface-card-soft">
-                                                    <p class="section-label">Aksi file</p>
-                                                    <div class="surface-card-actions">
-                                                        ${submissionUrl ? `
-                                                            <a href="${app.escapeHtml(submissionUrl)}" target="_blank" rel="noopener noreferrer" class="secondary-button w-full justify-center">
-                                                                Lihat hasil upload
-                                                            </a>
-                                                        ` : '<span class="secondary-button w-full justify-center opacity-50">Belum ada file</span>'}
-                                                    </div>
+                                                <div class="col-auto mt-3 mt-md-0">
+                                                    ${submissionUrl
+                                                        ? `<a href="${app.escapeHtml(submissionUrl)}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary">Lihat File</a>`
+                                                        : '<span class="text-secondary small">Tidak ada file</span>'}
                                                 </div>
                                             </div>
                                         </div>
-                                    </article>
-                                `;
-                            }).join('')}
+                                    `;
+                                }).join('')}
+                            </div>
                         </div>
                     `;
                 } else {
-                    document.getElementById('class-assignments').innerHTML = '<div class="empty-shell">Belum ada histori tugas.</div>';
+                    document.getElementById('class-assignments').innerHTML = `
+                        <div class="card">
+                            <div class="card-body">
+                                ${app.renderEmptyState('Belum ada histori tugas.', 'secondary')}
+                            </div>
+                        </div>
+                    `;
                 }
             };
 
@@ -291,11 +237,11 @@
                 return;
             }
 
-            const loadClassDetail = async () => {
+            const loadClassDetail = async ({ force = false } = {}) => {
                 try {
-                    const payload = await app.request(endpoint());
+                    const payload = await app.request(endpoint(), { fresh: force });
                     render(payload);
-                    app.markViewSynced('Detail kelas');
+                    app.markViewSynced('Detail kelas', payload, { force });
                 } catch (error) {
                     app.showNotice(error.payload?.message || error.message, 'error');
                 }
