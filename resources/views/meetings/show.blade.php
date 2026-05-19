@@ -300,6 +300,10 @@
                         });
 
                         app.showNotice(result?.message || 'Absensi berhasil dikirim.', 'success');
+                        app.clearCachedResponse('/api/dashboard');
+                        app.clearCachedResponse('/api/attendance/today');
+                        app.clearCachedResponse(endpoint);
+                        await loadMeeting({ force: true });
                     } catch (error) {
                         app.showNotice(error.payload?.message || error.message, 'error');
                     } finally {

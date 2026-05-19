@@ -8,13 +8,15 @@
         {!! '<div class="alert alert-secondary mb-4">Menunggu ringkasan ujian.</div>' !!}
     </div>
 
-    <div class="row row-cards">
-        <div class="col-lg-7" id="exam-info">
-            {!! '<div class="alert alert-secondary mb-0">Menunggu detail ujian.</div>' !!}
+    <div class="row row-cards align-items-start">
+        <div class="col-lg-8" id="exam-content">
+            {!! '<div class="alert alert-secondary mb-0">Menunggu konten ujian.</div>' !!}
         </div>
 
-        <div class="col-lg-5" id="exam-upload-shell">
-            {!! '<div class="alert alert-secondary mb-0">Form unggah akan muncul jika tersedia.</div>' !!}
+        <div class="col-lg-4">
+            <div class="d-flex flex-column gap-3" id="exam-actions">
+                {!! '<div class="alert alert-secondary mb-0">Form unggah akan muncul jika tersedia.</div>' !!}
+            </div>
         </div>
     </div>
 @endsection
@@ -26,7 +28,8 @@
             const examId = @json($id);
 
             const buildOverrideInputs = (fields) => {
-                const entries = Object.entries(fields || {});
+                const entries = Object.entries(fields || {})
+                    .filter(([name]) => !['id', 'cmd'].includes(String(name).toLowerCase()));
 
                 if (!entries.length) {
                     return app.renderEmptyState('Tidak ada field tambahan dari form asli.', 'secondary');
@@ -40,118 +43,237 @@
                 `).join('');
             };
 
+            const fileNameFromUrl = (value) => {
+                const rawValue = String(value || '').trim();
+
+                if (!rawValue) {
+                    return 'Lampiran ujian';
+                }
+
+                try {
+                    const parsed = new URL(rawValue, app.campusBase);
+                    const filename = parsed.pathname.split('/').filter(Boolean).pop();
+
+                    return filename ? decodeURIComponent(filename) : 'Lampiran ujian';
+                } catch (error) {
+                    const filename = rawValue.split(/[/?#]/).filter(Boolean).pop();
+
+                    return filename || 'Lampiran ujian';
+                }
+            };
+
+            const isDownloadableLink = (link) => {
+                const haystack = `${link?.url || ''} ${link?.text || ''}`.toLowerCase();
+
+                return Boolean(link?.downloadable)
+                    || link?.type === 'file'
+                    || /\/portal\/files\//i.test(haystack)
+                    || /\.(pdf|zip|rar|docx?|xlsx?|pptx?)($|[?#])/i.test(haystack);
+            };
+
+            const linkLabel = (link, fallback = 'Lampiran ujian') => {
+                const text = String(link?.text || '').trim();
+
+                if (text && !/^(https?:)?\/?\//i.test(text) && !text.includes('/')) {
+                    return text;
+                }
+
+                return fileNameFromUrl(link?.url || text || fallback);
+            };
+
+            const renderFileLinks = (links) => {
+                if (!links.length) {
+                    return `
+                        <div class="list-group-item py-4 rounded border" style="border-top-width: 1px;">
+                            ${app.renderEmptyState('Belum ada soal atau lampiran ujian.', 'secondary')}
+                        </div>
+                    `;
+                }
+
+                return `
+                    <div class="d-flex flex-column gap-3 mb-4">
+                        ${links.map((link, index) => {
+                            const absoluteUrl = app.absoluteCampusUrl(link.url);
+                            const filename = fileNameFromUrl(link.url);
+                            const title = linkLabel(link, filename);
+                            const downloadUrl = app.buildCampusDownloadUrl(link.url, filename);
+                            const badge = /soal/i.test(`${link.url || ''} ${link.text || ''}`) ? 'Soal ujian' : `Lampiran ${index + 1}`;
+
+                            return `
+                                <div class="list-group-item px-4 py-3 rounded border" style="border-top-width: 1px;">
+                                    <div class="row align-items-center">
+                                        <div class="col">
+                                            <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                                                <span class="badge bg-primary-lt">${app.escapeHtml(badge)}</span>
+                                                <span class="text-secondary small">${app.escapeHtml(filename)}</span>
+                                            </div>
+                                            <h3 class="h3 mb-1">${app.escapeHtml(title)}</h3>
+                                            <div class="text-secondary small text-break">${app.escapeHtml(link.url || '')}</div>
+                                        </div>
+                                        <div class="col-12 col-md-auto mt-3 mt-md-0">
+                                            <div class="d-flex flex-wrap gap-2 justify-content-md-end">
+                                                ${absoluteUrl ? `<a href="${app.escapeHtml(absoluteUrl)}" target="_blank" rel="noreferrer" class="btn btn-primary">Buka</a>` : ''}
+                                                ${downloadUrl ? `<a href="${app.escapeHtml(downloadUrl)}" class="btn btn-outline-primary">Download</a>` : ''}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                `;
+            };
+
+            const renderNoticeList = (alerts, requirements) => {
+                const items = [
+                    ...(alerts || []).map((text) => ({ label: 'Alert', text, tone: 'warning' })),
+                    ...(requirements || []).map((text) => ({ label: 'Persyaratan', text, tone: 'secondary' })),
+                ];
+
+                if (!items.length) {
+                    return '';
+                }
+
+                return `
+                    <div class="card mb-3">
+                        <div class="card-header">
+                            <h3 class="card-title">Catatan portal</h3>
+                        </div>
+                        <div class="list-group list-group-flush">
+                            ${items.map((item) => `
+                                <div class="list-group-item">
+                                    <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+                                        ${app.renderBadge(item.label, item.tone)}
+                                    </div>
+                                    <div class="text-body">${app.escapeHtml(item.text)}</div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            };
+
+            const renderPortalLinks = (links) => {
+                if (!links.length) {
+                    return '';
+                }
+
+                return `
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Link portal</h3>
+                        </div>
+                        <div class="list-group list-group-flush">
+                            ${links.map((link) => {
+                                const absoluteUrl = app.absoluteCampusUrl(link.url);
+
+                                return `
+                                    <a href="${app.escapeHtml(absoluteUrl || link.url)}" target="_blank" rel="noreferrer" class="list-group-item list-group-item-action">
+                                        <div class="fw-semibold">${app.escapeHtml(linkLabel(link, 'Buka portal'))}</div>
+                                        <div class="text-secondary small text-break">${app.escapeHtml(link.url || '')}</div>
+                                    </a>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                `;
+            };
+
+            const renderUploadPanel = (detail, form, isUploadReady) => {
+                const usesDirectSubmit = Boolean(form.available_via_direct_submit);
+
+                return `
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Upload jawaban</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert ${isUploadReady ? (usesDirectSubmit ? 'alert-warning' : 'alert-success') : 'alert-secondary'} mb-3">
+                            <div class="fw-semibold">${isUploadReady ? (usesDirectSubmit ? 'Upload langsung siap.' : 'Form upload siap.') : 'Upload belum tersedia.'}</div>
+                            <div class="small ${isUploadReady ? (usesDirectSubmit ? 'text-warning' : 'text-success') : 'text-secondary'}">Status: ${app.escapeHtml(detail.status || '-')}</div>
+                        </div>
+                        ${isUploadReady ? `
+                            <form id="exam-upload-form">
+                                <div class="mb-3">
+                                    <label for="exam-file" class="form-label">Lampiran jawaban</label>
+                                    <input id="exam-file" type="file" class="form-control" required>
+                                </div>
+                                ${buildOverrideInputs(form.fields)}
+                                <button type="submit" class="btn btn-primary w-100" data-online-required>Kirim berkas</button>
+                            </form>
+                        ` : app.renderDisabledButton('Upload belum tersedia')}
+                    </div>
+                </div>
+                `;
+            };
+
+            const renderMetaPanel = (detail, form) => `
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Metadata</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-flex flex-column gap-3">
+                            ${[
+                                { label: 'Exam ID', value: detail.exam_id },
+                                { label: 'Field file', value: form.file_field },
+                                { label: 'Request URL', value: detail.request_url },
+                                { label: 'Action URL', value: form.action_url },
+                            ].filter((item) => item.value).map((item) => `
+                                <div>
+                                    <div class="text-secondary text-uppercase small mb-1">${app.escapeHtml(item.label)}</div>
+                                    <div class="fw-semibold text-break">${app.escapeHtml(item.value)}</div>
+                                </div>
+                            `).join('') || app.renderEmptyState('Metadata belum tersedia.', 'secondary')}
+                        </div>
+                    </div>
+                </div>
+            `;
+
             const render = (payload) => {
                 const detail = payload.data?.exam_detail || {};
                 const form = detail.form || {};
                 const isUploadReady = Boolean(form.available);
+                const relatedLinks = detail.related_links || [];
+                const fileLinks = relatedLinks.filter(isDownloadableLink);
+                const portalLinks = relatedLinks.filter((link) => !isDownloadableLink(link) && link?.type !== 'action');
+                const primaryFile = fileLinks[0] || null;
                 const hero = document.getElementById('exam-hero');
 
                 hero.innerHTML = `
+                    <div class="mb-4">
                     ${app.renderPageHeader({
                         pretitle: 'Detail ujian',
                         title: detail.title || 'Detail ujian',
-                        description: detail.description || 'Periksa status ujian, kebutuhan unggah, dan tautan terkait sebelum mengirim berkas.',
+                        description: detail.description || 'Soal, lampiran, dan upload jawaban ujian dalam satu halaman.',
                         badges: [
                             detail.status ? app.renderBadge(detail.status, 'primary') : '',
                             detail.exam_id ? app.renderBadge(detail.exam_id, 'secondary') : '',
-                            app.renderBadge(isUploadReady ? 'Form upload siap' : 'Menunggu form upload', isUploadReady ? 'success' : 'warning'),
+                            fileLinks.length ? app.renderBadge(`${fileLinks.length} berkas`, 'info') : '',
                         ],
                         actions: [
                             '<a href="/exam" class="btn btn-outline-secondary">Kembali ke daftar</a>',
-                            isUploadReady ? '<a href="#exam-upload-shell" class="btn btn-primary">Buka upload</a>' : '',
+                            primaryFile ? `<a href="${app.escapeHtml(app.buildCampusDownloadUrl(primaryFile.url, fileNameFromUrl(primaryFile.url)))}" class="btn btn-primary">Download soal</a>` : '',
                         ],
                     })}
+                    </div>
                     ${app.renderStatCards([
                         { label: 'Status', value: detail.status || '-', note: 'Status ujian yang dibaca dari portal.' },
-                        { label: 'Exam ID', value: detail.exam_id || '-', note: 'Identifier ujian dari sistem.' },
-                        { label: 'Form upload', value: isUploadReady ? 'Siap' : 'Belum siap', note: 'Ketersediaan form pengumpulan.' },
+                        { label: 'Berkas', value: fileLinks.length || '0', note: 'Soal atau lampiran yang terdeteksi.' },
+                        { label: 'Upload', value: isUploadReady ? 'Siap' : 'Belum siap', note: 'Ketersediaan form pengumpulan.' },
                         { label: 'Field file', value: form.file_field || '-', note: 'Nama field berkas pada form asli.' },
                     ])}
                 `;
 
-                document.getElementById('exam-info').innerHTML = `
-                    <div class="card h-100">
-                        <div class="card-header">
-                            <h3 class="card-title">Informasi ujian</h3>
-                        </div>
-                        <div class="card-body">
-                            ${app.renderKeyValueList([
-                                { label: 'Judul', value: detail.title },
-                                { label: 'Exam ID', value: detail.exam_id },
-                                { label: 'Status', value: detail.status },
-                                { label: 'Request URL', value: detail.request_url },
-                                { label: 'Action URL', value: form.action_url },
-                                { label: 'Field file', value: form.file_field },
-                                { label: 'Deskripsi', value: detail.description },
-                            ])}
-
-                            ${((detail.alerts || []).length || (detail.requirements || []).length) ? `
-                                <div class="row row-cards mt-4">
-                                    ${(detail.alerts || []).length ? `
-                                        <div class="col-12">
-                                            <div class="card card-sm">
-                                                <div class="card-header">
-                                                    <h3 class="card-title">Alert</h3>
-                                                </div>
-                                                <div class="list-group list-group-flush">
-                                                    ${(detail.alerts || []).map((alert) => `
-                                                        <div class="list-group-item">${app.escapeHtml(alert)}</div>
-                                                    `).join('')}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ` : ''}
-                                    ${(detail.requirements || []).length ? `
-                                        <div class="col-12">
-                                            <div class="card card-sm">
-                                                <div class="card-header">
-                                                    <h3 class="card-title">Persyaratan</h3>
-                                                </div>
-                                                <div class="list-group list-group-flush">
-                                                    ${(detail.requirements || []).map((requirement) => `
-                                                        <div class="list-group-item">${app.escapeHtml(requirement)}</div>
-                                                    `).join('')}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ` : ''}
-                                </div>
-                            ` : ''}
-                        </div>
-                    </div>
+                document.getElementById('exam-content').innerHTML = `
+                    ${renderFileLinks(fileLinks)}
+                    ${renderNoticeList(detail.alerts || [], detail.requirements || [])}
                 `;
 
-                document.getElementById('exam-upload-shell').innerHTML = `
-                    <div class="card h-100">
-                        <div class="card-header">
-                            <h3 class="card-title">Upload berkas</h3>
-                        </div>
-                        <div class="card-body">
-                            <div class="alert ${isUploadReady ? 'alert-success' : 'alert-secondary'}">
-                                ${isUploadReady ? 'Form unggah tersedia.' : 'Form unggah belum tersedia.'}
-                            </div>
-                            ${isUploadReady ? `
-                                <form id="exam-upload-form">
-                                    <div class="mb-3">
-                                        <label for="exam-file" class="form-label">Lampiran</label>
-                                        <input id="exam-file" type="file" class="form-control" required>
-                                    </div>
-                                    ${buildOverrideInputs(form.fields)}
-                                    <button type="submit" class="btn btn-primary" data-online-required>Kirim berkas</button>
-                                </form>
-                            ` : ''}
-
-                            ${(detail.related_links || []).length ? `
-                                <div class="list-group list-group-flush mt-4">
-                                    ${(detail.related_links || []).map((link) => `
-                                        <a href="${app.absoluteCampusUrl(link.url)}" target="_blank" rel="noreferrer" class="list-group-item list-group-item-action">
-                                            ${app.escapeHtml(link.text || link.url)}
-                                        </a>
-                                    `).join('')}
-                                </div>
-                            ` : ''}
-                        </div>
-                    </div>
+                document.getElementById('exam-actions').innerHTML = `
+                    ${renderUploadPanel(detail, form, isUploadReady)}
+                    ${renderPortalLinks(portalLinks)}
+                    ${renderMetaPanel(detail, form)}
                 `;
                 app.refreshOnlineRequiredState();
 

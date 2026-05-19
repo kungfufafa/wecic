@@ -222,7 +222,16 @@
                             });
 
                             app.showNotice(result?.message || 'Absensi berhasil dikirim.', 'success');
-                            await loadDashboard();
+                            app.clearCachedResponse('/api/dashboard');
+                            app.clearCachedResponse('/api/attendance/today');
+
+                            if (klass?.attendance?.meeting_url) {
+                                app.clearCachedResponse(
+                                    klass.attendance.meeting_url.replace('/meeting/', '/api/meeting/')
+                                );
+                            }
+
+                            await loadDashboard({ force: true });
                         } catch (error) {
                             app.showNotice(error.payload?.message || error.message, 'error');
                         } finally {

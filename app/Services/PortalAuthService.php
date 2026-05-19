@@ -25,7 +25,7 @@ class PortalAuthService
 
     public function __construct()
     {
-        $this->client = new Client([
+        $this->client = new Client(array_replace_recursive([
             RequestOptions::TIMEOUT => config('portal.request_timeout', 30),
             RequestOptions::CONNECT_TIMEOUT => 10,
             RequestOptions::HEADERS => [
@@ -47,7 +47,7 @@ class PortalAuthService
                 'referer' => true,
                 'track_redirects' => true,
             ],
-        ]);
+        ], PortalHttpClientOptions::secureDns()));
     }
 
     /**

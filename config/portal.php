@@ -106,6 +106,7 @@ return [
         'max_retries' => 3,
         'retry_delay' => 1000, // milliseconds
         'user_agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        'secure_dns_url' => env('CAMPUS_SECURE_DNS_URL', 'https://chrome.cloudflare-dns.com/dns-query'),
     ],
 
     /*

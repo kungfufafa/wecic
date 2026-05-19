@@ -13,6 +13,8 @@ use Symfony\Component\DomCrawler\Crawler;
 
 class SipandaiSubmissionService extends PortalScrapingService
 {
+    private const DEFAULT_EXAM_FILE_FIELD = 'file';
+
     /**
      * Upload assignment file to SIPANDAI portal.
      */
@@ -66,7 +68,7 @@ class SipandaiSubmissionService extends PortalScrapingService
         ]);
 
         $result['data']['redirect_history'] = $response->getHeader(\GuzzleHttp\RedirectMiddleware::HISTORY_HEADER);
-        $result['data']['sent_fields'] = array_keys($payload);
+        $result['data']['sent_fields'] = array_column($multipart, 'name');
         $result['data']['file_field'] = $formMeta['file_field'];
 
         return $result;
@@ -301,36 +303,19 @@ class SipandaiSubmissionService extends PortalScrapingService
         ]);
 
         $formHtml = $this->get($formUrl);
-        $formMeta = $this->extractExamFormMeta($formHtml);
-
-        if (! ($formMeta['has_upload_form'] ?? false) || $formMeta['file_field'] === null) {
-            return $this->buildExamUnavailableResultPayload($formHtml, $formUrl, $examId);
-        }
-
-        $multipart = [];
-        foreach ($formMeta['fields'] as $name => $value) {
-            $multipart[] = ['name' => $name, 'contents' => $value];
-        }
-
-        foreach ($overrides as $name => $value) {
-            $multipart[] = ['name' => $name, 'contents' => (string) $value];
-        }
-
-        $multipart[] = [
-            'name' => $formMeta['file_field'] ?? 'file',
-            'contents' => fopen($attachment->getRealPath(), 'r'),
-            'filename' => $attachment->getClientOriginalName(),
-            'headers' => ['Content-Type' => $attachment->getMimeType() ?? 'application/octet-stream'],
-        ];
-
-        $multipart[] = ['name' => 'cmd', 'contents' => 'Upload'];
+        $formMeta = $this->prepareExamUploadFormMeta($this->extractExamFormMeta($formHtml), $examId);
+        $payload = $this->mergeOverrides($formMeta['fields'], array_merge([
+            'cmd' => 'Upload',
+        ], $overrides));
+        $multipart = $this->buildMultipartPayload($payload, $formMeta['file_field'], $attachment);
 
         $actionUrl = $this->resolveExamSubmitUrl((string) $formMeta['action'], $formUrl);
 
         $this->logScraping('Exam upload form resolved', [
             'action_url' => $actionUrl,
             'file_field' => $formMeta['file_field'],
-            'fields' => array_keys($formMeta['fields']),
+            'fields' => array_keys($payload),
+            'direct_submit_fallback' => $formMeta['direct_submit_fallback'] ?? false,
         ]);
 
         $response = $this->dispatchRequest('POST', $actionUrl, [
@@ -353,8 +338,10 @@ class SipandaiSubmissionService extends PortalScrapingService
         ]);
 
         $result['data']['redirect_history'] = $response->getHeader(\GuzzleHttp\RedirectMiddleware::HISTORY_HEADER);
-        $result['data']['sent_fields'] = array_column($multipart, 'name');
+        $result['data']['sent_fields'] = array_keys($payload);
+        $result['data']['file_field'] = $formMeta['file_field'];
         $result['data']['action_url'] = $actionUrl;
+        $result['data']['direct_submit_fallback'] = $formMeta['direct_submit_fallback'] ?? false;
 
         return $result;
     }
@@ -411,6 +398,30 @@ class SipandaiSubmissionService extends PortalScrapingService
         return $formMeta;
     }
 
+    private function prepareExamUploadFormMeta(array $formMeta, int $examId): array
+    {
+        if (($formMeta['file_field'] ?? null) !== null) {
+            $formMeta['fields'] = $this->mergeOverrides($formMeta['fields'] ?? [], [
+                'id' => (string) $examId,
+            ]);
+            $formMeta['direct_submit_fallback'] = false;
+
+            return $formMeta;
+        }
+
+        return [
+            'action' => PortalEndpointRegistry::url('exam_submit'),
+            'method' => 'post',
+            'enctype' => 'multipart/form-data',
+            'file_field' => self::DEFAULT_EXAM_FILE_FIELD,
+            'fields' => [
+                'id' => (string) $examId,
+            ],
+            'has_upload_form' => false,
+            'direct_submit_fallback' => true,
+        ];
+    }
+
     /**
      * Get list of exams for the authenticated student.
      */
@@ -435,51 +446,440 @@ class SipandaiSubmissionService extends PortalScrapingService
     private function extractExamList(Crawler $crawler): array
     {
         $exams = [];
+        $seen = [];
 
-        $crawler->filter('table tr')->each(function (Crawler $row) use (&$exams): void {
-            $cells = $row->filter('td');
-            if ($cells->count() < 4) {
-                return;
-            }
+        $crawler->filter('table')->each(function (Crawler $table) use (&$exams, &$seen): void {
+            $headers = $this->extractExamTableHeaders($table);
 
-            $cellTexts = [];
-            $cells->each(function (Crawler $cell) use (&$cellTexts): void {
-                $cellTexts[] = trim($cell->text());
-            });
+            $table->filter('tr')->each(function (Crawler $row) use (&$exams, &$seen, $headers): void {
+                $exam = $this->extractExamRow($row, $headers);
 
-            $link = $row->filter('a[href*="sendujian"], a[href*="ujian"]');
-            if ($link->count() > 0) {
-                $href = $link->first()->attr('href') ?? '';
-                if (preg_match('/id=(\d+)/', $href, $matches)) {
-                    $exams[] = [
-                        'id' => (int) $matches[1],
-                        'course_code' => $cellTexts[0] ?? '',
-                        'course_name' => $cellTexts[1] ?? '',
-                        'schedule' => $cellTexts[2] ?? '',
-                        'status' => $cellTexts[3] ?? '',
-                        'upload_url' => $href,
-                    ];
+                if ($exam === null) {
+                    return;
                 }
-            }
+
+                $key = $exam['id'] !== null
+                    ? 'id:'.$exam['id']
+                    : implode('|', [
+                        $exam['course_code'],
+                        $exam['course_name'],
+                        $exam['schedule'],
+                        $exam['status'],
+                    ]);
+
+                if (isset($seen[$key])) {
+                    return;
+                }
+
+                $seen[$key] = true;
+                $exams[] = $exam;
+            });
         });
 
         return $exams;
     }
 
+    /**
+     * @return array<int, string>
+     */
+    private function extractExamTableHeaders(Crawler $table): array
+    {
+        $headers = [];
+        $headerRows = $table->filter('thead tr');
+
+        if ($headerRows->count() === 0) {
+            $headerRows = $table->filter('tr')->reduce(function (Crawler $row): bool {
+                return $this->looksLikeExamHeaderRow($this->extractCellTexts($row, 'th, td'));
+            });
+        }
+
+        if ($headerRows->count() === 0) {
+            return [];
+        }
+
+        $headerRows->first()->filter('th, td')->each(function (Crawler $cell) use (&$headers): void {
+            $headers[] = $this->cleanText($cell->text());
+        });
+
+        return $headers;
+    }
+
+    /**
+     * @param  array<int, string>  $headers
+     * @return array{id: int|null, course_code: string, course_name: string, schedule: string, status: string, upload_url: string|null}|null
+     */
+    private function extractExamRow(Crawler $row, array $headers): ?array
+    {
+        $cellTexts = $this->extractCellTexts($row, 'td');
+
+        if (count($cellTexts) < 2 || $this->looksLikeExamHeaderRow($cellTexts)) {
+            return null;
+        }
+
+        $nonEmptyCells = array_values(array_filter($cellTexts, static fn (string $text): bool => $text !== ''));
+
+        if (count($nonEmptyCells) < 2 || $this->looksLikeStudentInfoRow($nonEmptyCells) || $this->looksLikeEmptyExamRow($nonEmptyCells)) {
+            return null;
+        }
+
+        $fallbackCells = $this->stripLeadingNumberCell($cellTexts);
+        $id = $this->extractExamIdFromRow($row);
+        $uploadUrl = $this->extractExamUploadUrlFromRow($row);
+        $courseCode = $this->extractExamCellByHeader($cellTexts, $headers, ['kode', 'code', 'kd']);
+        $courseName = $this->extractExamCellByHeader($cellTexts, $headers, ['mata kuliah', 'matakuliah', 'matkul', 'course', 'nama']);
+        $schedule = $this->extractExamCellByHeader($cellTexts, $headers, ['jadwal', 'tanggal', 'waktu', 'hari', 'jam']);
+        $status = $this->extractExamCellByHeader($cellTexts, $headers, ['status', 'keterangan', 'upload', 'aksi']);
+
+        $exam = [
+            'id' => $id,
+            'course_code' => $courseCode ?? ($fallbackCells[0] ?? ''),
+            'course_name' => $courseName ?? ($fallbackCells[1] ?? ''),
+            'schedule' => $schedule ?? ($fallbackCells[2] ?? ''),
+            'status' => $status ?? ($fallbackCells[3] ?? ''),
+            'upload_url' => $uploadUrl,
+        ];
+
+        $exam = $this->normalizeExamRow($exam, $fallbackCells);
+
+        if (! $this->hasExamRowSignal($exam, $cellTexts, $headers)) {
+            return null;
+        }
+
+        return $exam;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function extractCellTexts(Crawler $row, string $selector): array
+    {
+        $cellTexts = [];
+
+        $row->filter($selector)->each(function (Crawler $cell) use (&$cellTexts): void {
+            $cellTexts[] = $this->cleanText($cell->text());
+        });
+
+        return $cellTexts;
+    }
+
+    /**
+     * @param  array<int, string>  $cellTexts
+     */
+    private function looksLikeExamHeaderRow(array $cellTexts): bool
+    {
+        if ($cellTexts === []) {
+            return false;
+        }
+
+        $matchedHeaderCells = 0;
+
+        foreach ($cellTexts as $cellText) {
+            $normalizedCellText = strtolower($cellText);
+
+            if (preg_match('/^(no|kode|kode mk|kd|mk|mata kuliah|matakuliah|matkul|jadwal|jadwal ujian|tanggal|waktu|hari|jam|status|keterangan|aksi)$/', $normalizedCellText) === 1) {
+                $matchedHeaderCells += 1;
+
+                continue;
+            }
+
+            if (Str::contains($normalizedCellText, ['kode mk', 'mata kuliah', 'jadwal ujian'])) {
+                $matchedHeaderCells += 1;
+            }
+        }
+
+        return $matchedHeaderCells >= 2;
+    }
+
+    /**
+     * @param  array<int, string>  $cellTexts
+     */
+    private function looksLikeEmptyExamRow(array $cellTexts): bool
+    {
+        $text = strtolower(implode(' ', $cellTexts));
+
+        return Str::contains($text, ['tidak ada data', 'belum ada data', 'data tidak ditemukan', 'no data']);
+    }
+
+    /**
+     * @param  array<int, string>  $cellTexts
+     */
+    private function looksLikeStudentInfoRow(array $cellTexts): bool
+    {
+        $label = strtolower(trim((string) preg_replace('/\s+/', ' ', $cellTexts[0] ?? '')));
+
+        return count($cellTexts) <= 3 && in_array($label, [
+            'program studi',
+            'th akademik',
+            'tahun akademik',
+            'semester',
+            'n i m',
+            'nim',
+            'nama',
+        ], true);
+    }
+
+    /**
+     * @param  array<int, string>  $cellTexts
+     * @return array<int, string>
+     */
+    private function stripLeadingNumberCell(array $cellTexts): array
+    {
+        if (count($cellTexts) > 3 && preg_match('/^\d+\.?$/', $cellTexts[0]) === 1) {
+            return array_values(array_slice($cellTexts, 1));
+        }
+
+        return $cellTexts;
+    }
+
+    private function extractExamIdFromRow(Crawler $row): ?int
+    {
+        $uploadUrl = $this->extractExamUploadUrlFromRow($row);
+
+        if ($uploadUrl !== null) {
+            $id = $this->extractExamIdFromText($uploadUrl);
+
+            if ($id !== null) {
+                return $id;
+            }
+        }
+
+        $idAttributes = [
+            $row->attr('data-id'),
+            $row->attr('data-exam-id'),
+            $row->attr('data-ujian-id'),
+        ];
+
+        foreach ($idAttributes as $idAttribute) {
+            $id = $this->extractExamIdFromText((string) $idAttribute);
+
+            if ($id !== null) {
+                return $id;
+            }
+        }
+
+        return null;
+    }
+
+    private function extractExamUploadUrlFromRow(Crawler $row): ?string
+    {
+        $hrefs = [];
+
+        $row->filter('a[href]')->each(function (Crawler $link) use (&$hrefs): void {
+            $href = trim((string) ($link->attr('href') ?? ''));
+
+            if ($href !== '') {
+                $hrefs[] = html_entity_decode($href, ENT_QUOTES, 'UTF-8');
+            }
+        });
+
+        foreach ($hrefs as $href) {
+            if (Str::contains(strtolower($href), ['sendujian', 'ujian'])) {
+                return $href;
+            }
+        }
+
+        foreach ($hrefs as $href) {
+            if ($this->extractExamIdFromText($href) !== null) {
+                return $href;
+            }
+        }
+
+        return null;
+    }
+
+    private function extractExamIdFromText(string $text): ?int
+    {
+        $normalizedText = html_entity_decode($text, ENT_QUOTES, 'UTF-8');
+
+        if (preg_match('/(?:^|[?&;])(?:id|exam_id|ujian_id)=(\d+)/i', $normalizedText, $matches) === 1) {
+            return (int) $matches[1];
+        }
+
+        if (preg_match('/^\d+$/', trim($normalizedText)) === 1) {
+            return (int) $normalizedText;
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array{id: int|null, course_code: string, course_name: string, schedule: string, status: string, upload_url: string|null}  $exam
+     * @param  array<int, string>  $fallbackCells
+     * @return array{id: int|null, course_code: string, course_name: string, schedule: string, status: string, upload_url: string|null}
+     */
+    private function normalizeExamRow(array $exam, array $fallbackCells): array
+    {
+        $courseInfo = $this->extractExamCourseInfo([
+            $exam['course_code'],
+            $exam['course_name'],
+            $fallbackCells[0] ?? '',
+            $fallbackCells[1] ?? '',
+        ]);
+
+        if ($courseInfo['code'] !== '') {
+            $exam['course_code'] = $courseInfo['code'];
+        }
+
+        if ($courseInfo['name'] !== '') {
+            $exam['course_name'] = $courseInfo['name'];
+        }
+
+        $schedule = $this->extractExamScheduleText([
+            $exam['schedule'],
+            ...$fallbackCells,
+        ]);
+
+        if ($schedule !== '') {
+            $exam['schedule'] = $schedule;
+        }
+
+        if ($exam['status'] === '' && Str::contains(strtolower($exam['schedule']), 'ujian')) {
+            $exam['status'] = 'Terjadwal';
+        }
+
+        return $exam;
+    }
+
+    /**
+     * @param  array<int, string|null>  $candidates
+     * @return array{code: string, name: string}
+     */
+    private function extractExamCourseInfo(array $candidates): array
+    {
+        $best = [
+            'code' => '',
+            'name' => '',
+        ];
+
+        foreach ($candidates as $candidate) {
+            $parsed = $this->parseExamCourseText((string) $candidate);
+
+            if ($parsed['code'] === '') {
+                continue;
+            }
+
+            if ($this->examCourseInfoScore($parsed) > $this->examCourseInfoScore($best)) {
+                $best = $parsed;
+            }
+        }
+
+        return $best;
+    }
+
+    /**
+     * @return array{code: string, name: string}
+     */
+    private function parseExamCourseText(string $text): array
+    {
+        $normalizedText = $this->cleanText($text);
+
+        if (preg_match('/\b([A-Z]{1,4}\d{4,})(.+)$/u', $normalizedText, $matches) !== 1) {
+            return [
+                'code' => '',
+                'name' => '',
+            ];
+        }
+
+        return [
+            'code' => $matches[1],
+            'name' => trim($matches[2]),
+        ];
+    }
+
+    /**
+     * @param  array{code: string, name: string}  $courseInfo
+     */
+    private function examCourseInfoScore(array $courseInfo): int
+    {
+        return strlen($courseInfo['code']) + strlen($courseInfo['name']) + (preg_match('/^[A-Z]{2,}/', $courseInfo['code']) === 1 ? 20 : 0);
+    }
+
+    /**
+     * @param  array<int, string|null>  $candidates
+     */
+    private function extractExamScheduleText(array $candidates): string
+    {
+        foreach ($candidates as $candidate) {
+            $text = $this->cleanText((string) $candidate);
+
+            if ($this->looksLikeExamScheduleText($text)) {
+                return $text;
+            }
+        }
+
+        return '';
+    }
+
+    private function looksLikeExamScheduleText(string $text): bool
+    {
+        $normalizedText = strtolower($text);
+
+        return Str::contains($normalizedText, ['ujian', 'uts', 'uas'])
+            || preg_match('/\b(?:senin|selasa|rabu|kamis|jumat|sabtu|minggu)\b.+\d{2}:\d{2}/i', $text) === 1
+            || preg_match('/\d{1,2}\s+\w+\s+\d{4}.+\d{2}:\d{2}/i', $text) === 1;
+    }
+
+    /**
+     * @param  array<int, string>  $cellTexts
+     * @param  array<int, string>  $headers
+     * @param  array<int, string>  $needles
+     */
+    private function extractExamCellByHeader(array $cellTexts, array $headers, array $needles): ?string
+    {
+        foreach ($headers as $index => $header) {
+            $normalizedHeader = strtolower($header);
+
+            if (! Str::contains($normalizedHeader, $needles)) {
+                continue;
+            }
+
+            $value = $cellTexts[$index] ?? null;
+
+            if ($value !== null && $value !== '') {
+                return $value;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array{id: int|null, course_code: string, course_name: string, schedule: string, status: string, upload_url: string|null}  $exam
+     * @param  array<int, string>  $cellTexts
+     * @param  array<int, string>  $headers
+     */
+    private function hasExamRowSignal(array $exam, array $cellTexts, array $headers): bool
+    {
+        if ($exam['id'] !== null || $exam['upload_url'] !== null) {
+            return true;
+        }
+
+        if ($exam['course_name'] !== '' && $this->looksLikeExamScheduleText($exam['schedule'])) {
+            return true;
+        }
+
+        $text = strtolower(implode(' ', array_merge($headers, $cellTexts)));
+
+        return Str::contains($text, ['ujian', 'uts', 'uas'])
+            && ($exam['course_code'] !== '' || $exam['course_name'] !== '' || $exam['schedule'] !== '');
+    }
+
     private function extractExamDetail(string $html, int $examId, string $targetUrl): array
     {
         $crawler = $this->createCrawler($html);
-        $formMeta = $this->extractExamFormMeta($html);
+        $formMeta = $this->prepareExamUploadFormMeta($this->extractExamFormMeta($html), $examId);
         $alerts = $this->extractAlertMessages($crawler);
+        $isUploaded = $this->hasUploadedExamInResponse($html);
 
         $actionUrl = $this->resolveExamSubmitUrl((string) $formMeta['action'], $targetUrl);
+        $directSubmitFallback = (bool) ($formMeta['direct_submit_fallback'] ?? false);
 
         return [
             'exam_id' => $examId,
             'request_url' => $targetUrl,
             'title' => $this->extractText($crawler, ['title', 'h1', 'h2', '.card-title', '.title']),
             'description' => $this->extractText($crawler, ['.card-body p', 'form p', '.text-muted', '.help-block']),
-            'status' => $this->hasUploadedExamInResponse($html) ? 'uploaded' : 'not_uploaded',
+            'status' => $isUploaded ? 'uploaded' : 'not_uploaded',
             'alerts' => $alerts,
             'requirements' => $this->extractExamRequirementTexts($crawler),
             'related_links' => $this->extractExamRelevantLinks($crawler, $targetUrl),
@@ -488,7 +888,8 @@ class SipandaiSubmissionService extends PortalScrapingService
                 'method' => strtoupper($formMeta['method']),
                 'enctype' => $formMeta['enctype'],
                 'file_field' => $formMeta['file_field'],
-                'available' => $formMeta['has_upload_form'] ?? false,
+                'available' => ($formMeta['has_upload_form'] ?? false) || ($directSubmitFallback && ! $isUploaded),
+                'available_via_direct_submit' => $directSubmitFallback && ! $isUploaded,
                 'fields' => $formMeta['fields'],
             ],
         ];
@@ -562,7 +963,7 @@ class SipandaiSubmissionService extends PortalScrapingService
     }
 
     /**
-     * @return array<int, array{text: string, url: string}>
+     * @return array<int, array{text: string, url: string, type: string, downloadable: bool}>
      */
     private function extractExamRelevantLinks(Crawler $crawler, string $targetUrl): array
     {
@@ -571,19 +972,104 @@ class SipandaiSubmissionService extends PortalScrapingService
         $crawler->filter('a[href]')->each(function (Crawler $node) use (&$links, $targetUrl): void {
             $href = trim((string) ($node->attr('href') ?? ''));
             $text = $this->cleanText($node->text());
-            $haystack = strtolower($href.' '.$text);
 
-            if ($href === '' || ! Str::contains($haystack, ['ujian', 'jawaban', 'download', 'hapus', 'delete', '.pdf', '.zip', '.rar'])) {
-                return;
-            }
-
-            $links[] = [
-                'text' => $text !== '' ? $text : $href,
-                'url' => $this->resolveActionUrl($href, $targetUrl),
-            ];
+            $this->appendExamRelevantLink($links, $href, $text, $targetUrl);
         });
 
-        return array_values(array_slice(array_unique($links, SORT_REGULAR), 0, 10));
+        $crawler->filter('iframe[src], embed[src]')->each(function (Crawler $node) use (&$links, $targetUrl): void {
+            $src = trim((string) ($node->attr('src') ?? ''));
+            $title = $this->cleanText((string) ($node->attr('title') ?? ''));
+
+            $this->appendExamRelevantLink($links, $src, $title, $targetUrl);
+        });
+
+        $html = $crawler->html();
+        if (is_string($html) && preg_match_all('#(?:https?://[^\s"\'<>]+|(?:\.\./|\.\/|/)?(?:portal/)?files/[^\s"\'<>]+)#i', $html, $matches) === 1) {
+            foreach ($matches[0] as $url) {
+                $this->appendExamRelevantLink($links, html_entity_decode($url, ENT_QUOTES, 'UTF-8'), '', $targetUrl);
+            }
+        }
+
+        return array_values(array_slice($this->uniqueExamRelevantLinks($links), 0, 10));
+    }
+
+    /**
+     * @param  array<int, array{text: string, url: string, type: string, downloadable: bool}>  $links
+     * @return array<int, array{text: string, url: string, type: string, downloadable: bool}>
+     */
+    private function uniqueExamRelevantLinks(array $links): array
+    {
+        $uniqueLinks = [];
+        $seen = [];
+
+        foreach ($links as $link) {
+            $key = strtolower($link['url']);
+
+            if (isset($seen[$key])) {
+                continue;
+            }
+
+            $seen[$key] = true;
+            $uniqueLinks[] = $link;
+        }
+
+        return $uniqueLinks;
+    }
+
+    /**
+     * @param  array<int, array{text: string, url: string, type: string, downloadable: bool}>  $links
+     */
+    private function appendExamRelevantLink(array &$links, string $href, string $text, string $targetUrl): void
+    {
+        $href = trim(html_entity_decode($href, ENT_QUOTES, 'UTF-8'));
+        $text = $this->cleanText($text);
+        $haystack = strtolower($href.' '.$text);
+
+        if ($href === '' || ! Str::contains($haystack, ['ujian', 'soal', 'jawaban', 'lampiran', 'download', 'hapus', 'delete', '.pdf', '.zip', '.rar', '.doc', '.docx'])) {
+            return;
+        }
+
+        $url = $this->resolveExamRelevantLinkUrl($href, $targetUrl);
+        $downloadable = $this->isDownloadableExamLink($url);
+
+        $links[] = [
+            'text' => $text !== '' ? $text : $this->filenameFromUrl($url),
+            'url' => $url,
+            'type' => $downloadable ? 'file' : (Str::contains($haystack, ['hapus', 'delete']) ? 'action' : 'link'),
+            'downloadable' => $downloadable,
+        ];
+    }
+
+    private function resolveExamRelevantLinkUrl(string $href, string $targetUrl): string
+    {
+        $normalizedPath = preg_replace('#^(?:\.\./|\.\/)+#', '', str_replace('\\', '/', trim($href)));
+        $normalizedPath = ltrim((string) $normalizedPath, '/');
+
+        if (Str::startsWith($normalizedPath, 'portal/files/')) {
+            return rtrim(config('portal.base_url'), '/').'/'.$normalizedPath;
+        }
+
+        if (Str::startsWith($normalizedPath, 'files/')) {
+            return rtrim(config('portal.base_url'), '/').'/portal/'.$normalizedPath;
+        }
+
+        return $this->resolveActionUrl($href, $targetUrl);
+    }
+
+    private function isDownloadableExamLink(string $url): bool
+    {
+        $path = strtolower((string) parse_url($url, PHP_URL_PATH));
+
+        return Str::contains($path, '/portal/files/')
+            || preg_match('/\.(pdf|zip|rar|doc|docx|xls|xlsx|ppt|pptx)$/i', $path) === 1;
+    }
+
+    private function filenameFromUrl(string $url): string
+    {
+        $path = (string) parse_url($url, PHP_URL_PATH);
+        $filename = basename($path);
+
+        return $filename !== '' ? rawurldecode($filename) : $url;
     }
 
     /**

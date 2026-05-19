@@ -14,6 +14,8 @@ use GuzzleHttp\Handler\MockHandler;
 use GuzzleHttp\HandlerStack;
 use GuzzleHttp\Middleware;
 use GuzzleHttp\Psr7\Response;
+use Illuminate\Http\UploadedFile;
+use Symfony\Component\DomCrawler\Crawler;
 use Tests\TestCase;
 
 class SipandaiSubmissionServiceTest extends TestCase
@@ -95,6 +97,59 @@ class SipandaiSubmissionServiceTest extends TestCase
 
         $this->assertTrue($result['success']);
         $this->assertSame('marked', $result['data']['status']);
+    }
+
+    public function test_submit_exam_posts_directly_to_sentujian_when_form_is_unavailable(): void
+    {
+        config(['portal.request_delay' => 0]);
+
+        $sessionManager = $this->createMock(PortalSessionManager::class);
+        $sessionManager->expects($this->once())
+            ->method('getSessionCookieJar')
+            ->with('token-exam-direct')
+            ->willReturn(CookieJar::fromArray([], 'my.cic.ac.id'));
+
+        $service = new SipandaiSubmissionService($sessionManager);
+        $history = [];
+        $attachment = UploadedFile::fake()->create('jawaban.pdf', 128, 'application/pdf');
+
+        $handler = new MockHandler([
+            new Response(200, [], <<<'HTML'
+            <html>
+                <body>
+                    <div class="alert alert-warning">Upload jawaban belum dibuka oleh jadwal portal.</div>
+                    <p>Halaman ini sengaja tidak merender form upload sampai jam ujian dibuka.</p>
+                </body>
+            </html>
+            HTML),
+            new Response(200, [], '<html><body><div class="alert alert-success">Data sudah disimpan.</div></body></html>'),
+        ]);
+
+        $stack = HandlerStack::create($handler);
+        $stack->push(Middleware::history($history));
+
+        $this->setNonPublicProperty($service, 'client', new Client([
+            'handler' => $stack,
+        ]));
+
+        $result = $service->submitExam('token-exam-direct', 8833, $attachment);
+
+        $this->assertCount(2, $history);
+        $this->assertSame('GET', $history[0]['request']->getMethod());
+        $this->assertSame('POST', $history[1]['request']->getMethod());
+        $this->assertSame(PortalEndpointRegistry::url('exam_submit'), (string) $history[1]['request']->getUri());
+
+        $submittedBody = (string) $history[1]['request']->getBody();
+
+        $this->assertStringContainsString('name="id"', $submittedBody);
+        $this->assertStringContainsString('8833', $submittedBody);
+        $this->assertStringContainsString('name="cmd"', $submittedBody);
+        $this->assertStringContainsString('Upload', $submittedBody);
+        $this->assertStringContainsString('name="file"', $submittedBody);
+        $this->assertStringContainsString('filename="jawaban.pdf"', $submittedBody);
+        $this->assertTrue($result['success']);
+        $this->assertSame('uploaded', $result['data']['status']);
+        $this->assertTrue($result['data']['direct_submit_fallback']);
     }
 
     public function test_determine_upload_status_prioritizes_failure_phrases(): void
@@ -198,6 +253,135 @@ class SipandaiSubmissionServiceTest extends TestCase
         $this->assertSame('marked', $status['code']);
     }
 
+    public function test_extract_exam_list_keeps_scheduled_rows_without_upload_links(): void
+    {
+        $service = new SipandaiSubmissionService($this->createMock(PortalSessionManager::class));
+
+        $exams = $this->invokeNonPublicMethod($service, 'extractExamList', [
+            new Crawler(<<<'HTML'
+            <html>
+                <body>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>No</th>
+                                <th>Kode MK</th>
+                                <th>Mata Kuliah</th>
+                                <th>Jadwal Ujian</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>1</td>
+                                <td>IF101</td>
+                                <td>Algoritma</td>
+                                <td>Senin, 18 Mei 2026 09:00</td>
+                                <td>Terjadwal</td>
+                            </tr>
+                            <tr>
+                                <td>2</td>
+                                <td>IF102</td>
+                                <td>Basis Data</td>
+                                <td>Selasa, 19 Mei 2026 13:00</td>
+                                <td>Terjadwal</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </body>
+            </html>
+            HTML),
+        ]);
+
+        $this->assertCount(2, $exams);
+        $this->assertNull($exams[0]['id']);
+        $this->assertSame('IF101', $exams[0]['course_code']);
+        $this->assertSame('Algoritma', $exams[0]['course_name']);
+        $this->assertSame('Senin, 18 Mei 2026 09:00', $exams[0]['schedule']);
+        $this->assertSame('Terjadwal', $exams[0]['status']);
+        $this->assertNull($exams[0]['upload_url']);
+    }
+
+    public function test_extract_exam_list_reads_upload_link_ids_when_available(): void
+    {
+        $service = new SipandaiSubmissionService($this->createMock(PortalSessionManager::class));
+
+        $exams = $this->invokeNonPublicMethod($service, 'extractExamList', [
+            new Crawler(<<<'HTML'
+            <html>
+                <body>
+                    <table>
+                        <tr>
+                            <td>No</td>
+                            <td>Kode MK</td>
+                            <td>Mata Kuliah</td>
+                            <td>Jadwal Ujian</td>
+                            <td>Status</td>
+                            <td>Aksi</td>
+                        </tr>
+                        <tr>
+                            <td>1</td>
+                            <td>IF101</td>
+                            <td>Algoritma</td>
+                            <td>Senin, 18 Mei 2026 09:00</td>
+                            <td>Belum Upload</td>
+                            <td><a href="?mod=sipandai&amp;act=sendujian&amp;id=8833">Upload</a></td>
+                        </tr>
+                    </table>
+                </body>
+            </html>
+            HTML),
+        ]);
+
+        $this->assertCount(1, $exams);
+        $this->assertSame(8833, $exams[0]['id']);
+        $this->assertSame('IF101', $exams[0]['course_code']);
+        $this->assertSame('Algoritma', $exams[0]['course_name']);
+        $this->assertSame('Belum Upload', $exams[0]['status']);
+        $this->assertSame('?mod=sipandai&act=sendujian&id=8833', $exams[0]['upload_url']);
+    }
+
+    public function test_extract_exam_list_skips_student_metadata_and_splits_joined_course_text(): void
+    {
+        $service = new SipandaiSubmissionService($this->createMock(PortalSessionManager::class));
+
+        $exams = $this->invokeNonPublicMethod($service, 'extractExamList', [
+            new Crawler(<<<'HTML'
+            <html>
+                <body>
+                    <table>
+                        <tr><td>Program Studi</td><td>:</td><td>SISTEM INFORMASI - S1</td></tr>
+                        <tr><td>Th Akademik</td><td>:</td><td>2025/2026</td></tr>
+                        <tr><td>Semester</td><td>:</td><td>GENAP</td></tr>
+                        <tr><td>N I M</td><td>:</td><td>20251030030</td></tr>
+                        <tr><td>Nama</td><td>:</td><td>Apriansyah Rizqi Setiawan</td></tr>
+                    </table>
+                    <table>
+                        <tr>
+                            <td>I043016Rekayasa Perangkat Lunak : Agile Scrum Introduction</td>
+                            <td>SI043016Rekayasa Perangkat Lunak : Agile Scrum Introduction</td>
+                            <td>Lena Magdalena, MMSI. Senin, 18 Mei 2026 08:00:00 Wib sd 12:00:00 Wib Ujian : TEORI</td>
+                        </tr>
+                        <tr>
+                            <td>SI043020Machine Learning</td>
+                            <td>SI043020Machine Learning</td>
+                            <td>Muhammad Hatta, M.Kom. Senin, 18 Mei 2026 13:00:00 Wib sd 17:00:00 Wib Ujian : TEORI</td>
+                        </tr>
+                    </table>
+                </body>
+            </html>
+            HTML),
+        ]);
+
+        $this->assertCount(2, $exams);
+        $this->assertSame('SI043016', $exams[0]['course_code']);
+        $this->assertSame('Rekayasa Perangkat Lunak : Agile Scrum Introduction', $exams[0]['course_name']);
+        $this->assertStringContainsString('Senin, 18 Mei 2026 08:00:00', $exams[0]['schedule']);
+        $this->assertSame('Terjadwal', $exams[0]['status']);
+        $this->assertSame('SI043020', $exams[1]['course_code']);
+        $this->assertSame('Machine Learning', $exams[1]['course_name']);
+    }
+
     public function test_extract_exam_detail_marks_uploaded_when_sendujian_page_lists_existing_submission(): void
     {
         $service = new SipandaiSubmissionService($this->createMock(PortalSessionManager::class));
@@ -220,6 +404,30 @@ class SipandaiSubmissionServiceTest extends TestCase
         ]);
 
         $this->assertSame('uploaded', $detail['status']);
+    }
+
+    public function test_extract_exam_detail_collects_downloadable_exam_file_links(): void
+    {
+        $service = new SipandaiSubmissionService($this->createMock(PortalSessionManager::class));
+
+        $detail = $this->invokeNonPublicMethod($service, 'extractExamDetail', [
+            <<<'HTML'
+            <html>
+                <body>
+                    <h3>Ujian Tengah Semester</h3>
+                    <iframe src="portal/files/soal/9197-UTS-tgs-591.pdf"></iframe>
+                    <a href="portal/files/soal/9197-UTS-tgs-591.pdf">Download soal</a>
+                </body>
+            </html>
+            HTML,
+            9197,
+            'https://my.cic.ac.id/portal/sipandai/?mod=sipandai&act=sendujian&id=9197',
+        ]);
+
+        $this->assertSame('file', $detail['related_links'][0]['type']);
+        $this->assertTrue($detail['related_links'][0]['downloadable']);
+        $this->assertSame('Download soal', $detail['related_links'][0]['text']);
+        $this->assertSame('https://my.cic.ac.id/portal/files/soal/9197-UTS-tgs-591.pdf', $detail['related_links'][0]['url']);
     }
 
     public function test_extract_exam_form_meta_prefers_form_with_file_input(): void
@@ -261,6 +469,30 @@ class SipandaiSubmissionServiceTest extends TestCase
         $this->assertNull($formMeta['file_field']);
         $this->assertSame([], $formMeta['fields']);
         $this->assertFalse($formMeta['has_upload_form']);
+    }
+
+    public function test_extract_exam_detail_allows_direct_submit_when_upload_form_is_not_rendered(): void
+    {
+        $service = new SipandaiSubmissionService($this->createMock(PortalSessionManager::class));
+
+        $detail = $this->invokeNonPublicMethod($service, 'extractExamDetail', [
+            <<<'HTML'
+            <html>
+                <body>
+                    <div class="alert alert-warning">Upload jawaban belum dibuka.</div>
+                    <p>Soal dan lampiran bisa dilihat di halaman ini.</p>
+                </body>
+            </html>
+            HTML,
+            8833,
+            'https://my.cic.ac.id/portal/sipandai/?mod=sipandai&act=sendujian&id=8833',
+        ]);
+
+        $this->assertSame('not_uploaded', $detail['status']);
+        $this->assertTrue($detail['form']['available']);
+        $this->assertTrue($detail['form']['available_via_direct_submit']);
+        $this->assertSame('file', $detail['form']['file_field']);
+        $this->assertSame(PortalEndpointRegistry::url('exam_submit'), $detail['form']['action_url']);
     }
 
     public function test_resolve_exam_submit_url_uses_sentujian_for_sendujian_forms(): void

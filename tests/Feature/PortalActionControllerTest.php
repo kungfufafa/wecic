@@ -7,6 +7,8 @@ namespace Tests\Feature;
 use App\Exceptions\PortalScrapingException;
 use App\Http\Middleware\VerifyCsrfTokenMiddleware;
 use App\Services\AttendanceShortcutService;
+use App\Services\Extractors\ClassesExtractor;
+use App\Services\Extractors\SipandaiClassesExtractor;
 use App\Services\PortalSessionManager;
 use App\Services\SipandaiSubmissionService;
 use Illuminate\Http\UploadedFile;
@@ -461,6 +463,72 @@ class PortalActionControllerTest extends TestCase
             ]);
     }
 
+    public function test_list_exams_falls_back_to_sipandai_classes_when_exam_page_is_empty(): void
+    {
+        $this->mockValidCampusSession('token-exam-class-fallback');
+        $this->mockServiceExpectingEmptyExamList('token-exam-class-fallback');
+        $this->mockSipandaiClassesExtractorExpectingExamFallback('token-exam-class-fallback');
+
+        $response = $this->withSession(['campus_session_token' => 'token-exam-class-fallback'])
+            ->getJson('/api/exam');
+
+        $response->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.exams.0.id', 8810)
+            ->assertJsonPath('data.exams.0.course_code', 'UC01024011')
+            ->assertJsonPath('data.exams.0.course_name', 'Bahasa Indonesia')
+            ->assertJsonPath('data.exams.0.schedule', 'Senin 09:30 - 11:00')
+            ->assertJsonPath('data.exams.0.source', 'class_schedule');
+    }
+
+    public function test_list_exams_fills_missing_exam_ids_from_sipandai_classes(): void
+    {
+        $this->mockValidCampusSession('token-exam-id-fallback');
+        $this->mockServiceExpectingExamListWithoutIds('token-exam-id-fallback');
+        $this->mockSipandaiClassesExtractorExpectingExamFallback('token-exam-id-fallback');
+
+        $response = $this->withSession(['campus_session_token' => 'token-exam-id-fallback'])
+            ->getJson('/api/exam');
+
+        $response->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.exams.0.id', 8810)
+            ->assertJsonPath('data.exams.0.course_code', 'UC01024011')
+            ->assertJsonPath('data.exams.0.source', 'exam_list_with_class_id');
+    }
+
+    public function test_list_exams_fills_missing_ids_when_exam_course_text_is_concatenated(): void
+    {
+        $this->mockValidCampusSession('token-exam-concat-id-fallback');
+        $this->mockServiceExpectingConcatenatedExamListWithoutIds('token-exam-concat-id-fallback');
+        $this->mockSipandaiClassesExtractorExpectingMachineLearningFallback('token-exam-concat-id-fallback');
+
+        $response = $this->withSession(['campus_session_token' => 'token-exam-concat-id-fallback'])
+            ->getJson('/api/exam');
+
+        $response->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.exams.0.id', 9204)
+            ->assertJsonPath('data.exams.0.course_code', 'SI043020Machine Learning')
+            ->assertJsonPath('data.exams.0.source', 'exam_list_with_class_id');
+    }
+
+    public function test_list_exams_falls_back_to_sipandai_classes_when_exam_page_fails(): void
+    {
+        $this->mockValidCampusSession('token-exam-page-failed');
+        $this->mockServiceExpectingFailedExamList('token-exam-page-failed');
+        $this->mockSipandaiClassesExtractorExpectingExamFallback('token-exam-page-failed');
+
+        $response = $this->withSession(['campus_session_token' => 'token-exam-page-failed'])
+            ->getJson('/api/exam');
+
+        $response->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('message', 'Exam list retrieved from class schedule fallback.')
+            ->assertJsonPath('data.exams.0.id', 8810)
+            ->assertJsonPath('data.exams.0.source', 'class_schedule');
+    }
+
     public function test_exam_detail_requires_session(): void
     {
         $response = $this->getJson('/api/exam/8810');
@@ -571,6 +639,15 @@ class PortalActionControllerTest extends TestCase
     private function mockServiceExpectingSubmitAttendance(string $token): void
     {
         $this->instance(
+            ClassesExtractor::class,
+            Mockery::mock(ClassesExtractor::class, function (MockInterface $mock) use ($token): void {
+                $mock->shouldReceive('invalidateMeetingDetailCache')
+                    ->once()
+                    ->with($token, '29808', '8837');
+            })
+        );
+
+        $this->instance(
             SipandaiSubmissionService::class,
             Mockery::mock(SipandaiSubmissionService::class, function (MockInterface $mock) use ($token): void {
                 $mock->shouldReceive('submitAttendance')
@@ -635,6 +712,144 @@ class PortalActionControllerTest extends TestCase
                             'course_code' => 'IF101',
                             'course_name' => 'Algoritma',
                             'status' => 'Belum Upload',
+                        ],
+                    ]);
+            })
+        );
+    }
+
+    private function mockServiceExpectingEmptyExamList(string $token): void
+    {
+        $this->instance(
+            SipandaiSubmissionService::class,
+            Mockery::mock(SipandaiSubmissionService::class, function (MockInterface $mock) use ($token): void {
+                $mock->shouldReceive('getExamList')
+                    ->once()
+                    ->with($token)
+                    ->andReturn([]);
+            })
+        );
+    }
+
+    private function mockServiceExpectingExamListWithoutIds(string $token): void
+    {
+        $this->instance(
+            SipandaiSubmissionService::class,
+            Mockery::mock(SipandaiSubmissionService::class, function (MockInterface $mock) use ($token): void {
+                $mock->shouldReceive('getExamList')
+                    ->once()
+                    ->with($token)
+                    ->andReturn([
+                        [
+                            'id' => null,
+                            'course_code' => 'UC01024011',
+                            'course_name' => 'Bahasa Indonesia',
+                            'schedule' => 'Senin 09:30 - 11:00',
+                            'status' => 'Terjadwal',
+                            'upload_url' => null,
+                        ],
+                    ]);
+            })
+        );
+    }
+
+    private function mockServiceExpectingConcatenatedExamListWithoutIds(string $token): void
+    {
+        $this->instance(
+            SipandaiSubmissionService::class,
+            Mockery::mock(SipandaiSubmissionService::class, function (MockInterface $mock) use ($token): void {
+                $mock->shouldReceive('getExamList')
+                    ->once()
+                    ->with($token)
+                    ->andReturn([
+                        [
+                            'id' => null,
+                            'course_code' => 'SI043020Machine Learning',
+                            'course_name' => 'SI043020Machine Learning',
+                            'schedule' => 'Senin, 18 Mei 2026 13:00:00 Wib sd 17:00:00 Wib Ujian : TEORI',
+                            'status' => 'Terjadwal',
+                            'upload_url' => null,
+                        ],
+                    ]);
+            })
+        );
+    }
+
+    private function mockServiceExpectingFailedExamList(string $token): void
+    {
+        $this->instance(
+            SipandaiSubmissionService::class,
+            Mockery::mock(SipandaiSubmissionService::class, function (MockInterface $mock) use ($token): void {
+                $mock->shouldReceive('getExamList')
+                    ->once()
+                    ->with($token)
+                    ->andThrow(new \RuntimeException('Exam page failed'));
+            })
+        );
+    }
+
+    private function mockSipandaiClassesExtractorExpectingMachineLearningFallback(string $token): void
+    {
+        $this->instance(
+            SipandaiClassesExtractor::class,
+            Mockery::mock(SipandaiClassesExtractor::class, function (MockInterface $mock) use ($token): void {
+                $mock->shouldReceive('extractSipandaiClassesData')
+                    ->once()
+                    ->with($token)
+                    ->andReturn([
+                        'classes' => [
+                            [
+                                'schedule' => [
+                                    'day' => 'Senin',
+                                    'formatted_time' => '13:00 - 17:00',
+                                ],
+                                'course_info' => [
+                                    'code' => 'SI043020',
+                                    'name' => 'Machine Learning',
+                                ],
+                                'join_link' => [
+                                    'params' => [
+                                        'id' => '33744',
+                                        'course_id' => '9204',
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ]);
+            })
+        );
+    }
+
+    private function mockSipandaiClassesExtractorExpectingExamFallback(string $token): void
+    {
+        $this->instance(
+            SipandaiClassesExtractor::class,
+            Mockery::mock(SipandaiClassesExtractor::class, function (MockInterface $mock) use ($token): void {
+                $mock->shouldReceive('extractSipandaiClassesData')
+                    ->once()
+                    ->with($token)
+                    ->andReturn([
+                        'classes' => [
+                            [
+                                'schedule' => [
+                                    'day' => 'Senin',
+                                    'start_time' => '09:30:00',
+                                    'end_time' => '11:00:00',
+                                    'time_range' => '09:30:00-11:00:00',
+                                    'formatted_time' => '09:30 - 11:00',
+                                ],
+                                'course_info' => [
+                                    'code' => 'UC01024011',
+                                    'name' => 'Bahasa Indonesia',
+                                ],
+                                'join_link' => [
+                                    'params' => [
+                                        'id' => '2265',
+                                        'dosen_id' => '5240',
+                                        'course_id' => '8810',
+                                    ],
+                                ],
+                            ],
                         ],
                     ]);
             })

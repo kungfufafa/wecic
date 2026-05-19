@@ -30,7 +30,7 @@ abstract class PortalScrapingService
     public function __construct(PortalSessionManager $sessionManager)
     {
         $this->sessionManager = $sessionManager;
-        $this->client = new Client([
+        $this->client = new Client(array_replace_recursive([
             RequestOptions::TIMEOUT => config('portal.request_timeout', 30),
             RequestOptions::CONNECT_TIMEOUT => 10,
             RequestOptions::HEADERS => [
@@ -47,7 +47,7 @@ abstract class PortalScrapingService
                 'referer' => true,
                 'track_redirects' => true,
             ],
-        ]);
+        ], PortalHttpClientOptions::secureDns()));
     }
 
     /**
@@ -255,6 +255,11 @@ abstract class PortalScrapingService
         $this->lastDataOrigin = 'upstream';
     }
 
+    protected function forgetCachedResponse(string $url, string $method = 'GET', array $options = [], ?string $sessionToken = null): void
+    {
+        Cache::forget($this->generateCacheKey($url, $method, $options, $sessionToken));
+    }
+
     protected function withSyncMeta(array $payload, ?string $dataOrigin = null): array
     {
         $payload['_sync'] = [
@@ -269,13 +274,13 @@ abstract class PortalScrapingService
     /**
      * Generate cache key for request
      */
-    private function generateCacheKey(string $url, string $method, array $options): string
+    private function generateCacheKey(string $url, string $method, array $options, ?string $sessionToken = null): string
     {
         $keyData = [
             'url' => $url,
             'method' => $method,
             'options' => $options,
-            'session_id' => $this->sessionToken ?? 'no-session',
+            'session_id' => $sessionToken ?? $this->sessionToken ?? 'no-session',
         ];
 
         return 'campus_scrape_'.md5(json_encode($keyData));

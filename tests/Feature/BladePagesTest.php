@@ -53,6 +53,8 @@ class BladePagesTest extends TestCase
             ->assertSee('Data terakhir siap dipakai. Sinkronkan ke server bila perlu.')
             ->assertSee('Sinkronkan server')
             ->assertSee('Tarik untuk memperbarui')
+            ->assertSee("app.clearCachedResponse('/api/dashboard');", false)
+            ->assertSee('await loadDashboard({ force: true });', false)
             ->assertDontSee('Aktivitas terbaru');
     }
 
@@ -115,6 +117,8 @@ class BladePagesTest extends TestCase
             ->assertSee('const deriveAssignmentParams =', false)
             ->assertSee('id: String(meetingId)', false)
             ->assertSee('courses_id: String(coursesId)', false)
+            ->assertSee('app.clearCachedResponse(endpoint);', false)
+            ->assertSee('await loadMeeting({ force: true });', false)
             ->assertDontSee('Periksa materi utama, presensi, dan instruksi tugas pada pertemuan ini.', false)
             ->assertDontSee('inferredMeetingNumber ? app.renderBadge(`Pertemuan ${inferredMeetingNumber}`, \'primary\') : \'\'', false)
             ->assertDontSee('scheduleInfo.date ? app.renderBadge(scheduleInfo.date, \'secondary\') : \'\'', false)

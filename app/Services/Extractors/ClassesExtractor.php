@@ -195,6 +195,23 @@ class ClassesExtractor extends PortalScrapingService
         }
     }
 
+    public function invalidateMeetingDetailCache(string $sessionToken, string $meetingId, string $coursesId): void
+    {
+        $cacheKey = 'parsed_meeting_detail_'.md5($sessionToken.json_encode([
+            'meeting_id' => $meetingId,
+            'courses_id' => $coursesId,
+        ]));
+
+        cache()->forget($cacheKey);
+        $this->forgetCachedResponse(
+            PortalEndpointRegistry::url('discussion', [
+                'id' => $meetingId,
+                'courses_id' => $coursesId,
+            ]),
+            sessionToken: $sessionToken
+        );
+    }
+
     /**
      * Extract student information from SIPANDAI dashboard
      */

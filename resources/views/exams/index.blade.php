@@ -69,6 +69,16 @@
             const statusPill = document.getElementById('exam-status-pill');
             const metricNodes = document.querySelectorAll('[data-exam-metric]');
 
+            const renderExamAction = (exam, buttonClass = 'btn-primary') => {
+                const examId = String(exam.id || '').trim();
+
+                if (!examId) {
+                    return '<span class="badge bg-secondary-lt text-secondary">Detail belum tersedia</span>';
+                }
+
+                return `<a href="/exam/${app.escapeHtml(examId)}" class="btn ${buttonClass}">Detail ujian</a>`;
+            };
+
             const renderExamCards = (exams) => exams.map((exam) => `
                 <div class="card mb-3">
                     <div class="card-body">
@@ -81,7 +91,7 @@
                         </div>
                         <div class="d-flex justify-content-between align-items-center">
                             ${app.renderBadge(exam.course_code || '-', 'info')}
-                            <a href="/exam/${app.escapeHtml(exam.id)}" class="btn btn-primary">Detail ujian</a>
+                            ${renderExamAction(exam)}
                         </div>
                     </div>
                 </div>
@@ -120,7 +130,7 @@
                         <td>${app.escapeHtml(exam.schedule || '-')}</td>
                         <td>${app.renderBadge(exam.status || '-', 'secondary')}</td>
                         <td>
-                            <a href="/exam/${app.escapeHtml(exam.id)}" class="btn btn-outline-secondary btn-sm">Detail</a>
+                            ${renderExamAction(exam, 'btn-outline-secondary btn-sm')}
                         </td>
                     </tr>
                 `).join('');

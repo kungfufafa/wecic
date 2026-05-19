@@ -523,6 +523,15 @@ class PortalApp {
         });
     }
 
+    clearCachedResponse(url) {
+        if (!url) {
+            return;
+        }
+
+        const requestUrl = this.normalizeCacheUrl(new URL(url, window.location.origin));
+        localStorage.removeItem(this.buildCacheKey(requestUrl));
+    }
+
     clearOfflineData() {
         this.clearAuthSnapshot();
         this.clearCachedResponses();
