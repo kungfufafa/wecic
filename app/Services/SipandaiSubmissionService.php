@@ -15,6 +15,10 @@ class SipandaiSubmissionService extends PortalScrapingService
 {
     private const DEFAULT_EXAM_FILE_FIELD = 'file';
 
+    private const DEFAULT_EXAM_ID_FIELD = 'data[id]';
+
+    private const LEGACY_EXAM_ID_FIELD = 'id';
+
     /**
      * Upload assignment file to SIPANDAI portal.
      */
@@ -293,34 +297,35 @@ class SipandaiSubmissionService extends PortalScrapingService
     ): array {
         $this->setSession($sessionToken);
 
-        $formUrl = PortalEndpointRegistry::url('exam_upload_form', ['id' => $examId]);
+        $metadataUrl = PortalEndpointRegistry::url('exam_upload_form', ['id' => $examId]);
+        $submitUrl = PortalEndpointRegistry::url('exam_submit');
 
         $this->logScraping('Uploading SIPANDAI exam (direct POST)', [
             'session_token' => $sessionToken,
             'exam_id' => $examId,
             'file' => $attachment->getClientOriginalName(),
-            'form_url' => $formUrl,
+            'metadata_url' => $metadataUrl,
+            'submit_url' => $submitUrl,
         ]);
 
-        $formHtml = $this->get($formUrl);
+        $formHtml = $this->get($metadataUrl);
         $formMeta = $this->prepareExamUploadFormMeta($this->extractExamFormMeta($formHtml), $examId);
         $payload = $this->mergeOverrides($formMeta['fields'], array_merge([
             'cmd' => 'Upload',
         ], $overrides));
         $multipart = $this->buildMultipartPayload($payload, $formMeta['file_field'], $attachment);
 
-        $actionUrl = $this->resolveExamSubmitUrl((string) $formMeta['action'], $formUrl);
-
-        $this->logScraping('Exam upload form resolved', [
-            'action_url' => $actionUrl,
+        $this->logScraping('Exam upload endpoints resolved', [
+            'metadata_url' => $metadataUrl,
+            'submit_url' => $submitUrl,
             'file_field' => $formMeta['file_field'],
             'fields' => array_keys($payload),
             'direct_submit_fallback' => $formMeta['direct_submit_fallback'] ?? false,
         ]);
 
-        $response = $this->dispatchRequest('POST', $actionUrl, [
+        $response = $this->dispatchRequest('POST', $submitUrl, [
             RequestOptions::MULTIPART => $multipart,
-        ], $formUrl);
+        ], $metadataUrl);
 
         $responseHtml = (string) $response->getBody();
 
@@ -330,17 +335,19 @@ class SipandaiSubmissionService extends PortalScrapingService
             'has_berhasil' => str_contains(strtolower($responseHtml), 'berhasil'),
             'has_gagal' => str_contains(strtolower($responseHtml), 'gagal'),
             'has_error' => str_contains(strtolower($responseHtml), 'error'),
-            'url_final' => $actionUrl,
+            'url_final' => $submitUrl,
         ]);
 
-        $result = $this->buildUploadResultPayload($responseHtml, $actionUrl, [
+        $result = $this->buildUploadResultPayload($responseHtml, $submitUrl, [
             'exam_id' => $examId,
         ]);
 
         $result['data']['redirect_history'] = $response->getHeader(\GuzzleHttp\RedirectMiddleware::HISTORY_HEADER);
         $result['data']['sent_fields'] = array_keys($payload);
         $result['data']['file_field'] = $formMeta['file_field'];
-        $result['data']['action_url'] = $actionUrl;
+        $result['data']['metadata_url'] = $metadataUrl;
+        $result['data']['submit_url'] = $submitUrl;
+        $result['data']['action_url'] = $submitUrl;
         $result['data']['direct_submit_fallback'] = $formMeta['direct_submit_fallback'] ?? false;
 
         return $result;
@@ -381,18 +388,33 @@ class SipandaiSubmissionService extends PortalScrapingService
             ];
         }
 
+        $firstFormMeta = null;
+        $examFormMeta = null;
+
         foreach ($forms as $node) {
             $formCrawler = new Crawler($node);
+            $formMeta = $this->extractFormMetadata($formCrawler);
 
             if ($formCrawler->filter('input[type="file"]')->count() > 0) {
-                $formMeta = $this->extractFormMetadata($formCrawler);
                 $formMeta['has_upload_form'] = true;
 
                 return $formMeta;
             }
+
+            $firstFormMeta ??= $formMeta;
+
+            if ($examFormMeta === null && $this->looksLikeExamUploadForm($formMeta)) {
+                $examFormMeta = $formMeta;
+            }
         }
 
-        $formMeta = $this->extractFormMetadata($forms->first());
+        $formMeta = $examFormMeta ?? $firstFormMeta ?? [
+            'action' => '',
+            'method' => 'post',
+            'enctype' => 'application/x-www-form-urlencoded',
+            'file_field' => null,
+            'fields' => [],
+        ];
         $formMeta['has_upload_form'] = false;
 
         return $formMeta;
@@ -400,10 +422,11 @@ class SipandaiSubmissionService extends PortalScrapingService
 
     private function prepareExamUploadFormMeta(array $formMeta, int $examId): array
     {
+        $fields = $this->prepareExamUploadFields($formMeta['fields'] ?? [], $examId);
+
         if (($formMeta['file_field'] ?? null) !== null) {
-            $formMeta['fields'] = $this->mergeOverrides($formMeta['fields'] ?? [], [
-                'id' => (string) $examId,
-            ]);
+            $formMeta['action'] = PortalEndpointRegistry::url('exam_submit');
+            $formMeta['fields'] = $fields;
             $formMeta['direct_submit_fallback'] = false;
 
             return $formMeta;
@@ -414,12 +437,46 @@ class SipandaiSubmissionService extends PortalScrapingService
             'method' => 'post',
             'enctype' => 'multipart/form-data',
             'file_field' => self::DEFAULT_EXAM_FILE_FIELD,
-            'fields' => [
-                'id' => (string) $examId,
-            ],
+            'fields' => $fields,
             'has_upload_form' => false,
             'direct_submit_fallback' => true,
         ];
+    }
+
+    private function looksLikeExamUploadForm(array $formMeta): bool
+    {
+        $action = strtolower((string) ($formMeta['action'] ?? ''));
+        $fields = $formMeta['fields'] ?? [];
+
+        return Str::contains($action, ['sendujian', 'sentujian'])
+            || array_key_exists(self::DEFAULT_EXAM_ID_FIELD, $fields)
+            || (
+                array_key_exists('data[tipe]', $fields)
+                && array_key_exists('data[kelas]', $fields)
+            );
+    }
+
+    /**
+     * @param  array<string, mixed>  $fields
+     * @return array<string, mixed>
+     */
+    private function prepareExamUploadFields(array $fields, int $examId): array
+    {
+        if (array_key_exists(self::DEFAULT_EXAM_ID_FIELD, $fields)) {
+            $fields[self::DEFAULT_EXAM_ID_FIELD] = (string) $examId;
+
+            return $fields;
+        }
+
+        if (array_key_exists(self::LEGACY_EXAM_ID_FIELD, $fields)) {
+            $fields[self::LEGACY_EXAM_ID_FIELD] = (string) $examId;
+
+            return $fields;
+        }
+
+        $fields[self::DEFAULT_EXAM_ID_FIELD] = (string) $examId;
+
+        return $fields;
     }
 
     /**
@@ -871,12 +928,15 @@ class SipandaiSubmissionService extends PortalScrapingService
         $alerts = $this->extractAlertMessages($crawler);
         $isUploaded = $this->hasUploadedExamInResponse($html);
 
-        $actionUrl = $this->resolveExamSubmitUrl((string) $formMeta['action'], $targetUrl);
+        $submitUrl = PortalEndpointRegistry::url('exam_submit');
         $directSubmitFallback = (bool) ($formMeta['direct_submit_fallback'] ?? false);
+        $uploadAvailable = $formMeta['file_field'] !== null && $submitUrl !== '';
 
         return [
             'exam_id' => $examId,
             'request_url' => $targetUrl,
+            'metadata_url' => $targetUrl,
+            'submit_url' => $submitUrl,
             'title' => $this->extractText($crawler, ['title', 'h1', 'h2', '.card-title', '.title']),
             'description' => $this->extractText($crawler, ['.card-body p', 'form p', '.text-muted', '.help-block']),
             'status' => $isUploaded ? 'uploaded' : 'not_uploaded',
@@ -884,39 +944,17 @@ class SipandaiSubmissionService extends PortalScrapingService
             'requirements' => $this->extractExamRequirementTexts($crawler),
             'related_links' => $this->extractExamRelevantLinks($crawler, $targetUrl),
             'form' => [
-                'action_url' => $actionUrl,
+                'action_url' => $submitUrl,
+                'get_url' => $targetUrl,
+                'post_url' => $submitUrl,
                 'method' => strtoupper($formMeta['method']),
                 'enctype' => $formMeta['enctype'],
                 'file_field' => $formMeta['file_field'],
-                'available' => ($formMeta['has_upload_form'] ?? false) || ($directSubmitFallback && ! $isUploaded),
-                'available_via_direct_submit' => $directSubmitFallback && ! $isUploaded,
+                'available' => $uploadAvailable,
+                'available_via_direct_submit' => $directSubmitFallback,
                 'fields' => $formMeta['fields'],
             ],
         ];
-    }
-
-    private function resolveExamSubmitUrl(string $action, string $formUrl): string
-    {
-        $actionUrl = $this->resolveActionUrl($action, $formUrl);
-
-        if ($action === '' || $action === '#' || $this->targetsExamFormPage($actionUrl)) {
-            return PortalEndpointRegistry::url('exam_submit');
-        }
-
-        return $actionUrl;
-    }
-
-    private function targetsExamFormPage(string $actionUrl): bool
-    {
-        $query = parse_url($actionUrl, PHP_URL_QUERY);
-
-        if (! is_string($query) || $query === '') {
-            return false;
-        }
-
-        parse_str($query, $parameters);
-
-        return ($parameters['act'] ?? null) === 'sendujian';
     }
 
     private function buildExamUnavailableResultPayload(string $html, string $formUrl, int $examId): array

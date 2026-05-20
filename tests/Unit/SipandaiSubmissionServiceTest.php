@@ -141,7 +141,7 @@ class SipandaiSubmissionServiceTest extends TestCase
 
         $submittedBody = (string) $history[1]['request']->getBody();
 
-        $this->assertStringContainsString('name="id"', $submittedBody);
+        $this->assertStringContainsString('name="data[id]"', $submittedBody);
         $this->assertStringContainsString('8833', $submittedBody);
         $this->assertStringContainsString('name="cmd"', $submittedBody);
         $this->assertStringContainsString('Upload', $submittedBody);
@@ -150,6 +150,74 @@ class SipandaiSubmissionServiceTest extends TestCase
         $this->assertTrue($result['success']);
         $this->assertSame('uploaded', $result['data']['status']);
         $this->assertTrue($result['data']['direct_submit_fallback']);
+        $this->assertSame(PortalEndpointRegistry::url('exam_upload_form', ['id' => 8833]), $result['data']['metadata_url']);
+        $this->assertSame(PortalEndpointRegistry::url('exam_submit'), $result['data']['submit_url']);
+    }
+
+    public function test_submit_exam_uses_sendujian_hidden_fields_when_file_input_is_missing(): void
+    {
+        config(['portal.request_delay' => 0]);
+
+        $sessionManager = $this->createMock(PortalSessionManager::class);
+        $sessionManager->expects($this->once())
+            ->method('getSessionCookieJar')
+            ->with('token-exam-closed')
+            ->willReturn(CookieJar::fromArray([], 'my.cic.ac.id'));
+
+        $service = new SipandaiSubmissionService($sessionManager);
+        $history = [];
+        $attachment = UploadedFile::fake()->create('UTS-TTE_APRIANSYAHRIZQISETIAWAN.pdf', 128, 'application/pdf');
+
+        $handler = new MockHandler([
+            new Response(200, [], <<<'HTML'
+            <html>
+                <body>
+                    <form method="post" action="?mod=sipandai&act=sentujian" enctype="multipart/form-data">
+                        <input type="hidden" name="data[id]" value="9186" />
+                        <input type="hidden" name="data[tipe]" value="UTS" />
+                        <input type="hidden" name="data[kelas]" value="TEORI" />
+                        <input type="text" name="data[name]" size="70" maxlength="70" />
+                        <span>Waktu Ujian Sudah Berakhir Untuk Mata Kuliah Diatas</span>
+                    </form>
+                </body>
+            </html>
+            HTML),
+            new Response(200, [], '<html><body><a href="?mod=sipandai&act=sendujian&id=9186"><b>Data sudah disimpan</b></a></body></html>'),
+        ]);
+
+        $stack = HandlerStack::create($handler);
+        $stack->push(Middleware::history($history));
+
+        $this->setNonPublicProperty($service, 'client', new Client([
+            'handler' => $stack,
+        ]));
+
+        $result = $service->submitExam('token-exam-closed', 9186, $attachment, [
+            'data[name]' => 'Jawaban UTS Teknologi dan trend E-commerce',
+        ]);
+
+        $this->assertCount(2, $history);
+        $this->assertSame(PortalEndpointRegistry::url('exam_submit'), (string) $history[1]['request']->getUri());
+
+        $submittedBody = (string) $history[1]['request']->getBody();
+
+        $this->assertStringContainsString('name="data[id]"', $submittedBody);
+        $this->assertStringContainsString('9186', $submittedBody);
+        $this->assertStringContainsString('name="data[tipe]"', $submittedBody);
+        $this->assertStringContainsString('UTS', $submittedBody);
+        $this->assertStringContainsString('name="data[kelas]"', $submittedBody);
+        $this->assertStringContainsString('TEORI', $submittedBody);
+        $this->assertStringContainsString('name="data[name]"', $submittedBody);
+        $this->assertStringContainsString('Jawaban UTS Teknologi dan trend E-commerce', $submittedBody);
+        $this->assertStringContainsString('filename="UTS-TTE_APRIANSYAHRIZQISETIAWAN.pdf"', $submittedBody);
+        $this->assertTrue($result['success']);
+        $this->assertSame('uploaded', $result['data']['status']);
+        $this->assertTrue($result['data']['direct_submit_fallback']);
+        $this->assertContains('data[id]', $result['data']['sent_fields']);
+        $this->assertContains('data[tipe]', $result['data']['sent_fields']);
+        $this->assertContains('data[kelas]', $result['data']['sent_fields']);
+        $this->assertSame(PortalEndpointRegistry::url('exam_upload_form', ['id' => 9186]), $result['data']['metadata_url']);
+        $this->assertSame(PortalEndpointRegistry::url('exam_submit'), $result['data']['submit_url']);
     }
 
     public function test_determine_upload_status_prioritizes_failure_phrases(): void
@@ -404,6 +472,38 @@ class SipandaiSubmissionServiceTest extends TestCase
         ]);
 
         $this->assertSame('uploaded', $detail['status']);
+        $this->assertTrue($detail['form']['available']);
+        $this->assertSame(PortalEndpointRegistry::url('exam_submit'), $detail['form']['post_url']);
+    }
+
+    public function test_extract_exam_detail_keeps_direct_upload_available_when_submission_already_exists_without_form(): void
+    {
+        $service = new SipandaiSubmissionService($this->createMock(PortalSessionManager::class));
+
+        $detail = $this->invokeNonPublicMethod($service, 'extractExamDetail', [
+            <<<'HTML'
+            <html>
+                <body>
+                    <table>
+                        <tr>
+                            <td>Rabu, 20 Mei 2026</td>
+                            <td>UTS / Reguler</td>
+                            <td>Jawaban UTS</td>
+                            <td><a href="../files/tugasmhs/9184-UTS-20251030030-abc.pdf">Open Jawaban Ujian</a></td>
+                        </tr>
+                    </table>
+                </body>
+            </html>
+            HTML,
+            9184,
+            'https://my.cic.ac.id/portal/sipandai/?mod=sipandai&act=sendujian&id=9184',
+        ]);
+
+        $this->assertSame('uploaded', $detail['status']);
+        $this->assertTrue($detail['form']['available']);
+        $this->assertTrue($detail['form']['available_via_direct_submit']);
+        $this->assertSame(PortalEndpointRegistry::url('exam_submit'), $detail['form']['post_url']);
+        $this->assertSame('9184', $detail['form']['fields']['data[id]']);
     }
 
     public function test_extract_exam_detail_collects_downloadable_exam_file_links(): void
@@ -458,6 +558,36 @@ class SipandaiSubmissionServiceTest extends TestCase
         $this->assertTrue($formMeta['has_upload_form']);
     }
 
+    public function test_extract_exam_form_meta_prefers_sendujian_form_without_file_input(): void
+    {
+        $service = new SipandaiSubmissionService($this->createMock(PortalSessionManager::class));
+
+        $formMeta = $this->invokeNonPublicMethod($service, 'extractExamFormMeta', [
+            <<<'HTML'
+            <html>
+                <body>
+                    <form action="?mod=search" method="get">
+                        <input type="text" name="q" value="algoritma">
+                    </form>
+                    <form method="post" action="?mod=sipandai&act=sentujian" enctype="multipart/form-data">
+                        <input type="hidden" name="data[id]" value="9186" />
+                        <input type="hidden" name="data[tipe]" value="UTS" />
+                        <input type="hidden" name="data[kelas]" value="TEORI" />
+                        <input type="text" name="data[name]" size="70" maxlength="70" />
+                    </form>
+                </body>
+            </html>
+            HTML,
+        ]);
+
+        $this->assertSame('?mod=sipandai&act=sentujian', $formMeta['action']);
+        $this->assertNull($formMeta['file_field']);
+        $this->assertSame('9186', $formMeta['fields']['data[id]']);
+        $this->assertSame('UTS', $formMeta['fields']['data[tipe]']);
+        $this->assertSame('TEORI', $formMeta['fields']['data[kelas]']);
+        $this->assertFalse($formMeta['has_upload_form']);
+    }
+
     public function test_extract_exam_form_meta_marks_missing_form_as_unavailable(): void
     {
         $service = new SipandaiSubmissionService($this->createMock(PortalSessionManager::class));
@@ -493,18 +623,35 @@ class SipandaiSubmissionServiceTest extends TestCase
         $this->assertTrue($detail['form']['available_via_direct_submit']);
         $this->assertSame('file', $detail['form']['file_field']);
         $this->assertSame(PortalEndpointRegistry::url('exam_submit'), $detail['form']['action_url']);
+        $this->assertSame('https://my.cic.ac.id/portal/sipandai/?mod=sipandai&act=sendujian&id=8833', $detail['form']['get_url']);
+        $this->assertSame(PortalEndpointRegistry::url('exam_submit'), $detail['form']['post_url']);
+        $this->assertSame('8833', $detail['form']['fields']['data[id]']);
     }
 
-    public function test_resolve_exam_submit_url_uses_sentujian_for_sendujian_forms(): void
+    public function test_extract_exam_detail_exposes_distinct_get_and_post_urls(): void
     {
         $service = new SipandaiSubmissionService($this->createMock(PortalSessionManager::class));
 
-        $actionUrl = $this->invokeNonPublicMethod($service, 'resolveExamSubmitUrl', [
-            '?mod=sipandai&act=sendujian&id=8833',
+        $detail = $this->invokeNonPublicMethod($service, 'extractExamDetail', [
+            <<<'HTML'
+            <html>
+                <body>
+                    <form action="?mod=sipandai&act=sendujian&id=8833" method="post" enctype="multipart/form-data">
+                        <input type="hidden" name="data[id]" value="8833" />
+                        <input type="file" name="file" />
+                    </form>
+                </body>
+            </html>
+            HTML,
+            8833,
             'https://my.cic.ac.id/portal/sipandai/?mod=sipandai&act=sendujian&id=8833',
         ]);
 
-        $this->assertSame(PortalEndpointRegistry::url('exam_submit'), $actionUrl);
+        $this->assertSame('https://my.cic.ac.id/portal/sipandai/?mod=sipandai&act=sendujian&id=8833', $detail['metadata_url']);
+        $this->assertSame(PortalEndpointRegistry::url('exam_submit'), $detail['submit_url']);
+        $this->assertSame('https://my.cic.ac.id/portal/sipandai/?mod=sipandai&act=sendujian&id=8833', $detail['form']['get_url']);
+        $this->assertSame(PortalEndpointRegistry::url('exam_submit'), $detail['form']['post_url']);
+        $this->assertSame(PortalEndpointRegistry::url('exam_submit'), $detail['form']['action_url']);
     }
 
     public function test_build_exam_unavailable_result_marks_existing_submission_as_already_uploaded(): void

@@ -181,6 +181,7 @@
 
             const renderUploadPanel = (detail, form, isUploadReady) => {
                 const usesDirectSubmit = Boolean(form.available_via_direct_submit);
+                const postUrl = form.post_url || detail.submit_url || form.action_url || '';
 
                 return `
                 <div class="card">
@@ -191,6 +192,7 @@
                         <div class="alert ${isUploadReady ? (usesDirectSubmit ? 'alert-warning' : 'alert-success') : 'alert-secondary'} mb-3">
                             <div class="fw-semibold">${isUploadReady ? (usesDirectSubmit ? 'Upload langsung siap.' : 'Form upload siap.') : 'Upload belum tersedia.'}</div>
                             <div class="small ${isUploadReady ? (usesDirectSubmit ? 'text-warning' : 'text-success') : 'text-secondary'}">Status: ${app.escapeHtml(detail.status || '-')}</div>
+                            ${postUrl ? `<div class="small text-secondary text-break mt-1">POST: ${app.escapeHtml(postUrl)}</div>` : ''}
                         </div>
                         ${isUploadReady ? `
                             <form id="exam-upload-form">
@@ -217,8 +219,8 @@
                             ${[
                                 { label: 'Exam ID', value: detail.exam_id },
                                 { label: 'Field file', value: form.file_field },
-                                { label: 'Request URL', value: detail.request_url },
-                                { label: 'Action URL', value: form.action_url },
+                                { label: 'GET URL', value: form.get_url || detail.metadata_url || detail.request_url },
+                                { label: 'POST URL', value: form.post_url || detail.submit_url || form.action_url },
                             ].filter((item) => item.value).map((item) => `
                                 <div>
                                     <div class="text-secondary text-uppercase small mb-1">${app.escapeHtml(item.label)}</div>
@@ -233,7 +235,7 @@
             const render = (payload) => {
                 const detail = payload.data?.exam_detail || {};
                 const form = detail.form || {};
-                const isUploadReady = Boolean(form.available);
+                const isUploadReady = Boolean(form.available || form.post_url || detail.submit_url || form.action_url || detail.exam_id);
                 const relatedLinks = detail.related_links || [];
                 const fileLinks = relatedLinks.filter(isDownloadableLink);
                 const portalLinks = relatedLinks.filter((link) => !isDownloadableLink(link) && link?.type !== 'action');
