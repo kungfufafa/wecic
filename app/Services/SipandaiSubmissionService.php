@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Exceptions\PortalScrapingException;
+use App\Models\ExamSubmissionRecord;
 use GuzzleHttp\RequestOptions;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Psr\Http\Message\ResponseInterface;
 use Symfony\Component\DomCrawler\Crawler;
@@ -349,6 +352,31 @@ class SipandaiSubmissionService extends PortalScrapingService
         $result['data']['submit_url'] = $submitUrl;
         $result['data']['action_url'] = $submitUrl;
         $result['data']['direct_submit_fallback'] = $formMeta['direct_submit_fallback'] ?? false;
+        $result['data']['submission_records'] = $this->extractExamSubmissionRecords($responseHtml, $submitUrl, $examId);
+
+        if (($result['success'] ?? false) === true && $this->canPersistExamSubmissionRecords()) {
+            $this->rememberExamSubmissionRecords(
+                $sessionToken,
+                $examId,
+                $result['data']['submission_records'],
+                'upload_response'
+            );
+
+            try {
+                $refreshedHtml = $this->get($metadataUrl);
+                $refreshedRecords = $this->extractExamSubmissionRecords($refreshedHtml, $metadataUrl, $examId);
+                $this->rememberExamSubmissionRecords($sessionToken, $examId, $refreshedRecords, 'upload_refresh');
+                $result['data']['submission_records'] = $this->mergeExamSubmissionRecordPayloads(
+                    $result['data']['submission_records'],
+                    $refreshedRecords
+                );
+            } catch (\Throwable $e) {
+                Log::warning('Failed to refresh SIPANDAI exam submission metadata after upload', [
+                    'exam_id' => $examId,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
 
         return $result;
     }
@@ -368,8 +396,20 @@ class SipandaiSubmissionService extends PortalScrapingService
         ]);
 
         $html = $this->get($targetUrl);
+        $currentSubmissions = $this->extractExamSubmissionRecords($html, $targetUrl, $examId);
+        $this->rememberExamSubmissionRecords($sessionToken, $examId, $currentSubmissions, 'detail');
 
-        return $this->extractExamDetail($html, $examId, $targetUrl);
+        $detail = $this->extractExamDetail($html, $examId, $targetUrl);
+        $storedSubmissions = $this->storedExamSubmissionRecords($sessionToken, $examId);
+
+        $detail['submissions'] = $this->mergeExamSubmissionRecordPayloads($detail['submissions'], $currentSubmissions);
+        $detail['stored_submissions'] = $storedSubmissions;
+        $detail['latest_submission'] = $this->latestExamSubmissionRecord(
+            $detail['submissions'],
+            $storedSubmissions
+        );
+
+        return $detail;
     }
 
     private function extractExamFormMeta(string $html): array
@@ -927,6 +967,7 @@ class SipandaiSubmissionService extends PortalScrapingService
         $formMeta = $this->prepareExamUploadFormMeta($this->extractExamFormMeta($html), $examId);
         $alerts = $this->extractAlertMessages($crawler);
         $isUploaded = $this->hasUploadedExamInResponse($html);
+        $submissions = $this->extractExamSubmissionRecords($html, $targetUrl, $examId);
 
         $submitUrl = PortalEndpointRegistry::url('exam_submit');
         $directSubmitFallback = (bool) ($formMeta['direct_submit_fallback'] ?? false);
@@ -943,6 +984,9 @@ class SipandaiSubmissionService extends PortalScrapingService
             'alerts' => $alerts,
             'requirements' => $this->extractExamRequirementTexts($crawler),
             'related_links' => $this->extractExamRelevantLinks($crawler, $targetUrl),
+            'submissions' => $submissions,
+            'stored_submissions' => [],
+            'latest_submission' => $this->latestExamSubmissionRecord($submissions, []),
             'form' => [
                 'action_url' => $submitUrl,
                 'get_url' => $targetUrl,
@@ -955,6 +999,344 @@ class SipandaiSubmissionService extends PortalScrapingService
                 'fields' => $formMeta['fields'],
             ],
         ];
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function extractExamSubmissionRecords(string $html, string $targetUrl, int $examId): array
+    {
+        $crawler = $this->createCrawler($html);
+        $records = [];
+
+        $crawler->filter('tr')->each(function (Crawler $row) use (&$records, $targetUrl, $examId): void {
+            $record = $this->extractExamSubmissionRecordFromRow($row, $targetUrl, $examId);
+
+            if ($record !== null) {
+                $records[] = $record;
+            }
+        });
+
+        if ($records === []) {
+            $record = $this->extractExamSubmissionRecordFromLinks($crawler, $targetUrl, $examId);
+
+            if ($record !== null) {
+                $records[] = $record;
+            }
+        }
+
+        return $this->uniqueExamSubmissionRecords($records);
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function extractExamSubmissionRecordFromRow(Crawler $row, string $targetUrl, int $examId): ?array
+    {
+        $fileLink = null;
+        $deleteLink = null;
+
+        $row->filter('a[href]')->each(function (Crawler $link) use (&$fileLink, &$deleteLink): void {
+            $href = trim((string) ($link->attr('href') ?? ''));
+            $text = $this->cleanText($link->text());
+
+            if ($fileLink === null && $this->isExamSubmissionFileLink($href, $text)) {
+                $fileLink = [
+                    'href' => $href,
+                    'text' => $text,
+                ];
+            }
+
+            if ($deleteLink === null && $this->isExamSubmissionDeleteLink($href)) {
+                $deleteLink = [
+                    'href' => $href,
+                    'text' => $text,
+                ];
+            }
+        });
+
+        if ($fileLink === null && $deleteLink === null) {
+            return null;
+        }
+
+        $cellTexts = $this->extractCellTexts($row, 'td, th');
+
+        return $this->buildExamSubmissionRecord(
+            $examId,
+            $targetUrl,
+            $fileLink,
+            $deleteLink,
+            $cellTexts
+        );
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function extractExamSubmissionRecordFromLinks(Crawler $crawler, string $targetUrl, int $examId): ?array
+    {
+        $fileLink = null;
+        $deleteLink = null;
+
+        $crawler->filter('a[href]')->each(function (Crawler $link) use (&$fileLink, &$deleteLink): void {
+            $href = trim((string) ($link->attr('href') ?? ''));
+            $text = $this->cleanText($link->text());
+
+            if ($fileLink === null && $this->isExamSubmissionFileLink($href, $text)) {
+                $fileLink = [
+                    'href' => $href,
+                    'text' => $text,
+                ];
+            }
+
+            if ($deleteLink === null && $this->isExamSubmissionDeleteLink($href)) {
+                $deleteLink = [
+                    'href' => $href,
+                    'text' => $text,
+                ];
+            }
+        });
+
+        if ($fileLink === null && $deleteLink === null) {
+            return null;
+        }
+
+        return $this->buildExamSubmissionRecord($examId, $targetUrl, $fileLink, $deleteLink, []);
+    }
+
+    /**
+     * @param  array{href: string, text: string}|null  $fileLink
+     * @param  array{href: string, text: string}|null  $deleteLink
+     * @param  array<int, string>  $cellTexts
+     * @return array<string, mixed>
+     */
+    private function buildExamSubmissionRecord(
+        int $examId,
+        string $targetUrl,
+        ?array $fileLink,
+        ?array $deleteLink,
+        array $cellTexts
+    ): array {
+        $fileUrl = $fileLink !== null
+            ? $this->resolveExamRelevantLinkUrl($fileLink['href'], $targetUrl)
+            : null;
+        $deleteUrl = $deleteLink !== null
+            ? $this->resolveExamRelevantLinkUrl($deleteLink['href'], $targetUrl)
+            : null;
+
+        return [
+            'exam_id' => $examId,
+            'submission_id' => $deleteLink !== null ? $this->extractExamDeleteSubmissionId($deleteLink['href']) : null,
+            'file_url' => $fileUrl,
+            'file_name' => $fileUrl !== null ? $this->filenameFromUrl($fileUrl) : null,
+            'delete_url' => $deleteUrl,
+            'uploaded_at_label' => $cellTexts[1] ?? null,
+            'exam_type' => $cellTexts[2] ?? null,
+            'description' => $cellTexts[3] ?? null,
+            'is_stored' => false,
+        ];
+    }
+
+    private function isExamSubmissionFileLink(string $href, string $text): bool
+    {
+        $haystack = strtolower($href.' '.$text);
+
+        return Str::contains($haystack, ['files/tugasmhs', 'open jawaban ujian', 'jawaban ujian'])
+            && ! Str::contains($haystack, ['soal', 'jobdelujian']);
+    }
+
+    private function isExamSubmissionDeleteLink(string $href): bool
+    {
+        return Str::contains(strtolower(html_entity_decode($href, ENT_QUOTES, 'UTF-8')), 'jobdelujian');
+    }
+
+    private function extractExamDeleteSubmissionId(string $href): ?int
+    {
+        parse_str((string) parse_url(html_entity_decode($href, ENT_QUOTES, 'UTF-8'), PHP_URL_QUERY), $query);
+
+        $submissionId = $query['id'] ?? null;
+
+        return is_numeric($submissionId) ? (int) $submissionId : null;
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $records
+     * @return array<int, array<string, mixed>>
+     */
+    private function uniqueExamSubmissionRecords(array $records): array
+    {
+        $uniqueRecords = [];
+        $seen = [];
+
+        foreach ($records as $record) {
+            $key = $this->examSubmissionRecordKey($record);
+
+            if (isset($seen[$key])) {
+                continue;
+            }
+
+            $seen[$key] = true;
+            $uniqueRecords[] = $record;
+        }
+
+        return $uniqueRecords;
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $primaryRecords
+     * @param  array<int, array<string, mixed>>  $secondaryRecords
+     * @return array<int, array<string, mixed>>
+     */
+    private function mergeExamSubmissionRecordPayloads(array $primaryRecords, array $secondaryRecords): array
+    {
+        return $this->uniqueExamSubmissionRecords(array_merge($primaryRecords, $secondaryRecords));
+    }
+
+    /**
+     * @param  array<string, mixed>  $record
+     */
+    private function examSubmissionRecordKey(array $record): string
+    {
+        if (($record['submission_id'] ?? null) !== null) {
+            return 'submission:'.$record['submission_id'];
+        }
+
+        if (($record['delete_url'] ?? null) !== null) {
+            return 'delete:'.strtolower((string) $record['delete_url']);
+        }
+
+        return 'file:'.strtolower((string) ($record['file_url'] ?? spl_object_id((object) $record)));
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $currentRecords
+     * @param  array<int, array<string, mixed>>  $storedRecords
+     * @return array<string, mixed>|null
+     */
+    private function latestExamSubmissionRecord(array $currentRecords, array $storedRecords): ?array
+    {
+        foreach ([$currentRecords, $storedRecords] as $records) {
+            foreach ($records as $record) {
+                if (($record['submission_id'] ?? null) !== null) {
+                    return $record;
+                }
+            }
+        }
+
+        return $currentRecords[0] ?? $storedRecords[0] ?? null;
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $records
+     */
+    private function rememberExamSubmissionRecords(string $sessionToken, int $examId, array $records, string $source): void
+    {
+        if ($records === [] || ! $this->canPersistExamSubmissionRecords()) {
+            return;
+        }
+
+        $username = $this->sessionUsernameForSubmissionRecords($sessionToken);
+
+        foreach ($records as $record) {
+            $lookup = [
+                'username' => $username,
+                'exam_id' => $examId,
+            ];
+
+            if (($record['submission_id'] ?? null) !== null) {
+                $lookup['submission_id'] = (int) $record['submission_id'];
+            } elseif (($record['file_url'] ?? null) !== null) {
+                $lookup['file_url'] = (string) $record['file_url'];
+            } elseif (($record['delete_url'] ?? null) !== null) {
+                $lookup['delete_url'] = (string) $record['delete_url'];
+            } else {
+                continue;
+            }
+
+            ExamSubmissionRecord::query()->updateOrCreate($lookup, [
+                'username' => $username,
+                'exam_id' => $examId,
+                'submission_id' => $record['submission_id'] ?? null,
+                'file_url' => $record['file_url'] ?? null,
+                'file_name' => $record['file_name'] ?? null,
+                'delete_url' => $record['delete_url'] ?? null,
+                'uploaded_at_label' => $record['uploaded_at_label'] ?? null,
+                'exam_type' => $record['exam_type'] ?? null,
+                'description' => $record['description'] ?? null,
+                'source' => $source,
+                'metadata' => [],
+                'last_seen_at' => now(),
+            ]);
+        }
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function storedExamSubmissionRecords(string $sessionToken, int $examId): array
+    {
+        if (! $this->canPersistExamSubmissionRecords()) {
+            return [];
+        }
+
+        $username = $this->sessionUsernameForSubmissionRecords($sessionToken);
+        $query = ExamSubmissionRecord::query()
+            ->where('exam_id', $examId)
+            ->orderByDesc('last_seen_at')
+            ->orderByDesc('id')
+            ->limit(10);
+
+        if ($username !== null) {
+            $query->where('username', $username);
+        } else {
+            $query->whereNull('username');
+        }
+
+        return $query->get()
+            ->map(fn (ExamSubmissionRecord $record): array => $this->examSubmissionRecordPayload($record))
+            ->all();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function examSubmissionRecordPayload(ExamSubmissionRecord $record): array
+    {
+        return [
+            'exam_id' => $record->exam_id,
+            'submission_id' => $record->submission_id,
+            'file_url' => $record->file_url,
+            'file_name' => $record->file_name,
+            'delete_url' => $record->delete_url,
+            'uploaded_at_label' => $record->uploaded_at_label,
+            'exam_type' => $record->exam_type,
+            'description' => $record->description,
+            'source' => $record->source,
+            'last_seen_at' => $record->last_seen_at?->toISOString(),
+            'is_stored' => true,
+        ];
+    }
+
+    private function canPersistExamSubmissionRecords(): bool
+    {
+        try {
+            return Schema::hasTable('exam_submission_records');
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    private function sessionUsernameForSubmissionRecords(string $sessionToken): ?string
+    {
+        try {
+            $session = $this->sessionManager->getSession($sessionToken);
+        } catch (\Throwable) {
+            return null;
+        }
+
+        $username = $session['username'] ?? null;
+
+        return is_scalar($username) && $username !== '' ? (string) $username : null;
     }
 
     private function buildExamUnavailableResultPayload(string $html, string $formUrl, int $examId): array

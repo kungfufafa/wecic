@@ -232,6 +232,49 @@
                 </div>
             `;
 
+            const renderSubmissionMemoryPanel = (detail) => {
+                const latest = detail.latest_submission || null;
+                const storedSubmissions = detail.stored_submissions || [];
+                const currentSubmissions = detail.submissions || [];
+                const hasLiveDeleteId = currentSubmissions.some((record) => record?.submission_id);
+
+                if (!latest && !storedSubmissions.length && !currentSubmissions.length) {
+                    return '';
+                }
+
+                const fields = [
+                    { label: 'ID hapus', value: latest?.submission_id || 'Belum tertangkap' },
+                    { label: 'File', value: latest?.file_name || (latest?.file_url ? fileNameFromUrl(latest.file_url) : null) },
+                    { label: 'Tanggal upload', value: latest?.uploaded_at_label },
+                    { label: 'Sumber', value: latest?.is_stored ? 'Tersimpan lokal' : 'Halaman portal' },
+                    { label: 'Terakhir terlihat', value: latest?.last_seen_at },
+                    { label: 'URL hapus', value: latest?.delete_url },
+                ].filter((item) => item.value);
+
+                return `
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Rekaman jawaban</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="d-flex flex-column gap-3">
+                                ${fields.map((item) => `
+                                    <div>
+                                        <div class="text-secondary text-uppercase small mb-1">${app.escapeHtml(item.label)}</div>
+                                        <div class="fw-semibold text-break">${app.escapeHtml(item.value)}</div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                            ${latest?.submission_id && !hasLiveDeleteId ? `
+                                <div class="alert alert-warning mt-3 mb-0">
+                                    ID hapus tersimpan, tetapi tombol hapus tidak tampil di halaman portal saat ini.
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+            };
+
             const render = (payload) => {
                 const detail = payload.data?.exam_detail || {};
                 const form = detail.form || {};
@@ -274,6 +317,7 @@
 
                 document.getElementById('exam-actions').innerHTML = `
                     ${renderUploadPanel(detail, form, isUploadReady)}
+                    ${renderSubmissionMemoryPanel(detail)}
                     ${renderPortalLinks(portalLinks)}
                     ${renderMetaPanel(detail, form)}
                 `;

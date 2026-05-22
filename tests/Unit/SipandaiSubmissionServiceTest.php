@@ -506,6 +506,52 @@ class SipandaiSubmissionServiceTest extends TestCase
         $this->assertSame('9184', $detail['form']['fields']['data[id]']);
     }
 
+    public function test_extract_exam_detail_captures_exam_delete_submission_id_from_uploaded_row(): void
+    {
+        $service = new SipandaiSubmissionService($this->createMock(PortalSessionManager::class));
+
+        $detail = $this->invokeNonPublicMethod($service, 'extractExamDetail', [
+            <<<'HTML'
+            <html>
+                <body>
+                    <table>
+                        <tr>
+                            <td>No.</td>
+                            <td>Tgl. Upload</td>
+                            <td>Ujian</td>
+                            <td>Keterangan</td>
+                            <td>Jawaban</td>
+                        </tr>
+                        <tr class="altrow">
+                            <td align="center">1.</td>
+                            <td>Rabu, 20 Mei 2026</td>
+                            <td>UTS / Reguler</td>
+                            <td>-</td>
+                            <td align="center">
+                                <a href="../files/tugasmhs/9195-UTS-20251030030-785.pdf" class="btn btn-success btn-sm" target="_blank">
+                                    Open Jawaban Ujian
+                                </a>
+                                |
+                                <a href="?mod=sipandai&amp;act=jobdelujian&amp;id=131828" class="btn btn-danger btn-sm">
+                                    Hapus Jawaban
+                                </a>
+                            </td>
+                        </tr>
+                    </table>
+                </body>
+            </html>
+            HTML,
+            9195,
+            'https://my.cic.ac.id/portal/sipandai/?mod=sipandai&act=sendujian&id=9195',
+        ]);
+
+        $this->assertSame(131828, $detail['submissions'][0]['submission_id']);
+        $this->assertSame(131828, $detail['latest_submission']['submission_id']);
+        $this->assertSame('9195-UTS-20251030030-785.pdf', $detail['submissions'][0]['file_name']);
+        $this->assertSame('Rabu, 20 Mei 2026', $detail['submissions'][0]['uploaded_at_label']);
+        $this->assertStringContainsString('act=jobdelujian', $detail['submissions'][0]['delete_url']);
+    }
+
     public function test_extract_exam_detail_collects_downloadable_exam_file_links(): void
     {
         $service = new SipandaiSubmissionService($this->createMock(PortalSessionManager::class));
