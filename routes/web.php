@@ -49,6 +49,8 @@ Route::get('/login', function (PortalSessionManager $sessionManager) {
 Route::middleware('portal.web')->group(function (): void {
     Route::view('/dashboard', 'dashboard')->name('dashboard');
     Route::view('/profile', 'profile')->name('profile');
+    Route::view('/finance', 'finance.index')->name('finance.index');
+    Route::view('/password', 'auth.password')->name('password.edit');
     Route::view('/class', 'classes.index')->name('class.index');
     Route::get('/class/{id}', function (Request $request, string $id) {
         return view('classes.show', [

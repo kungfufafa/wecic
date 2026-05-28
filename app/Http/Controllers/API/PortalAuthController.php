@@ -8,6 +8,8 @@ use App\Exceptions\PortalAuthenticationException;
 use App\Exceptions\PortalConnectionException;
 use App\Exceptions\PortalScrapingException;
 use App\Http\Requests\PortalLoginRequest;
+use App\Http\Requests\PortalPasswordChangeRequest;
+use App\Services\PortalPasswordService;
 use App\Services\PortalSessionManager;
 use Dedoc\Scramble\Attributes\Group;
 use Dedoc\Scramble\Attributes\Response;
@@ -25,7 +27,10 @@ class PortalAuthController extends CampusApiController
 
     private const LOGOUT_RESPONSE = "array{status: 'success', message: string, meta: array{timestamp: string, campus_session_valid: false}}";
 
-    public function __construct(private readonly PortalSessionManager $sessionManager) {}
+    public function __construct(
+        private readonly PortalSessionManager $sessionManager,
+        private readonly PortalPasswordService $passwordService
+    ) {}
 
     /**
      * Login ke sistem kampus.
@@ -167,6 +172,74 @@ class PortalAuthController extends CampusApiController
             session()->forget(['campus_session_token', 'campus_user_info']);
 
             return $this->statusSuccess('Logout berhasil (session cleared)', campusSessionValid: false);
+        }
+    }
+
+    /**
+     * Ambil metadata form ubah password dari portal kampus.
+     */
+    public function passwordForm(): JsonResponse
+    {
+        $sessionToken = $this->sessionToken();
+
+        if (! $sessionToken) {
+            return $this->missingSessionStatusResponse();
+        }
+
+        try {
+            return $this->statusSuccess('Password form metadata retrieved successfully', [
+                'data' => $this->passwordService->inspectPasswordForm($sessionToken),
+            ], campusSessionValid: true);
+        } catch (\Throwable $throwable) {
+            if ($this->isCampusSessionExpiredException($throwable)) {
+                session()->forget(['campus_session_token', 'campus_user_info']);
+
+                return $this->statusError('Campus session has expired. Please login again.', 401, campusSessionValid: false);
+            }
+
+            Log::error('Password form inspection failed', [
+                'error' => $throwable->getMessage(),
+            ]);
+
+            return $this->statusError('Failed to inspect password form.', 500, campusSessionValid: false);
+        }
+    }
+
+    /**
+     * Kirim perubahan password ke portal kampus.
+     */
+    public function changePassword(PortalPasswordChangeRequest $request): JsonResponse
+    {
+        $sessionToken = $this->sessionToken();
+
+        if (! $sessionToken) {
+            return $this->missingSessionBooleanResponse();
+        }
+
+        try {
+            $result = $this->passwordService->changePassword(
+                $sessionToken,
+                $request->currentPassword(),
+                $request->newPassword(),
+                $request->newPasswordConfirmation()
+            );
+
+            return $this->booleanResponse(
+                (bool) $result['success'],
+                (string) $result['message'],
+                $result['data'] ?? null,
+                $result['success'] ? 200 : 422
+            );
+        } catch (\Throwable $throwable) {
+            if ($this->isCampusSessionExpiredException($throwable)) {
+                return $this->expiredSessionBooleanResponse();
+            }
+
+            Log::error('Password change failed', [
+                'error' => $throwable->getMessage(),
+            ]);
+
+            return $this->booleanResponse(false, 'Failed to change password.', null, 500);
         }
     }
 }

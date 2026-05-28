@@ -3,8 +3,6 @@
 namespace App\Console\Commands;
 
 use App\Services\Extractors\ClassesExtractor;
-use App\Services\PortalAuthService;
-use App\Services\PortalScrapingService;
 use App\Services\PortalSessionManager;
 use Illuminate\Console\Command;
 
@@ -15,7 +13,10 @@ class ScrapeTestCommand extends Command
      *
      * @var string
      */
-    protected $signature = 'scrape:test {--analyze : Analyze URL structure and extract valid data}';
+    protected $signature = 'scrape:test
+        {--analyze : Analyze URL structure and extract valid data}
+        {--username= : Portal username for live scraping test}
+        {--password= : Portal password for live scraping test}';
 
     /**
      * The console command description.
@@ -27,16 +28,14 @@ class ScrapeTestCommand extends Command
     /**
      * Execute the console command.
      */
-    public function handle()
+    public function handle(): int
     {
         $this->info('=== Testing URL Structure Analysis ===');
         $this->newLine();
 
         // Initialize services
         $sessionManager = app(PortalSessionManager::class);
-        $scrapingService = new PortalScrapingService($sessionManager);
-        $authService = new PortalAuthService($scrapingService);
-        $classesExtractor = new ClassesExtractor($scrapingService);
+        $classesExtractor = new ClassesExtractor($sessionManager);
 
         // Test URLs from user
         $testUrls = [
@@ -60,10 +59,20 @@ class ScrapeTestCommand extends Command
             ],
         ];
 
+        $username = (string) $this->option('username');
+        $password = (string) $this->option('password');
+
+        if ($username === '' || $password === '') {
+            $this->warn('Live login skipped. Pass --username and --password to run upstream scraping checks.');
+
+            return Command::SUCCESS;
+        }
+
         // First, let's try to login
         $this->info('1. Testing Login...');
         try {
-            $sessionToken = $authService->authenticate('20251030030', 'Kanjutz123@');
+            $sessionResult = $sessionManager->createSession($username, $password);
+            $sessionToken = $sessionResult['session_token'] ?? null;
 
             if ($sessionToken) {
                 $this->info('✅ Login successful!');

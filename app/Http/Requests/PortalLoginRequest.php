@@ -23,7 +23,7 @@ class PortalLoginRequest extends ApiFormRequest
             /**
              * Kata sandi akun portal kampus.
              *
-             * @example "Kanjutz123@"
+             * @example "********"
              */
             'password' => ['required', 'string', 'max:255'],
         ];

@@ -10,8 +10,11 @@ $loginActionUrl = env('CAMPUS_LOGIN_ACTION', "{$mahasiswaBase}/?mod=loginact");
 $logoutUrl = env('CAMPUS_LOGOUT_URL', "{$mahasiswaBase}/?mod=logout");
 $dashboardUrl = env('CAMPUS_DASHBOARD_URL', "{$mahasiswaBase}/?mod=student&act=dashboard");
 $profileUrl = env('CAMPUS_PROFILE_URL', "{$mahasiswaBase}/?mod=student&act=profile");
+$passwordUrl = env('CAMPUS_PASSWORD_URL', "{$mahasiswaBase}/?mod=student&act=password");
+$passwordActionUrl = env('CAMPUS_PASSWORD_ACTION_URL', "{$mahasiswaBase}/?mod=student&act=passwordact");
 $studentCourseUrl = env('CAMPUS_STUDENT_COURSE_URL', "{$mahasiswaBase}/?mod=student&act=course");
 $studentCreditUrl = env('CAMPUS_STUDENT_CREDIT_URL', "{$mahasiswaBase}/?mod=student&act=credit");
+$studentFinanceUrl = env('CAMPUS_STUDENT_FINANCE_URL', "{$mahasiswaBase}/?mod=student&act=keuangan");
 
 $sipandaiDashboardUrl = env('CAMPUS_SIPANDAI_DASHBOARD_URL', "{$sipandaiBase}/?mod=sipandai&act=dashboardmahasiswa");
 $sipandaiLogoutUrl = env('CAMPUS_SIPANDAI_LOGOUT_URL', "{$sipandaiBase}/controllers/logout.php");
@@ -42,12 +45,15 @@ return [
     'logout_url' => $logoutUrl,
     'dashboard_url' => $dashboardUrl,
     'profile_url' => $profileUrl,
+    'password_url' => $passwordUrl,
+    'password_action_url' => $passwordActionUrl,
     'classes_url' => $classesUrl,
     'class_detail_url' => $classDetailUrl,
     'sipandai_dashboard_url' => $sipandaiDashboardUrl,
     'sipandai_logout_url' => $sipandaiLogoutUrl,
     'student_course_url' => $studentCourseUrl,
     'student_credit_url' => $studentCreditUrl,
+    'student_finance_url' => $studentFinanceUrl,
     'sipandai_assignment_url' => $sipandaiAssignmentUrl,
     'sipandai_attendance_url' => $sipandaiAttendanceUrl,
     'sipandai_assignment_delete_url' => $assignmentDeleteUrl,
@@ -198,6 +204,30 @@ return [
             'priority' => 'high',
             'requires_session' => true,
         ],
+        'password_form' => [
+            'method' => 'GET',
+            'url' => $passwordUrl,
+            'default_query' => [
+                'mod' => 'student',
+                'act' => 'password',
+            ],
+            'description' => 'Student password change form.',
+            'category' => 'action',
+            'priority' => 'high',
+            'requires_session' => true,
+        ],
+        'password_submit' => [
+            'method' => 'POST',
+            'url' => $passwordActionUrl,
+            'default_query' => [
+                'mod' => 'student',
+                'act' => 'passwordact',
+            ],
+            'description' => 'Submit student password change payload.',
+            'category' => 'action',
+            'priority' => 'high',
+            'requires_session' => true,
+        ],
         'student_course' => [
             'method' => 'GET',
             'url' => $studentCourseUrl,
@@ -206,6 +236,18 @@ return [
                 'act' => 'course',
             ],
             'description' => 'Student course schedule with room info (Test 4).',
+            'category' => 'data',
+            'priority' => 'high',
+            'requires_session' => true,
+        ],
+        'student_finance' => [
+            'method' => 'GET',
+            'url' => $studentFinanceUrl,
+            'default_query' => [
+                'mod' => 'student',
+                'act' => 'keuangan',
+            ],
+            'description' => 'Student payment history / financial records.',
             'category' => 'data',
             'priority' => 'high',
             'requires_session' => true,

@@ -27,6 +27,11 @@ Route::middleware($sessionMiddleware)->group(function () {
     });
 
     Route::middleware('portal.session')->group(function (): void {
+        Route::prefix('auth')->controller(PortalAuthController::class)->group(function (): void {
+            Route::get('password/form', 'passwordForm');
+            Route::post('password', 'changePassword');
+        });
+
         Route::controller(PortalDataController::class)->group(function (): void {
             Route::get('dashboard', 'dashboard');
             Route::get('profile', 'profile');
@@ -39,6 +44,9 @@ Route::middleware($sessionMiddleware)->group(function () {
             });
             Route::prefix('schedule')->group(function (): void {
                 Route::get('class', 'studentCourse');
+            });
+            Route::prefix('finance')->group(function (): void {
+                Route::get('payments', 'paymentHistory');
             });
         });
 

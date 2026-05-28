@@ -9,6 +9,7 @@ use App\Http\Requests\SipandaiFlowRequest;
 use App\Http\Requests\SipandaiMeetingDetailRequest;
 use App\Services\Extractors\ClassesExtractor;
 use App\Services\Extractors\DashboardExtractor;
+use App\Services\Extractors\FinancialHistoryExtractor;
 use App\Services\Extractors\ProfileExtractor;
 use App\Services\Extractors\SipandaiClassesExtractor;
 use App\Services\Extractors\StudentCourseExtractor;
@@ -36,6 +37,8 @@ class PortalDataController extends CampusApiController
 
     private const MERGED_CLASSES_RESPONSE = "array{status: 'success', message: string, user_info: array<string, mixed>, classes: list<array<string, mixed>>, semester_info: array<string, mixed>, data_sources: array<string, bool>, meta: array{timestamp: string, campus_session_valid: true, data_source: string}}";
 
+    private const PAYMENT_HISTORY_RESPONSE = "array{status: 'success', message: string, data: array{student_info: array<string, string>, payment_history: list<array<string, mixed>>, summary: array<string, mixed>, extracted_at: string}, meta: array{timestamp: string, campus_session_valid: true}}";
+
     private const FLOW_RESPONSE = "array{status: 'success', message: string, data: array{course_detail: array<string, mixed>, meeting_detail: array<string, mixed>|null, links: array<string, string>}, meta: array{timestamp: string, campus_session_valid: true, script_reference: list<int>}}";
 
     private ProfileExtractor $profileExtractor;
@@ -48,6 +51,8 @@ class PortalDataController extends CampusApiController
 
     private StudentCourseExtractor $studentCourseExtractor;
 
+    private FinancialHistoryExtractor $financialHistoryExtractor;
+
     private SipandaiSubmissionService $submissionService;
 
     public function __construct(
@@ -56,6 +61,7 @@ class PortalDataController extends CampusApiController
         DashboardExtractor $dashboardExtractor,
         SipandaiClassesExtractor $sipandaiClassesExtractor,
         StudentCourseExtractor $studentCourseExtractor,
+        FinancialHistoryExtractor $financialHistoryExtractor,
         SipandaiSubmissionService $submissionService
     ) {
         $this->profileExtractor = $profileExtractor;
@@ -63,6 +69,7 @@ class PortalDataController extends CampusApiController
         $this->dashboardExtractor = $dashboardExtractor;
         $this->sipandaiClassesExtractor = $sipandaiClassesExtractor;
         $this->studentCourseExtractor = $studentCourseExtractor;
+        $this->financialHistoryExtractor = $financialHistoryExtractor;
         $this->submissionService = $submissionService;
     }
 
@@ -128,6 +135,26 @@ class PortalDataController extends CampusApiController
             return $this->statusSuccess('Classes data retrieved successfully', [
                 'user_info' => $classesData['user_info'] ?? [],
                 'classes' => $classesData['classes'] ?? [],
+            ], meta: $syncMeta, campusSessionValid: true);
+        });
+    }
+
+    /**
+     * Ambil histori pembayaran keuangan mahasiswa dari portal mahasiswa.
+     */
+    #[Response(description: 'Histori pembayaran keuangan berhasil diambil.', type: self::PAYMENT_HISTORY_RESPONSE)]
+    #[Response(401, description: 'Endpoint ini membutuhkan sesi kampus yang aktif.', type: CampusApiController::SCRAMBLE_SESSION_ERROR_RESPONSE)]
+    #[Response(500, description: 'Histori pembayaran gagal diambil.', type: CampusApiController::SCRAMBLE_STATUS_ERROR_RESPONSE)]
+    public function paymentHistory(Request $request): JsonResponse
+    {
+        return $this->withCampusSession('Payment history extraction failed', 'Failed to extract payment history', function (string $sessionToken) use ($request): JsonResponse {
+            $paymentHistoryData = $this->financialHistoryExtractor->extractPaymentHistoryData($sessionToken);
+            $syncMeta = $this->consumeSyncMeta($paymentHistoryData, [
+                'requested_fresh' => $request->boolean('fresh'),
+            ]);
+
+            return $this->statusSuccess('Payment history retrieved successfully', [
+                'data' => $paymentHistoryData,
             ], meta: $syncMeta, campusSessionValid: true);
         });
     }
