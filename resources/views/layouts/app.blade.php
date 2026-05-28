@@ -141,7 +141,7 @@
                             <div class="dropdown-divider d-xl-none"></div>
                             <a href="{{ route('profile') }}" class="dropdown-item">Profil</a>
                             <a href="{{ route('password.edit') }}" class="dropdown-item">Ubah Password</a>
-                            <button type="button" class="dropdown-item" data-logout>Logout</button>
+                            <button type="button" class="dropdown-item" data-logout>Keluar</button>
                         </div>
                     </div>
                 </div>

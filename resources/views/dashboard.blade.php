@@ -148,7 +148,7 @@
                                             </label>
                                         </div>
                                         <div class="col-md-auto ms-auto d-grid mt-3 mt-md-0">
-                                            <button type="submit" class="btn btn-${statusColor}" data-online-required>Kirim Absen</button>
+                                            <button type="submit" class="btn btn-${statusColor}" data-online-required>Kirim absensi</button>
                                         </div>
                                     </form>
                                 ` : klass.attendance?.status?.already_marked ? `
@@ -205,38 +205,38 @@
 
                         form.dataset.submitting = 'true';
 
-                        try {
-                            const body = attendancePayload
-                                ? {
-                                    ...attendancePayload,
-                                    kode,
+                        await app.withSubmitLoading(form.querySelector('button[type="submit"]'), async () => {
+                            try {
+                                const body = attendancePayload
+                                    ? {
+                                        ...attendancePayload,
+                                        kode,
+                                    }
+                                    : {
+                                        kode,
+                                        shortcut_context: shortcutContext,
+                                    };
+
+                                const result = await app.request('/api/attendance', {
+                                    method: 'POST',
+                                    json: body,
+                                });
+
+                                app.showNotice(result?.message || 'Absensi berhasil dikirim.', 'success');
+                                app.clearCachedResponse('/api/dashboard');
+                                app.clearCachedResponse('/api/attendance/today');
+
+                                if (klass?.attendance?.meeting_url) {
+                                    app.clearCachedResponse(
+                                        klass.attendance.meeting_url.replace('/meeting/', '/api/meeting/')
+                                    );
                                 }
-                                : {
-                                    kode,
-                                    shortcut_context: shortcutContext,
-                                };
 
-                            const result = await app.request('/api/attendance', {
-                                method: 'POST',
-                                json: body,
-                            });
-
-                            app.showNotice(result?.message || 'Absensi berhasil dikirim.', 'success');
-                            app.clearCachedResponse('/api/dashboard');
-                            app.clearCachedResponse('/api/attendance/today');
-
-                            if (klass?.attendance?.meeting_url) {
-                                app.clearCachedResponse(
-                                    klass.attendance.meeting_url.replace('/meeting/', '/api/meeting/')
-                                );
+                                await loadDashboard({ force: true });
+                            } catch (error) {
+                                app.showNotice(error.payload?.message || error.message, 'error');
                             }
-
-                            await loadDashboard({ force: true });
-                        } catch (error) {
-                            app.showNotice(error.payload?.message || error.message, 'error');
-                        } finally {
-                            delete form.dataset.submitting;
-                        }
+                        });
                     });
                 });
 
@@ -307,7 +307,7 @@
                                             <input type="file" class="form-control bg-white" data-field="attachment" accept=".pdf" required>
                                         </div>
                                         <div class="col-md-4 d-grid">
-                                            <button type="submit" class="btn btn-${statusColor}" data-online-required>Upload Tugas</button>
+                                            <button type="submit" class="btn btn-${statusColor}" data-online-required>Kirim tugas</button>
                                         </div>
                                     </form>
                                 ` : `
@@ -352,17 +352,19 @@
                         formData.append('pertemuan', candidate.assignment_payload.pertemuan);
                         formData.append('attachment', file);
 
-                        try {
-                            const result = await app.request('/api/assignment', {
-                                method: 'POST',
-                                formData,
-                            });
+                        await app.withSubmitLoading(form.querySelector('button[type="submit"]'), async () => {
+                            try {
+                                const result = await app.request('/api/assignment', {
+                                    method: 'POST',
+                                    formData,
+                                });
 
-                            app.showNotice(result?.message || 'Tugas berhasil dikirim.', 'success');
-                            await loadPendingAssignments();
-                        } catch (error) {
-                            app.showNotice(error.payload?.message || error.message, 'error');
-                        }
+                                app.showNotice(result?.message || 'Tugas berhasil dikirim.', 'success');
+                                await loadPendingAssignments();
+                            } catch (error) {
+                                app.showNotice(error.payload?.message || error.message, 'error');
+                            }
+                        });
                     });
                 });
 

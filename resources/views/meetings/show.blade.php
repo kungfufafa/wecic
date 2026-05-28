@@ -281,34 +281,32 @@
 
                     const kode = document.getElementById('attendance-code').value.trim();
 
-                    attendanceForm.dataset.submitting = 'true';
+                    await app.withSubmitLoading(attendanceForm.querySelector('button[type="submit"]'), async () => {
+                        try {
+                            const body = {
+                                courseid: coursesId,
+                                modulesid: meetingId,
+                                kode,
+                            };
 
-                    try {
-                        const body = {
-                            courseid: coursesId,
-                            modulesid: meetingId,
-                            kode,
-                        };
+                            if (inferredMeetingNumber) {
+                                body.pertemuan = inferredMeetingNumber;
+                            }
 
-                        if (inferredMeetingNumber) {
-                            body.pertemuan = inferredMeetingNumber;
+                            const result = await app.request('/api/attendance', {
+                                method: 'POST',
+                                json: body,
+                            });
+
+                            app.showNotice(result?.message || 'Absensi berhasil dikirim.', 'success');
+                            app.clearCachedResponse('/api/dashboard');
+                            app.clearCachedResponse('/api/attendance/today');
+                            app.clearCachedResponse(endpoint);
+                            await loadMeeting({ force: true });
+                        } catch (error) {
+                            app.showNotice(error.payload?.message || error.message, 'error');
                         }
-
-                        const result = await app.request('/api/attendance', {
-                            method: 'POST',
-                            json: body,
-                        });
-
-                        app.showNotice(result?.message || 'Absensi berhasil dikirim.', 'success');
-                        app.clearCachedResponse('/api/dashboard');
-                        app.clearCachedResponse('/api/attendance/today');
-                        app.clearCachedResponse(endpoint);
-                        await loadMeeting({ force: true });
-                    } catch (error) {
-                        app.showNotice(error.payload?.message || error.message, 'error');
-                    } finally {
-                        delete attendanceForm.dataset.submitting;
-                    }
+                    });
                 });
 
                 const assignmentForm = document.getElementById('assignment-form');
@@ -341,16 +339,18 @@
                             formData.append('form_values[keterangan]', note);
                         }
 
-                        try {
-                            const result = await app.request('/api/assignment', {
-                                method: 'POST',
-                                formData,
-                            });
+                        await app.withSubmitLoading(assignmentForm.querySelector('button[type="submit"]'), async () => {
+                            try {
+                                const result = await app.request('/api/assignment', {
+                                    method: 'POST',
+                                    formData,
+                                });
 
-                            app.showNotice(result?.message || 'Tugas berhasil dikirim.', 'success');
-                        } catch (error) {
-                            app.showNotice(error.payload?.message || error.message, 'error');
-                        }
+                                app.showNotice(result?.message || 'Tugas berhasil dikirim.', 'success');
+                            } catch (error) {
+                                app.showNotice(error.payload?.message || error.message, 'error');
+                            }
+                        });
                     });
                 }
 
@@ -365,21 +365,19 @@
                         return;
                     }
 
-                    assignmentDeleteButton.disabled = true;
+                    await app.withSubmitLoading(assignmentDeleteButton, async () => {
+                        try {
+                            const result = await app.request('/api/assignment', {
+                                method: 'DELETE',
+                                json: assignmentDeletePayload,
+                            });
 
-                    try {
-                        const result = await app.request('/api/assignment', {
-                            method: 'DELETE',
-                            json: assignmentDeletePayload,
-                        });
-
-                        app.showNotice(result?.message || 'Tugas berhasil dihapus.', 'success');
-                        await loadMeeting({ force: true });
-                    } catch (error) {
-                        app.showNotice(error.payload?.message || error.message, 'error');
-                    } finally {
-                        assignmentDeleteButton.disabled = false;
-                    }
+                            app.showNotice(result?.message || 'Tugas berhasil dihapus.', 'success');
+                            await loadMeeting({ force: true });
+                        } catch (error) {
+                            app.showNotice(error.payload?.message || error.message, 'error');
+                        }
+                    });
                 });
             };
 

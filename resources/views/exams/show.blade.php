@@ -201,7 +201,7 @@
                                     <input id="exam-file" type="file" class="form-control" required>
                                 </div>
                                 ${buildOverrideInputs(form.fields)}
-                                <button type="submit" class="btn btn-primary w-100" data-online-required>Kirim berkas</button>
+                                <button type="submit" class="btn btn-primary w-100" data-online-required>Kirim jawaban</button>
                             </form>
                         ` : app.renderDisabledButton('Upload belum tersedia')}
                     </div>
@@ -353,16 +353,18 @@
                             }
                         });
 
-                        try {
-                            const result = await app.request('/api/exam', {
-                                method: 'POST',
-                                formData,
-                            });
+                        await app.withSubmitLoading(uploadForm.querySelector('button[type="submit"]'), async () => {
+                            try {
+                                const result = await app.request('/api/exam', {
+                                    method: 'POST',
+                                    formData,
+                                });
 
-                            app.showNotice(result?.message || 'Berkas ujian berhasil dikirim.', 'success');
-                        } catch (error) {
-                            app.showNotice(error.payload?.message || error.message, 'error');
-                        }
+                                app.showNotice(result?.message || 'Berkas ujian berhasil dikirim.', 'success');
+                            } catch (error) {
+                                app.showNotice(error.payload?.message || error.message, 'error');
+                            }
+                        });
                     });
                 }
             };

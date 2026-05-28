@@ -40,7 +40,7 @@
             </div>
 
             <div class="form-footer mt-5">
-                <button id="login-submit" type="submit" class="btn btn-primary btn-3 w-100" data-online-required>Continue</button>
+                <button id="login-submit" type="submit" class="btn btn-primary btn-3 w-100" data-online-required>Masuk</button>
             </div>
         </form>
 
@@ -88,27 +88,24 @@
                     return;
                 }
 
-                submit.setAttribute('disabled', 'disabled');
-                submit.textContent = 'Memproses...';
+                await app.withSubmitLoading(submit, async () => {
+                    try {
+                        const payload = await app.request('/api/auth/login', {
+                            method: 'POST',
+                            json: {
+                                username: document.getElementById('username').value,
+                                password: document.getElementById('password').value,
+                            },
+                            redirectOnAuth: false,
+                        });
 
-                try {
-                    const payload = await app.request('/api/auth/login', {
-                        method: 'POST',
-                        json: {
-                            username: document.getElementById('username').value,
-                            password: document.getElementById('password').value,
-                        },
-                        redirectOnAuth: false,
-                    });
-
-                    app.handleLoginSuccess(payload);
-                    app.storeNotice(payload?.message || 'Login berhasil.', 'success');
-                    window.location.href = '/dashboard';
-                } catch (error) {
-                    app.showNotice(error.payload?.message || error.message, 'error');
-                    submit.removeAttribute('disabled');
-                    submit.textContent = 'Masuk';
-                }
+                        app.handleLoginSuccess(payload);
+                        app.storeNotice(payload?.message || 'Login berhasil.', 'success');
+                        window.location.href = '/dashboard';
+                    } catch (error) {
+                        app.showNotice(error.payload?.message || error.message, 'error');
+                    }
+                });
             });
         });
     </script>

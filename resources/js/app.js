@@ -659,6 +659,29 @@ class PortalApp {
         }));
     }
 
+    async withSubmitLoading(button, callback) {
+        if (!button) {
+            return await callback();
+        }
+
+        const originalHtml = button.innerHTML;
+        const originalWidth = button.offsetWidth;
+        
+        button.disabled = true;
+        if (originalWidth > 0) {
+            button.style.minWidth = `${originalWidth}px`;
+        }
+        button.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Memproses...';
+        
+        try {
+            await callback();
+        } finally {
+            button.disabled = false;
+            button.innerHTML = originalHtml;
+            button.style.minWidth = '';
+        }
+    }
+
     getQrCanvasContext(width, height) {
         if (!this.qrScannerState.canvas || !this.qrScannerState.context) {
             this.qrScannerState.canvas = document.createElement('canvas');
