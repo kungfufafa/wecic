@@ -6,6 +6,9 @@ use App\Services\Extractors\ClassesExtractor;
 use App\Services\Extractors\ProfileExtractor;
 use App\Services\PortalAuthService;
 use App\Services\PortalSessionManager;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -23,7 +26,23 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        RateLimiter::for('portal-login', function (Request $request): Limit {
+            $username = strtolower((string) $request->input('username', 'anonymous'));
+
+            return Limit::perMinutes(
+                (int) ceil(config('portal.security.login_rate_limit_decay', 300) / 60),
+                (int) config('portal.security.login_rate_limit_attempts', 5)
+            )->by($request->ip().'|'.$username);
+        });
+
+        RateLimiter::for('portal-action', function (Request $request): Limit {
+            $sessionToken = (string) $request->session()->get('campus_session_token', $request->ip());
+
+            return Limit::perMinutes(
+                (int) ceil(config('portal.security.action_rate_limit_decay', 60) / 60),
+                (int) config('portal.security.action_rate_limit_attempts', 10)
+            )->by($sessionToken);
+        });
     }
 
     /**

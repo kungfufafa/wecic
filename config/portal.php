@@ -127,8 +127,10 @@ return [
 
     'security' => [
         'encrypt_credentials' => true,
-        'rate_limit_attempts' => 5,
-        'rate_limit_decay' => 300, // seconds
+        'login_rate_limit_attempts' => (int) env('CAMPUS_LOGIN_RATE_LIMIT_ATTEMPTS', 5),
+        'login_rate_limit_decay' => (int) env('CAMPUS_LOGIN_RATE_LIMIT_DECAY', 300),
+        'action_rate_limit_attempts' => (int) env('CAMPUS_ACTION_RATE_LIMIT_ATTEMPTS', 10),
+        'action_rate_limit_decay' => (int) env('CAMPUS_ACTION_RATE_LIMIT_DECAY', 60),
     ],
 
     /*

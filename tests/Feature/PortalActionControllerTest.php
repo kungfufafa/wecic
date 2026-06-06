@@ -191,6 +191,35 @@ class PortalActionControllerTest extends TestCase
             ->assertJsonPath('meta.campus_session_valid', false);
     }
 
+    public function test_action_routes_are_rate_limited_per_session_token(): void
+    {
+        config([
+            'portal.security.action_rate_limit_attempts' => 1,
+            'portal.security.action_rate_limit_decay' => 60,
+        ]);
+
+        $this->mockValidCampusSession('token-rate-limited-action');
+        $this->mockServiceExpectingSubmitAttendance('token-rate-limited-action');
+
+        $this->withSession(['campus_session_token' => 'token-rate-limited-action'])
+            ->postJson('/api/attendance', [
+                'courseid' => 8837,
+                'modulesid' => 29808,
+                'kode' => '35533429',
+                'pertemuan' => 2,
+            ])
+            ->assertOk();
+
+        $this->withSession(['campus_session_token' => 'token-rate-limited-action'])
+            ->postJson('/api/attendance', [
+                'courseid' => 8837,
+                'modulesid' => 29808,
+                'kode' => '35533429',
+                'pertemuan' => 2,
+            ])
+            ->assertStatus(429);
+    }
+
     public function test_mark_attendance_success(): void
     {
         $this->mockValidCampusSession('token-abc');

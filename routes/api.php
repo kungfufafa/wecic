@@ -21,16 +21,16 @@ $sessionMiddleware = [
 // Compatibility aliases may still be accepted in request classes for older clients.
 Route::middleware($sessionMiddleware)->group(function () {
     Route::prefix('auth')->controller(PortalAuthController::class)->group(function (): void {
-        Route::post('login', 'login');
+        Route::post('login', 'login')->middleware('throttle:portal-login');
         Route::get('session', 'checkSession');
-        Route::post('session/refresh', 'refreshSession');
-        Route::post('logout', 'logout');
+        Route::post('session/refresh', 'refreshSession')->middleware('throttle:portal-action');
+        Route::post('logout', 'logout')->middleware('throttle:portal-action');
     });
 
     Route::middleware('portal.session')->group(function (): void {
         Route::prefix('auth')->controller(PortalAuthController::class)->group(function (): void {
             Route::get('password/form', 'passwordForm');
-            Route::post('password', 'changePassword');
+            Route::post('password', 'changePassword')->middleware('throttle:portal-action');
         });
 
         Route::controller(PortalDataController::class)->group(function (): void {
@@ -53,16 +53,16 @@ Route::middleware($sessionMiddleware)->group(function () {
 
         Route::prefix('assignment')->controller(PortalActionController::class)->group(function (): void {
             Route::get('pending', 'pendingAssignments');
-            Route::post('', 'uploadAssignment');
-            Route::delete('', 'deleteAssignment');
+            Route::post('', 'uploadAssignment')->middleware('throttle:portal-action');
+            Route::delete('', 'deleteAssignment')->middleware('throttle:portal-action');
         });
 
         Route::get('attendance/today', [PortalActionController::class, 'todayAttendanceShortcuts']);
-        Route::post('attendance', [PortalActionController::class, 'markAttendance']);
+        Route::post('attendance', [PortalActionController::class, 'markAttendance'])->middleware('throttle:portal-action');
 
         Route::prefix('exam')->controller(PortalActionController::class)->group(function (): void {
             Route::get('', 'listExams');
-            Route::post('', 'uploadExam');
+            Route::post('', 'uploadExam')->middleware('throttle:portal-action');
             Route::get('{id}', 'examDetail');
         });
 

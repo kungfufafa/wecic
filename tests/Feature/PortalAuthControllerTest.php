@@ -153,6 +153,32 @@ class PortalAuthControllerTest extends TestCase
             ->assertJsonPath('data.expires_at', '2026-06-06T10:00:00+07:00');
     }
 
+    public function test_login_is_rate_limited_by_username_and_ip(): void
+    {
+        config([
+            'portal.security.login_rate_limit_attempts' => 2,
+            'portal.security.login_rate_limit_decay' => 60,
+        ]);
+
+        for ($attempt = 1; $attempt <= 2; $attempt++) {
+            $response = $this->withSession(['_token' => 'known-csrf-token'])
+                ->post('/api/auth/login', [
+                    '_token' => 'known-csrf-token',
+                    'username' => '20251030030',
+                ], ['Accept' => 'application/json']);
+
+            $response->assertStatus(422);
+        }
+
+        $response = $this->withSession(['_token' => 'known-csrf-token'])
+            ->post('/api/auth/login', [
+                '_token' => 'known-csrf-token',
+                'username' => '20251030030',
+            ], ['Accept' => 'application/json']);
+
+        $response->assertStatus(429);
+    }
+
     public function test_logout_invalidates_laravel_session(): void
     {
         $this->instance(
