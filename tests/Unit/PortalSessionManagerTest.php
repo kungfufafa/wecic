@@ -196,6 +196,60 @@ class PortalSessionManagerTest extends TestCase
         $this->assertNull(Cache::get($cacheKey));
     }
 
+    public function test_create_session_does_not_store_encrypted_credentials_by_default(): void
+    {
+        config([
+            'portal.session_prefix' => 'portal_session_no_credentials_',
+            'portal.session_refresh_interval' => 1200,
+            'portal.auto_relogin' => false,
+        ]);
+
+        Cache::flush();
+        Queue::fake();
+
+        $authService = Mockery::mock(PortalAuthService::class);
+        $authService->shouldReceive('login')
+            ->once()
+            ->with('20251030036', 'login-pass')
+            ->andReturn($this->makeLoginResult([
+                'nama' => 'Mahasiswa No Credentials',
+            ]));
+
+        $manager = new PortalSessionManager($authService, Mockery::mock(Encrypter::class));
+
+        $result = $manager->createSession('20251030036', 'login-pass');
+        $storedSession = Cache::get(config('portal.session_prefix').$result['session_token']);
+
+        $this->assertArrayNotHasKey('encrypted_credentials', $storedSession);
+    }
+
+    public function test_forget_stored_credentials_removes_credentials_without_destroying_session(): void
+    {
+        config([
+            'portal.session_prefix' => 'portal_session_forget_credentials_',
+            'portal.session_refresh_interval' => 1200,
+        ]);
+
+        Cache::flush();
+
+        $manager = new PortalSessionManager(
+            Mockery::mock(PortalAuthService::class),
+            Mockery::mock(Encrypter::class)
+        );
+
+        Cache::put(config('portal.session_prefix').'token-with-credentials', $this->makeStoredSession('token-with-credentials', [
+            'encrypted_credentials' => 'encrypted-credentials',
+        ]), 1200);
+
+        $manager->forgetStoredCredentials('token-with-credentials');
+
+        $storedSession = Cache::get(config('portal.session_prefix').'token-with-credentials');
+
+        $this->assertNotNull($storedSession);
+        $this->assertArrayNotHasKey('encrypted_credentials', $storedSession);
+        $this->assertTrue($storedSession['is_active']);
+    }
+
     public function test_create_session_emits_structured_login_observability_log(): void
     {
         config([

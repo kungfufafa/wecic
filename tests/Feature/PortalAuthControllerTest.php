@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Http\Middleware\VerifyCsrfTokenMiddleware;
+use App\Services\PortalPasswordService;
 use App\Services\PortalSessionManager;
 use Mockery;
 use Mockery\MockInterface;
@@ -84,6 +85,44 @@ class PortalAuthControllerTest extends TestCase
             ->assertSessionHas('campus_session_token', 'campus-token-123');
 
         $this->assertNotSame($oldSessionId, session()->getId());
+    }
+
+    public function test_successful_password_change_purges_stored_credentials(): void
+    {
+        $sessionManager = Mockery::mock(PortalSessionManager::class);
+        $sessionManager->shouldReceive('validateSession')
+            ->once()
+            ->with('campus-token-123')
+            ->andReturnTrue();
+        $sessionManager->shouldReceive('forgetStoredCredentials')
+            ->once()
+            ->with('campus-token-123');
+
+        $passwordService = Mockery::mock(PortalPasswordService::class);
+        $passwordService->shouldReceive('changePassword')
+            ->once()
+            ->with('campus-token-123', 'old-secret', 'new-secret', 'new-secret')
+            ->andReturn([
+                'success' => true,
+                'message' => 'Password changed successfully.',
+                'data' => [],
+            ]);
+
+        $this->instance(PortalSessionManager::class, $sessionManager);
+        $this->instance(PortalPasswordService::class, $passwordService);
+
+        $response = $this->withSession([
+            '_token' => 'known-csrf-token',
+            'campus_session_token' => 'campus-token-123',
+        ])->post('/api/auth/password', [
+            '_token' => 'known-csrf-token',
+            'current_password' => 'old-secret',
+            'new_password' => 'new-secret',
+            'new_password_confirmation' => 'new-secret',
+        ], ['Accept' => 'application/json']);
+
+        $response->assertOk()
+            ->assertJsonPath('success', true);
     }
 
     public function test_logout_invalidates_laravel_session(): void

@@ -32,7 +32,7 @@ class PortalSessionManager
     {
         $startedAt = microtime(true);
         $this->logSessionEvent('login_started', username: $username, context: [
-            'auto_relogin_enabled' => config('portal.auto_relogin', true),
+            'auto_relogin_enabled' => config('portal.auto_relogin', false),
         ]);
 
         try {
@@ -46,7 +46,7 @@ class PortalSessionManager
             $sessionData = $this->buildSessionData($sessionToken, $username, $loginResult);
 
             // Encrypt credentials for auto-relogin
-            if (config('portal.auto_relogin', true)) {
+            if (config('portal.auto_relogin', false)) {
                 $sessionData['encrypted_credentials'] = $this->encryptCredentials($username, $password);
             }
 
@@ -165,7 +165,7 @@ class PortalSessionManager
 
         try {
             // If auto-relogin is enabled and credentials are available
-            if (config('portal.auto_relogin', true) && isset($session['encrypted_credentials'])) {
+            if (config('portal.auto_relogin', false) && isset($session['encrypted_credentials'])) {
                 $result = $this->performAutoRelogin($sessionToken, $session);
                 $this->logSessionEvent('refresh_succeeded', sessionToken: $sessionToken, session: $this->loadSession($sessionToken), context: [
                     'strategy' => 'auto_relogin',
@@ -236,6 +236,20 @@ class PortalSessionManager
     public function invalidateSession(string $sessionToken, string $reason = 'manual', array $context = []): void
     {
         $this->deactivateSession($sessionToken, $reason, $context);
+    }
+
+    public function forgetStoredCredentials(string $sessionToken): void
+    {
+        $session = $this->loadSession($sessionToken);
+
+        if (! $session || ! array_key_exists('encrypted_credentials', $session)) {
+            return;
+        }
+
+        unset($session['encrypted_credentials']);
+        $this->storeSession($sessionToken, $session);
+
+        $this->logSessionEvent('stored_credentials_removed', sessionToken: $sessionToken, session: $session);
     }
 
     /**
@@ -432,7 +446,7 @@ class PortalSessionManager
         $loginResult = $this->authService->login($username, $password);
         $sessionData = $this->buildSessionData($sessionToken, $username, $loginResult);
 
-        if (config('portal.auto_relogin', true)) {
+        if (config('portal.auto_relogin', false)) {
             $sessionData['encrypted_credentials'] = $this->encryptCredentials($username, $password);
         }
 

@@ -230,6 +230,10 @@ class PortalAuthController extends CampusApiController
                 $request->newPasswordConfirmation()
             );
 
+            if (($result['success'] ?? false) === true) {
+                $this->sessionManager->forgetStoredCredentials($sessionToken);
+            }
+
             return $this->booleanResponse(
                 (bool) $result['success'],
                 (string) $result['message'],

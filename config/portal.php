@@ -80,7 +80,8 @@ return [
     */
 
     'session_prefix' => env('CAMPUS_SESSION_PREFIX', 'cic_session_'),
-    'auto_relogin' => env('CAMPUS_AUTO_RELOGIN', true),
+    'auto_relogin' => (bool) env('CAMPUS_AUTO_RELOGIN', false),
+    'auto_relogin_credential_ttl' => (int) env('CAMPUS_AUTO_RELOGIN_CREDENTIAL_TTL', 900),
     'session_refresh_interval' => (int) env('CAMPUS_SESSION_REFRESH_INTERVAL', 1200), // seconds
 
     /*
