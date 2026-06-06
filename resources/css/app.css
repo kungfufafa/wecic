@@ -4,3 +4,620 @@
 @source '../../storage/framework/views/*.php';
 @source '../**/*.blade.php';
 @source '../**/*.js';
+
+@theme {
+    --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
+
+    --color-canvas: #f6f8fb;
+    --color-panel: #ffffff;
+    --color-surface: #f3f6fa;
+    --color-surface-tint: #edf4fb;
+    --color-ink: #101828;
+    --color-ink-muted: #475467;
+    --color-ink-subtle: #667085;
+    --color-brand: #0352a1;
+    --color-brand-hover: #2167ac;
+    --color-brand-pressed: #024384;
+    --color-accent: #ffc300;
+    --color-accent-soft: #fff2bf;
+    --color-success: #16a34a;
+    --color-success-soft: #dcfce7;
+    --color-warning: #d97706;
+    --color-warning-soft: #fef3c7;
+    --color-danger: #dc2626;
+    --color-danger-soft: #fee2e2;
+    --color-info: #0284c7;
+    --color-info-soft: #e0f2fe;
+    --color-border: #d6dee8;
+    --color-border-light: #e6ebf2;
+
+    --radius-control: 0.375rem;
+    --radius-button: var(--radius-control);
+    --radius-card: 0.5rem;
+    --radius-modal: 0.75rem;
+
+    --shadow-brand: 0 1px 2px rgb(2 67 132 / 20%);
+
+    --shadow-card: 0 1px 2px rgb(16 24 40 / 4%);
+    --shadow-elevated: 0 8px 24px rgb(16 24 40 / 8%);
+
+    --ease-snappy: cubic-bezier(0.2, 0, 0, 1);
+
+    --text-display: clamp(1.5rem, 1.25rem + 1vw, 2rem);
+    --text-display--line-height: 1.2;
+    --text-display--font-weight: 590;
+
+    --text-title: clamp(1.125rem, 1rem + 0.5vw, 1.5rem);
+    --text-title--line-height: 1.25;
+    --text-title--font-weight: 590;
+
+    --text-subtitle: 1.125rem;
+    --text-subtitle--line-height: 1.3;
+    --text-subtitle--font-weight: 510;
+
+    --text-body: 1rem;
+    --text-body--line-height: 1.5;
+
+    --text-caption: 0.75rem;
+    --text-caption--line-height: 1.4;
+}
+
+@layer base {
+    html {
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+        @apply bg-canvas font-sans text-ink antialiased;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.01ms !important;
+            scroll-behavior: auto !important;
+        }
+
+        .mycic-toast {
+            animation: none;
+        }
+    }
+}
+
+@layer components {
+    .mycic-container {
+        @apply mx-auto w-full max-w-7xl px-4 md:px-6 lg:px-8;
+    }
+
+    .mycic-page {
+        @apply min-h-dvh bg-canvas pb-24 md:pb-8;
+    }
+
+    .mycic-card {
+        @apply rounded-[var(--radius-card)] border border-border bg-panel shadow-[var(--shadow-card)];
+    }
+
+    .mycic-card-body {
+        @apply p-4 md:p-5;
+    }
+
+    .mycic-card-header {
+        @apply border-b border-border-light px-4 py-3 md:px-5;
+    }
+
+    .mycic-card-title {
+        @apply text-subtitle font-[590] text-ink;
+    }
+
+    .mycic-card-interactive {
+        @apply cursor-pointer rounded-[var(--radius-card)] border border-border bg-panel p-4 shadow-[var(--shadow-card)] transition-colors duration-150 active:bg-surface md:p-5;
+    }
+
+    .mycic-brand-wordmark {
+        @apply text-xl font-semibold tracking-tight text-brand no-underline;
+    }
+
+    .mycic-page-heading {
+        @apply text-3xl font-semibold tracking-tight text-ink sm:text-4xl;
+    }
+
+    .mycic-page-subheading {
+        @apply mt-2 text-sm text-ink-muted sm:text-base;
+    }
+
+    .mycic-section-title {
+        @apply text-title font-[590] text-ink;
+    }
+
+    .mycic-field {
+        @apply flex flex-col gap-1.5;
+    }
+
+    .mycic-field-hint {
+        @apply text-xs leading-relaxed text-ink-subtle;
+    }
+
+    .mycic-form {
+        @apply flex flex-col gap-5;
+    }
+
+    .mycic-input-wrap {
+        @apply relative flex items-center;
+    }
+
+    .mycic-input-icon {
+        @apply pointer-events-none absolute start-3 top-1/2 z-10 -translate-y-1/2 text-ink-subtle;
+    }
+
+    .mycic-input-toggle {
+        @apply absolute end-1 top-1/2 z-10 flex min-h-9 min-w-9 -translate-y-1/2 items-center justify-center rounded text-ink-subtle transition-colors hover:bg-surface hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand;
+    }
+
+    .mycic-legal-text {
+        @apply text-center text-xs leading-relaxed text-ink-subtle;
+    }
+
+    .mycic-btn {
+        @apply inline-flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-md px-4 text-sm font-medium transition-all duration-150 ease-[var(--ease-snappy)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand active:scale-[0.99] disabled:pointer-events-none disabled:opacity-50;
+    }
+
+    .mycic-btn-sm {
+        @apply inline-flex min-h-9 items-center justify-center gap-1.5 rounded-md px-3 text-xs font-medium transition-all duration-150 ease-[var(--ease-snappy)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand active:scale-[0.99] disabled:pointer-events-none disabled:opacity-50;
+    }
+
+    .mycic-btn-primary {
+        @apply inline-flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-md bg-brand px-4 text-sm font-semibold text-white shadow-[var(--shadow-brand)] transition-all duration-150 ease-[var(--ease-snappy)] hover:bg-brand-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand active:scale-[0.99] active:bg-brand-pressed disabled:pointer-events-none disabled:opacity-50;
+    }
+
+    .mycic-btn-primary-sm {
+        @apply inline-flex min-h-9 items-center justify-center gap-1.5 rounded-md bg-brand px-3 text-xs font-semibold text-white shadow-[var(--shadow-brand)] transition-all duration-150 hover:bg-brand-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand active:scale-[0.99] active:bg-brand-pressed disabled:pointer-events-none disabled:opacity-50;
+    }
+
+    .mycic-btn-secondary {
+        @apply inline-flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-md border border-border bg-panel px-4 text-sm font-medium text-ink-muted transition-all duration-150 hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand active:scale-[0.99] active:bg-surface disabled:pointer-events-none disabled:opacity-50;
+    }
+
+    .mycic-btn-secondary-sm {
+        @apply inline-flex min-h-9 items-center justify-center gap-1.5 rounded-md border border-border bg-panel px-3 text-xs font-medium text-ink-muted transition-all duration-150 hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand active:scale-[0.99] disabled:pointer-events-none disabled:opacity-50;
+    }
+
+    .mycic-btn-ghost {
+        @apply inline-flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-md bg-transparent px-4 text-sm font-medium text-brand transition-all duration-150 hover:bg-surface-tint focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand active:scale-[0.99] disabled:pointer-events-none disabled:opacity-50;
+    }
+
+    .mycic-btn-ghost-sm {
+        @apply inline-flex min-h-9 items-center justify-center gap-1.5 rounded-md bg-surface-tint px-3 text-xs font-medium text-brand transition-all duration-150 hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand active:scale-[0.99] disabled:pointer-events-none disabled:opacity-50;
+    }
+
+    .mycic-btn-destructive {
+        @apply inline-flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-md bg-danger px-4 text-sm font-semibold text-white shadow-[var(--shadow-brand)] transition-all duration-150 hover:bg-danger/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger active:scale-[0.99] disabled:pointer-events-none disabled:opacity-50;
+    }
+
+    .mycic-btn-icon {
+        @apply inline-flex min-h-11 min-w-11 items-center justify-center rounded-md border border-border bg-panel text-ink-muted transition-all duration-150 hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand active:scale-[0.99];
+    }
+
+    .mycic-btn-block {
+        @apply w-full;
+    }
+
+    .mycic-input {
+        @apply min-h-11 w-full rounded-md border border-border bg-surface/60 px-3 text-sm text-ink transition-colors duration-150 placeholder:text-ink-subtle/80 focus:border-brand focus:bg-panel focus:outline-none focus:ring-2 focus:ring-brand/15;
+    }
+
+    .mycic-input-with-icon {
+        @apply ps-10;
+    }
+
+    .mycic-input-with-toggle {
+        @apply pe-11;
+    }
+
+    .mycic-label {
+        @apply text-sm font-medium text-ink;
+    }
+
+    .mycic-badge {
+        @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium;
+    }
+
+    .mycic-badge-brand {
+        @apply inline-flex items-center rounded-full bg-surface-tint px-2.5 py-0.5 text-xs font-medium text-brand;
+    }
+
+    .mycic-badge-success {
+        @apply inline-flex items-center rounded-full bg-success-soft px-2.5 py-0.5 text-xs font-medium text-success;
+    }
+
+    .mycic-badge-warning {
+        @apply inline-flex items-center rounded-full bg-warning-soft px-2.5 py-0.5 text-xs font-medium text-warning;
+    }
+
+    .mycic-badge-danger {
+        @apply inline-flex items-center rounded-full bg-danger-soft px-2.5 py-0.5 text-xs font-medium text-danger;
+    }
+
+    .mycic-badge-info {
+        @apply inline-flex items-center rounded-full bg-info-soft px-2.5 py-0.5 text-xs font-medium text-info;
+    }
+
+    .mycic-badge-neutral {
+        @apply inline-flex items-center rounded-full bg-surface px-2.5 py-0.5 text-xs font-medium text-ink-muted;
+    }
+
+    .mycic-chip {
+        @apply inline-flex items-center gap-1.5 rounded-full border border-border-light bg-panel px-3 py-1 text-xs font-medium text-ink-muted;
+    }
+
+    .mycic-chip-online {
+        @apply inline-flex items-center gap-1.5 rounded-full bg-success-soft px-2.5 py-0.5 text-xs font-medium text-success;
+    }
+
+    .mycic-chip-offline {
+        @apply inline-flex items-center gap-1.5 rounded-full bg-warning-soft px-2.5 py-0.5 text-xs font-medium text-warning;
+    }
+
+    .mycic-alert {
+        @apply rounded-md border px-4 py-3 text-sm text-ink;
+    }
+
+    .mycic-alert-info {
+        @apply rounded-md border border-info/15 border-s-[3px] border-s-info bg-info-soft/50 px-4 py-3 text-sm text-ink;
+    }
+
+    .mycic-alert-warning {
+        @apply rounded-md border border-warning/15 border-s-[3px] border-s-warning bg-warning-soft/50 px-4 py-3 text-sm text-ink;
+    }
+
+    .mycic-alert-danger {
+        @apply rounded-md border border-danger/15 border-s-[3px] border-s-danger bg-danger-soft/50 px-4 py-3 text-sm text-ink;
+    }
+
+    .mycic-alert-success {
+        @apply rounded-md border border-success/15 border-s-[3px] border-s-success bg-success-soft/50 px-4 py-3 text-sm text-ink;
+    }
+
+    .mycic-alert-neutral {
+        @apply rounded-md border border-border bg-surface px-4 py-3 text-sm text-ink-muted;
+    }
+
+    .mycic-alert-brand {
+        @apply rounded-md border border-brand/15 border-s-[3px] border-s-brand bg-surface-tint px-4 py-3 text-sm text-ink;
+    }
+
+    .mycic-sync-strip {
+        @apply mb-3 rounded-md border border-border bg-panel px-3 py-2.5 text-sm text-ink-muted md:mb-4;
+    }
+
+    .mycic-skeleton {
+        @apply animate-pulse rounded-[var(--radius-button)] bg-surface;
+    }
+
+    .mycic-empty {
+        @apply flex flex-col items-center gap-2 rounded-[var(--radius-card)] border border-dashed border-border bg-panel px-6 py-10 text-center;
+    }
+
+    .mycic-empty-title {
+        @apply text-sm font-medium text-ink;
+    }
+
+    .mycic-empty-subtitle {
+        @apply text-sm text-ink-subtle;
+    }
+
+    .mycic-page-header {
+        @apply sticky top-0 z-30 border-b border-border-light bg-panel/95 backdrop-blur-sm;
+    }
+
+    .mycic-top-nav {
+        @apply hidden items-center gap-1 md:flex;
+    }
+
+    .mycic-top-nav-link {
+        @apply inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-ink-muted transition-colors hover:bg-surface hover:text-ink;
+    }
+
+    .mycic-top-nav-link-active {
+        @apply bg-surface-tint text-brand;
+    }
+
+    .mycic-bottom-nav {
+        @apply fixed inset-x-0 bottom-0 z-40 border-t border-border-light bg-panel/95 backdrop-blur-sm md:hidden;
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
+    .mycic-bottom-nav-item {
+        @apply flex flex-1 flex-col items-center gap-0.5 px-1 py-2 text-[0.65rem] font-medium transition-colors duration-150;
+    }
+
+    .mycic-bottom-nav-item-active {
+        @apply text-brand;
+    }
+
+    .mycic-bottom-nav-item-inactive {
+        @apply text-ink-subtle active:text-ink-muted;
+    }
+
+    .mycic-dropdown {
+        @apply relative;
+    }
+
+    .mycic-dropdown-panel {
+        @apply absolute end-0 z-50 mt-2 min-w-48 overflow-hidden rounded-[var(--radius-card)] border border-border bg-panel py-1 shadow-[var(--shadow-elevated)];
+    }
+
+    .mycic-dropdown-item {
+        @apply block w-full px-4 py-2 text-start text-sm text-ink-muted transition-colors hover:bg-surface;
+    }
+
+    .mycic-dropdown-item-danger {
+        @apply block w-full px-4 py-2 text-start text-sm text-danger transition-colors hover:bg-danger-soft;
+    }
+
+    .mycic-dropdown-divider {
+        @apply my-1 border-t border-border-light;
+    }
+
+    .mycic-avatar {
+        @apply inline-flex h-9 w-9 items-center justify-center rounded-full bg-surface-tint text-sm font-semibold text-brand;
+    }
+
+    .mycic-modal {
+        @apply fixed inset-0 z-50 flex items-center justify-center p-4;
+    }
+
+    .mycic-modal-backdrop {
+        @apply absolute inset-0 bg-ink/40 backdrop-blur-sm;
+    }
+
+    .mycic-modal-panel {
+        @apply relative z-10 w-full max-w-md overflow-hidden rounded-[var(--radius-modal)] border border-border bg-panel shadow-[var(--shadow-elevated)];
+    }
+
+    .mycic-modal-header {
+        @apply flex items-start justify-between gap-3 border-b border-border-light px-4 py-4 md:px-5;
+    }
+
+    .mycic-modal-body {
+        @apply px-4 py-4 md:px-5;
+    }
+
+    .mycic-modal-close {
+        @apply inline-flex min-h-9 min-w-9 items-center justify-center rounded-lg text-ink-subtle transition-colors hover:bg-surface hover:text-ink;
+    }
+
+    .mycic-toast-host {
+        @apply pointer-events-none fixed inset-x-0 z-[60] flex flex-col items-center gap-2 px-4;
+        bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px));
+    }
+
+    body[data-auth='guest'] .mycic-toast-host {
+        bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+    }
+
+    @media (min-width: 768px) {
+        .mycic-toast-host {
+            @apply inset-x-0 top-4 items-center px-4;
+            bottom: auto;
+        }
+    }
+
+    .mycic-toast {
+        @apply pointer-events-auto flex w-full max-w-sm items-center gap-2.5 rounded-md border border-border bg-panel px-3 py-2.5 text-sm shadow-[var(--shadow-elevated)];
+        animation: mycic-toast-in 180ms var(--ease-snappy);
+    }
+
+    .mycic-toast-success {
+        @apply border-s-[3px] border-s-success;
+    }
+
+    .mycic-toast-danger {
+        @apply border-s-[3px] border-s-danger;
+    }
+
+    .mycic-toast-warning {
+        @apply border-s-[3px] border-s-warning;
+    }
+
+    .mycic-toast-info {
+        @apply border-s-[3px] border-s-info;
+    }
+
+    .mycic-toast-icon {
+        @apply flex h-5 w-5 shrink-0 items-center justify-center;
+    }
+
+    .mycic-toast-icon-success {
+        @apply text-success;
+    }
+
+    .mycic-toast-icon-danger {
+        @apply text-danger;
+    }
+
+    .mycic-toast-icon-warning {
+        @apply text-warning;
+    }
+
+    .mycic-toast-icon-info {
+        @apply text-info;
+    }
+
+    .mycic-toast-message {
+        @apply m-0 min-w-0 flex-1 self-center text-sm font-medium leading-normal text-ink;
+    }
+
+    .mycic-toast-close {
+        @apply inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-ink-subtle transition-colors hover:bg-surface hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand;
+    }
+
+    @keyframes mycic-toast-in {
+        from {
+            opacity: 0;
+            transform: translateY(0.35rem) scale(0.98);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+    }
+
+    .mycic-spinner {
+        @apply inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent;
+    }
+
+    .mycic-sticky-action {
+        @apply fixed inset-x-0 bottom-0 z-30 border-t border-border-light bg-panel p-4 md:static md:border-0 md:bg-transparent md:p-0;
+        padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+    }
+
+    .mycic-list-row {
+        @apply flex items-start justify-between gap-3 border-b border-border-light py-3 last:border-b-0;
+    }
+
+    .mycic-metric {
+        @apply flex h-full flex-col gap-1 rounded-[var(--radius-card)] border border-border bg-panel p-4 shadow-[var(--shadow-card)] md:p-5;
+    }
+
+    .mycic-metric-value {
+        @apply text-title font-[590] text-ink tabular-nums;
+    }
+
+    .mycic-metric-label {
+        @apply text-caption uppercase tracking-wide text-ink-subtle;
+    }
+
+    .mycic-metric-note {
+        @apply text-caption text-ink-subtle;
+    }
+
+    .mycic-status-panel-brand {
+        @apply rounded-lg bg-surface-tint p-3 text-brand;
+    }
+
+    .mycic-status-panel-success {
+        @apply rounded-lg bg-success-soft p-3 text-success;
+    }
+
+    .mycic-status-panel-warning {
+        @apply rounded-lg bg-warning-soft p-3 text-warning;
+    }
+
+    .mycic-status-panel-info {
+        @apply rounded-lg bg-info-soft p-3 text-info;
+    }
+
+    .mycic-status-panel-neutral {
+        @apply rounded-lg bg-surface p-3 text-ink-muted;
+    }
+
+    .mycic-table-wrap {
+        @apply overflow-x-auto rounded-[var(--radius-card)] border border-border;
+    }
+
+    .mycic-card > .mycic-table-wrap {
+        @apply rounded-none border-0 border-t border-border;
+    }
+
+    .mycic-table {
+        @apply w-full text-left text-sm;
+    }
+
+    .mycic-table thead th {
+        @apply border-b border-border bg-surface px-4 py-3 text-xs font-medium uppercase tracking-wide text-ink-subtle;
+    }
+
+    .mycic-table tbody td {
+        @apply border-b border-border-light px-4 py-3 text-ink-muted;
+    }
+
+    .mycic-table tbody tr:last-child td {
+        @apply border-b-0;
+    }
+
+    .mycic-divider {
+        @apply my-3 border-t border-border-light;
+    }
+
+    .mycic-link {
+        @apply font-medium text-brand hover:text-brand-hover;
+    }
+
+    .mycic-guest-shell {
+        @apply min-h-dvh bg-panel;
+    }
+
+    .mycic-auth-page {
+        @apply grid min-h-dvh lg:grid-cols-2;
+    }
+
+    .mycic-auth-showcase {
+        @apply relative hidden overflow-hidden bg-brand-pressed text-white lg:flex lg:flex-col lg:justify-between;
+    }
+
+    .mycic-auth-paths {
+        @apply pointer-events-none absolute inset-0 opacity-40;
+    }
+
+    .mycic-auth-path {
+        fill: none;
+        stroke: rgb(255 255 255 / 18%);
+        stroke-width: 1;
+        animation: mycic-auth-path-drift 18s ease-in-out infinite alternate;
+    }
+
+    .mycic-auth-path:nth-child(odd) {
+        animation-duration: 22s;
+        animation-direction: alternate-reverse;
+    }
+
+    @keyframes mycic-auth-path-drift {
+        0% {
+            transform: translateY(0) translateX(0);
+            opacity: 0.35;
+        }
+
+        100% {
+            transform: translateY(-12px) translateX(8px);
+            opacity: 0.7;
+        }
+    }
+
+    .mycic-auth-showcase-content {
+        @apply relative z-10 flex h-full flex-col justify-between p-10 xl:p-14;
+    }
+
+    .mycic-auth-showcase-brand {
+        @apply text-2xl font-semibold tracking-tight text-white;
+    }
+
+    .mycic-auth-quote {
+        @apply max-w-md text-2xl font-medium leading-snug tracking-tight text-white/95 xl:text-3xl;
+    }
+
+    .mycic-auth-quote-author {
+        @apply mt-6 text-sm text-white/60;
+    }
+
+    .mycic-auth-form-panel {
+        @apply relative flex flex-col px-6 py-8 sm:px-10 sm:py-10 lg:px-14 lg:py-12 xl:px-20;
+    }
+
+    .mycic-auth-form-inner {
+        @apply mx-auto flex w-full max-w-md flex-1 flex-col justify-center;
+    }
+
+    .mycic-auth-mobile-brand {
+        @apply mb-6 text-2xl font-semibold tracking-tight text-brand;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .mycic-auth-path {
+            animation: none;
+        }
+    }
+}

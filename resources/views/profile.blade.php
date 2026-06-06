@@ -4,41 +4,35 @@
 @section('page_id', 'profile')
 
 @section('content')
-    <div class="row row-cards">
-        <div class="col-lg-4 d-none" id="profile-photo-panel"></div>
+    <div class="grid grid-cols-1 gap-4 lg:grid-cols-12">
+        <div class="hidden lg:col-span-4" id="profile-photo-panel"></div>
 
-        <div class="col-12" id="profile-main-panel">
-            <div class="row row-cards">
-                <div class="col-12">
-                    <div class="card">
-                        <div class="card-header">
-                            <h3 class="card-title">Data pribadi</h3>
-                        </div>
-                        <div class="card-body" id="profile-personal">
-                            {!! '<div class="alert alert-secondary mb-0">Belum ada data pribadi.</div>' !!}
-                        </div>
+        <div class="col-span-12" id="profile-main-panel">
+            <div class="grid grid-cols-1 gap-4">
+                <div class="mycic-card">
+                    <div class="mycic-card-header">
+                        <h3 class="mycic-card-title">Data pribadi</h3>
+                    </div>
+                    <div class="mycic-card-body" id="profile-personal">
+                        {!! '<div class="mycic-alert-neutral mb-0">Belum ada data pribadi.</div>' !!}
                     </div>
                 </div>
 
-                <div class="col-12">
-                    <div class="card">
-                        <div class="card-header">
-                            <h3 class="card-title">Kontak</h3>
-                        </div>
-                        <div class="card-body" id="profile-contact">
-                            {!! '<div class="alert alert-secondary mb-0">Belum ada data kontak.</div>' !!}
-                        </div>
+                <div class="mycic-card">
+                    <div class="mycic-card-header">
+                        <h3 class="mycic-card-title">Kontak</h3>
+                    </div>
+                    <div class="mycic-card-body" id="profile-contact">
+                        {!! '<div class="mycic-alert-neutral mb-0">Belum ada data kontak.</div>' !!}
                     </div>
                 </div>
 
-                <div class="col-12">
-                    <div class="card">
-                        <div class="card-header">
-                            <h3 class="card-title">Pendidikan</h3>
-                        </div>
-                        <div class="card-body" id="profile-education">
-                            {!! '<div class="alert alert-secondary mb-0">Belum ada data pendidikan.</div>' !!}
-                        </div>
+                <div class="mycic-card">
+                    <div class="mycic-card-header">
+                        <h3 class="mycic-card-title">Pendidikan</h3>
+                    </div>
+                    <div class="mycic-card-body" id="profile-education">
+                        {!! '<div class="mycic-alert-neutral mb-0">Belum ada data pendidikan.</div>' !!}
                     </div>
                 </div>
             </div>
@@ -90,24 +84,24 @@
                 ]);
 
                 if (profile.photo_url) {
-                    photoPanel.classList.remove('d-none');
-                    mainPanel.classList.remove('col-12');
-                    mainPanel.classList.add('col-lg-8');
+                    photoPanel.classList.remove('hidden');
+                    mainPanel.classList.remove('col-span-12');
+                    mainPanel.classList.add('lg:col-span-8');
                     photoPanel.innerHTML = `
-                        <div class="card">
-                            <div class="card-header">
-                                <h3 class="card-title">Foto profil</h3>
+                        <div class="mycic-card">
+                            <div class="mycic-card-header">
+                                <h3 class="mycic-card-title">Foto profil</h3>
                             </div>
-                            <div class="card-body">
-                                <img src="${app.absoluteCampusUrl(profile.photo_url)}" alt="Foto profil mahasiswa" class="img-fluid rounded">
+                            <div class="mycic-card-body">
+                                <img src="${app.absoluteCampusUrl(profile.photo_url)}" alt="Foto profil mahasiswa" class="w-full rounded-lg">
                             </div>
                         </div>
                     `;
                 } else {
-                    photoPanel.classList.add('d-none');
+                    photoPanel.classList.add('hidden');
                     photoPanel.innerHTML = '';
-                    mainPanel.classList.remove('col-lg-8');
-                    mainPanel.classList.add('col-12');
+                    mainPanel.classList.remove('lg:col-span-8');
+                    mainPanel.classList.add('col-span-12');
                 }
             };
 

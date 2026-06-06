@@ -1,64 +1,108 @@
 @extends('layouts.guest')
 
-@section('title', 'Login')
+@section('title', 'Masuk — myCIC')
 @section('page_id', 'login')
 
 @section('content')
-    <div class="text-center mb-4 mt-3">
-        <a href="{{ route('login') }}" class="text-decoration-none d-inline-block">
-            <div class="avatar avatar-md bg-primary text-white rounded-3 mb-3 shadow-sm" style="width: 56px; height: 56px;">
-                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-                    <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
-                    <path d="M12 3l8 4.5l0 9l-8 4.5l-8 -4.5l0 -9l8 -4.5" />
-                    <path d="M12 12l8 -4.5" />
-                    <path d="M12 12l0 9" />
-                    <path d="M12 12l-8 -4.5" />
-                </svg>
-            </div>
-        </a>
-        <h1 class="h2 fw-bold text-dark mb-1">Welcome to myCIC</h1>
-        <p class="text-secondary m-0">Sistem Informasi Akademik</p>
-    </div>
+    <div class="mycic-auth-page">
+        <aside class="mycic-auth-showcase">
+            <svg class="mycic-auth-paths" viewBox="0 0 800 800" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+                <path class="mycic-auth-path" d="M-120 80C80 80 200 420 420 520C620 620 760 760 900 900" />
+                <path class="mycic-auth-path" d="M-80 140C120 140 240 460 460 560C660 660 800 800 940 940" />
+                <path class="mycic-auth-path" d="M-40 200C160 200 280 500 500 600C700 700 840 840 980 980" />
+                <path class="mycic-auth-path" d="M0 260C200 260 320 540 540 640C740 740 880 880 1020 1020" />
+                <path class="mycic-auth-path" d="M40 320C240 320 360 580 580 680C780 780 920 920 1060 1060" />
+                <path class="mycic-auth-path" d="M80 380C280 380 400 620 620 720C820 820 960 960 1100 1100" />
+            </svg>
 
-    <div class="px-4 px-md-5">
-        <form id="login-form">
-            <div class="mb-3">
-                <label for="username" class="form-label fw-semibold text-dark">Username</label>
-                <div class="input-icon">
-                    <span class="input-icon-addon">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0"></path><path d="M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2"></path></svg>
-                    </span>
-                    <input id="username" name="username" type="text" class="form-control form-control-lg" autocomplete="username" placeholder="NIM atau username" required>
+            <div class="mycic-auth-showcase-content">
+                <span class="mycic-auth-showcase-brand">myCIC</span>
+
+                <div>
+                    <blockquote class="mycic-auth-quote">
+                        “Portal ini membantu saya cek jadwal, tugas, dan absensi lebih cepat di sela perkuliahan.”
+                    </blockquote>
+                    <p class="mycic-auth-quote-author">— Mahasiswa CIC</p>
                 </div>
             </div>
+        </aside>
 
-            <div class="mb-4">
-                <label for="password" class="form-label fw-semibold text-dark">Password</label>
-                <div class="position-relative">
-                    <div class="input-icon">
-                        <span class="input-icon-addon">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><path d="M5 13a2 2 0 0 1 2 -2h10a2 2 0 0 1 2 2v6a2 2 0 0 1 -2 2h-10a2 2 0 0 1 -2 -2v-6z"></path><path d="M11 16a1 1 0 1 0 2 0a1 1 0 0 0 -2 0"></path><path d="M8 11v-4a4 4 0 1 1 8 0v4"></path></svg>
-                        </span>
-                        <input id="password" name="password" type="password" class="form-control form-control-lg pe-5" autocomplete="current-password" placeholder="Password portal kampus" required>
+        <main class="mycic-auth-form-panel">
+            <div class="mycic-auth-form-inner">
+                <div class="mycic-auth-mobile-brand lg:hidden">myCIC</div>
+
+                <header>
+                    <h1 class="mycic-page-heading">Masuk ke myCIC</h1>
+                    <p class="mycic-page-subheading">Gunakan NIM dan password portal kampus Anda.</p>
+                </header>
+
+                <form id="login-form" class="mycic-form mt-8" novalidate>
+                    <div class="mycic-field">
+                        <label for="username" class="mycic-label">NIM atau username</label>
+                        <div class="mycic-input-wrap">
+                            <svg class="mycic-input-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+                                <path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0" />
+                                <path d="M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" />
+                            </svg>
+                            <input
+                                id="username"
+                                name="username"
+                                type="text"
+                                class="mycic-input mycic-input-with-icon"
+                                autocomplete="username"
+                                placeholder="12345678"
+                                autocapitalize="off"
+                                spellcheck="false"
+                                inputmode="text"
+                                required
+                            >
+                        </div>
                     </div>
-                    <span class="position-absolute top-50 end-0 translate-middle-y pe-3" style="z-index: 10;">
-                        <a href="#" class="link-secondary text-decoration-none" id="password-visibility-toggle" title="Tampilkan password" data-bs-toggle="tooltip">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" /><path d="M21 12c-2.4 4 -5.4 6 -9 6c-3.6 0 -6.6 -2 -9 -6c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6" /></svg>
-                        </a>
-                    </span>
-                </div>
-            </div>
 
-            <div class="form-footer mt-4">
-                <button id="login-submit" type="submit" class="btn btn-primary btn-3 w-100" data-online-required>Masuk</button>
-            </div>
-        </form>
-    </div>
+                    <div class="mycic-field">
+                        <label for="password" class="mycic-label">Password</label>
+                        <div class="mycic-input-wrap">
+                            <svg class="mycic-input-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+                                <path d="M5 13a2 2 0 0 1 2 -2h10a2 2 0 0 1 2 2v6a2 2 0 0 1 -2 2h-10a2 2 0 0 1 -2 -2v-6z" />
+                                <path d="M11 16a1 1 0 1 0 2 0a1 1 0 0 0 -2 0" />
+                                <path d="M8 11v-4a4 4 0 1 1 8 0v4" />
+                            </svg>
+                            <input
+                                id="password"
+                                name="password"
+                                type="password"
+                                class="mycic-input mycic-input-with-icon mycic-input-with-toggle"
+                                autocomplete="current-password"
+                                required
+                            >
+                            <button
+                                type="button"
+                                class="mycic-input-toggle"
+                                id="password-visibility-toggle"
+                                aria-label="Tampilkan password"
+                                aria-pressed="false"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                    <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+                                    <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+                                    <path d="M21 12c-2.4 4 -5.4 6 -9 6c-3.6 0 -6.6 -2 -9 -6c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
 
-    <div class="text-center mt-4">
-        <p class="text-secondary small">
-            Gunakan akun portal kampus untuk masuk.
-        </p>
+                    <button id="login-submit" type="submit" class="mycic-btn-primary mycic-btn-block mt-2 min-h-12" data-online-required>
+                        Masuk
+                    </button>
+                </form>
+
+                <p class="mycic-legal-text mt-8">
+                    Dengan masuk, Anda menyetujui penggunaan layanan akademik sesuai kebijakan kampus.
+                </p>
+            </div>
+        </main>
     </div>
 @endsection
 
@@ -71,22 +115,19 @@
             const passwordInput = document.getElementById('password');
             const passwordToggle = document.getElementById('password-visibility-toggle');
 
+            const eyeOpen = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" /><path d="M21 12c-2.4 4 -5.4 6 -9 6c-3.6 0 -6.6 -2 -9 -6c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6" /></svg>';
+            const eyeClosed = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M10.585 10.587a2 2 0 0 0 2.829 2.828" /><path d="M16.681 16.673a8.717 8.717 0 0 1 -4.681 1.327c-3.6 0 -6.6 -2 -9 -6c1.272 -2.12 2.712 -3.678 4.32 -4.674m2.86 -1.146a9.055 9.055 0 0 1 1.82 -.18c3.6 0 6.6 2 9 6c-.666 1.11 -1.379 2.067 -2.138 2.87" /><path d="M3 3l18 18" /></svg>';
+
             const syncPasswordToggle = (isVisible) => {
                 passwordInput.type = isVisible ? 'text' : 'password';
                 passwordToggle.dataset.state = isVisible ? 'shown' : 'hidden';
                 passwordToggle.setAttribute('aria-pressed', isVisible ? 'true' : 'false');
                 passwordToggle.setAttribute('aria-label', isVisible ? 'Sembunyikan password' : 'Tampilkan password');
-                passwordToggle.setAttribute('data-bs-original-title', isVisible ? 'Sembunyikan password' : 'Tampilkan password');
-                
-                if (isVisible) {
-                    passwordToggle.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M10.585 10.587a2 2 0 0 0 2.829 2.828" /><path d="M16.681 16.673a8.717 8.717 0 0 1 -4.681 1.327c-3.6 0 -6.6 -2 -9 -6c1.272 -2.12 2.712 -3.678 4.32 -4.674m2.86 -1.146a9.055 9.055 0 0 1 1.82 -.18c3.6 0 6.6 2 9 6c-.666 1.11 -1.379 2.067 -2.138 2.87" /><path d="M3 3l18 18" /></svg>';
-                } else {
-                    passwordToggle.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" /><path d="M21 12c-2.4 4 -5.4 6 -9 6c-3.6 0 -6.6 -2 -9 -6c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6" /></svg>';
-                }
+                passwordToggle.innerHTML = isVisible ? eyeClosed : eyeOpen;
             };
 
-            passwordToggle?.addEventListener('click', (e) => {
-                e.preventDefault();
+            passwordToggle?.addEventListener('click', (event) => {
+                event.preventDefault();
                 syncPasswordToggle(passwordInput.type === 'password');
                 passwordInput.focus({ preventScroll: true });
             });

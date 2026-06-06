@@ -52,6 +52,7 @@ class PortalApp {
         this.pruneExpiredCacheEntries();
         this.refreshOnlineRequiredState();
         this.bindQrScannerUi();
+        this.bindAccountMenu();
 
         if (document.body.dataset.auth !== 'guest') {
             const authSnapshot = this.getAuthSnapshot();
@@ -91,21 +92,71 @@ class PortalApp {
             return;
         }
 
-        this.qrScannerState.modal = window.bootstrap?.Modal?.getOrCreateInstance(modal, {
-            backdrop: 'static',
-            keyboard: true,
-        }) || null;
-
-        modal.addEventListener('hidden.bs.modal', () => {
-            if (!this.qrScannerState.stream && !this.qrScannerState.rafId) {
-                return;
-            }
-
-            void this.closeQrScanner({ preserveHiddenState: true });
-        });
+        this.qrScannerState.modal = {
+            show: () => {
+                modal.classList.remove('hidden');
+                modal.setAttribute('aria-hidden', 'false');
+            },
+            hide: () => {
+                modal.classList.add('hidden');
+                modal.setAttribute('aria-hidden', 'true');
+            },
+        };
 
         modal.querySelector('[data-qr-scanner-close]')?.addEventListener('click', () => {
             void this.closeQrScanner();
+        });
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key !== 'Escape' || modal.classList.contains('hidden')) {
+                return;
+            }
+
+            void this.closeQrScanner();
+        });
+    }
+
+    bindAccountMenu() {
+        document.querySelectorAll('[data-account-menu]').forEach((menu) => {
+            const trigger = menu.querySelector('[data-account-menu-trigger]');
+            const panel = menu.querySelector('[data-account-menu-panel]');
+
+            if (!trigger || !panel) {
+                return;
+            }
+
+            trigger.addEventListener('click', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+
+                const isOpen = !panel.classList.contains('hidden');
+
+                document.querySelectorAll('[data-account-menu-panel]').forEach((otherPanel) => {
+                    otherPanel.classList.add('hidden');
+                });
+
+                document.querySelectorAll('[data-account-menu-trigger]').forEach((otherTrigger) => {
+                    otherTrigger.setAttribute('aria-expanded', 'false');
+                });
+
+                if (isOpen) {
+                    trigger.setAttribute('aria-expanded', 'false');
+
+                    return;
+                }
+
+                panel.classList.remove('hidden');
+                trigger.setAttribute('aria-expanded', 'true');
+            });
+
+            document.addEventListener('click', (event) => {
+                if (menu.contains(event.target)) {
+                    return;
+                }
+
+                panel.classList.add('hidden');
+                trigger.setAttribute('aria-expanded', 'false');
+            });
         });
     }
 
@@ -233,7 +284,7 @@ class PortalApp {
         this.onlineState = isOnline;
 
         document.querySelectorAll('[data-connection-chip]').forEach((element) => {
-            element.className = `badge ${isOnline ? 'bg-green-lt text-green' : 'bg-yellow-lt text-yellow'}`;
+            element.className = isOnline ? 'mycic-chip-online' : 'mycic-chip-offline';
         });
 
         document.querySelectorAll('[data-connection-label]').forEach((element) => {
@@ -444,7 +495,7 @@ class PortalApp {
 
         document.querySelectorAll('[data-user-identity]').forEach((element) => {
             element.textContent = userIdentity;
-            element.classList.toggle('d-none', userIdentity === '');
+            element.classList.toggle('hidden', userIdentity === '');
         });
     }
 
@@ -544,11 +595,11 @@ class PortalApp {
         });
 
         document.querySelectorAll('[data-sync-refresh-icon]').forEach((icon) => {
-            icon.classList.toggle('d-none', syncing);
+            icon.classList.toggle('hidden', syncing);
         });
 
         document.querySelectorAll('[data-sync-refresh-spinner]').forEach((spinner) => {
-            spinner.classList.toggle('d-none', !syncing);
+            spinner.classList.toggle('hidden', !syncing);
         });
 
         document.querySelectorAll('[data-sync-refresh-label]').forEach((label) => {
@@ -671,7 +722,7 @@ class PortalApp {
         if (originalWidth > 0) {
             button.style.minWidth = `${originalWidth}px`;
         }
-        button.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Memproses...';
+        button.innerHTML = '<span class="mycic-spinner me-2" role="status" aria-hidden="true"></span>Memproses...';
         
         try {
             await callback();
@@ -796,7 +847,6 @@ class PortalApp {
             await video.play();
 
             this.qrScannerState.modal?.show();
-            modal.setAttribute('aria-hidden', 'false');
             this.setQrScannerStatus('Arahkan kamera ke QR absensi untuk mengambil 8 karakter pertama kode.');
 
             const scanFrame = async () => {
@@ -870,7 +920,6 @@ class PortalApp {
 
         if (modal && !preserveHiddenState) {
             this.qrScannerState.modal?.hide();
-            modal.setAttribute('aria-hidden', 'true');
         } else if (modal) {
             modal.setAttribute('aria-hidden', 'true');
         }
@@ -887,7 +936,7 @@ class PortalApp {
 
         status.textContent = message;
         status.dataset.tone = tone;
-        status.className = `alert mb-0 ${this.alertTone(tone)}`;
+        status.className = `${this.alertTone(tone)} mb-0`;
     }
 
     bindAttendanceQrTools(container, input, options = {}) {
@@ -922,10 +971,12 @@ class PortalApp {
             return;
         }
 
-        indicator.classList.toggle('d-none', !(distance > 0 || refreshing));
+        const visible = distance > 0 || refreshing;
+        const tone = refreshing ? 'info' : armed ? 'primary' : 'secondary';
+
         indicator.dataset.state = refreshing ? 'refreshing' : armed ? 'armed' : 'idle';
-        indicator.className = `alert text-center mb-3 ${refreshing ? 'alert-info' : armed ? 'alert-primary' : 'alert-secondary'}${distance > 0 || refreshing ? '' : ' d-none'}`;
-        spinner?.classList.toggle('d-none', !refreshing);
+        indicator.className = `${this.alertTone(tone)} text-center mb-3${visible ? '' : ' hidden'}`;
+        spinner?.classList.toggle('hidden', !refreshing);
 
         const label = indicator.querySelector('[data-pull-copy]');
 
@@ -951,8 +1002,8 @@ class PortalApp {
         }
 
         indicator.dataset.state = 'idle';
-        indicator.className = 'alert alert-info text-center mb-3 d-none';
-        spinner?.classList.add('d-none');
+        indicator.className = `${this.alertTone('info')} text-center mb-3 hidden`;
+        spinner?.classList.add('hidden');
 
         const label = indicator.querySelector('[data-pull-copy]');
 
@@ -1161,20 +1212,13 @@ class PortalApp {
     }
 
     setSyncStatus(message, tone = 'info') {
-        const alertToneMap = {
-            info: 'alert-info',
-            success: 'alert-success',
-            warning: 'alert-warning',
-            error: 'alert-danger',
-        };
-
         document.querySelectorAll('[data-sync-status]').forEach((element) => {
             element.textContent = message;
             element.dataset.tone = tone;
         });
 
         document.querySelectorAll('[data-sync-alert]').forEach((element) => {
-            element.className = `alert mb-4 ${alertToneMap[tone] || alertToneMap.info}`;
+            element.className = `${this.alertTone(tone)} mb-4 py-2 md:py-3`;
         });
     }
 
@@ -1196,13 +1240,15 @@ class PortalApp {
 
     alertTone(type = 'secondary') {
         const tones = {
-            secondary: 'alert-secondary',
-            info: 'alert-info',
-            success: 'alert-success',
-            warning: 'alert-warning',
-            danger: 'alert-danger',
-            error: 'alert-danger',
-            primary: 'alert-primary',
+            secondary: 'mycic-alert-neutral',
+            neutral: 'mycic-alert-neutral',
+            info: 'mycic-alert-info',
+            success: 'mycic-alert-success',
+            warning: 'mycic-alert-warning',
+            danger: 'mycic-alert-danger',
+            error: 'mycic-alert-danger',
+            primary: 'mycic-alert-brand',
+            brand: 'mycic-alert-brand',
         };
 
         return tones[type] || tones.secondary;
@@ -1210,17 +1256,61 @@ class PortalApp {
 
     badgeTone(type = 'secondary') {
         const tones = {
-            primary: 'badge bg-blue-lt text-blue',
-            secondary: 'badge bg-secondary-lt text-secondary',
-            success: 'badge bg-green-lt text-green',
-            warning: 'badge bg-yellow-lt text-yellow',
-            danger: 'badge bg-red-lt text-red',
-            error: 'badge bg-red-lt text-red',
-            info: 'badge bg-azure-lt text-azure',
-            dark: 'badge bg-dark text-white',
+            primary: 'mycic-badge-brand',
+            brand: 'mycic-badge-brand',
+            secondary: 'mycic-badge-neutral',
+            neutral: 'mycic-badge-neutral',
+            success: 'mycic-badge-success',
+            warning: 'mycic-badge-warning',
+            danger: 'mycic-badge-danger',
+            error: 'mycic-badge-danger',
+            info: 'mycic-badge-info',
+            dark: 'mycic-badge-neutral',
         };
 
         return tones[type] || tones.secondary;
+    }
+
+    statusPanelClass(tone = 'neutral') {
+        const tones = {
+            primary: 'mycic-status-panel-brand',
+            brand: 'mycic-status-panel-brand',
+            success: 'mycic-status-panel-success',
+            warning: 'mycic-status-panel-warning',
+            info: 'mycic-status-panel-info',
+            secondary: 'mycic-status-panel-neutral',
+            neutral: 'mycic-status-panel-neutral',
+        };
+
+        return tones[tone] || tones.neutral;
+    }
+
+    buttonClass(variant = 'primary', { small = false } = {}) {
+        const variants = {
+            primary: small ? 'mycic-btn-primary-sm' : 'mycic-btn-primary',
+            secondary: small ? 'mycic-btn-secondary-sm' : 'mycic-btn-secondary',
+            ghost: small ? 'mycic-btn-ghost-sm' : 'mycic-btn-ghost',
+            destructive: 'mycic-btn-destructive',
+            icon: 'mycic-btn-icon',
+        };
+
+        return variants[variant] || variants.primary;
+    }
+
+    textToneClass(tone = 'muted') {
+        const tones = {
+            brand: 'text-brand',
+            primary: 'text-brand',
+            success: 'text-success',
+            warning: 'text-warning',
+            danger: 'text-danger',
+            error: 'text-danger',
+            info: 'text-info',
+            muted: 'text-ink-muted',
+            secondary: 'text-ink-subtle',
+        };
+
+        return tones[tone] || tones.muted;
     }
 
     renderBadge(label, type = 'secondary') {
@@ -1232,19 +1322,17 @@ class PortalApp {
         const safeActions = actions.filter(Boolean).join('');
 
         return `
-            <div class="page-header d-print-none">
-                <div class="row align-items-center">
-                    <div class="col">
-                        ${pretitle ? `<div class="page-pretitle">${this.escapeHtml(pretitle)}</div>` : ''}
-                        <h2 class="page-title">${this.escapeHtml(title)}</h2>
-                        ${description ? `<div class="text-secondary">${this.escapeHtml(description)}</div>` : ''}
-                        ${safeBadges ? `<div class="d-flex flex-wrap gap-2 mt-3">${safeBadges}</div>` : ''}
+            <div class="mb-6 print:hidden">
+                <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                    <div class="min-w-0 flex-1">
+                        ${pretitle ? `<div class="text-caption uppercase tracking-wide text-ink-subtle">${this.escapeHtml(pretitle)}</div>` : ''}
+                        <h2 class="text-title font-[590] text-ink">${this.escapeHtml(title)}</h2>
+                        ${description ? `<div class="text-ink-muted">${this.escapeHtml(description)}</div>` : ''}
+                        ${safeBadges ? `<div class="mt-3 flex flex-wrap gap-2">${safeBadges}</div>` : ''}
                     </div>
                     ${safeActions ? `
-                        <div class="col-auto ms-auto d-print-none">
-                            <div class="btn-list">
-                                ${safeActions}
-                            </div>
+                        <div class="flex shrink-0 flex-wrap gap-2 print:hidden">
+                            ${safeActions}
                         </div>
                     ` : ''}
                 </div>
@@ -1252,7 +1340,7 @@ class PortalApp {
         `;
     }
 
-    renderStatCards(items = [], colClass = 'col-sm-6 col-xl-3') {
+    renderStatCards(items = [], _colClass = null) {
         const safeItems = items.filter((item) => item && item.value !== undefined);
 
         if (!safeItems.length) {
@@ -1260,23 +1348,19 @@ class PortalApp {
         }
 
         return `
-            <div class="row row-cards mb-4">
+            <div class="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 ${safeItems.map((item) => `
-                    <div class="${colClass}">
-                        <div class="card card-sm h-100">
-                            <div class="card-body">
-                                <div class="text-secondary text-uppercase small mb-1">${this.escapeHtml(item.label || '')}</div>
-                                <div class="h2 mb-1">${this.escapeHtml(item.value || '-')}</div>
-                                ${item.note ? `<div class="text-secondary small">${this.escapeHtml(item.note)}</div>` : ''}
-                            </div>
-                        </div>
+                    <div class="mycic-metric">
+                        <div class="mycic-metric-label">${this.escapeHtml(item.label || '')}</div>
+                        <div class="mycic-metric-value">${this.escapeHtml(item.value || '-')}</div>
+                        ${item.note ? `<div class="mycic-metric-note">${this.escapeHtml(item.note)}</div>` : ''}
                     </div>
                 `).join('')}
             </div>
         `;
     }
 
-    renderInlineStats(items = [], colClass = 'col-md-4') {
+    renderInlineStats(items = [], _colClass = null) {
         const safeItems = items.filter((item) => item && item.value !== undefined);
 
         if (!safeItems.length) {
@@ -1284,12 +1368,12 @@ class PortalApp {
         }
 
         return `
-            <div class="row g-3">
+            <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
                 ${safeItems.map((item) => `
-                    <div class="${colClass}">
-                        <div class="text-secondary text-uppercase small mb-1">${this.escapeHtml(item.label || '')}</div>
-                        <div class="fw-semibold">${this.escapeHtml(item.value || '-')}</div>
-                        ${item.note ? `<div class="text-secondary small mt-1">${this.escapeHtml(item.note)}</div>` : ''}
+                    <div>
+                        <div class="mb-1 text-caption uppercase tracking-wide text-ink-subtle">${this.escapeHtml(item.label || '')}</div>
+                        <div class="font-medium text-ink">${this.escapeHtml(item.value || '-')}</div>
+                        ${item.note ? `<div class="mt-1 text-caption text-ink-subtle">${this.escapeHtml(item.note)}</div>` : ''}
                     </div>
                 `).join('')}
             </div>
@@ -1298,19 +1382,19 @@ class PortalApp {
 
     renderEmptyState(message, type = 'secondary', subtitle = '') {
         if (['danger', 'error', 'warning'].includes(type)) {
-            return `<div class="alert ${this.alertTone(type)} mb-0" role="alert">${this.escapeHtml(message)}</div>`;
+            return `<div class="${this.alertTone(type)} mb-0" role="alert">${this.escapeHtml(message)}</div>`;
         }
 
         return `
-            <div class="empty py-4">
-                <p class="empty-title mb-1">${this.escapeHtml(message)}</p>
-                ${subtitle ? `<p class="empty-subtitle text-secondary">${this.escapeHtml(subtitle)}</p>` : ''}
+            <div class="mycic-empty">
+                <p class="mycic-empty-title">${this.escapeHtml(message)}</p>
+                ${subtitle ? `<p class="mycic-empty-subtitle">${this.escapeHtml(subtitle)}</p>` : ''}
             </div>
         `;
     }
 
     renderDisabledButton(label) {
-        return `<span class="btn btn-outline-secondary disabled" aria-disabled="true">${this.escapeHtml(label)}</span>`;
+        return `<span class="${this.buttonClass('secondary')} pointer-events-none opacity-50" aria-disabled="true">${this.escapeHtml(label)}</span>`;
     }
 
     storeNotice(message, type = 'info') {
@@ -1334,6 +1418,17 @@ class PortalApp {
         }
     }
 
+    toastIcon(tone = 'info') {
+        const icons = {
+            success: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" /><path d="M9 12l2 2l4 -4" /></svg>',
+            danger: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 9v4" /><path d="M10.363 3.591l-8.106 13.534a1.914 1.914 0 0 0 1.636 2.871h16.214a1.914 1.914 0 0 0 1.636 -2.87l-8.106 -13.536a1.914 1.914 0 0 0 -3.274 0z" /><path d="M12 16h.01" /></svg>',
+            warning: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 9v4" /><path d="M10.363 3.591l-8.106 13.534a1.914 1.914 0 0 0 1.636 2.871h16.214a1.914 1.914 0 0 0 1.636 -2.87l-8.106 -13.536a1.914 1.914 0 0 0 -3.274 0z" /><path d="M12 16h.01" /></svg>',
+            info: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" /><path d="M12 9h.01" /><path d="M11 12h1v4h1" /></svg>',
+        };
+
+        return icons[tone] || icons.info;
+    }
+
     showNotice(message, type = 'info') {
         const host = document.getElementById('notice-host');
 
@@ -1351,17 +1446,24 @@ class PortalApp {
         host.innerHTML = '';
 
         const notice = document.createElement('div');
-        notice.className = `alert alert-${toneMap[type] || toneMap.info} alert-dismissible shadow-sm mb-0`;
+        const tone = toneMap[type] || toneMap.info;
+
+        notice.className = `mycic-toast mycic-toast-${tone}`;
         notice.setAttribute('role', 'alert');
         notice.innerHTML = `
-            <div class="d-flex align-items-start gap-3">
-                <div class="fw-medium flex-fill">${this.escapeHtml(message)}</div>
-                <button type="button" class="btn-close" aria-label="Tutup notifikasi"></button>
-            </div>
+            <span class="mycic-toast-icon mycic-toast-icon-${tone}">${this.toastIcon(tone)}</span>
+            <span class="mycic-toast-message">${this.escapeHtml(message)}</span>
+            <button type="button" class="mycic-toast-close" aria-label="Tutup notifikasi">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+                    <path d="M18 6l-12 12" />
+                    <path d="M6 6l12 12" />
+                </svg>
+            </button>
         `;
 
         host.appendChild(notice);
-        notice.querySelector('.btn-close')?.addEventListener('click', () => {
+        notice.querySelector('[aria-label="Tutup notifikasi"]')?.addEventListener('click', () => {
             host.innerHTML = '';
         });
 
@@ -1551,14 +1653,14 @@ class PortalApp {
         const rows = entries
             .filter((entry) => entry.value !== undefined && entry.value !== null && entry.value !== '')
             .map((entry) => `
-                <div class="col-sm-6 col-xl-4">
-                    <div class="text-secondary text-uppercase small mb-1">${this.escapeHtml(entry.label)}</div>
-                    <div class="fw-semibold">${this.escapeHtml(entry.value)}</div>
+                <div>
+                    <div class="mb-1 text-caption uppercase tracking-wide text-ink-subtle">${this.escapeHtml(entry.label)}</div>
+                    <div class="font-medium text-ink">${this.escapeHtml(entry.value)}</div>
                 </div>
             `)
             .join('');
 
-        return rows ? `<div class="row g-3">${rows}</div>` : this.renderEmptyState('Tidak ada data.', 'secondary');
+        return rows ? `<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">${rows}</div>` : this.renderEmptyState('Tidak ada data.', 'secondary');
     }
 }
 

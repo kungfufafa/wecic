@@ -5,16 +5,16 @@
 
 @section('content')
     <div id="meeting-hero">
-        {!! '<div class="alert alert-secondary mb-4">Menunggu ringkasan meeting.</div>' !!}
+        {!! '<div class="mycic-alert-neutral mb-4">Menunggu ringkasan meeting.</div>' !!}
     </div>
 
-    <div class="row row-cards">
-        <div class="col-lg-8" id="meeting-content">
-            {!! '<div class="alert alert-secondary mb-0">Menunggu materi meeting.</div>' !!}
+    <div class="grid gap-4 lg:grid-cols-12">
+        <div class="lg:col-span-8" id="meeting-content">
+            {!! '<div class="mycic-alert-neutral mb-0">Menunggu materi meeting.</div>' !!}
         </div>
 
-        <div class="col-lg-4" id="meeting-actions">
-            {!! '<div class="alert alert-secondary mb-0">Belum ada aksi meeting.</div>' !!}
+        <div class="lg:col-span-4" id="meeting-actions">
+            {!! '<div class="mycic-alert-neutral mb-0">Belum ada aksi meeting.</div>' !!}
         </div>
     </div>
 @endsection
@@ -111,7 +111,7 @@
                             pretitle: 'Pertemuan kelas',
                             title: materials.main_topic || materials.assignment_topic || 'Detail meeting',
                             actions: [
-                                '<a href="/class" class="btn btn-outline-secondary">Kembali ke kelas</a>',
+                                `<a href="/class" class="${app.buttonClass('secondary')}">Kembali ke kelas</a>`,
                             ],
                         })}
                     </div>
@@ -124,79 +124,83 @@
                 `;
 
                 document.getElementById('meeting-actions').innerHTML = `
-                    <div class="d-flex flex-column gap-3">
-                        <div class="card">
-                            <div class="card-header">
-                                <h3 class="card-title">Presensi</h3>
+                    <div class="flex flex-col gap-4">
+                        <div class="mycic-card">
+                            <div class="mycic-card-header">
+                                <h3 class="mycic-card-title">Presensi</h3>
                             </div>
-                            <div class="card-body">
+                            <div class="mycic-card-body">
                                 ${attendanceRecorded ? `
-                                    <div class="alert alert-success mb-0">
-                                        <div class="d-flex align-items-center gap-2">
-                                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-md" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M5 12l5 5l10 -10" /></svg>
+                                    <div class="${app.statusPanelClass('success')} mb-0">
+                                        <div class="flex items-center gap-2">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M5 12l5 5l10 -10" /></svg>
                                             <div>
-                                                <div class="fw-semibold">${app.escapeHtml(attendanceStatusText || 'Absensi tercatat')}</div>
-                                                ${attendanceInfo.time ? `<div class="text-success small">${app.escapeHtml(`Tercatat pada ${attendanceInfo.time}`)}</div>` : ''}
+                                                <div class="font-medium">${app.escapeHtml(attendanceStatusText || 'Absensi tercatat')}</div>
+                                                ${attendanceInfo.time ? `<div class="text-caption ${app.textToneClass('success')}">${app.escapeHtml(`Tercatat pada ${attendanceInfo.time}`)}</div>` : ''}
                                             </div>
                                         </div>
                                     </div>
                                 ` : `
                                     <form id="attendance-form">
                                         <div class="mb-3">
-                                            <label for="attendance-code" class="form-label">Kode absen / QR</label>
-                                            <input id="attendance-code" type="text" class="form-control" placeholder="Ketik kode di sini" required>
+                                            <label for="attendance-code" class="mycic-label">Kode absen / QR</label>
+                                            <input id="attendance-code" type="text" class="mycic-input" placeholder="Ketik kode di sini" required>
                                         </div>
-                                        <div class="row g-2 mb-3">
-                                            <div class="col-sm-5">
-                                                <button type="button" class="btn btn-outline-primary w-100" data-qr-scan>
-                                                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-sm me-1" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 7v-1a2 2 0 0 1 2 -2h2" /><path d="M4 17v1a2 2 0 0 0 2 2h2" /><path d="M16 4h2a2 2 0 0 1 2 2v1" /><path d="M16 20h2a2 2 0 0 0 2 -2v-1" /><path d="M5 12l14 0" /></svg>
+                                        <div class="mb-3 grid grid-cols-1 gap-2 sm:grid-cols-12">
+                                            <div class="sm:col-span-5">
+                                                <button type="button" class="${app.buttonClass('secondary')} mycic-btn-block" data-qr-scan>
+                                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 7v-1a2 2 0 0 1 2 -2h2" /><path d="M4 17v1a2 2 0 0 0 2 2h2" /><path d="M16 4h2a2 2 0 0 1 2 2v1" /><path d="M16 20h2a2 2 0 0 0 2 -2v-1" /><path d="M5 12l14 0" /></svg>
                                                     Kamera
                                                 </button>
                                             </div>
-                                            <div class="col-sm-7">
-                                                <input type="file" class="form-control" data-qr-file accept="image/*" title="Pilih gambar QR">
+                                            <div class="sm:col-span-7">
+                                                <input type="file" class="mycic-input" data-qr-file accept="image/*" title="Pilih gambar QR">
                                             </div>
                                         </div>
-                                        <button type="submit" class="btn btn-primary w-100" data-online-required>Kirim absensi</button>
+                                        <div class="mycic-sticky-action">
+                                            <button type="submit" class="${app.buttonClass('primary')} mycic-btn-block" data-online-required>Kirim absensi</button>
+                                        </div>
                                     </form>
                                 `}
                             </div>
                         </div>
 
                         ${assignmentAlreadyUploaded ? `
-                        <div class="card">
-                            <div class="card-header">
-                                <h3 class="card-title">Tugas</h3>
+                        <div class="mycic-card">
+                            <div class="mycic-card-header">
+                                <h3 class="mycic-card-title">Tugas</h3>
                             </div>
-                            <div class="card-body">
-                                <div class="alert alert-success mb-3">
-                                    <div class="fw-semibold">Tugas sudah diupload.</div>
-                                    ${assignmentSubmission?.date ? `<div class="text-success small">Diupload pada ${app.escapeHtml(assignmentSubmission.date)}</div>` : ''}
+                            <div class="mycic-card-body">
+                                <div class="${app.statusPanelClass('success')} mb-3">
+                                    <div class="font-medium">Tugas sudah diupload.</div>
+                                    ${assignmentSubmission?.date ? `<div class="text-caption ${app.textToneClass('success')}">Diupload pada ${app.escapeHtml(assignmentSubmission.date)}</div>` : ''}
                                 </div>
-                                <div class="d-grid gap-2">
-                                    <a href="${app.absoluteCampusUrl(assignmentFileInfo.href)}" target="_blank" rel="noreferrer" class="btn btn-primary">Lihat tugas</a>
-                                    ${app.buildCampusDownloadUrl(assignmentFileInfo.href) ? `<a href="${app.buildCampusDownloadUrl(assignmentFileInfo.href)}" class="btn btn-outline-primary">Download tugas</a>` : ''}
-                                    ${assignmentDeletePayload ? '<button type="button" class="btn btn-outline-danger" id="assignment-delete" data-online-required>Hapus tugas</button>' : ''}
+                                <div class="flex flex-col gap-2">
+                                    <a href="${app.absoluteCampusUrl(assignmentFileInfo.href)}" target="_blank" rel="noreferrer" class="${app.buttonClass('primary')} mycic-btn-block">Lihat tugas</a>
+                                    ${app.buildCampusDownloadUrl(assignmentFileInfo.href) ? `<a href="${app.buildCampusDownloadUrl(assignmentFileInfo.href)}" class="${app.buttonClass('secondary')} mycic-btn-block">Download tugas</a>` : ''}
+                                    ${assignmentDeletePayload ? `<button type="button" class="${app.buttonClass('destructive')} mycic-btn-block" id="assignment-delete" data-online-required>Hapus tugas</button>` : ''}
                                 </div>
-                                ${assignmentSubmission?.score ? `<div class="text-secondary small mt-3">Nilai: ${app.escapeHtml(assignmentSubmission.score)}</div>` : ''}
+                                ${assignmentSubmission?.score ? `<div class="mt-3 text-caption text-ink-subtle">Nilai: ${app.escapeHtml(assignmentSubmission.score)}</div>` : ''}
                             </div>
                         </div>
                         ` : assignmentParams ? `
-                        <div class="card">
-                            <div class="card-header">
-                                <h3 class="card-title">Upload Tugas</h3>
+                        <div class="mycic-card">
+                            <div class="mycic-card-header">
+                                <h3 class="mycic-card-title">Upload Tugas</h3>
                             </div>
-                            <div class="card-body">
+                            <div class="mycic-card-body">
                                 <form id="assignment-form">
                                     <div class="mb-3">
-                                        <label for="assignment-file" class="form-label">File tugas (PDF)</label>
-                                        <input id="assignment-file" type="file" accept=".pdf" class="form-control" required>
+                                        <label for="assignment-file" class="mycic-label">File tugas (PDF)</label>
+                                        <input id="assignment-file" type="file" accept=".pdf" class="mycic-input" required>
                                     </div>
                                     <div class="mb-3">
-                                        <label for="assignment-note" class="form-label">Keterangan opsional</label>
-                                        <textarea id="assignment-note" class="form-control" rows="2" placeholder="Tambahkan catatan..."></textarea>
+                                        <label for="assignment-note" class="mycic-label">Keterangan opsional</label>
+                                        <textarea id="assignment-note" class="mycic-input" rows="2" placeholder="Tambahkan catatan..."></textarea>
                                     </div>
-                                    <button type="submit" class="btn btn-primary w-100" data-online-required>Kirim tugas</button>
+                                    <div class="mycic-sticky-action">
+                                        <button type="submit" class="${app.buttonClass('primary')} mycic-btn-block" data-online-required>Kirim tugas</button>
+                                    </div>
                                 </form>
                             </div>
                         </div>
@@ -208,19 +212,19 @@
 
                 if (materials.main_topic || materials.main_description) {
                     contentParts.push(`
-                        <div class="card mb-3">
-                            <div class="card-body">
-                                <div class="row align-items-center">
-                                    <div class="col">
-                                        <div class="text-secondary text-uppercase small mb-2 d-flex align-items-center gap-2">
-                                            <span class="badge bg-primary-lt">Materi Utama</span>
+                        <div class="mycic-card">
+                            <div class="mycic-card-body">
+                                <div class="flex flex-col gap-3 md:flex-row md:items-center">
+                                    <div class="min-w-0 flex-1">
+                                        <div class="mb-2 flex items-center gap-2">
+                                            ${app.renderBadge('Materi Utama', 'brand')}
                                         </div>
-                                        <h3 class="h3 mb-2">${app.escapeHtml(materials.main_topic || 'Materi')}</h3>
-                                        ${materials.main_description ? `<div class="text-secondary mb-0">${app.escapeHtml(materials.main_description)}</div>` : ''}
+                                        <h3 class="mb-2 text-subtitle font-[590] text-ink">${app.escapeHtml(materials.main_topic || 'Materi')}</h3>
+                                        ${materials.main_description ? `<div class="text-ink-muted">${app.escapeHtml(materials.main_description)}</div>` : ''}
                                     </div>
-                                    <div class="col-12 col-md-auto mt-3 mt-md-0">
+                                    <div class="shrink-0">
                                         ${materials.main_material_iframe
-                                            ? `<div class="d-flex flex-wrap gap-2"><a href="${app.absoluteCampusUrl(materials.main_material_iframe)}" target="_blank" rel="noreferrer" class="btn btn-primary">Buka materi</a><a href="${app.buildCampusDownloadUrl(materials.main_material_iframe)}" class="btn btn-outline-primary">Download</a></div>`
+                                            ? `<div class="flex flex-wrap gap-2"><a href="${app.absoluteCampusUrl(materials.main_material_iframe)}" target="_blank" rel="noreferrer" class="${app.buttonClass('primary')}">Buka materi</a><a href="${app.buildCampusDownloadUrl(materials.main_material_iframe)}" class="${app.buttonClass('secondary')}">Download</a></div>`
                                             : app.renderDisabledButton('Tidak ada lampiran')}
                                     </div>
                                 </div>
@@ -231,19 +235,19 @@
 
                 if (materials.assignment_topic || materials.assignment_instructions || materials.assignment_material_iframe) {
                     contentParts.push(`
-                        <div class="card mb-3">
-                            <div class="card-body">
-                                <div class="row align-items-center">
-                                    <div class="col">
-                                        <div class="text-secondary text-uppercase small mb-2 d-flex align-items-center gap-2">
-                                            <span class="badge bg-warning-lt">Tugas Perkuliahan</span>
+                        <div class="mycic-card">
+                            <div class="mycic-card-body">
+                                <div class="flex flex-col gap-3 md:flex-row md:items-center">
+                                    <div class="min-w-0 flex-1">
+                                        <div class="mb-2 flex items-center gap-2">
+                                            ${app.renderBadge('Tugas Perkuliahan', 'warning')}
                                         </div>
-                                        <h3 class="h3 mb-2">${app.escapeHtml(materials.assignment_topic || assignmentInfo.upload_text || 'Instruksi tugas')}</h3>
-                                        ${materials.assignment_instructions ? `<div class="text-secondary mb-0">Batas waktu: <span class="fw-medium text-warning">${app.escapeHtml(materials.assignment_instructions)}</span></div>` : ''}
+                                        <h3 class="mb-2 text-subtitle font-[590] text-ink">${app.escapeHtml(materials.assignment_topic || assignmentInfo.upload_text || 'Instruksi tugas')}</h3>
+                                        ${materials.assignment_instructions ? `<div class="text-ink-muted">Batas waktu: <span class="font-medium ${app.textToneClass('warning')}">${app.escapeHtml(materials.assignment_instructions)}</span></div>` : ''}
                                     </div>
-                                    <div class="col-12 col-md-auto mt-3 mt-md-0">
+                                    <div class="shrink-0">
                                         ${materials.assignment_material_iframe
-                                            ? `<div class="d-flex flex-wrap gap-2"><a href="${app.absoluteCampusUrl(materials.assignment_material_iframe)}" target="_blank" rel="noreferrer" class="btn btn-outline-warning">Lampiran tugas</a><a href="${app.buildCampusDownloadUrl(materials.assignment_material_iframe)}" class="btn btn-warning">Download</a></div>`
+                                            ? `<div class="flex flex-wrap gap-2"><a href="${app.absoluteCampusUrl(materials.assignment_material_iframe)}" target="_blank" rel="noreferrer" class="${app.buttonClass('secondary')}">Lampiran tugas</a><a href="${app.buildCampusDownloadUrl(materials.assignment_material_iframe)}" class="${app.buttonClass('primary')}">Download</a></div>`
                                             : app.renderDisabledButton('Tidak ada lampiran')}
                                     </div>
                                 </div>
@@ -252,8 +256,8 @@
                     `);
                 }
 
-                document.getElementById('meeting-content').innerHTML = contentParts.length 
-                    ? `<div class="d-flex flex-column">${contentParts.join('')}</div>`
+                document.getElementById('meeting-content').innerHTML = contentParts.length
+                    ? `<div class="flex flex-col gap-3">${contentParts.join('')}</div>`
                     : app.renderEmptyState('Belum ada materi atau instruksi tambahan pada pertemuan ini.', 'secondary');
 
                 app.refreshOnlineRequiredState();

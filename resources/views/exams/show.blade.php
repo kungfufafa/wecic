@@ -5,18 +5,16 @@
 
 @section('content')
     <div id="exam-hero">
-        {!! '<div class="alert alert-secondary mb-4">Menunggu ringkasan ujian.</div>' !!}
+        {!! '<div class="mycic-alert-neutral mb-4">Menunggu ringkasan ujian.</div>' !!}
     </div>
 
-    <div class="row row-cards align-items-start">
-        <div class="col-lg-8" id="exam-content">
-            {!! '<div class="alert alert-secondary mb-0">Menunggu konten ujian.</div>' !!}
+    <div class="grid items-start gap-4 lg:grid-cols-12">
+        <div class="lg:col-span-8" id="exam-content">
+            {!! '<div class="mycic-alert-neutral mb-0">Menunggu konten ujian.</div>' !!}
         </div>
 
-        <div class="col-lg-4">
-            <div class="d-flex flex-column gap-3" id="exam-actions">
-                {!! '<div class="alert alert-secondary mb-0">Form unggah akan muncul jika tersedia.</div>' !!}
-            </div>
+        <div class="flex flex-col gap-4 lg:col-span-4" id="exam-actions">
+            {!! '<div class="mycic-alert-neutral mb-0">Form unggah akan muncul jika tersedia.</div>' !!}
         </div>
     </div>
 @endsection
@@ -37,8 +35,8 @@
 
                 return entries.map(([name, value]) => `
                     <div class="mb-3">
-                        <label class="form-label">${app.escapeHtml(name)}</label>
-                        <input class="form-control" data-override-field="${app.escapeHtml(name)}" value="${app.escapeHtml(value)}">
+                        <label class="mycic-label">${app.escapeHtml(name)}</label>
+                        <input class="mycic-input" data-override-field="${app.escapeHtml(name)}" value="${app.escapeHtml(value)}">
                     </div>
                 `).join('');
             };
@@ -83,15 +81,11 @@
 
             const renderFileLinks = (links) => {
                 if (!links.length) {
-                    return `
-                        <div class="list-group-item py-4 rounded border" style="border-top-width: 1px;">
-                            ${app.renderEmptyState('Belum ada soal atau lampiran ujian.', 'secondary')}
-                        </div>
-                    `;
+                    return app.renderEmptyState('Belum ada soal atau lampiran ujian.', 'secondary');
                 }
 
                 return `
-                    <div class="d-flex flex-column gap-3 mb-4">
+                    <div class="mb-4 flex flex-col gap-3">
                         ${links.map((link, index) => {
                             const absoluteUrl = app.absoluteCampusUrl(link.url);
                             const filename = fileNameFromUrl(link.url);
@@ -100,20 +94,20 @@
                             const badge = /soal/i.test(`${link.url || ''} ${link.text || ''}`) ? 'Soal ujian' : `Lampiran ${index + 1}`;
 
                             return `
-                                <div class="list-group-item px-4 py-3 rounded border" style="border-top-width: 1px;">
-                                    <div class="row align-items-center">
-                                        <div class="col">
-                                            <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
-                                                <span class="badge bg-primary-lt">${app.escapeHtml(badge)}</span>
-                                                <span class="text-secondary small">${app.escapeHtml(filename)}</span>
+                                <div class="mycic-card-interactive">
+                                    <div class="flex flex-col gap-3 md:flex-row md:items-center">
+                                        <div class="min-w-0 flex-1">
+                                            <div class="mb-2 flex flex-wrap items-center gap-2">
+                                                ${app.renderBadge(badge, 'brand')}
+                                                <span class="text-caption text-ink-subtle">${app.escapeHtml(filename)}</span>
                                             </div>
-                                            <h3 class="h3 mb-1">${app.escapeHtml(title)}</h3>
-                                            <div class="text-secondary small text-break">${app.escapeHtml(link.url || '')}</div>
+                                            <h3 class="mb-1 text-subtitle font-[590] text-ink">${app.escapeHtml(title)}</h3>
+                                            <div class="break-all text-caption text-ink-subtle">${app.escapeHtml(link.url || '')}</div>
                                         </div>
-                                        <div class="col-12 col-md-auto mt-3 mt-md-0">
-                                            <div class="d-flex flex-wrap gap-2 justify-content-md-end">
-                                                ${absoluteUrl ? `<a href="${app.escapeHtml(absoluteUrl)}" target="_blank" rel="noreferrer" class="btn btn-primary">Buka</a>` : ''}
-                                                ${downloadUrl ? `<a href="${app.escapeHtml(downloadUrl)}" class="btn btn-outline-primary">Download</a>` : ''}
+                                        <div class="shrink-0">
+                                            <div class="flex flex-wrap justify-end gap-2">
+                                                ${absoluteUrl ? `<a href="${app.escapeHtml(absoluteUrl)}" target="_blank" rel="noreferrer" class="${app.buttonClass('primary')}">Buka</a>` : ''}
+                                                ${downloadUrl ? `<a href="${app.escapeHtml(downloadUrl)}" class="${app.buttonClass('secondary')}">Download</a>` : ''}
                                             </div>
                                         </div>
                                     </div>
@@ -135,17 +129,19 @@
                 }
 
                 return `
-                    <div class="card mb-3">
-                        <div class="card-header">
-                            <h3 class="card-title">Catatan portal</h3>
+                    <div class="mycic-card mb-3">
+                        <div class="mycic-card-header">
+                            <h3 class="mycic-card-title">Catatan portal</h3>
                         </div>
-                        <div class="list-group list-group-flush">
+                        <div class="mycic-card-body">
                             ${items.map((item) => `
-                                <div class="list-group-item">
-                                    <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
-                                        ${app.renderBadge(item.label, item.tone)}
+                                <div class="mycic-list-row">
+                                    <div class="min-w-0 flex-1">
+                                        <div class="mb-1 flex flex-wrap items-center gap-2">
+                                            ${app.renderBadge(item.label, item.tone)}
+                                        </div>
+                                        <div class="text-ink">${app.escapeHtml(item.text)}</div>
                                     </div>
-                                    <div class="text-body">${app.escapeHtml(item.text)}</div>
                                 </div>
                             `).join('')}
                         </div>
@@ -159,18 +155,18 @@
                 }
 
                 return `
-                    <div class="card">
-                        <div class="card-header">
-                            <h3 class="card-title">Link portal</h3>
+                    <div class="mycic-card">
+                        <div class="mycic-card-header">
+                            <h3 class="mycic-card-title">Link portal</h3>
                         </div>
-                        <div class="list-group list-group-flush">
+                        <div class="divide-y divide-border-light">
                             ${links.map((link) => {
                                 const absoluteUrl = app.absoluteCampusUrl(link.url);
 
                                 return `
-                                    <a href="${app.escapeHtml(absoluteUrl || link.url)}" target="_blank" rel="noreferrer" class="list-group-item list-group-item-action">
-                                        <div class="fw-semibold">${app.escapeHtml(linkLabel(link, 'Buka portal'))}</div>
-                                        <div class="text-secondary small text-break">${app.escapeHtml(link.url || '')}</div>
+                                    <a href="${app.escapeHtml(absoluteUrl || link.url)}" target="_blank" rel="noreferrer" class="block px-4 py-3 transition-colors hover:bg-surface md:px-5">
+                                        <div class="font-medium text-ink">${app.escapeHtml(linkLabel(link, 'Buka portal'))}</div>
+                                        <div class="break-all text-caption text-ink-subtle">${app.escapeHtml(link.url || '')}</div>
                                     </a>
                                 `;
                             }).join('')}
@@ -182,26 +178,29 @@
             const renderUploadPanel = (detail, form, isUploadReady) => {
                 const usesDirectSubmit = Boolean(form.available_via_direct_submit);
                 const postUrl = form.post_url || detail.submit_url || form.action_url || '';
+                const uploadTone = isUploadReady ? (usesDirectSubmit ? 'warning' : 'success') : 'secondary';
 
                 return `
-                <div class="card">
-                    <div class="card-header">
-                        <h3 class="card-title">Upload jawaban</h3>
+                <div class="mycic-card">
+                    <div class="mycic-card-header">
+                        <h3 class="mycic-card-title">Upload jawaban</h3>
                     </div>
-                    <div class="card-body">
-                        <div class="alert ${isUploadReady ? (usesDirectSubmit ? 'alert-warning' : 'alert-success') : 'alert-secondary'} mb-3">
-                            <div class="fw-semibold">${isUploadReady ? (usesDirectSubmit ? 'Upload langsung siap.' : 'Form upload siap.') : 'Upload belum tersedia.'}</div>
-                            <div class="small ${isUploadReady ? (usesDirectSubmit ? 'text-warning' : 'text-success') : 'text-secondary'}">Status: ${app.escapeHtml(detail.status || '-')}</div>
-                            ${postUrl ? `<div class="small text-secondary text-break mt-1">POST: ${app.escapeHtml(postUrl)}</div>` : ''}
+                    <div class="mycic-card-body">
+                        <div class="${app.alertTone(uploadTone)} mb-3">
+                            <div class="font-medium">${isUploadReady ? (usesDirectSubmit ? 'Upload langsung siap.' : 'Form upload siap.') : 'Upload belum tersedia.'}</div>
+                            <div class="text-caption ${app.textToneClass(uploadTone)}">Status: ${app.escapeHtml(detail.status || '-')}</div>
+                            ${postUrl ? `<div class="mt-1 break-all text-caption text-ink-subtle">POST: ${app.escapeHtml(postUrl)}</div>` : ''}
                         </div>
                         ${isUploadReady ? `
                             <form id="exam-upload-form">
                                 <div class="mb-3">
-                                    <label for="exam-file" class="form-label">Lampiran jawaban</label>
-                                    <input id="exam-file" type="file" class="form-control" required>
+                                    <label for="exam-file" class="mycic-label">Lampiran jawaban</label>
+                                    <input id="exam-file" type="file" class="mycic-input" required>
                                 </div>
                                 ${buildOverrideInputs(form.fields)}
-                                <button type="submit" class="btn btn-primary w-100" data-online-required>Kirim jawaban</button>
+                                <div class="mycic-sticky-action">
+                                    <button type="submit" class="${app.buttonClass('primary')} mycic-btn-block" data-online-required>Kirim jawaban</button>
+                                </div>
                             </form>
                         ` : app.renderDisabledButton('Upload belum tersedia')}
                     </div>
@@ -210,12 +209,12 @@
             };
 
             const renderMetaPanel = (detail, form) => `
-                <div class="card">
-                    <div class="card-header">
-                        <h3 class="card-title">Metadata</h3>
+                <div class="mycic-card">
+                    <div class="mycic-card-header">
+                        <h3 class="mycic-card-title">Metadata</h3>
                     </div>
-                    <div class="card-body">
-                        <div class="d-flex flex-column gap-3">
+                    <div class="mycic-card-body">
+                        <div class="flex flex-col gap-3">
                             ${[
                                 { label: 'Exam ID', value: detail.exam_id },
                                 { label: 'Field file', value: form.file_field },
@@ -223,8 +222,8 @@
                                 { label: 'POST URL', value: form.post_url || detail.submit_url || form.action_url },
                             ].filter((item) => item.value).map((item) => `
                                 <div>
-                                    <div class="text-secondary text-uppercase small mb-1">${app.escapeHtml(item.label)}</div>
-                                    <div class="fw-semibold text-break">${app.escapeHtml(item.value)}</div>
+                                    <div class="mb-1 text-caption uppercase tracking-wide text-ink-subtle">${app.escapeHtml(item.label)}</div>
+                                    <div class="break-all font-medium text-ink">${app.escapeHtml(item.value)}</div>
                                 </div>
                             `).join('') || app.renderEmptyState('Metadata belum tersedia.', 'secondary')}
                         </div>
@@ -252,21 +251,21 @@
                 ].filter((item) => item.value);
 
                 return `
-                    <div class="card">
-                        <div class="card-header">
-                            <h3 class="card-title">Rekaman jawaban</h3>
+                    <div class="mycic-card">
+                        <div class="mycic-card-header">
+                            <h3 class="mycic-card-title">Rekaman jawaban</h3>
                         </div>
-                        <div class="card-body">
-                            <div class="d-flex flex-column gap-3">
+                        <div class="mycic-card-body">
+                            <div class="flex flex-col gap-3">
                                 ${fields.map((item) => `
                                     <div>
-                                        <div class="text-secondary text-uppercase small mb-1">${app.escapeHtml(item.label)}</div>
-                                        <div class="fw-semibold text-break">${app.escapeHtml(item.value)}</div>
+                                        <div class="mb-1 text-caption uppercase tracking-wide text-ink-subtle">${app.escapeHtml(item.label)}</div>
+                                        <div class="break-all font-medium text-ink">${app.escapeHtml(item.value)}</div>
                                     </div>
                                 `).join('')}
                             </div>
                             ${latest?.submission_id && !hasLiveDeleteId ? `
-                                <div class="alert alert-warning mt-3 mb-0">
+                                <div class="${app.alertTone('warning')} mt-3 mb-0">
                                     ID hapus tersimpan, tetapi tombol hapus tidak tampil di halaman portal saat ini.
                                 </div>
                             ` : ''}
@@ -292,13 +291,13 @@
                         title: detail.title || 'Detail ujian',
                         description: detail.description || 'Soal, lampiran, dan upload jawaban ujian dalam satu halaman.',
                         badges: [
-                            detail.status ? app.renderBadge(detail.status, 'primary') : '',
-                            detail.exam_id ? app.renderBadge(detail.exam_id, 'secondary') : '',
+                            detail.status ? app.renderBadge(detail.status, 'brand') : '',
+                            detail.exam_id ? app.renderBadge(detail.exam_id, 'neutral') : '',
                             fileLinks.length ? app.renderBadge(`${fileLinks.length} berkas`, 'info') : '',
                         ],
                         actions: [
-                            '<a href="/exam" class="btn btn-outline-secondary">Kembali ke daftar</a>',
-                            primaryFile ? `<a href="${app.escapeHtml(app.buildCampusDownloadUrl(primaryFile.url, fileNameFromUrl(primaryFile.url)))}" class="btn btn-primary">Download soal</a>` : '',
+                            `<a href="/exam" class="${app.buttonClass('secondary')}">Kembali ke daftar</a>`,
+                            primaryFile ? `<a href="${app.escapeHtml(app.buildCampusDownloadUrl(primaryFile.url, fileNameFromUrl(primaryFile.url)))}" class="${app.buttonClass('primary')}">Download soal</a>` : '',
                         ],
                     })}
                     </div>

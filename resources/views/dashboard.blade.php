@@ -5,37 +5,33 @@
 
 @section('content')
 
-    <div class="row row-cards mb-4">
+    <div class="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
         @foreach ([
             ['label' => 'Mata kuliah', 'note' => 'Jumlah kelas yang sedang aktif.'],
             ['label' => 'IPK', 'note' => 'Ringkasan terakhir.'],
             ['label' => 'Total SKS', 'note' => 'Kredit terkumpul.'],
             ['label' => 'Tagihan', 'note' => 'Nominal yang perlu dipantau.'],
         ] as $metric)
-            <div class="col-sm-6 col-xl-3">
-                <div class="card card-sm h-100">
-                    <div class="card-body">
-                        <div class="text-secondary text-uppercase small mb-1">{{ $metric['label'] }}</div>
-                        <div class="h1 mb-1" data-dashboard-metric>-</div>
-                        <div class="text-secondary small">{{ $metric['note'] }}</div>
-                    </div>
-                </div>
+            <div class="mycic-metric">
+                <div class="mycic-metric-label">{{ $metric['label'] }}</div>
+                <div class="mycic-metric-value" data-dashboard-metric>-</div>
+                <div class="mycic-metric-note">{{ $metric['note'] }}</div>
             </div>
         @endforeach
     </div>
 
-    <div class="row row-cards">
-        <div class="col-lg-6">
-            <h2 class="h3 mb-3">Jadwal hari ini</h2>
+    <div class="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-6">
+        <div>
+            <h2 class="mycic-section-title mb-3">Jadwal hari ini</h2>
             <div id="dashboard-class-summary">
-                {!! '<div class="alert alert-secondary mb-0 shadow-sm">Memuat jadwal kuliah hari ini.</div>' !!}
+                {!! '<div class="mycic-alert-neutral mb-0">Memuat jadwal kuliah hari ini.</div>' !!}
             </div>
         </div>
 
-        <div class="col-lg-6">
-            <h2 class="h3 mb-3">Tugas aktif</h2>
+        <div>
+            <h2 class="mycic-section-title mb-3">Tugas aktif</h2>
             <div id="dashboard-pending-assignments">
-                {!! '<div class="alert alert-secondary mb-0 shadow-sm">Memuat daftar tugas yang belum dikumpulkan.</div>' !!}
+                {!! '<div class="mycic-alert-neutral mb-0">Memuat daftar tugas yang belum dikumpulkan.</div>' !!}
             </div>
         </div>
     </div>
@@ -49,6 +45,9 @@
             let loadPendingAssignments = async () => {};
             let latestClassesSummary = null;
             let latestAssignments = [];
+
+            const panelTone = (color) => app.statusPanelClass(color === 'primary' ? 'brand' : color);
+            const textTone = (color) => app.textToneClass(color === 'primary' ? 'brand' : color);
 
             const renderDashboard = (payload) => {
                 const data = payload?.data || {};
@@ -86,86 +85,86 @@
                     else if (klass.attendance?.available) statusColor = 'warning';
 
                     return `
-                    <div class="card mb-3 shadow-sm">
-                        <div class="card-body">
-                            <div class="row g-3 align-items-center mb-3">
-                                <div class="col">
-                                    <div class="d-flex align-items-center gap-2 mb-1">
-                                        <div class="text-secondary small fw-semibold d-flex align-items-center gap-1">
-                                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" /><path d="M12 7v5l3 3" /></svg>
+                    <div class="mycic-card mb-3">
+                        <div class="mycic-card-body">
+                            <div class="mb-3 flex flex-wrap items-center gap-3">
+                                <div class="min-w-0 flex-1">
+                                    <div class="mb-1 flex flex-wrap items-center gap-2">
+                                        <div class="flex items-center gap-1 text-sm font-medium text-ink-subtle">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" /><path d="M12 7v5l3 3" /></svg>
                                             ${app.escapeHtml(klass.schedule?.time || 'Jadwal belum tersedia')}
                                         </div>
-                                        <span class="text-secondary">·</span>
-                                        <div class="text-secondary small fw-semibold text-uppercase">${app.escapeHtml([klass.course_code, klass.class_name].filter(Boolean).join(' · ') || 'Kelas')}</div>
+                                        <span class="text-ink-subtle">·</span>
+                                        <div class="text-sm font-medium uppercase text-ink-subtle">${app.escapeHtml([klass.course_code, klass.class_name].filter(Boolean).join(' · ') || 'Kelas')}</div>
                                     </div>
-                                    <h3 class="h2 mb-1 fw-bold text-dark">${app.escapeHtml(klass.course_name || 'Kelas')}</h3>
-                                    <div class="text-muted d-flex flex-wrap align-items-center gap-2 small">
-                                        <span class="d-flex align-items-center gap-1">
-                                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-user" width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0" /><path d="M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" /></svg>
+                                    <h3 class="mb-1 text-title font-[590] text-ink">${app.escapeHtml(klass.course_name || 'Kelas')}</h3>
+                                    <div class="flex flex-wrap items-center gap-2 text-sm text-ink-muted">
+                                        <span class="flex items-center gap-1">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0" /><path d="M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" /></svg>
                                             ${app.escapeHtml(klass.lecturer_name || 'Dosen belum tersedia')}
                                         </span>
-                                        <span class="text-secondary">·</span>
-                                        <span class="d-flex align-items-center gap-1">
-                                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-map-pin" width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 11a3 3 0 1 0 6 0a3 3 0 0 0 -6 0" /><path d="M17.657 16.657l-4.243 4.243a2 2 0 0 1 -2.827 0l-4.244 -4.243a8 8 0 1 1 11.314 0z" /></svg>
+                                        <span class="text-ink-subtle">·</span>
+                                        <span class="flex items-center gap-1">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 11a3 3 0 1 0 6 0a3 3 0 0 0 -6 0" /><path d="M17.657 16.657l-4.243 4.243a2 2 0 0 1 -2.827 0l-4.244 -4.243a8 8 0 1 1 11.314 0z" /></svg>
                                             ${app.escapeHtml(klass.room || '-')}
                                         </span>
                                     </div>
                                 </div>
-                                <div class="col-auto">
+                                <div class="shrink-0">
                                     ${klass.attendance?.meeting_url
-                                        ? `<a href="${app.escapeHtml(klass.attendance.meeting_url)}" class="btn btn-outline-secondary btn-icon" aria-label="Detail meeting">
-                                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-arrow-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M5 12l14 0" /><path d="M13 18l6 -6" /><path d="M13 6l6 6" /></svg>
+                                        ? `<a href="${app.escapeHtml(klass.attendance.meeting_url)}" class="${app.buttonClass('icon')}" aria-label="Detail meeting">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M5 12l14 0" /><path d="M13 18l6 -6" /><path d="M13 6l6 6" /></svg>
                                            </a>`
                                         : app.renderDisabledButton('Detail meeting')}
                                 </div>
                             </div>
 
-                            <hr class="my-3">
+                            <hr class="mycic-divider">
 
-                            <div class="mb-3 d-flex flex-wrap gap-3 text-secondary small">
-                                <div><strong>Pertemuan:</strong> ${app.escapeHtml(klass.attendance?.meeting_number || '-')}</div>
-                                <div><strong>Materi:</strong> <span class="fst-italic">${app.escapeHtml(klass.attendance?.today_material?.title && klass.attendance?.today_material?.title !== 'Materi terbaru belum terdeteksi.' ? klass.attendance?.today_material?.title : '-')}</span></div>
+                            <div class="mb-3 flex flex-wrap gap-3 text-sm text-ink-subtle">
+                                <div><strong class="text-ink-muted">Pertemuan:</strong> ${app.escapeHtml(klass.attendance?.meeting_number || '-')}</div>
+                                <div><strong class="text-ink-muted">Materi:</strong> <span class="italic">${app.escapeHtml(klass.attendance?.today_material?.title && klass.attendance?.today_material?.title !== 'Materi terbaru belum terdeteksi.' ? klass.attendance?.today_material?.title : '-')}</span></div>
                             </div>
 
-                            <div class="bg-${statusColor}-lt p-3 rounded">
+                            <div class="${panelTone(statusColor)}">
                                 ${klass.attendance?.actionable ? `
-                                    <div class="fw-bold text-${statusColor} mb-2">Waktunya Absensi!</div>
-                                    <form class="row g-2 align-items-center" data-attendance-card="${index}">
-                                        <div class="col-md-5">
-                                            <input type="text" class="form-control bg-white" data-field="kode" placeholder="Kode / PIN" required>
+                                    <div class="mb-2 font-semibold ${textTone(statusColor)}">Waktunya Absensi!</div>
+                                    <form class="flex flex-wrap items-center gap-2" data-attendance-card="${index}">
+                                        <div class="w-full min-w-0 md:w-auto md:min-w-[12rem] md:flex-1">
+                                            <input type="text" class="mycic-input bg-panel" data-field="kode" placeholder="Kode / PIN" required>
                                         </div>
-                                        <div class="col-md-auto d-grid">
-                                            <button type="button" class="btn btn-outline-${statusColor} bg-white" data-qr-scan>
-                                                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-qrcode" width="20" height="20" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 4m0 1a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z" /><path d="M7 17l0 .01" /><path d="M14 4m0 1a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z" /><path d="M7 7l0 .01" /><path d="M4 14m0 1a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z" /><path d="M17 7l0 .01" /><path d="M14 14l3 0" /><path d="M20 14l0 .01" /><path d="M14 14l0 3" /><path d="M14 20l3 0" /><path d="M17 17l3 0" /><path d="M20 17l0 3" /></svg>
+                                        <div class="shrink-0">
+                                            <button type="button" class="${app.buttonClass('secondary')} bg-panel" data-qr-scan>
+                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" width="20" height="20" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 4m0 1a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z" /><path d="M7 17l0 .01" /><path d="M14 4m0 1a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z" /><path d="M7 7l0 .01" /><path d="M4 14m0 1a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z" /><path d="M17 7l0 .01" /><path d="M14 14l3 0" /><path d="M20 14l0 .01" /><path d="M14 14l0 3" /><path d="M14 20l3 0" /><path d="M17 17l3 0" /><path d="M20 17l0 3" /></svg>
                                                 Scan QR
                                             </button>
                                         </div>
-                                        <div class="col-md-auto">
-                                            <input type="file" class="form-control bg-white d-none" id="qr-file-${index}" data-qr-file accept="image/*">
-                                            <label class="btn btn-outline-${statusColor} bg-white mb-0" for="qr-file-${index}">
-                                                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-photo" width="20" height="20" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M15 8h.01" /><path d="M3 6a3 3 0 0 1 3 -3h12a3 3 0 0 1 3 3v12a3 3 0 0 1 -3 3h-12a3 3 0 0 1 -3 -3v-12z" /><path d="M3 16l5 -5c.928 -.893 2.072 -.893 3 0l5 5" /><path d="M14 14l1 -1c.928 -.893 2.072 -.893 3 0l3 3" /></svg>
+                                        <div class="shrink-0">
+                                            <input type="file" class="mycic-input hidden" id="qr-file-${index}" data-qr-file accept="image/*">
+                                            <label class="${app.buttonClass('secondary')} mb-0 bg-panel" for="qr-file-${index}">
+                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" width="20" height="20" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M15 8h.01" /><path d="M3 6a3 3 0 0 1 3 -3h12a3 3 0 0 1 3 3v12a3 3 0 0 1 -3 3h-12a3 3 0 0 1 -3 -3v-12z" /><path d="M3 16l5 -5c.928 -.893 2.072 -.893 3 0l5 5" /><path d="M14 14l1 -1c.928 -.893 2.072 -.893 3 0l3 3" /></svg>
                                                 Upload QR
                                             </label>
                                         </div>
-                                        <div class="col-md-auto ms-auto d-grid mt-3 mt-md-0">
-                                            <button type="submit" class="btn btn-${statusColor}" data-online-required>Kirim absensi</button>
+                                        <div class="mt-3 w-full shrink-0 md:ms-auto md:mt-0 md:w-auto">
+                                            <button type="submit" class="${app.buttonClass('primary')}" data-online-required>Kirim absensi</button>
                                         </div>
                                     </form>
                                 ` : klass.attendance?.status?.already_marked ? `
-                                    <div class="d-flex align-items-center gap-2 text-${statusColor}">
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-check" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M5 12l5 5l10 -10" /></svg>
+                                    <div class="flex items-center gap-2 ${textTone(statusColor)}">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 shrink-0" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M5 12l5 5l10 -10" /></svg>
                                         <div>
-                                            <div class="fw-semibold">${app.escapeHtml(klass.attendance?.status?.label || 'Sudah tercatat')}</div>
-                                            <div class="small opacity-75">${app.escapeHtml(klass.attendance?.status?.time ? `Tercatat ${klass.attendance.status.time}.` : 'Absensi sudah tercatat.')}</div>
+                                            <div class="font-medium">${app.escapeHtml(klass.attendance?.status?.label || 'Sudah tercatat')}</div>
+                                            <div class="text-sm opacity-75">${app.escapeHtml(klass.attendance?.status?.time ? `Tercatat ${klass.attendance.status.time}.` : 'Absensi sudah tercatat.')}</div>
                                         </div>
                                     </div>
                                 ` : klass.attendance?.available ? `
-                                    <div class="d-flex align-items-center gap-2 text-${statusColor}">
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-alert-circle" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" /><path d="M12 8v4" /><path d="M12 16h.01" /></svg>
-                                        <span class="fw-semibold">Absensi tersedia, buka detail kelas untuk melanjutkan.</span>
+                                    <div class="flex items-center gap-2 ${textTone(statusColor)}">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 shrink-0" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" /><path d="M12 8v4" /><path d="M12 16h.01" /></svg>
+                                        <span class="font-medium">Absensi tersedia, buka detail kelas untuk melanjutkan.</span>
                                     </div>
                                 ` : `
-                                    <div class="text-secondary small">Belum ada absensi aktif untuk sesi ini.</div>
+                                    <div class="text-sm text-ink-subtle">Belum ada absensi aktif untuk sesi ini.</div>
                                 `}
                             </div>
                         </div>
@@ -259,60 +258,60 @@
                     const statusColor = isUrgent ? 'warning' : 'info';
 
                     return `
-                    <div class="card mb-3 shadow-sm">
-                        <div class="card-body">
-                            <div class="d-flex flex-wrap align-items-start gap-2 mb-3">
-                                <div class="me-auto">
-                                    <div class="d-flex align-items-center gap-2 mb-1">
-                                        <div class="text-secondary small fw-semibold text-uppercase">${app.escapeHtml([assignment.course_code, assignment.lecturer_name].filter(Boolean).join(' · ') || '')}</div>
+                    <div class="mycic-card mb-3">
+                        <div class="mycic-card-body">
+                            <div class="mb-3 flex flex-wrap items-start gap-2">
+                                <div class="me-auto min-w-0">
+                                    <div class="mb-1 flex items-center gap-2">
+                                        <div class="text-sm font-medium uppercase text-ink-subtle">${app.escapeHtml([assignment.course_code, assignment.lecturer_name].filter(Boolean).join(' · ') || '')}</div>
                                     </div>
-                                    <h3 class="h2 mb-1 fw-bold text-dark">${app.escapeHtml(assignment.course_name || 'Tugas')}</h3>
+                                    <h3 class="mb-1 text-title font-[590] text-ink">${app.escapeHtml(assignment.course_name || 'Tugas')}</h3>
                                     ${assignment.material_title && assignment.material_title !== assignment.course_name ? `
-                                        <p class="text-secondary mb-0 small">${app.escapeHtml(assignment.material_title)}</p>
+                                        <p class="mb-0 text-sm text-ink-subtle">${app.escapeHtml(assignment.material_title)}</p>
                                     ` : ''}
                                 </div>
                                 ${assignment.deadline ? `
-                                    <div class="text-${statusColor} small fw-bold d-flex align-items-center gap-1">
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" /><path d="M12 7v5l3 3" /></svg>
+                                    <div class="flex items-center gap-1 text-sm font-semibold ${textTone(statusColor)}">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" /><path d="M12 7v5l3 3" /></svg>
                                         ${app.escapeHtml(assignment.deadline)}
                                     </div>
                                 ` : ''}
                             </div>
 
-                            <hr class="my-3">
+                            <hr class="mycic-divider">
 
-                            <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
-                                <div class="d-flex flex-wrap gap-2">
+                            <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+                                <div class="flex flex-wrap gap-2">
                                     ${assignment.assignment_file_url
-                                        ? `<a href="${app.escapeHtml(app.absoluteCampusUrl(assignment.assignment_file_url))}" target="_blank" rel="noreferrer" class="btn btn-outline-secondary btn-sm">
-                                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-paperclip" width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M15 7l-6.5 6.5a1.5 1.5 0 0 0 3 3l6.5 -6.5a3 3 0 0 0 -6 -6l-6.5 6.5a4.5 4.5 0 0 0 9 9l6.5 -6.5" /></svg>
+                                        ? `<a href="${app.escapeHtml(app.absoluteCampusUrl(assignment.assignment_file_url))}" target="_blank" rel="noreferrer" class="${app.buttonClass('secondary', { small: true })}">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M15 7l-6.5 6.5a1.5 1.5 0 0 0 3 3l6.5 -6.5a3 3 0 0 0 -6 -6l-6.5 6.5a4.5 4.5 0 0 0 9 9l6.5 -6.5" /></svg>
                                             Buka Lampiran
                                            </a>`
-                                        : app.renderDisabledButton('Lampiran belum ada', 'btn-sm')}
+                                        : app.renderDisabledButton('Lampiran belum ada')}
                                 </div>
-                                <a href="${app.escapeHtml(assignment.meeting_url)}" class="text-decoration-none text-primary fw-semibold small d-flex align-items-center gap-1">
+                                <a href="${app.escapeHtml(assignment.meeting_url)}" class="mycic-link flex items-center gap-1 text-sm font-medium">
                                     Detail Meeting
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-external-link" width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 6h-6a2 2 0 0 0 -2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-6" /><path d="M11 13l9 -9" /><path d="M15 4h5v5" /></svg>
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 6h-6a2 2 0 0 0 -2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-6" /><path d="M11 13l9 -9" /><path d="M15 4h5v5" /></svg>
                                 </a>
                             </div>
 
-                            <div class="bg-${statusColor}-lt p-3 rounded">
+                            <div class="${panelTone(statusColor)}">
                                 ${assignment.can_submit_directly ? `
-                                    <div class="fw-bold text-${statusColor} mb-2 d-flex align-items-center gap-1">
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-upload" width="18" height="18" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2 -2v-2" /><path d="M7 9l5 -5l5 5" /><path d="M12 4l0 12" /></svg>
+                                    <div class="mb-2 flex items-center gap-1 font-semibold ${textTone(statusColor)}">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-[18px] w-[18px] shrink-0" width="18" height="18" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2 -2v-2" /><path d="M7 9l5 -5l5 5" /><path d="M12 4l0 12" /></svg>
                                         Kumpulkan File (.pdf)
                                     </div>
-                                    <form class="row g-2" data-assignment-card="${index}">
-                                        <div class="col-md-8">
-                                            <input type="file" class="form-control bg-white" data-field="attachment" accept=".pdf" required>
+                                    <form class="flex flex-wrap gap-2" data-assignment-card="${index}">
+                                        <div class="min-w-0 flex-1">
+                                            <input type="file" class="mycic-input bg-panel" data-field="attachment" accept=".pdf" required>
                                         </div>
-                                        <div class="col-md-4 d-grid">
-                                            <button type="submit" class="btn btn-${statusColor}" data-online-required>Kirim tugas</button>
+                                        <div class="w-full shrink-0 md:w-auto">
+                                            <button type="submit" class="${app.buttonClass('primary')}" data-online-required>Kirim tugas</button>
                                         </div>
                                     </form>
                                 ` : `
-                                    <div class="text-secondary small d-flex align-items-center gap-1">
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-info-circle" width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" /><path d="M12 9h.01" /><path d="M11 12h1v4h1" /></svg>
+                                    <div class="flex items-center gap-1 text-sm text-ink-subtle">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" /><path d="M12 9h.01" /><path d="M11 12h1v4h1" /></svg>
                                         Buka Detail Meeting untuk instruksi pengumpulan tugas ini.
                                     </div>
                                 `}

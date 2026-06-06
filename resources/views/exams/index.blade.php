@@ -4,56 +4,23 @@
 @section('page_id', 'exam-index')
 
 @section('content')
-    <div id="exam-summary" class="row row-cards mb-4">
+    <div id="exam-summary" class="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
         @foreach ([
             ['label' => 'Total ujian', 'note' => 'Semua entri ujian yang berhasil terdeteksi.'],
             ['label' => 'Terjadwal', 'note' => 'Sudah punya jadwal.'],
             ['label' => 'Perlu ditinjau', 'note' => 'Belum final atau masih aktif.'],
         ] as $metric)
-            <div class="col-sm-6 col-xl-4">
-                <div class="card card-sm h-100">
-                    <div class="card-body">
-                        <div class="text-secondary text-uppercase small mb-1">{{ $metric['label'] }}</div>
-                        <div class="h1 mb-1" data-exam-metric>-</div>
-                        <div class="text-secondary small">{{ $metric['note'] }}</div>
-                    </div>
-                </div>
+            <div class="mycic-metric">
+                <div class="mycic-metric-label">{{ $metric['label'] }}</div>
+                <div class="mycic-metric-value" data-exam-metric>-</div>
+                <div class="mycic-metric-note">{{ $metric['note'] }}</div>
             </div>
         @endforeach
     </div>
 
-    <div class="card d-md-none mb-4">
-        <div class="card-header">
-            <h3 class="card-title">Daftar ujian</h3>
-        </div>
-        <div class="card-body">
-            <div id="exam-mobile-list">
-                {!! '<div class="alert alert-secondary mb-0">Memuat daftar ujian.</div>' !!}
-            </div>
-        </div>
-    </div>
-
-    <div class="card d-none d-md-block">
-        <div class="card-header">
-            <h3 class="card-title">Daftar ujian</h3>
-        </div>
-        <div class="table-responsive">
-            <table class="table table-vcenter card-table">
-                <thead>
-                    <tr>
-                        <th>Kode</th>
-                        <th>Mata kuliah</th>
-                        <th>Jadwal</th>
-                        <th>Status</th>
-                        <th class="w-1"></th>
-                    </tr>
-                </thead>
-                <tbody id="exam-table">
-                    <tr>
-                        <td colspan="5" class="text-secondary">Memuat daftar ujian.</td>
-                    </tr>
-                </tbody>
-            </table>
+    <div class="flex flex-col gap-3" id="exam-list">
+        <div class="mycic-empty py-8">
+            <p class="mycic-empty-title text-ink-subtle">Memuat daftar ujian...</p>
         </div>
     </div>
 @endsection
@@ -63,39 +30,48 @@
         document.addEventListener('DOMContentLoaded', async () => {
             const app = window.portalApp;
 
-            const tableBody = document.getElementById('exam-table');
-            const mobileList = document.getElementById('exam-mobile-list');
+            const listHost = document.getElementById('exam-list');
             const heroCopy = document.getElementById('exam-hero-copy');
             const statusPill = document.getElementById('exam-status-pill');
             const metricNodes = document.querySelectorAll('[data-exam-metric]');
 
-            const renderExamAction = (exam, buttonClass = 'btn-primary') => {
+            const examDetailHref = (exam) => {
                 const examId = String(exam.id || '').trim();
 
-                if (!examId) {
-                    return '<span class="badge bg-secondary-lt text-secondary">Detail belum tersedia</span>';
-                }
-
-                return `<a href="/exam/${app.escapeHtml(examId)}" class="btn ${buttonClass}">Detail ujian</a>`;
+                return examId ? `/exam/${encodeURIComponent(examId)}` : '';
             };
 
-            const renderExamCards = (exams) => exams.map((exam) => `
-                <div class="card mb-3">
-                    <div class="card-body">
-                        <div class="d-flex flex-wrap align-items-start gap-2 mb-2">
-                            <div class="me-auto">
-                                <div class="h3 mb-1">${app.escapeHtml(exam.course_name || '-')}</div>
-                                <div class="text-secondary">${app.escapeHtml(exam.schedule || 'Jadwal belum tersedia')}</div>
+            const renderExamCard = (exam) => {
+                const href = examDetailHref(exam);
+                const courseName = app.escapeHtml(exam.course_name || 'Tanpa judul');
+                const schedule = app.escapeHtml(exam.schedule || 'Jadwal belum tersedia');
+                const courseCode = app.escapeHtml(exam.course_code || '-');
+                const status = app.escapeHtml(exam.status || 'Tanpa status');
+
+                return `
+                    <div class="mycic-card-interactive">
+                        <div class="flex flex-col gap-3 md:flex-row md:items-center">
+                            <div class="min-w-0 flex-1">
+                                <div class="mb-1 flex flex-wrap items-center gap-2 text-caption text-ink-subtle">
+                                    ${app.renderBadge(courseCode, 'brand')}
+                                    ${app.renderBadge(status, 'neutral')}
+                                </div>
+                                <h3 class="mb-1 text-subtitle font-[590] text-ink">
+                                    ${href
+                                        ? `<a href="${href}" class="text-ink no-underline hover:text-brand">${courseName}</a>`
+                                        : courseName}
+                                </h3>
+                                <p class="text-caption text-ink-subtle">${schedule}</p>
                             </div>
-                            ${app.renderBadge(exam.status || 'Tanpa status', 'secondary')}
-                        </div>
-                        <div class="d-flex justify-content-between align-items-center">
-                            ${app.renderBadge(exam.course_code || '-', 'info')}
-                            ${renderExamAction(exam)}
+                            <div class="shrink-0">
+                                ${href
+                                    ? `<a href="${href}" class="${app.buttonClass('primary', { small: true })}">Detail ujian</a>`
+                                    : app.renderDisabledButton('Belum tersedia')}
+                            </div>
                         </div>
                     </div>
-                </div>
-            `).join('');
+                `;
+            };
 
             const renderExams = (payload) => {
                 const exams = payload.data?.exams || [];
@@ -105,6 +81,7 @@
                 metricNodes[0].textContent = exams.length || '0';
                 metricNodes[1].textContent = scheduledCount || '0';
                 metricNodes[2].textContent = reviewCount || '0';
+
                 if (statusPill) {
                     statusPill.textContent = exams.length ? `${exams.length} entri aktif` : 'Belum ada entri';
                 }
@@ -116,24 +93,12 @@
                 }
 
                 if (!exams.length) {
-                    tableBody.innerHTML = '<tr><td colspan="5" class="text-secondary">Belum ada data ujian.</td></tr>';
-                    mobileList.innerHTML = app.renderEmptyState('Belum ada data ujian.', 'secondary');
+                    listHost.innerHTML = app.renderEmptyState('Belum ada data ujian.', 'secondary');
 
                     return;
                 }
 
-                mobileList.innerHTML = renderExamCards(exams);
-                tableBody.innerHTML = exams.map((exam) => `
-                    <tr>
-                        <td>${app.escapeHtml(exam.course_code || '-')}</td>
-                        <td>${app.escapeHtml(exam.course_name || '-')}</td>
-                        <td>${app.escapeHtml(exam.schedule || '-')}</td>
-                        <td>${app.renderBadge(exam.status || '-', 'secondary')}</td>
-                        <td>
-                            ${renderExamAction(exam, 'btn-outline-secondary btn-sm')}
-                        </td>
-                    </tr>
-                `).join('');
+                listHost.innerHTML = exams.map((exam) => renderExamCard(exam)).join('');
             };
 
             app.primeCachedView('/api/exam', renderExams, 'daftar ujian');
@@ -151,8 +116,7 @@
                     app.markViewSynced('Daftar ujian', payload, { force });
                 } catch (error) {
                     app.showNotice(error.payload?.message || error.message, 'error');
-                    mobileList.innerHTML = app.renderEmptyState('Gagal memuat daftar ujian.', 'danger');
-                    tableBody.innerHTML = '<tr><td colspan="5" class="text-danger">Gagal memuat daftar ujian.</td></tr>';
+                    listHost.innerHTML = app.renderEmptyState('Gagal memuat daftar ujian.', 'danger');
                 }
             };
 
