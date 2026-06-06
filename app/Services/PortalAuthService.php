@@ -103,16 +103,7 @@ class PortalAuthService
             }
 
             // Extract form data
-            $formAction = $loginForm->attr('action');
-            if (! Str::startsWith($formAction, 'http')) {
-                // Handle relative URLs starting with ?
-                if (Str::startsWith($formAction, '?')) {
-                    $formAction = $loginPageUrl.$formAction;
-                } else {
-                    $baseUrl = config('portal.base_url');
-                    $formAction = rtrim($baseUrl, '/').'/'.ltrim($formAction, '/');
-                }
-            }
+            $formAction = PortalUrlGuard::resolve((string) $loginForm->attr('action'), $loginPageUrl);
 
             // Extract all input fields
             $formFields = [];
@@ -312,16 +303,7 @@ class PortalAuthService
 
                 // Follow the meta refresh URL to complete the session
                 try {
-                    $fullRefreshUrl = $refreshUrl;
-                    if (! Str::startsWith($refreshUrl, 'http')) {
-                        $baseUrl = PortalEndpointRegistry::url('login_page'); // Use login page as base
-                        // Handle URLs that start with ? (query parameters)
-                        if (Str::startsWith($refreshUrl, '?')) {
-                            $fullRefreshUrl = $baseUrl.$refreshUrl;
-                        } else {
-                            $fullRefreshUrl = rtrim($baseUrl, '/').'/'.ltrim($refreshUrl, '/');
-                        }
-                    }
+                    $fullRefreshUrl = PortalUrlGuard::resolve($refreshUrl, PortalEndpointRegistry::url('login_page'));
 
                     $refreshResponse = $this->client->get($fullRefreshUrl, [
                         RequestOptions::COOKIES => $this->cookieJar,

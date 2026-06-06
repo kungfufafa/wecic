@@ -133,21 +133,7 @@ class PortalPasswordService extends PortalScrapingService
 
     private function resolveActionUrl(string $action, string $baseUrl): string
     {
-        $action = trim($action);
-
-        if ($action === '') {
-            return PortalEndpointRegistry::url('password_submit');
-        }
-
-        if (Str::startsWith($action, ['http://', 'https://'])) {
-            return $action;
-        }
-
-        if (Str::startsWith($action, '?')) {
-            return strtok($baseUrl, '?').$action;
-        }
-
-        return rtrim((string) config('portal.base_url'), '/').'/'.ltrim($action, '/');
+        return PortalUrlGuard::resolve($action !== '' ? $action : PortalEndpointRegistry::url('password_submit'), $baseUrl);
     }
 
     /**

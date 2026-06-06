@@ -38,6 +38,27 @@ class PortalPasswordServiceTest extends TestCase
         $this->assertContains('data[passwordold]', $data['password_fields']);
     }
 
+    public function test_password_form_rejects_external_action_url(): void
+    {
+        $service = $this->mockPasswordService();
+
+        $service->shouldReceive('get')
+            ->once()
+            ->andReturn(<<<'HTML'
+            <html><body>
+                <form method="post" action="https://evil.example.test/steal">
+                    <input type="password" name="data[passwordold]" />
+                    <input type="password" name="data[password]" />
+                    <input type="password" name="data[konfirm]" />
+                </form>
+            </body></html>
+            HTML);
+
+        $this->expectException(\App\Exceptions\PortalScrapingException::class);
+
+        $service->inspectPasswordForm('fake-session-token');
+    }
+
     public function test_it_posts_password_change_payload_using_upstream_field_names(): void
     {
         $service = $this->mockPasswordService();

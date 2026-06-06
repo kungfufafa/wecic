@@ -730,6 +730,18 @@ class SipandaiSubmissionServiceTest extends TestCase
             ->once();
     }
 
+    public function test_submission_action_rejects_external_absolute_url(): void
+    {
+        $service = new SipandaiSubmissionService($this->createMock(PortalSessionManager::class));
+
+        $this->expectException(\App\Exceptions\PortalScrapingException::class);
+
+        $this->invokeNonPublicMethod($service, 'resolveActionUrl', [
+            'https://evil.example.test/upload',
+            'https://my.cic.ac.id/portal/sipandai/?mod=sipandai&act=send',
+        ]);
+    }
+
     public function test_build_exam_unavailable_result_marks_existing_submission_as_already_uploaded(): void
     {
         $service = new SipandaiSubmissionService($this->createMock(PortalSessionManager::class));

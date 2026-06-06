@@ -1524,14 +1524,7 @@ class SipandaiSubmissionService extends PortalScrapingService
         }
 
         if (Str::startsWith($rawPath, ['http://', 'https://'])) {
-            $host = (string) parse_url(config('portal.base_url'), PHP_URL_HOST);
-            $rawHost = (string) parse_url($rawPath, PHP_URL_HOST);
-
-            if ($host === '' || ! hash_equals($host, $rawHost)) {
-                throw PortalScrapingException::invalidResponse($rawPath, 'External file host is not allowed');
-            }
-
-            return $rawPath;
+            return PortalUrlGuard::assertAllowed($rawPath);
         }
 
         $normalizedPath = preg_replace('#^(?:\.\./|\.\/)+#', '', str_replace('\\', '/', $rawPath));
@@ -1722,23 +1715,7 @@ class SipandaiSubmissionService extends PortalScrapingService
      */
     private function resolveActionUrl(string $action, string $referenceUrl): string
     {
-        if ($action === '' || $action === '#') {
-            return $referenceUrl;
-        }
-
-        if (Str::startsWith($action, ['http://', 'https://'])) {
-            return $action;
-        }
-
-        if (Str::startsWith($action, '?')) {
-            return Str::before($referenceUrl, '?').$action;
-        }
-
-        if (Str::startsWith($action, '/')) {
-            return rtrim(config('portal.base_url'), '/').'/'.ltrim($action, '/');
-        }
-
-        return rtrim(Str::beforeLast($referenceUrl, '/'), '/').'/'.$action;
+        return PortalUrlGuard::resolve($action, $referenceUrl);
     }
 
     /**

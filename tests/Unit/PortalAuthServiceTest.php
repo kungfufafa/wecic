@@ -51,6 +51,16 @@ class PortalAuthServiceTest extends TestCase
         $this->assertFalse($service->isSessionExpired($html));
     }
 
+    public function test_portal_url_guard_rejects_external_login_action(): void
+    {
+        $this->expectException(\App\Exceptions\PortalScrapingException::class);
+
+        \App\Services\PortalUrlGuard::resolve(
+            'https://evil.example.test/login',
+            'https://my.cic.ac.id/portal/mahasiswa/'
+        );
+    }
+
     /**
      * @param  array<int, mixed>  $arguments
      */
