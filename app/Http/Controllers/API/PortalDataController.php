@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Http\Controllers\API;
 
 use App\Http\Requests\ClassDetailRequest;
+use App\Http\Requests\PortalRefreshRequest;
 use App\Http\Requests\SipandaiFlowRequest;
 use App\Http\Requests\SipandaiMeetingDetailRequest;
+use App\Jobs\RefreshPortalDataJob;
 use App\Services\Extractors\ClassesExtractor;
 use App\Services\Extractors\DashboardExtractor;
 use App\Services\Extractors\FinancialHistoryExtractor;
@@ -747,5 +749,27 @@ class PortalDataController extends CampusApiController
                 'script_reference' => [6, 7, 8, 9],
             ], campusSessionValid: true);
         }, $params);
+    }
+
+    public function refresh(PortalRefreshRequest $request): JsonResponse
+    {
+        $sessionToken = $this->sessionToken();
+
+        if (! $sessionToken) {
+            return $this->missingSessionStatusResponse();
+        }
+
+        RefreshPortalDataJob::dispatch(
+            (string) session()->getId(),
+            $sessionToken,
+            $request->domains()
+        );
+
+        return $this->statusSuccess('Refresh data berjalan di background.', [
+            'data' => [
+                'domains' => $request->domains(),
+                'status' => 'queued',
+            ],
+        ], campusSessionValid: true, statusCode: 202);
     }
 }

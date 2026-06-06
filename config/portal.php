@@ -396,4 +396,35 @@ return [
             'requires_session' => true,
         ],
     ],
+
+    'realtime' => [
+        'refresh_lock_ttl' => (int) env('PORTAL_REALTIME_REFRESH_LOCK_TTL', 120),
+        'domains' => [
+            'dashboard' => [
+                'cache_keys' => ['/api/dashboard', '/api/assignment/pending', '/api/attendance/today'],
+                'sync_keys' => ['dashboard-overview', 'dashboard-pending-assignments'],
+            ],
+            'classes' => [
+                'cache_keys' => ['/api/class'],
+                'sync_keys' => ['class-index', 'class-show'],
+            ],
+            'assignments' => [
+                'cache_keys' => ['/api/assignment/pending'],
+                'sync_keys' => ['dashboard-pending-assignments', 'meeting-show'],
+            ],
+            'exams' => [
+                'cache_keys' => ['/api/exam'],
+                'sync_keys' => ['exam-index', 'exam-show'],
+            ],
+            'profile' => [
+                'cache_keys' => ['/api/profile'],
+                'sync_keys' => ['profile'],
+            ],
+        ],
+        'notifications' => [
+            'deadline_urgent_hours' => (int) env('PORTAL_NOTIFICATION_DEADLINE_URGENT_HOURS', 24),
+            'deadline_warning_hours' => (int) env('PORTAL_NOTIFICATION_DEADLINE_WARNING_HOURS', 72),
+            'scan_lock_ttl' => (int) env('PORTAL_NOTIFICATION_SCAN_LOCK_TTL', 300),
+        ],
+    ],
 ];

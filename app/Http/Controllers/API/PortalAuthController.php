@@ -9,6 +9,8 @@ use App\Exceptions\PortalConnectionException;
 use App\Exceptions\PortalScrapingException;
 use App\Http\Requests\PortalLoginRequest;
 use App\Http\Requests\PortalPasswordChangeRequest;
+use App\Jobs\ScanPortalNotificationsJob;
+use App\Services\PortalBroadcastService;
 use App\Services\PortalLogContext;
 use App\Services\PortalPasswordService;
 use App\Services\PortalSessionManager;
@@ -57,6 +59,16 @@ class PortalAuthController extends CampusApiController
                 'campus_session_token' => $sessionResult['session_token'],
                 'campus_user_info' => $sessionResult['user_info'],
             ]);
+
+            $this->sessionManager->rememberLaravelSessionId(
+                $sessionResult['session_token'],
+                (string) session()->getId()
+            );
+
+            ScanPortalNotificationsJob::dispatch(
+                (string) session()->getId(),
+                $sessionResult['session_token']
+            );
 
             Log::info('User logged in successfully', ['username_fingerprint' => PortalLogContext::fingerprint($username)]);
 
@@ -139,6 +151,18 @@ class PortalAuthController extends CampusApiController
         try {
             $refreshResult = $this->sessionManager->refreshSession($sessionToken);
 
+            $this->sessionManager->rememberLaravelSessionId($sessionToken, (string) session()->getId());
+
+            app(PortalBroadcastService::class)->sessionNotice(
+                (string) session()->getId(),
+                $sessionToken,
+                'session_refreshed',
+                'Sesi portal berhasil diperbarui.',
+                'success'
+            );
+
+            ScanPortalNotificationsJob::dispatch((string) session()->getId(), $sessionToken);
+
             return $this->statusSuccess('Session refreshed successfully', [
                 'data' => [
                     'expires_at' => $refreshResult['expires_at'] ?? null,
@@ -162,6 +186,14 @@ class PortalAuthController extends CampusApiController
 
         try {
             if ($sessionToken) {
+                app(PortalBroadcastService::class)->sessionNotice(
+                    (string) session()->getId(),
+                    $sessionToken,
+                    'logged_out',
+                    'Akun keluar dari perangkat ini.',
+                    'warning'
+                );
+
                 $this->sessionManager->destroySession($sessionToken);
             }
             session()->invalidate();

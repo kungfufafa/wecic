@@ -4,9 +4,14 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Events\PortalNotificationSent;
+use App\Events\PortalSessionNoticeSent;
 use App\Http\Middleware\VerifyCsrfTokenMiddleware;
+use App\Jobs\ScanPortalNotificationsJob;
 use App\Services\PortalPasswordService;
 use App\Services\PortalSessionManager;
+use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\Event;
 use Mockery;
 use Mockery\MockInterface;
 use Tests\TestCase;
@@ -53,6 +58,9 @@ class PortalAuthControllerTest extends TestCase
 
     public function test_login_rotates_laravel_session_id_and_does_not_return_session_token(): void
     {
+        Event::fake([PortalSessionNoticeSent::class, PortalNotificationSent::class]);
+        Bus::fake([ScanPortalNotificationsJob::class]);
+
         $this->instance(
             PortalSessionManager::class,
             Mockery::mock(PortalSessionManager::class, function (MockInterface $mock): void {
@@ -65,6 +73,9 @@ class PortalAuthControllerTest extends TestCase
                         'user_info' => ['name' => 'Mahasiswa Uji'],
                         'expires_at' => '2026-06-06T10:00:00+07:00',
                     ]);
+                $mock->shouldReceive('rememberLaravelSessionId')
+                    ->once()
+                    ->with('campus-token-123', Mockery::type('string'));
             })
         );
 
@@ -127,6 +138,9 @@ class PortalAuthControllerTest extends TestCase
 
     public function test_refresh_session_does_not_return_raw_session_token(): void
     {
+        Event::fake([PortalSessionNoticeSent::class, PortalNotificationSent::class]);
+        Bus::fake([ScanPortalNotificationsJob::class]);
+
         $this->instance(
             PortalSessionManager::class,
             Mockery::mock(PortalSessionManager::class, function (MockInterface $mock): void {
@@ -138,6 +152,9 @@ class PortalAuthControllerTest extends TestCase
                         'session_token' => 'campus-token-123',
                         'expires_at' => '2026-06-06T10:00:00+07:00',
                     ]);
+                $mock->shouldReceive('rememberLaravelSessionId')
+                    ->once()
+                    ->with('campus-token-123', Mockery::type('string'));
             })
         );
 
@@ -181,6 +198,8 @@ class PortalAuthControllerTest extends TestCase
 
     public function test_logout_invalidates_laravel_session(): void
     {
+        Event::fake([PortalSessionNoticeSent::class]);
+
         $this->instance(
             PortalSessionManager::class,
             Mockery::mock(PortalSessionManager::class, function (MockInterface $mock): void {
@@ -200,6 +219,37 @@ class PortalAuthControllerTest extends TestCase
             ->post('/api/auth/logout', [
                 '_token' => 'known-csrf-token',
             ], ['Accept' => 'application/json']);
+
+        $response->assertOk()
+            ->assertJsonPath('status', 'success')
+            ->assertSessionMissing('campus_session_token')
+            ->assertSessionMissing('campus_user_info');
+    }
+
+    public function test_logout_accepts_csrf_token_from_request_header(): void
+    {
+        Event::fake([PortalSessionNoticeSent::class]);
+
+        $this->instance(
+            PortalSessionManager::class,
+            Mockery::mock(PortalSessionManager::class, function (MockInterface $mock): void {
+                $mock->shouldReceive('destroySession')
+                    ->once()
+                    ->with('campus-token-123')
+                    ->andReturnTrue();
+            })
+        );
+
+        $response = $this->withMiddleware(VerifyCsrfTokenMiddleware::class)
+            ->withSession([
+                '_token' => 'known-csrf-token',
+                'campus_session_token' => 'campus-token-123',
+                'campus_user_info' => ['name' => 'Mahasiswa Uji'],
+            ])
+            ->post('/api/auth/logout', [], [
+                'Accept' => 'application/json',
+                'X-CSRF-TOKEN' => 'known-csrf-token',
+            ]);
 
         $response->assertOk()
             ->assertJsonPath('status', 'success')

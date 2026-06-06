@@ -238,6 +238,31 @@ class PortalSessionManager
         $this->deactivateSession($sessionToken, $reason, $context);
     }
 
+    public function rememberLaravelSessionId(string $sessionToken, string $laravelSessionId): void
+    {
+        $session = $this->loadSession($sessionToken);
+
+        if (! $session) {
+            return;
+        }
+
+        $session['laravel_session_id'] = $laravelSessionId;
+        $this->storeSession($sessionToken, $session);
+    }
+
+    public function laravelSessionId(string $sessionToken): ?string
+    {
+        $session = $this->loadSession($sessionToken);
+
+        if (! is_array($session)) {
+            return null;
+        }
+
+        $laravelSessionId = $session['laravel_session_id'] ?? null;
+
+        return is_string($laravelSessionId) && $laravelSessionId !== '' ? $laravelSessionId : null;
+    }
+
     public function forgetStoredCredentials(string $sessionToken): void
     {
         $session = $this->loadSession($sessionToken);
@@ -358,7 +383,7 @@ class PortalSessionManager
     {
         $delay = max(config('portal.session_refresh_interval', 1200) - 60, 0); // 1 minute before expiry
 
-        RefreshPortalSessionJob::dispatch($sessionToken)
+        RefreshPortalSessionJob::dispatch($sessionToken, $this->laravelSessionId($sessionToken))
             ->delay(now()->addSeconds($delay));
 
         $this->logSessionEvent('refresh_scheduled', level: 'debug', sessionToken: $sessionToken, session: $this->loadSession($sessionToken), context: [

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Enums\PortalOperationStage;
 use App\Exceptions\PortalScrapingException;
 use App\Models\ExamSubmissionRecord;
 use GuzzleHttp\RequestOptions;
@@ -31,9 +32,11 @@ class SipandaiSubmissionService extends PortalScrapingService
         int $discussionId,
         int $meetingNumber,
         UploadedFile $attachment,
-        array $overrides = []
+        array $overrides = [],
+        ?callable $onStage = null
     ): array {
         $this->setSession($sessionToken);
+        $onStage?->__invoke(PortalOperationStage::FileReceived, 'File tugas diterima server.', 20);
 
         $targetUrl = $this->buildAssignmentUrl($courseId, $discussionId, $meetingNumber);
         $this->logScraping('Uploading SIPANDAI assignment', [
@@ -59,6 +62,8 @@ class SipandaiSubmissionService extends PortalScrapingService
 
         $multipart = $this->buildMultipartPayload($payload, $formMeta['file_field'], $attachment);
 
+        $onStage?->__invoke(PortalOperationStage::PortalUploading, 'Mengirim file tugas ke portal SIPANDAI.', 55);
+
         $response = $this->dispatchRequest(
             strtoupper($formMeta['method'] ?? 'POST'),
             $actionUrl,
@@ -74,9 +79,15 @@ class SipandaiSubmissionService extends PortalScrapingService
             'meeting_number' => $meetingNumber,
         ]);
 
+        $onStage?->__invoke(PortalOperationStage::ValidationSucceeded, 'Portal SIPANDAI mengembalikan respons valid.', 80);
+
         $result['data']['redirect_history'] = $response->getHeader(\GuzzleHttp\RedirectMiddleware::HISTORY_HEADER);
         $result['data']['sent_fields'] = array_column($multipart, 'name');
         $result['data']['file_field'] = $formMeta['file_field'];
+
+        if (($result['success'] ?? false) === true) {
+            $onStage?->__invoke(PortalOperationStage::SubmissionSaved, 'Submission tugas tersimpan.', 100);
+        }
 
         return $result;
     }
@@ -296,9 +307,11 @@ class SipandaiSubmissionService extends PortalScrapingService
         string $sessionToken,
         int $examId,
         UploadedFile $attachment,
-        array $overrides = []
+        array $overrides = [],
+        ?callable $onStage = null
     ): array {
         $this->setSession($sessionToken);
+        $onStage?->__invoke(PortalOperationStage::FileReceived, 'File ujian diterima server.', 20);
 
         $metadataUrl = PortalEndpointRegistry::url('exam_upload_form', ['id' => $examId]);
         $submitUrl = PortalEndpointRegistry::url('exam_submit');
@@ -326,11 +339,15 @@ class SipandaiSubmissionService extends PortalScrapingService
             'direct_submit_fallback' => $formMeta['direct_submit_fallback'] ?? false,
         ]);
 
+        $onStage?->__invoke(PortalOperationStage::PortalUploading, 'Mengirim file ujian ke portal SIPANDAI.', 55);
+
         $response = $this->dispatchRequest('POST', $submitUrl, [
             RequestOptions::MULTIPART => $multipart,
         ], $metadataUrl);
 
         $responseHtml = (string) $response->getBody();
+
+        $onStage?->__invoke(PortalOperationStage::ValidationSucceeded, 'Portal SIPANDAI mengembalikan respons valid.', 80);
 
         $this->logScraping('Exam upload response received', [
             'response_length' => strlen($responseHtml),
@@ -376,6 +393,10 @@ class SipandaiSubmissionService extends PortalScrapingService
                     'error' => $e->getMessage(),
                 ]);
             }
+        }
+
+        if (($result['success'] ?? false) === true) {
+            $onStage?->__invoke(PortalOperationStage::SubmissionSaved, 'Submission ujian tersimpan.', 100);
         }
 
         return $result;

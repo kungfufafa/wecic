@@ -9,6 +9,8 @@ use App\Http\Requests\SipandaiAssignmentUploadRequest;
 use App\Http\Requests\SipandaiAttendanceRequest;
 use App\Http\Requests\SipandaiExamDetailRequest;
 use App\Http\Requests\SipandaiExamUploadRequest;
+use App\Jobs\ProcessPortalAssignmentUploadJob;
+use App\Jobs\ProcessPortalExamUploadJob;
 use App\Services\AttendanceShortcutService;
 use App\Services\Extractors\ClassesExtractor;
 use App\Services\Extractors\SipandaiClassesExtractor;
@@ -19,6 +21,7 @@ use Dedoc\Scramble\Attributes\PathParameter;
 use Dedoc\Scramble\Attributes\Response;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 #[Group('SIPANDAI - Aksi', 'Endpoint untuk mengirim aksi langsung ke portal SIPANDAI seperti unggah tugas, absensi, dan unggah ujian.', 30)]
 class PortalActionController extends CampusApiController
@@ -93,16 +96,30 @@ class PortalActionController extends CampusApiController
                 $meetingNumber = (int) $resolvedPayload['pertemuan'];
             }
 
-            $result = $this->submissionService->submitAssignment(
+            $operationId = (string) Str::uuid();
+            $storedFilePath = $attachment->store('portal-uploads');
+
+            ProcessPortalAssignmentUploadJob::dispatch(
+                $operationId,
+                (string) session()->getId(),
                 $sessionToken,
                 $courseId,
                 $discussionId,
                 $meetingNumber,
-                $attachment,
+                $storedFilePath,
+                $attachment->getClientOriginalName(),
+                $attachment->getMimeType() ?: 'application/pdf',
                 $request->formValues()
             );
 
-            return $this->buildResponse($result, 'sipandai_assignment_upload');
+            return response()->json([
+                'success' => true,
+                'message' => 'Upload tugas diterima dan sedang diproses.',
+                'data' => [
+                    'operation_id' => $operationId,
+                    'status' => 'queued',
+                ],
+            ], 202);
 
         } catch (\Throwable $e) {
             if ($this->isCampusSessionExpiredException($e)) {
@@ -657,14 +674,29 @@ class PortalActionController extends CampusApiController
         }
 
         try {
-            $result = $this->submissionService->submitExam(
+            $attachment = $request->attachment();
+            $operationId = (string) Str::uuid();
+            $storedFilePath = $attachment->store('portal-uploads');
+
+            ProcessPortalExamUploadJob::dispatch(
+                $operationId,
+                (string) session()->getId(),
                 $sessionToken,
                 $request->examId(),
-                $request->attachment(),
+                $storedFilePath,
+                $attachment->getClientOriginalName(),
+                $attachment->getMimeType() ?: 'application/octet-stream',
                 $request->formValues()
             );
 
-            return $this->buildResponse($result, 'sipandai_exam_upload');
+            return response()->json([
+                'success' => true,
+                'message' => 'Upload ujian diterima dan sedang diproses.',
+                'data' => [
+                    'operation_id' => $operationId,
+                    'status' => 'queued',
+                ],
+            ], 202);
         } catch (\Throwable $e) {
             if ($this->isCampusSessionExpiredException($e)) {
                 return $this->expiredSessionBooleanResponse();

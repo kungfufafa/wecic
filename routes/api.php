@@ -34,6 +34,7 @@ Route::middleware($sessionMiddleware)->group(function () {
         });
 
         Route::controller(PortalDataController::class)->group(function (): void {
+            Route::post('refresh', 'refresh')->middleware('throttle:portal-action');
             Route::get('dashboard', 'dashboard');
             Route::get('profile', 'profile');
             Route::get('class', 'mergedClasses');

@@ -1,3 +1,5 @@
+import { createPortalEcho } from './echo';
+import { csrfHeaders } from './csrf';
 import jsQR from 'jsqr';
 
 class PortalApp {
@@ -27,6 +29,11 @@ class PortalApp {
             canvas: null,
             context: null,
         };
+        this.echo = null;
+        this.echoChannel = null;
+        this.realtimeConnected = false;
+        this.activeOperations = new Map();
+        this.realtimeRefreshTimers = new Map();
         this.cachePolicies = [
             { pattern: /^\/api\/dashboard$/, freshFor: 30 * 60 * 1000, retainFor: 7 * 24 * 60 * 60 * 1000, label: 'ringkasan dashboard' },
             { pattern: /^\/api\/attendance\/today$/, freshFor: 15 * 60 * 1000, retainFor: 48 * 60 * 60 * 1000, label: 'shortcut hari ini' },
@@ -53,6 +60,7 @@ class PortalApp {
         this.refreshOnlineRequiredState();
         this.bindQrScannerUi();
         this.bindAccountMenu();
+        this.bindRealtimeTestHook();
 
         if (document.body.dataset.auth !== 'guest') {
             const authSnapshot = this.getAuthSnapshot();
@@ -60,6 +68,8 @@ class PortalApp {
             if (authSnapshot) {
                 this.hydrateUser(authSnapshot);
             }
+
+            this.initRealtime();
         }
     }
 
@@ -80,7 +90,7 @@ class PortalApp {
                     return;
                 }
 
-                await this.runSyncHandlers({ force: true });
+                await this.queueBackgroundRefresh();
             });
         });
     }
@@ -295,6 +305,7 @@ class PortalApp {
         this.setSyncRefreshButtonState();
 
         if (!isOnline) {
+            this.disconnectRealtime();
             this.setSyncStatus('Data terakhir dipakai bila tersedia.', 'warning');
 
             if (announce && previousState !== false) {
@@ -311,9 +322,14 @@ class PortalApp {
                 this.showNotice('Koneksi kembali. Data aplikasi sedang dimuat ulang.', 'info');
             }
 
+            this.initRealtime();
             void this.runSyncHandlers();
 
             return;
+        }
+
+        if (document.body.dataset.auth !== 'guest') {
+            this.initRealtime();
         }
 
         if (!document.querySelector('[data-sync-status]')?.textContent?.trim()) {
@@ -383,6 +399,7 @@ class PortalApp {
             credentials: 'same-origin',
             headers: {
                 Accept: 'application/json',
+                ...csrfHeaders(),
                 ...(options.headers || {}),
             },
         };
@@ -523,9 +540,236 @@ class PortalApp {
                     this.storeNotice(error.payload?.message || 'Logout diproses lokal.', 'warning');
                 }
 
+                this.disconnectRealtime();
                 this.clearOfflineData();
                 window.location.href = '/login';
             });
+        });
+    }
+
+    bindRealtimeTestHook() {
+        window.addEventListener('portal:test-session-notice', (event) => {
+            this.handleSessionNotice(event.detail || {});
+        });
+    }
+
+    initRealtime() {
+        if (!navigator.onLine || document.body.dataset.auth === 'guest' || this.echo) {
+            return;
+        }
+
+        this.echo = createPortalEcho();
+
+        if (!this.echo) {
+            this.setRealtimeStatus('Real-time tidak dikonfigurasi.', 'warning');
+
+            return;
+        }
+
+        const sessionId = document.documentElement.dataset.sessionId;
+
+        if (!sessionId) {
+            this.setRealtimeStatus('Menunggu sesi real-time...', 'warning');
+
+            return;
+        }
+
+        this.echoChannel = this.echo.private(`portal.session.${sessionId}`)
+            .listen('.portal.sync.status', (payload) => this.handleRealtimePayload(payload))
+            .listen('.portal.data.invalidated', (payload) => this.handleRealtimePayload(payload))
+            .listen('.portal.upload.progress', (payload) => this.handleUploadProgress(payload))
+            .listen('.portal.session.notice', (payload) => this.handleSessionNotice(payload))
+            .listen('.portal.notification', (payload) => this.handlePortalNotification(payload));
+
+        this.realtimeConnected = true;
+        this.setRealtimeStatus('Real-time aktif.', 'success');
+    }
+
+    disconnectRealtime() {
+        if (this.echo) {
+            this.echo.disconnect();
+        }
+
+        this.echo = null;
+        this.echoChannel = null;
+        this.realtimeConnected = false;
+        this.setRealtimeStatus('Real-time terputus.', 'warning');
+    }
+
+    async queueBackgroundRefresh() {
+        const domains = this.refreshDomainsForCurrentPage();
+
+        this.isSyncing = true;
+        this.setSyncRefreshButtonState({ syncing: true, force: true });
+        this.setSyncStatus('Menghubungkan ke portal kampus...', 'info');
+
+        try {
+            await this.request('/api/refresh', {
+                method: 'POST',
+                json: { domains },
+            });
+            this.setSyncStatus('Refresh data berjalan di background.', 'info');
+        } catch (error) {
+            this.setSyncStatus('Gagal memulai refresh background.', 'error');
+            this.showNotice(error.payload?.message || error.message, 'error');
+            await this.runSyncHandlers({ force: true });
+        } finally {
+            this.isSyncing = false;
+            this.setSyncRefreshButtonState();
+        }
+    }
+
+    refreshDomainsForCurrentPage() {
+        const page = document.body.dataset.page || 'app';
+
+        const pageDomains = {
+            dashboard: ['dashboard', 'assignments'],
+            'class-index': ['classes'],
+            'class-show': ['classes', 'assignments'],
+            'meeting-show': ['assignments'],
+            'exam-index': ['exams'],
+            'exam-show': ['exams'],
+            profile: ['profile'],
+        };
+
+        return pageDomains[page] || ['dashboard'];
+    }
+
+    handleRealtimePayload(payload) {
+        const cacheKeys = Array.isArray(payload?.cache_keys) ? payload.cache_keys : [];
+        const syncKeys = Array.isArray(payload?.sync_keys) ? payload.sync_keys : [];
+
+        cacheKeys.forEach((cacheKey) => this.clearCachedResponse(cacheKey));
+
+        if (payload?.message) {
+            this.setSyncStatus(payload.message, this.toneFromUrgency(payload.urgency));
+        }
+
+        syncKeys.forEach((syncKey) => {
+            window.clearTimeout(this.realtimeRefreshTimers.get(syncKey));
+            this.realtimeRefreshTimers.set(syncKey, window.setTimeout(() => {
+                const handler = this.syncHandlers.get(syncKey);
+
+                if (handler) {
+                    void handler({ force: true });
+                }
+            }, 250));
+        });
+    }
+
+    handleSessionNotice(payload) {
+        const tone = this.toneFromUrgency(payload?.urgency);
+        const message = payload?.message || 'Status sesi portal berubah.';
+
+        this.showNotice(message, tone);
+        this.setSyncStatus(message, tone);
+
+        if (payload?.status === 'logged_out' || payload?.status === 'manual_relogin_required') {
+            this.clearAuthSnapshot();
+            this.disconnectRealtime();
+            window.location.href = '/login';
+        }
+    }
+
+    handlePortalNotification(payload) {
+        const tone = this.toneFromUrgency(payload?.urgency);
+        this.showNotice(payload?.message || payload?.title || 'Ada pembaruan portal.', tone);
+        this.handleRealtimePayload(payload);
+    }
+
+    handleUploadProgress(payload) {
+        if (!payload?.operation_id) {
+            return;
+        }
+
+        this.activeOperations.set(payload.operation_id, {
+            label: this.activeOperations.get(payload.operation_id)?.label || 'Upload',
+            status: payload.status,
+            message: payload.message,
+            detail: payload.detail,
+            nextStep: payload.next_step,
+            percent: payload.percent || this.percentForStage(payload.status),
+        });
+
+        this.renderOperationStatus(payload.operation_id);
+
+        if (payload.status === 'completed') {
+            this.showNotice(payload.message || 'Upload selesai.', 'success');
+            this.handleRealtimePayload(payload);
+        }
+
+        if (payload.status === 'failed') {
+            const failureMessage = payload.next_step
+                ? `${payload.message} ${payload.next_step}`
+                : payload.message;
+            this.showNotice(failureMessage, 'error');
+        }
+    }
+
+    trackOperation(operationId, label) {
+        this.activeOperations.set(operationId, {
+            label,
+            status: 'queued',
+            message: `${label} masuk antrean.`,
+            percent: 0,
+        });
+        this.renderOperationStatus(operationId);
+    }
+
+    percentForStage(stage) {
+        return {
+            connecting: 10,
+            file_received: 20,
+            portal_uploading: 55,
+            validation_succeeded: 80,
+            submission_saved: 100,
+            completed: 100,
+            failed: 100,
+        }[stage] || 10;
+    }
+
+    renderOperationStatus(operationId) {
+        const operation = this.activeOperations.get(operationId);
+        const host = document.querySelector('[data-operation-status]');
+
+        if (!operation || !host) {
+            return;
+        }
+
+        host.innerHTML = `
+            <div class="mycic-alert-info">
+                <div class="flex items-center justify-between gap-3">
+                    <span>${this.escapeHtml(operation.message)}</span>
+                    <span>${operation.percent}%</span>
+                </div>
+                <div class="mt-2 h-2 overflow-hidden rounded-full bg-surface-muted">
+                    <div class="h-full rounded-full bg-brand" style="width: ${operation.percent}%"></div>
+                </div>
+                ${operation.detail ? `<p class="mt-2 text-caption text-ink-subtle">${this.escapeHtml(operation.detail)}</p>` : ''}
+                ${operation.nextStep ? `<p class="mt-2 text-caption font-medium text-ink">${this.escapeHtml(operation.nextStep)}</p>` : ''}
+            </div>
+        `;
+    }
+
+    toneFromUrgency(urgency = 'info') {
+        return {
+            critical: 'error',
+            error: 'error',
+            warning: 'warning',
+            success: 'success',
+            info: 'info',
+        }[urgency] || 'info';
+    }
+
+    setRealtimeStatus(message, tone = 'info') {
+        document.querySelectorAll('[data-realtime-label]').forEach((element) => {
+            element.textContent = message;
+        });
+
+        document.querySelectorAll('[data-realtime-chip]').forEach((element) => {
+            element.className = tone === 'success'
+                ? 'mycic-chip-online shrink-0'
+                : 'mycic-chip-offline shrink-0';
         });
     }
 

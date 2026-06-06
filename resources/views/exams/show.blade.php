@@ -359,7 +359,14 @@
                                     formData,
                                 });
 
-                                app.showNotice(result?.message || 'Berkas ujian berhasil dikirim.', 'success');
+                                const operationId = result?.data?.operation_id;
+
+                                if (operationId) {
+                                    app.trackOperation(operationId, 'Upload ujian');
+                                    app.showNotice('Upload ujian diterima. Status akan diperbarui otomatis.', 'info');
+                                } else {
+                                    app.showNotice(result?.message || 'Berkas ujian berhasil dikirim.', 'success');
+                                }
                             } catch (error) {
                                 app.showNotice(error.payload?.message || error.message, 'error');
                             }

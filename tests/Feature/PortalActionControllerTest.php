@@ -4,14 +4,16 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
-use App\Exceptions\PortalScrapingException;
 use App\Http\Middleware\VerifyCsrfTokenMiddleware;
+use App\Jobs\ProcessPortalAssignmentUploadJob;
+use App\Jobs\ProcessPortalExamUploadJob;
 use App\Services\AttendanceShortcutService;
 use App\Services\Extractors\ClassesExtractor;
 use App\Services\Extractors\SipandaiClassesExtractor;
 use App\Services\PortalSessionManager;
 use App\Services\SipandaiSubmissionService;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Queue;
 use Mockery;
 use Mockery\MockInterface;
 use Tests\TestCase;
@@ -67,10 +69,11 @@ class PortalActionControllerTest extends TestCase
 
     public function test_upload_assignment_success(): void
     {
+        Queue::fake();
+
         $file = UploadedFile::fake()->create('task.pdf', 128, 'application/pdf');
 
         $this->mockValidCampusSession('token-123');
-        $this->mockServiceExpectingSubmitAssignment('token-123', $file);
 
         $response = $this->withSession(['campus_session_token' => 'token-123'])
             ->post('/api/assignment', [
@@ -81,14 +84,22 @@ class PortalActionControllerTest extends TestCase
                 'attachment' => $file,
             ], ['Accept' => 'application/json']);
 
-        $response->assertStatus(200)
+        $response->assertStatus(202)
             ->assertJson([
                 'success' => true,
-            ]);
+                'data' => [
+                    'status' => 'queued',
+                ],
+            ])
+            ->assertJsonStructure(['data' => ['operation_id']]);
+
+        Queue::assertPushed(ProcessPortalAssignmentUploadJob::class);
     }
 
     public function test_upload_assignment_can_resolve_target_from_meeting_context(): void
     {
+        Queue::fake();
+
         $file = UploadedFile::fake()->create('task.pdf', 128, 'application/pdf');
 
         $this->mockValidCampusSession('token-meeting-upload');
@@ -105,8 +116,6 @@ class PortalActionControllerTest extends TestCase
                     ]);
             })
         );
-        $this->mockServiceExpectingSubmitAssignmentWithPayload('token-meeting-upload', $file, 9202, 33244, 5);
-
         $response = $this->withSession(['campus_session_token' => 'token-meeting-upload'])
             ->post('/api/assignment', [
                 'courses_id' => 9202,
@@ -114,10 +123,15 @@ class PortalActionControllerTest extends TestCase
                 'attachment' => $file,
             ], ['Accept' => 'application/json']);
 
-        $response->assertOk()
+        $response->assertStatus(202)
             ->assertJson([
                 'success' => true,
+                'data' => [
+                    'status' => 'queued',
+                ],
             ]);
+
+        Queue::assertPushed(ProcessPortalAssignmentUploadJob::class);
     }
 
     public function test_upload_assignment_returns_unprocessable_when_meeting_context_cannot_be_resolved(): void
@@ -149,19 +163,13 @@ class PortalActionControllerTest extends TestCase
             ]);
     }
 
-    public function test_upload_assignment_returns_unauthorized_when_upstream_session_has_expired(): void
+    public function test_upload_assignment_queues_job_when_session_is_still_valid(): void
     {
+        Queue::fake();
+
         $file = UploadedFile::fake()->create('task.pdf', 128, 'application/pdf');
 
         $this->mockValidCampusSession('token-expired-upload');
-        $this->instance(
-            SipandaiSubmissionService::class,
-            Mockery::mock(SipandaiSubmissionService::class, function (MockInterface $mock): void {
-                $mock->shouldReceive('submitAssignment')
-                    ->once()
-                    ->andThrow(PortalScrapingException::pageNotAccessible('assignment form'));
-            })
-        );
 
         $response = $this->withSession(['campus_session_token' => 'token-expired-upload'])
             ->post('/api/assignment', [
@@ -171,11 +179,15 @@ class PortalActionControllerTest extends TestCase
                 'attachment' => $file,
             ], ['Accept' => 'application/json']);
 
-        $response->assertStatus(401)
+        $response->assertStatus(202)
             ->assertJson([
-                'success' => false,
-                'message' => 'Campus session has expired. Please login again.',
+                'success' => true,
+                'data' => [
+                    'status' => 'queued',
+                ],
             ]);
+
+        Queue::assertPushed(ProcessPortalAssignmentUploadJob::class);
     }
 
     public function test_mark_attendance_requires_session(): void
@@ -623,10 +635,11 @@ class PortalActionControllerTest extends TestCase
 
     public function test_upload_exam_success(): void
     {
+        Queue::fake();
+
         $file = UploadedFile::fake()->create('uts.zip', 256, 'application/zip');
 
         $this->mockValidCampusSession('token-exam-upload');
-        $this->mockServiceExpectingSubmitExam('token-exam-upload', $file);
 
         $response = $this->withSession(['campus_session_token' => 'token-exam-upload'])
             ->post('/api/exam', [
@@ -635,14 +648,16 @@ class PortalActionControllerTest extends TestCase
                 'attachment' => $file,
             ], ['Accept' => 'application/json']);
 
-        $response->assertOk()
+        $response->assertStatus(202)
             ->assertJson([
                 'success' => true,
                 'data' => [
-                    'status' => 'uploaded',
-                    'exam_id' => 8833,
+                    'status' => 'queued',
                 ],
-            ]);
+            ])
+            ->assertJsonStructure(['data' => ['operation_id']]);
+
+        Queue::assertPushed(ProcessPortalExamUploadJob::class);
     }
 
     private function mockServiceExpectingSubmitAssignment(string $token, UploadedFile $expectedFile): void

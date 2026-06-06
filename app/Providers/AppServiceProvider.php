@@ -5,6 +5,8 @@ namespace App\Providers;
 use App\Services\Extractors\ClassesExtractor;
 use App\Services\Extractors\ProfileExtractor;
 use App\Services\PortalAuthService;
+use App\Services\PortalBroadcastService;
+use App\Services\PortalOperationTracker;
 use App\Services\PortalSessionManager;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -70,6 +72,14 @@ class AppServiceProvider extends ServiceProvider
 
         $this->app->singleton(ClassesExtractor::class, function ($app) {
             return new ClassesExtractor($app->make(PortalSessionManager::class));
+        });
+
+        $this->app->singleton(PortalBroadcastService::class, function (): PortalBroadcastService {
+            return new PortalBroadcastService;
+        });
+
+        $this->app->singleton(PortalOperationTracker::class, function (): PortalOperationTracker {
+            return new PortalOperationTracker;
         });
     }
 }

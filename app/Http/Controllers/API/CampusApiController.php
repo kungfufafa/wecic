@@ -7,6 +7,7 @@ namespace App\Http\Controllers\API;
 use App\Exceptions\PortalAuthenticationException;
 use App\Exceptions\PortalScrapingException;
 use App\Http\Controllers\Controller;
+use App\Services\PortalBroadcastService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
 
@@ -118,6 +119,18 @@ abstract class CampusApiController extends Controller
 
     protected function expiredSessionBooleanResponse(): JsonResponse
     {
+        $sessionToken = $this->sessionToken();
+
+        if ($sessionToken) {
+            app(PortalBroadcastService::class)->sessionNotice(
+                (string) session()->getId(),
+                $sessionToken,
+                'manual_relogin_required',
+                'Sesi portal kedaluwarsa. Silakan login ulang.',
+                'error'
+            );
+        }
+
         session()->forget(['campus_session_token', 'campus_user_info']);
 
         return $this->booleanResponse(false, 'Campus session has expired. Please login again.', null, 401);

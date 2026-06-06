@@ -350,7 +350,14 @@
                                     formData,
                                 });
 
-                                app.showNotice(result?.message || 'Tugas berhasil dikirim.', 'success');
+                                const operationId = result?.data?.operation_id;
+
+                                if (operationId) {
+                                    app.trackOperation(operationId, 'Upload tugas');
+                                    app.showNotice('Upload tugas diterima. Status akan diperbarui otomatis.', 'info');
+                                } else {
+                                    app.showNotice(result?.message || 'Tugas berhasil dikirim.', 'success');
+                                }
                             } catch (error) {
                                 app.showNotice(error.payload?.message || error.message, 'error');
                             }

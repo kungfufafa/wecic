@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Jobs;
 
+use App\Services\PortalBroadcastService;
 use App\Services\PortalSessionManager;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -30,7 +31,8 @@ class RefreshPortalSessionJob implements ShouldQueue
      * Create a new job instance.
      */
     public function __construct(
-        private string $sessionToken
+        private string $sessionToken,
+        private ?string $sessionId = null
     ) {
         // Set the queue connection
         $this->onQueue('campus-sessions');
@@ -84,6 +86,16 @@ class RefreshPortalSessionJob implements ShouldQueue
             // Refresh the session
             $result = $sessionManager->refreshSession($this->sessionToken);
 
+            if ($this->sessionId !== null) {
+                app(PortalBroadcastService::class)->sessionNotice(
+                    $this->sessionId,
+                    $this->sessionToken,
+                    'auto_relogin_succeeded',
+                    'Sesi portal berhasil diperbarui otomatis.',
+                    'success'
+                );
+            }
+
             Log::info('campus_session.refresh_job_succeeded', [
                 'domain' => 'campus_session',
                 'event' => 'refresh_job_succeeded',
@@ -124,6 +136,16 @@ class RefreshPortalSessionJob implements ShouldQueue
 
             // If this is the last attempt, we should let the session expire naturally
             if ($this->attempts() >= $this->tries) {
+                if ($this->sessionId !== null) {
+                    app(PortalBroadcastService::class)->sessionNotice(
+                        $this->sessionId,
+                        $this->sessionToken,
+                        'manual_relogin_required',
+                        'Sesi portal perlu login ulang manual.',
+                        'error'
+                    );
+                }
+
                 Log::warning('campus_session.refresh_job_exhausted', [
                     'domain' => 'campus_session',
                     'event' => 'refresh_job_exhausted',
