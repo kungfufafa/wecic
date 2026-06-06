@@ -18,6 +18,23 @@ use Tests\TestCase;
 
 class PortalActionControllerTest extends TestCase
 {
+    public function test_mutating_action_rejects_missing_csrf_token_when_csrf_middleware_is_enabled(): void
+    {
+        $this->withMiddleware(VerifyCsrfTokenMiddleware::class);
+
+        $file = UploadedFile::fake()->create('task.pdf', 128, 'application/pdf');
+
+        $response = $this->withSession(['campus_session_token' => 'token-123'])
+            ->post('/api/assignment', [
+                'courses_id' => 9000,
+                'id' => 29833,
+                'pertemuan' => 2,
+                'attachment' => $file,
+            ], ['Accept' => 'application/json']);
+
+        $response->assertStatus(419);
+    }
+
     protected function setUp(): void
     {
         parent::setUp();

@@ -9,6 +9,7 @@ use App\Exceptions\PortalConnectionException;
 use App\Exceptions\PortalScrapingException;
 use App\Http\Requests\PortalLoginRequest;
 use App\Http\Requests\PortalPasswordChangeRequest;
+use App\Services\PortalLogContext;
 use App\Services\PortalPasswordService;
 use App\Services\PortalSessionManager;
 use Dedoc\Scramble\Attributes\Group;
@@ -50,14 +51,17 @@ class PortalAuthController extends CampusApiController
             $password = (string) $request->validated('password');
 
             $sessionResult = $this->sessionManager->createSession($username, $password);
-            session(['campus_session_token' => $sessionResult['session_token']]);
-            session(['campus_user_info' => $sessionResult['user_info']]);
 
-            Log::info('User logged in successfully', ['username' => $username]);
+            session()->regenerate();
+            session([
+                'campus_session_token' => $sessionResult['session_token'],
+                'campus_user_info' => $sessionResult['user_info'],
+            ]);
+
+            Log::info('User logged in successfully', ['username_fingerprint' => PortalLogContext::fingerprint($username)]);
 
             return $this->statusSuccess('Login berhasil', [
                 'data' => [
-                    'session_token' => $sessionResult['session_token'],
                     'user_info' => $sessionResult['user_info'],
                     'expires_at' => $sessionResult['expires_at'],
                 ],
@@ -161,7 +165,8 @@ class PortalAuthController extends CampusApiController
             if ($sessionToken) {
                 $this->sessionManager->destroySession($sessionToken);
             }
-            session()->forget(['campus_session_token', 'campus_user_info']);
+            session()->invalidate();
+            session()->regenerateToken();
 
             Log::info('User logged out successfully');
 
@@ -169,7 +174,8 @@ class PortalAuthController extends CampusApiController
         } catch (\Throwable $e) {
             Log::error('Logout failed', ['error' => $e->getMessage()]);
 
-            session()->forget(['campus_session_token', 'campus_user_info']);
+            session()->invalidate();
+            session()->regenerateToken();
 
             return $this->statusSuccess('Logout berhasil (session cleared)', campusSessionValid: false);
         }

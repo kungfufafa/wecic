@@ -13,14 +13,13 @@ class VerifyCsrfTokenMiddleware extends Middleware
      *
      * @var array<int, string>
      */
-    protected $except = [
-        'api/*',
-        'api/campus/*',
-        'api/campus/login',
-        'api/campus/logout',
-        'api/campus/refresh-session',
-        'api/campus/check-session',
-        'api/campus/assignments/*',
-        'api/campus/attendance/*',
-    ];
+    protected $except = [];
+
+    /**
+     * Enforce CSRF during feature tests when middleware is not explicitly disabled.
+     */
+    protected function runningUnitTests(): bool
+    {
+        return false;
+    }
 }

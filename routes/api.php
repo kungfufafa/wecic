@@ -8,12 +8,13 @@ use App\Http\Controllers\API\PortalDataController;
 use App\Http\Controllers\API\PortalSupportController;
 use Illuminate\Support\Facades\Route;
 
-// Session-aware middleware stack for campus API routes (cookie + session, no CSRF).
+// Session-aware middleware stack for campus API routes (cookie + session + CSRF).
 $sessionMiddleware = [
     \Illuminate\Cookie\Middleware\EncryptCookies::class,
     \Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse::class,
     \Illuminate\Session\Middleware\StartSession::class,
     \Illuminate\View\Middleware\ShareErrorsFromSession::class,
+    \App\Http\Middleware\VerifyCsrfTokenMiddleware::class,
 ];
 
 // Proxied endpoints use the original upstream portal parameter names as primary input.
