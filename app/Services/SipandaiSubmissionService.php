@@ -1208,6 +1208,17 @@ class SipandaiSubmissionService extends PortalScrapingService
         return 'file:'.strtolower((string) ($record['file_url'] ?? spl_object_id((object) $record)));
     }
 
+    private function persistedExamSubmissionRecordKey(?string $username, int $examId, array $record): string
+    {
+        $identity = $this->examSubmissionRecordKey($record);
+
+        return hash('sha256', implode('|', [
+            $username ?? 'anonymous',
+            (string) $examId,
+            $identity,
+        ]));
+    }
+
     /**
      * @param  array<int, array<string, mixed>>  $currentRecords
      * @param  array<int, array<string, mixed>>  $storedRecords
@@ -1238,24 +1249,14 @@ class SipandaiSubmissionService extends PortalScrapingService
         $username = $this->sessionUsernameForSubmissionRecords($sessionToken);
 
         foreach ($records as $record) {
-            $lookup = [
+            $recordKey = $this->persistedExamSubmissionRecordKey($username, $examId, $record);
+
+            ExamSubmissionRecord::query()->updateOrCreate([
+                'record_key' => $recordKey,
+            ], [
                 'username' => $username,
                 'exam_id' => $examId,
-            ];
-
-            if (($record['submission_id'] ?? null) !== null) {
-                $lookup['submission_id'] = (int) $record['submission_id'];
-            } elseif (($record['file_url'] ?? null) !== null) {
-                $lookup['file_url'] = (string) $record['file_url'];
-            } elseif (($record['delete_url'] ?? null) !== null) {
-                $lookup['delete_url'] = (string) $record['delete_url'];
-            } else {
-                continue;
-            }
-
-            ExamSubmissionRecord::query()->updateOrCreate($lookup, [
-                'username' => $username,
-                'exam_id' => $examId,
+                'record_key' => $recordKey,
                 'submission_id' => $record['submission_id'] ?? null,
                 'file_url' => $record['file_url'] ?? null,
                 'file_name' => $record['file_name'] ?? null,

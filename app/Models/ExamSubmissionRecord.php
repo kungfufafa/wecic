@@ -15,6 +15,7 @@ class ExamSubmissionRecord extends Model
     protected $fillable = [
         'username',
         'exam_id',
+        'record_key',
         'submission_id',
         'file_url',
         'file_name',

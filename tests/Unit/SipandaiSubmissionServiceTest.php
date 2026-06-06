@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit;
 
+use App\Models\ExamSubmissionRecord;
 use App\Services\PortalEndpointRegistry;
 use App\Services\PortalScrapingService;
 use App\Services\PortalSessionManager;
@@ -14,12 +15,57 @@ use GuzzleHttp\Handler\MockHandler;
 use GuzzleHttp\HandlerStack;
 use GuzzleHttp\Middleware;
 use GuzzleHttp\Psr7\Response;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Schema;
 use Symfony\Component\DomCrawler\Crawler;
 use Tests\TestCase;
 
 class SipandaiSubmissionServiceTest extends TestCase
 {
+    use RefreshDatabase;
+
+    public function test_exam_submission_records_are_deduplicated_by_record_key(): void
+    {
+        $this->assertTrue(Schema::hasTable('exam_submission_records'));
+
+        $sessionManager = $this->createMock(PortalSessionManager::class);
+        $sessionManager->method('getSession')
+            ->with('token-exam-records')
+            ->willReturn([
+                'username' => '20251030030',
+            ]);
+
+        $service = new SipandaiSubmissionService($sessionManager);
+        $records = [[
+            'exam_id' => 9195,
+            'submission_id' => 131828,
+            'file_url' => 'https://my.cic.ac.id/portal/files/tugasmhs/9195-UTS-20251030030-785.pdf',
+            'file_name' => '9195-UTS-20251030030-785.pdf',
+            'delete_url' => 'https://my.cic.ac.id/portal/sipandai/?mod=sipandai&act=jobdelujian&id=131828',
+            'uploaded_at_label' => 'Rabu, 20 Mei 2026',
+            'exam_type' => 'UTS / Reguler',
+            'description' => '-',
+        ]];
+
+        $this->invokeNonPublicMethod($service, 'rememberExamSubmissionRecords', [
+            'token-exam-records',
+            9195,
+            $records,
+            'detail',
+        ]);
+
+        $this->invokeNonPublicMethod($service, 'rememberExamSubmissionRecords', [
+            'token-exam-records',
+            9195,
+            $records,
+            'upload_refresh',
+        ]);
+
+        $this->assertSame(1, ExamSubmissionRecord::query()->count());
+        $this->assertSame('upload_refresh', ExamSubmissionRecord::query()->firstOrFail()->source);
+    }
+
     public function test_submit_attendance_falls_back_to_direct_submit_when_qr_page_has_no_form(): void
     {
         config(['portal.request_delay' => 0]);
