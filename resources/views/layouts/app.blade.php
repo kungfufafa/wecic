@@ -106,51 +106,39 @@
     @endphp
 
     <div class="page">
-        <header class="navbar navbar-expand-md d-print-none">
-            <div class="container-xl">
-                <button
-                    class="navbar-toggler"
-                    type="button"
-                    data-bs-toggle="collapse"
-                    data-bs-target="#navbar-menu"
-                    aria-controls="navbar-menu"
-                    aria-expanded="false"
-                    aria-label="Toggle navigation"
-                >
-                    <span class="navbar-toggler-icon"></span>
-                </button>
-
-                <div class="navbar-brand navbar-brand-autodark d-none-navbar-horizontal pe-0 pe-md-3">
-                    <a href="{{ route('dashboard') }}" class="text-decoration-none text-reset fw-bold" aria-label="myCIC">myCIC</a>
+        <header class="navbar navbar-expand-md d-print-none sticky-top border-bottom">
+            <div class="container-xl d-flex align-items-center justify-content-between py-1">
+                <div class="navbar-brand navbar-brand-autodark m-0">
+                    <a href="{{ route('dashboard') }}" class="text-decoration-none text-reset fw-bold" aria-label="myCIC" style="font-size: 1.25rem; letter-spacing: -0.02em;">myCIC</a>
                 </div>
 
-                <div class="navbar-nav flex-row order-md-last">
+                <div class="navbar-nav flex-row order-md-last align-items-center">
                     <div class="nav-item dropdown">
-                        <a href="#" class="nav-link d-flex lh-1 p-0 px-2" data-bs-toggle="dropdown" aria-label="Open user menu">
-                            <span class="avatar avatar-sm">M</span>
-                            <div class="d-none d-xl-block ps-2">
+                        <a href="#" class="nav-link d-flex lh-1 p-0 pe-2" data-bs-toggle="dropdown" aria-label="Open user menu">
+                            <span class="avatar avatar-sm rounded-circle bg-primary-lt text-primary shadow-sm">M</span>
+                            <div class="d-none d-xl-block ps-2 text-start">
                                 <div data-user-identity>Mahasiswa</div>
                                 <div class="mt-1 small text-secondary">Portal kampus</div>
                             </div>
                         </a>
-                        <div class="dropdown-menu dropdown-menu-end dropdown-menu-arrow">
-                            <div class="dropdown-item-text d-xl-none">
-                                <div class="fw-semibold" data-user-identity>Mahasiswa</div>
+                        <div class="dropdown-menu dropdown-menu-end dropdown-menu-arrow mt-2 shadow-sm">
+                            <div class="dropdown-item-text d-xl-none pb-2 border-bottom mb-2">
+                                <div class="fw-bold" data-user-identity>Mahasiswa</div>
                                 <div class="small text-secondary">Portal kampus</div>
                             </div>
-                            <div class="dropdown-divider d-xl-none"></div>
                             <a href="{{ route('profile') }}" class="dropdown-item">Profil</a>
                             <a href="{{ route('password.edit') }}" class="dropdown-item">Ubah Password</a>
-                            <button type="button" class="dropdown-item" data-logout>Keluar</button>
+                            <div class="dropdown-divider"></div>
+                            <button type="button" class="dropdown-item text-danger" data-logout>Keluar</button>
                         </div>
                     </div>
                 </div>
 
-                <div class="collapse navbar-collapse" id="navbar-menu">
-                    <ul class="navbar-nav">
+                <div class="collapse navbar-collapse d-none d-md-flex justify-content-center" id="navbar-menu">
+                    <ul class="navbar-nav gap-2">
                         @foreach ($navigation as $item)
                             <li class="nav-item">
-                                <a href="{{ $item['href'] }}" class="nav-link @if($item['active']) active @endif" @if($item['active']) aria-current="page" @endif>
+                                <a href="{{ $item['href'] }}" class="nav-link @if($item['active']) active fw-semibold @endif" @if($item['active']) aria-current="page" @endif>
                                     <span class="nav-link-icon d-md-none d-lg-inline-block">{!! $item['icon'] !!}</span>
                                     <span class="nav-link-title">{{ $item['label'] }}</span>
                                 </a>
@@ -161,7 +149,7 @@
             </div>
         </header>
 
-        <div class="page-wrapper">
+        <div class="page-wrapper pb-5 pb-md-0">
             <div class="page-body">
                 <div class="container-xl">
                     <div class="alert alert-info text-center mb-3 d-none" data-pull-indicator aria-hidden="true">
@@ -170,26 +158,26 @@
                     </div>
 
                     @unless ($hideStatusStrip)
-                        <div class="alert alert-info mb-4" data-sync-alert role="status">
-                            <div class="d-flex flex-column flex-sm-row align-items-sm-center justify-content-between w-100 gap-3">
-                                <div class="d-flex flex-wrap align-items-center gap-2">
-                                    <span class="badge bg-green-lt text-green" data-connection-chip>
+                        <div class="alert alert-info mb-3 mb-md-4 py-2 py-md-3" data-sync-alert role="status">
+                            <div class="d-flex align-items-center justify-content-between w-100 gap-2">
+                                <div class="d-flex align-items-center gap-2 overflow-hidden">
+                                    <span class="badge bg-green-lt text-green flex-shrink-0" data-connection-chip>
                                         <span data-connection-label>Online</span>
                                     </span>
-                                    <span data-sync-status>Data terakhir siap dipakai. Sinkronkan ke server bila perlu.</span>
+                                    <span data-sync-status class="text-truncate small mb-0">Data terakhir siap dipakai. Sinkronkan ke server bila perlu.</span>
                                 </div>
-                                <div class="d-flex align-items-center gap-2 mt-2 mt-sm-0">
-                                    <span class="text-secondary small d-none" data-user-identity></span>
+                                <div class="d-flex align-items-center flex-shrink-0">
+                                    <span class="text-secondary small d-none d-sm-block me-2" data-user-identity></span>
                                     <button
                                         type="button"
-                                        class="btn btn-info btn-sm d-inline-flex align-items-center justify-content-center px-2"
+                                        class="btn btn-info btn-sm d-inline-flex align-items-center justify-content-center px-2 py-1"
                                         data-sync-refresh
                                         data-online-required
                                         aria-label="Sinkronkan server"
                                         title="Sinkronkan server"
                                     >
                                         <span class="d-inline-flex align-items-center justify-content-center" data-sync-refresh-icon aria-hidden="true">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" stroke-width="2.2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4" /><path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4" /></svg>
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" stroke-width="2.2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4" /><path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4" /></svg>
                                         </span>
                                         <span class="spinner-border spinner-border-sm d-none" data-sync-refresh-spinner aria-hidden="true"></span>
                                         <span class="visually-hidden" data-sync-refresh-label>Sinkronkan server</span>
@@ -201,6 +189,18 @@
 
                     @yield('content')
                 </div>
+            </div>
+        </div>
+
+        <!-- Mobile Bottom Navigation -->
+        <div class="navbar navbar-expand d-md-none fixed-bottom border-top" style="min-height: auto; padding: 0.5rem 0;">
+            <div class="container-fluid justify-content-around p-0">
+                @foreach ($navigation as $item)
+                    <a href="{{ $item['href'] }}" class="text-center text-decoration-none d-flex flex-column align-items-center {{ $item['active'] ? 'text-primary' : 'text-secondary' }}" style="flex: 1;">
+                        <div class="mb-1">{!! str_replace('width="24"', 'width="20"', str_replace('height="24"', 'height="20"', $item['icon'])) !!}</div>
+                        <div class="small fw-medium" style="font-size: 0.65rem;">{{ $item['label'] }}</div>
+                    </a>
+                @endforeach
             </div>
         </div>
     </div>

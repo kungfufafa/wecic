@@ -4,9 +4,9 @@
 @section('page_id', 'login')
 
 @section('content')
-    <div class="text-center mb-5 mt-3">
+    <div class="text-center mb-4 mt-3">
         <a href="{{ route('login') }}" class="text-decoration-none d-inline-block">
-            <div class="avatar avatar-md bg-primary text-white rounded-3 mb-4 shadow-sm" style="width: 56px; height: 56px;">
+            <div class="avatar avatar-md bg-primary text-white rounded-3 mb-3 shadow-sm" style="width: 56px; height: 56px;">
                 <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
                     <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
                     <path d="M12 3l8 4.5l0 9l-8 4.5l-8 -4.5l0 -9l8 -4.5" />
@@ -16,22 +16,32 @@
                 </svg>
             </div>
         </a>
-        <h1 class="h2 fw-bold text-dark mb-2">Welcome to myCIC</h1>
+        <h1 class="h2 fw-bold text-dark mb-1">Welcome to myCIC</h1>
         <p class="text-secondary m-0">Sistem Informasi Akademik</p>
     </div>
 
-    <div class="px-sm-4">
+    <div class="px-4 px-md-5">
         <form id="login-form">
             <div class="mb-3">
                 <label for="username" class="form-label fw-semibold text-dark">Username</label>
-                <input id="username" name="username" type="text" class="form-control" autocomplete="username" placeholder="NIM atau username" required>
+                <div class="input-icon">
+                    <span class="input-icon-addon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0"></path><path d="M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2"></path></svg>
+                    </span>
+                    <input id="username" name="username" type="text" class="form-control form-control-lg" autocomplete="username" placeholder="NIM atau username" required>
+                </div>
             </div>
 
             <div class="mb-4">
                 <label for="password" class="form-label fw-semibold text-dark">Password</label>
-                <div class="input-group input-group-flat bg-white rounded-3 shadow-sm border-0">
-                    <input id="password" name="password" type="password" class="form-control" autocomplete="current-password" placeholder="Password portal kampus" required>
-                    <span class="input-group-text">
+                <div class="position-relative">
+                    <div class="input-icon">
+                        <span class="input-icon-addon">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><path d="M5 13a2 2 0 0 1 2 -2h10a2 2 0 0 1 2 2v6a2 2 0 0 1 -2 2h-10a2 2 0 0 1 -2 -2v-6z"></path><path d="M11 16a1 1 0 1 0 2 0a1 1 0 0 0 -2 0"></path><path d="M8 11v-4a4 4 0 1 1 8 0v4"></path></svg>
+                        </span>
+                        <input id="password" name="password" type="password" class="form-control form-control-lg pe-5" autocomplete="current-password" placeholder="Password portal kampus" required>
+                    </div>
+                    <span class="position-absolute top-50 end-0 translate-middle-y pe-3" style="z-index: 10;">
                         <a href="#" class="link-secondary text-decoration-none" id="password-visibility-toggle" title="Tampilkan password" data-bs-toggle="tooltip">
                             <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" /><path d="M21 12c-2.4 4 -5.4 6 -9 6c-3.6 0 -6.6 -2 -9 -6c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6" /></svg>
                         </a>
@@ -39,16 +49,16 @@
                 </div>
             </div>
 
-            <div class="form-footer mt-5">
+            <div class="form-footer mt-4">
                 <button id="login-submit" type="submit" class="btn btn-primary btn-3 w-100" data-online-required>Masuk</button>
             </div>
         </form>
+    </div>
 
-        <div class="text-center mt-5">
-            <p class="text-secondary small">
-                Gunakan akun portal kampus untuk masuk.
-            </p>
-        </div>
+    <div class="text-center mt-4">
+        <p class="text-secondary small">
+            Gunakan akun portal kampus untuk masuk.
+        </p>
     </div>
 @endsection
 
