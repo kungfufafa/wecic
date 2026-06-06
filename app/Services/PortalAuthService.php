@@ -236,7 +236,7 @@ class PortalAuthService
 
             $dashboardHtml = (string) $dashboardResponse->getBody();
 
-            if ($this->isSessionExpired($dashboardHtml)) {
+            if ($this->isSessionExpired($dashboardHtml) || ! $this->hasAuthenticatedPortalMarker($dashboardHtml)) {
                 throw PortalAuthenticationException::sessionExpired();
             }
 
@@ -340,8 +340,7 @@ class PortalAuthService
                 }
             }
 
-            // Even if we can't follow the refresh, "Session Loading" indicates successful login
-            return true;
+            return false;
         }
 
         // Check response content for login success indicators
@@ -380,7 +379,7 @@ class PortalAuthService
             return false;
         }
 
-        return true;
+        return false;
     }
 
     /**
@@ -407,20 +406,23 @@ class PortalAuthService
         // Check if page is blank or minimal (common sign of session expiry)
         $trimmedLength = strlen(trim($html));
         if ($trimmedLength < 100) {
-            // For very short content, check if it's a login form
-            $crawler = new Crawler($html);
-            $hasLoginForm = $crawler->filter('form[action*="loginact"]')->count() > 0;
-
-            // If there's no login form, assume it's successful but minimal content
-            if (! $hasLoginForm) {
-                return false; // Not expired - just minimal content
-            }
-
-            // If there's a login form with minimal content, session is expired
-            return true;
+            return ! $this->hasAuthenticatedPortalMarker($html);
         }
 
         return false;
+    }
+
+    private function hasAuthenticatedPortalMarker(string $html): bool
+    {
+        $haystack = strtolower($html);
+
+        return Str::contains($haystack, [
+            'dashboard mahasiswa',
+            'mod=logout',
+            'act=dashboard',
+            'student dashboard',
+            'selamat datang',
+        ]);
     }
 
     /**
