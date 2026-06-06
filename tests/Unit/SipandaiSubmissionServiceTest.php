@@ -700,6 +700,36 @@ class SipandaiSubmissionServiceTest extends TestCase
         $this->assertSame(PortalEndpointRegistry::url('exam_submit'), $detail['form']['action_url']);
     }
 
+    public function test_log_scraping_replaces_raw_session_token_with_fingerprint(): void
+    {
+        \Illuminate\Support\Facades\Log::spy();
+
+        $service = new class($this->createMock(PortalSessionManager::class)) extends SipandaiSubmissionService
+        {
+            public function writeLog(): void
+            {
+                $this->logScraping('token leak check', [
+                    'session_token' => 'raw-campus-token',
+                    'username' => '20251030030',
+                    'course_id' => 8837,
+                ]);
+            }
+        };
+
+        $service->writeLog();
+
+        \Illuminate\Support\Facades\Log::shouldHaveReceived('info')
+            ->withArgs(function (string $message, array $context): bool {
+                return $message === 'Campus scraping: token leak check'
+                    && ! array_key_exists('session_token', $context)
+                    && ! array_key_exists('username', $context)
+                    && isset($context['session_token_fingerprint'])
+                    && isset($context['username_fingerprint'])
+                    && $context['course_id'] === 8837;
+            })
+            ->once();
+    }
+
     public function test_build_exam_unavailable_result_marks_existing_submission_as_already_uploaded(): void
     {
         $service = new SipandaiSubmissionService($this->createMock(PortalSessionManager::class));

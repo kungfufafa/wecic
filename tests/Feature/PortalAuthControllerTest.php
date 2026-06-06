@@ -125,6 +125,34 @@ class PortalAuthControllerTest extends TestCase
             ->assertJsonPath('success', true);
     }
 
+    public function test_refresh_session_does_not_return_raw_session_token(): void
+    {
+        $this->instance(
+            PortalSessionManager::class,
+            Mockery::mock(PortalSessionManager::class, function (MockInterface $mock): void {
+                $mock->shouldReceive('refreshSession')
+                    ->once()
+                    ->with('campus-token-123')
+                    ->andReturn([
+                        'success' => true,
+                        'session_token' => 'campus-token-123',
+                        'expires_at' => '2026-06-06T10:00:00+07:00',
+                    ]);
+            })
+        );
+
+        $response = $this->withSession([
+            '_token' => 'known-csrf-token',
+            'campus_session_token' => 'campus-token-123',
+        ])->post('/api/auth/session/refresh', [
+            '_token' => 'known-csrf-token',
+        ], ['Accept' => 'application/json']);
+
+        $response->assertOk()
+            ->assertJsonMissingPath('data.session_token')
+            ->assertJsonPath('data.expires_at', '2026-06-06T10:00:00+07:00');
+    }
+
     public function test_logout_invalidates_laravel_session(): void
     {
         $this->instance(

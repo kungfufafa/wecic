@@ -444,7 +444,7 @@ abstract class PortalScrapingService
      */
     protected function logScraping(string $operation, array $context = []): void
     {
-        Log::info("Campus scraping: {$operation}", $context);
+        Log::info("Campus scraping: {$operation}", PortalLogContext::sanitize($context));
     }
 
     /**
@@ -452,9 +452,9 @@ abstract class PortalScrapingService
      */
     protected function logScrapingError(string $operation, \Exception $e, array $context = []): void
     {
-        Log::error("Campus scraping error: {$operation}", array_merge($context, [
+        Log::error("Campus scraping error: {$operation}", PortalLogContext::sanitize(array_merge($context, [
             'error' => $e->getMessage(),
             'trace' => $e->getTraceAsString(),
-        ]));
+        ])));
     }
 }

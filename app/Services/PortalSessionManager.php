@@ -610,12 +610,7 @@ class PortalSessionManager
 
     private function fingerprint(string $value): string
     {
-        return substr(hash_hmac('sha256', $value, $this->fingerprintKey()), 0, 16);
-    }
-
-    private function fingerprintKey(): string
-    {
-        return (string) (config('app.key') ?: 'campus-session-observability');
+        return PortalLogContext::fingerprint($value);
     }
 
     private function durationMs(float $startedAt): int

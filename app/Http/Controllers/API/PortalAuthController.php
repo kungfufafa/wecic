@@ -141,7 +141,6 @@ class PortalAuthController extends CampusApiController
 
             return $this->statusSuccess('Session refreshed successfully', [
                 'data' => [
-                    'session_token' => $sessionToken,
                     'expires_at' => $refreshResult['expires_at'] ?? null,
                 ],
             ], campusSessionValid: true);
