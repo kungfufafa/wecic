@@ -216,7 +216,7 @@
                                 <span class="mycic-chip-online shrink-0 hidden sm:inline-flex" data-realtime-chip>
                                     <span data-realtime-label>Real-time</span>
                                 </span>
-                                <span data-sync-status class="mb-0 truncate text-sm">Data terakhir siap dipakai. Sinkronkan ke server bila perlu.</span>
+                                <span data-sync-status class="mb-0 truncate text-sm">Data siap dipakai.</span>
                             </div>
                             <div class="flex shrink-0 items-center gap-2">
                                 <span class="hidden text-sm text-ink-subtle sm:block" data-user-identity></span>

@@ -1500,26 +1500,46 @@ class PortalApp {
     markViewSynced(label, payload = null, { force = false } = {}) {
         const syncTime = this.formatTimeOnly(new Date());
         const dataOrigin = payload?.meta?.data_origin || null;
+        const portalTime = this.portalDataTime(payload);
+        const portalSuffix = portalTime ? ` · portal per ${this.formatTimeOnly(portalTime)}` : '';
 
         if (force) {
             if (dataOrigin === 'device_cache') {
-                this.setSyncStatus(`${label} tetap memakai data tersimpan ${syncTime}. Server belum terjangkau.`, 'warning');
+                this.setSyncStatus('Server belum terjangkau — memakai data tersimpan.', 'warning');
 
                 return;
             }
 
-            this.setSyncStatus(`${label} disegarkan dari server ${syncTime}.`, 'success');
+            this.setSyncStatus(`Sinkron ${syncTime}${portalSuffix}`, 'success');
 
             return;
         }
 
         if (dataOrigin === 'server_cache') {
-            this.setSyncStatus(`${label} dimuat ${syncTime}. Server masih mengirim data tersimpan.`, 'info');
+            this.setSyncStatus(`Data tersimpan server${portalSuffix || ` · dimuat ${syncTime}`}`, 'info');
 
             return;
         }
 
-        this.setSyncStatus(`${label} dimuat ulang ${syncTime}.`, 'success');
+        this.setSyncStatus(portalTime ? `Data portal per ${this.formatTimeOnly(portalTime)}` : `Data dimuat ${syncTime}`, 'success');
+    }
+
+    portalDataTime(payload) {
+        const entries = payload?.data;
+
+        if (!entries || typeof entries !== 'object') {
+            return null;
+        }
+
+        for (const value of Object.values(entries)) {
+            if (value && typeof value === 'object' && value.extracted_at) {
+                const extracted = new Date(value.extracted_at);
+
+                return Number.isNaN(extracted.getTime()) ? null : extracted;
+            }
+        }
+
+        return null;
     }
 
     requireOnlineAction(message = 'Fitur ini butuh koneksi internet.') {
@@ -1538,13 +1558,20 @@ class PortalApp {
             element.dataset.tone = tone;
         });
 
+        const toneClass = {
+            success: 'mycic-sync-strip-success',
+            warning: 'mycic-sync-strip-warning',
+            error: 'mycic-sync-strip-danger',
+            danger: 'mycic-sync-strip-danger',
+        }[tone] || '';
+
         document.querySelectorAll('[data-sync-alert]').forEach((element) => {
-            element.className = `${this.alertTone(tone)} mb-3 py-2 md:mb-4`;
+            element.className = `mycic-sync-strip${toneClass ? ` ${toneClass}` : ''}`;
         });
     }
 
     defaultSyncStatusMessage() {
-        return 'Data terakhir siap dipakai. Sinkronkan ke server bila perlu.';
+        return 'Data siap dipakai.';
     }
 
     extractUserIdentity(userInfo) {

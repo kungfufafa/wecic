@@ -8,6 +8,7 @@ use App\Exceptions\PortalAuthenticationException;
 use App\Jobs\RefreshPortalSessionJob;
 use GuzzleHttp\Cookie\CookieJar;
 use GuzzleHttp\Cookie\SetCookie;
+use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Contracts\Encryption\Encrypter;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -15,6 +16,8 @@ use Illuminate\Support\Str;
 
 class PortalSessionManager
 {
+    private const SESSION_LOCK_SECONDS = 10;
+
     private PortalAuthService $authService;
 
     private Encrypter $encrypter;
@@ -176,7 +179,7 @@ class PortalSessionManager
             }
 
             // Otherwise, try to extend current session
-            $result = $this->extendCurrentSession($sessionToken, $session);
+            $result = $this->extendCurrentSession($sessionToken);
             $this->logSessionEvent('refresh_succeeded', sessionToken: $sessionToken, session: $this->loadSession($sessionToken), context: [
                 'strategy' => 'extend_existing',
                 'duration_ms' => $this->durationMs($startedAt),
@@ -211,8 +214,7 @@ class PortalSessionManager
                 $this->performLogout($session);
             }
 
-            // Remove from cache
-            Cache::forget($this->cacheKey($sessionToken));
+            $this->deleteSession($sessionToken);
 
             $this->logSessionEvent('logout_succeeded', sessionToken: $sessionToken, session: $session, context: [
                 'duration_ms' => $this->durationMs($startedAt),
@@ -227,27 +229,28 @@ class PortalSessionManager
             ]);
 
             // Still remove from cache even if logout fails
-            Cache::forget($this->cacheKey($sessionToken));
+            $this->deleteSession($sessionToken);
 
             return false;
         }
     }
 
-    public function invalidateSession(string $sessionToken, string $reason = 'manual', array $context = []): void
+    public function invalidateSession(string $sessionToken, string $reason = 'manual', array $context = [], ?array $expectedCookies = null): void
     {
-        $this->deactivateSession($sessionToken, $reason, $context);
+        $this->deactivateSession($sessionToken, $reason, $context, $expectedCookies);
     }
 
     public function rememberLaravelSessionId(string $sessionToken, string $laravelSessionId): void
     {
-        $session = $this->loadSession($sessionToken);
+        $this->mutateSession($sessionToken, static function (?array $session) use ($laravelSessionId): ?array {
+            if ($session === null) {
+                return null;
+            }
 
-        if (! $session) {
-            return;
-        }
+            $session['laravel_session_id'] = $laravelSessionId;
 
-        $session['laravel_session_id'] = $laravelSessionId;
-        $this->storeSession($sessionToken, $session);
+            return $session;
+        });
     }
 
     public function laravelSessionId(string $sessionToken): ?string
@@ -265,16 +268,17 @@ class PortalSessionManager
 
     public function forgetStoredCredentials(string $sessionToken): void
     {
-        $session = $this->loadSession($sessionToken);
+        $this->mutateSession($sessionToken, function (?array $session): ?array {
+            if ($session === null || ! array_key_exists('encrypted_credentials', $session)) {
+                return null;
+            }
 
-        if (! $session || ! array_key_exists('encrypted_credentials', $session)) {
-            return;
-        }
+            unset($session['encrypted_credentials']);
 
-        unset($session['encrypted_credentials']);
-        $this->storeSession($sessionToken, $session);
+            $this->logSessionEvent('stored_credentials_removed', sessionToken: $session['token'], session: $session);
 
-        $this->logSessionEvent('stored_credentials_removed', sessionToken: $sessionToken, session: $session);
+            return $session;
+        });
     }
 
     /**
@@ -294,9 +298,9 @@ class PortalSessionManager
     /**
      * Store session data in cache
      */
-    private function storeSession(string $sessionToken, array $sessionData): void
+    private function storeSession(string $sessionToken, array $sessionData, ?int $ttl = null): void
     {
-        $ttl = config('portal.session_refresh_interval', 1200) * 2; // Double the refresh interval
+        $ttl ??= config('portal.session_refresh_interval', 1200) * 2; // Double the refresh interval
 
         Cache::put($this->cacheKey($sessionToken), $sessionData, $ttl);
     }
@@ -309,14 +313,67 @@ class PortalSessionManager
     }
 
     /**
+     * Apply a mutation to the stored session while holding an atomic lock.
+     *
+     * Parallel workers (scraping jobs, session refreshes, activity touches)
+     * each read the whole session array and write it back; without the lock a
+     * late write would resurrect stale cookies over a concurrent auto-relogin.
+     * The mutator receives the freshly loaded session (null when missing) and
+     * returns the session to store, or null to leave the cache untouched.
+     *
+     * Mutations that protect cookies (auto-relogin swap, session extension)
+     * fail loudly on a lock timeout; best-effort mutations (activity touches,
+     * invalidations) pass false and skip the write instead.
+     *
+     * @param  callable(?array<string, mixed>): ?array<string, mixed>  $mutator
+     * @return array<string, mixed>|null
+     */
+    private function mutateSession(string $sessionToken, callable $mutator, ?int $ttl = null, bool $failOnLockTimeout = true): ?array
+    {
+        $lock = Cache::lock($this->sessionLockKey($sessionToken), self::SESSION_LOCK_SECONDS);
+
+        try {
+            return $lock->block(self::SESSION_LOCK_SECONDS, function () use ($sessionToken, $mutator, $ttl): ?array {
+                $session = $mutator($this->loadSession($sessionToken));
+
+                if ($session !== null) {
+                    $this->storeSession($sessionToken, $session, $ttl);
+                }
+
+                return $session;
+            });
+        } catch (LockTimeoutException $exception) {
+            $this->logSessionEvent('mutation_lock_timeout', level: 'warning', sessionToken: $sessionToken, context: [
+                'error' => $exception->getMessage(),
+            ]);
+
+            if ($failOnLockTimeout) {
+                throw new \RuntimeException('Campus session mutation timed out waiting for the session lock.', 0, $exception);
+            }
+
+            return null;
+        }
+    }
+
+    private function sessionLockKey(string $sessionToken): string
+    {
+        // Deliberately outside the session key prefix: getActiveSessions scans
+        // the prefix and must not stumble over raw lock entries.
+        return 'campus_session_lock_'.$sessionToken;
+    }
+
+    /**
      * Update last activity time for session
      */
     private function updateLastActivity(string $sessionToken, array $session): array
     {
-        $session['last_activity'] = now()->toISOString();
-        $this->storeSession($sessionToken, $session);
+        return $this->mutateSession($sessionToken, static function (?array $stored): ?array {
+            if ($stored === null) {
+                return null;
+            }
 
-        return $session;
+            return [...$stored, 'last_activity' => now()->toISOString()];
+        }, failOnLockTimeout: false) ?? $session;
     }
 
     /**
@@ -468,14 +525,29 @@ class PortalSessionManager
             throw new \RuntimeException('Stored session credentials are incomplete.');
         }
 
+        // The login request is a slow network operation, so it runs outside
+        // the session lock; the lock only guards the read-modify-write swap.
         $loginResult = $this->authService->login($username, $password);
-        $sessionData = $this->buildSessionData($sessionToken, $username, $loginResult);
 
-        if (config('portal.auto_relogin', false)) {
-            $sessionData['encrypted_credentials'] = $this->encryptCredentials($username, $password);
+        $sessionData = $this->mutateSession($sessionToken, function (?array $stored) use ($sessionToken, $username, $password, $loginResult): ?array {
+            if ($stored === null) {
+                return null;
+            }
+
+            $sessionData = $this->buildSessionData($sessionToken, $username, $loginResult);
+            $sessionData['laravel_session_id'] = $stored['laravel_session_id'] ?? null;
+            $sessionData['encrypted_credentials'] = $stored['encrypted_credentials'] ?? null;
+
+            if (config('portal.auto_relogin', false)) {
+                $sessionData['encrypted_credentials'] = $this->encryptCredentials($username, $password);
+            }
+
+            return array_filter($sessionData, static fn (mixed $value): bool => $value !== null);
+        });
+
+        if ($sessionData === null) {
+            throw PortalAuthenticationException::sessionExpired();
         }
-
-        $this->storeSession($sessionToken, $sessionData);
 
         // Schedule next refresh
         $this->scheduleSessionRefresh($sessionToken);
@@ -490,41 +562,119 @@ class PortalSessionManager
     /**
      * Extend current session without relogin
      */
-    private function extendCurrentSession(string $sessionToken, array $session): array
+    private function extendCurrentSession(string $sessionToken): array
     {
-        // Update expiry time
-        $session['expires_at'] = now()->addSeconds(config('portal.session_refresh_interval', 1200))->toISOString();
-        $session['last_activity'] = now()->toISOString();
+        $sessionData = $this->mutateSession($sessionToken, static function (?array $stored): ?array {
+            if ($stored === null) {
+                return null;
+            }
 
-        $this->storeSession($sessionToken, $session);
+            $stored['expires_at'] = now()->addSeconds(config('portal.session_refresh_interval', 1200))->toISOString();
+            $stored['last_activity'] = now()->toISOString();
+
+            return $stored;
+        });
+
+        if ($sessionData === null) {
+            throw PortalAuthenticationException::sessionExpired();
+        }
+
         $this->scheduleSessionRefresh($sessionToken);
 
         return [
             'success' => true,
             'session_token' => $sessionToken,
-            'expires_at' => $session['expires_at'],
+            'expires_at' => $sessionData['expires_at'],
         ];
     }
 
     /**
      * Deactivate a session
+     *
+     * When the failing operation reports the cookies it attached with, an
+     * invalidation is skipped if the stored cookies have since been rotated by
+     * another worker's auto-relogin — the stale report would otherwise kill a
+     * freshly rotated session. Invalidation itself is best-effort: a lock
+     * timeout is logged and the stored session is left untouched so the
+     * caller's own error path keeps its original exception.
      */
-    private function deactivateSession(string $sessionToken, string $reason = 'manual', array $context = []): void
+    private function deactivateSession(string $sessionToken, string $reason = 'manual', array $context = [], ?array $expectedCookies = null): void
     {
-        $cacheKey = $this->cacheKey($sessionToken);
-        $session = Cache::get($cacheKey);
+        $this->mutateSession($sessionToken, function (?array $session) use ($sessionToken, $reason, $context, $expectedCookies): ?array {
+            if ($session === null) {
+                $this->logSessionEvent('invalidated_missing_session', level: 'warning', sessionToken: $sessionToken, context: array_merge([
+                    'reason' => $reason,
+                ], $context));
 
-        if ($session) {
+                return null;
+            }
+
+            if ($expectedCookies !== null && $this->cookiesRotated($session['cookies'] ?? [], $expectedCookies)) {
+                $this->logSessionEvent('invalidation_skipped_session_rotated', level: 'info', sessionToken: $sessionToken, session: $session, context: array_merge([
+                    'reason' => $reason,
+                ], $context));
+
+                return null;
+            }
+
             $session['is_active'] = false;
-            Cache::put($cacheKey, $session, 60); // Keep for 1 minute for reference
 
             $this->logSessionEvent('invalidated', level: 'warning', sessionToken: $sessionToken, session: $session, context: array_merge([
                 'reason' => $reason,
             ], $context));
-        } else {
-            $this->logSessionEvent('invalidated_missing_session', level: 'warning', sessionToken: $sessionToken, context: array_merge([
-                'reason' => $reason,
-            ], $context));
+
+            return $session;
+        }, 60, failOnLockTimeout: false); // Keep for 1 minute for reference
+    }
+
+    /**
+     * Whether the stored cookies no longer match the ones the failing
+     * operation started with, i.e. the session was rotated in the meantime
+     *
+     * @param  array<int, array<string, mixed>>  $storedCookies
+     * @param  array<int, array<string, mixed>>  $attachedCookies
+     */
+    private function cookiesRotated(array $storedCookies, array $attachedCookies): bool
+    {
+        return $this->cookieFingerprint($storedCookies) !== $this->cookieFingerprint($attachedCookies);
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $cookies
+     */
+    private function cookieFingerprint(array $cookies): string
+    {
+        $identities = [];
+
+        foreach ($cookies as $cookie) {
+            $identities[] = implode('|', [
+                (string) ($cookie['Name'] ?? ''),
+                (string) ($cookie['Domain'] ?? ''),
+                (string) ($cookie['Path'] ?? ''),
+                (string) ($cookie['Value'] ?? ''),
+            ]);
+        }
+
+        sort($identities);
+
+        return sha1(implode("\n", $identities));
+    }
+
+    /**
+     * Remove the session cache entry while holding the session lock so it
+     * cannot interleave with a concurrent read-modify-write cycle
+     */
+    private function deleteSession(string $sessionToken): void
+    {
+        $lock = Cache::lock($this->sessionLockKey($sessionToken), self::SESSION_LOCK_SECONDS);
+
+        try {
+            $lock->block(self::SESSION_LOCK_SECONDS, function () use ($sessionToken): void {
+                Cache::forget($this->cacheKey($sessionToken));
+            });
+        } catch (LockTimeoutException $exception) {
+            // Cache::forget is atomic; a missed lock must not keep a session alive
+            Cache::forget($this->cacheKey($sessionToken));
         }
     }
 

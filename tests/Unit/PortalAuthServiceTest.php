@@ -51,6 +51,29 @@ class PortalAuthServiceTest extends TestCase
         $this->assertFalse($service->isSessionExpired($html));
     }
 
+    public function test_expiry_wording_in_body_only_is_not_expired(): void
+    {
+        $service = new PortalAuthService;
+
+        $html = '<html><head><title>Dashboard Mahasiswa</title></head><body>'
+            .'<script>if (data === "silahkan login") { window.location.reload(); }</script>'
+            .str_repeat('<p>Selamat datang di portal mahasiswa.</p>', 5)
+            .'</body></html>';
+
+        $this->assertFalse($service->isSessionExpired($html));
+    }
+
+    public function test_expiry_wording_in_title_is_expired(): void
+    {
+        $service = new PortalAuthService;
+
+        $html = '<html><head><title>Session Expired</title></head><body>'
+            .str_repeat('<p>Silahkan login kembali.</p>', 5)
+            .'</body></html>';
+
+        $this->assertTrue($service->isSessionExpired($html));
+    }
+
     public function test_portal_url_guard_rejects_external_login_action(): void
     {
         $this->expectException(\App\Exceptions\PortalScrapingException::class);

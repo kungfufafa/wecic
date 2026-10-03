@@ -243,7 +243,7 @@
 
             app.registerSyncHandler('class-show', loadClassDetail);
 
-            await loadClassDetail();
+            await loadClassDetail({ force: true });
         });
     </script>
 @endpush

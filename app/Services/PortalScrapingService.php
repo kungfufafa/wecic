@@ -25,13 +25,25 @@ abstract class PortalScrapingService
 
     protected ?string $sessionToken = null;
 
+    /**
+     * Cookies attached to this process when the session was adopted; used to
+     * detect that another worker rotated the session before an invalidation.
+     *
+     * @var array<int, array<string, mixed>>|null
+     */
+    protected ?array $attachedSessionCookies = null;
+
     protected string $lastDataOrigin = 'upstream';
 
     public function __construct(PortalSessionManager $sessionManager)
     {
         $this->sessionManager = $sessionManager;
         $this->client = new Client(array_replace_recursive([
-            RequestOptions::TIMEOUT => config('portal.request_timeout', 30),
+            // Web requests run inside PHP-FPM's short execution window, so they
+            // get a tighter timeout than queue workers.
+            RequestOptions::TIMEOUT => $this->isWebContext()
+                ? (int) config('portal.scraping.web_request_timeout', 15)
+                : (int) config('portal.request_timeout', 30),
             RequestOptions::CONNECT_TIMEOUT => 10,
             RequestOptions::HEADERS => [
                 'User-Agent' => config('portal.scraping.user_agent'),
@@ -64,6 +76,8 @@ abstract class PortalScrapingService
             ]);
             throw PortalScrapingException::pageNotAccessible('No valid session found');
         }
+
+        $this->attachedSessionCookies = $this->cookieJar->toArray();
     }
 
     /**
@@ -87,8 +101,10 @@ abstract class PortalScrapingService
      */
     protected function request(string $method, string $url, array $options = []): string
     {
-        $maxRetries = config('portal.scraping.max_retries', 3);
-        $retryDelay = config('portal.scraping.retry_delay', 1000);
+        $maxRetries = $this->isWebContext()
+            ? 1
+            : (int) config('portal.scraping.max_retries', 3);
+        $retryDelay = (int) config('portal.scraping.retry_delay', 1000);
         $lastException = null;
 
         for ($attempt = 1; $attempt <= $maxRetries; $attempt++) {
@@ -141,9 +157,11 @@ abstract class PortalScrapingService
             ],
         ], $options);
 
-        // Add delay between requests to be respectful to the campus server
-        $delay = config('portal.request_delay', 1000);
-        if ($delay > 0) {
+        // Add delay between requests to be respectful to the campus server.
+        // Web requests skip it: the politeness delay belongs to the queue
+        // workers, while interactive requests race PHP-FPM's time limit.
+        $delay = (int) config('portal.request_delay', 1000);
+        if ($delay > 0 && ! $this->isWebContext()) {
             usleep($delay * 1000);
         }
 
@@ -152,6 +170,10 @@ abstract class PortalScrapingService
 
     /**
      * Validate the HTML response
+     *
+     * Page-level indicators (error wording, session-expiry prompts) are only
+     * trusted inside the <title> tag: the same strings appear inside the
+     * bodies and inline scripts of perfectly valid portal pages.
      */
     protected function validateResponse(string $html, string $url, bool $allowShortResponse = false): void
     {
@@ -160,38 +182,42 @@ abstract class PortalScrapingService
             throw PortalScrapingException::invalidResponse($url, 'Empty response');
         }
 
-        // Check for session expiry indicators
-        $sessionExpiredIndicators = [
-            'session expired',
-            'session timeout',
-            'login kembali',
-            'silahkan login',
-            'your session has expired',
-        ];
+        $title = strtolower(self::htmlTitle($html));
 
-        foreach ($sessionExpiredIndicators as $indicator) {
-            if (Str::contains(strtolower($html), $indicator)) {
-                $this->invalidateCurrentSession('session_expired_indicator_detected', [
-                    'source' => static::class,
-                    'indicator' => $indicator,
-                    'url' => $url,
-                ]);
-                throw PortalScrapingException::pageNotAccessible($url);
+        if ($title !== '') {
+            // Check for session expiry indicators
+            $sessionExpiredIndicators = [
+                'session expired',
+                'session timeout',
+                'login kembali',
+                'silahkan login',
+                'your session has expired',
+            ];
+
+            foreach ($sessionExpiredIndicators as $indicator) {
+                if (Str::contains($title, $indicator)) {
+                    $this->invalidateCurrentSession('session_expired_indicator_detected', [
+                        'source' => static::class,
+                        'indicator' => $indicator,
+                        'url' => $url,
+                    ]);
+                    throw PortalScrapingException::pageNotAccessible($url);
+                }
             }
-        }
 
-        // Check for error pages
-        $errorIndicators = [
-            '500 internal server error',
-            '404 not found',
-            '403 forbidden',
-            'error occurred',
-            'server error',
-        ];
+            // Check for error pages
+            $errorIndicators = [
+                '500 internal server error',
+                '404 not found',
+                '403 forbidden',
+                'error occurred',
+                'server error',
+            ];
 
-        foreach ($errorIndicators as $indicator) {
-            if (Str::contains(strtolower($html), $indicator)) {
-                throw PortalScrapingException::invalidResponse($url, "Error page detected: {$indicator}");
+            foreach ($errorIndicators as $indicator) {
+                if (Str::contains($title, $indicator)) {
+                    throw PortalScrapingException::invalidResponse($url, "Error page detected: {$indicator}");
+                }
             }
         }
 
@@ -206,10 +232,31 @@ abstract class PortalScrapingService
         }
     }
 
+    /**
+     * Extract the contents of the <title> tag, or an empty string when absent
+     */
+    public static function htmlTitle(string $html): string
+    {
+        if (preg_match('/<title[^>]*>(.*?)<\/title>/is', $html, $matches) !== 1) {
+            return '';
+        }
+
+        return trim(html_entity_decode(strip_tags($matches[1]), ENT_QUOTES, 'UTF-8'));
+    }
+
+    /**
+     * Whether the current execution is an interactive HTTP request instead of
+     * a queue worker or console command
+     */
+    private function isWebContext(): bool
+    {
+        return ! app()->runningInConsole();
+    }
+
     protected function invalidateCurrentSession(string $reason, array $context = []): void
     {
         if ($this->sessionToken !== null) {
-            $this->sessionManager->invalidateSession($this->sessionToken, $reason, $context);
+            $this->sessionManager->invalidateSession($this->sessionToken, $reason, $context, $this->attachedSessionCookies);
         }
     }
 

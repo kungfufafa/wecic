@@ -117,7 +117,9 @@ class ClassesExtractor extends PortalScrapingService
                 'content_type' => $classDetail['content_type'],
             ]);
 
-            cache()->put($cacheKey, $classDetail, now()->addMinutes(15));
+            if (! in_array($classDetail['content_type'], ['error_page', 'login_page'], true)) {
+                cache()->put($cacheKey, $classDetail, now()->addMinutes(15));
+            }
 
             return $this->withSyncMeta($classDetail, 'upstream');
 
@@ -183,7 +185,9 @@ class ClassesExtractor extends PortalScrapingService
                 'course_id' => $params['courses_id'],
             ]);
 
-            cache()->put($cacheKey, $meetingDetail, now()->addMinutes(15));
+            if ($this->detectContentType($html) !== 'login_page') {
+                cache()->put($cacheKey, $meetingDetail, now()->addMinutes(15));
+            }
 
             return $this->withSyncMeta($meetingDetail, 'upstream');
 
@@ -853,29 +857,28 @@ class ClassesExtractor extends PortalScrapingService
      */
     private function detectContentType(string $html): string
     {
-        // Check if it's a file download
-        if (preg_match('/\.(pdf|doc|docx|xls|xlsx|ppt|pptx|zip|rar)$/i', $html)) {
+        // Content-bearing markers are checked first: valid class pages often
+        // contain the words "error" or "password" inside their scripts. Login
+        // detection uses structural form evidence, so it can safely precede
+        // the word-based class_info check; error detection stays last.
+        if (str_starts_with($html, '%PDF-') || preg_match('/\.(pdf|doc|docx|xls|xlsx|ppt|pptx|zip|rar)(?:\?[^"\'<\s]*)?["\']?\s*$/i', $html)) {
             return 'file_download';
         }
 
-        // Check if it's a login page
-        if (strpos($html, 'password') !== false && strpos($html, 'username') !== false) {
-            return 'login_page';
-        }
-
-        // Check if it's an error page
-        if (strpos($html, 'error') !== false || strpos($html, '404') !== false) {
-            return 'error_page';
-        }
-
-        // Check if it's a table with class data
-        if (strpos($html, '<table') !== false && strpos($html, 'mahasiswa') !== false) {
+        if (strpos($html, '<table') !== false && stripos($html, 'mahasiswa') !== false) {
             return 'students_list';
         }
 
-        // Check if it has class information
-        if (strpos($html, 'mata kuliah') !== false || strpos($html, 'dosen') !== false) {
+        if (preg_match('/<input[^>]+type=[\'"]password[\'"]/i', $html) && preg_match('/<input[^>]+name=[\'"](username|user|email|nim|login)[\'"]/i', $html)) {
+            return 'login_page';
+        }
+
+        if (stripos($html, 'mata kuliah') !== false || stripos($html, 'dosen') !== false) {
             return 'class_info';
+        }
+
+        if (preg_match('/<title>[^<]*(error|not found|forbidden)[^<]*<\/title>/i', $html) || stripos($html, 'halaman tidak ditemukan') !== false) {
+            return 'error_page';
         }
 
         // Default

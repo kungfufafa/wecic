@@ -332,6 +332,18 @@ html[data-theme='dark'] {
         @apply mb-3 rounded-[var(--radius-control)] bg-panel px-3 py-2.5 text-sm text-ink-muted shadow-[var(--shadow-card)] md:mb-4;
     }
 
+    .mycic-sync-strip-success {
+        @apply bg-success-soft/50 text-ink;
+    }
+
+    .mycic-sync-strip-warning {
+        @apply bg-warning-soft/60 text-ink;
+    }
+
+    .mycic-sync-strip-danger {
+        @apply bg-danger-soft/60 text-ink;
+    }
+
     .mycic-skeleton {
         @apply animate-pulse rounded-[var(--radius-control)] bg-surface;
     }

@@ -12,6 +12,8 @@ use GuzzleHttp\Client;
 use GuzzleHttp\Cookie\CookieJar;
 use GuzzleHttp\Psr7\Response;
 use Illuminate\Cache\ArrayStore;
+use Illuminate\Contracts\Cache\Lock;
+use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Contracts\Encryption\Encrypter;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -379,6 +381,156 @@ class PortalSessionManagerTest extends TestCase
                     && ($context['reason'] ?? null) === 'upstream_session_expired'
                     && ($context['metric']['name'] ?? null) === 'campus_session_events_total';
             })
+            ->once();
+    }
+
+    public function test_invalidate_session_skipped_when_cookies_were_rotated_by_relogin(): void
+    {
+        config([
+            'portal.session_prefix' => 'portal_session_rotated_',
+        ]);
+
+        Cache::flush();
+        Log::spy();
+
+        $manager = new PortalSessionManager(
+            Mockery::mock(PortalAuthService::class),
+            Mockery::mock(Encrypter::class)
+        );
+
+        $staleCookies = [[
+            'Name' => 'PHPSESSID',
+            'Value' => 'stale-cookie-value',
+            'Domain' => 'my.cic.ac.id',
+            'Path' => '/',
+            'Expires' => null,
+            'Secure' => false,
+            'HttpOnly' => true,
+        ]];
+
+        $freshCookies = [[
+            'Name' => 'PHPSESSID',
+            'Value' => 'fresh-cookie-value',
+            'Domain' => 'my.cic.ac.id',
+            'Path' => '/',
+            'Expires' => null,
+            'Secure' => false,
+            'HttpOnly' => true,
+        ]];
+
+        $cacheKey = config('portal.session_prefix').'rotated-token';
+        Cache::put($cacheKey, $this->makeStoredSession('rotated-token', ['cookies' => $freshCookies]), 1200);
+
+        $manager->invalidateSession('rotated-token', 'session_expired_indicator_detected', [], $staleCookies);
+
+        $storedSession = Cache::get($cacheKey);
+        $this->assertTrue($storedSession['is_active']);
+
+        Log::shouldHaveReceived('info')
+            ->withArgs(function (string $message, array $context): bool {
+                return $message === 'campus_session.invalidation_skipped_session_rotated'
+                    && ($context['reason'] ?? null) === 'session_expired_indicator_detected';
+            })
+            ->once();
+    }
+
+    public function test_invalidate_session_deactivates_when_attached_cookies_still_match(): void
+    {
+        config([
+            'portal.session_prefix' => 'portal_session_invalidated_',
+        ]);
+
+        Cache::flush();
+        Log::spy();
+
+        $manager = new PortalSessionManager(
+            Mockery::mock(PortalAuthService::class),
+            Mockery::mock(Encrypter::class)
+        );
+
+        $cookies = [[
+            'Name' => 'PHPSESSID',
+            'Value' => 'cookie-value',
+            'Domain' => 'my.cic.ac.id',
+            'Path' => '/',
+            'Expires' => null,
+            'Secure' => false,
+            'HttpOnly' => true,
+        ]];
+
+        $cacheKey = config('portal.session_prefix').'invalidated-token';
+        Cache::put($cacheKey, $this->makeStoredSession('invalidated-token'), 1200);
+
+        $manager->invalidateSession('invalidated-token', 'session_expired_indicator_detected', [], $cookies);
+
+        $this->assertFalse(Cache::get($cacheKey)['is_active']);
+    }
+
+    public function test_invalidate_session_is_best_effort_when_the_session_lock_times_out(): void
+    {
+        config([
+            'portal.session_prefix' => 'portal_session_lock_timeout_',
+        ]);
+
+        Cache::flush();
+        Log::spy();
+
+        $lock = Mockery::mock(Lock::class);
+        $lock->shouldReceive('block')
+            ->once()
+            ->andThrow(new LockTimeoutException);
+
+        Cache::shouldReceive('lock')
+            ->once()
+            ->andReturn($lock);
+        Cache::shouldReceive('flush'); // tearDown still flushes while the facade is mocked
+
+        $manager = new PortalSessionManager(
+            Mockery::mock(PortalAuthService::class),
+            Mockery::mock(Encrypter::class)
+        );
+
+        $this->assertNull($manager->invalidateSession('lock-timeout-token', 'session_expired_indicator_detected'));
+
+        Log::shouldHaveReceived('warning')
+            ->withArgs(fn (string $message): bool => $message === 'campus_session.mutation_lock_timeout')
+            ->once();
+    }
+
+    public function test_get_session_touch_is_best_effort_when_the_session_lock_times_out(): void
+    {
+        config([
+            'portal.session_prefix' => 'portal_session_touch_timeout_',
+        ]);
+
+        Cache::flush();
+        Log::spy();
+
+        $storedSession = $this->makeStoredSession('touch-timeout-token');
+
+        $lock = Mockery::mock(Lock::class);
+        $lock->shouldReceive('block')
+            ->once()
+            ->andThrow(new LockTimeoutException);
+
+        Cache::shouldReceive('get')
+            ->once()
+            ->andReturn($storedSession);
+        Cache::shouldReceive('put')->never();
+        Cache::shouldReceive('lock')
+            ->once()
+            ->andReturn($lock);
+        Cache::shouldReceive('flush'); // tearDown still flushes while the facade is mocked
+
+        $manager = new PortalSessionManager(
+            Mockery::mock(PortalAuthService::class),
+            Mockery::mock(Encrypter::class)
+        );
+
+        $this->assertSame($storedSession, $manager->getSession('touch-timeout-token'));
+
+        Log::shouldHaveReceived('warning')
+            ->withArgs(fn (string $message): bool => $message === 'campus_session.mutation_lock_timeout')
             ->once();
     }
 

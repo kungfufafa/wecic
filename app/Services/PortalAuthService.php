@@ -61,7 +61,9 @@ class PortalAuthService
             $response = $this->client->get($loginPageUrl);
             $html = (string) $response->getBody();
 
-            if (empty($html) || Str::contains($html, ['error', 'not found', '404'])) {
+            // Generic wording is common inside valid page scripts, so the
+            // "is this an error page" heuristic only inspects the <title>.
+            if (empty($html) || Str::contains(strtolower(PortalScrapingService::htmlTitle($html)), ['error', 'not found', '404'])) {
                 throw new PortalScrapingException('invalidHtmlStructure', 'login page');
             }
 
@@ -366,6 +368,9 @@ class PortalAuthService
 
     /**
      * Check if session has expired
+     *
+     * The indicator strings are only trusted inside the <title> tag because
+     * valid authenticated pages embed the same wording in their scripts.
      */
     public function isSessionExpired(string $html): bool
     {
@@ -378,8 +383,10 @@ class PortalAuthService
             'login required',
         ];
 
+        $title = strtolower(PortalScrapingService::htmlTitle($html));
+
         foreach ($sessionExpiredIndicators as $indicator) {
-            if (Str::contains(strtolower($html), $indicator)) {
+            if (Str::contains($title, $indicator)) {
                 return true;
             }
         }

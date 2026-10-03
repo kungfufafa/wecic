@@ -94,8 +94,8 @@ return [
     */
 
     'cache' => [
-        'profile_ttl' => (int) env('CAMPUS_CACHE_PROFILE_TTL', 3600), // 1 hour
-        'dynamic_ttl' => (int) env('CAMPUS_CACHE_DYNAMIC_TTL', 900), // 15 minutes
+        'profile_ttl' => (int) env('CAMPUS_CACHE_PROFILE_TTL', 600), // 10 minutes
+        'dynamic_ttl' => (int) env('CAMPUS_CACHE_DYNAMIC_TTL', 300), // 5 minutes
         'html_ttl' => (int) env('CAMPUS_CACHE_HTML_TTL', 300), // 5 minutes
         'failed_ttl' => (int) env('CAMPUS_CACHE_FAILED_TTL', 60), // 1 minute
     ],
@@ -112,6 +112,7 @@ return [
     'scraping' => [
         'max_retries' => 3,
         'retry_delay' => 1000, // milliseconds
+        'web_request_timeout' => (int) env('CAMPUS_WEB_REQUEST_TIMEOUT', 15), // seconds; PHP-FPM friendly
         'user_agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
         'secure_dns_url' => env('CAMPUS_SECURE_DNS_URL', 'https://chrome.cloudflare-dns.com/dns-query'),
     ],
