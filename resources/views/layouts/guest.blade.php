@@ -6,14 +6,30 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', config('app.name'))</title>
     <link rel="manifest" href="/manifest.json">
-    <meta name="theme-color" content="#0352A1">
+    <meta name="theme-color" content="#00AED6">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="myCIC">
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
     <link rel="preconnect" href="https://fonts.bunny.net">
-    <link href="https://fonts.bunny.net/css?family=inter:400,500,600" rel="stylesheet">
+    <link href="https://fonts.bunny.net/css?family=plus-jakarta-sans:400,500,600,700,800&display=swap" rel="stylesheet">
+    <script>
+        (() => {
+            let theme = 'light';
+
+            try {
+                const storedTheme = localStorage.getItem('mycic-theme');
+
+                theme = storedTheme === 'dark' || storedTheme === 'light'
+                    ? storedTheme
+                    : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            } catch (error) {
+            }
+
+            document.documentElement.dataset.theme = theme;
+        })();
+    </script>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body data-auth="guest" data-page="@yield('page_id', 'guest')">

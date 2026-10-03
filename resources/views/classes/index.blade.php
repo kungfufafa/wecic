@@ -4,6 +4,10 @@
 @section('page_id', 'class-index')
 
 @section('content')
+    <header class="mb-4">
+        <h1 class="mycic-page-heading">Daftar Kelas</h1>
+        <p class="mycic-page-subheading">Ringkasan kelas semester aktif dari portal kampus.</p>
+    </header>
 
     <div id="class-summary" class="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         @foreach ([
@@ -78,7 +82,7 @@
                                     ${app.renderBadge(courseInfo.code || '-', 'brand')}
                                     <span>${app.escapeHtml(lecturerName)}</span>
                                 </div>
-                                <h3 class="mb-2 text-subtitle font-[590] text-ink">
+                                <h3 class="mb-2 text-subtitle font-bold text-ink">
                                     ${classUrl ? `<a href="${classUrl}" class="text-ink no-underline hover:text-brand">${app.escapeHtml(courseInfo.name || 'Tanpa judul')}</a>` : app.escapeHtml(courseInfo.name || 'Tanpa judul')}
                                 </h3>
                                 <div class="flex flex-wrap gap-3 text-caption text-ink-subtle">

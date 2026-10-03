@@ -11,6 +11,7 @@ class PortalApp {
         this.isSyncing = false;
         this.cacheNamespace = 'mycic-cache-v3';
         this.authSnapshotKey = `${this.cacheNamespace}:auth`;
+        this.themeStorageKey = 'mycic-theme';
         this.protectedPageCacheName = 'mycic-pages-v2';
         this.authRequest = null;
         this.pullRefreshState = {
@@ -60,6 +61,8 @@ class PortalApp {
         this.refreshOnlineRequiredState();
         this.bindQrScannerUi();
         this.bindAccountMenu();
+        this.bindThemeToggle();
+        this.bindQuickQrAction();
         this.bindRealtimeTestHook();
 
         if (document.body.dataset.auth !== 'guest') {
@@ -123,6 +126,72 @@ class PortalApp {
             }
 
             void this.closeQrScanner();
+        });
+    }
+
+    bindThemeToggle() {
+        this.refreshThemeToggleState();
+
+        document.querySelectorAll('[data-theme-toggle]').forEach((button) => {
+            button.addEventListener('click', () => {
+                const nextTheme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+
+                this.setTheme(nextTheme);
+            });
+        });
+
+        if (window.matchMedia) {
+            window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (event) => {
+                const storedTheme = localStorage.getItem(this.themeStorageKey);
+
+                if (storedTheme !== 'dark' && storedTheme !== 'light') {
+                    this.setTheme(event.matches ? 'dark' : 'light', { persist: false });
+                }
+            });
+        }
+    }
+
+    setTheme(theme, { persist = true } = {}) {
+        document.documentElement.dataset.theme = theme;
+
+        if (persist) {
+            localStorage.setItem(this.themeStorageKey, theme);
+        }
+
+        this.updateThemeColorMeta();
+        this.refreshThemeToggleState();
+    }
+
+    updateThemeColorMeta() {
+        const meta = document.querySelector('meta[name="theme-color"]');
+
+        if (meta) {
+            meta.setAttribute('content', document.documentElement.dataset.theme === 'dark' ? '#0A0E13' : '#00AED6');
+        }
+    }
+
+    refreshThemeToggleState() {
+        const isDark = document.documentElement.dataset.theme === 'dark';
+
+        document.querySelectorAll('[data-theme-toggle]').forEach((button) => {
+            button.setAttribute('aria-pressed', isDark ? 'true' : 'false');
+            button.setAttribute('aria-label', isDark ? 'Aktifkan mode terang' : 'Aktifkan mode gelap');
+        });
+    }
+
+    bindQuickQrAction() {
+        document.querySelectorAll('[data-qr-quick]').forEach((button) => {
+            button.addEventListener('click', async () => {
+                const input = document.querySelector('[data-field="kode"]') || document.querySelector('#attendance-code');
+
+                if (!input) {
+                    this.showNotice('Tidak ada sesi absensi aktif di halaman ini. Buka detail kelas saat sesi absensi dibuka.', 'warning');
+
+                    return;
+                }
+
+                await this.openQrScanner(input);
+            });
         });
     }
 
@@ -509,10 +578,19 @@ class PortalApp {
     hydrateUser(payload) {
         const userInfo = payload?.data?.user_info || {};
         const userIdentity = userInfo.student_id || userInfo.nim || userInfo.username || '';
+        const userName = userInfo.name || userInfo.nama || userInfo.student_name || userIdentity;
 
         document.querySelectorAll('[data-user-identity]').forEach((element) => {
             element.textContent = userIdentity;
-            element.classList.toggle('hidden', userIdentity === '');
+
+            if (!/(?:sm|md|lg|xl|2xl):(?:block|flex|inline|inline-flex|grid)/.test(element.className)) {
+                element.classList.toggle('hidden', userIdentity === '');
+            }
+        });
+
+        document.querySelectorAll('[data-user-name]').forEach((element) => {
+            element.textContent = userName;
+            element.classList.toggle('hidden', userName === '');
         });
     }
 
@@ -767,9 +845,8 @@ class PortalApp {
         });
 
         document.querySelectorAll('[data-realtime-chip]').forEach((element) => {
-            element.className = tone === 'success'
-                ? 'mycic-chip-online shrink-0'
-                : 'mycic-chip-offline shrink-0';
+            element.classList.remove('mycic-chip-online', 'mycic-chip-offline');
+            element.classList.add(tone === 'success' ? 'mycic-chip-online' : 'mycic-chip-offline');
         });
     }
 
@@ -1462,7 +1539,7 @@ class PortalApp {
         });
 
         document.querySelectorAll('[data-sync-alert]').forEach((element) => {
-            element.className = `${this.alertTone(tone)} mb-4 py-2 md:py-3`;
+            element.className = `${this.alertTone(tone)} mb-3 py-2 md:mb-4`;
         });
     }
 
@@ -1569,9 +1646,9 @@ class PortalApp {
             <div class="mb-6 print:hidden">
                 <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div class="min-w-0 flex-1">
-                        ${pretitle ? `<div class="text-caption uppercase tracking-wide text-ink-subtle">${this.escapeHtml(pretitle)}</div>` : ''}
-                        <h2 class="text-title font-[590] text-ink">${this.escapeHtml(title)}</h2>
-                        ${description ? `<div class="text-ink-muted">${this.escapeHtml(description)}</div>` : ''}
+                        ${pretitle ? `<div class="text-caption font-semibold uppercase tracking-wide text-ink-subtle">${this.escapeHtml(pretitle)}</div>` : ''}
+                        <h2 class="text-2xl font-extrabold tracking-tight text-ink sm:text-3xl">${this.escapeHtml(title)}</h2>
+                        ${description ? `<div class="mt-1.5 text-sm text-ink-muted">${this.escapeHtml(description)}</div>` : ''}
                         ${safeBadges ? `<div class="mt-3 flex flex-wrap gap-2">${safeBadges}</div>` : ''}
                     </div>
                     ${safeActions ? `
@@ -1897,14 +1974,16 @@ class PortalApp {
         const rows = entries
             .filter((entry) => entry.value !== undefined && entry.value !== null && entry.value !== '')
             .map((entry) => `
-                <div>
-                    <div class="mb-1 text-caption uppercase tracking-wide text-ink-subtle">${this.escapeHtml(entry.label)}</div>
-                    <div class="font-medium text-ink">${this.escapeHtml(entry.value)}</div>
+                <div class="flex items-start justify-between gap-6 py-3 first:pt-0 last:pb-0">
+                    <div class="shrink-0 text-sm text-ink-subtle">${this.escapeHtml(entry.label)}</div>
+                    <div class="min-w-0 text-end text-sm font-semibold text-ink">${this.escapeHtml(entry.value)}</div>
                 </div>
             `)
             .join('');
 
-        return rows ? `<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">${rows}</div>` : this.renderEmptyState('Tidak ada data.', 'secondary');
+        return rows
+            ? `<div class="flex flex-col divide-y divide-border-light">${rows}</div>`
+            : this.renderEmptyState('Tidak ada data.', 'secondary');
     }
 }
 

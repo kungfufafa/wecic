@@ -4,6 +4,11 @@
 @section('page_id', 'exam-index')
 
 @section('content')
+    <header class="mb-4">
+        <h1 class="mycic-page-heading">Ujian</h1>
+        <p class="mycic-page-subheading">Daftar ujian beserta status dan jadwal pelaksanaannya.</p>
+    </header>
+
     <div id="exam-summary" class="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
         @foreach ([
             ['label' => 'Total ujian', 'note' => 'Semua entri ujian yang berhasil terdeteksi.'],
@@ -56,7 +61,7 @@
                                     ${app.renderBadge(courseCode, 'brand')}
                                     ${app.renderBadge(status, 'neutral')}
                                 </div>
-                                <h3 class="mb-1 text-subtitle font-[590] text-ink">
+                                <h3 class="mb-1 text-subtitle font-bold text-ink">
                                     ${href
                                         ? `<a href="${href}" class="text-ink no-underline hover:text-brand">${courseName}</a>`
                                         : courseName}

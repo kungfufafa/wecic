@@ -98,7 +98,7 @@
                                                         ${app.renderBadge(materialLabel, 'brand')}
                                                         <span class="text-caption text-ink-subtle">${app.escapeHtml([material.date, material.time].filter(Boolean).join(' • ') || 'Jadwal belum ditentukan')}</span>
                                                     </div>
-                                                    <h3 class="mb-1 text-subtitle font-[590] text-ink">${app.escapeHtml(material.title || 'Materi Perkuliahan')}</h3>
+                                                    <h3 class="mb-1 text-subtitle font-bold text-ink">${app.escapeHtml(material.title || 'Materi Perkuliahan')}</h3>
                                                     ${material.description ? `<div class="mt-2 text-caption text-ink-subtle">${app.escapeHtml(material.description)}</div>` : ''}
                                                 </div>
                                                 <div class="shrink-0">

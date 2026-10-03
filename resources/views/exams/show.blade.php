@@ -101,7 +101,7 @@
                                                 ${app.renderBadge(badge, 'brand')}
                                                 <span class="text-caption text-ink-subtle">${app.escapeHtml(filename)}</span>
                                             </div>
-                                            <h3 class="mb-1 text-subtitle font-[590] text-ink">${app.escapeHtml(title)}</h3>
+                                            <h3 class="mb-1 text-subtitle font-bold text-ink">${app.escapeHtml(title)}</h3>
                                             <div class="break-all text-caption text-ink-subtle">${app.escapeHtml(link.url || '')}</div>
                                         </div>
                                         <div class="shrink-0">

@@ -219,7 +219,7 @@
                                         <div class="mb-2 flex items-center gap-2">
                                             ${app.renderBadge('Materi Utama', 'brand')}
                                         </div>
-                                        <h3 class="mb-2 text-subtitle font-[590] text-ink">${app.escapeHtml(materials.main_topic || 'Materi')}</h3>
+                                        <h3 class="mb-2 text-subtitle font-bold text-ink">${app.escapeHtml(materials.main_topic || 'Materi')}</h3>
                                         ${materials.main_description ? `<div class="text-ink-muted">${app.escapeHtml(materials.main_description)}</div>` : ''}
                                     </div>
                                     <div class="shrink-0">
@@ -242,7 +242,7 @@
                                         <div class="mb-2 flex items-center gap-2">
                                             ${app.renderBadge('Tugas Perkuliahan', 'warning')}
                                         </div>
-                                        <h3 class="mb-2 text-subtitle font-[590] text-ink">${app.escapeHtml(materials.assignment_topic || assignmentInfo.upload_text || 'Instruksi tugas')}</h3>
+                                        <h3 class="mb-2 text-subtitle font-bold text-ink">${app.escapeHtml(materials.assignment_topic || assignmentInfo.upload_text || 'Instruksi tugas')}</h3>
                                         ${materials.assignment_instructions ? `<div class="text-ink-muted">Batas waktu: <span class="font-medium ${app.textToneClass('warning')}">${app.escapeHtml(materials.assignment_instructions)}</span></div>` : ''}
                                     </div>
                                     <div class="shrink-0">

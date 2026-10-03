@@ -2,38 +2,161 @@
 
 @section('title', 'Dashboard')
 @section('page_id', 'dashboard')
+@section('hide_sync_refresh', '1')
 
 @section('content')
-
-    <div class="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
-        @foreach ([
-            ['label' => 'Mata kuliah', 'note' => 'Jumlah kelas yang sedang aktif.'],
-            ['label' => 'IPK', 'note' => 'Ringkasan terakhir.'],
-            ['label' => 'Total SKS', 'note' => 'Kredit terkumpul.'],
-            ['label' => 'Tagihan', 'note' => 'Nominal yang perlu dipantau.'],
-        ] as $metric)
-            <div class="mycic-metric">
-                <div class="mycic-metric-label">{{ $metric['label'] }}</div>
-                <div class="mycic-metric-value" data-dashboard-metric>-</div>
-                <div class="mycic-metric-note">{{ $metric['note'] }}</div>
+    <section class="mycic-hero" aria-label="Ringkasan akun">
+        <div class="flex items-center justify-between gap-3">
+            <div class="flex min-w-0 items-center gap-3">
+                <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/15 text-sm font-bold text-white" aria-hidden="true">M</span>
+                <div class="min-w-0">
+                    <div class="text-xs font-medium text-white/70">Selamat datang,</div>
+                    <div class="truncate text-base font-bold text-white"><span data-user-name>Mahasiswa</span></div>
+                </div>
             </div>
-        @endforeach
-    </div>
+        </div>
 
-    <div class="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-6">
-        <div>
+        <div class="mt-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between md:gap-3">
+            <div class="min-w-0">
+                <div class="text-sm font-medium text-white/75">Tagihan belum dibayar</div>
+                <div class="mt-1 text-[1.875rem] font-extrabold leading-none tracking-tight text-white sm:text-4xl" data-dashboard-metric>-</div>
+                <div class="mt-2 text-sm text-white/70">Rincian pembayaran ada di menu Keuangan.</div>
+            </div>
+            <div class="flex shrink-0 gap-2">
+                <button type="button" class="mycic-hero-tile" data-qr-quick aria-label="Scan QR absensi">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" width="20" height="20" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 4m0 1a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z" /><path d="M7 7l0 .01" /><path d="M14 4m0 1a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z" /><path d="M4 14m0 1a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z" /><path d="M14 14l3 0" /><path d="M14 14l0 3" /><path d="M14 20l3 0" /><path d="M17 17l3 0" /><path d="M20 17l0 3" /><path d="M17 7l0 .01" /><path d="M20 14l0 .01" /></svg>
+                    <span>Scan QR</span>
+                </button>
+                <button type="button" class="mycic-hero-tile" data-sync-refresh data-online-required aria-label="Sinkronkan data">
+                    <span class="inline-flex" data-sync-refresh-icon aria-hidden="true">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" width="20" height="20" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4" /><path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4" /></svg>
+                    </span>
+                    <span class="mycic-spinner hidden" data-sync-refresh-spinner aria-hidden="true"></span>
+                    <span class="sr-only" data-sync-refresh-label>Sinkronkan data</span>
+                    <span>Sinkron</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="mycic-no-scrollbar -mx-1 mt-6 flex gap-2 overflow-x-auto px-1 pb-1" aria-label="Pintasan menu">
+            <a href="{{ route('class.index') }}" class="mycic-hero-pill">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 7l9 -4l9 4l-9 4z" /><path d="M3 12l9 4l9 -4" /></svg>
+                <span>Kelas</span>
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 opacity-70" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 6l6 6l-6 6" /></svg>
+            </a>
+            <a href="{{ route('exam.index') }}" class="mycic-hero-pill">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 11l3 3l8 -8" /><path d="M20 12v7a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h9" /></svg>
+                <span>Ujian</span>
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 opacity-70" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 6l6 6l-6 6" /></svg>
+            </a>
+            <a href="{{ route('finance.index') }}" class="mycic-hero-pill">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M17 8v-3a1 1 0 0 0 -1 -1h-10a2 2 0 0 0 0 4h12a1 1 0 0 1 1 1v3m0 4v3a1 1 0 0 1 -1 1h-12a2 2 0 0 1 -2 -2v-12" /><path d="M20 12v4h-4a2 2 0 0 1 0 -4h4" /></svg>
+                <span>Keuangan</span>
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 opacity-70" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 6l6 6l-6 6" /></svg>
+            </a>
+            <a href="{{ route('profile') }}" class="mycic-hero-pill">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0" /><path d="M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" /></svg>
+                <span>Profil</span>
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 opacity-70" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 6l6 6l-6 6" /></svg>
+            </a>
+        </div>
+    </section>
+
+    <div class="relative -mt-5 flex flex-col gap-4">
+        <div class="grid grid-cols-3 gap-3 lg:gap-4">
+            @foreach ([
+                ['label' => 'Mata kuliah', 'note' => 'Kelas aktif.'],
+                ['label' => 'IPK', 'note' => 'Ringkasan terakhir.'],
+                ['label' => 'Total SKS', 'note' => 'Kredit terkumpul.'],
+            ] as $metric)
+                <div class="mycic-metric">
+                    <div class="mycic-metric-label">{{ $metric['label'] }}</div>
+                    <div class="mycic-metric-value" data-dashboard-metric>-</div>
+                    <div class="mycic-metric-note">{{ $metric['note'] }}</div>
+                </div>
+            @endforeach
+        </div>
+
+        <div class="mycic-card">
+            <div class="mycic-card-body grid grid-cols-4 gap-y-3 sm:gap-y-4">
+                <a href="{{ route('class.index') }}" class="mycic-tile">
+                    <span class="mycic-tile-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 7l9 -4l9 4l-9 4z" /><path d="M3 12l9 4l9 -4" /></svg>
+                    </span>
+                    <span class="mycic-tile-label">Kelas</span>
+                </a>
+                <a href="{{ route('exam.index') }}" class="mycic-tile">
+                    <span class="mycic-tile-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 11l3 3l8 -8" /><path d="M20 12v7a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h9" /></svg>
+                    </span>
+                    <span class="mycic-tile-label">Ujian</span>
+                </a>
+                <a href="{{ route('finance.index') }}" class="mycic-tile">
+                    <span class="mycic-tile-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M17 8v-3a1 1 0 0 0 -1 -1h-10a2 2 0 0 0 0 4h12a1 1 0 0 1 1 1v3m0 4v3a1 1 0 0 1 -1 1h-12a2 2 0 0 1 -2 -2v-12" /><path d="M20 12v4h-4a2 2 0 0 1 0 -4h4" /></svg>
+                    </span>
+                    <span class="mycic-tile-label">Keuangan</span>
+                </a>
+                <a href="{{ route('profile') }}" class="mycic-tile">
+                    <span class="mycic-tile-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0" /><path d="M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" /></svg>
+                    </span>
+                    <span class="mycic-tile-label">Profil</span>
+                </a>
+                <button type="button" class="mycic-tile" data-qr-quick>
+                    <span class="mycic-tile-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 4m0 1a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z" /><path d="M7 7l0 .01" /><path d="M14 4m0 1a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z" /><path d="M4 14m0 1a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z" /><path d="M14 14l3 0" /><path d="M14 14l0 3" /><path d="M14 20l3 0" /><path d="M17 17l3 0" /><path d="M20 17l0 3" /><path d="M17 7l0 .01" /><path d="M20 14l0 .01" /></svg>
+                    </span>
+                    <span class="mycic-tile-label">QR Absensi</span>
+                </button>
+                <a href="{{ route('password.edit') }}" class="mycic-tile">
+                    <span class="mycic-tile-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M5 13a2 2 0 0 1 2 -2h10a2 2 0 0 1 2 2v6a2 2 0 0 1 -2 2h-10a2 2 0 0 1 -2 -2v-6z" /><path d="M11 16a1 1 0 1 0 2 0a1 1 0 0 0 -2 0" /><path d="M8 11v-4a4 4 0 1 1 8 0v4" /></svg>
+                    </span>
+                    <span class="mycic-tile-label">Ubah Password</span>
+                </a>
+                <a href="{{ config('portal.base_url') }}" target="_blank" rel="noopener noreferrer" class="mycic-tile">
+                    <span class="mycic-tile-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 6h-6a2 2 0 0 0 -2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-6" /><path d="M11 13l9 -9" /><path d="M15 4h5v5" /></svg>
+                    </span>
+                    <span class="mycic-tile-label">Portal Kampus</span>
+                </a>
+                <button type="button" class="mycic-tile" data-sync-refresh data-online-required>
+                    <span class="mycic-tile-icon" data-sync-refresh-icon>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4" /><path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4" /></svg>
+                    </span>
+                    <span class="mycic-spinner hidden" data-sync-refresh-spinner aria-hidden="true"></span>
+                    <span class="sr-only" data-sync-refresh-label>Sinkronkan</span>
+                    <span class="mycic-tile-label">Sinkronkan</span>
+                </button>
+            </div>
+        </div>
+
+        <section aria-label="Jadwal hari ini">
             <h2 class="mycic-section-title mb-3">Jadwal hari ini</h2>
             <div id="dashboard-class-summary">
-                {!! '<div class="mycic-alert-neutral mb-0">Memuat jadwal kuliah hari ini.</div>' !!}
+                <div class="mycic-card">
+                    <div class="mycic-card-body flex flex-col gap-3">
+                        <div class="mycic-skeleton h-3.5 w-1/3"></div>
+                        <div class="mycic-skeleton h-5 w-2/3"></div>
+                        <div class="mycic-skeleton h-3.5 w-1/2"></div>
+                    </div>
+                </div>
             </div>
-        </div>
+        </section>
 
-        <div>
+        <section aria-label="Tugas aktif">
             <h2 class="mycic-section-title mb-3">Tugas aktif</h2>
             <div id="dashboard-pending-assignments">
-                {!! '<div class="mycic-alert-neutral mb-0">Memuat daftar tugas yang belum dikumpulkan.</div>' !!}
+                <div class="mycic-card">
+                    <div class="mycic-card-body flex flex-col gap-3">
+                        <div class="mycic-skeleton h-3.5 w-1/3"></div>
+                        <div class="mycic-skeleton h-5 w-2/3"></div>
+                        <div class="mycic-skeleton h-3.5 w-1/2"></div>
+                    </div>
+                </div>
             </div>
-        </div>
+        </section>
     </div>
 @endsection
 
@@ -58,12 +181,20 @@
                 const dayLabel = classesSummary.day || 'Hari ini';
 
                 [
+                    overview.outstanding_payments || 'Rp 0',
                     classesSummary.total_classes || overview.total_courses || '0',
                     overview.gpa || '0.00',
                     classesSummary.total_credits || overview.total_credits || '0',
-                    overview.outstanding_payments || 'Rp 0',
                 ].forEach((value, index) => {
-                    document.querySelectorAll('[data-dashboard-metric]')[index].textContent = value || '-';
+                    const node = document.querySelectorAll('[data-dashboard-metric]')[index];
+                    const rawValue = String(value || '-');
+
+                    if (index === 0 && /^Rp\s*/i.test(rawValue)) {
+                        const amount = rawValue.replace(/^Rp\s*/i, '');
+                        node.innerHTML = `<span class="me-1 align-[0.3em] text-[0.5em] font-bold">Rp</span>${app.escapeHtml(amount)}`;
+                    } else {
+                        node.textContent = rawValue;
+                    }
                 });
 
                 latestClassesSummary = classesSummary;
@@ -97,7 +228,7 @@
                                         <span class="text-ink-subtle">·</span>
                                         <div class="text-sm font-medium uppercase text-ink-subtle">${app.escapeHtml([klass.course_code, klass.class_name].filter(Boolean).join(' · ') || 'Kelas')}</div>
                                     </div>
-                                    <h3 class="mb-1 text-title font-[590] text-ink">${app.escapeHtml(klass.course_name || 'Kelas')}</h3>
+                                    <h3 class="mb-1 text-title font-bold text-ink">${app.escapeHtml(klass.course_name || 'Kelas')}</h3>
                                     <div class="flex flex-wrap items-center gap-2 text-sm text-ink-muted">
                                         <span class="flex items-center gap-1">
                                             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0" /><path d="M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" /></svg>
@@ -265,7 +396,7 @@
                                     <div class="mb-1 flex items-center gap-2">
                                         <div class="text-sm font-medium uppercase text-ink-subtle">${app.escapeHtml([assignment.course_code, assignment.lecturer_name].filter(Boolean).join(' · ') || '')}</div>
                                     </div>
-                                    <h3 class="mb-1 text-title font-[590] text-ink">${app.escapeHtml(assignment.course_name || 'Tugas')}</h3>
+                                    <h3 class="mb-1 text-title font-bold text-ink">${app.escapeHtml(assignment.course_name || 'Tugas')}</h3>
                                     ${assignment.material_title && assignment.material_title !== assignment.course_name ? `
                                         <p class="mb-0 text-sm text-ink-subtle">${app.escapeHtml(assignment.material_title)}</p>
                                     ` : ''}

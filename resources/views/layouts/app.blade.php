@@ -6,14 +6,30 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', config('app.name'))</title>
     <link rel="manifest" href="/manifest.json">
-    <meta name="theme-color" content="#0352A1">
+    <meta name="theme-color" content="#00AED6">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="myCIC">
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
     <link rel="preconnect" href="https://fonts.bunny.net">
-    <link href="https://fonts.bunny.net/css?family=inter:400,500,600" rel="stylesheet">
+    <link href="https://fonts.bunny.net/css?family=plus-jakarta-sans:400,500,600,700,800&display=swap" rel="stylesheet">
+    <script>
+        (() => {
+            let theme = 'light';
+
+            try {
+                const storedTheme = localStorage.getItem('mycic-theme');
+
+                theme = storedTheme === 'dark' || storedTheme === 'light'
+                    ? storedTheme
+                    : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            } catch (error) {
+            }
+
+            document.documentElement.dataset.theme = theme;
+        })();
+    </script>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body data-auth="@yield('auth_mode', 'required')" data-page="@yield('page_id', 'app')">
@@ -25,7 +41,7 @@
             <div class="mycic-modal-header">
                 <div>
                     <div class="text-caption uppercase tracking-wide text-ink-subtle">Absensi</div>
-                    <h2 class="text-subtitle font-[590] text-ink">Scan kode QR</h2>
+                    <h2 class="text-subtitle font-bold text-ink">Scan kode QR</h2>
                 </div>
                 <button type="button" class="mycic-modal-close" aria-label="Tutup" data-qr-scanner-close>
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -83,17 +99,6 @@
                 SVG,
             ],
             [
-                'href' => route('profile'),
-                'label' => 'Profil',
-                'active' => request()->routeIs('profile'),
-                'icon' => <<<'SVG'
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0" />
-                        <path d="M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" />
-                    </svg>
-                SVG,
-            ],
-            [
                 'href' => route('finance.index'),
                 'label' => 'Keuangan',
                 'active' => request()->routeIs('finance.*'),
@@ -105,9 +110,21 @@
                     </svg>
                 SVG,
             ],
+            [
+                'href' => route('profile'),
+                'label' => 'Profil',
+                'active' => request()->routeIs('profile'),
+                'icon' => <<<'SVG'
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0" />
+                        <path d="M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" />
+                    </svg>
+                SVG,
+            ],
         ];
 
         $hideStatusStrip = trim($__env->yieldContent('hide_status_strip')) === '1';
+        $hideSyncRefresh = trim($__env->yieldContent('hide_sync_refresh')) === '1';
     @endphp
 
     <div class="mycic-page">
@@ -128,7 +145,31 @@
                     @endforeach
                 </nav>
 
-                <div class="mycic-dropdown shrink-0" data-account-menu>
+                <div class="flex shrink-0 items-center gap-2">
+                    <button
+                        type="button"
+                        class="mycic-btn-icon"
+                        data-theme-toggle
+                        aria-pressed="false"
+                        aria-label="Ganti tema"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 dark:hidden" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36a5.39 5.39 0 0 1-4.4 2.6 5.37 5.37 0 0 1-3.14-9.74c-.44-.06-.9-.1-1.36-.1z" />
+                        </svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="hidden h-5 w-5 dark:inline" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M12 8a4 4 0 1 0 8 0a4 4 0 0 0 -8 0" />
+                            <path d="M12 2v2" />
+                            <path d="M12 20v2" />
+                            <path d="M4.93 4.93l1.41 1.41" />
+                            <path d="M17.66 17.66l1.41 1.41" />
+                            <path d="M2 12h2" />
+                            <path d="M20 12h2" />
+                            <path d="M6.34 17.66l-1.41 1.41" />
+                            <path d="M19.07 4.93l-1.41 1.41" />
+                        </svg>
+                    </button>
+
+                    <div class="mycic-dropdown shrink-0" data-account-menu>
                     <button
                         type="button"
                         class="flex items-center gap-2 rounded-lg p-1 transition-colors hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
@@ -152,6 +193,7 @@
                         <a href="{{ route('password.edit') }}" class="mycic-dropdown-item" role="menuitem">Ubah Password</a>
                         <div class="mycic-dropdown-divider"></div>
                         <button type="button" class="mycic-dropdown-item-danger" data-logout role="menuitem">Keluar</button>
+                    </div>
                     </div>
                 </div>
             </div>
@@ -178,20 +220,22 @@
                             </div>
                             <div class="flex shrink-0 items-center gap-2">
                                 <span class="hidden text-sm text-ink-subtle sm:block" data-user-identity></span>
-                                <button
-                                    type="button"
-                                    class="mycic-btn-secondary-sm"
-                                    data-sync-refresh
-                                    data-online-required
-                                    aria-label="Sinkronkan server"
-                                    title="Sinkronkan server"
-                                >
-                                    <span class="inline-flex items-center justify-center" data-sync-refresh-icon aria-hidden="true">
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" width="16" height="16" viewBox="0 0 24 24" stroke-width="2.2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4" /><path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4" /></svg>
-                                    </span>
-                                    <span class="mycic-spinner hidden" data-sync-refresh-spinner aria-hidden="true"></span>
-                                    <span class="sr-only" data-sync-refresh-label>Sinkronkan server</span>
-                                </button>
+                                @unless ($hideSyncRefresh)
+                                    <button
+                                        type="button"
+                                        class="mycic-btn-secondary-sm"
+                                        data-sync-refresh
+                                        data-online-required
+                                        aria-label="Sinkronkan server"
+                                        title="Sinkronkan server"
+                                    >
+                                        <span class="inline-flex items-center justify-center" data-sync-refresh-icon aria-hidden="true">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" width="16" height="16" viewBox="0 0 24 24" stroke-width="2.2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4" /><path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4" /></svg>
+                                        </span>
+                                        <span class="mycic-spinner hidden" data-sync-refresh-spinner aria-hidden="true"></span>
+                                        <span class="sr-only" data-sync-refresh-label>Sinkronkan server</span>
+                                    </button>
+                                @endunless
                             </div>
                         </div>
                     </div>
@@ -205,13 +249,31 @@
 
         <nav class="mycic-bottom-nav" aria-label="Navigasi mobile">
             <div class="flex">
-                @foreach ($navigation as $item)
+                @foreach (array_slice($navigation, 0, 2) as $item)
                     <a
                         href="{{ $item['href'] }}"
                         class="mycic-bottom-nav-item {{ $item['active'] ? 'mycic-bottom-nav-item-active' : 'mycic-bottom-nav-item-inactive' }}"
                         @if($item['active']) aria-current="page" @endif
                     >
-                        {!! str_replace('width="24"', 'width="20"', str_replace('height="24"', 'height="20"', $item['icon'])) !!}
+                        <span class="mycic-nav-icon">{!! $item['icon'] !!}</span>
+                        <span>{{ $item['label'] }}</span>
+                    </a>
+                @endforeach
+
+                <div class="mycic-bottom-nav-item mycic-bottom-nav-item-center">
+                    <button type="button" class="mycic-bottom-nav-action" data-qr-quick aria-label="Scan QR absensi">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 4m0 1a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z" /><path d="M7 7l0 .01" /><path d="M14 4m0 1a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z" /><path d="M7 7l0 .01" /><path d="M4 14m0 1a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z" /><path d="M17 7l0 .01" /><path d="M14 14l3 0" /><path d="M20 14l0 .01" /><path d="M14 14l0 3" /><path d="M14 20l3 0" /><path d="M17 17l3 0" /><path d="M20 17l0 3" /></svg>
+                    </button>
+                    <span class="text-[0.65rem] font-semibold text-ink-muted">Absen</span>
+                </div>
+
+                @foreach (array_slice($navigation, 2, 2) as $item)
+                    <a
+                        href="{{ $item['href'] }}"
+                        class="mycic-bottom-nav-item {{ $item['active'] ? 'mycic-bottom-nav-item-active' : 'mycic-bottom-nav-item-inactive' }}"
+                        @if($item['active']) aria-current="page" @endif
+                    >
+                        <span class="mycic-nav-icon">{!! $item['icon'] !!}</span>
                         <span>{{ $item['label'] }}</span>
                     </a>
                 @endforeach
