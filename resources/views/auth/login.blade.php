@@ -16,20 +16,36 @@
             </svg>
 
             <div class="mycic-auth-showcase-content">
-                <span class="mycic-auth-showcase-brand">myCIC</span>
+                <div class="flex items-center gap-3">
+                    <img src="/images/ucic-shield.png" alt="Logo UCIC" class="h-12 w-auto object-contain" width="31" height="48">
+                    <div>
+                        <div class="text-2xl font-black tracking-tight text-white">my<span class="text-[#ffc300]">CIC</span></div>
+                        <div class="text-[0.68rem] font-semibold uppercase tracking-wider text-white/80">Universitas Catur Insan Cendekia</div>
+                    </div>
+                </div>
 
                 <div>
+                    <div class="mb-4 inline-flex items-center gap-2 rounded-lg border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold text-white/90 backdrop-blur-sm">
+                        <span class="h-2 w-2 rounded-full bg-[#ffc300]"></span>
+                        <span>Portal Resmi Akademik</span>
+                    </div>
                     <blockquote class="mycic-auth-quote">
-                        “Portal ini membantu saya cek jadwal, tugas, dan absensi lebih cepat di sela perkuliahan.”
+                        “Portal terintegrasi mahasiswa UCIC untuk memantau perkuliahan, presensi, tugas, dan nilai akademik secara real-time.”
                     </blockquote>
-                    <p class="mycic-auth-quote-author">— Mahasiswa CIC</p>
+                    <p class="mycic-auth-quote-author">— Universitas Catur Insan Cendekia</p>
                 </div>
             </div>
         </aside>
 
         <main class="mycic-auth-form-panel">
             <div class="mycic-auth-form-inner">
-                <div class="mycic-auth-mobile-brand lg:hidden">myCIC</div>
+                <div class="mycic-auth-mobile-brand mb-6 flex items-center gap-3 lg:hidden">
+                    <img src="/images/ucic-shield.png" alt="Logo UCIC" class="h-9 w-auto object-contain" width="23" height="36">
+                    <div class="leading-tight">
+                        <div class="text-2xl font-extrabold tracking-tight text-brand">my<span class="text-ink">CIC</span></div>
+                        <div class="text-[0.65rem] font-semibold uppercase tracking-wider text-ink-subtle">Universitas Catur Insan Cendekia</div>
+                    </div>
+                </div>
 
                 <header>
                     <h1 class="mycic-page-heading">Masuk ke myCIC</h1>

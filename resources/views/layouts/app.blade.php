@@ -6,7 +6,7 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', config('app.name'))</title>
     <link rel="manifest" href="/manifest.json">
-    <meta name="theme-color" content="#00AED6">
+    <meta name="theme-color" content="#0352A1">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -130,7 +130,10 @@
     <div class="mycic-page">
         <header class="mycic-page-header print:hidden">
             <div class="mycic-container relative flex h-14 items-center justify-between gap-4">
-                <a href="{{ route('dashboard') }}" class="mycic-brand-wordmark shrink-0" aria-label="myCIC">myCIC</a>
+                <a href="{{ route('dashboard') }}" class="mycic-brand-wordmark shrink-0" aria-label="myCIC - Universitas Catur Insan Cendekia">
+                    <img src="/images/ucic-shield.png" alt="Logo UCIC" class="h-8 w-auto object-contain transition-transform hover:scale-105" width="22" height="34">
+                    <span>my<span class="text-ink">CIC</span></span>
+                </a>
 
                 <nav class="mycic-top-nav absolute inset-x-0 justify-center" aria-label="Navigasi utama">
                     @foreach ($navigation as $item)

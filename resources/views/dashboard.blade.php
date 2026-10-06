@@ -8,11 +8,15 @@
     <section class="mycic-hero" aria-label="Ringkasan akun">
         <div class="flex items-center justify-between gap-3">
             <div class="flex min-w-0 items-center gap-3">
-                <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/15 text-sm font-bold text-white" aria-hidden="true">M</span>
+                <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/15 text-sm font-bold text-white border border-white/20" aria-hidden="true">M</span>
                 <div class="min-w-0">
-                    <div class="text-xs font-medium text-white/70">Selamat datang,</div>
+                    <div class="text-xs font-medium text-white/75">Selamat datang,</div>
                     <div class="truncate text-base font-bold text-white"><span data-user-name>Mahasiswa</span></div>
                 </div>
+            </div>
+            <div class="hidden sm:inline-flex items-center gap-2 rounded-lg border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold text-white/90 backdrop-blur-sm">
+                <span class="h-2 w-2 rounded-full bg-[#ffc300]"></span>
+                <span>Universitas Catur Insan Cendekia</span>
             </div>
         </div>
 
@@ -386,7 +390,7 @@
 
                 assignmentHost.innerHTML = pendingAssignments.map((assignment, index) => {
                     const isUrgent = /hari ini/i.test(String(assignment.deadline || ''));
-                    const statusColor = isUrgent ? 'warning' : 'info';
+                    const statusColor = isUrgent ? 'warning' : 'brand';
 
                     return `
                     <div class="mycic-card mb-3">
@@ -426,23 +430,23 @@
                                 </a>
                             </div>
 
-                            <div class="${panelTone(statusColor)}">
+                            <div class="rounded-[var(--radius-control)] border border-border bg-surface/75 p-3.5">
                                 ${assignment.can_submit_directly ? `
-                                    <div class="mb-2 flex items-center gap-1 font-semibold ${textTone(statusColor)}">
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-[18px] w-[18px] shrink-0" width="18" height="18" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2 -2v-2" /><path d="M7 9l5 -5l5 5" /><path d="M12 4l0 12" /></svg>
-                                        Kumpulkan File (.pdf)
+                                    <div class="mb-2.5 flex items-center gap-1.5 text-sm font-semibold text-ink">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 text-brand" width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2 -2v-2" /><path d="M7 9l5 -5l5 5" /><path d="M12 4l0 12" /></svg>
+                                        <span>Kumpulkan File (.pdf)</span>
                                     </div>
-                                    <form class="flex flex-wrap gap-2" data-assignment-card="${index}">
+                                    <form class="flex flex-col gap-2 sm:flex-row sm:items-center" data-assignment-card="${index}">
                                         <div class="min-w-0 flex-1">
                                             <input type="file" class="mycic-input bg-panel" data-field="attachment" accept=".pdf" required>
                                         </div>
-                                        <div class="w-full shrink-0 md:w-auto">
+                                        <div class="shrink-0">
                                             <button type="submit" class="${app.buttonClass('primary')}" data-online-required>Kirim tugas</button>
                                         </div>
                                     </form>
                                 ` : `
-                                    <div class="flex items-center gap-1 text-sm text-ink-subtle">
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" /><path d="M12 9h.01" /><path d="M11 12h1v4h1" /></svg>
+                                    <div class="flex items-center gap-1.5 text-sm text-ink-subtle">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 text-brand" width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" /><path d="M12 9h.01" /><path d="M11 12h1v4h1" /></svg>
                                         Buka Detail Meeting untuk instruksi pengumpulan tugas ini.
                                     </div>
                                 `}

@@ -166,7 +166,7 @@ class PortalApp {
         const meta = document.querySelector('meta[name="theme-color"]');
 
         if (meta) {
-            meta.setAttribute('content', document.documentElement.dataset.theme === 'dark' ? '#0A0E13' : '#00AED6');
+            meta.setAttribute('content', document.documentElement.dataset.theme === 'dark' ? '#091019' : '#0352A1');
         }
     }
 
