@@ -67,8 +67,22 @@ class DashboardExtractor extends PortalScrapingService
             $dashboardOverview['total_credits'] = (string) $this->resolveTotalCredits($sessionToken, $sipandaiClassesData['classes'] ?? [], $dashboardOverview, $creditSync);
             $recentActivity = $this->extractRecentActivity($crawler);
 
+            $personalData = $profileData['personal_data'] ?? [];
+            $studentInfo = $sipandaiClassesData['student_info'] ?? [];
+            $resolvedName = $personalData['nama'] ?? ($studentInfo['nama'] ?? null);
+            $resolvedNim = $personalData['nim'] ?? ($studentInfo['nim'] ?? null);
+            $resolvedProdi = $personalData['program_studi'] ?? ($studentInfo['program_studi'] ?? null);
+
+            $resolvedUserInfo = array_filter([
+                'name' => $resolvedName,
+                'nama' => $resolvedName,
+                'student_id' => $resolvedNim,
+                'nim' => $resolvedNim,
+                'program_studi' => $resolvedProdi,
+            ]);
+
             return $this->withSyncMeta([
-                'user_info' => $profileData['user_info'] ?? [],
+                'user_info' => $resolvedUserInfo ?: ($profileData['user_info'] ?? []),
                 'dashboard_overview' => $dashboardOverview,
                 'recent_activity' => $recentActivity,
                 'classes_summary' => $this->createClassesSummary($sipandaiClassesData, $studentCourseData, $attendanceShortcuts['classes'] ?? [], $reference),

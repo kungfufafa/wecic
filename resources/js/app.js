@@ -576,12 +576,13 @@ class PortalApp {
     }
 
     hydrateUser(payload) {
-        const userInfo = payload?.data?.user_info || {};
+        const userInfo = payload?.data?.user_info || payload?.user_info || {};
         const userIdentity = userInfo.student_id || userInfo.nim || userInfo.username || '';
-        const userName = userInfo.name || userInfo.nama || userInfo.student_name || userIdentity;
+        const rawName = userInfo.name || userInfo.nama || userInfo.student_name || userIdentity;
+        const userName = rawName || 'Mahasiswa';
 
         document.querySelectorAll('[data-user-identity]').forEach((element) => {
-            element.textContent = userIdentity;
+            element.textContent = userIdentity || 'Mahasiswa';
 
             if (!/(?:sm|md|lg|xl|2xl):(?:block|flex|inline|inline-flex|grid)/.test(element.className)) {
                 element.classList.toggle('hidden', userIdentity === '');
@@ -590,7 +591,14 @@ class PortalApp {
 
         document.querySelectorAll('[data-user-name]').forEach((element) => {
             element.textContent = userName;
-            element.classList.toggle('hidden', userName === '');
+            element.classList.remove('hidden');
+        });
+
+        const initial = (userName.trim()[0] || 'M').toUpperCase();
+        document.querySelectorAll('[data-user-avatar], .mycic-avatar').forEach((element) => {
+            if (!element.querySelector('img')) {
+                element.textContent = initial;
+            }
         });
     }
 

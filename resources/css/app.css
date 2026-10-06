@@ -742,6 +742,22 @@ html[data-theme='dark'] {
         @apply font-semibold text-brand-pressed hover:text-brand-hover;
     }
 
+    .mycic-dropzone {
+        @apply relative flex flex-col items-center justify-center rounded-[var(--radius-card)] border-2 border-dashed border-border bg-surface/40 p-6 text-center transition-all duration-150 hover:border-brand hover:bg-surface-tint/30 cursor-pointer;
+    }
+
+    .mycic-dropzone.dragover {
+        @apply border-brand bg-surface-tint/50 ring-2 ring-brand/20;
+    }
+
+    .mycic-outline-item {
+        @apply flex items-start gap-3 rounded-xl border border-border-light bg-surface/30 p-3.5 transition-colors hover:bg-surface/70;
+    }
+
+    .mycic-outline-badge {
+        @apply flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-surface-tint text-xs font-bold text-brand-pressed;
+    }
+
     .mycic-guest-shell {
         @apply min-h-dvh bg-panel;
     }

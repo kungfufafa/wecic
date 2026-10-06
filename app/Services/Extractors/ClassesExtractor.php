@@ -572,7 +572,6 @@ class ClassesExtractor extends PortalScrapingService
             'waktu' => 'schedule',
             'ruang' => 'room',
             'kelas' => 'class_name',
-            'kelas' => 'class_name',
         ];
 
         // Map data based on headers or position

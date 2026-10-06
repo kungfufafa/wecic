@@ -51,7 +51,7 @@ class BladePagesTest extends TestCase
             ->assertOk()
             ->assertSee('data-sync-refresh', false)
             ->assertSee('Sinkronkan data')
-            ->assertSee('Tagihan belum dibayar')
+            ->assertDontSee('Tagihan belum dibayar')
             ->assertSee("app.clearCachedResponse('/api/dashboard');", false)
             ->assertSee('await loadDashboard({ force: true });', false)
             ->assertDontSee('Aktivitas terbaru');
@@ -91,6 +91,11 @@ class BladePagesTest extends TestCase
             ->get('/class')
             ->assertOk()
             ->assertSee('Lihat pertemuan', false)
+            ->assertSee('Grid Time Blocking')
+            ->assertSee('Timeline & Jam Kosong', false)
+            ->assertSee('Matriks Jam Perkuliahan (Senin – Sabtu)')
+            ->assertSee('class-detail-modal')
+            ->assertDontSee('Segarkan')
             ->assertDontSee('return \\`', false)
             ->assertDontSee('P\\${app.escapeHtml(labelNumber)}', false);
 
@@ -108,7 +113,7 @@ class BladePagesTest extends TestCase
 
     public function test_meeting_and_exam_pages_render(): void
     {
-        $this->mockValidCampusSession('token-detail', 4);
+        $this->mockValidCampusSession('token-detail', 5);
 
         $this->withSession(['campus_session_token' => 'token-detail'])
             ->get('/meeting/445?courses_id=8861')
@@ -136,7 +141,18 @@ class BladePagesTest extends TestCase
 
         $this->withSession(['campus_session_token' => 'token-detail'])
             ->get('/profile')
-            ->assertOk();
+            ->assertOk()
+            ->assertSee('Data Pribadi & Akademik', false)
+            ->assertSee('Kontak & Domisili', false)
+            ->assertSee('Pendidikan Terakhir');
+
+        $this->withSession(['campus_session_token' => 'token-detail'])
+            ->get('/finance')
+            ->assertOk()
+            ->assertSee('Riwayat Pembayaran')
+            ->assertSee('Total Terbayar')
+            ->assertSee('/api/finance/payments')
+            ->assertDontSee('finance-student-badge');
     }
 
     private function mockValidCampusSession(string $token, int $times = 1): void

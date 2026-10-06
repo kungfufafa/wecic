@@ -122,6 +122,12 @@ class PortalDataController extends CampusApiController
 
             $dashboardData = $this->dashboardExtractor->extractDashboardData($sessionToken);
             $this->snapshotStore->put($sessionToken, 'dashboard', $dashboardData);
+            if (! empty($dashboardData['user_info'])) {
+                $currentUserInfo = (array) session('campus_user_info', []);
+                if (empty($currentUserInfo['name']) && empty($currentUserInfo['nama'])) {
+                    session(['campus_user_info' => array_merge($currentUserInfo, $dashboardData['user_info'])]);
+                }
+            }
             $syncMeta = $this->consumeSyncMeta($dashboardData, [
                 'requested_fresh' => $forceFresh,
             ]);

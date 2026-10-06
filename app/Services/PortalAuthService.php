@@ -473,6 +473,27 @@ class PortalAuthService
                 }
             }
 
+            // Also extract from student profile / dashboard tables (.table tr)
+            $crawler->filter('.table tr')->each(function (Crawler $row) use (&$userInfo) {
+                $cells = $row->filter('td');
+                if ($cells->count() >= 3) {
+                    $label = strtolower(trim($cells->eq(0)->text()));
+                    $value = trim(strip_tags($cells->eq(2)->text()));
+                    $value = preg_replace('/\s+/', ' ', $value);
+
+                    if (in_array($label, ['nama', 'name']) && empty($userInfo['name'])) {
+                        $userInfo['name'] = $value;
+                        $userInfo['nama'] = $value;
+                    } elseif (in_array($label, ['nim', 'n i m', 'student id']) && empty($userInfo['student_id'])) {
+                        $userInfo['student_id'] = $value;
+                        $userInfo['nim'] = $value;
+                    } elseif (in_array($label, ['program studi', 'prodi', 'jurusan']) && empty($userInfo['department'])) {
+                        $userInfo['department'] = $value;
+                        $userInfo['program_studi'] = $value;
+                    }
+                }
+            });
+
         } catch (\Exception $e) {
             Log::warning('Failed to extract some user info', ['error' => $e->getMessage()]);
         }
