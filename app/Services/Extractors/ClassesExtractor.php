@@ -947,31 +947,30 @@ class ClassesExtractor extends PortalScrapingService
         ];
 
         try {
-            // Debug: Count all cards
             $allCards = $crawler->filter('.card');
-            $this->logScraping('Debug: Found '.$allCards->count().' cards');
+            $this->logScrapingDebug('Found '.$allCards->count().' cards on class detail page');
 
             // Look for attendance table with Presensi Kehadiran
             $crawler->filter('.card')->each(function (Crawler $card) use (&$attendanceInfo) {
                 $headerText = trim($card->filter('.header .title, .header h6')->text(''));
-                $this->logScraping('Debug: Card header text: "'.$headerText.'"');
+                $this->logScrapingDebug('Card header text: "'.$headerText.'"');
 
                 // Extract student name from header
                 if (strpos($headerText, 'Presensi Kehadiran') !== false) {
                     $attendanceInfo['student_name'] = trim(str_replace('Presensi Kehadiran', '', $headerText));
-                    $this->logScraping('Debug: Found attendance card for student: '.$attendanceInfo['student_name']);
+                    $this->logScrapingDebug('Found attendance card for student: '.$attendanceInfo['student_name']);
 
                     // Extract table headers (P.1, P.2, etc.)
                     $attendanceTable = $card->filter('table');
-                    $this->logScraping('Debug: Found '.$attendanceTable->count().' tables in attendance card');
+                    $this->logScrapingDebug('Found '.$attendanceTable->count().' tables in attendance card');
 
                     if ($attendanceTable->count() > 0) {
                         $attendanceTable = $attendanceTable->first();
 
                         // Try different selectors for header row
                         $headerRow = $attendanceTable->filter('tr')->first();
-                        $this->logScraping('Debug: Header row HTML: '.$headerRow->html());
-                        $this->logScraping('Debug: Found header row with '.$headerRow->filter('th')->count().' th elements');
+                        $this->logScrapingDebug('Header row HTML: '.$headerRow->html());
+                        $this->logScrapingDebug('Found header row with '.$headerRow->filter('th')->count().' th elements');
 
                         // Try to find header row that contains "P." pattern
                         $headerRows = $attendanceTable->filter('tr');
@@ -982,17 +981,17 @@ class ClassesExtractor extends PortalScrapingService
                             $rowText = $rowCrawler->text();
                             if (strpos($rowText, 'P.') !== false) {
                                 $foundHeaderRow = $rowCrawler;
-                                $this->logScraping('Debug: Found header row at index '.$index.' with text: '.$rowText);
+                                $this->logScrapingDebug('Found header row at index '.$index.' with text: '.$rowText);
                                 break;
                             }
                         }
 
                         if ($foundHeaderRow) {
                             $headerRow = $foundHeaderRow;
-                            $this->logScraping('Debug: Using found header row with '.$headerRow->filter('th')->count().' th elements');
+                            $this->logScrapingDebug('Using found header row with '.$headerRow->filter('th')->count().' th elements');
                             $hasHeaders = true;
                         } else {
-                            $this->logScraping('Debug: No header row found with P. pattern, will generate meeting numbers from cell order');
+                            $this->logScrapingDebug('No header row found with P. pattern, will generate meeting numbers from cell order');
                             $hasHeaders = false;
                         }
 
@@ -1004,28 +1003,27 @@ class ClassesExtractor extends PortalScrapingService
                                 $cleanHeaderText = preg_replace('/<br\s*\/?>/', '', $headerText);
                                 $cleanHeaderText = trim($cleanHeaderText);
 
-                                $this->logScraping('Debug: Header text: "'.$headerText.'" -> Clean: "'.$cleanHeaderText.'"');
+                                $this->logScrapingDebug('Header text: "'.$headerText.'" -> Clean: "'.$cleanHeaderText.'"');
 
                                 if (preg_match('/P\.(\d+)/', $cleanHeaderText, $matches)) {
                                     $headers[] = [
                                         'meeting_number' => intval($matches[1]),
                                         'header_text' => $cleanHeaderText,
                                     ];
-                                    $this->logScraping('Debug: Parsed header P.'.$matches[1]);
                                 }
                             });
 
-                            $this->logScraping('Debug: Total headers parsed: '.count($headers));
+                            $this->logScrapingDebug('Total headers parsed: '.count($headers));
                         } else {
                             // No headers found, generate meeting numbers from cell order
-                            $this->logScraping('Debug: No th elements found, will treat first row as data and generate meeting numbers');
+                            $this->logScrapingDebug('No th elements found, treating first row as data and generating meeting numbers');
 
                             // Get the first row as data row
                             $allRows = $attendanceTable->filter('tr');
                             if ($allRows->count() > 0) {
                                 $firstRow = $allRows->first();
                                 $cells = $firstRow->filter('td');
-                                $this->logScraping('Debug: Found '.$cells->count().' cells in first row');
+                                $this->logScrapingDebug('Found '.$cells->count().' cells in first row');
 
                                 // Generate headers from cell order (P.1, P.2, P.3, etc.)
                                 $headers = [];
@@ -1034,8 +1032,8 @@ class ClassesExtractor extends PortalScrapingService
                                         'meeting_number' => $i + 1,
                                         'header_text' => 'P.'.($i + 1),
                                     ];
-                                    $this->logScraping('Debug: Generated header P.'.($i + 1));
                                 }
+                                $this->logScrapingDebug('Generated '.count($headers).' meeting headers from cell order');
                             }
                         }
                     }
@@ -1048,17 +1046,17 @@ class ClassesExtractor extends PortalScrapingService
                         // If we have real headers, skip the first row
                         if ($hasHeaders) {
                             $dataRows = $allRows->slice(1);
-                            $this->logScraping('Debug: Found '.$dataRows->count().' data rows (skipping header)');
+                            $this->logScrapingDebug('Found '.$dataRows->count().' data rows (skipping header)');
                         } else {
                             $dataRows = $allRows;
-                            $this->logScraping('Debug: Found '.$dataRows->count().' data rows (all rows are data)');
+                            $this->logScrapingDebug('Found '.$dataRows->count().' data rows (all rows are data)');
                         }
 
                         $meetingData = [];
 
                         $dataRows->each(function (Crawler $row) use ($headers, &$meetingData) {
                             $cells = $row->filter('td');
-                            $this->logScraping('Debug: Processing row with '.$cells->count().' cells');
+                            $this->logScrapingDebug('Processing row with '.$cells->count().' cells');
 
                             foreach ($cells as $index => $cell) {
                                 if (isset($headers[$index])) {
@@ -1130,7 +1128,7 @@ class ClassesExtractor extends PortalScrapingService
                             }
                         });
 
-                        $this->logScraping('Debug: Total meetings parsed: '.count($meetingData));
+                        $this->logScrapingDebug('Total meetings parsed: '.count($meetingData));
                         $attendanceInfo['meetings'] = $meetingData;
 
                         // Calculate attendance summary
@@ -1174,7 +1172,7 @@ class ClassesExtractor extends PortalScrapingService
                             ];
                         }
                     } else {
-                        $this->logScraping('Debug: No attendance table found');
+                        $this->logScrapingDebug('No attendance table found');
                     }
                 }
             });

@@ -495,6 +495,14 @@ abstract class PortalScrapingService
     }
 
     /**
+     * Log scraping debug operation
+     */
+    protected function logScrapingDebug(string $operation, array $context = []): void
+    {
+        Log::debug("Campus scraping: {$operation}", PortalLogContext::sanitize($context));
+    }
+
+    /**
      * Log scraping error
      */
     protected function logScrapingError(string $operation, \Exception $e, array $context = []): void
