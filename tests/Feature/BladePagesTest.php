@@ -49,10 +49,9 @@ class BladePagesTest extends TestCase
         $this->withSession(['campus_session_token' => 'token-dashboard'])
             ->get('/dashboard')
             ->assertOk()
-            ->assertSee('data-sync-alert', false)
-            ->assertSee('Data terakhir siap dipakai. Sinkronkan ke server bila perlu.')
-            ->assertSee('Sinkronkan server')
-            ->assertSee('Tarik untuk memperbarui')
+            ->assertSee('data-sync-refresh', false)
+            ->assertSee('Sinkronkan data')
+            ->assertSee('Tagihan belum dibayar')
             ->assertSee("app.clearCachedResponse('/api/dashboard');", false)
             ->assertSee('await loadDashboard({ force: true });', false)
             ->assertDontSee('Aktivitas terbaru');

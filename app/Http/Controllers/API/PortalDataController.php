@@ -16,6 +16,7 @@ use App\Services\Extractors\ProfileExtractor;
 use App\Services\Extractors\SipandaiClassesExtractor;
 use App\Services\Extractors\StudentCourseExtractor;
 use App\Services\PortalEndpointRegistry;
+use App\Services\PortalSnapshotStore;
 use App\Services\SipandaiSubmissionService;
 use Dedoc\Scramble\Attributes\Group;
 use Dedoc\Scramble\Attributes\PathParameter;
@@ -57,6 +58,8 @@ class PortalDataController extends CampusApiController
 
     private SipandaiSubmissionService $submissionService;
 
+    private PortalSnapshotStore $snapshotStore;
+
     public function __construct(
         ProfileExtractor $profileExtractor,
         ClassesExtractor $classesExtractor,
@@ -64,7 +67,8 @@ class PortalDataController extends CampusApiController
         SipandaiClassesExtractor $sipandaiClassesExtractor,
         StudentCourseExtractor $studentCourseExtractor,
         FinancialHistoryExtractor $financialHistoryExtractor,
-        SipandaiSubmissionService $submissionService
+        SipandaiSubmissionService $submissionService,
+        ?PortalSnapshotStore $snapshotStore = null
     ) {
         $this->profileExtractor = $profileExtractor;
         $this->classesExtractor = $classesExtractor;
@@ -73,6 +77,7 @@ class PortalDataController extends CampusApiController
         $this->studentCourseExtractor = $studentCourseExtractor;
         $this->financialHistoryExtractor = $financialHistoryExtractor;
         $this->submissionService = $submissionService;
+        $this->snapshotStore = $snapshotStore ?? app(PortalSnapshotStore::class);
     }
 
     /**
@@ -86,9 +91,39 @@ class PortalDataController extends CampusApiController
     public function dashboard(Request $request): JsonResponse
     {
         return $this->withCampusSession('Dashboard extraction failed', 'Failed to extract dashboard data', function (string $sessionToken) use ($request): JsonResponse {
+            $forceFresh = $request->boolean('fresh');
+
+            if (! $forceFresh) {
+                $snapshot = $this->snapshotStore->get($sessionToken, 'dashboard');
+
+                if ($snapshot !== null) {
+                    $dashboardData = $snapshot['data'];
+                    $syncMeta = $this->consumeSyncMeta($dashboardData, [
+                        'data_origin' => 'snapshot',
+                        'synced_at' => $snapshot['synced_at'] ?? now()->toISOString(),
+                        'status' => $snapshot['status'] ?? 'synced',
+                        'requested_fresh' => false,
+                    ]);
+
+                    if ($this->snapshotStore->isStale($sessionToken, 'dashboard', 600)) {
+                        RefreshPortalDataJob::dispatch(
+                            (string) session()->getId(),
+                            $sessionToken,
+                            ['dashboard']
+                        );
+                        $syncMeta['status'] = 'syncing';
+                    }
+
+                    return $this->statusSuccess('Dashboard data retrieved successfully', [
+                        'data' => $dashboardData,
+                    ], meta: $syncMeta, campusSessionValid: true);
+                }
+            }
+
             $dashboardData = $this->dashboardExtractor->extractDashboardData($sessionToken);
+            $this->snapshotStore->put($sessionToken, 'dashboard', $dashboardData);
             $syncMeta = $this->consumeSyncMeta($dashboardData, [
-                'requested_fresh' => $request->boolean('fresh'),
+                'requested_fresh' => $forceFresh,
             ]);
 
             return $this->statusSuccess('Dashboard data retrieved successfully', [

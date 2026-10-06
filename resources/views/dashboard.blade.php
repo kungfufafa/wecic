@@ -549,8 +549,10 @@
             app.registerSyncHandler('dashboard-overview', loadDashboard);
             app.registerSyncHandler('dashboard-pending-assignments', loadPendingAssignments);
 
-            await loadDashboard();
-            await loadPendingAssignments();
+            await Promise.allSettled([
+                loadDashboard(),
+                loadPendingAssignments(),
+            ]);
         });
     </script>
 @endpush

@@ -11,10 +11,12 @@ use App\Http\Requests\SipandaiExamDetailRequest;
 use App\Http\Requests\SipandaiExamUploadRequest;
 use App\Jobs\ProcessPortalAssignmentUploadJob;
 use App\Jobs\ProcessPortalExamUploadJob;
+use App\Jobs\RefreshPortalDataJob;
 use App\Services\AttendanceShortcutService;
 use App\Services\Extractors\ClassesExtractor;
 use App\Services\Extractors\SipandaiClassesExtractor;
 use App\Services\PortalEndpointRegistry;
+use App\Services\PortalSnapshotStore;
 use App\Services\SipandaiSubmissionService;
 use Dedoc\Scramble\Attributes\Group;
 use Dedoc\Scramble\Attributes\PathParameter;
@@ -40,8 +42,11 @@ class PortalActionController extends CampusApiController
         private readonly SipandaiSubmissionService $submissionService,
         private readonly AttendanceShortcutService $attendanceShortcutService,
         private readonly ClassesExtractor $classesExtractor,
-        private readonly SipandaiClassesExtractor $sipandaiClassesExtractor
-    ) {}
+        private readonly SipandaiClassesExtractor $sipandaiClassesExtractor,
+        private ?PortalSnapshotStore $snapshotStore = null
+    ) {
+        $this->snapshotStore = $snapshotStore ?? app(PortalSnapshotStore::class);
+    }
 
     /**
      * Upload tugas SIPANDAI.
@@ -312,9 +317,39 @@ class PortalActionController extends CampusApiController
         }
 
         try {
+            $forceFresh = request()->boolean('fresh');
+
+            if (! $forceFresh) {
+                $snapshot = $this->snapshotStore->get($sessionToken, 'assignments');
+
+                if ($snapshot !== null) {
+                    $pendingAssignmentsData = $snapshot['data'];
+                    $syncMeta = $this->consumeSyncMeta($pendingAssignmentsData, [
+                        'data_origin' => 'snapshot',
+                        'synced_at' => $snapshot['synced_at'] ?? now()->toISOString(),
+                        'status' => $snapshot['status'] ?? 'synced',
+                        'requested_fresh' => false,
+                    ]);
+
+                    if ($this->snapshotStore->isStale($sessionToken, 'assignments', 600)) {
+                        RefreshPortalDataJob::dispatch(
+                            (string) session()->getId(),
+                            $sessionToken,
+                            ['assignments']
+                        );
+                        $syncMeta['status'] = 'syncing';
+                    }
+
+                    return $this->booleanResponse(true, 'Pending assignments retrieved successfully.', [
+                        'assignments' => $pendingAssignmentsData['assignments'] ?? [],
+                    ], meta: $syncMeta);
+                }
+            }
+
             $pendingAssignmentsData = $this->attendanceShortcutService->getPendingAssignmentsSnapshot($sessionToken);
+            $this->snapshotStore->put($sessionToken, 'assignments', $pendingAssignmentsData);
             $syncMeta = $this->consumeSyncMeta($pendingAssignmentsData, [
-                'requested_fresh' => request()->boolean('fresh'),
+                'requested_fresh' => $forceFresh,
             ]);
 
             return $this->booleanResponse(true, 'Pending assignments retrieved successfully.', [

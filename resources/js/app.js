@@ -1515,8 +1515,9 @@ class PortalApp {
             return;
         }
 
-        if (dataOrigin === 'server_cache') {
-            this.setSyncStatus(`Data tersimpan server${portalSuffix || ` · dimuat ${syncTime}`}`, 'info');
+        if (dataOrigin === 'snapshot' || dataOrigin === 'server_cache') {
+            const statusSuffix = payload?.meta?.status === 'syncing' ? ' · menyinkronkan...' : '';
+            this.setSyncStatus(`Data tersimpan${portalSuffix || ` · dimuat ${syncTime}`}${statusSuffix}`, 'info');
 
             return;
         }
@@ -1525,6 +1526,13 @@ class PortalApp {
     }
 
     portalDataTime(payload) {
+        if (payload?.meta?.synced_at) {
+            const synced = new Date(payload.meta.synced_at);
+            if (!Number.isNaN(synced.getTime())) {
+                return synced;
+            }
+        }
+
         const entries = payload?.data;
 
         if (!entries || typeof entries !== 'object') {

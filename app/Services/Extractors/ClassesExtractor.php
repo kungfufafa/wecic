@@ -118,7 +118,7 @@ class ClassesExtractor extends PortalScrapingService
             ]);
 
             if (! in_array($classDetail['content_type'], ['error_page', 'login_page'], true)) {
-                cache()->put($cacheKey, $classDetail, now()->addMinutes(15));
+                cache()->put($cacheKey, $classDetail, now()->addHours(2));
             }
 
             return $this->withSyncMeta($classDetail, 'upstream');
@@ -186,7 +186,7 @@ class ClassesExtractor extends PortalScrapingService
             ]);
 
             if ($this->detectContentType($html) !== 'login_page') {
-                cache()->put($cacheKey, $meetingDetail, now()->addMinutes(15));
+                cache()->put($cacheKey, $meetingDetail, now()->addHours(24));
             }
 
             return $this->withSyncMeta($meetingDetail, 'upstream');

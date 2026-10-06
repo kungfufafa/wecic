@@ -6,6 +6,7 @@ namespace App\Jobs;
 
 use App\Services\AttendanceShortcutService;
 use App\Services\PortalBroadcastService;
+use App\Services\PortalSnapshotStore;
 use App\Services\SipandaiSubmissionService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -29,8 +30,10 @@ class ScanPortalNotificationsJob implements ShouldQueue
     public function handle(
         AttendanceShortcutService $attendanceShortcutService,
         PortalBroadcastService $broadcast,
-        SipandaiSubmissionService $submissionService
+        SipandaiSubmissionService $submissionService,
+        ?PortalSnapshotStore $snapshotStore = null
     ): void {
+        $snapshotStore ??= app(PortalSnapshotStore::class);
         $lock = Cache::lock(
             'portal_notification_scan_'.$this->campusSessionToken,
             (int) config('portal.realtime.notifications.scan_lock_ttl', 300)
@@ -42,6 +45,7 @@ class ScanPortalNotificationsJob implements ShouldQueue
 
         try {
             $pending = $attendanceShortcutService->getPendingAssignmentsSnapshot($this->campusSessionToken);
+            $snapshotStore->put($this->campusSessionToken, 'assignments', $pending);
             $shortcuts = $attendanceShortcutService->getTodayShortcuts($this->campusSessionToken);
 
             foreach (($pending['assignments'] ?? []) as $assignment) {

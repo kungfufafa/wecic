@@ -7,14 +7,15 @@ namespace App\Jobs;
 use App\Enums\PortalOperationStage;
 use App\Services\AttendanceShortcutService;
 use App\Services\Extractors\ClassesExtractor;
+use App\Services\Extractors\DashboardExtractor;
 use App\Services\Extractors\ProfileExtractor;
 use App\Services\PortalBroadcastService;
 use App\Services\PortalSessionManager;
+use App\Services\PortalSnapshotStore;
 use App\Services\SipandaiSubmissionService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Http\Request;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Cache;
@@ -27,9 +28,9 @@ class RefreshPortalDataJob implements ShouldQueue
      * @param  list<string>  $domains
      */
     public function __construct(
-        private readonly string $sessionId,
-        private readonly string $campusSessionToken,
-        private readonly array $domains
+        public readonly string $sessionId,
+        public readonly string $campusSessionToken,
+        public readonly array $domains
     ) {
         $this->onQueue('campus-refresh');
     }
@@ -40,8 +41,11 @@ class RefreshPortalDataJob implements ShouldQueue
         AttendanceShortcutService $attendanceShortcutService,
         ClassesExtractor $classesExtractor,
         ProfileExtractor $profileExtractor,
-        SipandaiSubmissionService $submissionService
+        SipandaiSubmissionService $submissionService,
+        ?DashboardExtractor $dashboardExtractor = null,
+        ?PortalSnapshotStore $snapshotStore = null
     ): void {
+        $snapshotStore ??= app(PortalSnapshotStore::class);
         $lock = Cache::lock(
             'portal_refresh_'.$this->campusSessionToken.'_'.md5(json_encode($this->domains)),
             (int) config('portal.realtime.refresh_lock_ttl', 120)
@@ -59,8 +63,6 @@ class RefreshPortalDataJob implements ShouldQueue
         }
 
         try {
-            app()->instance('request', Request::create('/', 'GET', ['fresh' => 'true']));
-
             $broadcast->syncStatus($this->sessionId, $this->campusSessionToken, PortalOperationStage::Connecting, 'Menghubungkan ke portal kampus...');
 
             if (! $sessionManager->validateSession($this->campusSessionToken)) {
@@ -71,12 +73,42 @@ class RefreshPortalDataJob implements ShouldQueue
 
             $broadcast->syncStatus($this->sessionId, $this->campusSessionToken, PortalOperationStage::FetchingSchedule, 'Mengambil jadwal dan data terbaru...');
 
-            foreach ($this->domains as $domain) {
+            $uniqueDomains = array_values(array_unique($this->domains));
+            $syncedAssignments = false;
+
+            foreach ($uniqueDomains as $domain) {
                 match ($domain) {
-                    'dashboard', 'assignments' => $attendanceShortcutService->getPendingAssignmentsSnapshot($this->campusSessionToken),
-                    'classes' => $classesExtractor->extractClassesData($this->campusSessionToken),
-                    'profile' => $profileExtractor->extractProfileData($this->campusSessionToken),
-                    'exams' => $submissionService->getExamList($this->campusSessionToken),
+                    'dashboard' => (function () use ($dashboardExtractor, $attendanceShortcutService, $snapshotStore, &$syncedAssignments): void {
+                        if ($dashboardExtractor !== null) {
+                            $dashboardData = $dashboardExtractor->extractDashboardData($this->campusSessionToken);
+                            $snapshotStore->put($this->campusSessionToken, 'dashboard', $dashboardData);
+                        }
+
+                        if (! $syncedAssignments) {
+                            $pendingData = $attendanceShortcutService->getPendingAssignmentsSnapshot($this->campusSessionToken);
+                            $snapshotStore->put($this->campusSessionToken, 'assignments', $pendingData);
+                            $syncedAssignments = true;
+                        }
+                    })(),
+                    'assignments' => (function () use ($attendanceShortcutService, $snapshotStore, &$syncedAssignments): void {
+                        if (! $syncedAssignments) {
+                            $pendingData = $attendanceShortcutService->getPendingAssignmentsSnapshot($this->campusSessionToken);
+                            $snapshotStore->put($this->campusSessionToken, 'assignments', $pendingData);
+                            $syncedAssignments = true;
+                        }
+                    })(),
+                    'classes' => (function () use ($classesExtractor, $snapshotStore): void {
+                        $classesData = $classesExtractor->extractClassesData($this->campusSessionToken);
+                        $snapshotStore->put($this->campusSessionToken, 'classes', $classesData);
+                    })(),
+                    'profile' => (function () use ($profileExtractor, $snapshotStore): void {
+                        $profileData = $profileExtractor->extractProfileData($this->campusSessionToken);
+                        $snapshotStore->put($this->campusSessionToken, 'profile', $profileData);
+                    })(),
+                    'exams' => (function () use ($submissionService, $snapshotStore): void {
+                        $examsData = $submissionService->getExamList($this->campusSessionToken);
+                        $snapshotStore->put($this->campusSessionToken, 'exams', ['exams' => $examsData]);
+                    })(),
                     default => null,
                 };
             }
