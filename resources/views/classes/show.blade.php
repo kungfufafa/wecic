@@ -5,21 +5,21 @@
 
 @section('content')
     <div id="class-hero">
-        {!! '<div class="mycic-alert-neutral mb-4">Menunggu ringkasan kelas.</div>' !!}
+        {!! '<div class="mycic-alert-neutral mb-4">Memuat...</div>' !!}
     </div>
 
     <div class="grid gap-4 lg:grid-cols-12">
         <div class="lg:col-span-8" id="class-materials">
-            {!! '<div class="mycic-alert-neutral mb-0">Menunggu materi kelas.</div>' !!}
+            {!! '<div class="mycic-alert-neutral mb-0">Memuat...</div>' !!}
         </div>
 
         <div class="flex flex-col gap-4 lg:col-span-4">
             <div id="class-attendance">
-                {!! '<div class="mycic-alert-neutral mb-0">Belum ada data presensi.</div>' !!}
+                {!! '<div class="mycic-alert-neutral mb-0">Memuat...</div>' !!}
             </div>
 
             <div id="class-assignments">
-                {!! '<div class="mycic-alert-neutral mb-0">Belum ada histori tugas.</div>' !!}
+                {!! '<div class="mycic-alert-neutral mb-0">Memuat...</div>' !!}
             </div>
         </div>
     </div>
@@ -62,24 +62,27 @@
                 hero.innerHTML = `
                     <div class="mb-4">
                         ${app.renderPageHeader({
-                            pretitle: 'Detail kelas',
-                            title: courseInfo.name || 'Informasi kelas',
+                            title: courseInfo.name || 'Kelas',
                             description: [
                                 courseInfo.class_name,
                                 courseInfo.credits ? `${courseInfo.credits} SKS` : null,
                                 lecturerInfo.name,
-                            ].filter(Boolean).join(' · ') || 'Lihat struktur kelas, materi, presensi, dan riwayat tugas dalam satu halaman.',
+                            ].filter(Boolean).join(' · '),
                             actions: [
-                                `<a href="/class" class="${app.buttonClass('secondary')}">Kembali ke daftar</a>`,
+                                `<a href="/class" class="${app.buttonClass('secondary')}">Kembali</a>`,
                             ],
                         })}
                     </div>
-                    ${app.renderStatCards([
-                        { label: 'Dosen', value: lecturerInfo.name || '-', note: 'Pengampu utama kelas ini.' },
-                        { label: 'SKS', value: courseInfo.credits || '-', note: 'Bobot kredit mata kuliah.' },
-                        { label: 'Materi', value: materials.length || '0', note: 'Materi yang terdeteksi saat ini.' },
-                        { label: 'Presensi', value: attendanceSummary.total_meetings ?? attendanceMeetings.length ?? 0, note: 'Pertemuan yang tercatat di portal.' },
-                    ])}
+                    <div class="mb-4 grid grid-cols-2 gap-3">
+                        <div class="mycic-metric">
+                            <div class="mycic-metric-label">Materi</div>
+                            <div class="mycic-metric-value">${materials.length || '0'}</div>
+                        </div>
+                        <div class="mycic-metric">
+                            <div class="mycic-metric-label">Presensi</div>
+                            <div class="mycic-metric-value">${attendanceSummary.total_meetings ?? attendanceMeetings.length ?? 0}</div>
+                        </div>
+                    </div>
                 `;
 
                 if (materials.length) {
@@ -87,22 +90,21 @@
                         <div class="mb-4 flex flex-col gap-3">
                             ${materials.map((material, index) => {
                                 const meetingUrl = app.buildMeetingUrlFromHref(material.join_link?.href);
-                                const materialLabel = material.meeting_number ? `Pertemuan ${material.meeting_number}` : `Pertemuan ${index + 1}`;
+                                const materialLabel = `P${material.meeting_number || index + 1}`;
 
                                 return `
                                     <div class="mycic-card">
                                         <div class="mycic-card-body">
-                                            <div class="flex flex-col gap-3 md:flex-row md:items-center">
+                                            <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
                                                 <div class="min-w-0 flex-1">
-                                                    <div class="mb-2 flex items-center gap-2">
+                                                    <div class="mb-1 flex items-center gap-2">
                                                         ${app.renderBadge(materialLabel, 'brand')}
-                                                        <span class="text-caption text-ink-subtle">${app.escapeHtml([material.date, material.time].filter(Boolean).join(' • ') || 'Jadwal belum ditentukan')}</span>
+                                                        <span class="text-caption text-ink-subtle">${app.escapeHtml([material.date, material.time].filter(Boolean).join(' · ') || '-')}</span>
                                                     </div>
-                                                    <h3 class="mb-1 text-subtitle font-bold text-ink">${app.escapeHtml(material.title || 'Materi Perkuliahan')}</h3>
-                                                    ${material.description ? `<div class="mt-2 text-caption text-ink-subtle">${app.escapeHtml(material.description)}</div>` : ''}
+                                                    <h3 class="text-subtitle font-bold text-ink">${app.escapeHtml(material.title || 'Materi')}</h3>
                                                 </div>
                                                 <div class="shrink-0">
-                                                    ${meetingUrl ? `<a href="${meetingUrl}" class="${app.buttonClass('ghost')} mycic-btn-block">Buka Pertemuan</a>` : app.renderDisabledButton('Belum tersedia')}
+                                                    ${meetingUrl ? `<a href="${meetingUrl}" class="${app.buttonClass('secondary', { small: true })}">Buka</a>` : ''}
                                                 </div>
                                             </div>
                                         </div>
@@ -112,7 +114,7 @@
                         </div>
                     `;
                 } else {
-                    document.getElementById('class-materials').innerHTML = app.renderEmptyState('Belum ada materi perkuliahan.', 'secondary');
+                    document.getElementById('class-materials').innerHTML = app.renderEmptyState('Belum ada materi.', 'secondary');
                 }
 
                 if (attendance.summary || (attendance.meetings || []).length) {
@@ -141,7 +143,7 @@
                                     <table class="mycic-table">
                                         <thead>
                                             <tr>
-                                                <th>Pertemuan</th>
+                                                <th>#</th>
                                                 <th>Status</th>
                                                 <th>Tanggal</th>
                                             </tr>
@@ -171,7 +173,7 @@
                     document.getElementById('class-attendance').innerHTML = `
                         <div class="mycic-card">
                             <div class="mycic-card-body">
-                                ${app.renderEmptyState('Belum ada data presensi.', 'secondary')}
+                                ${app.renderEmptyState('Belum ada presensi.', 'secondary')}
                             </div>
                         </div>
                     `;
@@ -181,7 +183,7 @@
                     document.getElementById('class-assignments').innerHTML = `
                         <div class="mycic-card">
                             <div class="mycic-card-header">
-                                <h3 class="mycic-card-title">Riwayat Tugas</h3>
+                                <h3 class="mycic-card-title">Tugas</h3>
                             </div>
                             <div class="mycic-card-body">
                                 ${(assignments.assignments || []).map((assignment) => {
@@ -192,19 +194,19 @@
                                     return `
                                         <div class="mycic-list-row">
                                             <div class="min-w-0 flex-1">
-                                                <div class="mb-1 text-caption text-ink-subtle">${app.escapeHtml(assignment.date || 'Tanggal tidak tersedia')}</div>
-                                                <div class="mb-2 font-medium text-ink">Tugas ${app.escapeHtml(assignment.meeting || `Pertemuan ${assignment.no}`)}</div>
+                                                <div class="mb-1 text-caption text-ink-subtle">${app.escapeHtml(assignment.date || '-')}</div>
+                                                <div class="mb-2 font-medium text-ink">${app.escapeHtml(assignment.meeting || `P${assignment.no}`)}</div>
                                                 <div class="flex flex-wrap items-center gap-2">
                                                     ${isGraded
-                                                        ? app.renderBadge(`Nilai: ${assignment.score}`, 'success')
+                                                        ? app.renderBadge(assignment.score, 'success')
                                                         : app.renderBadge('Belum dinilai', 'warning')}
                                                     ${fileInfo.text ? app.renderBadge(fileInfo.text, 'neutral') : ''}
                                                 </div>
                                             </div>
                                             <div class="shrink-0">
                                                 ${submissionUrl
-                                                    ? `<a href="${app.escapeHtml(submissionUrl)}" target="_blank" rel="noopener noreferrer" class="${app.buttonClass('secondary', { small: true })}">Lihat File</a>`
-                                                    : '<span class="text-caption text-ink-subtle">Tidak ada file</span>'}
+                                                    ? `<a href="${app.escapeHtml(submissionUrl)}" target="_blank" rel="noopener noreferrer" class="${app.buttonClass('secondary', { small: true })}">File</a>`
+                                                    : ''}
                                             </div>
                                         </div>
                                     `;
@@ -216,7 +218,7 @@
                     document.getElementById('class-assignments').innerHTML = `
                         <div class="mycic-card">
                             <div class="mycic-card-body">
-                                ${app.renderEmptyState('Belum ada histori tugas.', 'secondary')}
+                                ${app.renderEmptyState('Belum ada tugas.', 'secondary')}
                             </div>
                         </div>
                     `;

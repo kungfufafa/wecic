@@ -5,38 +5,27 @@
 
 @section('content')
     <section class="mycic-hero mb-5" aria-label="Ringkasan akun">
-        <div class="flex items-center justify-between gap-3">
-            <div class="flex min-w-0 items-center gap-3">
-                <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/15 text-sm font-bold text-white border border-white/20" aria-hidden="true" data-user-avatar>M</span>
-                <div class="min-w-0">
-                    <div class="text-xs font-medium text-white/75 sm:text-sm">Selamat datang,</div>
-                    <div class="truncate text-base font-bold text-white sm:text-lg" data-user-name>Mahasiswa</div>
-                </div>
-            </div>
-            <div class="hidden sm:inline-flex items-center gap-2 rounded-lg border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold text-white/90 backdrop-blur-sm">
-                <span class="h-2 w-2 rounded-full bg-[#ffc300]"></span>
-                <span>Universitas Catur Insan Cendekia</span>
+        <div class="flex min-w-0 items-center gap-3">
+            <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/15 text-sm font-bold text-white border border-white/20" aria-hidden="true" data-user-avatar>M</span>
+            <div class="min-w-0">
+                <div class="text-xs font-medium text-white/75">Halo,</div>
+                <div class="truncate text-base font-bold text-white sm:text-lg" data-user-name>Mahasiswa</div>
             </div>
         </div>
     </section>
 
     <div class="flex flex-col gap-5">
-        <div class="grid grid-cols-3 gap-3 lg:gap-4">
-            @foreach ([
-                ['label' => 'Mata kuliah', 'note' => 'Kelas aktif.'],
-                ['label' => 'IPK', 'note' => 'Ringkasan terakhir.'],
-                ['label' => 'Total SKS', 'note' => 'Kredit terkumpul.'],
-            ] as $metric)
+        <div class="grid grid-cols-3 gap-3">
+            @foreach (['Matkul', 'IPK', 'SKS'] as $label)
                 <div class="mycic-metric">
-                    <div class="mycic-metric-label">{{ $metric['label'] }}</div>
+                    <div class="mycic-metric-label">{{ $label }}</div>
                     <div class="mycic-metric-value" data-dashboard-metric>-</div>
-                    <div class="mycic-metric-note">{{ $metric['note'] }}</div>
                 </div>
             @endforeach
         </div>
 
         <section aria-label="Jadwal hari ini">
-            <h2 class="mycic-section-title mb-3">Jadwal hari ini</h2>
+            <h2 class="mycic-section-title mb-3">Hari ini</h2>
             <div id="dashboard-class-summary">
                 <div class="mycic-card">
                     <div class="mycic-card-body flex flex-col gap-3">
@@ -49,7 +38,7 @@
         </section>
 
         <section aria-label="Tugas aktif">
-            <h2 class="mycic-section-title mb-3">Tugas aktif</h2>
+            <h2 class="mycic-section-title mb-3">Tugas</h2>
             <div id="dashboard-pending-assignments">
                 <div class="mycic-card">
                     <div class="mycic-card-body flex flex-col gap-3">
@@ -98,13 +87,9 @@
                 });
 
                 latestClassesSummary = classesSummary;
-                app.setSyncStatus(
-                    todayClasses.length ? `Jadwal ${dayLabel.toLowerCase()} sedang disiapkan.` : 'Belum ada jadwal kuliah untuk hari ini.',
-                    todayClasses.length ? 'info' : 'warning'
-                );
 
                 if (!todayClasses.length) {
-                    summaryHost.innerHTML = app.renderEmptyState(`Tidak ada jadwal kuliah untuk ${dayLabel}.`, 'secondary');
+                    summaryHost.innerHTML = app.renderEmptyState(`Tidak ada jadwal ${dayLabel}.`, 'secondary');
 
                     return;
                 }
@@ -115,93 +100,62 @@
                     else if (klass.attendance?.status?.already_marked) statusColor = 'success';
                     else if (klass.attendance?.available) statusColor = 'warning';
 
+                    const materialTitle = klass.attendance?.today_material?.title;
+                    const materialLabel = materialTitle && materialTitle !== 'Materi terbaru belum terdeteksi.' ? materialTitle : null;
+
                     return `
                     <div class="mycic-card mb-3">
                         <div class="mycic-card-body">
                             <div class="mb-3 flex flex-wrap items-center gap-3">
                                 <div class="min-w-0 flex-1">
-                                    <div class="mb-1 flex flex-wrap items-center gap-2">
-                                        <div class="flex items-center gap-1 text-sm font-medium text-ink-subtle">
-                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" /><path d="M12 7v5l3 3" /></svg>
-                                            ${app.escapeHtml(klass.schedule?.time || 'Jadwal belum tersedia')}
-                                        </div>
-                                        <span class="text-ink-subtle">·</span>
-                                        <div class="text-sm font-medium uppercase text-ink-subtle">${app.escapeHtml([klass.course_code, klass.class_name].filter(Boolean).join(' · ') || 'Kelas')}</div>
+                                    <div class="mb-1 flex flex-wrap items-center gap-2 text-sm text-ink-subtle">
+                                        <span class="font-medium">${app.escapeHtml(klass.schedule?.time || '-')}</span>
+                                        <span>·</span>
+                                        <span class="font-medium uppercase">${app.escapeHtml([klass.course_code, klass.class_name].filter(Boolean).join(' · ') || 'Kelas')}</span>
                                     </div>
                                     <h3 class="mb-1 text-title font-bold text-ink">${app.escapeHtml(klass.course_name || 'Kelas')}</h3>
-                                    <div class="flex flex-wrap items-center gap-2 text-sm text-ink-muted">
-                                        <span class="flex items-center gap-1">
-                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0" /><path d="M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" /></svg>
-                                            ${app.escapeHtml(klass.lecturer_name || 'Dosen belum tersedia')}
-                                        </span>
-                                        <span class="text-ink-subtle">·</span>
-                                        <span class="flex items-center gap-1">
-                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 11a3 3 0 1 0 6 0a3 3 0 0 0 -6 0" /><path d="M17.657 16.657l-4.243 4.243a2 2 0 0 1 -2.827 0l-4.244 -4.243a8 8 0 1 1 11.314 0z" /></svg>
-                                            ${app.escapeHtml(klass.room || '-')}
-                                        </span>
+                                    <div class="text-sm text-ink-muted">
+                                        ${app.escapeHtml(klass.lecturer_name || '-')} · ${app.escapeHtml(klass.room || '-')}
                                     </div>
                                 </div>
                                 <div class="shrink-0">
                                     ${klass.attendance?.meeting_url
-                                        ? `<a href="${app.escapeHtml(klass.attendance.meeting_url)}" class="${app.buttonClass('icon')}" aria-label="Detail meeting">
-                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M5 12l14 0" /><path d="M13 18l6 -6" /><path d="M13 6l6 6" /></svg>
-                                           </a>`
-                                        : app.renderDisabledButton('Detail meeting')}
+                                        ? `<a href="${app.escapeHtml(klass.attendance.meeting_url)}" class="${app.buttonClass('secondary', { small: true })}">Buka</a>`
+                                        : ''}
                                 </div>
                             </div>
 
-                            <hr class="mycic-divider">
-
-                            <div class="mb-3 flex flex-wrap gap-3 text-sm text-ink-subtle">
-                                <div><strong class="text-ink-muted">Pertemuan:</strong> ${app.escapeHtml(klass.attendance?.meeting_number || '-')}</div>
-                                <div><strong class="text-ink-muted">Materi:</strong> <span class="italic">${app.escapeHtml(klass.attendance?.today_material?.title && klass.attendance?.today_material?.title !== 'Materi terbaru belum terdeteksi.' ? klass.attendance?.today_material?.title : '-')}</span></div>
-                            </div>
+                            ${(klass.attendance?.meeting_number || materialLabel) ? `
+                                <div class="mb-3 flex flex-wrap gap-3 text-sm text-ink-subtle">
+                                    ${klass.attendance?.meeting_number ? `<span>P${app.escapeHtml(klass.attendance.meeting_number)}</span>` : ''}
+                                    ${materialLabel ? `<span class="italic">${app.escapeHtml(materialLabel)}</span>` : ''}
+                                </div>
+                            ` : ''}
 
                             <div class="${panelTone(statusColor)}">
                                 ${klass.attendance?.actionable ? `
-                                    <div class="mb-2 font-semibold ${textTone(statusColor)}">Waktunya Absensi!</div>
                                     <form class="flex flex-wrap items-center gap-2" data-attendance-card="${index}">
                                         <div class="w-full min-w-0 md:w-auto md:min-w-[12rem] md:flex-1">
-                                            <input type="text" class="mycic-input bg-panel" data-field="kode" placeholder="Kode / PIN" required>
+                                            <input type="text" class="mycic-input bg-panel" data-field="kode" placeholder="Kode absen" required>
                                         </div>
-                                        <div class="shrink-0">
-                                            <button type="button" class="${app.buttonClass('secondary')} bg-panel" data-qr-scan>
-                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" width="20" height="20" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 4m0 1a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z" /><path d="M7 17l0 .01" /><path d="M14 4m0 1a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z" /><path d="M7 7l0 .01" /><path d="M4 14m0 1a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z" /><path d="M17 7l0 .01" /><path d="M14 14l3 0" /><path d="M20 14l0 .01" /><path d="M14 14l0 3" /><path d="M14 20l3 0" /><path d="M17 17l3 0" /><path d="M20 17l0 3" /></svg>
-                                                Scan QR
-                                            </button>
-                                        </div>
+                                        <button type="button" class="${app.buttonClass('secondary')} bg-panel" data-qr-scan>Scan QR</button>
                                         <div class="shrink-0">
                                             <input type="file" class="mycic-input hidden" id="qr-file-${index}" data-qr-file accept="image/*">
-                                            <label class="${app.buttonClass('secondary')} mb-0 bg-panel" for="qr-file-${index}">
-                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" width="20" height="20" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M15 8h.01" /><path d="M3 6a3 3 0 0 1 3 -3h12a3 3 0 0 1 3 3v12a3 3 0 0 1 -3 3h-12a3 3 0 0 1 -3 -3v-12z" /><path d="M3 16l5 -5c.928 -.893 2.072 -.893 3 0l5 5" /><path d="M14 14l1 -1c.928 -.893 2.072 -.893 3 0l3 3" /></svg>
-                                                Upload QR
-                                            </label>
+                                            <label class="${app.buttonClass('secondary')} mb-0 bg-panel" for="qr-file-${index}">Upload QR</label>
                                         </div>
-                                        <div class="mt-3 w-full shrink-0 md:ms-auto md:mt-0 md:w-auto">
-                                            <button type="submit" class="${app.buttonClass('primary')}" data-online-required>Kirim absensi</button>
-                                        </div>
+                                        <button type="submit" class="${app.buttonClass('primary')} md:ms-auto" data-online-required>Kirim</button>
                                     </form>
                                 ` : klass.attendance?.status?.already_marked ? `
-                                    <div class="flex items-center gap-2 ${textTone(statusColor)}">
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 shrink-0" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M5 12l5 5l10 -10" /></svg>
-                                        <div>
-                                            <div class="font-medium">${app.escapeHtml(klass.attendance?.status?.label || 'Sudah tercatat')}</div>
-                                            <div class="text-sm opacity-75">${app.escapeHtml(klass.attendance?.status?.time ? `Tercatat ${klass.attendance.status.time}.` : 'Absensi sudah tercatat.')}</div>
-                                        </div>
+                                    <div class="text-sm font-medium ${textTone(statusColor)}">
+                                        ${app.escapeHtml(klass.attendance?.status?.label || 'Hadir')}${klass.attendance?.status?.time ? ` · ${app.escapeHtml(klass.attendance.status.time)}` : ''}
                                     </div>
                                 ` : klass.attendance?.available ? `
                                     <div class="flex flex-wrap items-center justify-between gap-2 ${textTone(statusColor)}">
-                                        <div class="flex items-center gap-2">
-                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" width="20" height="20" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" /><path d="M12 8v4" /><path d="M12 16h.01" /></svg>
-                                            <span class="font-medium text-sm">Absensi tersedia, buka detail kelas untuk melanjutkan.</span>
-                                        </div>
-                                        <a href="${app.escapeHtml(klass.attendance?.meeting_url || '/class')}" class="inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-bold border border-current hover:bg-black/5 dark:hover:bg-white/10 transition-colors">
-                                            <span>Buka Detail</span>
-                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 6l6 6l-6 6" /></svg>
-                                        </a>
+                                        <span class="text-sm font-medium">Absensi tersedia</span>
+                                        <a href="${app.escapeHtml(klass.attendance?.meeting_url || '/class')}" class="text-xs font-bold underline">Buka</a>
                                     </div>
                                 ` : `
-                                    <div class="text-sm text-ink-subtle">Belum ada absensi aktif untuk sesi ini.</div>
+                                    <div class="text-sm text-ink-subtle">Belum ada absensi.</div>
                                 `}
                             </div>
                         </div>
@@ -285,7 +239,7 @@
                 latestAssignments = pendingAssignments;
 
                 if (!pendingAssignments.length) {
-                    assignmentHost.innerHTML = app.renderEmptyState('Tidak ada tugas yang menunggu dikumpulkan.', 'secondary');
+                    assignmentHost.innerHTML = app.renderEmptyState('Tidak ada tugas.', 'secondary');
 
                     return;
                 }
@@ -299,58 +253,34 @@
                         <div class="mycic-card-body">
                             <div class="mb-3 flex flex-wrap items-start gap-2">
                                 <div class="me-auto min-w-0">
-                                    <div class="mb-1 flex items-center gap-2">
-                                        <div class="text-sm font-medium uppercase text-ink-subtle">${app.escapeHtml([assignment.course_code, assignment.lecturer_name].filter(Boolean).join(' · ') || '')}</div>
-                                    </div>
+                                    <div class="mb-1 text-sm font-medium uppercase text-ink-subtle">${app.escapeHtml([assignment.course_code, assignment.lecturer_name].filter(Boolean).join(' · ') || '')}</div>
                                     <h3 class="mb-1 text-title font-bold text-ink">${app.escapeHtml(assignment.course_name || 'Tugas')}</h3>
                                     ${assignment.material_title && assignment.material_title !== assignment.course_name ? `
                                         <p class="mb-0 text-sm text-ink-subtle">${app.escapeHtml(assignment.material_title)}</p>
                                     ` : ''}
                                 </div>
                                 ${assignment.deadline ? `
-                                    <div class="flex items-center gap-1 text-sm font-semibold ${textTone(statusColor)}">
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" /><path d="M12 7v5l3 3" /></svg>
-                                        ${app.escapeHtml(assignment.deadline)}
-                                    </div>
+                                    <div class="text-sm font-semibold ${textTone(statusColor)}">${app.escapeHtml(assignment.deadline)}</div>
                                 ` : ''}
                             </div>
 
-                            <hr class="mycic-divider">
-
                             <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
-                                <div class="flex flex-wrap gap-2">
-                                    ${assignment.assignment_file_url
-                                        ? `<a href="${app.escapeHtml(app.absoluteCampusUrl(assignment.assignment_file_url))}" target="_blank" rel="noreferrer" class="${app.buttonClass('secondary', { small: true })}">
-                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M15 7l-6.5 6.5a1.5 1.5 0 0 0 3 3l6.5 -6.5a3 3 0 0 0 -6 -6l-6.5 6.5a4.5 4.5 0 0 0 9 9l6.5 -6.5" /></svg>
-                                            Buka Lampiran
-                                           </a>`
-                                        : app.renderDisabledButton('Lampiran belum ada')}
-                                </div>
-                                <a href="${app.escapeHtml(assignment.meeting_url)}" class="mycic-link flex items-center gap-1 text-sm font-medium">
-                                    Detail Meeting
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 6h-6a2 2 0 0 0 -2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-6" /><path d="M11 13l9 -9" /><path d="M15 4h5v5" /></svg>
-                                </a>
+                                ${assignment.assignment_file_url
+                                    ? `<a href="${app.escapeHtml(app.absoluteCampusUrl(assignment.assignment_file_url))}" target="_blank" rel="noreferrer" class="${app.buttonClass('secondary', { small: true })}">Lampiran</a>`
+                                    : '<span></span>'}
+                                <a href="${app.escapeHtml(assignment.meeting_url)}" class="mycic-link text-sm font-medium">Detail</a>
                             </div>
 
                             <div class="rounded-[var(--radius-control)] border border-border bg-surface/75 p-3.5">
                                 ${assignment.can_submit_directly ? `
-                                    <div class="mb-2.5 flex items-center gap-1.5 text-sm font-semibold text-ink">
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 text-brand" width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2 -2v-2" /><path d="M7 9l5 -5l5 5" /><path d="M12 4l0 12" /></svg>
-                                        <span>Kumpulkan File (.pdf)</span>
-                                    </div>
                                     <form class="flex flex-col gap-2 sm:flex-row sm:items-center" data-assignment-card="${index}">
                                         <div class="min-w-0 flex-1">
                                             <input type="file" class="mycic-input bg-panel" data-field="attachment" accept=".pdf" required>
                                         </div>
-                                        <div class="shrink-0">
-                                            <button type="submit" class="${app.buttonClass('primary')}" data-online-required>Kirim tugas</button>
-                                        </div>
+                                        <button type="submit" class="${app.buttonClass('primary')}" data-online-required>Kirim</button>
                                     </form>
                                 ` : `
-                                    <div class="flex items-center gap-1.5 text-sm text-ink-subtle">
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 text-brand" width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" /><path d="M12 9h.01" /><path d="M11 12h1v4h1" /></svg>
-                                        Buka Detail Meeting untuk instruksi pengumpulan tugas ini.
-                                    </div>
+                                    <div class="text-sm text-ink-subtle">Buka detail untuk mengumpulkan.</div>
                                 `}
                             </div>
                         </div>
@@ -432,7 +362,7 @@
                     app.markViewSynced('Dashboard', payload, { force });
                 } catch (error) {
                     dashboardOverviewHealthy = false;
-                    app.setSyncStatus('Gagal memuat ringkasan dashboard.', 'error');
+                    app.setSyncStatus('Gagal memuat dashboard.', 'error');
                     app.showNotice(error.payload?.message || error.message, 'error');
                 }
             };
@@ -446,8 +376,8 @@
                         app.markViewSynced('Tugas', payload, { force });
                     }
                 } catch (error) {
-                    app.setSyncStatus('Gagal memuat daftar tugas yang belum dikumpulkan.', 'error');
-                    document.getElementById('dashboard-pending-assignments').innerHTML = app.renderEmptyState('Gagal memuat daftar tugas yang belum dikumpulkan.', 'danger');
+                    app.setSyncStatus('Gagal memuat tugas.', 'error');
+                    document.getElementById('dashboard-pending-assignments').innerHTML = app.renderEmptyState('Gagal memuat tugas.', 'danger');
                     app.showNotice(error.payload?.message || error.message, 'error');
                 }
             };

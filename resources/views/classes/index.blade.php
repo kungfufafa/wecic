@@ -4,125 +4,65 @@
 @section('page_id', 'class-index')
 
 @section('content')
-    <header class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between print:hidden">
-        <div>
-            <h1 class="mycic-page-heading">Jadwal & Kelas</h1>
-            <p class="mycic-page-subheading" id="class-hero-copy">Visualisasi jadwal mingguan dari Senin sampai Sabtu dengan pemblokiran jam dan analisis jeda kosong.</p>
-        </div>
-        <div class="flex items-center gap-2 shrink-0">
-            <button type="button" class="mycic-btn-secondary-sm" id="btn-print-schedule" title="Cetak jadwal perkuliahan">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M17 17h2a2 2 0 0 0 2 -2v-4a2 2 0 0 0 -2 -2h-14a2 2 0 0 0 -2 2v4a2 2 0 0 0 2 2h2" /><path d="M17 9v-4a2 2 0 0 0 -2 -2h-6a2 2 0 0 0 -2 2v4" /><path d="M7 13m0 2a2 2 0 0 1 2 -2h6a2 2 0 0 1 2 2v4a2 2 0 0 1 -2 2h-6a2 2 0 0 1 -2 -2z" /></svg>
-                <span>Cetak Jadwal</span>
-            </button>
-        </div>
+    <header class="mb-4">
+        <h1 class="mycic-page-heading">Jadwal & Kelas</h1>
     </header>
 
-    <!-- Print-only Title Header -->
-    <div class="hidden print:block mb-4 border-b border-border pb-3">
-        <h1 class="text-xl font-bold text-ink">Jadwal Kuliah Mahasiswa — myCIC</h1>
-        <p class="text-sm text-ink-subtle" id="print-student-info">Universitas Catur Insan Cendekia</p>
-    </div>
-
-    <div id="class-summary" class="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4 print:grid-cols-4">
+    <div id="class-summary" class="mb-5 grid grid-cols-3 gap-3">
         <div class="mycic-metric">
             <div class="mycic-metric-label">Total kelas</div>
             <div class="mycic-metric-value" data-summary-value><div class="mycic-skeleton h-6 w-12"></div></div>
-            <div class="mycic-metric-note">Semester aktif</div>
-        </div>
-        <div class="mycic-metric">
-            <div class="mycic-metric-label">Mahasiswa</div>
-            <div class="mycic-metric-value" data-summary-value><div class="mycic-skeleton h-6 w-24"></div></div>
-            <div class="mycic-metric-note">Identitas aktif</div>
         </div>
         <div class="mycic-metric">
             <div class="mycic-metric-label">Semester</div>
             <div class="mycic-metric-value" data-summary-value><div class="mycic-skeleton h-6 w-16"></div></div>
-            <div class="mycic-metric-note">Tahun akademik</div>
         </div>
         <div class="mycic-metric">
-            <div class="mycic-metric-label">Hari Kuliah Aktif</div>
+            <div class="mycic-metric-label">Hari aktif</div>
             <div class="mycic-metric-value" id="summary-active-days"><div class="mycic-skeleton h-6 w-16"></div></div>
-            <div class="mycic-metric-note" id="summary-total-hours">Total durasi kuliah</div>
+            <div class="mycic-metric-note" id="summary-total-hours"></div>
         </div>
     </div>
 
-    <!-- Quick Day Overview Bar (Senin - Sabtu) -->
-    <div class="mb-5 print:hidden">
-        <div class="mb-2 flex items-center justify-between">
-            <div class="text-caption font-semibold uppercase tracking-wider text-ink-subtle">Ringkasan Hari (Senin – Sabtu)</div>
-            <span class="text-caption text-ink-muted hidden sm:inline">Klik hari untuk memfilter &middot; Klik lagi untuk tampilkan semua</span>
+    <div id="day-summary-strip" class="mb-5 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+        <!-- Rendered by JS -->
+    </div>
+
+    <div class="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div class="inline-flex shrink-0 items-center gap-1 p-1 bg-surface rounded-xl border border-border/40 overflow-x-auto max-w-full" id="view-mode-tabs" role="tablist">
+            <button type="button" class="mycic-view-tab inline-flex items-center gap-1.5 whitespace-nowrap px-3 py-1.5 text-xs sm:text-sm font-bold rounded-lg transition-all bg-panel text-brand shadow-xs border border-border/40" data-view-target="blocking" role="tab" aria-selected="true" aria-controls="view-blocking" id="tab-blocking">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
+                <span>Grid</span>
+            </button>
+            <button type="button" class="mycic-view-tab inline-flex items-center gap-1.5 whitespace-nowrap px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-lg transition-all text-ink-muted hover:text-ink" data-view-target="timeline" role="tab" aria-selected="false" aria-controls="view-timeline" id="tab-timeline">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9" /><polyline points="12 7 12 12 15 15" /></svg>
+                <span>Timeline</span>
+            </button>
+            <button type="button" class="mycic-view-tab inline-flex items-center gap-1.5 whitespace-nowrap px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-lg transition-all text-ink-muted hover:text-ink" data-view-target="list" role="tab" aria-selected="false" aria-controls="view-list" id="tab-list">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" /><line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" /></svg>
+                <span>Daftar</span>
+            </button>
         </div>
-        <div id="day-summary-strip" class="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
-            <!-- Rendered by JS -->
+
+        <div class="mycic-input-wrap w-full sm:w-64">
+            <span class="mycic-input-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="10" cy="10" r="7"/><line x1="21" y1="21" x2="15" y2="15"/></svg>
+            </span>
+            <input
+                type="search"
+                id="class-search-input"
+                class="mycic-input-with-icon h-9 text-xs"
+                placeholder="Cari matkul, dosen, ruang..."
+                autocomplete="off"
+            >
         </div>
     </div>
 
-    <!-- View Switcher & Filter Toolbar -->
-    <div class="mb-5 rounded-[var(--radius-card)] border border-border bg-panel p-3 sm:p-3.5 shadow-xs print:hidden">
-        <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <!-- View Mode Tabs (Single-line segmented control, strictly no-wrap) -->
-            <div class="inline-flex shrink-0 items-center gap-1 p-1 bg-surface rounded-xl border border-border/40 overflow-x-auto max-w-full" id="view-mode-tabs" role="tablist">
-                <button type="button" class="mycic-view-tab inline-flex items-center gap-1.5 whitespace-nowrap px-3.5 py-1.5 text-xs sm:text-sm font-bold rounded-lg transition-all bg-panel text-brand shadow-xs border border-border/40" data-view-target="blocking" role="tab" aria-selected="true" aria-controls="view-blocking" id="tab-blocking">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
-                    <span>Grid Time Blocking</span>
-                </button>
-                <button type="button" class="mycic-view-tab inline-flex items-center gap-1.5 whitespace-nowrap px-3.5 py-1.5 text-xs sm:text-sm font-semibold rounded-lg transition-all text-ink-muted hover:text-ink" data-view-target="timeline" role="tab" aria-selected="false" aria-controls="view-timeline" id="tab-timeline">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9" /><polyline points="12 7 12 12 15 15" /></svg>
-                    <span>Timeline & Jam Kosong</span>
-                </button>
-                <button type="button" class="mycic-view-tab inline-flex items-center gap-1.5 whitespace-nowrap px-3.5 py-1.5 text-xs sm:text-sm font-semibold rounded-lg transition-all text-ink-muted hover:text-ink" data-view-target="list" role="tab" aria-selected="false" aria-controls="view-list" id="tab-list">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" /><line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" /></svg>
-                    <span>Daftar Kartu</span>
-                </button>
-            </div>
-
-            <!-- Search input on right of top row -->
-            <div class="mycic-input-wrap w-full md:w-64">
-                <span class="mycic-input-icon">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="10" cy="10" r="7"/><line x1="21" y1="21" x2="15" y2="15"/></svg>
-                </span>
-                <input
-                    type="search"
-                    id="class-search-input"
-                    class="mycic-input-with-icon h-9 text-xs"
-                    placeholder="Cari matkul, dosen, ruang..."
-                    autocomplete="off"
-                >
-            </div>
-        </div>
-
-        <!-- Filter Hari (Clean separated sub-row with breathing room and horizontal scroll) -->
-        <div class="mt-3 flex items-center justify-between gap-3 border-t border-border-light pt-2.5">
-            <div class="flex items-center gap-2 min-w-0">
-                <span class="text-caption font-bold uppercase tracking-wider text-ink-subtle shrink-0">Filter Hari:</span>
-                <div class="flex items-center gap-1.5 overflow-x-auto py-0.5 no-scrollbar" id="day-filter-bar">
-                    <!-- Filter pills generated dynamically -->
-                </div>
-            </div>
-            <div id="filter-reset-wrap" class="hidden shrink-0">
-                <button type="button" class="text-caption font-semibold text-brand hover:underline inline-flex items-center gap-1" id="btn-reset-filters">
-                    <span>Reset filter</span>
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- View Container 1: Time Blocking Grid -->
     <div id="view-blocking" class="view-panel mb-6" role="tabpanel" aria-labelledby="tab-blocking">
         <div class="mycic-card overflow-hidden">
-            <div class="border-b border-border bg-surface/50 px-4 py-3 flex flex-wrap items-center justify-between gap-2 print:hidden">
-                <div class="flex items-center gap-2">
-                    <span class="inline-flex h-2.5 w-2.5 rounded-full bg-brand"></span>
-                    <span class="text-xs sm:text-sm font-bold text-ink">Matriks Jam Perkuliahan (Senin – Sabtu)</span>
-                    <span class="text-caption text-ink-subtle hidden md:inline">&middot; Blok warna = jam kelas, blok putus-putus = jeda kosong</span>
-                </div>
-                <div class="flex items-center gap-2 text-caption text-ink-subtle">
-                    <span>💡 Klik kartu kelas untuk detail & pertemuan</span>
-                </div>
-            </div>
             <div id="blocking-grid-container" class="overflow-x-auto p-2 sm:p-4">
                 <div class="mycic-empty py-12">
-                    <p class="mycic-empty-title text-ink-subtle">Memuat visualisasi time blocking...</p>
+                    <p class="mycic-empty-title text-ink-subtle">Memuat jadwal...</p>
                 </div>
             </div>
         </div>
@@ -132,7 +72,7 @@
     <div id="view-timeline" class="view-panel mb-6 hidden" role="tabpanel" aria-labelledby="tab-timeline">
         <div id="timeline-container" class="flex flex-col gap-4">
             <div class="mycic-empty py-12">
-                <p class="mycic-empty-title text-ink-subtle">Memuat rincian timeline...</p>
+                <p class="mycic-empty-title text-ink-subtle">Memuat jadwal...</p>
             </div>
         </div>
     </div>
@@ -141,7 +81,7 @@
     <div id="view-list" class="view-panel mb-6 hidden" role="tabpanel" aria-labelledby="tab-list">
         <div class="mb-4 flex flex-col gap-3" id="class-list">
             <div class="mycic-empty py-8">
-                <p class="mycic-empty-title text-ink-subtle">Memuat daftar kelas...</p>
+                <p class="mycic-empty-title text-ink-subtle">Memuat jadwal...</p>
             </div>
         </div>
     </div>
@@ -207,10 +147,7 @@
             const activeDaysMetric = document.getElementById('summary-active-days');
             const totalHoursMetric = document.getElementById('summary-total-hours');
             const dayStripHost = document.getElementById('day-summary-strip');
-            const dayFilterBar = document.getElementById('day-filter-bar');
             const searchInput = document.getElementById('class-search-input');
-            const printBtn = document.getElementById('btn-print-schedule');
-            const printStudentInfo = document.getElementById('print-student-info');
             const blockingGridHost = document.getElementById('blocking-grid-container');
             const timelineHost = document.getElementById('timeline-container');
             const listHost = document.getElementById('class-list');
@@ -505,19 +442,10 @@
             };
 
             const renderSummary = (payload, parsedClasses, dayMap) => {
-                const identity = payload.user_info || payload.student_info || {};
                 const semester = payload.semester_info?.semester || payload.semester_info?.label || payload.academic_summary?.semester || '-';
 
                 summaryCards[0].textContent = String(parsedClasses.length || '0');
-                summaryCards[1].textContent = identity.nim || identity.student_id || '-';
-                summaryCards[2].textContent = semester;
-
-                if (printStudentInfo) {
-                    const nimText = identity.nim ? `NIM: ${identity.nim}` : '';
-                    const nameText = identity.nama || identity.name ? `${identity.nama || identity.name}` : '';
-                    const prodiText = identity.program_studi ? `${identity.program_studi}` : '';
-                    printStudentInfo.textContent = [nameText, nimText, prodiText, `Semester ${semester}`].filter(Boolean).join(' · ') || 'Universitas Catur Insan Cendekia';
-                }
+                summaryCards[1].textContent = semester;
 
                 let activeDaysCount = 0;
                 let totalWeeklyMinutes = 0;
@@ -530,18 +458,11 @@
                 });
 
                 if (activeDaysMetric) {
-                    activeDaysMetric.textContent = `${activeDaysCount} Hari`;
+                    activeDaysMetric.textContent = String(activeDaysCount);
                 }
                 if (totalHoursMetric) {
                     const totalHours = (totalWeeklyMinutes / 60).toFixed(1).replace('.0', '');
-                    totalHoursMetric.textContent = `${totalHours} jam kuliah (${DAYS_LIST.length - activeDaysCount} hari libur)`;
-                }
-
-                const heroCopy = document.getElementById('class-hero-copy');
-                if (heroCopy) {
-                    heroCopy.textContent = parsedClasses.length
-                        ? `${parsedClasses.length} kelas aktif terjadwal pada ${activeDaysCount} hari (Senin–Sabtu). Lihat pemblokiran jam dan analisis jeda kosong untuk mengatur waktu kuliah Anda.`
-                        : 'Belum ada kelas yang tampil pada sumber ini.';
+                    totalHoursMetric.textContent = `${totalHours} jam / minggu`;
                 }
             };
 
@@ -552,22 +473,9 @@
                     const count = group.classes.length;
                     const hasClasses = count > 0;
                     const isSelected = selectedDayFilter === d;
-
-                    let spanLabel = 'Tidak ada jadwal';
-                    if (hasClasses) {
-                        const first = group.classes[0];
-                        const last = group.classes[group.classes.length - 1];
-                        spanLabel = `${first.startTimeFormatted} - ${last.endTimeFormatted}`;
-                    }
-
-                    let gapNote = '';
-                    let gapNoteClass = 'text-ink-subtle';
-                    if (group.gaps.length > 0) {
-                        gapNote = `&bull; ${group.gaps.length} jeda kosong`;
-                        gapNoteClass = 'text-amber-700 dark:text-amber-400 font-medium';
-                    } else if (hasClasses) {
-                        gapNote = '&bull; Tanpa jeda';
-                    }
+                    const gapNote = group.gaps.length > 0
+                        ? `<div class="text-[10px] mt-1 text-amber-700 dark:text-amber-400 font-medium">${group.gaps.length} jeda</div>`
+                        : '';
 
                     return `
                         <div class="rounded-lg border p-3 transition-all duration-150 cursor-pointer ${
@@ -576,18 +484,15 @@
                                 : isToday
                                 ? 'border-brand/40 bg-surface/70'
                                 : 'border-border bg-panel hover:border-brand/30 hover:bg-surface/40'
-                        }" data-day-trigger="${d}" title="${isSelected ? 'Klik untuk batal memfilter' : `Klik untuk filter ${d}`}">
+                        }" data-day-trigger="${d}" title="${isSelected ? 'Tampilkan semua hari' : `Filter ${d}`}">
                             <div class="flex items-center justify-between gap-1 mb-1">
                                 <span class="text-xs font-bold text-ink">${d}</span>
                                 ${isToday ? '<span class="rounded bg-brand px-1.5 py-0.5 text-[10px] font-bold text-white uppercase tracking-tight">Hari Ini</span>' : ''}
                             </div>
                             <div class="text-sm font-extrabold ${hasClasses ? 'text-brand' : 'text-ink-subtle'}">
-                                ${hasClasses ? `${count} Kelas` : 'Libur'}
+                                ${hasClasses ? `${count} kelas` : 'Libur'}
                             </div>
-                            <div class="text-[11px] text-ink-subtle truncate mt-0.5">
-                                ${app.escapeHtml(spanLabel)}
-                            </div>
-                            ${gapNote ? `<div class="text-[10px] mt-1 ${gapNoteClass}">${gapNote}</div>` : ''}
+                            ${gapNote}
                         </div>
                     `;
                 }).join('');
@@ -596,46 +501,6 @@
                     el.addEventListener('click', () => {
                         const day = el.dataset.dayTrigger;
                         setDayFilter(selectedDayFilter === day ? 'all' : day);
-                    });
-                });
-            };
-
-            const renderDayFilterBar = (dayMap) => {
-                const options = [
-                    { id: 'all', label: 'Semua Hari' },
-                    ...DAYS_LIST.map((d) => ({
-                        id: d,
-                        label: d,
-                        count: dayMap[d].classes.length,
-                        isToday: d === TODAY_DAY,
-                    })),
-                ];
-
-                dayFilterBar.innerHTML = options.map((opt) => {
-                    const isActive = selectedDayFilter === opt.id;
-                    const badge = opt.count !== undefined
-                        ? `<span class="ml-1 rounded-full px-1.5 py-0.5 text-[10px] ${
-                            isActive ? 'bg-white/20 text-white' : 'bg-surface-tint text-ink-muted'
-                        }">${opt.count}</span>`
-                        : '';
-                    const todayDot = opt.isToday ? '<span class="inline-block h-1.5 w-1.5 rounded-full bg-brand"></span>' : '';
-
-                    return `
-                        <button type="button" class="inline-flex items-center gap-1 shrink-0 rounded-md px-2.5 py-1 text-xs font-semibold transition-all ${
-                            isActive
-                                ? 'bg-brand text-white shadow-xs'
-                                : 'bg-surface text-ink-muted hover:bg-surface-tint hover:text-ink'
-                        }" data-day-filter-btn="${opt.id}">
-                            ${todayDot}
-                            <span>${opt.label}</span>
-                            ${badge}
-                        </button>
-                    `;
-                }).join('');
-
-                dayFilterBar.querySelectorAll('[data-day-filter-btn]').forEach((btn) => {
-                    btn.addEventListener('click', () => {
-                        setDayFilter(btn.dataset.dayFilterBtn);
                     });
                 });
             };
@@ -807,12 +672,9 @@
                                             `;
                                         }).join('')}
 
-                                        <!-- Empty Day Watermark if No Classes -->
                                         ${group.classes.length === 0 ? `
-                                            <div class="absolute inset-0 flex flex-col items-center justify-center p-4 text-center pointer-events-none">
-                                                <div class="flex h-10 w-10 items-center justify-center rounded-full bg-surface text-lg mb-1">🏖️</div>
-                                                <div class="text-xs font-semibold text-ink-muted">Hari Libur</div>
-                                                <div class="text-[10px] text-ink-subtle">Tidak ada jadwal kuliah</div>
+                                            <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                                <div class="text-xs font-medium text-ink-subtle">Libur</div>
                                             </div>
                                         ` : ''}
 
@@ -833,16 +695,10 @@
                                             const gapHeightPct = (gap.durationMinutes / totalGridMinutes) * 100;
 
                                             return `
-                                                <div class="absolute left-1 right-1 rounded-md border border-dashed border-amber-500/50 bg-amber-500/10 dark:bg-amber-500/15 p-1.5 flex flex-col items-center justify-center text-center transition-all duration-150 hover:bg-amber-500/20 z-10 overflow-hidden"
-                                                     style="top: ${gapTopPct}%; height: ${gapHeightPct}%; min-height: 28px;"
-                                                     title="Jam Kosong: ${gap.startTime} - ${gap.endTime} (${gap.formattedDuration})">
-                                                    <div class="flex items-center gap-1 text-[11px] font-bold text-amber-900 dark:text-amber-200 truncate">
-                                                        <span>☕</span>
-                                                        <span>Jeda Kosong ${gap.formattedDuration}</span>
-                                                    </div>
-                                                    <div class="text-[10px] text-amber-800/80 dark:text-amber-300/80 hidden sm:block truncate">
-                                                        ${gap.startTime} – ${gap.endTime}
-                                                    </div>
+                                                <div class="absolute left-1 right-1 rounded-md border border-dashed border-amber-500/50 bg-amber-500/10 dark:bg-amber-500/15 p-1 flex items-center justify-center text-center transition-all duration-150 hover:bg-amber-500/20 z-10 overflow-hidden"
+                                                     style="top: ${gapTopPct}%; height: ${gapHeightPct}%; min-height: 24px;"
+                                                     title="${gap.startTime} – ${gap.endTime}">
+                                                    <span class="text-[11px] font-bold text-amber-900 dark:text-amber-200 truncate">${gap.formattedDuration}</span>
                                                 </div>
                                             `;
                                         }).join('')}
@@ -883,8 +739,8 @@
                                                         </div>
                                                     </div>
                                                     <div class="mt-1 flex items-center justify-between gap-1 text-[10px] text-ink-subtle truncate pt-1 border-t border-black/5 dark:border-white/5">
-                                                        <span class="truncate font-medium">📍 ${app.escapeHtml(c.roomName)}</span>
-                                                        <span class="truncate hidden sm:inline">👤 ${app.escapeHtml((c.lecturerName || '').split(',')[0])}</span>
+                                                        <span class="truncate font-medium">${app.escapeHtml(c.roomName)}</span>
+                                                        <span class="truncate hidden sm:inline">${app.escapeHtml((c.lecturerName || '').split(',')[0])}</span>
                                                     </div>
                                                 </div>
                                             `;
@@ -929,21 +785,16 @@
                                     <h3 class="text-subtitle font-bold text-ink">${d}</h3>
                                     ${isToday ? '<span class="rounded bg-brand px-2 py-0.5 text-xs font-bold text-white uppercase tracking-tight">Hari Ini</span>' : ''}
                                     <span class="rounded-full bg-surface-tint px-2.5 py-0.5 text-xs font-semibold text-ink-muted">
-                                        ${count > 0 ? `${count} Kelas` : 'Libur'}
+                                        ${count > 0 ? `${count} kelas` : 'Libur'}
                                     </span>
                                 </div>
-                                <div class="text-caption text-ink-subtle">
-                                    ${count > 0 ? `Total ${formatDuration(group.totalMinutes)} perkuliahan` : 'Bebas perkuliahan'}
-                                </div>
+                                ${count > 0 ? `<div class="text-caption text-ink-subtle">${formatDuration(group.totalMinutes)}</div>` : ''}
                             </div>
 
-                            <!-- Day Items -->
                             <div class="p-4 flex flex-col gap-3">
                                 ${count === 0 ? `
-                                    <div class="rounded-lg border border-dashed border-border p-6 text-center">
-                                        <div class="text-2xl mb-1">🏖️</div>
-                                        <div class="text-sm font-semibold text-ink">Tidak ada kelas ${searchLower ? 'yang cocok ' : ''}pada hari ${d}</div>
-                                        <div class="text-caption text-ink-subtle mt-0.5">${searchLower ? 'Coba ubah kata kunci pencarian.' : 'Hari ini bebas jadwal perkuliahan atau hari libur.'}</div>
+                                    <div class="rounded-lg border border-dashed border-border p-4 text-center text-sm text-ink-subtle">
+                                        ${searchLower ? 'Tidak ada hasil.' : 'Libur'}
                                     </div>
                                 ` : ''}
 
@@ -956,21 +807,8 @@
                                         const gapDur = nextClass.startMin - c.endMin;
                                         if (gapDur >= 15) {
                                             gapHtml = `
-                                                <div class="my-1 rounded-lg border-2 border-dashed border-amber-500/40 bg-amber-500/10 p-3 flex items-center justify-between text-xs sm:text-sm">
-                                                    <div class="flex items-center gap-2.5">
-                                                        <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-500/20 text-base">☕</span>
-                                                        <div>
-                                                            <div class="font-bold text-amber-950 dark:text-amber-100">
-                                                                Jeda Kuliah / Jam Kosong: ${formatMinutesToTime(c.endMin)} – ${formatMinutesToTime(nextClass.startMin)}
-                                                            </div>
-                                                            <div class="text-amber-900/80 dark:text-amber-300/80 text-caption">
-                                                                Waktu luang ${formatDuration(gapDur)} sebelum kelas ${app.escapeHtml(nextClass.courseName)}.
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    <span class="rounded-full bg-amber-500/20 px-2.5 py-1 text-xs font-bold text-amber-900 dark:text-amber-200 shrink-0">
-                                                        ${formatDuration(gapDur)}
-                                                    </span>
+                                                <div class="my-1 rounded-lg border border-dashed border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs font-semibold text-amber-950 dark:text-amber-100">
+                                                    ☕ ${formatDuration(gapDur)} · ${formatMinutesToTime(c.endMin)}–${formatMinutesToTime(nextClass.startMin)}
                                                 </div>
                                             `;
                                         }
@@ -991,9 +829,9 @@
                                                         ${c.classUrl ? `<a href="${c.classUrl}" class="hover:text-brand">${app.escapeHtml(c.courseName)}</a>` : app.escapeHtml(c.courseName)}
                                                     </h4>
                                                     <div class="mt-2 flex flex-wrap gap-3 text-caption text-ink-subtle">
-                                                        <span>📍 <strong>Ruang:</strong> ${app.escapeHtml(c.roomName)}</span>
-                                                        <span>👥 <strong>Kelas:</strong> ${app.escapeHtml(c.className)}</span>
-                                                        <span>👤 <strong>Dosen:</strong> ${app.escapeHtml(c.lecturerName)}</span>
+                                                        <span>${app.escapeHtml(c.roomName)}</span>
+                                                        <span>${app.escapeHtml(c.className)}</span>
+                                                        <span>${app.escapeHtml(c.lecturerName)}</span>
                                                     </div>
                                                 </div>
                                                 <div class="flex items-center gap-2 shrink-0 mt-2 sm:mt-0">
@@ -1009,12 +847,6 @@
                                     `;
                                 }).join('')}
 
-                                ${count === 1 && !searchLower ? `
-                                    <div class="rounded-md border border-border/60 bg-surface/40 p-2.5 text-xs text-ink-subtle flex items-center gap-2">
-                                        <span>✨</span>
-                                        <span>Hanya 1 kelas pada hari ini. Setelah kelas selesai, Anda memiliki sisa hari yang bebas perkuliahan.</span>
-                                    </div>
-                                ` : ''}
                             </div>
                         </div>
                     `;
@@ -1111,13 +943,7 @@
                 unscheduledHost.classList.remove('hidden');
                 unscheduledHost.innerHTML = `
                     <div class="mycic-card p-4">
-                        <div class="flex items-center gap-2 mb-3">
-                            <span class="inline-flex h-2.5 w-2.5 rounded-full bg-amber-500"></span>
-                            <h3 class="text-subtitle font-bold text-ink">Mata Kuliah Lainnya / Jadwal Khusus (${unscheduled.length} Kelas)</h3>
-                        </div>
-                        <p class="text-caption text-ink-subtle mb-3">
-                            Mata kuliah di bawah ini belum memiliki jadwal hari/jam tetap pada portal atau merupakan mata kuliah asinkron/praktik.
-                        </p>
+                        <h3 class="text-subtitle font-bold text-ink mb-3">Tanpa jadwal tetap (${unscheduled.length})</h3>
                         <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                             ${unscheduled.map(renderCard).join('')}
                         </div>
@@ -1278,12 +1104,6 @@
                 }
             });
 
-            if (printBtn) {
-                printBtn.addEventListener('click', () => {
-                    window.print();
-                });
-            }
-
             if (modalMeetingBtn) {
                 modalMeetingBtn.addEventListener('click', async () => {
                     if (!currentModalDetailApi) return;
@@ -1322,9 +1142,9 @@
                     const isCurrent = tab.dataset.viewTarget === targetView;
                     tab.setAttribute('aria-selected', isCurrent ? 'true' : 'false');
                     if (isCurrent) {
-                        tab.className = 'mycic-view-tab inline-flex items-center gap-1.5 whitespace-nowrap px-3.5 py-1.5 text-xs sm:text-sm font-bold rounded-lg transition-all bg-panel text-brand shadow-xs border border-border/40';
+                        tab.className = 'mycic-view-tab inline-flex items-center gap-1.5 whitespace-nowrap px-3 py-1.5 text-xs sm:text-sm font-bold rounded-lg transition-all bg-panel text-brand shadow-xs border border-border/40';
                     } else {
-                        tab.className = 'mycic-view-tab inline-flex items-center gap-1.5 whitespace-nowrap px-3.5 py-1.5 text-xs sm:text-sm font-semibold rounded-lg transition-all text-ink-muted hover:text-ink';
+                        tab.className = 'mycic-view-tab inline-flex items-center gap-1.5 whitespace-nowrap px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-lg transition-all text-ink-muted hover:text-ink';
                     }
                 });
 
@@ -1343,47 +1163,16 @@
                 });
             });
 
-            // Initialize view tab immediately upon start so there's no layout flash
             switchView(currentViewMode);
-
-            const resetWrap = document.getElementById('filter-reset-wrap');
-            const resetBtn = document.getElementById('btn-reset-filters');
-
-            const updateResetVisibility = () => {
-                if (!resetWrap) return;
-                if (selectedDayFilter !== 'all' || (currentSearchQuery && currentSearchQuery.trim() !== '')) {
-                    resetWrap.classList.remove('hidden');
-                } else {
-                    resetWrap.classList.add('hidden');
-                }
-            };
-
-            if (resetBtn) {
-                resetBtn.addEventListener('click', () => {
-                    selectedDayFilter = 'all';
-                    currentSearchQuery = '';
-                    if (searchInput) searchInput.value = '';
-                    const { dayMap, unscheduled } = processDayGroups(cachedClassesData);
-                    renderDaySummaryStrip(dayMap);
-                    renderDayFilterBar(dayMap);
-                    renderBlockingGrid(dayMap);
-                    renderTimeline(dayMap);
-                    renderCardList(cachedClassesData, selectedDayFilter, currentSearchQuery);
-                    renderUnscheduledClasses(unscheduled);
-                    updateResetVisibility();
-                });
-            }
 
             const setDayFilter = (day) => {
                 selectedDayFilter = day;
                 const { dayMap, unscheduled } = processDayGroups(cachedClassesData);
                 renderDaySummaryStrip(dayMap);
-                renderDayFilterBar(dayMap);
                 renderBlockingGrid(dayMap);
                 renderTimeline(dayMap);
                 renderCardList(cachedClassesData, selectedDayFilter, currentSearchQuery);
                 renderUnscheduledClasses(unscheduled);
-                updateResetVisibility();
             };
 
             if (searchInput) {
@@ -1394,7 +1183,6 @@
                     renderTimeline(dayMap);
                     renderCardList(cachedClassesData, selectedDayFilter, currentSearchQuery);
                     renderUnscheduledClasses(unscheduled);
-                    updateResetVisibility();
                 });
             }
 
@@ -1408,7 +1196,6 @@
 
                 renderSummary(payload, parsedClasses, dayMap);
                 renderDaySummaryStrip(dayMap);
-                renderDayFilterBar(dayMap);
                 renderBlockingGrid(dayMap);
                 renderTimeline(dayMap);
                 renderCardList(parsedClasses, selectedDayFilter, currentSearchQuery);
@@ -1427,9 +1214,9 @@
                 const usedCachedPayload = app.primeCachedView(endpoint, renderSource, 'daftar kelas utama');
 
                 if (!usedCachedPayload) {
-                    blockingGridHost.innerHTML = '<div class="mycic-empty py-12"><p class="mycic-empty-title text-ink-subtle">Memuat data kelas...</p></div>';
-                    timelineHost.innerHTML = '<div class="mycic-empty py-12"><p class="mycic-empty-title text-ink-subtle">Memuat data kelas...</p></div>';
-                    listHost.innerHTML = '<div class="mycic-empty py-8"><p class="mycic-empty-title text-ink-subtle">Memuat data kelas...</p></div>';
+                    blockingGridHost.innerHTML = '<div class="mycic-empty py-12"><p class="mycic-empty-title text-ink-subtle">Memuat jadwal...</p></div>';
+                    timelineHost.innerHTML = '<div class="mycic-empty py-12"><p class="mycic-empty-title text-ink-subtle">Memuat jadwal...</p></div>';
+                    listHost.innerHTML = '<div class="mycic-empty py-8"><p class="mycic-empty-title text-ink-subtle">Memuat jadwal...</p></div>';
                 }
 
                 try {

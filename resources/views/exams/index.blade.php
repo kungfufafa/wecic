@@ -6,26 +6,20 @@
 @section('content')
     <header class="mb-4">
         <h1 class="mycic-page-heading">Ujian</h1>
-        <p class="mycic-page-subheading">Daftar ujian beserta status dan jadwal pelaksanaannya.</p>
     </header>
 
-    <div id="exam-summary" class="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-        @foreach ([
-            ['label' => 'Total ujian', 'note' => 'Semua entri ujian yang berhasil terdeteksi.'],
-            ['label' => 'Terjadwal', 'note' => 'Sudah punya jadwal.'],
-            ['label' => 'Perlu ditinjau', 'note' => 'Belum final atau masih aktif.'],
-        ] as $metric)
+    <div id="exam-summary" class="mb-5 grid grid-cols-3 gap-3">
+        @foreach (['Total', 'Terjadwal', 'Perlu ditinjau'] as $label)
             <div class="mycic-metric">
-                <div class="mycic-metric-label">{{ $metric['label'] }}</div>
+                <div class="mycic-metric-label">{{ $label }}</div>
                 <div class="mycic-metric-value" data-exam-metric>-</div>
-                <div class="mycic-metric-note">{{ $metric['note'] }}</div>
             </div>
         @endforeach
     </div>
 
     <div class="flex flex-col gap-3" id="exam-list">
         <div class="mycic-empty py-8">
-            <p class="mycic-empty-title text-ink-subtle">Memuat daftar ujian...</p>
+            <p class="mycic-empty-title text-ink-subtle">Memuat ujian...</p>
         </div>
     </div>
 @endsection
@@ -36,8 +30,6 @@
             const app = window.portalApp;
 
             const listHost = document.getElementById('exam-list');
-            const heroCopy = document.getElementById('exam-hero-copy');
-            const statusPill = document.getElementById('exam-status-pill');
             const metricNodes = document.querySelectorAll('[data-exam-metric]');
 
             const examDetailHref = (exam) => {
@@ -49,9 +41,9 @@
             const renderExamCard = (exam) => {
                 const href = examDetailHref(exam);
                 const courseName = app.escapeHtml(exam.course_name || 'Tanpa judul');
-                const schedule = app.escapeHtml(exam.schedule || 'Jadwal belum tersedia');
+                const schedule = app.escapeHtml(exam.schedule || 'Belum terjadwal');
                 const courseCode = app.escapeHtml(exam.course_code || '-');
-                const status = app.escapeHtml(exam.status || 'Tanpa status');
+                const status = app.escapeHtml(exam.status || '-');
 
                 return `
                     <div class="mycic-card-interactive">
@@ -70,8 +62,8 @@
                             </div>
                             <div class="shrink-0">
                                 ${href
-                                    ? `<a href="${href}" class="${app.buttonClass('primary', { small: true })}">Detail ujian</a>`
-                                    : app.renderDisabledButton('Belum tersedia')}
+                                    ? `<a href="${href}" class="${app.buttonClass('primary', { small: true })}">Detail</a>`
+                                    : app.renderDisabledButton('—')}
                             </div>
                         </div>
                     </div>
@@ -87,18 +79,8 @@
                 metricNodes[1].textContent = scheduledCount || '0';
                 metricNodes[2].textContent = reviewCount || '0';
 
-                if (statusPill) {
-                    statusPill.textContent = exams.length ? `${exams.length} entri aktif` : 'Belum ada entri';
-                }
-
-                if (heroCopy) {
-                    heroCopy.textContent = exams.length
-                        ? `${exams.length} ujian berhasil dimuat. Prioritaskan entri yang belum final dan buka detail untuk melihat kesiapan unggah berkas.`
-                        : 'Belum ada ujian yang muncul pada portal aktif. Coba segarkan lagi saat data akademik tersedia.';
-                }
-
                 if (!exams.length) {
-                    listHost.innerHTML = app.renderEmptyState('Belum ada data ujian.', 'secondary');
+                    listHost.innerHTML = app.renderEmptyState('Belum ada ujian.', 'secondary');
 
                     return;
                 }

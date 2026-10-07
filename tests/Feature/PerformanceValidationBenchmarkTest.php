@@ -180,7 +180,10 @@ class PerformanceValidationBenchmarkTest extends TestCase
 
         // Verify background job was queued without blocking the user
         Queue::assertPushed(RefreshPortalDataJob::class, function (RefreshPortalDataJob $job) use ($token): bool {
-            return $job->campusSessionToken === $token && in_array('dashboard', $job->domains, true);
+            $campusSessionToken = (fn (): string => $this->campusSessionToken)->call($job);
+            $domains = (fn (): array => $this->domains)->call($job);
+
+            return $campusSessionToken === $token && in_array('dashboard', $domains, true);
         });
 
         fwrite(STDERR, sprintf("[BENCHMARK: STALE SNAPSHOT NON-BLOCKING] Response Time: %.2f ms | Status: syncing | Background Job Dispatched\n", $durationMs));

@@ -28,9 +28,9 @@ class RefreshPortalDataJob implements ShouldQueue
      * @param  list<string>  $domains
      */
     public function __construct(
-        public readonly string $sessionId,
-        public readonly string $campusSessionToken,
-        public readonly array $domains
+        private readonly string $sessionId,
+        private readonly string $campusSessionToken,
+        private readonly array $domains
     ) {
         $this->onQueue('campus-refresh');
     }
