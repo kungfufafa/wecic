@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\NotebookWebController;
 use App\Services\PortalSessionManager;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -71,4 +72,6 @@ Route::middleware('portal.web')->group(function (): void {
     Route::get('/exam/{id}', function (string $id) {
         return view('exams.show', ['id' => $id]);
     })->name('exam.show');
+
+    Route::get('/notebook', [NotebookWebController::class, 'index'])->name('notebook.index');
 });

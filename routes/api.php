@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\API\NotebookApiController;
 use App\Http\Controllers\API\PortalActionController;
 use App\Http\Controllers\API\PortalAuthController;
 use App\Http\Controllers\API\PortalDataController;
@@ -68,6 +69,17 @@ Route::middleware($sessionMiddleware)->group(function () {
         });
 
         Route::get('support/download', [PortalSupportController::class, 'downloadFile']);
+
+        Route::prefix('notebook')->controller(NotebookApiController::class)->group(function (): void {
+            Route::get('', 'index');
+            Route::post('', 'store');
+            Route::get('{id}', 'show');
+            Route::patch('{id}', 'update');
+            Route::delete('{id}', 'destroy');
+            Route::post('{id}/chat', 'chat');
+            Route::post('{id}/save-draft', 'saveDraft');
+            Route::post('verify-key', 'verifyKey');
+        });
     });
 
     Route::prefix('support')->controller(PortalSupportController::class)->group(function (): void {

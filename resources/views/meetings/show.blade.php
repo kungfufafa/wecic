@@ -247,6 +247,10 @@
                                     <a href="/class" class="mycic-hero-pill">Kembali</a>
                                     <span class="inline-flex items-center rounded-lg border border-white/20 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white/90">${app.escapeHtml(courseName)}</span>
                                     <span class="inline-flex items-center rounded-lg bg-accent px-2.5 py-1 text-xs font-bold text-slate-900">${app.escapeHtml(meetingLabel)}</span>
+                                    <a href="/notebook?meeting_id=${encodeURIComponent(meetingId)}&courses_id=${encodeURIComponent(coursesId)}" class="inline-flex items-center gap-1.5 rounded-lg border border-white/25 bg-white/15 hover:bg-white/25 px-2.5 py-1 text-xs font-bold text-white transition-all shadow-xs backdrop-blur-sm">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/><path d="M6 6h10"/><path d="m14 14 3 3 5-5"/></svg>
+                                        <span>✨ Buka di Notebook AI</span>
+                                    </a>
                                 </div>
                                 ${attendanceBadgeMarkup}
                             </div>
@@ -317,8 +321,12 @@
 
                     contentSections.push(`
                         <div class="mycic-card">
-                            <div class="mycic-card-header">
+                            <div class="mycic-card-header flex items-center justify-between">
                                 <h2 class="mycic-card-title">Materi</h2>
+                                <a href="/notebook?meeting_id=${encodeURIComponent(meetingId)}&courses_id=${encodeURIComponent(coursesId)}&action=deep_dive" class="inline-flex items-center gap-1.5 rounded-md bg-brand/10 hover:bg-brand/20 px-2.5 py-1 text-xs font-semibold text-brand transition-colors">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                                    <span>💡 Pelajari dengan AI</span>
+                                </a>
                             </div>
                             <div class="mycic-card-body">
                                 <div class="text-base font-bold text-ink">${app.escapeHtml(mainTopicClean)}</div>
@@ -362,8 +370,12 @@
 
                     contentSections.push(`
                         <div class="mycic-card">
-                            <div class="mycic-card-header">
+                            <div class="mycic-card-header flex items-center justify-between">
                                 <h2 class="mycic-card-title">Tugas</h2>
+                                <a href="/notebook?meeting_id=${encodeURIComponent(meetingId)}&courses_id=${encodeURIComponent(coursesId)}&action=task_solve" class="inline-flex items-center gap-1.5 rounded-md bg-amber-500/15 hover:bg-amber-500/25 px-2.5 py-1 text-xs font-bold text-amber-700 dark:text-amber-300 transition-colors">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                                    <span>⚡ Kerjakan dengan AI</span>
+                                </a>
                             </div>
                             <div class="mycic-card-body">
                                 <div class="text-base font-bold text-ink">${assignmentTitle}</div>

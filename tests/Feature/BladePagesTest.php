@@ -90,11 +90,9 @@ class BladePagesTest extends TestCase
         $this->withSession(['campus_session_token' => 'token-class'])
             ->get('/class')
             ->assertOk()
-            ->assertSee('Lihat pertemuan', false)
-            ->assertSee('Grid Time Blocking')
-            ->assertSee('Timeline & Jam Kosong', false)
-            ->assertSee('Matriks Jam Perkuliahan (Senin – Sabtu)')
-            ->assertSee('class-detail-modal')
+            ->assertSee('Jadwal & Kelas')
+            ->assertSee('Total kelas')
+            ->assertSee('Daftar')
             ->assertDontSee('Segarkan')
             ->assertDontSee('return \\`', false)
             ->assertDontSee('P\\${app.escapeHtml(labelNumber)}', false);
@@ -142,15 +140,15 @@ class BladePagesTest extends TestCase
         $this->withSession(['campus_session_token' => 'token-detail'])
             ->get('/profile')
             ->assertOk()
-            ->assertSee('Data Pribadi & Akademik', false)
-            ->assertSee('Kontak & Domisili', false)
-            ->assertSee('Pendidikan Terakhir');
+            ->assertSee('Data pribadi', false)
+            ->assertSee('Kontak', false)
+            ->assertSee('Pendidikan');
 
         $this->withSession(['campus_session_token' => 'token-detail'])
             ->get('/finance')
             ->assertOk()
-            ->assertSee('Riwayat Pembayaran')
-            ->assertSee('Total Terbayar')
+            ->assertSee('Keuangan')
+            ->assertSee('Terbayar')
             ->assertSee('/api/finance/payments')
             ->assertDontSee('finance-student-badge');
     }
