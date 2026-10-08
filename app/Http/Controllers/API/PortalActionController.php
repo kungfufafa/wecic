@@ -12,8 +12,11 @@ use App\Http\Requests\SipandaiExamUploadRequest;
 use App\Jobs\ProcessPortalAssignmentUploadJob;
 use App\Jobs\ProcessPortalExamUploadJob;
 use App\Services\AttendanceShortcutService;
+use App\Services\PortalActionProjector;
+use App\Services\PortalBroadcastService;
 use App\Services\PortalDatasetRepository;
 use App\Services\PortalFetchPolicy;
+use App\Services\PortalOperationTracker;
 use App\Services\SipandaiSubmissionService;
 use Dedoc\Scramble\Attributes\Group;
 use Dedoc\Scramble\Attributes\PathParameter;
@@ -46,8 +49,25 @@ class PortalActionController extends CampusApiController
         private readonly SipandaiSubmissionService $submissionService,
         private readonly AttendanceShortcutService $attendanceShortcutService,
         private readonly PortalDatasetRepository $datasets,
-        private readonly PortalFetchPolicy $fetchPolicy
+        private readonly PortalFetchPolicy $fetchPolicy,
+        private readonly PortalActionProjector $projector,
+        private readonly PortalOperationTracker $tracker,
+        private readonly PortalBroadcastService $broadcast
     ) {}
+
+    /**
+     * Other open tabs re-read the views an assignment or attendance action changed.
+     */
+    private function notifyOtherTabs(string $sessionToken, string $message): void
+    {
+        $this->broadcast->dataInvalidated(
+            (string) session()->getId(),
+            $sessionToken,
+            ['/api/dashboard', '/api/attendance/today', '/api/assignment/pending'],
+            ['dashboard-overview', 'dashboard-pending-assignments', 'meeting-show', 'class-show'],
+            $message
+        );
+    }
 
     /**
      * Upload tugas SIPANDAI.
@@ -104,8 +124,11 @@ class PortalActionController extends CampusApiController
 
             $operationId = (string) Str::uuid();
             $storedFilePath = $attachment->store('portal-uploads');
+            $this->tracker->start($operationId, 'assignment_upload', (string) session()->getId(), 'Upload tugas diterima, menyiapkan pengiriman.');
 
-            ProcessPortalAssignmentUploadJob::dispatch(
+            // Runs right after the response is sent, so the upload starts
+            // immediately instead of waiting for the next queue worker run.
+            ProcessPortalAssignmentUploadJob::dispatchAfterResponse(
                 $operationId,
                 (string) session()->getId(),
                 $sessionToken,
@@ -138,7 +161,7 @@ class PortalActionController extends CampusApiController
                 'id' => $request->input('id'),
             ]);
 
-            return $this->booleanResponse(false, 'Failed to upload assignment.', null, 500);
+            return $this->booleanResponse(false, 'Upload tugas gagal diproses.', null, 500);
 
         }
     }
@@ -170,8 +193,24 @@ class PortalActionController extends CampusApiController
                 $request->meetingNumber()
             );
 
+            if (($result['data']['status'] ?? null) === 'unknown' && $request->courseId() !== null) {
+                $result = $this->verifyDeletion($sessionToken, $result, $request->courseId(), $request->discussionId(), $request->meetingNumber());
+            }
+
             if (($result['success'] ?? false) === true) {
                 $this->datasets->invalidate($sessionToken, self::ASSIGNMENT_DATASETS, self::ASSIGNMENT_RESOURCES);
+                $this->projector->recordAssignmentDeleted(
+                    $sessionToken,
+                    $request->courseId(),
+                    $request->discussionId(),
+                    $request->meetingNumber()
+                );
+                $this->notifyOtherTabs($sessionToken, 'Tugas dihapus; daftar tugas diperbarui.');
+            } elseif (($result['data']['status'] ?? null) === 'unknown') {
+                // The outcome is unknown, so the upload recorded earlier must
+                // not keep the file on screen; the next scrape decides.
+                $this->datasets->invalidate($sessionToken, self::ASSIGNMENT_DATASETS, self::ASSIGNMENT_RESOURCES);
+                $this->projector->forgetAssignment($sessionToken, $request->discussionId());
             }
 
             return $this->buildResponse($result, 'sipandai_assignment_delete');
@@ -187,7 +226,7 @@ class PortalActionController extends CampusApiController
                 'idx' => $request->input('idx'),
             ]);
 
-            return $this->booleanResponse(false, 'Failed to delete assignment.', null, 500);
+            return $this->booleanResponse(false, 'Hapus tugas gagal diproses.', null, 500);
 
         }
     }
@@ -256,6 +295,14 @@ class PortalActionController extends CampusApiController
                     ['dashboard', 'assignments', 'class_detail', 'meeting_detail'],
                     ['class_detail', 'meeting_detail']
                 );
+
+                // Show the student "attended" right away; the background
+                // re-sync of the invalidated snapshots confirms it later.
+                $result['data'] = [
+                    ...($result['data'] ?? []),
+                    'attendance' => $this->projector->recordAttendance($sessionToken, $courseId, $discussionId, $meetingNumber),
+                ];
+                $this->notifyOtherTabs($sessionToken, 'Absensi tercatat; jadwal hari ini diperbarui.');
             }
 
             return $this->buildResponse($result, 'sipandai_attendance');
@@ -271,7 +318,7 @@ class PortalActionController extends CampusApiController
                 'modulesid' => $request->input('modulesid'),
             ]);
 
-            return $this->booleanResponse(false, 'Failed to mark attendance.', null, 500);
+            return $this->booleanResponse(false, 'Absensi gagal diproses.', null, 500);
 
         }
     }
@@ -306,7 +353,7 @@ class PortalActionController extends CampusApiController
                 'error' => $e->getMessage(),
             ]);
 
-            return $this->booleanResponse(false, 'Failed to resolve attendance shortcuts.', null, 500);
+            return $this->booleanResponse(false, 'Gagal memuat absensi hari ini.', null, 500);
         }
     }
 
@@ -344,7 +391,7 @@ class PortalActionController extends CampusApiController
                 'error' => $e->getMessage(),
             ]);
 
-            return $this->booleanResponse(false, 'Failed to resolve pending assignments.', null, 500);
+            return $this->booleanResponse(false, 'Gagal memuat daftar tugas.', null, 500);
         }
     }
 
@@ -386,7 +433,7 @@ class PortalActionController extends CampusApiController
                 'error' => $e->getMessage(),
             ]);
 
-            return $this->booleanResponse(false, 'Failed to fetch exam list.', null, 500);
+            return $this->booleanResponse(false, 'Gagal memuat daftar ujian.', null, 500);
         }
     }
 
@@ -407,7 +454,23 @@ class PortalActionController extends CampusApiController
         }
 
         try {
+            // The upload page itself carries no course name; the exam list does,
+            // and it also tells whether this id is one of the student's exams.
+            $exams = $this->datasets->read($sessionToken, 'exams', broadcastSessionId: (string) session()->getId())['data']['exams'] ?? [];
+            $course = collect($exams)->first(fn (mixed $exam): bool => is_array($exam) && (string) ($exam['id'] ?? '') === (string) $request->examId());
+
+            if ($course === null && $exams !== []) {
+                return $this->booleanResponse(false, 'Ujian tidak ditemukan di daftar ujian kamu.', null, 404);
+            }
+
             $examDetail = $this->submissionService->getExamDetail($sessionToken, $request->examId());
+            $examDetail['course'] = $course === null ? null : [
+                'code' => $course['course_code'] ?? null,
+                'name' => $course['course_name'] ?? null,
+                'schedule' => $course['schedule'] ?: null,
+                'lecturer' => $course['lecturer'] ?? null,
+                'status' => $course['status'] ?? null,
+            ];
 
             return $this->booleanResponse(true, 'Exam detail retrieved successfully.', [
                 'exam_detail' => $examDetail,
@@ -422,7 +485,7 @@ class PortalActionController extends CampusApiController
                 'id' => $request->input('id'),
             ]);
 
-            return $this->booleanResponse(false, 'Failed to fetch exam detail.', null, 500);
+            return $this->booleanResponse(false, 'Gagal memuat detail ujian.', null, 500);
         }
     }
 
@@ -449,8 +512,9 @@ class PortalActionController extends CampusApiController
             $attachment = $request->attachment();
             $operationId = (string) Str::uuid();
             $storedFilePath = $attachment->store('portal-uploads');
+            $this->tracker->start($operationId, 'exam_upload', (string) session()->getId(), 'Upload ujian diterima, menyiapkan pengiriman.');
 
-            ProcessPortalExamUploadJob::dispatch(
+            ProcessPortalExamUploadJob::dispatchAfterResponse(
                 $operationId,
                 (string) session()->getId(),
                 $sessionToken,
@@ -479,8 +543,44 @@ class PortalActionController extends CampusApiController
                 'id' => $request->input('id'),
             ]);
 
-            return $this->booleanResponse(false, 'Failed to upload exam.', null, 500);
+            return $this->booleanResponse(false, 'Upload ujian gagal diproses.', null, 500);
         }
+    }
+
+    /**
+     * The portal's reply to a delete does not always say what happened; the
+     * assignment page does: it offers the upload form again once the file is gone.
+     *
+     * @param  array<string, mixed>  $result
+     * @return array<string, mixed>
+     */
+    private function verifyDeletion(string $sessionToken, array $result, int $courseId, int $discussionId, int $meetingNumber): array
+    {
+        try {
+            $state = $this->submissionService->inspectAssignmentSubmissionState($sessionToken, $courseId, $discussionId, $meetingNumber);
+        } catch (\Throwable $e) {
+            if ($this->isCampusSessionExpiredException($e)) {
+                throw $e;
+            }
+
+            Log::warning('Failed to verify SIPANDAI assignment deletion', [
+                'courses_id' => $courseId,
+                'id' => $discussionId,
+                'error' => $e->getMessage(),
+            ]);
+
+            return $result;
+        }
+
+        if (($state['status'] ?? null) !== 'not_uploaded') {
+            return $result;
+        }
+
+        return [
+            'success' => true,
+            'message' => 'Tugas berhasil dihapus.',
+            'data' => [...($result['data'] ?? []), 'status' => 'deleted', 'verified' => true],
+        ];
     }
 
     /**

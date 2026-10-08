@@ -113,7 +113,7 @@ class PortalAuthController extends CampusApiController
         $sessionToken = $this->sessionToken();
 
         if (! $sessionToken) {
-            return $this->statusError('No active session found', 401, campusSessionValid: false);
+            return $this->statusError('Sesi kampus tidak ditemukan. Silakan masuk lagi.', 401, campusSessionValid: false);
         }
 
         try {
@@ -127,11 +127,11 @@ class PortalAuthController extends CampusApiController
 
             return $isValid
                 ? $this->statusSuccess('Session is valid', $payload, campusSessionValid: true)
-                : $this->statusError('Session has expired', 401, $payload, campusSessionValid: false);
+                : $this->statusError('Sesi kampus sudah berakhir. Silakan masuk lagi.', 401, $payload, campusSessionValid: false);
         } catch (\Throwable $e) {
             Log::error('Session check failed', ['error' => $e->getMessage()]);
 
-            return $this->statusError('Failed to validate session', 500, campusSessionValid: false);
+            return $this->statusError('Gagal memeriksa sesi kampus.', 500, campusSessionValid: false);
         }
     }
 
@@ -145,7 +145,7 @@ class PortalAuthController extends CampusApiController
         $sessionToken = $this->sessionToken();
 
         if (! $sessionToken) {
-            return $this->statusError('No active session found', 401, campusSessionValid: false);
+            return $this->statusError('Sesi kampus tidak ditemukan. Silakan masuk lagi.', 401, campusSessionValid: false);
         }
 
         try {
@@ -177,7 +177,7 @@ class PortalAuthController extends CampusApiController
             Log::error('Session refresh failed', ['error' => $e->getMessage()]);
             session()->forget(['campus_session_token', 'campus_user_info']);
 
-            return $this->statusError('Session refresh failed. Please login again.', 401, campusSessionValid: false);
+            return $this->statusError('Sesi gagal diperbarui. Silakan masuk lagi.', 401, campusSessionValid: false);
         }
     }
 
@@ -188,21 +188,27 @@ class PortalAuthController extends CampusApiController
     public function logout(): JsonResponse
     {
         $sessionToken = $this->sessionToken();
+        $sessionId = (string) session()->getId();
 
         try {
             if ($sessionToken) {
+                $this->sessionManager->destroySession($sessionToken);
+            }
+            session()->invalidate();
+            session()->regenerateToken();
+
+            // Other tabs follow to the login page. Notices are broadcast
+            // instantly, so this must happen after the session is gone, or
+            // a tab would reach /login while it still looks logged in.
+            if ($sessionToken) {
                 app(PortalBroadcastService::class)->sessionNotice(
-                    (string) session()->getId(),
+                    $sessionId,
                     $sessionToken,
                     'logged_out',
                     'Akun keluar dari perangkat ini.',
                     'warning'
                 );
-
-                $this->sessionManager->destroySession($sessionToken);
             }
-            session()->invalidate();
-            session()->regenerateToken();
 
             Log::info('User logged out successfully');
 
@@ -236,14 +242,14 @@ class PortalAuthController extends CampusApiController
             if ($this->isCampusSessionExpiredException($throwable)) {
                 session()->forget(['campus_session_token', 'campus_user_info']);
 
-                return $this->statusError('Campus session has expired. Please login again.', 401, campusSessionValid: false);
+                return $this->statusError('Sesi kampus sudah berakhir. Silakan masuk lagi.', 401, campusSessionValid: false);
             }
 
             Log::error('Password form inspection failed', [
                 'error' => $throwable->getMessage(),
             ]);
 
-            return $this->statusError('Failed to inspect password form.', 500, campusSessionValid: false);
+            return $this->statusError('Gagal memuat form ubah password.', 500, campusSessionValid: false);
         }
     }
 
@@ -285,7 +291,7 @@ class PortalAuthController extends CampusApiController
                 'error' => $throwable->getMessage(),
             ]);
 
-            return $this->booleanResponse(false, 'Failed to change password.', null, 500);
+            return $this->booleanResponse(false, 'Gagal mengubah password.', null, 500);
         }
     }
 }

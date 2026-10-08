@@ -137,6 +137,24 @@ return [
         'bulk_request_delay' => (int) env('CAMPUS_BULK_REQUEST_DELAY', 250),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Portal Actions
+    |--------------------------------------------------------------------------
+    |
+    | A confirmed action (attendance, assignment upload/delete) is projected
+    | onto the snapshots right away and remembered for `ledger_ttl` seconds,
+    | so a re-sync that started before the action cannot revert it. Uploads
+    | run right after the HTTP response, so they get their own time budget.
+    |
+    */
+
+    'actions' => [
+        'ledger_ttl' => (int) env('PORTAL_ACTION_LEDGER_TTL', 1800),
+        'upload_time_limit' => (int) env('PORTAL_UPLOAD_TIME_LIMIT', 180),
+        'upload_request_timeout' => (int) env('PORTAL_UPLOAD_REQUEST_TIMEOUT', 120),
+    ],
+
     'datasets' => [
         'dashboard' => [
             'fresh_for' => 600,

@@ -25,20 +25,41 @@
             const app = window.portalApp;
             const examId = @json($id);
 
+            // The portal form's raw field names mean nothing to a student.
+            const FIELD_LABELS = {
+                'data[tipe]': 'Jenis ujian (UTS/UAS)',
+                'data[kelas]': 'Kelas',
+                'data[name]': 'Nama',
+                'data[nama]': 'Nama',
+                'data[keterangan]': 'Catatan',
+                keterangan: 'Catatan',
+            };
+            const STATUS_LABELS = {
+                uploaded: ['Sudah dikumpulkan', 'success'],
+                already_uploaded: ['Sudah dikumpulkan', 'success'],
+                not_uploaded: ['Belum dikumpulkan', 'warning'],
+                upload_unavailable: ['Upload belum dibuka', 'neutral'],
+                unknown: ['Status belum diketahui', 'neutral'],
+            };
+            const statusBadge = (status) => STATUS_LABELS[String(status || '').toLowerCase()] || [status || 'Belum diketahui', 'neutral'];
+
             const buildOverrideInputs = (fields) => {
                 const entries = Object.entries(fields || {})
-                    .filter(([name]) => !['id', 'cmd'].includes(String(name).toLowerCase()));
+                    .filter(([name]) => !/^(id|cmd|data\[id\])$/i.test(String(name)));
 
                 if (!entries.length) {
-                    return app.renderEmptyState('Tidak ada field tambahan dari form asli.', 'secondary');
+                    return '';
                 }
 
-                return entries.map(([name, value]) => `
-                    <div class="mb-3">
-                        <label class="mycic-label">${app.escapeHtml(name)}</label>
-                        <input class="mycic-input" data-override-field="${app.escapeHtml(name)}" value="${app.escapeHtml(value)}">
-                    </div>
-                `).join('');
+                return `
+                    <p class="mb-2 text-caption text-ink-subtle">Isian tambahan dari form portal (opsional).</p>
+                    ${entries.map(([name, value], index) => `
+                        <div class="mb-3">
+                            <label class="mycic-label" for="exam-field-${index}">${app.escapeHtml(FIELD_LABELS[name] || name.replace(/^data\[(.+)\]$/, '$1'))}</label>
+                            <input id="exam-field-${index}" class="mycic-input" data-override-field="${app.escapeHtml(name)}" value="${app.escapeHtml(value)}">
+                        </div>
+                    `).join('')}
+                `;
             };
 
             const fileNameFromUrl = (value) => {
@@ -187,9 +208,8 @@
                     </div>
                     <div class="mycic-card-body">
                         <div class="${app.alertTone(uploadTone)} mb-3">
-                            <div class="font-medium">${isUploadReady ? (usesDirectSubmit ? 'Upload langsung siap.' : 'Form upload siap.') : 'Upload belum tersedia.'}</div>
-                            <div class="text-caption ${app.textToneClass(uploadTone)}">Status: ${app.escapeHtml(detail.status || '-')}</div>
-                            ${postUrl ? `<div class="mt-1 break-all text-caption text-ink-subtle">POST: ${app.escapeHtml(postUrl)}</div>` : ''}
+                            <div class="font-medium">${isUploadReady ? 'Jawaban bisa dikirim dari sini.' : 'Pengumpulan jawaban belum dibuka.'}</div>
+                            <div class="text-caption ${app.textToneClass(uploadTone)}">${app.escapeHtml(statusBadge(detail.status)[0])}</div>
                         </div>
                         ${isUploadReady ? `
                             <form id="exam-upload-form">
@@ -208,29 +228,6 @@
                 `;
             };
 
-            const renderMetaPanel = (detail, form) => `
-                <div class="mycic-card">
-                    <div class="mycic-card-header">
-                        <h3 class="mycic-card-title">Metadata</h3>
-                    </div>
-                    <div class="mycic-card-body">
-                        <div class="flex flex-col gap-3">
-                            ${[
-                                { label: 'Exam ID', value: detail.exam_id },
-                                { label: 'Field file', value: form.file_field },
-                                { label: 'GET URL', value: form.get_url || detail.metadata_url || detail.request_url },
-                                { label: 'POST URL', value: form.post_url || detail.submit_url || form.action_url },
-                            ].filter((item) => item.value).map((item) => `
-                                <div>
-                                    <div class="mb-1 text-caption uppercase tracking-wide text-ink-subtle">${app.escapeHtml(item.label)}</div>
-                                    <div class="break-all font-medium text-ink">${app.escapeHtml(item.value)}</div>
-                                </div>
-                            `).join('') || app.renderEmptyState('Metadata belum tersedia.', 'secondary')}
-                        </div>
-                    </div>
-                </div>
-            `;
-
             const renderSubmissionMemoryPanel = (detail) => {
                 const latest = detail.latest_submission || null;
                 const storedSubmissions = detail.stored_submissions || [];
@@ -242,18 +239,14 @@
                 }
 
                 const fields = [
-                    { label: 'ID hapus', value: latest?.submission_id || 'Belum tertangkap' },
                     { label: 'File', value: latest?.file_name || (latest?.file_url ? fileNameFromUrl(latest.file_url) : null) },
                     { label: 'Tanggal upload', value: latest?.uploaded_at_label },
-                    { label: 'Sumber', value: latest?.is_stored ? 'Tersimpan lokal' : 'Halaman portal' },
-                    { label: 'Terakhir terlihat', value: latest?.last_seen_at },
-                    { label: 'URL hapus', value: latest?.delete_url },
                 ].filter((item) => item.value);
 
                 return `
                     <div class="mycic-card">
                         <div class="mycic-card-header">
-                            <h3 class="mycic-card-title">Rekaman jawaban</h3>
+                            <h3 class="mycic-card-title">Jawaban terkirim</h3>
                         </div>
                         <div class="mycic-card-body">
                             <div class="flex flex-col gap-3">
@@ -266,7 +259,7 @@
                             </div>
                             ${latest?.submission_id && !hasLiveDeleteId ? `
                                 <div class="${app.alertTone('warning')} mt-3 mb-0">
-                                    ID hapus tersimpan, tetapi tombol hapus tidak tampil di halaman portal saat ini.
+                                    Jawaban ini tercatat pernah dikirim, tetapi portal sedang tidak menampilkannya.
                                 </div>
                             ` : ''}
                         </div>
@@ -284,15 +277,19 @@
                 const primaryFile = fileLinks[0] || null;
                 const hero = document.getElementById('exam-hero');
 
+                const course = detail.course || {};
+                const [statusLabel, statusTone] = statusBadge(detail.status);
+                const portalTitle = String(detail.title || '');
+                const isGenericTitle = /sipandai|portal/i.test(portalTitle);
+
                 hero.innerHTML = `
                     <div class="mb-4">
                     ${app.renderPageHeader({
-                        pretitle: 'Detail ujian',
-                        title: detail.title || 'Detail ujian',
-                        description: detail.description || 'Soal, lampiran, dan upload jawaban ujian dalam satu halaman.',
+                        pretitle: course.code ? `Ujian · ${course.code}` : 'Detail ujian',
+                        title: course.name || (isGenericTitle ? 'Detail ujian' : portalTitle) || 'Detail ujian',
+                        description: [course.lecturer, course.schedule].filter(Boolean).join(' · ') || (isGenericTitle ? 'Soal, lampiran, dan pengumpulan jawaban ujian.' : (detail.description || 'Soal, lampiran, dan pengumpulan jawaban ujian.')),
                         badges: [
-                            detail.status ? app.renderBadge(detail.status, 'brand') : '',
-                            detail.exam_id ? app.renderBadge(detail.exam_id, 'neutral') : '',
+                            app.renderBadge(statusLabel, statusTone),
                             fileLinks.length ? app.renderBadge(`${fileLinks.length} berkas`, 'info') : '',
                         ],
                         actions: [
@@ -302,10 +299,10 @@
                     })}
                     </div>
                     ${app.renderStatCards([
-                        { label: 'Status', value: detail.status || '-', note: 'Status ujian yang dibaca dari portal.' },
-                        { label: 'Berkas', value: fileLinks.length || '0', note: 'Soal atau lampiran yang terdeteksi.' },
-                        { label: 'Upload', value: isUploadReady ? 'Siap' : 'Belum siap', note: 'Ketersediaan form pengumpulan.' },
-                        { label: 'Field file', value: form.file_field || '-', note: 'Nama field berkas pada form asli.' },
+                        { label: 'Status', value: statusLabel, note: 'Dibaca dari halaman ujian di portal.' },
+                        { label: 'Soal', value: fileLinks.length || '0', note: fileLinks.length ? 'Soal atau lampiran tersedia.' : 'Belum ada soal yang diunggah dosen.' },
+                        { label: 'Pengumpulan', value: isUploadReady ? 'Dibuka' : 'Belum dibuka', note: isUploadReady ? 'Kirim jawaban dari halaman ini.' : 'Cek lagi mendekati jadwal ujian.' },
+                        { label: 'Jadwal', value: course.schedule || 'Belum ada', note: course.schedule ? 'Sesuai jadwal kelas.' : 'Jadwal ujian belum diumumkan.' },
                     ])}
                 `;
 
@@ -318,7 +315,6 @@
                     ${renderUploadPanel(detail, form, isUploadReady)}
                     ${renderSubmissionMemoryPanel(detail)}
                     ${renderPortalLinks(portalLinks)}
-                    ${renderMetaPanel(detail, form)}
                 `;
                 app.refreshOnlineRequiredState();
 
@@ -352,7 +348,7 @@
                             }
                         });
 
-                        await app.withSubmitLoading(uploadForm.querySelector('button[type="submit"]'), async () => {
+                        await app.guardFormSubmit(uploadForm, () => app.withSubmitLoading(uploadForm.querySelector('button[type="submit"]'), async () => {
                             try {
                                 const result = await app.request('/api/exam', {
                                     method: 'POST',
@@ -362,15 +358,15 @@
                                 const operationId = result?.data?.operation_id;
 
                                 if (operationId) {
-                                    app.trackOperation(operationId, 'Upload ujian');
-                                    app.showNotice('Upload ujian diterima. Status akan diperbarui otomatis.', 'info');
+                                    // Keep the form locked until the portal has the file.
+                                    await app.trackOperation(operationId, 'Upload ujian');
                                 } else {
                                     app.showNotice(result?.message || 'Berkas ujian berhasil dikirim.', 'success');
                                 }
                             } catch (error) {
                                 app.showNotice(error.payload?.message || error.message, 'error');
                             }
-                        });
+                        }));
                     });
                 }
             };
@@ -389,7 +385,16 @@
                     render(payload);
                     app.markViewSynced('Detail ujian', payload, { force });
                 } catch (error) {
-                    app.showNotice(error.payload?.message || error.message, 'error');
+                    const notFound = error.status === 404;
+                    app.setSyncStatus(notFound ? 'Ujian tidak ditemukan.' : 'Detail ujian gagal dimuat.', 'error');
+                    app.mountErrorState(
+                        document.getElementById('exam-hero'),
+                        notFound ? 'Ujian tidak ditemukan.' : 'Detail ujian gagal dimuat.',
+                        notFound ? null : () => loadExamDetail({ force }),
+                        { subtitle: notFound ? 'Link yang kamu buka tidak cocok dengan ujian mana pun di daftar ujianmu.' : app.describeError(error) }
+                    );
+                    document.getElementById('exam-content').innerHTML = notFound ? `<a href="/exam" class="${app.buttonClass('primary')}">Ke daftar ujian</a>` : '';
+                    document.getElementById('exam-actions').innerHTML = '';
                 }
             };
 

@@ -121,8 +121,19 @@
                     const summary = attendance.summary || {};
                     const meetings = attendance.meetings || [];
                     const totalMeetings = Number(summary.total_meetings ?? meetings.length ?? 0);
+                    const upcomingMeetings = Number(summary.upcoming ?? meetings.filter((meeting) => meeting.status === 'upcoming').length);
+                    const heldMeetings = Number(summary.held_meetings ?? (totalMeetings - upcomingMeetings));
                     const presentMeetings = Number(summary.present ?? 0);
                     const absentMeetings = Number(summary.absent ?? 0);
+                    const STATUS_BADGES = {
+                        present: ['Hadir', 'success'],
+                        late: ['Terlambat', 'warning'],
+                        permit: ['Izin', 'info'],
+                        sick: ['Sakit', 'info'],
+                        absent: ['Absen', 'danger'],
+                        upcoming: ['Belum berlangsung', 'neutral'],
+                        unknown: ['Belum tercatat', 'neutral'],
+                    };
 
                     document.getElementById('class-attendance').innerHTML = `
                         <div class="mycic-card">
@@ -132,10 +143,11 @@
                             <div class="mycic-card-body pb-0">
                                 <div class="mb-3">
                                     ${app.renderInlineStats([
-                                        { label: 'Total', value: totalMeetings },
+                                        { label: 'Berjalan', value: `${heldMeetings}/${totalMeetings}` },
                                         { label: 'Hadir', value: presentMeetings },
                                         { label: 'Absen', value: absentMeetings },
                                     ])}
+                                    ${upcomingMeetings ? `<p class="mt-2 text-caption text-ink-subtle">${upcomingMeetings} pertemuan belum berlangsung.</p>` : ''}
                                 </div>
                             </div>
                             ${meetings.length ? `
@@ -151,14 +163,14 @@
                                         <tbody>
                                             ${meetings.map((meeting) => {
                                                 const normalizedStatus = String(meeting.status || '').toLowerCase();
-                                                const isAbsent = normalizedStatus === 'absent';
+                                                const [statusLabel, statusTone] = STATUS_BADGES[normalizedStatus] || STATUS_BADGES.unknown;
                                                 const details = meeting.details || {};
                                                 const scheduleMeta = [details.attendance_date, details.attendance_time].filter(Boolean).join(' / ');
 
                                                 return `
-                                                    <tr>
+                                                    <tr class="${normalizedStatus === 'upcoming' ? 'opacity-60' : ''}">
                                                         <td>P${app.escapeHtml(meeting.meeting_number)}</td>
-                                                        <td>${app.renderBadge(isAbsent ? 'Absen' : 'Hadir', isAbsent ? 'danger' : 'success')}</td>
+                                                        <td>${app.renderBadge(statusLabel, statusTone)}</td>
                                                         <td class="text-caption text-ink-subtle">${app.escapeHtml(scheduleMeta || '-')}</td>
                                                     </tr>
                                                 `;
@@ -189,7 +201,9 @@
                                 ${(assignments.assignments || []).map((assignment) => {
                                     const fileInfo = assignment.file_info || {};
                                     const submissionUrl = app.absoluteCampusUrl(fileInfo.href);
-                                    const isGraded = assignment.score && assignment.score.toLowerCase() !== 'belum ada nilai';
+                                    const scoreText = String(assignment.score ?? '').trim();
+                                    // The portal shows 0 until the lecturer grades it.
+                                    const isGraded = scoreText !== '' && !/belum/i.test(scoreText) && !/^0+([.,]0+)?$/.test(scoreText);
 
                                     return `
                                         <div class="mycic-list-row">
@@ -198,7 +212,7 @@
                                                 <div class="mb-2 font-medium text-ink">${app.escapeHtml(assignment.meeting || `P${assignment.no}`)}</div>
                                                 <div class="flex flex-wrap items-center gap-2">
                                                     ${isGraded
-                                                        ? app.renderBadge(assignment.score, 'success')
+                                                        ? app.renderBadge(`Nilai ${scoreText}`, 'success')
                                                         : app.renderBadge('Belum dinilai', 'warning')}
                                                     ${fileInfo.text ? app.renderBadge(fileInfo.text, 'neutral') : ''}
                                                 </div>
@@ -239,13 +253,26 @@
                     render(payload);
                     app.markViewSynced('Detail kelas', payload, { force });
                 } catch (error) {
-                    app.showNotice(error.payload?.message || error.message, 'error');
+                    app.setSyncStatus('Detail kelas gagal dimuat.', 'error');
+                    app.mountErrorState(
+                        document.getElementById('class-hero'),
+                        error.status === 404 || error.status === 422 ? 'Kelas tidak ditemukan.' : 'Detail kelas gagal dimuat.',
+                        error.status === 404 || error.status === 422 ? null : () => loadClassDetail({ force }),
+                        { subtitle: error.status === 404 || error.status === 422 ? 'Link yang kamu buka tidak cocok dengan kelas mana pun di daftar kelasmu.' : app.describeError(error) }
+                    );
+                    ['class-materials', 'class-attendance', 'class-assignments'].forEach((id) => {
+                        document.getElementById(id).innerHTML = '';
+                    });
+                    if (error.status === 404 || error.status === 422) {
+                        document.getElementById('class-materials').innerHTML = `<a href="/class" class="${app.buttonClass('primary')}">Ke daftar kelas</a>`;
+                    }
                 }
             };
 
             app.registerSyncHandler('class-show', loadClassDetail);
 
-            await loadClassDetail({ force: true });
+            // Snapshot first (instant); a stale one refreshes in the background.
+            await loadClassDetail();
         });
     </script>
 @endpush

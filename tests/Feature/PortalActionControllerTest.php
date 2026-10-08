@@ -4,16 +4,24 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Events\PortalUploadProgressed;
 use App\Http\Middleware\VerifyCsrfTokenMiddleware;
 use App\Jobs\ProcessPortalAssignmentUploadJob;
 use App\Jobs\ProcessPortalExamUploadJob;
 use App\Services\AttendanceShortcutService;
 use App\Services\Extractors\SipandaiClassesExtractor;
+use App\Services\PortalActionProjector;
 use App\Services\PortalDatasetRepository;
+use App\Services\PortalOperationTracker;
 use App\Services\PortalSessionManager;
+use App\Services\PortalSnapshotStore;
 use App\Services\SipandaiSubmissionService;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Storage;
 use Mockery;
 use Mockery\MockInterface;
 use Tests\TestCase;
@@ -47,6 +55,7 @@ class PortalActionControllerTest extends TestCase
     protected function tearDown(): void
     {
         Mockery::close();
+        Cache::flush();
 
         parent::tearDown();
     }
@@ -69,7 +78,7 @@ class PortalActionControllerTest extends TestCase
 
     public function test_upload_assignment_success(): void
     {
-        Queue::fake();
+        Bus::fake();
 
         $file = UploadedFile::fake()->create('task.pdf', 128, 'application/pdf');
 
@@ -93,7 +102,58 @@ class PortalActionControllerTest extends TestCase
             ])
             ->assertJsonStructure(['data' => ['operation_id']]);
 
-        Queue::assertPushed(ProcessPortalAssignmentUploadJob::class);
+        // The upload starts right after the response instead of waiting for a queue worker.
+        Bus::assertDispatchedAfterResponse(ProcessPortalAssignmentUploadJob::class);
+
+        $operation = app(PortalOperationTracker::class)->get($response->json('data.operation_id'));
+        $this->assertSame('assignment_upload', $operation['type']);
+        $this->assertNotEmpty($operation['session_id']);
+    }
+
+    public function test_upload_assignment_runs_after_the_response_and_clears_the_pending_task(): void
+    {
+        Storage::fake();
+        Event::fake([PortalUploadProgressed::class]);
+
+        $snapshots = app(PortalSnapshotStore::class);
+        $snapshots->put('token-run', 'assignments', ['assignments' => [
+            ['meeting_id' => '29833', 'assignment_payload' => ['courses_id' => '9000', 'id' => '29833', 'pertemuan' => 2]],
+        ]]);
+
+        $this->mockValidCampusSession('token-run');
+        $this->instance(
+            SipandaiSubmissionService::class,
+            Mockery::mock(SipandaiSubmissionService::class, function (MockInterface $mock): void {
+                $mock->shouldReceive('submitAssignment')->once()->andReturn([
+                    'success' => true,
+                    'message' => 'File uploaded successfully.',
+                    'data' => ['status' => 'uploaded'],
+                ]);
+                $mock->shouldReceive('inspectAssignmentSubmissionState')->once()->andReturn([
+                    'status' => 'uploaded',
+                    'file_info' => ['href' => 'files/task.pdf', 'text' => 'task.pdf'],
+                    'delete_payload' => ['id' => '126663', 'idx' => '29833', 'pertemuan' => '2'],
+                ]);
+            })
+        );
+
+        $response = $this->withSession(['campus_session_token' => 'token-run'])
+            ->post('/api/assignment', [
+                'courses_id' => 9000,
+                'id' => 29833,
+                'pertemuan' => 2,
+                'attachment' => UploadedFile::fake()->create('task.pdf', 128, 'application/pdf'),
+            ], ['Accept' => 'application/json']);
+
+        $response->assertStatus(202);
+
+        $operation = app(PortalOperationTracker::class)->get($response->json('data.operation_id'));
+        $this->assertSame('completed', $operation['stage']);
+        $this->assertSame([], $snapshots->get('token-run', 'assignments')['data']['assignments']);
+        Event::assertDispatched(
+            PortalUploadProgressed::class,
+            fn (PortalUploadProgressed $event): bool => $event->payload['status'] === 'completed'
+        );
     }
 
     public function test_upload_assignment_can_resolve_target_from_meeting_context(): void
@@ -252,6 +312,38 @@ class PortalActionControllerTest extends TestCase
                     'status' => 'marked',
                 ],
             ]);
+    }
+
+    public function test_mark_attendance_success_shows_the_class_as_attended_right_away(): void
+    {
+        $snapshots = app(PortalSnapshotStore::class);
+        $snapshots->put('token-abc', 'dashboard', ['classes_summary' => ['today_classes' => [[
+            'attendance' => [
+                'actionable' => true,
+                'meeting_id' => '29808',
+                'status' => ['already_marked' => false, 'status' => null, 'label' => null, 'time' => null],
+                'payload' => ['courseid' => '8837', 'modulesid' => '29808', 'pertemuan' => 2],
+            ],
+        ]]]]);
+
+        $this->mockValidCampusSession('token-abc');
+        $this->mockServiceExpectingSubmitAttendance('token-abc');
+
+        $response = $this->withSession(['campus_session_token' => 'token-abc'])
+            ->postJson('/api/attendance', [
+                'courseid' => 8837,
+                'modulesid' => 29808,
+                'kode' => '35533429',
+                'pertemuan' => 2,
+            ]);
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.attendance.already_marked', true)
+            ->assertJsonPath('data.attendance.label', 'Hadir');
+
+        $attendance = $snapshots->get('token-abc', 'dashboard')['data']['classes_summary']['today_classes'][0]['attendance'];
+        $this->assertTrue($attendance['status']['already_marked']);
+        $this->assertFalse($attendance['actionable']);
     }
 
     public function test_mark_attendance_accepts_portal_id_aliases(): void
@@ -490,6 +582,86 @@ class PortalActionControllerTest extends TestCase
             ]);
     }
 
+    public function test_delete_assignment_with_course_id_reopens_the_upload_form_right_away(): void
+    {
+        $params = ['meeting_id' => '30095', 'courses_id' => '9000'];
+        $snapshots = app(PortalSnapshotStore::class);
+        $snapshots->put('token-del', 'meeting_detail', ['assignment_info' => [
+            'status' => 'uploaded',
+            'upload_link' => '?act=send&courses_id=9000&id=30095&pertemuan=6',
+            'submission' => ['file_info' => ['href' => 'files/task.pdf']],
+            'delete_payload' => ['id' => '126663', 'idx' => '30095', 'pertemuan' => '6'],
+        ]], params: $params);
+
+        $this->mockValidCampusSession('token-del');
+        $this->mockServiceExpectingDeleteAssignment('token-del');
+
+        $this->withSession(['campus_session_token' => 'token-del'])
+            ->deleteJson('/api/assignment', [
+                'id' => 126663,
+                'idx' => 30095,
+                'pertemuan' => 6,
+                'courses_id' => 9000,
+            ])
+            ->assertStatus(200);
+
+        $assignmentInfo = $snapshots->get('token-del', 'meeting_detail', $params)['data']['assignment_info'];
+        $this->assertSame('not_uploaded', $assignmentInfo['status']);
+        $this->assertArrayNotHasKey('delete_payload', $assignmentInfo);
+    }
+
+    public function test_inconclusive_delete_is_confirmed_on_the_assignment_page(): void
+    {
+        $this->mockValidCampusSession('token-del');
+        $this->instance(
+            SipandaiSubmissionService::class,
+            Mockery::mock(SipandaiSubmissionService::class, function (MockInterface $mock): void {
+                $mock->shouldReceive('deleteAssignment')->once()->andReturn([
+                    'success' => false,
+                    'message' => 'Delete status could not be determined. Please verify manually.',
+                    'data' => ['status' => 'unknown'],
+                ]);
+                $mock->shouldReceive('inspectAssignmentSubmissionState')
+                    ->once()
+                    ->with('token-del', 9000, 30095, 6)
+                    ->andReturn(['status' => 'not_uploaded', 'delete_payload' => null, 'file_info' => null]);
+            })
+        );
+
+        $this->withSession(['campus_session_token' => 'token-del'])
+            ->deleteJson('/api/assignment', ['id' => 126663, 'idx' => 30095, 'pertemuan' => 6, 'courses_id' => 9000])
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.status', 'deleted');
+    }
+
+    public function test_unconfirmed_delete_stops_showing_the_recorded_upload(): void
+    {
+        $params = ['meeting_id' => '30095', 'courses_id' => '9000'];
+        $projector = app(PortalActionProjector::class);
+        $projector->recordAssignmentUploaded('token-del', 9000, 30095, 6, ['href' => 'files/task.pdf']);
+
+        $this->mockValidCampusSession('token-del');
+        $this->instance(
+            SipandaiSubmissionService::class,
+            Mockery::mock(SipandaiSubmissionService::class, function (MockInterface $mock): void {
+                $mock->shouldReceive('deleteAssignment')->once()->andReturn([
+                    'success' => false,
+                    'message' => 'Delete status could not be determined. Please verify manually.',
+                    'data' => ['status' => 'unknown'],
+                ]);
+                $mock->shouldReceive('inspectAssignmentSubmissionState')->once()->andReturn(['status' => 'unknown']);
+            })
+        );
+
+        $this->withSession(['campus_session_token' => 'token-del'])
+            ->deleteJson('/api/assignment', ['id' => 126663, 'idx' => 30095, 'pertemuan' => 6, 'courses_id' => 9000])
+            ->assertStatus(422);
+
+        $scraped = ['assignment_info' => ['status' => 'not_uploaded', 'upload_link' => '?act=send']];
+        $this->assertSame($scraped, $projector->apply('token-del', 'meeting_detail', $params, $scraped));
+    }
+
     public function test_list_exams_requires_session(): void
     {
         $response = $this->getJson('/api/exam');
@@ -600,6 +772,7 @@ class PortalActionControllerTest extends TestCase
     {
         $this->mockValidCampusSession('token-exam-detail');
         $this->mockServiceExpectingGetExamDetail('token-exam-detail');
+        $this->mockExamListSnapshot('token-exam-detail');
 
         $response = $this->withSession(['campus_session_token' => 'token-exam-detail'])
             ->getJson('/api/exam/8810');
@@ -614,9 +787,63 @@ class PortalActionControllerTest extends TestCase
                         'form' => [
                             'file_field' => 'file',
                         ],
+                        // The upload page has no course name; the exam list does.
+                        'course' => [
+                            'code' => 'IF101',
+                            'name' => 'Algoritma',
+                        ],
                     ],
                 ],
             ]);
+    }
+
+    public function test_exam_detail_is_not_found_for_an_id_outside_the_exam_list(): void
+    {
+        $this->mockValidCampusSession('token-exam-detail');
+        $this->instance(
+            SipandaiSubmissionService::class,
+            Mockery::mock(SipandaiSubmissionService::class, function (MockInterface $mock): void {
+                $mock->shouldNotReceive('getExamDetail');
+            })
+        );
+        $this->mockExamListSnapshot('token-exam-detail');
+
+        $this->withSession(['campus_session_token' => 'token-exam-detail'])
+            ->getJson('/api/exam/999999999')
+            ->assertNotFound()
+            ->assertJsonPath('success', false);
+    }
+
+    public function test_upload_assignment_rejects_files_that_are_not_pdf(): void
+    {
+        $this->mockValidCampusSession('token-123');
+
+        $this->withSession(['campus_session_token' => 'token-123'])
+            ->post('/api/assignment', [
+                'courses_id' => 9000,
+                'id' => 29833,
+                'pertemuan' => 2,
+                'attachment' => UploadedFile::fake()->create('task.zip', 128, 'application/zip'),
+            ], ['Accept' => 'application/json'])
+            ->assertStatus(422)
+            ->assertJsonPath('errors.attachment.0', 'File tugas harus berformat PDF.');
+    }
+
+    private function mockExamListSnapshot(string $token): void
+    {
+        $this->instance(
+            PortalDatasetRepository::class,
+            Mockery::mock(PortalDatasetRepository::class, function (MockInterface $mock) use ($token): void {
+                $mock->shouldReceive('read')
+                    ->withArgs(fn (string $sessionToken, string $dataset): bool => $sessionToken === $token && $dataset === 'exams')
+                    ->andReturn([
+                        'data' => ['exams' => [
+                            ['id' => 8810, 'course_code' => 'IF101', 'course_name' => 'Algoritma', 'schedule' => 'Senin 09:30', 'status' => 'Terjadwal'],
+                        ]],
+                        'meta' => [],
+                    ]);
+            })
+        );
     }
 
     public function test_upload_exam_requires_session(): void
@@ -635,7 +862,7 @@ class PortalActionControllerTest extends TestCase
 
     public function test_upload_exam_success(): void
     {
-        Queue::fake();
+        Bus::fake();
 
         $file = UploadedFile::fake()->create('uts.zip', 256, 'application/zip');
 
@@ -657,7 +884,7 @@ class PortalActionControllerTest extends TestCase
             ])
             ->assertJsonStructure(['data' => ['operation_id']]);
 
-        Queue::assertPushed(ProcessPortalExamUploadJob::class);
+        Bus::assertDispatchedAfterResponse(ProcessPortalExamUploadJob::class);
     }
 
     private function mockServiceExpectingSubmitAssignment(string $token, UploadedFile $expectedFile): void

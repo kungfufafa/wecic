@@ -10,7 +10,7 @@
 
     <div id="class-summary" class="mb-5 grid grid-cols-3 gap-3">
         <div class="mycic-metric">
-            <div class="mycic-metric-label">Total kelas</div>
+            <div class="mycic-metric-label">Kelas</div>
             <div class="mycic-metric-value" data-summary-value><div class="mycic-skeleton h-6 w-12"></div></div>
         </div>
         <div class="mycic-metric">
@@ -30,15 +30,15 @@
 
     <div class="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div class="inline-flex shrink-0 items-center gap-1 p-1 bg-surface rounded-xl border border-border/40 overflow-x-auto max-w-full" id="view-mode-tabs" role="tablist">
-            <button type="button" class="mycic-view-tab inline-flex items-center gap-1.5 whitespace-nowrap px-3 py-1.5 text-xs sm:text-sm font-bold rounded-lg transition-all bg-panel text-brand shadow-xs border border-border/40" data-view-target="blocking" role="tab" aria-selected="true" aria-controls="view-blocking" id="tab-blocking">
+            <button type="button" class="mycic-view-tab inline-flex items-center gap-1.5 min-h-10 whitespace-nowrap px-3 py-2 text-xs sm:text-sm font-bold rounded-lg transition-all bg-panel text-brand shadow-xs border border-border/40" data-view-target="blocking" role="tab" aria-selected="true" aria-controls="view-blocking" id="tab-blocking">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
                 <span>Grid</span>
             </button>
-            <button type="button" class="mycic-view-tab inline-flex items-center gap-1.5 whitespace-nowrap px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-lg transition-all text-ink-muted hover:text-ink" data-view-target="timeline" role="tab" aria-selected="false" aria-controls="view-timeline" id="tab-timeline">
+            <button type="button" class="mycic-view-tab inline-flex items-center gap-1.5 min-h-10 whitespace-nowrap px-3 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all text-ink-muted hover:text-ink" data-view-target="timeline" role="tab" aria-selected="false" aria-controls="view-timeline" id="tab-timeline">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9" /><polyline points="12 7 12 12 15 15" /></svg>
                 <span>Timeline</span>
             </button>
-            <button type="button" class="mycic-view-tab inline-flex items-center gap-1.5 whitespace-nowrap px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-lg transition-all text-ink-muted hover:text-ink" data-view-target="list" role="tab" aria-selected="false" aria-controls="view-list" id="tab-list">
+            <button type="button" class="mycic-view-tab inline-flex items-center gap-1.5 min-h-10 whitespace-nowrap px-3 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all text-ink-muted hover:text-ink" data-view-target="list" role="tab" aria-selected="false" aria-controls="view-list" id="tab-list">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" /><line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" /></svg>
                 <span>Daftar</span>
             </button>
@@ -52,7 +52,8 @@
                 type="search"
                 id="class-search-input"
                 class="mycic-input-with-icon h-9 text-xs"
-                placeholder="Cari matkul, dosen, ruang..."
+                placeholder="Cari kelas..."
+                aria-label="Cari mata kuliah, dosen, atau ruang"
                 autocomplete="off"
             >
         </div>
@@ -626,7 +627,7 @@
                                 return `
                                     <div class="p-2.5 text-center border-r border-border last:border-r-0 ${
                                         isToday ? 'bg-brand/10 font-bold' : ''
-                                    }">
+                                    }" ${isToday ? 'data-day-column-header="today"' : ''}>
                                         <div class="flex items-center justify-center gap-1.5">
                                             <span class="text-xs sm:text-sm font-bold text-ink">${d}</span>
                                             ${isToday ? '<span class="rounded bg-brand px-1 py-0.5 text-[9px] font-bold text-white uppercase tracking-tight">Hari Ini</span>' : ''}
@@ -713,6 +714,8 @@
                                             const layout = layoutMap.get(c.id) || { colIndex: 0, totalCols: 1 };
                                             const widthPct = 100 / layout.totalCols;
                                             const leftPct = layout.colIndex * widthPct;
+                                            // Two classes sharing a time slot are a real conflict, not just a tight layout.
+                                            const hasConflict = layout.totalCols > 1;
 
                                             const matchesSearch = !searchLower || (
                                                 c.courseName.toLowerCase().includes(searchLower) ||
@@ -732,9 +735,11 @@
                                                             <span class="rounded px-1.5 py-0.5 text-[10px] font-extrabold ${p.timeBadge}">
                                                                 ${app.escapeHtml(c.formattedTime)}
                                                             </span>
-                                                            ${c.courseCode ? `<span class="text-[9px] font-semibold text-ink-subtle uppercase truncate">${app.escapeHtml(c.courseCode)}</span>` : ''}
+                                                            ${hasConflict
+                                                                ? '<span class="rounded bg-red-600 px-1 py-0.5 text-[9px] font-bold uppercase tracking-tight text-white" title="Jadwal bentrok dengan kelas lain">Bentrok</span>'
+                                                                : (c.courseCode ? `<span class="text-[9px] font-semibold text-ink-subtle uppercase truncate">${app.escapeHtml(c.courseCode)}</span>` : '')}
                                                         </div>
-                                                        <div class="text-xs font-bold text-ink truncate leading-tight group-hover:text-brand" title="${app.escapeHtml(c.courseName)}">
+                                                        <div class="text-xs font-bold text-ink line-clamp-2 leading-tight group-hover:text-brand" title="${app.escapeHtml(c.courseName)}">
                                                             ${app.escapeHtml(c.courseName)}
                                                         </div>
                                                     </div>
@@ -754,6 +759,23 @@
 
                 blockingGridHost.innerHTML = html;
                 bindModalTriggers();
+                scrollGridToToday();
+            };
+
+            // On a phone the grid is wider than the screen: start on today's column.
+            const scrollGridToToday = () => {
+                if (selectedDayFilter !== 'all' || blockingGridHost.clientWidth >= blockingGridHost.scrollWidth) {
+                    return;
+                }
+
+                const header = blockingGridHost.querySelector('[data-day-column-header="today"]');
+
+                if (!header) {
+                    return;
+                }
+
+                const timeAxisWidth = 64;
+                blockingGridHost.scrollLeft = Math.max(0, header.offsetLeft - timeAxisWidth - 8);
             };
 
             const renderTimeline = (dayMap) => {
@@ -1142,9 +1164,9 @@
                     const isCurrent = tab.dataset.viewTarget === targetView;
                     tab.setAttribute('aria-selected', isCurrent ? 'true' : 'false');
                     if (isCurrent) {
-                        tab.className = 'mycic-view-tab inline-flex items-center gap-1.5 whitespace-nowrap px-3 py-1.5 text-xs sm:text-sm font-bold rounded-lg transition-all bg-panel text-brand shadow-xs border border-border/40';
+                        tab.className = 'mycic-view-tab inline-flex items-center gap-1.5 min-h-10 whitespace-nowrap px-3 py-2 text-xs sm:text-sm font-bold rounded-lg transition-all bg-panel text-brand shadow-xs border border-border/40';
                     } else {
-                        tab.className = 'mycic-view-tab inline-flex items-center gap-1.5 whitespace-nowrap px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-lg transition-all text-ink-muted hover:text-ink';
+                        tab.className = 'mycic-view-tab inline-flex items-center gap-1.5 min-h-10 whitespace-nowrap px-3 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all text-ink-muted hover:text-ink';
                     }
                 });
 
@@ -1224,10 +1246,10 @@
                     renderSource(payload);
                     app.markViewSynced('Daftar kelas utama', payload, { force });
                 } catch (error) {
-                    app.showNotice(error.payload?.message || error.message, 'error');
-                    blockingGridHost.innerHTML = app.renderEmptyState('Gagal memuat jadwal kelas.', 'danger');
-                    timelineHost.innerHTML = app.renderEmptyState('Gagal memuat jadwal kelas.', 'danger');
-                    listHost.innerHTML = app.renderEmptyState('Gagal memuat daftar kelas.', 'danger');
+                    app.setSyncStatus('Jadwal kelas gagal dimuat.', 'error');
+                    [blockingGridHost, timelineHost, listHost].forEach((host) => {
+                        app.mountErrorState(host, 'Jadwal kelas gagal dimuat.', () => loadSource({ force }), { subtitle: app.describeError(error) });
+                    });
                 }
             };
 

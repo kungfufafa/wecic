@@ -7,6 +7,7 @@ namespace App\Services\Extractors;
 use App\Exceptions\PortalScrapingException;
 use App\Services\PortalEndpointRegistry;
 use App\Services\PortalScrapingService;
+use App\Services\PortalUrlGuard;
 use Symfony\Component\DomCrawler\Crawler;
 
 class ProfileExtractor extends PortalScrapingService
@@ -124,6 +125,13 @@ class ProfileExtractor extends PortalScrapingService
                     if ($cells->count() >= 3) {
                         $label = trim($cells->eq(0)->text());
                         $value = trim($cells->eq(2)->text());
+
+                        // Cloudflare replaces e-mail addresses with "[email protected]"
+                        // and keeps the real one encoded in data-cfemail.
+                        $obfuscated = $cells->eq(2)->filter('[data-cfemail]');
+                        if ($obfuscated->count() > 0) {
+                            $value = $this->decodeCloudflareEmail((string) $obfuscated->first()->attr('data-cfemail')) ?? $value;
+                        }
 
                         // Clean up value
                         $value = strip_tags($value);
@@ -468,6 +476,25 @@ class ProfileExtractor extends PortalScrapingService
     }
 
     /**
+     * data-cfemail is hex: the first byte is the key, the rest is XOR-ed with it.
+     */
+    private function decodeCloudflareEmail(string $encoded): ?string
+    {
+        if (! preg_match('/^[0-9a-f]+$/i', $encoded) || strlen($encoded) < 4 || strlen($encoded) % 2 !== 0) {
+            return null;
+        }
+
+        $key = hexdec(substr($encoded, 0, 2));
+        $email = '';
+
+        for ($i = 2; $i < strlen($encoded); $i += 2) {
+            $email .= chr(hexdec(substr($encoded, $i, 2)) ^ $key);
+        }
+
+        return filter_var($email, FILTER_VALIDATE_EMAIL) ? $email : null;
+    }
+
+    /**
      * Extract photo URL
      */
     private function extractPhotoUrl(Crawler $crawler): ?string
@@ -479,11 +506,22 @@ class ProfileExtractor extends PortalScrapingService
 
             if ($photoElement->count() > 0) {
                 $photoUrl = $photoElement->attr('src');
+                $altText = (string) ($photoElement->attr('alt') ?? '');
+
+                // The portal's "No Photo Available" placeholder is not a photo.
+                if (preg_match('/no[-_ ]?photo|no[-_ ]?pic|no[-_ ]?foto|no[-_ ]?image|tanpa[-_ ]?foto|placeholder|default[-_]?(user|avatar|photo)|blank/i', $photoUrl.' '.$altText)) {
+                    return null;
+                }
+
                 if ($photoUrl && ! empty($photoUrl)) {
-                    // Make URL absolute if needed
+                    // "../files/fotostudent/x.jpg" is relative to the profile
+                    // page (/portal/mahasiswa/), not to the site root.
                     if (! str_starts_with($photoUrl, 'http')) {
-                        $baseUrl = config('portal.base_url');
-                        $photoUrl = rtrim($baseUrl, '/').'/'.ltrim($photoUrl, '/');
+                        try {
+                            $photoUrl = PortalUrlGuard::resolve($photoUrl, PortalEndpointRegistry::url('profile'));
+                        } catch (\Throwable) {
+                            $photoUrl = rtrim((string) config('portal.base_url'), '/').'/'.ltrim($photoUrl, '/');
+                        }
                     }
 
                     return $photoUrl;

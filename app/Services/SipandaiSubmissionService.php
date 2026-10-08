@@ -69,6 +69,7 @@ class SipandaiSubmissionService extends PortalScrapingService
             $actionUrl,
             [
                 RequestOptions::MULTIPART => $multipart,
+                RequestOptions::TIMEOUT => $this->uploadRequestTimeout(),
             ],
             $targetUrl
         );
@@ -343,6 +344,7 @@ class SipandaiSubmissionService extends PortalScrapingService
 
         $response = $this->dispatchRequest('POST', $submitUrl, [
             RequestOptions::MULTIPART => $multipart,
+            RequestOptions::TIMEOUT => $this->uploadRequestTimeout(),
         ], $metadataUrl);
 
         $responseHtml = (string) $response->getBody();
@@ -853,6 +855,14 @@ class SipandaiSubmissionService extends PortalScrapingService
 
         if ($exam['status'] === '' && Str::contains(strtolower($exam['schedule']), 'ujian')) {
             $exam['status'] = 'Terjadwal';
+        }
+
+        // The exam list often fills the schedule column with the lecturer's
+        // name; a schedule always carries a day or a number.
+        $exam['lecturer'] = $exam['lecturer'] ?? null;
+        if ($exam['schedule'] !== '' && ! preg_match('/\d|senin|selasa|rabu|kamis|jumat|sabtu|minggu/i', $exam['schedule'])) {
+            $exam['lecturer'] = $exam['schedule'];
+            $exam['schedule'] = '';
         }
 
         return $exam;
@@ -1773,6 +1783,15 @@ class SipandaiSubmissionService extends PortalScrapingService
     /**
      * Send HTTP request with consistent headers.
      */
+    /**
+     * Sending a file to the portal can outlast the short timeout used for
+     * page reads in web requests.
+     */
+    private function uploadRequestTimeout(): int
+    {
+        return max(1, (int) config('portal.actions.upload_request_timeout', 120));
+    }
+
     private function dispatchRequest(string $method, string $url, array $options, string $referer): ResponseInterface
     {
         $requestOptions = array_merge([
@@ -1869,28 +1888,77 @@ class SipandaiSubmissionService extends PortalScrapingService
     /**
      * Determine UPLOAD status from HTML response.
      *
+     * Alerts carry the portal's verdict, so they are read first. The rest of
+     * the page is matched on its visible text only, and only on phrases that
+     * describe a result: labels such as "Batas Waktu" or "Ukuran file" and
+     * words in scripts or styles appear on every normal page.
+     *
      * @return array{success: bool, code: string, message: string}
      */
     private function determineUploadStatus(string $html, array $alerts): array
     {
-        $haystack = strtolower($html);
         $alertsText = strtolower(implode(' ', $alerts));
-        $combinedText = trim($haystack.' '.$alertsText);
 
-        $failureIndicators = [
-            'tidak berhasil' => 'Upload was not successful.',
-            'gagal' => 'Upload failed.',
-            'error' => 'Upload error occurred.',
-            'failed' => 'Upload failed.',
-            'file tidak valid' => 'Invalid file format.',
-            'ukuran file' => 'File size exceeds limit.',
-            'format file' => 'Invalid file format.',
-            'harus diisi' => 'Required field is missing.',
-            'wajib diisi' => 'Required field is missing.',
+        $alertStatus = $alertsText !== '' ? $this->matchUploadStatus($alertsText, [
+            'tidak berhasil' => 'Upload tidak berhasil.',
+            'gagal' => 'Upload gagal.',
+            'error' => 'Terjadi kesalahan saat upload.',
+            'failed' => 'Upload gagal.',
+            'file tidak valid' => 'Format file tidak diterima portal.',
+            'ukuran file' => 'Ukuran file melebihi batas portal.',
+            'format file' => 'Format file tidak diterima portal.',
+            'harus diisi' => 'Ada isian wajib yang kosong di portal.',
+            'wajib diisi' => 'Ada isian wajib yang kosong di portal.',
+        ], ['deadline', 'batas waktu', 'sudah lewat', 'sudah ditutup']) : null;
+
+        if ($alertStatus !== null) {
+            return $alertStatus;
+        }
+
+        $pageStatus = $this->matchUploadStatus($this->visibleText($html), [
+            'tidak berhasil' => 'Upload tidak berhasil.',
+            'gagal' => 'Upload gagal.',
+            'file tidak valid' => 'Format file tidak diterima portal.',
+            'harus diisi' => 'Ada isian wajib yang kosong di portal.',
+            'wajib diisi' => 'Ada isian wajib yang kosong di portal.',
+        ], ['sudah lewat', 'sudah ditutup']);
+
+        if ($pageStatus !== null) {
+            return $pageStatus;
+        }
+
+        if ($this->hasUploadedExamInResponse($html)) {
+            return [
+                'success' => true,
+                'code' => 'uploaded',
+                'message' => 'File ujian berhasil diupload.',
+            ];
+        }
+
+        if ($this->hasUploadedFileInResponse($html)) {
+            return [
+                'success' => true,
+                'code' => 'uploaded',
+                'message' => 'File berhasil diupload.',
+            ];
+        }
+
+        return [
+            'success' => false,
+            'code' => 'unknown',
+            'message' => 'Status upload belum bisa dipastikan. Periksa di halaman tugas.',
         ];
+    }
 
+    /**
+     * @param  array<string, string>  $failureIndicators
+     * @param  list<string>  $deadlineIndicators
+     * @return array{success: bool, code: string, message: string}|null
+     */
+    private function matchUploadStatus(string $text, array $failureIndicators, array $deadlineIndicators): ?array
+    {
         foreach ($failureIndicators as $indicator => $message) {
-            if (Str::contains($combinedText, $indicator)) {
+            if (Str::contains($text, $indicator)) {
                 return [
                     'success' => false,
                     'code' => 'upload_failed',
@@ -1899,36 +1967,36 @@ class SipandaiSubmissionService extends PortalScrapingService
             }
         }
 
-        if (Str::contains($combinedText, ['sudah ada', 'sudah diupload', 'already uploaded', 'already exists'])) {
+        if (Str::contains($text, ['sudah ada', 'sudah diupload', 'already uploaded', 'already exists'])) {
             return [
                 'success' => false,
                 'code' => 'already_uploaded',
-                'message' => 'File already uploaded for this assignment.',
+                'message' => 'File untuk tugas ini sudah pernah diupload.',
             ];
         }
 
-        if (Str::contains($combinedText, ['deadline', 'batas waktu', 'sudah lewat', 'sudah ditutup'])) {
+        if (Str::contains($text, $deadlineIndicators)) {
             return [
                 'success' => false,
                 'code' => 'deadline_passed',
-                'message' => 'Assignment deadline has passed.',
+                'message' => 'Batas waktu pengumpulan sudah lewat.',
             ];
         }
 
         $successIndicators = [
-            'berhasil diupload' => 'File uploaded successfully.',
-            'upload berhasil' => 'File uploaded successfully.',
-            'tersimpan' => 'File saved successfully.',
-            'sudah disimpan' => 'File saved successfully.',
-            'data sudah disimpan' => 'Data saved successfully.',
-            'disimpan' => 'File saved successfully.',
-            'sukses' => 'Upload successful.',
-            'berhasil' => 'Upload successful.',
-            'success' => 'Upload successful.',
+            'berhasil diupload' => 'File berhasil diupload.',
+            'upload berhasil' => 'File berhasil diupload.',
+            'tersimpan' => 'File tersimpan di portal.',
+            'sudah disimpan' => 'File tersimpan di portal.',
+            'data sudah disimpan' => 'Data tersimpan di portal.',
+            'disimpan' => 'File tersimpan di portal.',
+            'sukses' => 'Upload berhasil.',
+            'berhasil' => 'Upload berhasil.',
+            'success' => 'Upload berhasil.',
         ];
 
         foreach ($successIndicators as $indicator => $message) {
-            if (Str::contains($combinedText, $indicator)) {
+            if (Str::contains($text, $indicator)) {
                 return [
                     'success' => true,
                     'code' => 'uploaded',
@@ -1937,27 +2005,17 @@ class SipandaiSubmissionService extends PortalScrapingService
             }
         }
 
-        if ($this->hasUploadedExamInResponse($html)) {
-            return [
-                'success' => true,
-                'code' => 'uploaded',
-                'message' => 'Exam file uploaded successfully.',
-            ];
-        }
+        return null;
+    }
 
-        if ($this->hasUploadedFileInResponse($html)) {
-            return [
-                'success' => true,
-                'code' => 'uploaded',
-                'message' => 'File uploaded successfully.',
-            ];
-        }
+    /**
+     * Page text as the student sees it, without scripts, styles and markup.
+     */
+    private function visibleText(string $html): string
+    {
+        $withoutCode = preg_replace('#<(script|style|noscript)\b[^>]*>.*?</\1>#is', ' ', $html) ?? $html;
 
-        return [
-            'success' => false,
-            'code' => 'unknown',
-            'message' => 'Upload status could not be determined. Please verify manually.',
-        ];
+        return strtolower($this->cleanText(strip_tags($withoutCode)));
     }
 
     /**
@@ -1968,13 +2026,15 @@ class SipandaiSubmissionService extends PortalScrapingService
     private function determineAttendanceStatus(string $html, array $alerts): array
     {
         $haystack = strtolower($html.' '.implode(' ', $alerts));
+        $alertsText = strtolower(implode(' ', $alerts));
 
-        // Already attended
-        if (Str::contains($haystack, ['sudah melakukan absensi', 'sudah absen', 'already'])) {
+        // Already attended: the goal of the action is met, so it counts as a
+        // success. Short or generic phrases are only trusted inside alerts.
+        if (Str::contains($haystack, 'sudah melakukan absensi') || Str::contains($alertsText, ['sudah absen', 'already'])) {
             return [
-                'success' => false,
+                'success' => true,
                 'code' => 'already_marked',
-                'message' => 'Attendance already recorded for this meeting.',
+                'message' => 'Kehadiran sudah tercatat untuk pertemuan ini.',
             ];
         }
 
@@ -1983,7 +2043,7 @@ class SipandaiSubmissionService extends PortalScrapingService
             return [
                 'success' => true,
                 'code' => 'marked',
-                'message' => 'Attendance marked successfully.',
+                'message' => 'Absensi berhasil dicatat.',
             ];
         }
 
@@ -1992,7 +2052,7 @@ class SipandaiSubmissionService extends PortalScrapingService
             return [
                 'success' => true,
                 'code' => 'marked',
-                'message' => 'Attendance marked successfully.',
+                'message' => 'Absensi berhasil dicatat.',
             ];
         }
 
@@ -2001,7 +2061,7 @@ class SipandaiSubmissionService extends PortalScrapingService
             return [
                 'success' => false,
                 'code' => 'invalid_code',
-                'message' => 'Invalid or expired attendance code.',
+                'message' => 'Kode absen salah atau sudah kedaluwarsa.',
             ];
         }
 
@@ -2010,7 +2070,7 @@ class SipandaiSubmissionService extends PortalScrapingService
             return [
                 'success' => false,
                 'code' => 'invalid_code',
-                'message' => 'Invalid attendance code.',
+                'message' => 'Kode absen salah.',
             ];
         }
 
@@ -2019,7 +2079,7 @@ class SipandaiSubmissionService extends PortalScrapingService
             return [
                 'success' => false,
                 'code' => 'expired',
-                'message' => 'Attendance window has expired or not yet open.',
+                'message' => 'Sesi absensi sudah ditutup atau belum dibuka.',
             ];
         }
 
@@ -2028,7 +2088,7 @@ class SipandaiSubmissionService extends PortalScrapingService
             return [
                 'success' => false,
                 'code' => 'invalid_code',
-                'message' => 'Attendance code validation failed.',
+                'message' => 'Kode absen tidak lolos validasi portal.',
             ];
         }
 
@@ -2036,7 +2096,7 @@ class SipandaiSubmissionService extends PortalScrapingService
         return [
             'success' => false,
             'code' => 'failed',
-            'message' => 'Failed to mark attendance. Please verify your code and try again.',
+            'message' => 'Absensi gagal dicatat. Periksa kode lalu coba lagi.',
         ];
     }
 
@@ -2051,14 +2111,14 @@ class SipandaiSubmissionService extends PortalScrapingService
 
         // Check for explicit failure indicators first
         $failureIndicators = [
-            'gagal' => 'Delete failed.',
-            'error' => 'Delete error occurred.',
-            'failed' => 'Delete failed.',
-            'tidak berhasil' => 'Delete was not successful.',
-            'tidak ditemukan' => 'Submission not found.',
-            'not found' => 'Submission not found.',
-            'tidak bisa dihapus' => 'Submission cannot be deleted.',
-            'tidak dapat dihapus' => 'Submission cannot be deleted.',
+            'gagal' => 'Hapus gagal.',
+            'error' => 'Terjadi kesalahan saat menghapus.',
+            'failed' => 'Hapus gagal.',
+            'tidak berhasil' => 'Hapus tidak berhasil.',
+            'tidak ditemukan' => 'Tugas tidak ditemukan di portal.',
+            'not found' => 'Tugas tidak ditemukan di portal.',
+            'tidak bisa dihapus' => 'Tugas tidak bisa dihapus.',
+            'tidak dapat dihapus' => 'Tugas tidak bisa dihapus.',
         ];
 
         foreach ($failureIndicators as $indicator => $message) {
@@ -2076,18 +2136,18 @@ class SipandaiSubmissionService extends PortalScrapingService
             return [
                 'success' => false,
                 'code' => 'permission_denied',
-                'message' => 'You do not have permission to delete this submission.',
+                'message' => 'Kamu tidak punya izin menghapus tugas ini.',
             ];
         }
 
         // Check for explicit success indicators
         $successIndicators = [
-            'berhasil dihapus' => 'Submission deleted successfully.',
-            'hapus berhasil' => 'Submission deleted successfully.',
-            'terhapus' => 'Submission deleted successfully.',
-            'deleted' => 'Submission deleted successfully.',
-            'sukses' => 'Delete successful.',
-            'berhasil' => 'Delete successful.',
+            'berhasil dihapus' => 'Tugas berhasil dihapus.',
+            'hapus berhasil' => 'Tugas berhasil dihapus.',
+            'terhapus' => 'Tugas berhasil dihapus.',
+            'deleted' => 'Tugas berhasil dihapus.',
+            'sukses' => 'Hapus berhasil.',
+            'berhasil' => 'Hapus berhasil.',
         ];
 
         foreach ($successIndicators as $indicator => $message) {
@@ -2105,7 +2165,7 @@ class SipandaiSubmissionService extends PortalScrapingService
                 return [
                     'success' => true,
                     'code' => 'deleted',
-                    'message' => 'Submission deleted successfully.',
+                    'message' => 'Tugas berhasil dihapus.',
                 ];
             }
         }
@@ -2114,7 +2174,7 @@ class SipandaiSubmissionService extends PortalScrapingService
         return [
             'success' => false,
             'code' => 'unknown',
-            'message' => 'Delete status could not be determined. Please verify manually.',
+            'message' => 'Status hapus belum bisa dipastikan. Periksa di halaman tugas.',
         ];
     }
 

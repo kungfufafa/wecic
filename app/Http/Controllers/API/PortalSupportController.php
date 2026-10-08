@@ -180,10 +180,10 @@ class PortalSupportController extends CampusApiController
             ]);
         } catch (\Throwable $throwable) {
             if ($this->isCampusSessionExpiredException($throwable)) {
-                return $this->statusError('Campus session has expired. Please login again.', 401, campusSessionValid: false);
+                return $this->statusError('Sesi kampus sudah berakhir. Silakan masuk lagi.', 401, campusSessionValid: false);
             }
 
-            return $this->statusError('File download failed: '.$throwable->getMessage(), 500, campusSessionValid: false);
+            return $this->statusError('Unduhan gagal: '.$throwable->getMessage(), 500, campusSessionValid: false);
         }
     }
 

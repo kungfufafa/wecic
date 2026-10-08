@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Jobs;
 
 use App\Enums\PortalOperationStage;
+use App\Services\PortalActionProjector;
 use App\Services\PortalBroadcastService;
 use App\Services\PortalDatasetRepository;
 use App\Services\PortalOperationTracker;
@@ -19,11 +20,21 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
+/**
+ * Sends an assignment file to SIPANDAI. Dispatched to run right after the
+ * HTTP response, so the upload starts immediately instead of waiting for a
+ * queue worker; progress reaches the browser through realtime events and the
+ * operation tracker (polled as a fallback).
+ */
 class ProcessPortalAssignmentUploadJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public int $tries = 3;
+    /**
+     * The upload POST is not idempotent: a retry after a timeout the portal
+     * actually processed would submit the file twice.
+     */
+    public int $tries = 1;
 
     /**
      * @param  array<string, mixed>  $formValues
@@ -47,7 +58,8 @@ class ProcessPortalAssignmentUploadJob implements ShouldQueue
         SipandaiSubmissionService $submissionService,
         PortalOperationTracker $tracker,
         PortalBroadcastService $broadcast,
-        PortalDatasetRepository $datasets
+        PortalDatasetRepository $datasets,
+        PortalActionProjector $projector
     ): void {
         $lock = Cache::lock('portal_upload_'.$this->operationId, 600);
 
@@ -64,8 +76,10 @@ class ProcessPortalAssignmentUploadJob implements ShouldQueue
             return;
         }
 
+        $this->extendTimeLimit();
+
         try {
-            $tracker->start($this->operationId, 'assignment_upload');
+            $this->reportStage($tracker, $broadcast, PortalOperationStage::Connecting, 'Menghubungkan ke portal SIPANDAI.', 10);
 
             $uploadedFile = new UploadedFile(
                 Storage::path($this->storedFilePath),
@@ -82,23 +96,22 @@ class ProcessPortalAssignmentUploadJob implements ShouldQueue
                 $this->meetingNumber,
                 $uploadedFile,
                 $this->formValues,
-                function (PortalOperationStage $stage, string $message, int $percent) use ($tracker, $broadcast): void {
-                    $tracker->progress($this->operationId, $stage, $message, $percent);
-                    $broadcast->uploadProgress($this->sessionId, $this->campusSessionToken, $this->operationId, $stage, $message, percent: $percent);
-                }
+                fn (PortalOperationStage $stage, string $message, int $percent) => $this->reportStage($tracker, $broadcast, $stage, $message, $percent)
             );
 
-            if (($result['success'] ?? false) !== true) {
+            $succeeded = ($result['success'] ?? false) === true;
+            $submissionState = null;
+
+            // The response wording is matched heuristically; when it is
+            // inconclusive, the assignment page tells whether the file landed.
+            if ($succeeded || ($result['data']['status'] ?? null) === 'unknown') {
+                $submissionState = $this->inspectSubmission($submissionService);
+                $succeeded = $succeeded || ($submissionState['status'] ?? null) === 'uploaded';
+            }
+
+            if (! $succeeded) {
                 $message = (string) ($result['message'] ?? 'Upload tugas gagal diproses portal.');
-                $tracker->progress($this->operationId, PortalOperationStage::Failed, $message, 100, nextStep: 'Periksa file PDF lalu coba unggah ulang.');
-                $broadcast->uploadProgress(
-                    $this->sessionId,
-                    $this->campusSessionToken,
-                    $this->operationId,
-                    PortalOperationStage::Failed,
-                    $message,
-                    nextStep: 'Periksa file PDF lalu coba unggah ulang.'
-                );
+                $this->reportFailure($tracker, $broadcast, $message, null, 'Periksa file PDF lalu coba unggah ulang.');
 
                 return;
             }
@@ -108,33 +121,36 @@ class ProcessPortalAssignmentUploadJob implements ShouldQueue
                 ['assignments', 'dashboard', 'class_detail', 'meeting_detail'],
                 ['class_detail', 'meeting_detail']
             );
-            $this->resyncMeetingDetail($datasets);
-
-            $broadcast->dataInvalidated(
-                $this->sessionId,
+            $projector->recordAssignmentUploaded(
                 $this->campusSessionToken,
-                ['/api/assignment/pending'],
-                ['dashboard-pending-assignments', 'meeting-show'],
-                'Data tugas diperbarui setelah upload.'
+                $this->courseId,
+                $this->discussionId,
+                $this->meetingNumber,
+                $submissionState['file_info'] ?? null,
+                $submissionState['delete_payload'] ?? null
             );
-        } catch (\Throwable $throwable) {
-            $tracker->progress(
-                $this->operationId,
-                PortalOperationStage::Failed,
-                'Upload tugas gagal.',
-                100,
-                $throwable->getMessage(),
-                'Coba unggah ulang saat koneksi stabil.'
-            );
+
+            $cacheKeys = [
+                '/api/dashboard',
+                '/api/attendance/today',
+                '/api/assignment/pending',
+                sprintf('/api/meeting/%d?courses_id=%d', $this->discussionId, $this->courseId),
+            ];
+            $syncKeys = ['dashboard-pending-assignments', 'meeting-show'];
+
+            $tracker->progress($this->operationId, PortalOperationStage::Completed, 'Tugas terkirim ke portal.', 100, cacheKeys: $cacheKeys, syncKeys: $syncKeys);
             $broadcast->uploadProgress(
                 $this->sessionId,
                 $this->campusSessionToken,
                 $this->operationId,
-                PortalOperationStage::Failed,
-                'Upload tugas gagal.',
-                $throwable->getMessage(),
-                'Coba unggah ulang saat koneksi stabil.'
+                PortalOperationStage::Completed,
+                'Tugas terkirim ke portal.',
+                percent: 100,
+                cacheKeys: $cacheKeys,
+                syncKeys: $syncKeys
             );
+        } catch (\Throwable $throwable) {
+            $this->reportFailure($tracker, $broadcast, 'Upload tugas gagal.', $throwable->getMessage(), 'Coba unggah ulang saat koneksi stabil.');
 
             throw $throwable;
         } finally {
@@ -144,22 +160,56 @@ class ProcessPortalAssignmentUploadJob implements ShouldQueue
     }
 
     /**
-     * Rebuild the meeting the student uploaded from, so the open meeting page
-     * shows the new submission as soon as it re-reads its snapshot.
+     * @return array{status?: string, delete_payload?: array<string, string>|null, file_info?: array<string, string>|null}|null
      */
-    private function resyncMeetingDetail(PortalDatasetRepository $datasets): void
+    private function inspectSubmission(SipandaiSubmissionService $submissionService): ?array
     {
         try {
-            $datasets->sync($this->campusSessionToken, 'meeting_detail', [
-                'meeting_id' => (string) $this->discussionId,
-                'courses_id' => (string) $this->courseId,
-            ]);
+            return $submissionService->inspectAssignmentSubmissionState(
+                $this->campusSessionToken,
+                $this->courseId,
+                $this->discussionId,
+                $this->meetingNumber
+            );
         } catch (\Throwable $throwable) {
-            Log::warning('Failed to re-sync meeting detail after assignment upload', [
+            Log::warning('Failed to inspect assignment page after upload', [
                 'courses_id' => $this->courseId,
                 'meeting_id' => $this->discussionId,
                 'error' => $throwable->getMessage(),
             ]);
+
+            return null;
+        }
+    }
+
+    private function reportStage(PortalOperationTracker $tracker, PortalBroadcastService $broadcast, PortalOperationStage $stage, string $message, int $percent): void
+    {
+        $tracker->progress($this->operationId, $stage, $message, $percent);
+        $broadcast->uploadProgress($this->sessionId, $this->campusSessionToken, $this->operationId, $stage, $message, percent: $percent);
+    }
+
+    private function reportFailure(PortalOperationTracker $tracker, PortalBroadcastService $broadcast, string $message, ?string $detail, string $nextStep): void
+    {
+        $tracker->progress($this->operationId, PortalOperationStage::Failed, $message, 100, $detail, $nextStep);
+        $broadcast->uploadProgress(
+            $this->sessionId,
+            $this->campusSessionToken,
+            $this->operationId,
+            PortalOperationStage::Failed,
+            $message,
+            $detail,
+            $nextStep
+        );
+    }
+
+    /**
+     * Running after the response, the job shares PHP-FPM's execution limit.
+     * Console processes (queue workers, tests) manage their own limits.
+     */
+    private function extendTimeLimit(): void
+    {
+        if (! app()->runningInConsole() && function_exists('set_time_limit')) {
+            @set_time_limit((int) config('portal.actions.upload_time_limit', 180));
         }
     }
 }

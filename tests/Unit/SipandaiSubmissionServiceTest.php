@@ -292,6 +292,49 @@ class SipandaiSubmissionServiceTest extends TestCase
         $this->assertSame('uploaded', $status['code']);
     }
 
+    public function test_determine_upload_status_ignores_page_labels_and_scripts_when_alert_reports_success(): void
+    {
+        $service = new SipandaiSubmissionService($this->createMock(PortalSessionManager::class));
+
+        $html = <<<'HTML'
+            <html><head><style>.error { color: red; }</style><script>function onError() { console.error('failed'); }</script></head>
+            <body>
+                <div class="alert alert-success">Data sudah disimpan</div>
+                <table><tr><th>Batas Waktu</th><td>12-10-2026 23:59</td></tr><tr><th>Ukuran file</th><td>Maks. 10MB</td></tr></table>
+            </body></html>
+            HTML;
+
+        $status = $this->invokeNonPublicMethod($service, 'determineUploadStatus', [$html, ['Data sudah disimpan']]);
+
+        $this->assertTrue($status['success']);
+        $this->assertSame('uploaded', $status['code']);
+    }
+
+    public function test_determine_upload_status_does_not_read_deadline_label_as_failure(): void
+    {
+        $service = new SipandaiSubmissionService($this->createMock(PortalSessionManager::class));
+
+        $status = $this->invokeNonPublicMethod($service, 'determineUploadStatus', [
+            '<html><body><h4>Batas Waktu: 12-10-2026</h4><p>Tugas berhasil diupload.</p></body></html>',
+            [],
+        ]);
+
+        $this->assertTrue($status['success']);
+    }
+
+    public function test_determine_attendance_status_treats_already_recorded_attendance_as_success(): void
+    {
+        $service = new SipandaiSubmissionService($this->createMock(PortalSessionManager::class));
+
+        $status = $this->invokeNonPublicMethod($service, 'determineAttendanceStatus', [
+            '<html><body><div class="alert alert-danger">Anda sudah melakukan absensi pada pertemuan ini.</div></body></html>',
+            ['Anda sudah melakukan absensi pada pertemuan ini.'],
+        ]);
+
+        $this->assertTrue($status['success']);
+        $this->assertSame('already_marked', $status['code']);
+    }
+
     public function test_determine_delete_status_does_not_assume_success_when_target_is_missing(): void
     {
         $service = new SipandaiSubmissionService($this->createMock(PortalSessionManager::class));

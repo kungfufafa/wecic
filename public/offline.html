@@ -8,6 +8,7 @@
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
         :root {
+            color-scheme: light dark;
             --surface: #08090a;
             --surface-elevated: #0f1011;
             --surface-muted: #191a1b;
@@ -18,6 +19,28 @@
             --accent-strong: #2679db;
             --success: #16a34a;
             --warning: #d97706;
+            --card-top: rgba(25, 26, 27, 0.9);
+            --card-bottom: rgba(15, 16, 17, 0.96);
+            --page-top: #091019;
+            --grid-line: rgba(255, 255, 255, 0.03);
+            --status-ink: #e7c66b;
+        }
+
+        /* Follow the device theme, like the app itself does. */
+        @media (prefers-color-scheme: light) {
+            :root {
+                --surface: #f4f6fa;
+                --surface-elevated: #ffffff;
+                --surface-muted: #e9edf3;
+                --ink: #0f172a;
+                --ink-soft: #526077;
+                --line: rgba(15, 23, 42, 0.1);
+                --card-top: rgba(255, 255, 255, 0.96);
+                --card-bottom: rgba(248, 250, 252, 0.98);
+                --page-top: #e8f0fb;
+                --grid-line: rgba(15, 23, 42, 0.04);
+                --status-ink: #92400e;
+            }
         }
 
         body {
@@ -25,9 +48,9 @@
             background:
                 radial-gradient(circle at top center, rgba(38, 121, 219, 0.18), transparent 22rem),
                 radial-gradient(circle at 10% 0%, rgba(3, 82, 161, 0.16), transparent 20rem),
-                linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-                linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-                linear-gradient(180deg, #091019, var(--surface));
+                linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
+                linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px),
+                linear-gradient(180deg, var(--page-top), var(--surface));
             background-size: 32px 32px, 32px 32px, auto;
             min-height: 100vh;
             display: flex;
@@ -40,7 +63,7 @@
         }
 
         .card {
-            background: linear-gradient(180deg, rgba(25, 26, 27, 0.9), rgba(15, 16, 17, 0.96));
+            background: linear-gradient(180deg, var(--card-top), var(--card-bottom));
             border: 1px solid var(--line);
             border-radius: 0.75rem;
             padding: 2.5rem 2rem;
@@ -61,7 +84,7 @@
             font-weight: 510;
             letter-spacing: 0.08em;
             text-transform: uppercase;
-            color: #e7c66b;
+            color: var(--status-ink);
             margin: 0 auto 1.4rem;
         }
 

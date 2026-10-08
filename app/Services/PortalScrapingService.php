@@ -50,9 +50,11 @@ abstract class PortalScrapingService
                 'Connection' => 'keep-alive',
                 'Upgrade-Insecure-Requests' => '1',
             ],
+            // Like a browser, a redirect after a POST is followed with a GET:
+            // re-sending the POST would submit attendance or uploads twice.
             RequestOptions::ALLOW_REDIRECTS => [
                 'max' => 5,
-                'strict' => true,
+                'strict' => false,
                 'referer' => true,
                 'track_redirects' => true,
             ],

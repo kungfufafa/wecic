@@ -10,7 +10,14 @@ use App\Events\PortalNotificationSent;
 use App\Events\PortalSessionNoticeSent;
 use App\Events\PortalSyncStatusUpdated;
 use App\Events\PortalUploadProgressed;
+use Illuminate\Support\Facades\Log;
 
+/**
+ * Realtime updates for the student's browser. Events are broadcast right
+ * away instead of waiting in a queue, and a broadcast that fails (e.g. Reverb
+ * is down) is only logged: the browser can still poll for the outcome, so it
+ * must never fail the portal action that triggered it.
+ */
 class PortalBroadcastService
 {
     /**
@@ -19,12 +26,12 @@ class PortalBroadcastService
      */
     public function dataInvalidated(string $sessionId, string $campusSessionToken, array $cacheKeys, array $syncKeys, string $message): void
     {
-        PortalDataInvalidated::dispatch($sessionId, $this->payload($campusSessionToken, [
+        $this->send(fn () => PortalDataInvalidated::dispatch($sessionId, $this->payload($campusSessionToken, [
             'cache_keys' => array_values($cacheKeys),
             'sync_keys' => array_values($syncKeys),
             'message' => $message,
             'urgency' => 'info',
-        ]));
+        ])));
     }
 
     /**
@@ -33,35 +40,51 @@ class PortalBroadcastService
      */
     public function syncStatus(string $sessionId, string $campusSessionToken, PortalOperationStage $stage, string $message, array $cacheKeys = [], array $syncKeys = []): void
     {
-        PortalSyncStatusUpdated::dispatch($sessionId, $this->payload($campusSessionToken, [
+        $this->send(fn () => PortalSyncStatusUpdated::dispatch($sessionId, $this->payload($campusSessionToken, [
             'status' => $stage->value,
             'message' => $message,
             'cache_keys' => array_values($cacheKeys),
             'sync_keys' => array_values($syncKeys),
             'urgency' => $stage === PortalOperationStage::Failed ? 'error' : 'info',
-        ]));
+        ])));
     }
 
-    public function uploadProgress(string $sessionId, string $campusSessionToken, string $operationId, PortalOperationStage $stage, string $message, ?string $detail = null, ?string $nextStep = null, ?int $percent = null): void
-    {
-        PortalUploadProgressed::dispatch($sessionId, $this->payload($campusSessionToken, [
+    /**
+     * @param  list<string>  $cacheKeys
+     * @param  list<string>  $syncKeys
+     */
+    public function uploadProgress(
+        string $sessionId,
+        string $campusSessionToken,
+        string $operationId,
+        PortalOperationStage $stage,
+        string $message,
+        ?string $detail = null,
+        ?string $nextStep = null,
+        ?int $percent = null,
+        array $cacheKeys = [],
+        array $syncKeys = []
+    ): void {
+        $this->send(fn () => PortalUploadProgressed::dispatch($sessionId, $this->payload($campusSessionToken, [
             'operation_id' => $operationId,
             'status' => $stage->value,
             'message' => $message,
             'detail' => $detail,
             'next_step' => $nextStep,
             'percent' => $percent,
+            'cache_keys' => array_values($cacheKeys),
+            'sync_keys' => array_values($syncKeys),
             'urgency' => $stage === PortalOperationStage::Failed ? 'error' : 'info',
-        ]));
+        ])));
     }
 
     public function sessionNotice(string $sessionId, string $campusSessionToken, string $status, string $message, string $urgency = 'info'): void
     {
-        PortalSessionNoticeSent::dispatch($sessionId, $this->payload($campusSessionToken, [
+        $this->send(fn () => PortalSessionNoticeSent::dispatch($sessionId, $this->payload($campusSessionToken, [
             'status' => $status,
             'message' => $message,
             'urgency' => $urgency,
-        ]));
+        ])));
     }
 
     /**
@@ -69,7 +92,18 @@ class PortalBroadcastService
      */
     public function notification(string $sessionId, string $campusSessionToken, array $data): void
     {
-        PortalNotificationSent::dispatch($sessionId, $this->payload($campusSessionToken, $data));
+        $this->send(fn () => PortalNotificationSent::dispatch($sessionId, $this->payload($campusSessionToken, $data)));
+    }
+
+    private function send(callable $dispatch): void
+    {
+        try {
+            $dispatch();
+        } catch (\Throwable $throwable) {
+            Log::warning('Portal realtime broadcast failed', [
+                'error' => $throwable->getMessage(),
+            ]);
+        }
     }
 
     /**

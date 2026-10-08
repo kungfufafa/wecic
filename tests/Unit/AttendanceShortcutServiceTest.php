@@ -517,19 +517,9 @@ class AttendanceShortcutServiceTest extends TestCase
                         ],
                     ]);
 
-                $mock->shouldReceive('extractMeetingDetail')
-                    ->once()
-                    ->with('token-202', [
-                        'meeting_id' => '454',
-                        'courses_id' => '8810',
-                        'fresh' => true,
-                    ])
-                    ->andReturn([
-                        'attendance_info' => [
-                            'status' => '',
-                            'time' => '',
-                        ],
-                    ]);
+                // Without today's material the latest meeting is last week's:
+                // its attendance must not be read as today's.
+                $mock->shouldNotReceive('extractMeetingDetail');
             }),
             Mockery::mock(SipandaiClassesExtractor::class, function (MockInterface $mock): void {
                 $mock->shouldReceive('extractSipandaiClassesData')
@@ -572,7 +562,9 @@ class AttendanceShortcutServiceTest extends TestCase
         $this->assertSame(15, $result['classes'][0]['meeting_number']);
         $this->assertSame('Pertemuan 14', $result['classes'][0]['today_material']['title']);
         $this->assertSame(14, $result['classes'][0]['today_material']['meeting_number']);
+        $this->assertFalse($result['classes'][0]['today_material']['is_today']);
         $this->assertFalse($result['classes'][0]['attendance_target_reliable']);
+        $this->assertFalse($result['classes'][0]['attendance_status']['already_marked']);
     }
 
     public function test_it_uses_app_timezone_when_reference_is_not_provided(): void
@@ -875,9 +867,11 @@ class AttendanceShortcutServiceTest extends TestCase
 
         $pendingAssignments = $service->getPendingAssignments('token-multi', 10);
 
+        // Soonest deadline first, whatever order the portal lists them in.
         $this->assertCount(2, $pendingAssignments);
-        $this->assertSame([3, 2], array_column($pendingAssignments, 'meeting_number'));
-        $this->assertSame(['/meeting/442?courses_id=8810', '/meeting/441?courses_id=8810'], array_column($pendingAssignments, 'meeting_url'));
+        $this->assertSame([2, 3], array_column($pendingAssignments, 'meeting_number'));
+        $this->assertSame(['/meeting/441?courses_id=8810', '/meeting/442?courses_id=8810'], array_column($pendingAssignments, 'meeting_url'));
+        $this->assertSame(['2026-04-09', '2026-04-16'], array_column($pendingAssignments, 'deadline_date'));
     }
 
     public function test_it_scans_pending_assignments_beyond_the_first_four_classes(): void

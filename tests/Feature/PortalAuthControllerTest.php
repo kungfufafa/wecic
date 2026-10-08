@@ -8,6 +8,7 @@ use App\Events\PortalNotificationSent;
 use App\Events\PortalSessionNoticeSent;
 use App\Http\Middleware\VerifyCsrfTokenMiddleware;
 use App\Jobs\ScanPortalNotificationsJob;
+use App\Services\PortalBroadcastService;
 use App\Services\PortalPasswordService;
 use App\Services\PortalSessionManager;
 use Illuminate\Support\Facades\Bus;
@@ -224,6 +225,42 @@ class PortalAuthControllerTest extends TestCase
             ->assertJsonPath('status', 'success')
             ->assertSessionMissing('campus_session_token')
             ->assertSessionMissing('campus_user_info');
+    }
+
+    public function test_logout_notifies_other_tabs_only_after_the_session_is_destroyed(): void
+    {
+        $events = [];
+
+        $this->instance(
+            PortalSessionManager::class,
+            Mockery::mock(PortalSessionManager::class, function (MockInterface $mock) use (&$events): void {
+                $mock->shouldReceive('destroySession')
+                    ->once()
+                    ->with('campus-token-123')
+                    ->andReturnUsing(function () use (&$events): bool {
+                        $events[] = 'destroyed';
+
+                        return true;
+                    });
+            })
+        );
+        $this->instance(
+            PortalBroadcastService::class,
+            Mockery::mock(PortalBroadcastService::class, function (MockInterface $mock) use (&$events): void {
+                $mock->shouldReceive('sessionNotice')
+                    ->once()
+                    ->withArgs(fn (string $sessionId, string $token, string $status): bool => $sessionId !== '' && $status === 'logged_out')
+                    ->andReturnUsing(function () use (&$events): void {
+                        $events[] = 'notice';
+                    });
+            })
+        );
+
+        $this->withSession(['_token' => 'known-csrf-token', 'campus_session_token' => 'campus-token-123'])
+            ->post('/api/auth/logout', ['_token' => 'known-csrf-token'], ['Accept' => 'application/json'])
+            ->assertOk();
+
+        $this->assertSame(['destroyed', 'notice'], $events);
     }
 
     public function test_logout_accepts_csrf_token_from_request_header(): void

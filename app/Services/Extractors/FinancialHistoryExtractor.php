@@ -214,6 +214,25 @@ class FinancialHistoryExtractor extends PortalScrapingService
 
         if (isset($payment['amount_label'])) {
             $payment['amount'] = $this->parseAmount((string) $payment['amount_label']);
+
+            // One format everywhere ("Rp 1.281.000"), not the portal's "Rp. 1,281,000,-".
+            if ($payment['amount'] > 0) {
+                $payment['amount_label'] = 'Rp '.number_format($payment['amount'], 0, ',', '.');
+            }
+        }
+
+        // The date column also carries the payment type ("05 September 2026 Pembayaran UKT").
+        if (isset($payment['paid_at_label']) && preg_match('/^(\d{1,2}\s+[A-Za-z]+\s+\d{4})\s*(.*)$/u', (string) $payment['paid_at_label'], $matches)) {
+            $payment['paid_at_label'] = $matches[1];
+
+            if (trim($matches[2]) !== '') {
+                $payment['category'] = trim($matches[2]);
+            }
+        }
+
+        // "Tahap 1 tahun ke 2 = 1.281.000" repeats the amount column.
+        if (isset($payment['description'])) {
+            $payment['description'] = trim((string) preg_replace('/\s*=\s*[\d.,]+\s*$/', '', (string) $payment['description']));
         }
 
         $payment['raw'] = $raw;

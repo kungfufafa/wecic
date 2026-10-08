@@ -31,7 +31,8 @@ class PortalDatasetRepository
         private readonly PortalDatasetBuilder $builder,
         private readonly PortalFetchPolicy $fetchPolicy,
         private readonly PortalDataCache $dataCache,
-        private readonly PortalDataOwner $owner
+        private readonly PortalDataOwner $owner,
+        private readonly PortalActionProjector $projector
     ) {}
 
     /**
@@ -214,6 +215,10 @@ class PortalDatasetRepository
 
         $syncMeta = is_array($data['_sync'] ?? null) ? $data['_sync'] : [];
         unset($data['_sync']);
+
+        // Upstream pages can lag behind an action the portal just confirmed,
+        // and a build that began before the action never saw it.
+        $data = $this->projector->apply($sessionToken, $dataset, $params, $data);
 
         $this->snapshots->put($sessionToken, $dataset, $data, $startedAt, $params);
 

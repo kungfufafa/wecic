@@ -167,6 +167,22 @@ class AttendanceShortcutService
                     }
                 }
 
+                // Soonest deadline first; assignments without a known deadline last.
+                usort($pendingAssignments, static function (array $a, array $b): int {
+                    $dateA = $a['deadline_date'] ?? null;
+                    $dateB = $b['deadline_date'] ?? null;
+
+                    if ($dateA === $dateB) {
+                        return strcmp((string) ($a['course_name'] ?? ''), (string) ($b['course_name'] ?? ''));
+                    }
+
+                    if ($dateA === null || $dateB === null) {
+                        return $dateA === null ? 1 : -1;
+                    }
+
+                    return strcmp($dateA, $dateB);
+                });
+
                 return $pendingAssignments;
             }
         );
@@ -292,6 +308,7 @@ class AttendanceShortcutService
                 'date' => $referenceMaterial['date'] ?? null,
                 'time' => $referenceMaterial['time'] ?? null,
                 'meeting_number' => $referenceMaterial['meeting_number'] ?? null,
+                'is_today' => $material !== null,
             ],
             'attendance_target_reliable' => $material !== null,
             'active_now' => $this->isActiveNow($class, $reference),
@@ -319,6 +336,12 @@ class AttendanceShortcutService
         $coursesId = (string) ($candidate['assignment_payload']['courses_id'] ?? '');
 
         if ($meetingId === '' || $coursesId === '') {
+            return $candidate;
+        }
+
+        // Without today's material the meeting id points at an earlier
+        // meeting; its attendance must not be shown as today's.
+        if (($candidate['attendance_target_reliable'] ?? false) !== true) {
             return $candidate;
         }
 
@@ -484,6 +507,7 @@ class AttendanceShortcutService
                 ?? sprintf('Pertemuan %s', $candidate['meeting_number']),
             'material_date' => $candidate['material_date'] ?? null,
             'deadline' => $deadline !== '' ? $deadline : null,
+            'deadline_date' => $this->parsePortalDate($deadline)?->toDateString(),
             'meeting_url' => sprintf('/meeting/%s?courses_id=%s', $candidate['meeting_id'], $candidate['courses_id']),
             'assignment_file_url' => ! empty($materials['assignment_material_iframe']) ? (string) $materials['assignment_material_iframe'] : null,
             'can_submit_directly' => true,
@@ -767,13 +791,15 @@ class AttendanceShortcutService
             return null;
         }
 
-        $totalMeetings = (int) ($summary['total_meetings'] ?? 0);
+        // Meetings the portal already shows as held, or the whole table when
+        // that is unknown: the next meeting is the one after it.
+        $heldMeetings = (int) ($summary['held_meetings'] ?? ($summary['total_meetings'] ?? 0));
 
-        if ($totalMeetings <= 0) {
+        if ($heldMeetings <= 0) {
             return null;
         }
 
-        return $totalMeetings + 1;
+        return $heldMeetings + 1;
     }
 
     /**

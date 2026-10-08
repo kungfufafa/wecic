@@ -32,6 +32,12 @@ class SipandaiAssignmentDeleteRequest extends ApiFormRequest
              * @example 6
              */
             'pertemuan' => ['required', 'integer', 'min:1'],
+            /**
+             * Opsional; `courses_id` kelas, agar detail meeting langsung diperbarui setelah hapus.
+             *
+             * @example 9000
+             */
+            'courses_id' => ['nullable', 'integer', 'min:1'],
         ];
     }
 
@@ -53,6 +59,7 @@ class SipandaiAssignmentDeleteRequest extends ApiFormRequest
             'id' => 'submission identifier',
             'idx' => 'discussion identifier',
             'pertemuan' => 'meeting number',
+            'courses_id' => 'course identifier',
         ];
     }
 
@@ -69,6 +76,13 @@ class SipandaiAssignmentDeleteRequest extends ApiFormRequest
     public function meetingNumber(): int
     {
         return (int) $this->validated('pertemuan');
+    }
+
+    public function courseId(): ?int
+    {
+        $courseId = $this->validated('courses_id');
+
+        return $courseId !== null ? (int) $courseId : null;
     }
 
     protected function prepareForValidation(): void

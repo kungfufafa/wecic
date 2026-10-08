@@ -33,7 +33,17 @@ class PortalApp {
         this.echo = null;
         this.echoChannel = null;
         this.realtimeConnected = false;
+        this.isLoggingOut = false;
+        this.quickQrTarget = null;
+        this.quickQrEmptyMessage = null;
+        this.qrFromUrlHandled = false;
+        this.backgroundRefreshTimer = null;
         this.activeOperations = new Map();
+        this.operationWaiters = new Map();
+        this.finishedOperations = new Map();
+        this.operationStorageKey = 'mycic-active-operations';
+        this.operationPollIntervalMs = 2000;
+        this.operationPollLimitMs = 4 * 60 * 1000;
         this.realtimeRefreshTimers = new Map();
         this.cachePolicies = [
             { pattern: /^\/api\/dashboard$/, freshFor: 30 * 60 * 1000, retainFor: 7 * 24 * 60 * 60 * 1000, label: 'ringkasan dashboard' },
@@ -73,6 +83,7 @@ class PortalApp {
             }
 
             this.initRealtime();
+            this.resumeActiveOperations();
         }
     }
 
@@ -184,15 +195,50 @@ class PortalApp {
             button.addEventListener('click', async () => {
                 const input = document.querySelector('[data-field="kode"]') || document.querySelector('#attendance-code');
 
-                if (!input) {
-                    this.showNotice('Tidak ada sesi absensi aktif di halaman ini. Buka detail kelas saat sesi absensi dibuka.', 'warning');
+                if (input) {
+                    await this.openQrScanner(input);
 
                     return;
                 }
 
-                await this.openQrScanner(input);
+                // No attendance form on this page: a page can name the meeting
+                // where the scanner should open instead (see the dashboard).
+                if (this.quickQrTarget) {
+                    window.location.href = this.quickQrTarget;
+
+                    return;
+                }
+
+                this.showNotice(this.quickQrEmptyMessage || 'Tidak ada absensi yang bisa diisi sekarang. Buka pertemuan yang sedang berlangsung dari halaman Kelas.', 'warning');
             });
         });
+    }
+
+    /**
+     * Where the quick QR button should take the student when the current page
+     * has no attendance form. `null` keeps the explanatory message.
+     */
+    setQuickQrTarget(url, emptyMessage = null) {
+        this.quickQrTarget = url || null;
+        this.quickQrEmptyMessage = emptyMessage;
+    }
+
+    /**
+     * Open the QR scanner for an attendance input when the page was reached
+     * with `?qr=1` (the quick QR button), then drop the flag from the URL.
+     */
+    openQrScannerFromUrl(input) {
+        const url = new URL(window.location.href);
+
+        if (url.searchParams.get('qr') !== '1' || !input || this.qrFromUrlHandled) {
+            return;
+        }
+
+        this.qrFromUrlHandled = true;
+        url.searchParams.delete('qr');
+        window.history.replaceState({}, '', url.toString());
+        input.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        void this.openQrScanner(input);
     }
 
     bindAccountMenu() {
@@ -482,6 +528,23 @@ class PortalApp {
             config.body = options.formData;
         }
 
+        // A slow campus portal must not leave the UI waiting forever.
+        const timeoutMs = options.timeout ?? (
+            method === 'GET' ? 30000 : (options.formData instanceof FormData ? 180000 : 60000)
+        );
+        const controller = typeof AbortController === 'function' ? new AbortController() : null;
+        let timedOut = false;
+        const timeoutTimer = controller && timeoutMs > 0
+            ? window.setTimeout(() => {
+                timedOut = true;
+                controller.abort();
+            }, timeoutMs)
+            : null;
+
+        if (controller) {
+            config.signal = controller.signal;
+        }
+
         try {
             const response = await fetch(requestUrl.toString(), config);
             const contentType = response.headers.get('content-type') || '';
@@ -492,6 +555,16 @@ class PortalApp {
             if (response.status === 401 && options.redirectOnAuth !== false && document.body.dataset.auth === 'required') {
                 this.clearAuthSnapshot();
                 this.storeNotice(payload?.message || 'Sesi kampus sudah berakhir.', 'error');
+                window.location.href = '/login';
+
+                return null;
+            }
+
+            // The app session (not the campus one) expired: the CSRF token no
+            // longer matches. "CSRF token mismatch" means nothing to a student.
+            if (response.status === 419 && options.redirectOnAuth !== false && document.body.dataset.auth === 'required') {
+                this.clearAuthSnapshot();
+                this.storeNotice('Sesi aplikasi sudah berakhir. Silakan masuk lagi.', 'warning');
                 window.location.href = '/login';
 
                 return null;
@@ -510,6 +583,20 @@ class PortalApp {
 
             return payload;
         } catch (error) {
+            if (timedOut) {
+                if (cachePolicy && cachedResponse) {
+                    this.setSyncStatus(`Server lambat merespons. ${this.buildOfflineCacheMessage(cachePolicy.label, cachedResponse.isStale)}`, 'warning');
+
+                    return this.decorateCachedPayload(cachedResponse, 'fallback');
+                }
+
+                throw this.createTimeoutError(
+                    method === 'GET'
+                        ? 'Server kampus lambat merespons. Coba lagi sebentar lagi.'
+                        : 'Portal kampus lambat merespons. Status aksi akan diperiksa ulang.'
+                );
+            }
+
             if (cachePolicy && cachedResponse && this.isLikelyNetworkError(error)) {
                 this.updateConnectionState(false, { announce: false });
                 this.setSyncStatus(this.buildOfflineCacheMessage(cachePolicy.label, cachedResponse.isStale), 'warning');
@@ -527,6 +614,8 @@ class PortalApp {
             }
 
             throw error;
+        } finally {
+            window.clearTimeout(timeoutTimer);
         }
     }
 
@@ -612,19 +701,25 @@ class PortalApp {
             button.addEventListener('click', async (event) => {
                 event.preventDefault();
 
-                button.setAttribute('disabled', 'disabled');
+                // This tab finishes the logout itself; its own "logged_out"
+                // notice must not navigate away mid-request.
+                this.isLoggingOut = true;
+                this.setSyncStatus('Keluar dari akun... portal kampus sedang menutup sesi.', 'info');
 
-                try {
-                    const payload = await this.request('/api/auth/logout', {
-                        method: 'POST',
-                        json: {},
-                        redirectOnAuth: false,
-                    });
+                await this.withSubmitLoading(button, async () => {
+                    try {
+                        const payload = await this.request('/api/auth/logout', {
+                            method: 'POST',
+                            json: {},
+                            redirectOnAuth: false,
+                            timeout: 20000,
+                        });
 
-                    this.storeNotice(payload?.message || 'Logout berhasil.', 'success');
-                } catch (error) {
-                    this.storeNotice(error.payload?.message || 'Logout diproses lokal.', 'warning');
-                }
+                        this.storeNotice(payload?.message || 'Kamu sudah keluar dari akun.', 'success');
+                    } catch (error) {
+                        this.storeNotice('Kamu sudah keluar dari perangkat ini.', 'warning');
+                    }
+                });
 
                 this.disconnectRealtime();
                 this.clearOfflineData();
@@ -667,8 +762,18 @@ class PortalApp {
             .listen('.portal.session.notice', (payload) => this.handleSessionNotice(payload))
             .listen('.portal.notification', (payload) => this.handlePortalNotification(payload));
 
-        this.realtimeConnected = true;
-        this.setRealtimeStatus('Real-time aktif.', 'success');
+        // Only report "active" once the private channel is actually joined;
+        // operations are polled meanwhile, so a failed join is not fatal.
+        this.setRealtimeStatus('Menghubungkan real-time...', 'warning');
+        this.echoChannel
+            .subscribed(() => {
+                this.realtimeConnected = true;
+                this.setRealtimeStatus('Real-time aktif.', 'success');
+            })
+            .error(() => {
+                this.realtimeConnected = false;
+                this.setRealtimeStatus('Real-time tidak tersedia. Status dicek berkala.', 'warning');
+            });
     }
 
     disconnectRealtime() {
@@ -702,15 +807,37 @@ class PortalApp {
                 method: 'POST',
                 json: { domains },
             });
-            this.setSyncStatus('Refresh data berjalan di background.', 'info');
+            // The portal is read page by page; the button stays busy until the
+            // sync reports back (or a fallback re-read after a while).
+            this.setSyncStatus('Mengambil data dari portal kampus... biasanya 15–60 detik.', 'info');
+            this.awaitBackgroundRefresh();
         } catch (error) {
-            this.setSyncStatus('Gagal memulai refresh background.', 'error');
-            this.showNotice(error.payload?.message || error.message, 'error');
-            await this.runSyncHandlers({ force: true });
-        } finally {
             this.isSyncing = false;
             this.setSyncRefreshButtonState();
+            this.setSyncStatus('Gagal memulai refresh dari portal.', 'error');
+            this.showNotice(this.describeError(error), 'error');
+            await this.runSyncHandlers({ force: true });
         }
+    }
+
+    awaitBackgroundRefresh() {
+        window.clearTimeout(this.backgroundRefreshTimer);
+        this.backgroundRefreshTimer = window.setTimeout(() => {
+            this.finishBackgroundRefresh();
+            // No realtime confirmation arrived: re-read the snapshots anyway.
+            void this.runSyncHandlers({ force: false });
+        }, 90000);
+    }
+
+    finishBackgroundRefresh() {
+        if (!this.backgroundRefreshTimer) {
+            return;
+        }
+
+        window.clearTimeout(this.backgroundRefreshTimer);
+        this.backgroundRefreshTimer = null;
+        this.isSyncing = false;
+        this.setSyncRefreshButtonState();
     }
 
     refreshDomainsForCurrentPage() {
@@ -734,6 +861,10 @@ class PortalApp {
         const cacheKeys = Array.isArray(payload?.cache_keys) ? payload.cache_keys : [];
         const syncKeys = Array.isArray(payload?.sync_keys) ? payload.sync_keys : [];
 
+        if (['completed', 'failed', 'relogin'].includes(payload?.status)) {
+            this.finishBackgroundRefresh();
+        }
+
         cacheKeys.forEach((cacheKey) => this.clearCachedResponse(cacheKey));
 
         if (payload?.message) {
@@ -755,6 +886,10 @@ class PortalApp {
     }
 
     handleSessionNotice(payload) {
+        if (this.isLoggingOut && payload?.status === 'logged_out') {
+            return;
+        }
+
         const tone = this.toneFromUrgency(payload?.urgency);
         const message = payload?.message || 'Status sesi portal berubah.';
 
@@ -774,25 +909,41 @@ class PortalApp {
         this.handleRealtimePayload(payload);
     }
 
+    /**
+     * Progress of a background operation, from a realtime event or a poll.
+     * Both may deliver the same stage, so stale or repeated updates are
+     * ignored and the outcome is announced once.
+     */
     handleUploadProgress(payload) {
-        if (!payload?.operation_id) {
+        const operationId = payload?.operation_id;
+
+        if (!operationId || this.finishedOperations.has(operationId)) {
             return;
         }
 
-        this.activeOperations.set(payload.operation_id, {
-            label: this.activeOperations.get(payload.operation_id)?.label || 'Upload',
+        const current = this.activeOperations.get(operationId);
+        const percent = payload.percent || this.percentForStage(payload.status);
+        const isFinal = payload.status === 'completed' || payload.status === 'failed';
+
+        if (!isFinal && current && percent < current.percent) {
+            return;
+        }
+
+        this.activeOperations.set(operationId, {
+            label: current?.label || 'Upload',
             status: payload.status,
             message: payload.message,
             detail: payload.detail,
             nextStep: payload.next_step,
-            percent: payload.percent || this.percentForStage(payload.status),
+            percent,
         });
 
-        this.renderOperationStatus(payload.operation_id);
+        this.renderOperationStatus(operationId);
 
         if (payload.status === 'completed') {
             this.showNotice(payload.message || 'Upload selesai.', 'success');
             this.handleRealtimePayload(payload);
+            this.finishOperation(operationId, 'completed');
         }
 
         if (payload.status === 'failed') {
@@ -800,17 +951,170 @@ class PortalApp {
                 ? `${payload.message} ${payload.next_step}`
                 : payload.message;
             this.showNotice(failureMessage, 'error');
+            this.finishOperation(operationId, 'failed');
         }
     }
 
-    trackOperation(operationId, label) {
-        this.activeOperations.set(operationId, {
-            label,
-            status: 'queued',
-            message: `${label} masuk antrean.`,
-            percent: 0,
-        });
+    /**
+     * Follow a background operation until it completes or fails. Resolves
+     * with 'completed', 'failed' or 'unknown' (status could not be read).
+     */
+    trackOperation(operationId, label, { startedAt = Date.now(), announce = true } = {}) {
+        // A realtime event can report the outcome before the upload request
+        // itself returns; the operation is then already settled.
+        if (this.finishedOperations.has(operationId)) {
+            return Promise.resolve(this.finishedOperations.get(operationId));
+        }
+
+        const existing = this.operationWaiters.get(operationId);
+
+        if (existing) {
+            return existing.promise;
+        }
+
+        if (announce) {
+            this.showNotice(`${label} diterima. Mengirim ke portal...`, 'info');
+        }
+
+        if (!this.activeOperations.has(operationId)) {
+            this.activeOperations.set(operationId, {
+                label,
+                status: 'connecting',
+                message: `${label} diterima. Menyiapkan pengiriman...`,
+                percent: 5,
+            });
+        }
+
         this.renderOperationStatus(operationId);
+
+        let resolve;
+        const promise = new Promise((resolver) => {
+            resolve = resolver;
+        });
+
+        this.operationWaiters.set(operationId, { label, startedAt, resolve, promise, timer: null });
+        this.persistActiveOperations();
+        void this.pollOperation(operationId);
+
+        return promise;
+    }
+
+    async pollOperation(operationId) {
+        const waiter = this.operationWaiters.get(operationId);
+
+        if (!waiter) {
+            return;
+        }
+
+        if (Date.now() - waiter.startedAt > this.operationPollLimitMs) {
+            this.showNotice(`Status ${waiter.label.toLowerCase()} belum diketahui. Muat ulang halaman untuk memeriksa.`, 'warning');
+            this.finishOperation(operationId, 'unknown');
+
+            return;
+        }
+
+        try {
+            const payload = await this.request(`/api/operations/${encodeURIComponent(operationId)}`, {
+                timeout: 10000,
+                redirectOnAuth: false,
+            });
+
+            if (payload?.data) {
+                this.handleUploadProgress({ ...payload.data, operation_id: operationId });
+            }
+        } catch (error) {
+            if (error.status === 404 || error.status === 401) {
+                this.finishOperation(operationId, 'unknown');
+
+                return;
+            }
+            // Connection hiccups are retried on the next tick.
+        }
+
+        const next = this.operationWaiters.get(operationId);
+
+        if (next) {
+            next.timer = window.setTimeout(() => this.pollOperation(operationId), this.operationPollIntervalMs);
+        }
+    }
+
+    finishOperation(operationId, outcome) {
+        const waiter = this.operationWaiters.get(operationId);
+
+        this.finishedOperations.set(operationId, outcome);
+
+        if (waiter) {
+            window.clearTimeout(waiter.timer);
+            this.operationWaiters.delete(operationId);
+            waiter.resolve(outcome);
+        }
+
+        this.persistActiveOperations();
+
+        window.setTimeout(() => {
+            this.activeOperations.delete(operationId);
+            const host = document.querySelector('[data-operation-status]');
+
+            if (host && this.activeOperations.size === 0) {
+                host.innerHTML = '';
+            }
+        }, outcome === 'completed' ? 6000 : 12000);
+    }
+
+    persistActiveOperations() {
+        const operations = {};
+
+        this.operationWaiters.forEach((waiter, operationId) => {
+            operations[operationId] = { label: waiter.label, startedAt: waiter.startedAt };
+        });
+
+        try {
+            if (Object.keys(operations).length === 0) {
+                sessionStorage.removeItem(this.operationStorageKey);
+            } else {
+                sessionStorage.setItem(this.operationStorageKey, JSON.stringify(operations));
+            }
+        } catch (error) {
+            // Storage can be unavailable (private mode); tracking still works in memory.
+        }
+    }
+
+    /**
+     * Pick up operations started before a reload, so their outcome is not lost.
+     */
+    resumeActiveOperations() {
+        let operations = {};
+
+        try {
+            operations = JSON.parse(sessionStorage.getItem(this.operationStorageKey) || '{}') || {};
+        } catch (error) {
+            operations = {};
+        }
+
+        Object.entries(operations).forEach(([operationId, operation]) => {
+            void this.trackOperation(operationId, operation?.label || 'Upload', {
+                startedAt: Number(operation?.startedAt) || Date.now(),
+                announce: false,
+            });
+        });
+    }
+
+    /**
+     * Run a form's submit handler once at a time. The guard is always
+     * released, so a failed attempt (wrong code, timeout) never locks the form.
+     */
+    async guardFormSubmit(form, callback) {
+        if (!form || form.dataset.submitting === 'true') {
+            return undefined;
+        }
+
+        form.dataset.submitting = 'true';
+
+        try {
+            return await callback();
+        } finally {
+            delete form.dataset.submitting;
+        }
     }
 
     percentForStage(stage) {
@@ -1504,6 +1808,14 @@ class PortalApp {
         return error instanceof TypeError || error?.name === 'AbortError';
     }
 
+    createTimeoutError(message) {
+        const error = new Error(message);
+        error.isTimeout = true;
+        error.status = 0;
+
+        return error;
+    }
+
     createOfflineError(message) {
         const error = new Error(message);
         error.isOffline = true;
@@ -1521,6 +1833,12 @@ class PortalApp {
         const dataOrigin = payload?.meta?.data_origin || null;
         const portalTime = this.portalDataTime(payload);
         const portalSuffix = portalTime ? ` · portal per ${this.formatTimeOnly(portalTime)}` : '';
+
+        if (payload?.meta?.status === 'failed') {
+            this.setSyncStatus(`Gagal sinkron dengan portal — menampilkan data terakhir${portalSuffix}.`, 'warning');
+
+            return;
+        }
 
         if (force) {
             if (dataOrigin === 'device_cache') {
@@ -1753,6 +2071,51 @@ class PortalApp {
                 `).join('')}
             </div>
         `;
+    }
+
+    /**
+     * A load failure that stays on screen (toasts vanish after a few seconds),
+     * with a retry button when the page knows how to try again.
+     */
+    renderErrorState(message, { subtitle = '', retryLabel = 'Coba lagi', retry = true } = {}) {
+        return `
+            <div class="mycic-card">
+                <div class="mycic-card-body">
+                    <div class="${this.alertTone('error')} mb-0" role="alert">
+                        <div class="font-semibold">${this.escapeHtml(message)}</div>
+                        ${subtitle ? `<p class="mt-1 text-sm">${this.escapeHtml(subtitle)}</p>` : ''}
+                        ${retry ? `<div class="mt-3"><button type="button" class="${this.buttonClass('secondary', { small: true })}" data-error-retry>${this.escapeHtml(retryLabel)}</button></div>` : ''}
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    mountErrorState(host, message, onRetry = null, options = {}) {
+        if (!host) {
+            return;
+        }
+
+        host.innerHTML = this.renderErrorState(message, { ...options, retry: typeof onRetry === 'function' });
+        host.querySelector('[data-error-retry]')?.addEventListener('click', () => {
+            host.innerHTML = this.renderEmptyState('Memuat ulang...', 'secondary');
+            void onRetry();
+        });
+    }
+
+    /**
+     * Message for a failed request, as a student should read it.
+     */
+    describeError(error, fallback = 'Terjadi kesalahan saat memuat data.') {
+        if (error?.isOffline) {
+            return 'Kamu sedang offline. Sambungkan internet lalu coba lagi.';
+        }
+
+        if (error?.isTimeout) {
+            return 'Portal kampus lambat merespons. Coba lagi sebentar lagi.';
+        }
+
+        return error?.payload?.message || error?.message || fallback;
     }
 
     renderEmptyState(message, type = 'secondary', subtitle = '') {

@@ -8,6 +8,6 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
-Schedule::command('queue:work --queue=campus-sessions,campus-refresh,campus-uploads,default --stop-when-empty')
+Schedule::command('queue:work --queue=campus-sessions,campus-refresh,campus-uploads,campus-notifications,default --stop-when-empty')
     ->everyMinute()
     ->withoutOverlapping();

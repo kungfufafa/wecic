@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Tests\Unit;
 
 use App\Enums\PortalOperationStage;
-use App\Events\PortalDataInvalidated;
 use App\Events\PortalUploadProgressed;
 use App\Jobs\ProcessPortalExamUploadJob;
 use App\Services\PortalBroadcastService;
@@ -31,7 +30,7 @@ class ProcessPortalExamUploadJobTest extends TestCase
 
     public function test_exam_upload_job_broadcasts_progress_events(): void
     {
-        Event::fake([PortalUploadProgressed::class, PortalDataInvalidated::class]);
+        Event::fake([PortalUploadProgressed::class]);
         Storage::fake();
 
         $storedPath = 'portal-uploads/exam.zip';
@@ -72,16 +71,23 @@ class ProcessPortalExamUploadJobTest extends TestCase
 
         $datasets = Mockery::mock(PortalDatasetRepository::class);
         $datasets->shouldReceive('invalidate')->once()->with('campus-token', ['exams']);
-        $datasets->shouldReceive('sync')->once()->with('campus-token', 'exams')->andReturn(['exams' => []]);
+        $datasets->shouldNotReceive('sync');
+
+        $tracker = app(PortalOperationTracker::class);
 
         $job->handle(
             app(SipandaiSubmissionService::class),
-            app(PortalOperationTracker::class),
+            $tracker,
             app(PortalBroadcastService::class),
             $datasets
         );
 
-        Event::assertDispatched(PortalUploadProgressed::class);
-        Event::assertDispatched(PortalDataInvalidated::class);
+        Event::assertDispatched(
+            PortalUploadProgressed::class,
+            fn (PortalUploadProgressed $event): bool => $event->payload['status'] === 'completed'
+                && in_array('exam-index', $event->payload['sync_keys'], true)
+        );
+        $this->assertSame('completed', $tracker->get('op-exam-1')['stage']);
+        $this->assertSame(1, $job->tries);
     }
 }

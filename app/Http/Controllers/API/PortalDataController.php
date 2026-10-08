@@ -57,7 +57,7 @@ class PortalDataController extends CampusApiController
     #[Response(500, description: 'Data dashboard gagal diambil.', type: CampusApiController::SCRAMBLE_STATUS_ERROR_RESPONSE)]
     public function dashboard(Request $request): JsonResponse
     {
-        return $this->withCampusSession('Dashboard extraction failed', 'Failed to extract dashboard data', function (string $sessionToken) use ($request): JsonResponse {
+        return $this->withCampusSession('Dashboard extraction failed', 'Gagal memuat dashboard', function (string $sessionToken) use ($request): JsonResponse {
             $dashboard = $this->readDataset($request, $sessionToken, 'dashboard');
 
             if (! empty($dashboard['data']['user_info'])) {
@@ -83,7 +83,7 @@ class PortalDataController extends CampusApiController
     #[Response(500, description: 'Profil mahasiswa gagal diambil.', type: CampusApiController::SCRAMBLE_STATUS_ERROR_RESPONSE)]
     public function profile(Request $request): JsonResponse
     {
-        return $this->withCampusSession('Profile extraction failed', 'Failed to extract profile data', function (string $sessionToken) use ($request): JsonResponse {
+        return $this->withCampusSession('Profile extraction failed', 'Gagal memuat profil', function (string $sessionToken) use ($request): JsonResponse {
             $profile = $this->readDataset($request, $sessionToken, 'profile');
 
             return $this->statusSuccess('Profile data retrieved successfully', [
@@ -101,7 +101,7 @@ class PortalDataController extends CampusApiController
     #[Response(500, description: 'Daftar kelas gagal diambil.', type: CampusApiController::SCRAMBLE_STATUS_ERROR_RESPONSE)]
     public function classes(Request $request): JsonResponse
     {
-        return $this->withCampusSession('Classes extraction failed', 'Failed to extract classes data', function (string $sessionToken) use ($request): JsonResponse {
+        return $this->withCampusSession('Classes extraction failed', 'Gagal memuat daftar kelas', function (string $sessionToken) use ($request): JsonResponse {
             $classes = $this->readDataset($request, $sessionToken, 'lms_classes');
 
             return $this->statusSuccess('Classes data retrieved successfully', [
@@ -119,7 +119,7 @@ class PortalDataController extends CampusApiController
     #[Response(500, description: 'Histori pembayaran gagal diambil.', type: CampusApiController::SCRAMBLE_STATUS_ERROR_RESPONSE)]
     public function paymentHistory(Request $request): JsonResponse
     {
-        return $this->withCampusSession('Payment history extraction failed', 'Failed to extract payment history', function (string $sessionToken) use ($request): JsonResponse {
+        return $this->withCampusSession('Payment history extraction failed', 'Gagal memuat riwayat pembayaran', function (string $sessionToken) use ($request): JsonResponse {
             $payments = $this->readDataset($request, $sessionToken, 'payments');
 
             return $this->statusSuccess('Payment history retrieved successfully', [
@@ -141,7 +141,7 @@ class PortalDataController extends CampusApiController
     #[Response(500, description: 'Detail kelas gagal diambil.', type: CampusApiController::SCRAMBLE_STATUS_ERROR_RESPONSE)]
     public function classDetail(ClassDetailRequest $request): JsonResponse
     {
-        return $this->withCampusSession('Class detail extraction failed', 'Failed to extract class detail', function (string $sessionToken) use ($request): JsonResponse {
+        return $this->withCampusSession('Class detail extraction failed', 'Gagal memuat detail kelas', function (string $sessionToken) use ($request): JsonResponse {
             $validated = $request->validated();
             $resolvedParameters = $validated;
 
@@ -149,7 +149,7 @@ class PortalDataController extends CampusApiController
                 $resolvedParameters = $this->findClassParameters($sessionToken, (string) $validated['id']) ?? [];
 
                 if ($resolvedParameters === []) {
-                    return $this->statusError("Class ID {$validated['id']} not found in classes list", 404, campusSessionValid: true);
+                    return $this->statusError('Kelas tidak ditemukan di daftar kelas kamu.', 404, campusSessionValid: true);
                 }
             }
 
@@ -175,7 +175,7 @@ class PortalDataController extends CampusApiController
     #[Response(500, description: 'Detail pertemuan gagal diambil.', type: CampusApiController::SCRAMBLE_STATUS_ERROR_RESPONSE)]
     public function meetingDetail(SipandaiMeetingDetailRequest $request): JsonResponse
     {
-        return $this->withCampusSession('Meeting detail extraction failed', 'Failed to extract meeting detail', function (string $sessionToken) use ($request): JsonResponse {
+        return $this->withCampusSession('Meeting detail extraction failed', 'Gagal memuat detail pertemuan', function (string $sessionToken) use ($request): JsonResponse {
             $meetingId = $request->meetingId();
             $coursesId = $request->coursesId();
 
@@ -183,6 +183,10 @@ class PortalDataController extends CampusApiController
                 'meeting_id' => $meetingId,
                 'courses_id' => $coursesId,
             ]);
+
+            if (($meetingDetail['data']['found'] ?? true) === false) {
+                return $this->statusError('Pertemuan tidak ditemukan. Periksa kembali link yang kamu buka.', 404, campusSessionValid: true);
+            }
 
             return $this->statusSuccess('Meeting detail retrieved successfully', [
                 'class_detail' => $meetingDetail['data'],
@@ -295,7 +299,7 @@ class PortalDataController extends CampusApiController
     #[Response(500, description: 'Jadwal mahasiswa gagal diambil.', type: CampusApiController::SCRAMBLE_STATUS_ERROR_RESPONSE)]
     public function studentCourse(Request $request): JsonResponse
     {
-        return $this->withCampusSession('Student course extraction failed', 'Failed to extract student course data', function (string $sessionToken) use ($request): JsonResponse {
+        return $this->withCampusSession('Student course extraction failed', 'Gagal memuat jadwal kuliah', function (string $sessionToken) use ($request): JsonResponse {
             $schedule = $this->readDataset($request, $sessionToken, 'schedule');
 
             return $this->statusSuccess('Student course data retrieved successfully', [
@@ -320,7 +324,7 @@ class PortalDataController extends CampusApiController
     #[Response(500, description: 'Daftar kelas gabungan gagal diambil.', type: CampusApiController::SCRAMBLE_STATUS_ERROR_RESPONSE)]
     public function mergedClasses(Request $request): JsonResponse
     {
-        return $this->withCampusSession('Merged classes extraction failed', 'Failed to extract merged classes data', function (string $sessionToken) use ($request): JsonResponse {
+        return $this->withCampusSession('Merged classes extraction failed', 'Gagal memuat daftar kelas', function (string $sessionToken) use ($request): JsonResponse {
             $classes = $this->readDataset($request, $sessionToken, 'classes');
 
             return $this->statusSuccess('Merged classes data retrieved successfully', [
@@ -348,7 +352,7 @@ class PortalDataController extends CampusApiController
     {
         $params = $request->validated();
 
-        return $this->withCampusSession('SIPANDAI flow extraction failed', 'Failed to execute SIPANDAI flow', fn (string $sessionToken): JsonResponse => $this->fetchPolicy->runFresh(function () use ($sessionToken, $params): JsonResponse {
+        return $this->withCampusSession('SIPANDAI flow extraction failed', 'Gagal menjalankan alur SIPANDAI', fn (string $sessionToken): JsonResponse => $this->fetchPolicy->runFresh(function () use ($sessionToken, $params): JsonResponse {
             $courseDetailParams = [
                 'id' => $params['id'],
                 'course_id' => $params['course_id'],

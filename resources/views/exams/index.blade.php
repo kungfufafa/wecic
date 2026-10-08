@@ -9,7 +9,7 @@
     </header>
 
     <div id="exam-summary" class="mb-5 grid grid-cols-3 gap-3">
-        @foreach (['Total', 'Terjadwal', 'Perlu ditinjau'] as $label)
+        @foreach (['Total', 'Jadwal', 'Terkirim'] as $label)
             <div class="mycic-metric">
                 <div class="mycic-metric-label">{{ $label }}</div>
                 <div class="mycic-metric-value" data-exam-metric>-</div>
@@ -41,9 +41,11 @@
             const renderExamCard = (exam) => {
                 const href = examDetailHref(exam);
                 const courseName = app.escapeHtml(exam.course_name || 'Tanpa judul');
-                const schedule = app.escapeHtml(exam.schedule || 'Belum terjadwal');
+                const hasSchedule = Boolean(String(exam.schedule || '').trim() && exam.schedule !== '-');
+                const schedule = app.escapeHtml([exam.lecturer, hasSchedule ? exam.schedule : 'Jadwal ujian belum diumumkan'].filter(Boolean).join(' · '));
                 const courseCode = app.escapeHtml(exam.course_code || '-');
-                const status = app.escapeHtml(exam.status || '-');
+                const rawStatus = String(exam.status || '').trim();
+                const status = app.escapeHtml(rawStatus && rawStatus !== '-' ? rawStatus : 'Belum ada info');
 
                 return `
                     <div class="mycic-card-interactive">
@@ -73,11 +75,11 @@
             const renderExams = (payload) => {
                 const exams = payload.data?.exams || [];
                 const scheduledCount = exams.filter((exam) => Boolean(String(exam.schedule || '').trim() && exam.schedule !== '-')).length;
-                const reviewCount = exams.filter((exam) => !/selesai|closed|ditutup|final/i.test(String(exam.status || ''))).length;
+                const submittedCount = exams.filter((exam) => /upload|terkirim|dikumpulkan|sudah|selesai/i.test(String(exam.status || ''))).length;
 
                 metricNodes[0].textContent = exams.length || '0';
-                metricNodes[1].textContent = scheduledCount || '0';
-                metricNodes[2].textContent = reviewCount || '0';
+                metricNodes[1].textContent = String(scheduledCount);
+                metricNodes[2].textContent = String(submittedCount);
 
                 if (!exams.length) {
                     listHost.innerHTML = app.renderEmptyState('Belum ada ujian.', 'secondary');
@@ -102,8 +104,8 @@
                     renderExams(payload);
                     app.markViewSynced('Daftar ujian', payload, { force });
                 } catch (error) {
-                    app.showNotice(error.payload?.message || error.message, 'error');
-                    listHost.innerHTML = app.renderEmptyState('Gagal memuat daftar ujian.', 'danger');
+                    app.setSyncStatus('Daftar ujian gagal dimuat.', 'error');
+                    app.mountErrorState(listHost, 'Daftar ujian gagal dimuat.', () => loadExams({ force }), { subtitle: app.describeError(error) });
                 }
             };
 

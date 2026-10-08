@@ -50,7 +50,7 @@
             </div>
         </div>
 
-        <div class="space-y-5 lg:col-span-4" id="meeting-actions">
+        <div class="space-y-5 order-first lg:order-none lg:col-span-4" id="meeting-actions">
             <div class="mycic-card">
                 <div class="mycic-card-header">
                     <div class="mycic-skeleton h-5 w-28"></div>
@@ -133,7 +133,9 @@
                     || String(assignmentInfo.upload_text || '').trim()
                     || String(assignmentInfo.deadline || '').trim()
                 );
-                const inferredMeetingNumber = inferMeetingNumber(materials);
+                // The server resolves the meeting number from "Pertemuan N";
+                // the topic regex is only a fallback.
+                const inferredMeetingNumber = assignmentInfo.meeting_number || inferMeetingNumber(materials);
 
                 if (!hasAssignmentContent || !coursesId || !meetingId || !inferredMeetingNumber) {
                     return null;
@@ -215,8 +217,9 @@
                 const assignmentSubmission = assignmentInfo.submission || null;
                 const assignmentFileInfo = assignmentSubmission?.file_info || null;
                 const assignmentDeletePayload = assignmentInfo.delete_payload || null;
-                const assignmentAlreadyUploaded = assignmentInfo.status === 'uploaded' && assignmentFileInfo;
+                const assignmentAlreadyUploaded = assignmentInfo.status === 'uploaded';
                 const inferredMeetingNumber = assignmentParams?.pertemuan
+                    || assignmentInfo.meeting_number
                     || inferMeetingNumber(materials)
                     || (meetingInfo.breadcrumb?.match(/Pertemuan\s+(\d+)/i)?.[1])
                     || '';
@@ -247,10 +250,6 @@
                                     <a href="/class" class="mycic-hero-pill">Kembali</a>
                                     <span class="inline-flex items-center rounded-lg border border-white/20 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white/90">${app.escapeHtml(courseName)}</span>
                                     <span class="inline-flex items-center rounded-lg bg-accent px-2.5 py-1 text-xs font-bold text-slate-900">${app.escapeHtml(meetingLabel)}</span>
-                                    <a href="/notebook?meeting_id=${encodeURIComponent(meetingId)}&courses_id=${encodeURIComponent(coursesId)}" class="inline-flex items-center gap-1.5 rounded-lg border border-white/25 bg-white/15 hover:bg-white/25 px-2.5 py-1 text-xs font-bold text-white transition-all shadow-xs backdrop-blur-sm">
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/><path d="M6 6h10"/><path d="m14 14 3 3 5-5"/></svg>
-                                        <span>✨ Buka di Notebook AI</span>
-                                    </a>
                                 </div>
                                 ${attendanceBadgeMarkup}
                             </div>
@@ -321,12 +320,8 @@
 
                     contentSections.push(`
                         <div class="mycic-card">
-                            <div class="mycic-card-header flex items-center justify-between">
+                            <div class="mycic-card-header">
                                 <h2 class="mycic-card-title">Materi</h2>
-                                <a href="/notebook?meeting_id=${encodeURIComponent(meetingId)}&courses_id=${encodeURIComponent(coursesId)}&action=deep_dive" class="inline-flex items-center gap-1.5 rounded-md bg-brand/10 hover:bg-brand/20 px-2.5 py-1 text-xs font-semibold text-brand transition-colors">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-                                    <span>💡 Pelajari dengan AI</span>
-                                </a>
                             </div>
                             <div class="mycic-card-body">
                                 <div class="text-base font-bold text-ink">${app.escapeHtml(mainTopicClean)}</div>
@@ -370,12 +365,8 @@
 
                     contentSections.push(`
                         <div class="mycic-card">
-                            <div class="mycic-card-header flex items-center justify-between">
+                            <div class="mycic-card-header">
                                 <h2 class="mycic-card-title">Tugas</h2>
-                                <a href="/notebook?meeting_id=${encodeURIComponent(meetingId)}&courses_id=${encodeURIComponent(coursesId)}&action=task_solve" class="inline-flex items-center gap-1.5 rounded-md bg-amber-500/15 hover:bg-amber-500/25 px-2.5 py-1 text-xs font-bold text-amber-700 dark:text-amber-300 transition-colors">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-                                    <span>⚡ Kerjakan dengan AI</span>
-                                </a>
                             </div>
                             <div class="mycic-card-body">
                                 <div class="text-base font-bold text-ink">${assignmentTitle}</div>
@@ -413,7 +404,7 @@
                             <div class="mycic-card-body">
                                 <div class="rounded-xl border border-success/30 bg-success-soft/60 p-4 text-center">
                                     <div class="text-sm font-bold text-ink">${safeAttendanceStatus}</div>
-                                    ${attendanceInfo.time ? `<div class="mt-1 text-xs text-ink-subtle">${app.escapeHtml(attendanceInfo.time)}</div>` : ''}
+                                    ${attendanceInfo.time && !attendanceStatusText.includes(attendanceInfo.time) ? `<div class="mt-1 text-xs text-ink-subtle">Absen jam ${app.escapeHtml(attendanceInfo.time)}</div>` : ''}
                                 </div>
                             </div>
                         </div>
@@ -465,15 +456,26 @@
                                 ${assignmentSubmission?.date ? `
                                     <div class="mb-3 text-xs text-ink-subtle">${app.escapeHtml(assignmentSubmission.date)}</div>
                                 ` : ''}
-                                ${assignmentSubmission?.score ? `
-                                    <div class="mb-3 flex items-center justify-between rounded-lg border border-accent/30 bg-accent-soft p-3">
-                                        <span class="text-xs font-medium text-amber-900 dark:text-amber-200">Nilai</span>
-                                        <span class="text-base font-extrabold text-amber-900 dark:text-amber-200">${app.escapeHtml(assignmentSubmission.score)}</span>
-                                    </div>
-                                ` : ''}
+                                ${(() => {
+                                    const score = String(assignmentSubmission?.score ?? '').trim();
+                                    const graded = score !== '' && !/^0+([.,]0+)?$/.test(score) && !/belum/i.test(score);
+
+                                    return graded ? `
+                                        <div class="mb-3 flex items-center justify-between rounded-lg border border-accent/30 bg-accent-soft p-3">
+                                            <span class="text-xs font-medium text-amber-900 dark:text-amber-200">Nilai</span>
+                                            <span class="text-base font-extrabold text-amber-900 dark:text-amber-200">${app.escapeHtml(score)}</span>
+                                        </div>
+                                    ` : `
+                                        <div class="mb-3 text-xs text-ink-subtle">Belum dinilai dosen.</div>
+                                    `;
+                                })()}
                                 <div class="flex flex-col gap-2">
-                                    <a href="${app.absoluteCampusUrl(assignmentFileInfo.href)}" target="_blank" rel="noreferrer" class="${app.buttonClass('primary')} mycic-btn-block">Buka file</a>
-                                    ${app.buildCampusDownloadUrl(assignmentFileInfo.href) ? `
+                                    ${assignmentFileInfo?.href ? `
+                                        <a href="${app.absoluteCampusUrl(assignmentFileInfo.href)}" target="_blank" rel="noreferrer" class="${app.buttonClass('primary')} mycic-btn-block">Buka file</a>
+                                    ` : `
+                                        <div class="text-sm text-ink-subtle">File sudah diterima portal.</div>
+                                    `}
+                                    ${assignmentFileInfo?.href && app.buildCampusDownloadUrl(assignmentFileInfo.href) ? `
                                         <a href="${app.buildCampusDownloadUrl(assignmentFileInfo.href)}" class="${app.buttonClass('secondary')} mycic-btn-block">Download</a>
                                     ` : ''}
                                     ${assignmentDeletePayload ? `
@@ -581,13 +583,10 @@
                             app.requestFormSubmit(attendanceForm);
                         },
                     });
+                    app.openQrScannerFromUrl(document.getElementById('attendance-code'));
 
                     attendanceForm.addEventListener('submit', async (event) => {
                         event.preventDefault();
-
-                        if (attendanceForm.dataset.submitting === 'true') {
-                            return;
-                        }
 
                         if (!app.requireOnlineAction('Absen meeting butuh koneksi internet.')) {
                             return;
@@ -595,7 +594,7 @@
 
                         const kode = document.getElementById('attendance-code').value.trim();
 
-                        await app.withSubmitLoading(attendanceForm.querySelector('button[type="submit"]'), async () => {
+                        await app.guardFormSubmit(attendanceForm, () => app.withSubmitLoading(attendanceForm.querySelector('button[type="submit"]'), async () => {
                             try {
                                 const body = {
                                     courseid: coursesId,
@@ -612,15 +611,29 @@
                                     json: body,
                                 });
 
-                                app.showNotice(result?.message || 'Absensi berhasil dikirim.', 'success');
+                                app.showNotice(
+                                    result?.data?.status === 'already_marked'
+                                        ? 'Kehadiran kamu sudah tercatat untuk pertemuan ini.'
+                                        : 'Absensi berhasil dikirim.',
+                                    'success'
+                                );
                                 app.clearCachedResponse('/api/dashboard');
                                 app.clearCachedResponse('/api/attendance/today');
                                 app.clearCachedResponse(endpoint);
-                                await loadMeeting({ force: true });
+                                // The server already shows this meeting as attended,
+                                // so re-reading it is instant (no portal scrape).
+                                await loadMeeting();
                             } catch (error) {
+                                if (error.isTimeout) {
+                                    app.showNotice('Portal lambat merespons. Mengecek status absensi...', 'warning');
+                                    await loadMeeting();
+
+                                    return;
+                                }
+
                                 app.showNotice(error.payload?.message || error.message, 'error');
                             }
-                        });
+                        }));
                     });
                 }
 
@@ -652,7 +665,7 @@
                             formData.append('form_values[keterangan]', note);
                         }
 
-                        await app.withSubmitLoading(assignmentForm.querySelector('button[type="submit"]'), async () => {
+                        await app.guardFormSubmit(assignmentForm, () => app.withSubmitLoading(assignmentForm.querySelector('button[type="submit"]'), async () => {
                             try {
                                 const result = await app.request('/api/assignment', {
                                     method: 'POST',
@@ -661,15 +674,17 @@
 
                                 const operationId = result?.data?.operation_id;
                                 if (operationId) {
-                                    app.trackOperation(operationId, 'Upload tugas');
-                                    app.showNotice('Upload tugas diterima. Status akan diperbarui otomatis.', 'info');
+                                    // Keep the form locked until the portal has the file;
+                                    // on completion this meeting re-renders as submitted.
+                                    await app.trackOperation(operationId, 'Upload tugas');
                                 } else {
                                     app.showNotice(result?.message || 'Tugas berhasil dikirim.', 'success');
+                                    await loadMeeting();
                                 }
                             } catch (error) {
                                 app.showNotice(error.payload?.message || error.message, 'error');
                             }
-                        });
+                        }));
                     });
                 }
 
@@ -689,11 +704,12 @@
                             try {
                                 const result = await app.request('/api/assignment', {
                                     method: 'DELETE',
-                                    json: assignmentDeletePayload,
+                                    json: { ...assignmentDeletePayload, courses_id: coursesId },
                                 });
 
                                 app.showNotice(result?.message || 'Tugas berhasil dihapus.', 'success');
-                                await loadMeeting({ force: true });
+                                app.clearCachedResponse('/api/assignment/pending');
+                                await loadMeeting();
                             } catch (error) {
                                 app.showNotice(error.payload?.message || error.message, 'error');
                             }
@@ -709,13 +725,65 @@
                 return;
             }
 
+            const renderNotFound = (message) => {
+                document.getElementById('meeting-hero').innerHTML = `
+                    <div class="mycic-hero">
+                        <div class="flex flex-col gap-3">
+                            <div><a href="/class" class="mycic-hero-pill">Kembali</a></div>
+                            <h1 class="text-xl font-extrabold tracking-tight text-white sm:text-2xl">Pertemuan tidak ditemukan</h1>
+                            <p class="text-sm text-white/80">${app.escapeHtml(message)}</p>
+                        </div>
+                    </div>
+                `;
+                document.getElementById('meeting-content').innerHTML = app.renderEmptyState(
+                    'Tidak ada materi untuk link ini.',
+                    'secondary',
+                    'Buka halaman Kelas lalu pilih pertemuan dari daftar materi.'
+                );
+                document.getElementById('meeting-actions').innerHTML = `
+                    <div class="mycic-card"><div class="mycic-card-body"><a href="/class" class="${app.buttonClass('primary')} mycic-btn-block">Ke daftar kelas</a></div></div>
+                `;
+            };
+
             const loadMeeting = async ({ force = false } = {}) => {
                 try {
                     const payload = await app.request(endpoint, { fresh: force });
+
+                    // Snapshots built before the server learned to flag empty
+                    // pages carry no `found`; judge those by their content.
+                    const detail = payload?.class_detail || {};
+                    const hasContent = [
+                        detail.meeting_info?.breadcrumb,
+                        detail.lecturer_info?.name,
+                        detail.schedule_info?.date,
+                        detail.materials?.main_topic,
+                        detail.materials?.assignment_topic,
+                        detail.attendance_info?.status,
+                    ].some((value) => String(value || '').trim() !== '');
+
+                    if (detail.found === false || !hasContent) {
+                        renderNotFound('Pertemuan ini tidak ada di portal, atau link yang kamu buka sudah tidak berlaku.');
+
+                        return;
+                    }
+
                     render(payload);
                     app.markViewSynced('Detail meeting', payload, { force });
                 } catch (error) {
-                    app.showNotice(error.payload?.message || error.message, 'error');
+                    if (error.status === 404) {
+                        renderNotFound(app.describeError(error));
+
+                        return;
+                    }
+
+                    app.setSyncStatus('Detail pertemuan gagal dimuat.', 'error');
+                    app.mountErrorState(
+                        document.getElementById('meeting-content'),
+                        'Detail pertemuan gagal dimuat.',
+                        () => loadMeeting({ force }),
+                        { subtitle: app.describeError(error) }
+                    );
+                    document.getElementById('meeting-actions').innerHTML = '';
                 }
             };
 

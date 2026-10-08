@@ -73,14 +73,16 @@ class ClassesExtractor extends PortalScrapingService
                 $crawler = $this->createCrawler($html);
 
                 // Extract class detail - this could be various types of content
+                $courseMaterials = $this->extractCourseMaterials($crawler);
+
                 $classDetail = [
                     'request_url' => $fullUrl,
                     'content_type' => $this->detectContentType($html),
                     'course_info' => $this->extractCourseInfo($crawler),
                     'lecturer_info' => $this->extractLecturerInfo($crawler),
-                    'attendance_info' => $this->extractAttendanceInfo($crawler),
+                    'attendance_info' => $this->markUpcomingMeetings($this->extractAttendanceInfo($crawler), $courseMaterials),
                     'assignment_history' => $this->extractAssignmentHistory($crawler),
-                    'course_materials' => $this->extractCourseMaterials($crawler),
+                    'course_materials' => $courseMaterials,
                     'file_info' => $this->extractFileInfo($html),
                     'students_list' => $this->extractStudentsList($crawler),
                     'extracted_at' => now()->toISOString(),
@@ -139,6 +141,9 @@ class ClassesExtractor extends PortalScrapingService
                     'instructions' => $this->extractMeetingInstructions($crawler),
                     'extracted_at' => now()->toISOString(),
                 ];
+
+                // An unknown id still renders the page shell, just empty.
+                $meetingDetail['found'] = $this->meetingDetailHasContent($meetingDetail);
 
                 $this->logScraping('Meeting detail extracted successfully', [
                     'meeting_id' => $params['meeting_id'],
@@ -1057,10 +1062,11 @@ class ClassesExtractor extends PortalScrapingService
                                             $details['attendance_time'] = $matches[5];
                                         }
 
-                                        // Determine status from button text and color
+                                        // Determine status from button text. The portal colours
+                                        // every "H" button red, so colour says nothing about lateness;
+                                        // only an explicit note in the tooltip does.
                                         if ($buttonText === 'H') {
-                                            // Check button color to distinguish between present and late
-                                            $status = ($buttonBgColor === 'green' || $buttonBgColor === '#00FF00') ? 'present' : 'late';
+                                            $status = preg_match('/terlambat|telat|late/i', (string) $buttonTitle) ? 'late' : 'present';
                                         } elseif ($buttonText === 'A' || $buttonText === 'α') {
                                             $status = 'absent';
                                         } elseif ($buttonText === 'I') {
@@ -1069,10 +1075,6 @@ class ClassesExtractor extends PortalScrapingService
                                             $status = 'sick';
                                         }
 
-                                        // If button is red but text is 'H', it might be late
-                                        if ($buttonText === 'H' && ($buttonBgColor === 'red' || $buttonBgColor === '#FF0000')) {
-                                            $status = 'late';
-                                        }
                                     }
 
                                     $meetingData[] = [
@@ -1229,7 +1231,7 @@ class ClassesExtractor extends PortalScrapingService
                             // Extract material information using regex
                             if (preg_match('/<h6>(.+?)<\/h6>/', $content, $matches)) {
                                 $material = [
-                                    'title' => trim(strip_tags($matches[1])),
+                                    'title' => $this->richTextToPlain($matches[1]),
                                     'content' => $content,
                                     'meeting_number' => null,
                                 ];
@@ -1424,8 +1426,11 @@ class ClassesExtractor extends PortalScrapingService
 
                     if (strpos($label, 'absensi kehadiran') !== false) {
                         $attendanceInfo['status'] = $value;
-                        if (preg_match('/Absen Jam : (\d{2}:\d{2}:\d{2})/', $value, $matches)) {
-                            $attendanceInfo['time'] = $matches[1];
+
+                        // "Hadir Absen Jam : 18:36:31" → status "Hadir", time "18:36:31"
+                        if (preg_match('/^(.*?)\s*Absen Jam\s*:\s*(\d{2}:\d{2}(?::\d{2})?)/i', $value, $matches)) {
+                            $attendanceInfo['status'] = trim($matches[1]) !== '' ? trim($matches[1]) : 'Hadir';
+                            $attendanceInfo['time'] = $matches[2];
                         }
                     }
                 }
@@ -1545,12 +1550,12 @@ class ClassesExtractor extends PortalScrapingService
 
                     // Extract main topic
                     if (preg_match('/<h5>(.+?)<\/h5>/', $content, $matches)) {
-                        $materials['main_topic'] = trim(strip_tags($matches[1]));
+                        $materials['main_topic'] = $this->richTextToPlain($matches[1]);
                     }
 
                     // Extract main description
                     if (preg_match('/<h5>Uraian Pokok Pembahasan : <\/h5>(.+?)<h4>/s', $content, $matches)) {
-                        $materials['main_description'] = trim(strip_tags($matches[1]));
+                        $materials['main_description'] = $this->richTextToPlain($matches[1]);
                     }
 
                     // Extract main material iframe
@@ -1560,7 +1565,7 @@ class ClassesExtractor extends PortalScrapingService
 
                     // Extract assignment topic
                     if (preg_match('/<h4> Instruksi Tugas Perkuliahan ([^:]+) :<\/h4>/', $content, $matches)) {
-                        $topic = trim(strip_tags($matches[1]));
+                        $topic = $this->richTextToPlain($matches[1]);
                         $materials['assignment_topic'] = str_starts_with(strtolower($topic), 'pertemuan')
                             ? $topic
                             : 'Pertemuan '.$topic;
@@ -1582,6 +1587,106 @@ class ClassesExtractor extends PortalScrapingService
         }
 
         return $materials;
+    }
+
+    /**
+     * @param  array<string, mixed>  $meetingDetail
+     */
+    private function meetingDetailHasContent(array $meetingDetail): bool
+    {
+        // meeting_info.title is the portal's page title ("SELAMAT DATANG DI
+        // APLIKASI SiPANDAI...") even for unknown ids, so it says nothing.
+        $signals = [
+            $meetingDetail['meeting_info']['breadcrumb'] ?? null,
+            $meetingDetail['lecturer_info']['name'] ?? null,
+            $meetingDetail['schedule_info']['date'] ?? null,
+            $meetingDetail['materials']['main_topic'] ?? null,
+            $meetingDetail['materials']['assignment_topic'] ?? null,
+            $meetingDetail['attendance_info']['status'] ?? null,
+        ];
+
+        foreach ($signals as $signal) {
+            if (is_string($signal) && trim($signal) !== '') {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Rich portal HTML as readable text: block boundaries become line breaks,
+     * entities (&amp;, &nbsp;) are decoded, whitespace is collapsed per line.
+     */
+    private function richTextToPlain(string $html): string
+    {
+        $withBreaks = preg_replace('#<\s*(br|/p|/div|/li|/h[1-6]|/tr)\s*/?>#i', "\n", $html) ?? $html;
+        $text = html_entity_decode(strip_tags($withBreaks), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $text = str_replace("\u{A0}", ' ', $text);
+
+        $lines = array_filter(array_map(
+            static fn (string $line): string => trim(preg_replace('/[ \t]+/', ' ', $line) ?? $line),
+            explode("\n", $text)
+        ), static fn (string $line): bool => $line !== '');
+
+        return implode("\n", $lines);
+    }
+
+    /**
+     * The portal marks every meeting the student has not attended as absent,
+     * including meetings that have not happened yet. A meeting without
+     * material and without an attendance record is still upcoming.
+     *
+     * @param  array<string, mixed>  $attendanceInfo
+     * @param  list<array<string, mixed>>  $courseMaterials
+     * @return array<string, mixed>
+     */
+    private function markUpcomingMeetings(array $attendanceInfo, array $courseMaterials): array
+    {
+        $meetings = $attendanceInfo['meetings'] ?? [];
+
+        if (! is_array($meetings) || $meetings === []) {
+            return $attendanceInfo;
+        }
+
+        $heldMeetings = 0;
+        foreach ($courseMaterials as $index => $material) {
+            $heldMeetings = max($heldMeetings, (int) ($material['meeting_number'] ?? ($index + 1)));
+        }
+        foreach ($meetings as $meeting) {
+            $details = is_array($meeting['details'] ?? null) ? $meeting['details'] : [];
+            if (in_array($meeting['status'] ?? null, ['present', 'late', 'permit', 'sick'], true) || isset($details['attendance_date'])) {
+                $heldMeetings = max($heldMeetings, (int) ($meeting['meeting_number'] ?? 0));
+            }
+        }
+
+        $upcoming = 0;
+        foreach ($meetings as $index => $meeting) {
+            $details = is_array($meeting['details'] ?? null) ? $meeting['details'] : [];
+            $isUpcoming = (int) ($meeting['meeting_number'] ?? 0) > $heldMeetings
+                && in_array($meeting['status'] ?? null, ['absent', 'unknown'], true)
+                && ! isset($details['attendance_date']);
+
+            if ($isUpcoming) {
+                $meetings[$index]['status'] = 'upcoming';
+                $upcoming++;
+            }
+        }
+
+        $attendanceInfo['meetings'] = $meetings;
+
+        if (is_array($attendanceInfo['summary'] ?? null) && $attendanceInfo['summary'] !== []) {
+            $summary = $attendanceInfo['summary'];
+            $held = max(0, (int) ($summary['total_meetings'] ?? count($meetings)) - $upcoming);
+            $attended = (int) ($summary['present'] ?? 0);
+            $summary['upcoming'] = $upcoming;
+            $summary['held_meetings'] = $held;
+            $summary['absent'] = max(0, (int) ($summary['absent'] ?? 0) - $upcoming);
+            $summary['attendance_rate'] = $held > 0 ? round(($attended / $held) * 100, 1) : 0;
+            $attendanceInfo['summary'] = $summary;
+        }
+
+        return $attendanceInfo;
     }
 
     /**

@@ -29,7 +29,7 @@ class PortalSessionMiddleware
         if (! $sessionToken) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'No active campus session found',
+                'message' => 'Sesi kampus tidak ditemukan. Silakan masuk lagi.',
                 'meta' => [
                     'timestamp' => now()->toISOString(),
                     'campus_session_valid' => false,
@@ -45,7 +45,7 @@ class PortalSessionMiddleware
 
                 return response()->json([
                     'status' => 'error',
-                    'message' => 'Campus session has expired',
+                    'message' => 'Sesi kampus sudah berakhir. Silakan masuk lagi.',
                     'meta' => [
                         'timestamp' => now()->toISOString(),
                         'campus_session_valid' => false,
@@ -64,7 +64,7 @@ class PortalSessionMiddleware
 
             return response()->json([
                 'status' => 'error',
-                'message' => 'Failed to validate campus session',
+                'message' => 'Gagal memeriksa sesi kampus.',
                 'meta' => [
                     'timestamp' => now()->toISOString(),
                     'campus_session_valid' => false,

@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-use App\Http\Controllers\API\NotebookApiController;
 use App\Http\Controllers\API\PortalActionController;
 use App\Http\Controllers\API\PortalAuthController;
 use App\Http\Controllers\API\PortalDataController;
+use App\Http\Controllers\API\PortalOperationController;
 use App\Http\Controllers\API\PortalSupportController;
 use Illuminate\Support\Facades\Route;
 
@@ -59,6 +59,8 @@ Route::middleware($sessionMiddleware)->group(function () {
             Route::delete('', 'deleteAssignment')->middleware('throttle:portal-action');
         });
 
+        Route::get('operations/{operation}', [PortalOperationController::class, 'show'])->whereUuid('operation');
+
         Route::get('attendance/today', [PortalActionController::class, 'todayAttendanceShortcuts']);
         Route::post('attendance', [PortalActionController::class, 'markAttendance'])->middleware('throttle:portal-action');
 
@@ -69,17 +71,6 @@ Route::middleware($sessionMiddleware)->group(function () {
         });
 
         Route::get('support/download', [PortalSupportController::class, 'downloadFile']);
-
-        Route::prefix('notebook')->controller(NotebookApiController::class)->group(function (): void {
-            Route::get('', 'index');
-            Route::post('', 'store');
-            Route::get('{id}', 'show');
-            Route::patch('{id}', 'update');
-            Route::delete('{id}', 'destroy');
-            Route::post('{id}/chat', 'chat');
-            Route::post('{id}/save-draft', 'saveDraft');
-            Route::post('verify-key', 'verifyKey');
-        });
     });
 
     Route::prefix('support')->controller(PortalSupportController::class)->group(function (): void {

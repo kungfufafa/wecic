@@ -6,6 +6,7 @@ namespace Tests\Unit;
 
 use App\Exceptions\PortalScrapingException;
 use App\Jobs\RefreshPortalDataJob;
+use App\Services\PortalActionProjector;
 use App\Services\PortalDataOwner;
 use App\Services\PortalDatasetBuilder;
 use App\Services\PortalDatasetRepository;
@@ -193,6 +194,20 @@ class PortalDatasetRepositoryTest extends TestCase
         $this->repository()->sync('token', 'assignments');
 
         $this->assertTrue($this->snapshots->isStale('token', 'assignments'));
+    }
+
+    public function test_rebuild_that_missed_a_confirmed_action_keeps_it_projected(): void
+    {
+        app(PortalActionProjector::class)->recordAssignmentUploaded('token', 9000, 29833, 2);
+        $this->expectBuilds(1, ['assignments' => [
+            ['meeting_id' => '29833', 'assignment_payload' => ['courses_id' => '9000', 'id' => '29833', 'pertemuan' => 2]],
+            ['meeting_id' => '40000', 'assignment_payload' => ['courses_id' => '9001', 'id' => '40000', 'pertemuan' => 3]],
+        ]]);
+
+        $result = $this->repository()->read('token', 'assignments', forceFresh: true);
+
+        $this->assertSame(['40000'], array_column($result['data']['assignments'], 'meeting_id'));
+        $this->assertSame(['40000'], array_column($this->snapshots->get('token', 'assignments')['data']['assignments'], 'meeting_id'));
     }
 
     private function repository(): PortalDatasetRepository

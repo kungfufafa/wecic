@@ -16,14 +16,20 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
+/**
+ * Sends an exam file to SIPANDAI, right after the HTTP response (see
+ * ProcessPortalAssignmentUploadJob).
+ */
 class ProcessPortalExamUploadJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public int $tries = 3;
+    /**
+     * The upload POST is not idempotent, so it is never retried.
+     */
+    public int $tries = 1;
 
     /**
      * @param  array<string, mixed>  $formValues
@@ -62,8 +68,11 @@ class ProcessPortalExamUploadJob implements ShouldQueue
             return;
         }
 
+        $this->extendTimeLimit();
+
         try {
-            $tracker->start($this->operationId, 'exam_upload');
+            $tracker->progress($this->operationId, PortalOperationStage::Connecting, 'Menghubungkan ke portal SIPANDAI.', 10);
+            $broadcast->uploadProgress($this->sessionId, $this->campusSessionToken, $this->operationId, PortalOperationStage::Connecting, 'Menghubungkan ke portal SIPANDAI.', percent: 10);
 
             $uploadedFile = new UploadedFile(
                 Storage::path($this->storedFilePath),
@@ -99,23 +108,23 @@ class ProcessPortalExamUploadJob implements ShouldQueue
                 return;
             }
 
+            // The exam detail reads the stored submission records right away;
+            // the exam list re-syncs in the background on its next read.
             $datasets->invalidate($this->campusSessionToken, ['exams']);
 
-            try {
-                $datasets->sync($this->campusSessionToken, 'exams');
-            } catch (\Throwable $throwable) {
-                Log::warning('Failed to re-sync exam list after exam upload', [
-                    'exam_id' => $this->examId,
-                    'error' => $throwable->getMessage(),
-                ]);
-            }
+            $cacheKeys = ['/api/exam', '/api/exam/'.$this->examId];
+            $syncKeys = ['exam-index', 'exam-show'];
 
-            $broadcast->dataInvalidated(
+            $tracker->progress($this->operationId, PortalOperationStage::Completed, 'Jawaban ujian terkirim ke portal.', 100, cacheKeys: $cacheKeys, syncKeys: $syncKeys);
+            $broadcast->uploadProgress(
                 $this->sessionId,
                 $this->campusSessionToken,
-                ['/api/exam', '/api/exam/'.$this->examId],
-                ['exam-index', 'exam-show'],
-                'Data ujian diperbarui setelah upload.'
+                $this->operationId,
+                PortalOperationStage::Completed,
+                'Jawaban ujian terkirim ke portal.',
+                percent: 100,
+                cacheKeys: $cacheKeys,
+                syncKeys: $syncKeys
             );
         } catch (\Throwable $throwable) {
             $tracker->progress(
@@ -140,6 +149,17 @@ class ProcessPortalExamUploadJob implements ShouldQueue
         } finally {
             Storage::delete($this->storedFilePath);
             $lock->release();
+        }
+    }
+
+    /**
+     * Running after the response, the job shares PHP-FPM's execution limit.
+     * Console processes (queue workers, tests) manage their own limits.
+     */
+    private function extendTimeLimit(): void
+    {
+        if (! app()->runningInConsole() && function_exists('set_time_limit')) {
+            @set_time_limit((int) config('portal.actions.upload_time_limit', 180));
         }
     }
 }

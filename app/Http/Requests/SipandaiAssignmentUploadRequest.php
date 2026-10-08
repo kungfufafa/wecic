@@ -61,7 +61,7 @@ class SipandaiAssignmentUploadRequest extends ApiFormRequest
             /**
              * Berkas tugas mahasiswa yang akan dikirim sebagai field file SIPANDAI.
              */
-            'attachment' => ['required', 'file', 'max:15360'], // 15 MB
+            'attachment' => ['required', 'file', 'mimes:pdf', 'max:10240'], // PDF, 10 MB (what the UI promises)
             /**
              * Override field tambahan dari form asli SIPANDAI bila diperlukan.
              *
@@ -89,7 +89,8 @@ class SipandaiAssignmentUploadRequest extends ApiFormRequest
             'form_values.array' => 'Parameter form_values harus berupa object/array.',
             'attachment.required' => 'File tugas wajib diunggah.',
             'attachment.file' => 'Lampiran tugas tidak valid.',
-            'attachment.max' => 'Ukuran file tugas maksimal 15 MB.',
+            'attachment.mimes' => 'File tugas harus berformat PDF.',
+            'attachment.max' => 'Ukuran file tugas maksimal 10 MB.',
         ];
     }
 

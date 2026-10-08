@@ -53,7 +53,9 @@ class BladePagesTest extends TestCase
             ->assertSee('Sinkronkan data')
             ->assertDontSee('Tagihan belum dibayar')
             ->assertSee("app.clearCachedResponse('/api/dashboard');", false)
-            ->assertSee('await loadDashboard({ force: true });', false)
+            ->assertSee('await app.guardFormSubmit(form,', false)
+            ->assertSee('await loadDashboard();', false)
+            ->assertDontSee('await loadDashboard({ force: true });', false)
             ->assertDontSee('Aktivitas terbaru');
     }
 
@@ -91,7 +93,7 @@ class BladePagesTest extends TestCase
             ->get('/class')
             ->assertOk()
             ->assertSee('Jadwal & Kelas')
-            ->assertSee('Total kelas')
+            ->assertSee('Hari aktif')
             ->assertSee('Daftar')
             ->assertDontSee('Segarkan')
             ->assertDontSee('return \\`', false)
@@ -120,7 +122,9 @@ class BladePagesTest extends TestCase
             ->assertSee('id: String(meetingId)', false)
             ->assertSee('courses_id: String(coursesId)', false)
             ->assertSee('app.clearCachedResponse(endpoint);', false)
-            ->assertSee('await loadMeeting({ force: true });', false)
+            ->assertSee('await loadMeeting();', false)
+            ->assertSee("await app.trackOperation(operationId, 'Upload tugas');", false)
+            ->assertDontSee('await loadMeeting({ force: true });', false)
             ->assertDontSee('Periksa materi utama, presensi, dan instruksi tugas pada pertemuan ini.', false)
             ->assertDontSee('inferredMeetingNumber ? app.renderBadge(`Pertemuan ${inferredMeetingNumber}`, \'primary\') : \'\'', false)
             ->assertDontSee('scheduleInfo.date ? app.renderBadge(scheduleInfo.date, \'secondary\') : \'\'', false)

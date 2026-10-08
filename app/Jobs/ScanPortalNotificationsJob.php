@@ -23,7 +23,9 @@ class ScanPortalNotificationsJob implements ShouldQueue
         private readonly string $sessionId,
         private readonly string $campusSessionToken
     ) {
-        $this->onQueue('campus-refresh');
+        // Lower priority than data refreshes: a slow scan must not delay the
+        // dashboard the student is waiting for after login.
+        $this->onQueue('campus-notifications');
     }
 
     public function handle(

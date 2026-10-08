@@ -108,12 +108,12 @@ abstract class CampusApiController extends Controller
 
     protected function missingSessionStatusResponse(): JsonResponse
     {
-        return $this->statusError('No active campus session found', 401, campusSessionValid: false);
+        return $this->statusError('Sesi kampus tidak ditemukan. Silakan masuk lagi.', 401, campusSessionValid: false);
     }
 
     protected function missingSessionBooleanResponse(): JsonResponse
     {
-        return $this->booleanResponse(false, 'No active session. Please login first.', null, 401);
+        return $this->booleanResponse(false, 'Sesi kampus tidak ditemukan. Silakan masuk lagi.', null, 401);
     }
 
     protected function expiredSessionBooleanResponse(): JsonResponse
@@ -132,7 +132,7 @@ abstract class CampusApiController extends Controller
 
         session()->forget(['campus_session_token', 'campus_user_info']);
 
-        return $this->booleanResponse(false, 'Campus session has expired. Please login again.', null, 401);
+        return $this->booleanResponse(false, 'Sesi kampus sudah berakhir. Silakan masuk lagi.', null, 401);
     }
 
     protected function isCampusSessionExpiredException(\Throwable $throwable): bool
@@ -158,7 +158,7 @@ abstract class CampusApiController extends Controller
             if ($this->isCampusSessionExpiredException($throwable)) {
                 session()->forget(['campus_session_token', 'campus_user_info']);
 
-                return $this->statusError('Campus session has expired. Please login again.', 401, campusSessionValid: false);
+                return $this->statusError('Sesi kampus sudah berakhir. Silakan masuk lagi.', 401, campusSessionValid: false);
             }
 
             Log::error($failureLogMessage, array_merge([

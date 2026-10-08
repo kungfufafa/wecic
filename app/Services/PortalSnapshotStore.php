@@ -64,6 +64,18 @@ class PortalSnapshotStore
     }
 
     /**
+     * Replace the data of an existing snapshot while keeping its sync state,
+     * so a pending invalidation still triggers the background re-sync.
+     *
+     * @param  array<string, mixed>  $data
+     * @param  array<string, mixed>  $params
+     */
+    public function replaceData(string $sessionToken, string $domain, array $data, array $params = []): void
+    {
+        $this->updateState($sessionToken, $domain, $params, ['data' => $data]);
+    }
+
+    /**
      * @param  array<string, mixed>  $params
      */
     public function has(string $sessionToken, string $domain, array $params = []): bool

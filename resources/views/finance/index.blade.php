@@ -114,7 +114,7 @@
 
             const openDetailModal = (payment) => {
                 if (!modal || !modalBody) return;
-                modalTitle.textContent = payment.description || 'Pembayaran';
+                modalTitle.textContent = [payment.category, payment.description].filter(Boolean).join(' · ') || 'Pembayaran';
 
                 const entries = [
                     { label: 'Nominal', value: payment.amount_label || formatRupiah(payment.amount) },
@@ -209,7 +209,7 @@
                             <td class="text-center font-medium text-ink-subtle">${index + 1}</td>
                             <td class="whitespace-nowrap font-medium text-ink">${app.escapeHtml(payment.paid_at_label || '-')}</td>
                             <td>
-                                <div class="font-bold text-ink">${app.escapeHtml(payment.description || 'Pembayaran')}</div>
+                                <div class="font-bold text-ink">${app.escapeHtml([payment.category, payment.description].filter(Boolean).join(' · ') || 'Pembayaran')}</div>
                                 ${ref ? `<div class="text-caption text-ink-subtle font-mono">${app.escapeHtml(ref)}</div>` : ''}
                             </td>
                             <td>
@@ -243,7 +243,7 @@
                         <div class="p-4 transition-colors hover:bg-surface/50 active:bg-surface cursor-pointer" data-payment-card="${index}">
                             <div class="flex items-start justify-between gap-3 mb-2">
                                 <div class="min-w-0 flex-1">
-                                    <div class="font-bold text-sm text-ink leading-snug">${app.escapeHtml(payment.description || 'Pembayaran')}</div>
+                                    <div class="font-bold text-sm text-ink leading-snug">${app.escapeHtml([payment.category, payment.description].filter(Boolean).join(' · ') || 'Pembayaran')}</div>
                                     <div class="mt-1 text-caption text-ink-subtle">${app.escapeHtml(payment.paid_at_label || '-')}</div>
                                 </div>
                                 <div class="shrink-0 text-end text-sm font-bold tabular-nums text-success">

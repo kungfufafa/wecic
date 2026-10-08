@@ -526,7 +526,7 @@ class PortalDataControllerParameterTest extends TestCase
 
         $response->assertStatus(401)
             ->assertJsonPath('status', 'error')
-            ->assertJsonPath('message', 'Campus session has expired. Please login again.')
+            ->assertJsonPath('message', 'Sesi kampus sudah berakhir. Silakan masuk lagi.')
             ->assertJsonPath('meta.campus_session_valid', false);
 
         $response->assertSessionMissing('campus_session_token');

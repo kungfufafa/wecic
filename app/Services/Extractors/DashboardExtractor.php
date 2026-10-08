@@ -269,8 +269,14 @@ class DashboardExtractor extends PortalScrapingService
                 $meetingUrl = sprintf('/meeting/%s?courses_id=%s', $shortcut['meeting_id'], $shortcut['assignment_payload']['courses_id']);
             }
 
+            $classUrl = $hasClassContext
+                ? sprintf('/class/%s?dosen_id=%s&course_id=%s', $classContext['class_id'], $classContext['dosen_id'], $classContext['course_id'])
+                : null;
+
             $class['attendance'] = [
                 'available' => $shortcut !== null,
+                'target_reliable' => $shortcut !== null && $hasReliableAttendanceTarget,
+                'class_url' => $classUrl,
                 'actionable' => $shortcut !== null
                     && $hasReliableAttendanceTarget
                     && ! ($attendanceStatus['already_marked'] ?? false)

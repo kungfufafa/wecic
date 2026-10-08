@@ -25,7 +25,11 @@
         </div>
 
         <section aria-label="Jadwal hari ini">
-            <h2 class="mycic-section-title mb-3">Hari ini</h2>
+            <div class="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+                <h2 class="mycic-section-title mb-0" id="dashboard-today-title">Hari ini</h2>
+                <span class="text-sm text-ink-subtle" id="dashboard-today-date"></span>
+            </div>
+            <div id="dashboard-today-notice"></div>
             <div id="dashboard-class-summary">
                 <div class="mycic-card">
                     <div class="mycic-card-body flex flex-col gap-3">
@@ -75,33 +79,73 @@
                 const todayClasses = classesSummary.today_classes || [];
                 const dayLabel = classesSummary.day || 'Hari ini';
 
+                // A GPA of 0.00 means "no grades yet" for a new student, not a zero.
+                const gpaValue = parseFloat(String(overview.gpa || '').replace(',', '.'));
+                const gpaLabel = Number.isFinite(gpaValue) && gpaValue > 0 ? overview.gpa : '–';
+
                 [
                     classesSummary.total_classes || overview.total_courses || '0',
-                    overview.gpa || '0.00',
+                    gpaLabel,
                     classesSummary.total_credits || overview.total_credits || '0',
                 ].forEach((value, index) => {
                     const node = document.querySelectorAll('[data-dashboard-metric]')[index];
                     if (node) {
                         node.textContent = String(value || '-');
+                        if (index === 1) {
+                            node.title = gpaLabel === '–' ? 'Belum ada nilai yang keluar' : '';
+                        }
                     }
                 });
 
                 latestClassesSummary = classesSummary;
 
+                // The snapshot may still describe yesterday while today's is being fetched.
+                const todayIso = new Date().toLocaleDateString('sv-SE');
+                const snapshotIsToday = !classesSummary.date || classesSummary.date === todayIso;
+                const titleNode = document.getElementById('dashboard-today-title');
+                const dateNode = document.getElementById('dashboard-today-date');
+                const noticeNode = document.getElementById('dashboard-today-notice');
+                const longDate = classesSummary.date
+                    ? new Date(`${classesSummary.date}T00:00:00`).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' })
+                    : dayLabel;
+
+                titleNode.textContent = snapshotIsToday ? 'Hari ini' : `Jadwal ${dayLabel}`;
+                dateNode.textContent = snapshotIsToday ? longDate : `${longDate} · data lama`;
+                noticeNode.innerHTML = snapshotIsToday ? '' : `
+                    <div class="${app.alertTone('info')} mb-3 flex items-center gap-2">
+                        <span class="mycic-spinner shrink-0" aria-hidden="true"></span>
+                        <span>Jadwal hari ini sedang diambil dari portal kampus. Yang tampil di bawah masih jadwal ${app.escapeHtml(dayLabel)}.</span>
+                    </div>
+                `;
+
+                // Where the quick QR button in the mobile nav should go.
+                const scannable = todayClasses.find((klass) => klass.attendance?.actionable && klass.attendance?.meeting_url);
+                app.setQuickQrTarget(
+                    scannable ? `${scannable.attendance.meeting_url}&qr=1` : null,
+                    todayClasses.length
+                        ? 'Absensi untuk kelas hari ini belum dibuka dosen. Coba lagi saat kelas berlangsung.'
+                        : `Tidak ada kelas ${dayLabel}, jadi tidak ada absensi yang perlu diisi.`
+                );
+
                 if (!todayClasses.length) {
-                    summaryHost.innerHTML = app.renderEmptyState(`Tidak ada jadwal ${dayLabel}.`, 'secondary');
+                    summaryHost.innerHTML = app.renderEmptyState(`Tidak ada jadwal ${dayLabel}.`, 'secondary', 'Selamat beristirahat.');
 
                     return;
                 }
 
                 summaryHost.innerHTML = todayClasses.map((klass, index) => {
+                    const attendance = klass.attendance || {};
+                    const targetReliable = attendance.target_reliable !== false;
                     let statusColor = 'secondary';
-                    if (klass.attendance?.actionable) statusColor = 'primary';
-                    else if (klass.attendance?.status?.already_marked) statusColor = 'success';
-                    else if (klass.attendance?.available) statusColor = 'warning';
+                    if (attendance.actionable) statusColor = 'primary';
+                    else if (attendance.status?.already_marked && targetReliable) statusColor = 'success';
+                    else if (attendance.available && targetReliable) statusColor = 'warning';
 
-                    const materialTitle = klass.attendance?.today_material?.title;
+                    const materialTitle = attendance.today_material?.title;
+                    const materialIsToday = attendance.today_material?.is_today !== false;
                     const materialLabel = materialTitle && materialTitle !== 'Materi terbaru belum terdeteksi.' ? materialTitle : null;
+                    // Without today's material, "Buka" leads to the class page, not an old meeting.
+                    const openUrl = targetReliable ? attendance.meeting_url : (attendance.class_url || attendance.meeting_url);
 
                     return `
                     <div class="mycic-card mb-3">
@@ -119,21 +163,23 @@
                                     </div>
                                 </div>
                                 <div class="shrink-0">
-                                    ${klass.attendance?.meeting_url
-                                        ? `<a href="${app.escapeHtml(klass.attendance.meeting_url)}" class="${app.buttonClass('secondary', { small: true })}">Buka</a>`
+                                    ${openUrl
+                                        ? `<a href="${app.escapeHtml(openUrl)}" class="${app.buttonClass('secondary', { small: true })}">Buka</a>`
                                         : ''}
                                 </div>
                             </div>
 
-                            ${(klass.attendance?.meeting_number || materialLabel) ? `
-                                <div class="mb-3 flex flex-wrap gap-3 text-sm text-ink-subtle">
-                                    ${klass.attendance?.meeting_number ? `<span>P${app.escapeHtml(klass.attendance.meeting_number)}</span>` : ''}
-                                    ${materialLabel ? `<span class="italic">${app.escapeHtml(materialLabel)}</span>` : ''}
+                            ${(attendance.meeting_number || materialLabel) && (materialIsToday || materialLabel) ? `
+                                <div class="mb-3 flex flex-wrap gap-x-3 gap-y-1 text-sm text-ink-subtle">
+                                    ${materialIsToday && attendance.meeting_number ? `<span>P${app.escapeHtml(attendance.meeting_number)}</span>` : ''}
+                                    ${materialLabel ? `<span class="italic">${materialIsToday ? '' : 'Materi terakhir: '}${app.escapeHtml(materialLabel)}</span>` : ''}
                                 </div>
                             ` : ''}
 
                             <div class="${panelTone(statusColor)}">
-                                ${klass.attendance?.actionable ? `
+                                ${!targetReliable ? `
+                                    <div class="text-sm text-ink-subtle">Materi hari ini belum diunggah dosen, jadi absensi belum bisa dibuka dari sini.</div>
+                                ` : attendance.actionable ? `
                                     <form class="flex flex-wrap items-center gap-2" data-attendance-card="${index}">
                                         <div class="w-full min-w-0 md:w-auto md:min-w-[12rem] md:flex-1">
                                             <input type="text" class="mycic-input bg-panel" data-field="kode" placeholder="Kode absen" required>
@@ -145,14 +191,14 @@
                                         </div>
                                         <button type="submit" class="${app.buttonClass('primary')} md:ms-auto" data-online-required>Kirim</button>
                                     </form>
-                                ` : klass.attendance?.status?.already_marked ? `
+                                ` : attendance.status?.already_marked ? `
                                     <div class="text-sm font-medium ${textTone(statusColor)}">
-                                        ${app.escapeHtml(klass.attendance?.status?.label || 'Hadir')}${klass.attendance?.status?.time ? ` · ${app.escapeHtml(klass.attendance.status.time)}` : ''}
+                                        ${app.escapeHtml(attendance.status?.label || 'Hadir')}${attendance.status?.time ? ` · ${app.escapeHtml(attendance.status.time)}` : ''}
                                     </div>
-                                ` : klass.attendance?.available ? `
+                                ` : attendance.available ? `
                                     <div class="flex flex-wrap items-center justify-between gap-2 ${textTone(statusColor)}">
                                         <span class="text-sm font-medium">Absensi tersedia</span>
-                                        <a href="${app.escapeHtml(klass.attendance?.meeting_url || '/class')}" class="text-xs font-bold underline">Buka</a>
+                                        <a href="${app.escapeHtml(attendance.meeting_url || '/class')}" class="text-xs font-bold underline">Buka</a>
                                     </div>
                                 ` : `
                                     <div class="text-sm text-ink-subtle">Belum ada absensi.</div>
@@ -183,19 +229,13 @@
                     form.addEventListener('submit', async (event) => {
                         event.preventDefault();
 
-                        if (form.dataset.submitting === 'true') {
-                            return;
-                        }
-
                         if (!app.requireOnlineAction('Absen butuh koneksi internet.')) {
                             return;
                         }
 
                         const kode = form.querySelector('[data-field="kode"]').value.trim();
 
-                        form.dataset.submitting = 'true';
-
-                        await app.withSubmitLoading(form.querySelector('button[type="submit"]'), async () => {
+                        await app.guardFormSubmit(form, () => app.withSubmitLoading(form.querySelector('button[type="submit"]'), async () => {
                             try {
                                 const body = attendancePayload
                                     ? {
@@ -212,7 +252,12 @@
                                     json: body,
                                 });
 
-                                app.showNotice(result?.message || 'Absensi berhasil dikirim.', 'success');
+                                app.showNotice(
+                                    result?.data?.status === 'already_marked'
+                                        ? 'Kehadiran kamu sudah tercatat untuk pertemuan ini.'
+                                        : 'Absensi berhasil dikirim.',
+                                    'success'
+                                );
                                 app.clearCachedResponse('/api/dashboard');
                                 app.clearCachedResponse('/api/attendance/today');
 
@@ -222,11 +267,20 @@
                                     );
                                 }
 
-                                await loadDashboard({ force: true });
+                                // The server already shows this class as attended, so
+                                // re-reading its snapshot is instant (no portal scrape).
+                                await loadDashboard();
                             } catch (error) {
+                                if (error.isTimeout) {
+                                    app.showNotice('Portal lambat merespons. Mengecek status absensi...', 'warning');
+                                    await loadDashboard();
+
+                                    return;
+                                }
+
                                 app.showNotice(error.payload?.message || error.message, 'error');
                             }
-                        });
+                        }));
                     });
                 });
 
@@ -244,9 +298,35 @@
                     return;
                 }
 
+                const describeDeadline = (assignment) => {
+                    if (!assignment.deadline_date) {
+                        return { label: assignment.deadline || null, tone: 'brand' };
+                    }
+
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    const due = new Date(`${assignment.deadline_date}T00:00:00`);
+                    const daysLeft = Math.round((due - today) / 86400000);
+
+                    if (daysLeft < 0) {
+                        return { label: `Lewat ${Math.abs(daysLeft)} hari · ${assignment.deadline}`, tone: 'danger' };
+                    }
+                    if (daysLeft === 0) {
+                        return { label: `Hari ini · ${assignment.deadline}`, tone: 'danger' };
+                    }
+                    if (daysLeft === 1) {
+                        return { label: `Besok · ${assignment.deadline}`, tone: 'warning' };
+                    }
+                    if (daysLeft <= 3) {
+                        return { label: `${daysLeft} hari lagi · ${assignment.deadline}`, tone: 'warning' };
+                    }
+
+                    return { label: `${daysLeft} hari lagi · ${assignment.deadline}`, tone: 'brand' };
+                };
+
                 assignmentHost.innerHTML = pendingAssignments.map((assignment, index) => {
-                    const isUrgent = /hari ini/i.test(String(assignment.deadline || ''));
-                    const statusColor = isUrgent ? 'warning' : 'brand';
+                    const deadline = describeDeadline(assignment);
+                    const statusColor = deadline.tone;
 
                     return `
                     <div class="mycic-card mb-3">
@@ -259,8 +339,8 @@
                                         <p class="mb-0 text-sm text-ink-subtle">${app.escapeHtml(assignment.material_title)}</p>
                                     ` : ''}
                                 </div>
-                                ${assignment.deadline ? `
-                                    <div class="text-sm font-semibold ${textTone(statusColor)}">${app.escapeHtml(assignment.deadline)}</div>
+                                ${deadline.label ? `
+                                    <div class="text-sm font-semibold ${textTone(statusColor)}">${app.escapeHtml(deadline.label)}</div>
                                 ` : ''}
                             </div>
 
@@ -268,7 +348,7 @@
                                 ${assignment.assignment_file_url
                                     ? `<a href="${app.escapeHtml(app.absoluteCampusUrl(assignment.assignment_file_url))}" target="_blank" rel="noreferrer" class="${app.buttonClass('secondary', { small: true })}">Lampiran</a>`
                                     : '<span></span>'}
-                                <a href="${app.escapeHtml(assignment.meeting_url)}" class="mycic-link text-sm font-medium">Detail</a>
+                                <a href="${app.escapeHtml(assignment.meeting_url)}" class="${app.buttonClass('secondary', { small: true })}">Detail</a>
                             </div>
 
                             <div class="rounded-[var(--radius-control)] border border-border bg-surface/75 p-3.5">
@@ -318,7 +398,7 @@
                         formData.append('pertemuan', candidate.assignment_payload.pertemuan);
                         formData.append('attachment', file);
 
-                        await app.withSubmitLoading(form.querySelector('button[type="submit"]'), async () => {
+                        await app.guardFormSubmit(form, () => app.withSubmitLoading(form.querySelector('button[type="submit"]'), async () => {
                             try {
                                 const result = await app.request('/api/assignment', {
                                     method: 'POST',
@@ -328,8 +408,9 @@
                                 const operationId = result?.data?.operation_id;
 
                                 if (operationId) {
-                                    app.trackOperation(operationId, 'Upload tugas');
-                                    app.showNotice('Upload tugas diterima. Status akan diperbarui otomatis.', 'info');
+                                    // Keep the form locked until the portal has the file;
+                                    // on completion the list re-renders without this task.
+                                    await app.trackOperation(operationId, 'Upload tugas');
                                 } else {
                                     app.showNotice(result?.message || 'Tugas berhasil dikirim.', 'success');
                                     await loadPendingAssignments();
@@ -337,7 +418,7 @@
                             } catch (error) {
                                 app.showNotice(error.payload?.message || error.message, 'error');
                             }
-                        });
+                        }));
                     });
                 });
 
@@ -363,7 +444,12 @@
                 } catch (error) {
                     dashboardOverviewHealthy = false;
                     app.setSyncStatus('Gagal memuat dashboard.', 'error');
-                    app.showNotice(error.payload?.message || error.message, 'error');
+                    app.mountErrorState(
+                        document.getElementById('dashboard-class-summary'),
+                        'Jadwal hari ini gagal dimuat.',
+                        () => loadDashboard({ force }),
+                        { subtitle: app.describeError(error) }
+                    );
                 }
             };
 
@@ -377,8 +463,12 @@
                     }
                 } catch (error) {
                     app.setSyncStatus('Gagal memuat tugas.', 'error');
-                    document.getElementById('dashboard-pending-assignments').innerHTML = app.renderEmptyState('Gagal memuat tugas.', 'danger');
-                    app.showNotice(error.payload?.message || error.message, 'error');
+                    app.mountErrorState(
+                        document.getElementById('dashboard-pending-assignments'),
+                        'Daftar tugas gagal dimuat.',
+                        () => loadPendingAssignments({ force }),
+                        { subtitle: app.describeError(error) }
+                    );
                 }
             };
 
