@@ -20,39 +20,25 @@ class ProfileExtractor extends PortalScrapingService
             $this->setSession($sessionToken);
             $this->logScraping('Extracting student profile data', ['session_token' => $sessionToken]);
 
-            // Try to get cached data first
-            $cacheKey = 'student_profile_'.md5($sessionToken);
-            $cachedData = $this->getCachedResponse($cacheKey);
+            return $this->rememberResource('profile', [], function (): array {
+                $html = $this->get(PortalEndpointRegistry::url('profile'));
+                $crawler = $this->createCrawler($html);
 
-            if ($cachedData) {
-                $this->logScraping('Using cached profile data');
+                $profileData = [
+                    'personal_data' => $this->extractPersonalData($crawler),
+                    'contact_data' => $this->extractContactData($crawler),
+                    'education_data' => $this->extractEducationData($crawler),
+                    'photo_url' => $this->extractPhotoUrl($crawler),
+                    'extracted_at' => now()->toISOString(),
+                ];
 
-                return $this->withSyncMeta(json_decode($cachedData, true), 'server_cache');
-            }
+                $this->logScraping('Profile data extracted successfully', [
+                    'name' => $profileData['personal_data']['name'] ?? 'Unknown',
+                    'student_id' => $profileData['personal_data']['student_id'] ?? 'N/A',
+                ]);
 
-            // Get profile HTML
-            $profileUrl = PortalEndpointRegistry::url('profile');
-            $html = $this->get($profileUrl);
-            $crawler = $this->createCrawler($html);
-
-            // Extract profile components
-            $profileData = [
-                'personal_data' => $this->extractPersonalData($crawler),
-                'contact_data' => $this->extractContactData($crawler),
-                'education_data' => $this->extractEducationData($crawler),
-                'photo_url' => $this->extractPhotoUrl($crawler),
-                'extracted_at' => now()->toISOString(),
-            ];
-
-            // Cache the extracted data
-            $this->cacheResponse($cacheKey, json_encode($profileData));
-
-            $this->logScraping('Profile data extracted successfully', [
-                'name' => $profileData['personal_data']['name'] ?? 'Unknown',
-                'student_id' => $profileData['personal_data']['student_id'] ?? 'N/A',
-            ]);
-
-            return $this->withSyncMeta($profileData, 'upstream');
+                return $profileData;
+            });
 
         } catch (PortalScrapingException $e) {
             throw $e;

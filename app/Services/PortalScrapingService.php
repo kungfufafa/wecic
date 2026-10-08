@@ -10,7 +10,6 @@ use GuzzleHttp\Client;
 use GuzzleHttp\Cookie\CookieJar;
 use GuzzleHttp\Exception\GuzzleException;
 use GuzzleHttp\RequestOptions;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Symfony\Component\DomCrawler\Crawler;
@@ -32,8 +31,6 @@ abstract class PortalScrapingService
      * @var array<int, array<string, mixed>>|null
      */
     protected ?array $attachedSessionCookies = null;
-
-    protected string $lastDataOrigin = 'upstream';
 
     public function __construct(PortalSessionManager $sessionManager)
     {
@@ -64,11 +61,17 @@ abstract class PortalScrapingService
 
     /**
      * Set the session for scraping operations
+     *
+     * The cookie jar is loaded once per request/job scope and shared by every
+     * scraper in it; adopting a session no longer writes to the session store.
      */
     public function setSession(string $sessionToken): void
     {
         $this->sessionToken = $sessionToken;
-        $this->cookieJar = $this->sessionManager->getSessionCookieJar($sessionToken);
+        $this->cookieJar = $this->sessionContext()->cookieJar(
+            $sessionToken,
+            fn (): ?CookieJar => $this->sessionManager->getSessionCookieJar($sessionToken)
+        );
 
         if (! $this->cookieJar) {
             $this->invalidateCurrentSession('cookie_jar_missing', [
@@ -97,9 +100,35 @@ abstract class PortalScrapingService
     }
 
     /**
-     * Make an HTTP request with retry logic
+     * Make an HTTP request to the campus system
+     *
+     * GET pages are memoized for the current request/job scope, so a page
+     * needed by several extractors is downloaded once. Any other method
+     * changes portal state and drops the memo.
      */
     protected function request(string $method, string $url, array $options = []): string
+    {
+        if (strtoupper($method) !== 'GET') {
+            $this->forgetMemoizedPages();
+
+            return $this->requestUpstream($method, $url, $options);
+        }
+
+        if ($this->sessionToken === null) {
+            return $this->requestUpstream($method, $url, $options);
+        }
+
+        return $this->sessionContext()->rememberPage(
+            $this->sessionToken,
+            md5($url.'|'.(json_encode($options) ?: '')),
+            fn (): string => $this->requestUpstream($method, $url, $options)
+        );
+    }
+
+    /**
+     * Make an HTTP request with retry logic
+     */
+    private function requestUpstream(string $method, string $url, array $options = []): string
     {
         $maxRetries = $this->isWebContext()
             ? 1
@@ -112,11 +141,7 @@ abstract class PortalScrapingService
                 $response = $this->makeRequest($method, $url, $options);
                 $html = (string) $response->getBody();
 
-                // Validate response
                 $this->validateResponse($html, $url);
-
-                // Cache successful response
-                $this->cacheResponse($url, $html, $method, $options);
 
                 return $html;
 
@@ -157,15 +182,24 @@ abstract class PortalScrapingService
             ],
         ], $options);
 
-        // Add delay between requests to be respectful to the campus server.
-        // Web requests skip it: the politeness delay belongs to the queue
-        // workers, while interactive requests race PHP-FPM's time limit.
-        $delay = (int) config('portal.request_delay', 1000);
+        $this->pauseBetweenRequests();
+
+        return $this->client->request($method, $url, $requestOptions);
+    }
+
+    /**
+     * Wait between requests to be respectful to the campus server.
+     *
+     * Web requests skip it: the politeness delay belongs to the queue
+     * workers, while interactive requests race PHP-FPM's time limit.
+     */
+    protected function pauseBetweenRequests(): void
+    {
+        $delay = $this->fetchPolicy()->requestDelayMs();
+
         if ($delay > 0 && ! $this->isWebContext()) {
             usleep($delay * 1000);
         }
-
-        return $this->client->request($method, $url, $requestOptions);
     }
 
     /**
@@ -180,6 +214,16 @@ abstract class PortalScrapingService
         // Check for empty response
         if (empty($html)) {
             throw PortalScrapingException::invalidResponse($url, 'Empty response');
+        }
+
+        // Upstream answers an expired session with its login form instead of
+        // an error, which would otherwise be parsed (and cached) as empty data.
+        if (self::isLoginPage($html)) {
+            $this->invalidateCurrentSession('login_page_detected', [
+                'source' => static::class,
+                'url' => $url,
+            ]);
+            throw PortalScrapingException::pageNotAccessible($url);
         }
 
         $title = strtolower(self::htmlTitle($html));
@@ -245,6 +289,17 @@ abstract class PortalScrapingService
     }
 
     /**
+     * Whether the HTML is the mahasiswa portal login form
+     *
+     * Authenticated pages embed a SIPANDAI single-sign-on form (posting to
+     * `loginact`), so only the login form's own password field is trusted.
+     */
+    public static function isLoginPage(string $html): bool
+    {
+        return preg_match('/<input[^>]+name\s*=\s*["\']txt_password["\']/i', $html) === 1;
+    }
+
+    /**
      * Whether the current execution is an interactive HTTP request instead of
      * a queue worker or console command
      */
@@ -262,55 +317,46 @@ abstract class PortalScrapingService
 
     protected function shouldForceFresh(array $context = []): bool
     {
-        if (($context['fresh'] ?? false) === true) {
-            return true;
-        }
-
-        return app()->bound('request') && request()->boolean('fresh');
+        return ($context['fresh'] ?? false) === true || $this->fetchPolicy()->forcesFresh();
     }
 
     /**
-     * Get cached response if available
+     * Serve a parsed resource from the student's resource cache, or build it
+     * from upstream and cache it
+     *
+     * @param  array<string, mixed>  $params
+     * @param  callable(): array<string, mixed>  $build
+     * @param  (callable(array<string, mixed>): bool)|null  $cacheable
+     * @return array<string, mixed>
      */
-    protected function getCachedResponse(string $url, string $method = 'GET', array $options = []): ?string
+    protected function rememberResource(string $resource, array $params, callable $build, ?callable $cacheable = null, bool $forceFresh = false): array
     {
-        if ($this->shouldForceFresh($options)) {
-            $this->lastDataOrigin = 'upstream';
+        $result = app(PortalDataCache::class)->remember(
+            (string) $this->sessionToken,
+            $resource,
+            $params,
+            $build,
+            $this->shouldForceFresh(['fresh' => $forceFresh]),
+            $cacheable
+        );
 
-            return null;
-        }
-
-        $cacheKey = $this->generateCacheKey($url, $method, $options);
-        $cachedValue = Cache::get($cacheKey);
-
-        if ($cachedValue !== null) {
-            $this->lastDataOrigin = 'server_cache';
-        }
-
-        return $cachedValue;
+        return $this->withSyncMeta($result['data'], $result['origin']);
     }
 
     /**
-     * Cache the response
+     * Forget pages memoized in this scope after a state-changing request
      */
-    protected function cacheResponse(string $url, string $html, string $method = 'GET', array $options = []): void
+    protected function forgetMemoizedPages(): void
     {
-        $cacheKey = $this->generateCacheKey($url, $method, $options);
-        $ttl = $this->getCacheTtl($url);
-
-        Cache::put($cacheKey, $html, $ttl);
-        $this->lastDataOrigin = 'upstream';
+        if ($this->sessionToken !== null) {
+            $this->sessionContext()->forgetPages($this->sessionToken);
+        }
     }
 
-    protected function forgetCachedResponse(string $url, string $method = 'GET', array $options = [], ?string $sessionToken = null): void
-    {
-        Cache::forget($this->generateCacheKey($url, $method, $options, $sessionToken));
-    }
-
-    protected function withSyncMeta(array $payload, ?string $dataOrigin = null): array
+    protected function withSyncMeta(array $payload, string $dataOrigin = 'upstream'): array
     {
         $payload['_sync'] = [
-            'data_origin' => $dataOrigin ?? $this->lastDataOrigin,
+            'data_origin' => $dataOrigin,
             'requested_fresh' => $this->shouldForceFresh(),
             'synced_at' => now()->toISOString(),
         ];
@@ -318,41 +364,14 @@ abstract class PortalScrapingService
         return $payload;
     }
 
-    /**
-     * Generate cache key for request
-     */
-    private function generateCacheKey(string $url, string $method, array $options, ?string $sessionToken = null): string
+    protected function fetchPolicy(): PortalFetchPolicy
     {
-        $keyData = [
-            'url' => $url,
-            'method' => $method,
-            'options' => $options,
-            'session_id' => $sessionToken ?? $this->sessionToken ?? 'no-session',
-        ];
-
-        return 'campus_scrape_'.md5(json_encode($keyData));
+        return app(PortalFetchPolicy::class);
     }
 
-    /**
-     * Get cache TTL based on URL pattern
-     */
-    private function getCacheTtl(string $url): int
+    protected function sessionContext(): PortalSessionContext
     {
-        // Different TTL for different types of data
-        if (Str::contains($url, 'dashboard') || Str::contains($url, 'profile')) {
-            return config('portal.cache.profile_ttl', 3600);
-        }
-
-        if (Str::contains($url, ['grade', 'nilai', 'transcript'])) {
-            return config('portal.cache.dynamic_ttl', 900);
-        }
-
-        if (Str::contains($url, ['schedule', 'jadwal', 'finance', 'keuangan'])) {
-            return config('portal.cache.dynamic_ttl', 900);
-        }
-
-        // Default HTML cache TTL
-        return config('portal.cache.html_ttl', 300);
+        return app(PortalSessionContext::class);
     }
 
     /**

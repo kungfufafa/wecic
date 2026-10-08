@@ -685,6 +685,14 @@ class PortalApp {
     async queueBackgroundRefresh() {
         const domains = this.refreshDomainsForCurrentPage();
 
+        // Detail pages show a single parameterized dataset: rebuilding it
+        // inline is cheap and needs the page's own parameters.
+        if (domains.length === 0) {
+            await this.runSyncHandlers({ force: true });
+
+            return;
+        }
+
         this.isSyncing = true;
         this.setSyncRefreshButtonState({ syncing: true, force: true });
         this.setSyncStatus('Menghubungkan ke portal kampus...', 'info');
@@ -711,14 +719,15 @@ class PortalApp {
         const pageDomains = {
             dashboard: ['dashboard', 'assignments'],
             'class-index': ['classes'],
-            'class-show': ['classes', 'assignments'],
-            'meeting-show': ['assignments'],
+            'class-show': [],
+            'meeting-show': [],
             'exam-index': ['exams'],
-            'exam-show': ['exams'],
+            'exam-show': [],
             profile: ['profile'],
+            finance: ['payments'],
         };
 
-        return pageDomains[page] || ['dashboard'];
+        return pageDomains[page] ?? ['dashboard'];
     }
 
     handleRealtimePayload(payload) {
@@ -736,8 +745,10 @@ class PortalApp {
             this.realtimeRefreshTimers.set(syncKey, window.setTimeout(() => {
                 const handler = this.syncHandlers.get(syncKey);
 
+                // The server already re-synced the snapshot behind this
+                // view; re-reading it must not trigger another portal scrape.
                 if (handler) {
-                    void handler({ force: true });
+                    void handler({ force: false });
                 }
             }, 250));
         });

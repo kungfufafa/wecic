@@ -20,4 +20,14 @@ class PortalException extends Exception
     {
         return $this->context;
     }
+
+    /**
+     * Whether the failure means the campus session is gone and the student
+     * has to log in again (as opposed to a transient or parsing failure).
+     */
+    public static function indicatesExpiredSession(\Throwable $throwable): bool
+    {
+        return $throwable instanceof PortalAuthenticationException
+            || ($throwable instanceof PortalScrapingException && $throwable->getCode() === 403);
+    }
 }

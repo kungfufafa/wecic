@@ -6,6 +6,7 @@ namespace App\Jobs;
 
 use App\Enums\PortalOperationStage;
 use App\Services\PortalBroadcastService;
+use App\Services\PortalDatasetRepository;
 use App\Services\PortalOperationTracker;
 use App\Services\SipandaiSubmissionService;
 use Illuminate\Bus\Queueable;
@@ -15,6 +16,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
 class ProcessPortalExamUploadJob implements ShouldQueue
@@ -42,7 +44,8 @@ class ProcessPortalExamUploadJob implements ShouldQueue
     public function handle(
         SipandaiSubmissionService $submissionService,
         PortalOperationTracker $tracker,
-        PortalBroadcastService $broadcast
+        PortalBroadcastService $broadcast,
+        PortalDatasetRepository $datasets
     ): void {
         $lock = Cache::lock('portal_upload_'.$this->operationId, 600);
 
@@ -94,6 +97,17 @@ class ProcessPortalExamUploadJob implements ShouldQueue
                 );
 
                 return;
+            }
+
+            $datasets->invalidate($this->campusSessionToken, ['exams']);
+
+            try {
+                $datasets->sync($this->campusSessionToken, 'exams');
+            } catch (\Throwable $throwable) {
+                Log::warning('Failed to re-sync exam list after exam upload', [
+                    'exam_id' => $this->examId,
+                    'error' => $throwable->getMessage(),
+                ]);
             }
 
             $broadcast->dataInvalidated(

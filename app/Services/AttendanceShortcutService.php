@@ -13,8 +13,11 @@ class AttendanceShortcutService
 {
     public function __construct(
         private readonly ClassesExtractor $classesExtractor,
-        private readonly SipandaiClassesExtractor $sipandaiClassesExtractor
-    ) {}
+        private readonly SipandaiClassesExtractor $sipandaiClassesExtractor,
+        private ?PortalFetchPolicy $fetchPolicy = null
+    ) {
+        $this->fetchPolicy ??= app(PortalFetchPolicy::class);
+    }
 
     /**
      * @return array{
@@ -121,52 +124,52 @@ class AttendanceShortcutService
      */
     private function collectPendingAssignments(string $sessionToken, int $limit = 20, ?array &$syncOrigins = null): array
     {
-        $originalDelay = (int) config('portal.request_delay', 1000);
-        config(['portal.request_delay' => min($originalDelay, 250)]);
+        // Crawling every class and meeting page is a bulk read: use the
+        // shorter politeness delay for it without touching global config.
+        return $this->fetchPolicy->withRequestDelay(
+            (int) config('portal.sync.bulk_request_delay', 250),
+            function () use ($sessionToken, $limit, &$syncOrigins): array {
+                $pendingAssignments = [];
+                $classesPayload = $this->sipandaiClassesExtractor->extractSipandaiClassesData($sessionToken);
+                $this->consumeSyncMeta($classesPayload, $syncOrigins);
+                $classes = collect($classesPayload['classes'] ?? [])
+                    ->sortBy(fn (array $class): int => (int) (($class['join_link']['params']['course_id'] ?? 0)))
+                    ->values()
+                    ->all();
 
-        try {
-            $pendingAssignments = [];
-            $classesPayload = $this->sipandaiClassesExtractor->extractSipandaiClassesData($sessionToken);
-            $this->consumeSyncMeta($classesPayload, $syncOrigins);
-            $classes = collect($classesPayload['classes'] ?? [])
-                ->sortBy(fn (array $class): int => (int) (($class['join_link']['params']['course_id'] ?? 0)))
-                ->values()
-                ->all();
-
-            foreach ($classes as $class) {
-                if (count($pendingAssignments) >= $limit) {
-                    break;
-                }
-
-                $detail = $this->resolveClassDetail($sessionToken, $class, $syncOrigins);
-
-                if ($detail === null) {
-                    continue;
-                }
-
-                foreach ($this->resolvePendingAssignmentCandidates($class, $detail) as $candidate) {
+                foreach ($classes as $class) {
                     if (count($pendingAssignments) >= $limit) {
-                        break 2;
+                        break;
                     }
 
-                    $meetingDetail = $this->resolveMeetingDetail($sessionToken, $candidate['meeting_id'], $candidate['courses_id'], false, $syncOrigins);
+                    $detail = $this->resolveClassDetail($sessionToken, $class, $syncOrigins);
 
-                    if ($meetingDetail === null) {
+                    if ($detail === null) {
                         continue;
                     }
 
-                    $assignment = $this->buildPendingAssignment($class, $candidate, $meetingDetail);
+                    foreach ($this->resolvePendingAssignmentCandidates($class, $detail) as $candidate) {
+                        if (count($pendingAssignments) >= $limit) {
+                            break 2;
+                        }
 
-                    if ($assignment !== null) {
-                        $pendingAssignments[] = $assignment;
+                        $meetingDetail = $this->resolveMeetingDetail($sessionToken, $candidate['meeting_id'], $candidate['courses_id'], false, $syncOrigins);
+
+                        if ($meetingDetail === null) {
+                            continue;
+                        }
+
+                        $assignment = $this->buildPendingAssignment($class, $candidate, $meetingDetail);
+
+                        if ($assignment !== null) {
+                            $pendingAssignments[] = $assignment;
+                        }
                     }
                 }
-            }
 
-            return $pendingAssignments;
-        } finally {
-            config(['portal.request_delay' => $originalDelay]);
-        }
+                return $pendingAssignments;
+            }
+        );
     }
 
     /**

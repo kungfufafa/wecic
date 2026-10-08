@@ -11,6 +11,7 @@ use App\Services\Extractors\DashboardExtractor;
 use App\Services\Extractors\ProfileExtractor;
 use App\Services\Extractors\SipandaiClassesExtractor;
 use App\Services\Extractors\StudentCourseExtractor;
+use App\Services\PortalDataCache;
 use App\Services\PortalSessionManager;
 use Carbon\CarbonImmutable;
 use GuzzleHttp\Cookie\CookieJar;
@@ -359,7 +360,7 @@ class DashboardExtractorTest extends TestCase
 
     public function test_it_marks_dashboard_data_as_cached_when_credit_total_uses_cached_fallback(): void
     {
-        cache()->put('dashboard_credit_total_v1_'.md5('fake-session-token'), 24, now()->addMinutes(30));
+        app(PortalDataCache::class)->remember('fake-session-token', 'credit_total', [], fn (): array => ['total' => 24]);
 
         $sessionManager = Mockery::mock(PortalSessionManager::class, function (MockInterface $mock): void {
             $mock->shouldReceive('getSessionCookieJar')

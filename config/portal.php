@@ -82,22 +82,114 @@ return [
     'session_prefix' => env('CAMPUS_SESSION_PREFIX', 'cic_session_'),
     'auto_relogin' => (bool) env('CAMPUS_AUTO_RELOGIN', false),
     'auto_relogin_credential_ttl' => (int) env('CAMPUS_AUTO_RELOGIN_CREDENTIAL_TTL', 900),
-    'session_refresh_interval' => (int) env('CAMPUS_SESSION_REFRESH_INTERVAL', 1200), // seconds
+    // Seconds between upstream keep-alive pings; must stay below the portal's PHP session lifetime.
+    'session_refresh_interval' => (int) env('CAMPUS_SESSION_REFRESH_INTERVAL', 1200),
+    // Seconds of user inactivity after which the campus session is ended and keep-alive stops.
+    'session_idle_timeout' => (int) env('CAMPUS_SESSION_IDLE_TIMEOUT', 7200),
+    // Minimum seconds between two last-activity writes for the same session.
+    'session_activity_touch_interval' => (int) env('CAMPUS_SESSION_ACTIVITY_TOUCH_INTERVAL', 60),
 
     /*
     |--------------------------------------------------------------------------
-    | Cache Settings
+    | Resource Cache
     |--------------------------------------------------------------------------
     |
-    | TTL settings for different types of cached data.
+    | TTL (seconds) of parsed upstream pages, shared by every dataset that
+    | needs them. Entries are owned by the student, so they survive re-login,
+    | and are invalidated explicitly after portal actions.
     |
     */
 
     'cache' => [
-        'profile_ttl' => (int) env('CAMPUS_CACHE_PROFILE_TTL', 600), // 10 minutes
-        'dynamic_ttl' => (int) env('CAMPUS_CACHE_DYNAMIC_TTL', 300), // 5 minutes
-        'html_ttl' => (int) env('CAMPUS_CACHE_HTML_TTL', 300), // 5 minutes
-        'failed_ttl' => (int) env('CAMPUS_CACHE_FAILED_TTL', 60), // 1 minute
+        'resources' => [
+            'profile' => (int) env('CAMPUS_CACHE_PROFILE_TTL', 600),
+            'lms_classes' => (int) env('CAMPUS_CACHE_HTML_TTL', 300),
+            'sipandai_classes' => (int) env('CAMPUS_CACHE_HTML_TTL', 300),
+            'student_course' => (int) env('CAMPUS_CACHE_HTML_TTL', 300),
+            'payments' => (int) env('CAMPUS_CACHE_DYNAMIC_TTL', 300),
+            'credit_total' => (int) env('CAMPUS_CACHE_CREDIT_TTL', 1800),
+            'class_catalog' => (int) env('CAMPUS_CACHE_CLASS_CATALOG_TTL', 1800),
+            'class_detail' => (int) env('CAMPUS_CACHE_CLASS_DETAIL_TTL', 7200),
+            'meeting_detail' => (int) env('CAMPUS_CACHE_MEETING_DETAIL_TTL', 86400),
+        ],
+        'default_ttl' => (int) env('CAMPUS_CACHE_HTML_TTL', 300),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Datasets (Snapshot Read Models)
+    |--------------------------------------------------------------------------
+    |
+    | Every data endpoint is served from a snapshot. A snapshot older than
+    | `fresh_for` is still served while one deduplicated background job
+    | re-syncs it; a missing snapshot is built once, inline. `cache_keys` and
+    | `sync_keys` tell the browser what to reload after a background sync.
+    | Parameterized datasets hold one snapshot per parameter set.
+    |
+    */
+
+    'sync' => [
+        'lock_ttl' => (int) env('PORTAL_SYNC_LOCK_TTL', 300),
+        'lock_wait' => (int) env('PORTAL_SYNC_LOCK_WAIT', 20),
+        'force_cooldown' => (int) env('PORTAL_SYNC_FORCE_COOLDOWN', 30),
+        'failure_backoff' => (int) env('PORTAL_SYNC_FAILURE_BACKOFF', 120),
+        'snapshot_retention' => (int) env('PORTAL_SNAPSHOT_RETENTION', 604800),
+        'bulk_request_delay' => (int) env('CAMPUS_BULK_REQUEST_DELAY', 250),
+    ],
+
+    'datasets' => [
+        'dashboard' => [
+            'fresh_for' => 600,
+            'cache_keys' => ['/api/dashboard', '/api/attendance/today'],
+            'sync_keys' => ['dashboard-overview'],
+        ],
+        'assignments' => [
+            'fresh_for' => 600,
+            'cache_keys' => ['/api/assignment/pending'],
+            'sync_keys' => ['dashboard-pending-assignments'],
+        ],
+        'classes' => [
+            'fresh_for' => 1800,
+            'cache_keys' => ['/api/class'],
+            'sync_keys' => ['class-index'],
+        ],
+        'lms_classes' => [
+            'fresh_for' => 1800,
+            'cache_keys' => ['/api/lms/class'],
+            'sync_keys' => [],
+        ],
+        'schedule' => [
+            'fresh_for' => 1800,
+            'cache_keys' => ['/api/schedule/class'],
+            'sync_keys' => [],
+        ],
+        'profile' => [
+            'fresh_for' => 3600,
+            'cache_keys' => ['/api/profile'],
+            'sync_keys' => ['profile'],
+        ],
+        'payments' => [
+            'fresh_for' => 1800,
+            'cache_keys' => ['/api/finance/payments'],
+            'sync_keys' => ['finance'],
+        ],
+        'exams' => [
+            'fresh_for' => 1800,
+            'cache_keys' => ['/api/exam'],
+            'sync_keys' => ['exam-index'],
+        ],
+        'class_detail' => [
+            'fresh_for' => 900,
+            'parameterized' => true,
+            'cache_keys' => [],
+            'sync_keys' => ['class-show'],
+        ],
+        'meeting_detail' => [
+            'fresh_for' => 900,
+            'parameterized' => true,
+            'cache_keys' => [],
+            'sync_keys' => ['meeting-show'],
+        ],
     ],
 
     /*
@@ -399,29 +491,6 @@ return [
     ],
 
     'realtime' => [
-        'refresh_lock_ttl' => (int) env('PORTAL_REALTIME_REFRESH_LOCK_TTL', 120),
-        'domains' => [
-            'dashboard' => [
-                'cache_keys' => ['/api/dashboard', '/api/assignment/pending', '/api/attendance/today'],
-                'sync_keys' => ['dashboard-overview', 'dashboard-pending-assignments'],
-            ],
-            'classes' => [
-                'cache_keys' => ['/api/class'],
-                'sync_keys' => ['class-index', 'class-show'],
-            ],
-            'assignments' => [
-                'cache_keys' => ['/api/assignment/pending'],
-                'sync_keys' => ['dashboard-pending-assignments', 'meeting-show'],
-            ],
-            'exams' => [
-                'cache_keys' => ['/api/exam'],
-                'sync_keys' => ['exam-index', 'exam-show'],
-            ],
-            'profile' => [
-                'cache_keys' => ['/api/profile'],
-                'sync_keys' => ['profile'],
-            ],
-        ],
         'notifications' => [
             'deadline_urgent_hours' => (int) env('PORTAL_NOTIFICATION_DEADLINE_URGENT_HOURS', 24),
             'deadline_warning_hours' => (int) env('PORTAL_NOTIFICATION_DEADLINE_WARNING_HOURS', 72),

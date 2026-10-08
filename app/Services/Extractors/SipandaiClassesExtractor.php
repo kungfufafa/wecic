@@ -20,37 +20,23 @@ class SipandaiClassesExtractor extends PortalScrapingService
             $this->setSession($sessionToken);
             $this->logScraping('Extracting SIPANDAI dashboard classes data', ['session_token' => $sessionToken]);
 
-            // Try to get cached data first
-            $cacheKey = 'sipandai_classes_'.md5($sessionToken);
-            $cachedData = $this->getCachedResponse($cacheKey);
+            return $this->rememberResource('sipandai_classes', [], function (): array {
+                $html = $this->get(PortalEndpointRegistry::url('sipandai_dashboard'));
+                $crawler = $this->createCrawler($html);
 
-            if ($cachedData) {
-                $this->logScraping('Using cached SIPANDAI classes data');
+                $classesData = [
+                    'student_info' => $this->extractSipandaiStudentInfo($crawler),
+                    'classes' => $this->extractSipandaiClassesList($crawler),
+                    'semester_info' => $this->extractSipandaiSemesterInfo($crawler),
+                    'extracted_at' => now()->toISOString(),
+                ];
 
-                return $this->withSyncMeta(json_decode($cachedData, true), 'server_cache');
-            }
+                $this->logScraping('SIPANDAI classes data extracted successfully', [
+                    'classes_count' => count($classesData['classes']),
+                ]);
 
-            // Get classes HTML from SIPANDAI dashboard
-            $sipandaiUrl = PortalEndpointRegistry::url('sipandai_dashboard');
-            $html = $this->get($sipandaiUrl);
-            $crawler = $this->createCrawler($html);
-
-            // Extract classes data
-            $classesData = [
-                'student_info' => $this->extractSipandaiStudentInfo($crawler),
-                'classes' => $this->extractSipandaiClassesList($crawler),
-                'semester_info' => $this->extractSipandaiSemesterInfo($crawler),
-                'extracted_at' => now()->toISOString(),
-            ];
-
-            // Cache the extracted data
-            $this->cacheResponse($cacheKey, json_encode($classesData));
-
-            $this->logScraping('SIPANDAI classes data extracted successfully', [
-                'classes_count' => count($classesData['classes']),
-            ]);
-
-            return $this->withSyncMeta($classesData, 'upstream');
+                return $classesData;
+            });
 
         } catch (PortalScrapingException $e) {
             throw $e;

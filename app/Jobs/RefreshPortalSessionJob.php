@@ -7,13 +7,22 @@ namespace App\Jobs;
 use App\Services\PortalBroadcastService;
 use App\Services\PortalSessionManager;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldBeUniqueUntilProcessing;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 
-class RefreshPortalSessionJob implements ShouldQueue
+/**
+ * Keep-alive for one campus session.
+ *
+ * Unique per session until it starts processing, so the chain can schedule
+ * its own successor while extra dispatches (login, manual refresh) are
+ * dropped instead of starting a parallel chain. The chain ends when the
+ * session expires upstream, is logged out, or the student goes idle.
+ */
+class RefreshPortalSessionJob implements ShouldBeUniqueUntilProcessing, ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
@@ -23,179 +32,68 @@ class RefreshPortalSessionJob implements ShouldQueue
     public int $tries = 3;
 
     /**
-     * The number of seconds to wait before retrying the job.
+     * Seconds to wait before retrying after the portal was unreachable.
+     *
+     * @var list<int>
      */
-    public int $retryAfter = 60;
+    public array $backoff = [60, 120];
 
-    /**
-     * Create a new job instance.
-     */
     public function __construct(
         private string $sessionToken,
         private ?string $sessionId = null
     ) {
-        // Set the queue connection
         $this->onQueue('campus-sessions');
     }
 
-    /**
-     * Execute the job.
-     */
-    public function handle(PortalSessionManager $sessionManager): void
+    public function uniqueId(): string
     {
-        try {
-            Log::info('campus_session.refresh_job_started', [
-                'domain' => 'campus_session',
-                'event' => 'refresh_job_started',
-                'component' => self::class,
-                'session_token_fingerprint' => $this->fingerprint($this->sessionToken),
-                'attempt' => $this->attempts(),
-                'metric' => [
-                    'name' => 'campus_session_events_total',
-                    'type' => 'counter',
-                    'value' => 1,
-                    'tags' => [
-                        'event' => 'refresh_job_started',
-                        'component' => class_basename(static::class),
-                    ],
-                ],
-            ]);
+        return $this->sessionToken;
+    }
 
-            // Validate session exists and is active
-            if (! $sessionManager->validateSession($this->sessionToken)) {
-                Log::warning('campus_session.refresh_job_skipped_invalid', [
-                    'domain' => 'campus_session',
-                    'event' => 'refresh_job_skipped_invalid',
-                    'component' => self::class,
-                    'session_token_fingerprint' => $this->fingerprint($this->sessionToken),
-                    'attempt' => $this->attempts(),
-                    'metric' => [
-                        'name' => 'campus_session_events_total',
-                        'type' => 'counter',
-                        'value' => 1,
-                        'tags' => [
-                            'event' => 'refresh_job_skipped_invalid',
-                            'component' => class_basename(static::class),
-                        ],
-                    ],
-                ]);
+    public function uniqueFor(): int
+    {
+        return (int) config('portal.session_refresh_interval', 1200) + 600;
+    }
 
-                return;
-            }
+    public function handle(PortalSessionManager $sessionManager, PortalBroadcastService $broadcast): void
+    {
+        $outcome = $sessionManager->keepAlive($this->sessionToken);
+        $sessionId = $sessionManager->laravelSessionId($this->sessionToken) ?? $this->sessionId;
 
-            // Refresh the session
-            $result = $sessionManager->refreshSession($this->sessionToken);
+        Log::info('campus_session.keepalive_job_'.$outcome, [
+            'domain' => 'campus_session',
+            'event' => 'keepalive_job_'.$outcome,
+            'component' => self::class,
+            'attempt' => $this->attempts(),
+        ]);
 
-            if ($this->sessionId !== null) {
-                app(PortalBroadcastService::class)->sessionNotice(
-                    $this->sessionId,
-                    $this->sessionToken,
-                    'auto_relogin_succeeded',
-                    'Sesi portal berhasil diperbarui otomatis.',
-                    'success'
-                );
-            }
-
-            Log::info('campus_session.refresh_job_succeeded', [
-                'domain' => 'campus_session',
-                'event' => 'refresh_job_succeeded',
-                'component' => self::class,
-                'session_token_fingerprint' => $this->fingerprint($this->sessionToken),
-                'attempt' => $this->attempts(),
-                'new_expires_at' => $result['expires_at'] ?? null,
-                'metric' => [
-                    'name' => 'campus_session_events_total',
-                    'type' => 'counter',
-                    'value' => 1,
-                    'tags' => [
-                        'event' => 'refresh_job_succeeded',
-                        'component' => class_basename(static::class),
-                    ],
-                ],
-            ]);
-
-        } catch (\Exception $e) {
-            Log::error('campus_session.refresh_job_failed', [
-                'domain' => 'campus_session',
-                'event' => 'refresh_job_failed',
-                'component' => self::class,
-                'session_token_fingerprint' => $this->fingerprint($this->sessionToken),
-                'attempt' => $this->attempts(),
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-                'metric' => [
-                    'name' => 'campus_session_events_total',
-                    'type' => 'counter',
-                    'value' => 1,
-                    'tags' => [
-                        'event' => 'refresh_job_failed',
-                        'component' => class_basename(static::class),
-                    ],
-                ],
-            ]);
-
-            // If this is the last attempt, we should let the session expire naturally
-            if ($this->attempts() >= $this->tries) {
-                if ($this->sessionId !== null) {
-                    app(PortalBroadcastService::class)->sessionNotice(
-                        $this->sessionId,
-                        $this->sessionToken,
-                        'manual_relogin_required',
-                        'Sesi portal perlu login ulang manual.',
-                        'error'
-                    );
-                }
-
-                Log::warning('campus_session.refresh_job_exhausted', [
-                    'domain' => 'campus_session',
-                    'event' => 'refresh_job_exhausted',
-                    'component' => self::class,
-                    'session_token_fingerprint' => $this->fingerprint($this->sessionToken),
-                    'attempt' => $this->attempts(),
-                    'metric' => [
-                        'name' => 'campus_session_events_total',
-                        'type' => 'counter',
-                        'value' => 1,
-                        'tags' => [
-                            'event' => 'refresh_job_exhausted',
-                            'component' => class_basename(static::class),
-                        ],
-                    ],
-                ]);
-
-                return;
-            }
-
-            // Release the job to be tried again later
-            $this->release($this->retryAfter);
+        if (in_array($outcome, ['alive', 'relogged'], true)) {
+            $sessionManager->scheduleKeepAlive($this->sessionToken);
         }
+
+        if ($sessionId === null) {
+            return;
+        }
+
+        match ($outcome) {
+            'relogged' => $broadcast->sessionNotice($sessionId, $this->sessionToken, 'auto_relogin_succeeded', 'Sesi portal berhasil diperbarui otomatis.', 'success'),
+            'expired' => $broadcast->sessionNotice($sessionId, $this->sessionToken, 'manual_relogin_required', 'Sesi portal kedaluwarsa. Silakan login ulang.', 'error'),
+            'idle' => $broadcast->sessionNotice($sessionId, $this->sessionToken, 'manual_relogin_required', 'Sesi berakhir karena lama tidak aktif. Silakan login ulang.', 'warning'),
+            default => null,
+        };
     }
 
     /**
-     * Handle a job failure.
+     * The portal stayed unreachable for every attempt: keep the session (the
+     * next scrape will tell whether it survived) but stop the chain.
      */
     public function failed(\Throwable $exception): void
     {
-        Log::error('campus_session.refresh_job_failed_permanently', [
+        Log::error('campus_session.keepalive_job_failed_permanently', [
             'domain' => 'campus_session',
-            'event' => 'refresh_job_failed_permanently',
+            'event' => 'keepalive_job_failed_permanently',
             'component' => self::class,
-            'session_token_fingerprint' => $this->fingerprint($this->sessionToken),
             'error' => $exception->getMessage(),
-            'metric' => [
-                'name' => 'campus_session_events_total',
-                'type' => 'counter',
-                'value' => 1,
-                'tags' => [
-                    'event' => 'refresh_job_failed_permanently',
-                    'component' => class_basename(static::class),
-                ],
-            ],
         ]);
-    }
-
-    private function fingerprint(string $value): string
-    {
-        return substr(hash_hmac('sha256', $value, (string) (config('app.key') ?: 'campus-session-observability')), 0, 16);
     }
 }

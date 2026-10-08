@@ -8,6 +8,7 @@ use App\Exceptions\PortalScrapingException;
 use App\Services\Extractors\ClassesExtractor;
 use App\Services\Extractors\DashboardExtractor;
 use App\Services\PortalSessionManager;
+use App\Services\PortalSnapshotStore;
 use App\Services\SipandaiSubmissionService;
 use Mockery;
 use Mockery\MockInterface;
@@ -180,9 +181,14 @@ class PortalDataControllerParameterTest extends TestCase
             ->assertJsonPath('status', 'success')
             ->assertJsonPath('meta.requested_fresh', true)
             ->assertJsonPath('meta.data_origin', 'upstream')
-            ->assertJsonPath('meta.synced_at', '2026-04-21T10:00:00+07:00');
+            ->assertJsonPath('meta.status', 'synced');
 
         $this->assertArrayNotHasKey('_sync', $response->json('data'));
+
+        $snapshot = app(PortalSnapshotStore::class)->get('token-dashboard', 'dashboard');
+        $this->assertNotNull($snapshot);
+        $this->assertSame($snapshot['synced_at'], $response->json('meta.synced_at'));
+        $this->assertArrayNotHasKey('_sync', $snapshot['data']);
     }
 
     public function test_meeting_detail_endpoint_requires_courses_id_parameter(): void

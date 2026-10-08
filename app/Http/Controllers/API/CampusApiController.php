@@ -4,8 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\API;
 
-use App\Exceptions\PortalAuthenticationException;
-use App\Exceptions\PortalScrapingException;
+use App\Exceptions\PortalException;
 use App\Http\Controllers\Controller;
 use App\Services\PortalBroadcastService;
 use Illuminate\Http\JsonResponse;
@@ -138,8 +137,7 @@ abstract class CampusApiController extends Controller
 
     protected function isCampusSessionExpiredException(\Throwable $throwable): bool
     {
-        return $throwable instanceof PortalAuthenticationException
-            || ($throwable instanceof PortalScrapingException && $throwable->getCode() === 403);
+        return PortalException::indicatesExpiredSession($throwable);
     }
 
     protected function withCampusSession(

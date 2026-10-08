@@ -9,6 +9,7 @@ use App\Events\PortalDataInvalidated;
 use App\Events\PortalUploadProgressed;
 use App\Jobs\ProcessPortalExamUploadJob;
 use App\Services\PortalBroadcastService;
+use App\Services\PortalDatasetRepository;
 use App\Services\PortalOperationTracker;
 use App\Services\SipandaiSubmissionService;
 use Illuminate\Http\UploadedFile;
@@ -69,12 +70,18 @@ class ProcessPortalExamUploadJobTest extends TestCase
             'application/zip'
         );
 
+        $datasets = Mockery::mock(PortalDatasetRepository::class);
+        $datasets->shouldReceive('invalidate')->once()->with('campus-token', ['exams']);
+        $datasets->shouldReceive('sync')->once()->with('campus-token', 'exams')->andReturn(['exams' => []]);
+
         $job->handle(
             app(SipandaiSubmissionService::class),
             app(PortalOperationTracker::class),
-            app(PortalBroadcastService::class)
+            app(PortalBroadcastService::class),
+            $datasets
         );
 
         Event::assertDispatched(PortalUploadProgressed::class);
+        Event::assertDispatched(PortalDataInvalidated::class);
     }
 }

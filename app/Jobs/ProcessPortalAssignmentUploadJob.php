@@ -6,6 +6,7 @@ namespace App\Jobs;
 
 use App\Enums\PortalOperationStage;
 use App\Services\PortalBroadcastService;
+use App\Services\PortalDatasetRepository;
 use App\Services\PortalOperationTracker;
 use App\Services\SipandaiSubmissionService;
 use Illuminate\Bus\Queueable;
@@ -15,6 +16,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
 class ProcessPortalAssignmentUploadJob implements ShouldQueue
@@ -44,7 +46,8 @@ class ProcessPortalAssignmentUploadJob implements ShouldQueue
     public function handle(
         SipandaiSubmissionService $submissionService,
         PortalOperationTracker $tracker,
-        PortalBroadcastService $broadcast
+        PortalBroadcastService $broadcast,
+        PortalDatasetRepository $datasets
     ): void {
         $lock = Cache::lock('portal_upload_'.$this->operationId, 600);
 
@@ -100,6 +103,13 @@ class ProcessPortalAssignmentUploadJob implements ShouldQueue
                 return;
             }
 
+            $datasets->invalidate(
+                $this->campusSessionToken,
+                ['assignments', 'dashboard', 'class_detail', 'meeting_detail'],
+                ['class_detail', 'meeting_detail']
+            );
+            $this->resyncMeetingDetail($datasets);
+
             $broadcast->dataInvalidated(
                 $this->sessionId,
                 $this->campusSessionToken,
@@ -130,6 +140,26 @@ class ProcessPortalAssignmentUploadJob implements ShouldQueue
         } finally {
             Storage::delete($this->storedFilePath);
             $lock->release();
+        }
+    }
+
+    /**
+     * Rebuild the meeting the student uploaded from, so the open meeting page
+     * shows the new submission as soon as it re-reads its snapshot.
+     */
+    private function resyncMeetingDetail(PortalDatasetRepository $datasets): void
+    {
+        try {
+            $datasets->sync($this->campusSessionToken, 'meeting_detail', [
+                'meeting_id' => (string) $this->discussionId,
+                'courses_id' => (string) $this->courseId,
+            ]);
+        } catch (\Throwable $throwable) {
+            Log::warning('Failed to re-sync meeting detail after assignment upload', [
+                'courses_id' => $this->courseId,
+                'meeting_id' => $this->discussionId,
+                'error' => $throwable->getMessage(),
+            ]);
         }
     }
 }

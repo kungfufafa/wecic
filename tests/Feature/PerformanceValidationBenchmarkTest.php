@@ -39,6 +39,9 @@ class PerformanceValidationBenchmarkTest extends TestCase
                 $mock->shouldReceive('validateSession')
                     ->with($token)
                     ->andReturnTrue();
+                $mock->shouldReceive('isSessionUsable')
+                    ->with($token)
+                    ->andReturnTrue();
             })
         );
     }

@@ -349,27 +349,15 @@ class DashboardExtractor extends PortalScrapingService
 
     private function resolveTotalCreditsFromCreditPage(string $sessionToken, ?array &$syncMeta = null): ?int
     {
-        $cacheKey = 'dashboard_credit_total_v1_'.md5($sessionToken);
-
-        if (! $this->shouldForceFresh()) {
-            $cachedTotal = cache()->get($cacheKey);
-
-            if ($cachedTotal !== null) {
-                $syncMeta = [
-                    'data_origin' => 'server_cache',
-                ];
-
-                return $cachedTotal;
-            }
-        }
-
         try {
-            $html = $this->get((string) config('portal.student_credit_url'));
-            $resolvedTotal = $this->extractCreditPageTotal($html);
+            $creditTotal = $this->rememberResource('credit_total', [], fn (): array => [
+                'total' => $this->extractCreditPageTotal($this->get((string) config('portal.student_credit_url'))),
+            ]);
+            $syncMeta = [
+                'data_origin' => $creditTotal['_sync']['data_origin'] ?? 'upstream',
+            ];
 
-            cache()->put($cacheKey, $resolvedTotal, now()->addMinutes(30));
-
-            return $resolvedTotal;
+            return $creditTotal['total'];
         } catch (\Throwable $throwable) {
             Log::warning('Failed to resolve total credits from credit page', [
                 'error' => $throwable->getMessage(),

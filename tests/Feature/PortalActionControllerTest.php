@@ -8,8 +8,8 @@ use App\Http\Middleware\VerifyCsrfTokenMiddleware;
 use App\Jobs\ProcessPortalAssignmentUploadJob;
 use App\Jobs\ProcessPortalExamUploadJob;
 use App\Services\AttendanceShortcutService;
-use App\Services\Extractors\ClassesExtractor;
 use App\Services\Extractors\SipandaiClassesExtractor;
+use App\Services\PortalDatasetRepository;
 use App\Services\PortalSessionManager;
 use App\Services\SipandaiSubmissionService;
 use Illuminate\Http\UploadedFile;
@@ -700,11 +700,15 @@ class PortalActionControllerTest extends TestCase
     private function mockServiceExpectingSubmitAttendance(string $token): void
     {
         $this->instance(
-            ClassesExtractor::class,
-            Mockery::mock(ClassesExtractor::class, function (MockInterface $mock) use ($token): void {
-                $mock->shouldReceive('invalidateMeetingDetailCache')
+            PortalDatasetRepository::class,
+            Mockery::mock(PortalDatasetRepository::class, function (MockInterface $mock) use ($token): void {
+                $mock->shouldReceive('invalidate')
                     ->once()
-                    ->with($token, '29808', '8837');
+                    ->with(
+                        $token,
+                        ['dashboard', 'assignments', 'class_detail', 'meeting_detail'],
+                        ['class_detail', 'meeting_detail']
+                    );
             })
         );
 

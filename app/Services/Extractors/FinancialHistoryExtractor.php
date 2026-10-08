@@ -28,40 +28,24 @@ class FinancialHistoryExtractor extends PortalScrapingService
             $this->setSession($sessionToken);
             $this->logScraping('Extracting student financial payment history', ['session_token' => $sessionToken]);
 
-            $cacheKey = 'student_financial_history_'.md5($sessionToken);
-            $cachedData = $this->getCachedResponse($cacheKey);
+            return $this->rememberResource('payments', [], function (): array {
+                $html = $this->get(PortalEndpointRegistry::url('student_finance'));
+                $crawler = $this->createCrawler($html);
+                $payments = $this->extractPaymentHistory($crawler);
 
-            if ($cachedData) {
-                $this->logScraping('Using cached student financial payment history');
-                $decodedData = json_decode($cachedData, true);
+                $financeData = [
+                    'student_info' => $this->extractStudentInfo($crawler),
+                    'payment_history' => $payments,
+                    'summary' => $this->summarizePayments($payments),
+                    'extracted_at' => now()->toISOString(),
+                ];
 
-                if (is_array($decodedData)) {
-                    return $this->withSyncMeta($decodedData, 'server_cache');
-                }
-            }
+                $this->logScraping('Student financial payment history extracted successfully', [
+                    'payment_count' => count($payments),
+                ]);
 
-            $financeUrl = PortalEndpointRegistry::url('student_finance');
-            $html = $this->get($financeUrl);
-            $crawler = $this->createCrawler($html);
-            $payments = $this->extractPaymentHistory($crawler);
-
-            $financeData = [
-                'student_info' => $this->extractStudentInfo($crawler),
-                'payment_history' => $payments,
-                'summary' => $this->summarizePayments($payments),
-                'extracted_at' => now()->toISOString(),
-            ];
-
-            $encodedData = json_encode($financeData);
-            if ($encodedData !== false) {
-                $this->cacheResponse($cacheKey, $encodedData);
-            }
-
-            $this->logScraping('Student financial payment history extracted successfully', [
-                'payment_count' => count($payments),
-            ]);
-
-            return $this->withSyncMeta($financeData, 'upstream');
+                return $financeData;
+            });
         } catch (PortalScrapingException $e) {
             throw $e;
         } catch (\Exception $e) {

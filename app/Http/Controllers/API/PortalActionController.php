@@ -11,12 +11,9 @@ use App\Http\Requests\SipandaiExamDetailRequest;
 use App\Http\Requests\SipandaiExamUploadRequest;
 use App\Jobs\ProcessPortalAssignmentUploadJob;
 use App\Jobs\ProcessPortalExamUploadJob;
-use App\Jobs\RefreshPortalDataJob;
 use App\Services\AttendanceShortcutService;
-use App\Services\Extractors\ClassesExtractor;
-use App\Services\Extractors\SipandaiClassesExtractor;
-use App\Services\PortalEndpointRegistry;
-use App\Services\PortalSnapshotStore;
+use App\Services\PortalDatasetRepository;
+use App\Services\PortalFetchPolicy;
 use App\Services\SipandaiSubmissionService;
 use Dedoc\Scramble\Attributes\Group;
 use Dedoc\Scramble\Attributes\PathParameter;
@@ -38,15 +35,19 @@ class PortalActionController extends CampusApiController
 
     private const PENDING_ASSIGNMENTS_RESPONSE = 'array{success: bool, message: string, data: array{assignments: list<array<string, mixed>>}}';
 
+    /**
+     * Datasets and resources whose content changes when an assignment is uploaded or deleted.
+     */
+    private const ASSIGNMENT_DATASETS = ['assignments', 'dashboard', 'class_detail', 'meeting_detail'];
+
+    private const ASSIGNMENT_RESOURCES = ['class_detail', 'meeting_detail'];
+
     public function __construct(
         private readonly SipandaiSubmissionService $submissionService,
         private readonly AttendanceShortcutService $attendanceShortcutService,
-        private readonly ClassesExtractor $classesExtractor,
-        private readonly SipandaiClassesExtractor $sipandaiClassesExtractor,
-        private ?PortalSnapshotStore $snapshotStore = null
-    ) {
-        $this->snapshotStore = $snapshotStore ?? app(PortalSnapshotStore::class);
-    }
+        private readonly PortalDatasetRepository $datasets,
+        private readonly PortalFetchPolicy $fetchPolicy
+    ) {}
 
     /**
      * Upload tugas SIPANDAI.
@@ -169,6 +170,10 @@ class PortalActionController extends CampusApiController
                 $request->meetingNumber()
             );
 
+            if (($result['success'] ?? false) === true) {
+                $this->datasets->invalidate($sessionToken, self::ASSIGNMENT_DATASETS, self::ASSIGNMENT_RESOURCES);
+            }
+
             return $this->buildResponse($result, 'sipandai_assignment_delete');
 
         } catch (\Throwable $e) {
@@ -245,11 +250,11 @@ class PortalActionController extends CampusApiController
                 $overrides
             );
 
-            if (($result['success'] ?? false) === true && $courseId > 0 && $discussionId > 0) {
-                $this->classesExtractor->invalidateMeetingDetailCache(
+            if (($result['success'] ?? false) === true) {
+                $this->datasets->invalidate(
                     $sessionToken,
-                    (string) $discussionId,
-                    (string) $courseId
+                    ['dashboard', 'assignments', 'class_detail', 'meeting_detail'],
+                    ['class_detail', 'meeting_detail']
                 );
             }
 
@@ -286,7 +291,10 @@ class PortalActionController extends CampusApiController
         }
 
         try {
-            $shortcuts = $this->attendanceShortcutService->getTodayShortcuts($sessionToken);
+            $shortcuts = $this->fetchPolicy->runFresh(
+                fn (): array => $this->attendanceShortcutService->getTodayShortcuts($sessionToken),
+                request()->boolean('fresh')
+            );
 
             return $this->booleanResponse(true, 'Attendance shortcuts retrieved successfully.', $shortcuts);
         } catch (\Throwable $e) {
@@ -317,44 +325,16 @@ class PortalActionController extends CampusApiController
         }
 
         try {
-            $forceFresh = request()->boolean('fresh');
-
-            if (! $forceFresh) {
-                $snapshot = $this->snapshotStore->get($sessionToken, 'assignments');
-
-                if ($snapshot !== null) {
-                    $pendingAssignmentsData = $snapshot['data'];
-                    $syncMeta = $this->consumeSyncMeta($pendingAssignmentsData, [
-                        'data_origin' => 'snapshot',
-                        'synced_at' => $snapshot['synced_at'] ?? now()->toISOString(),
-                        'status' => $snapshot['status'] ?? 'synced',
-                        'requested_fresh' => false,
-                    ]);
-
-                    if ($this->snapshotStore->isStale($sessionToken, 'assignments', 600)) {
-                        RefreshPortalDataJob::dispatch(
-                            (string) session()->getId(),
-                            $sessionToken,
-                            ['assignments']
-                        );
-                        $syncMeta['status'] = 'syncing';
-                    }
-
-                    return $this->booleanResponse(true, 'Pending assignments retrieved successfully.', [
-                        'assignments' => $pendingAssignmentsData['assignments'] ?? [],
-                    ], meta: $syncMeta);
-                }
-            }
-
-            $pendingAssignmentsData = $this->attendanceShortcutService->getPendingAssignmentsSnapshot($sessionToken);
-            $this->snapshotStore->put($sessionToken, 'assignments', $pendingAssignmentsData);
-            $syncMeta = $this->consumeSyncMeta($pendingAssignmentsData, [
-                'requested_fresh' => $forceFresh,
-            ]);
+            $pendingAssignments = $this->datasets->read(
+                $sessionToken,
+                'assignments',
+                forceFresh: request()->boolean('fresh'),
+                broadcastSessionId: (string) session()->getId()
+            );
 
             return $this->booleanResponse(true, 'Pending assignments retrieved successfully.', [
-                'assignments' => $pendingAssignmentsData['assignments'] ?? [],
-            ], meta: $syncMeta);
+                'assignments' => $pendingAssignments['data']['assignments'] ?? [],
+            ], meta: $pendingAssignments['meta']);
         } catch (\Throwable $e) {
             if ($this->isCampusSessionExpiredException($e)) {
                 return $this->expiredSessionBooleanResponse();
@@ -383,27 +363,23 @@ class PortalActionController extends CampusApiController
         }
 
         try {
-            $exams = $this->submissionService->getExamList($sessionToken);
-            $exams = $this->resolveExamListFromClasses($sessionToken, $exams);
+            $exams = $this->datasets->read(
+                $sessionToken,
+                'exams',
+                forceFresh: request()->boolean('fresh'),
+                broadcastSessionId: (string) session()->getId()
+            );
 
-            return $this->booleanResponse(true, 'Exam list retrieved successfully.', [
-                'exams' => $exams,
-            ]);
+            $message = ($exams['data']['source'] ?? null) === 'class_schedule_fallback'
+                ? 'Exam list retrieved from class schedule fallback.'
+                : 'Exam list retrieved successfully.';
+
+            return $this->booleanResponse(true, $message, [
+                'exams' => $exams['data']['exams'] ?? [],
+            ], meta: $exams['meta']);
         } catch (\Throwable $e) {
             if ($this->isCampusSessionExpiredException($e)) {
                 return $this->expiredSessionBooleanResponse();
-            }
-
-            $fallbackExams = $this->resolveExamListFromClasses($sessionToken, []);
-
-            if ($fallbackExams !== []) {
-                Log::warning('SIPANDAI exam list failed, using class schedule fallback', [
-                    'error' => $e->getMessage(),
-                ]);
-
-                return $this->booleanResponse(true, 'Exam list retrieved from class schedule fallback.', [
-                    'exams' => $fallbackExams,
-                ]);
             }
 
             Log::error('Failed to fetch SIPANDAI exam list', [
@@ -412,245 +388,6 @@ class PortalActionController extends CampusApiController
 
             return $this->booleanResponse(false, 'Failed to fetch exam list.', null, 500);
         }
-    }
-
-    /**
-     * @param  list<array<string, mixed>>  $exams
-     * @return list<array<string, mixed>>
-     */
-    private function resolveExamListFromClasses(string $sessionToken, array $exams): array
-    {
-        if ($exams !== [] && ! $this->hasExamRowsWithoutIds($exams)) {
-            return $exams;
-        }
-
-        try {
-            $classesData = $this->sipandaiClassesExtractor->extractSipandaiClassesData($sessionToken);
-            $classExams = $this->buildExamListFromClasses($classesData['classes'] ?? []);
-
-            if ($classExams === []) {
-                return $exams;
-            }
-
-            if ($exams === []) {
-                return $classExams;
-            }
-
-            return $this->mergeExamRowsWithClassFallbacks($exams, $classExams);
-        } catch (\Throwable $e) {
-            Log::warning('Failed to resolve exam list from class fallback', [
-                'error' => $e->getMessage(),
-            ]);
-
-            return $exams;
-        }
-    }
-
-    /**
-     * @param  list<array<string, mixed>>  $exams
-     */
-    private function hasExamRowsWithoutIds(array $exams): bool
-    {
-        foreach ($exams as $exam) {
-            if (empty($exam['id'])) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * @param  list<array<string, mixed>>  $classes
-     * @return list<array<string, mixed>>
-     */
-    private function buildExamListFromClasses(array $classes): array
-    {
-        $exams = [];
-
-        foreach ($classes as $class) {
-            $courseId = $this->classCourseId($class);
-            $courseCode = (string) ($class['course_info']['code'] ?? '');
-            $courseName = (string) ($class['course_info']['name'] ?? '');
-
-            if ($courseId === null || $courseName === '') {
-                continue;
-            }
-
-            $exams[] = [
-                'id' => $courseId,
-                'course_code' => $courseCode,
-                'course_name' => $courseName,
-                'schedule' => $this->formatClassSchedule($class['schedule'] ?? []),
-                'status' => 'Terjadwal',
-                'upload_url' => PortalEndpointRegistry::url('exam_upload_form', ['id' => $courseId]),
-                'source' => 'class_schedule',
-                'class_reference' => [
-                    'id' => $class['join_link']['params']['id'] ?? null,
-                    'course_id' => $courseId,
-                    'dosen_id' => $class['join_link']['params']['dosen_id'] ?? null,
-                ],
-            ];
-        }
-
-        return $exams;
-    }
-
-    /**
-     * @param  array<string, mixed>  $class
-     */
-    private function classCourseId(array $class): ?int
-    {
-        $courseId = $class['join_link']['params']['course_id'] ?? null;
-
-        if (is_numeric($courseId)) {
-            return (int) $courseId;
-        }
-
-        $classId = $class['join_link']['params']['id'] ?? null;
-
-        return is_numeric($classId) ? (int) $classId : null;
-    }
-
-    /**
-     * @param  array<string, mixed>  $schedule
-     */
-    private function formatClassSchedule(array $schedule): string
-    {
-        $day = trim((string) ($schedule['day'] ?? ''));
-        $time = trim((string) ($schedule['formatted_time'] ?? ($schedule['time_range'] ?? ($schedule['time'] ?? ''))));
-
-        return trim($day.' '.$time);
-    }
-
-    /**
-     * @param  list<array<string, mixed>>  $exams
-     * @param  list<array<string, mixed>>  $classExams
-     * @return list<array<string, mixed>>
-     */
-    private function mergeExamRowsWithClassFallbacks(array $exams, array $classExams): array
-    {
-        $classExamMap = [];
-
-        foreach ($classExams as $classExam) {
-            foreach ($this->examMatchKeys($classExam) as $key) {
-                $classExamMap[$key] = $classExam;
-            }
-        }
-
-        return array_map(function (array $exam) use ($classExamMap): array {
-            if (! empty($exam['id'])) {
-                return $exam;
-            }
-
-            foreach ($this->examMatchKeys($exam) as $key) {
-                if (! isset($classExamMap[$key])) {
-                    continue;
-                }
-
-                return [
-                    ...$exam,
-                    'id' => $classExamMap[$key]['id'],
-                    'upload_url' => $exam['upload_url'] ?? $classExamMap[$key]['upload_url'],
-                    'source' => $exam['source'] ?? 'exam_list_with_class_id',
-                    'class_reference' => $classExamMap[$key]['class_reference'] ?? null,
-                ];
-            }
-
-            return $exam;
-        }, $exams);
-    }
-
-    /**
-     * @param  array<string, mixed>  $exam
-     * @return list<string>
-     */
-    private function examMatchKeys(array $exam): array
-    {
-        $keys = [];
-        $courseIdentity = $this->extractExamCourseIdentity($exam);
-        $courseCode = $this->normalizeExamCodeMatchValue($courseIdentity['code']);
-        $courseName = $this->normalizeExamMatchValue($courseIdentity['name']);
-
-        if ($courseCode !== '') {
-            $keys[] = 'code:'.$courseCode;
-        }
-
-        if ($courseName !== '') {
-            $keys[] = 'name:'.$courseName;
-        }
-
-        foreach ([$exam['course_code'] ?? null, $exam['course_name'] ?? null] as $candidate) {
-            $candidateCode = $this->extractExamCodeFromValue((string) $candidate);
-
-            if ($candidateCode !== '') {
-                $keys[] = 'code:'.$candidateCode;
-            }
-        }
-
-        return array_values(array_unique($keys));
-    }
-
-    /**
-     * @param  array<string, mixed>  $exam
-     * @return array{code: string, name: string}
-     */
-    private function extractExamCourseIdentity(array $exam): array
-    {
-        $code = (string) ($exam['course_code'] ?? '');
-        $name = (string) ($exam['course_name'] ?? '');
-
-        foreach ([$code, $name] as $candidate) {
-            $parsed = $this->parseExamCourseIdentity($candidate);
-
-            if ($parsed['code'] !== '') {
-                return $parsed;
-            }
-        }
-
-        return [
-            'code' => $code,
-            'name' => $name,
-        ];
-    }
-
-    /**
-     * @return array{code: string, name: string}
-     */
-    private function parseExamCourseIdentity(string $value): array
-    {
-        $normalizedValue = trim((string) preg_replace('/\s+/', ' ', $value));
-
-        if (preg_match('/\b([A-Z]{1,4}\d{4,})(.+)$/u', $normalizedValue, $matches) !== 1) {
-            return [
-                'code' => '',
-                'name' => '',
-            ];
-        }
-
-        return [
-            'code' => $matches[1],
-            'name' => trim($matches[2]),
-        ];
-    }
-
-    private function normalizeExamMatchValue(mixed $value): string
-    {
-        return strtolower(trim(preg_replace('/\s+/', ' ', (string) $value) ?? ''));
-    }
-
-    private function normalizeExamCodeMatchValue(mixed $value): string
-    {
-        return strtolower(preg_replace('/[^A-Z0-9]/i', '', (string) $value) ?? '');
-    }
-
-    private function extractExamCodeFromValue(string $value): string
-    {
-        if (preg_match('/\b([A-Z]{1,4}\d{4,})/u', $value, $matches) !== 1) {
-            return '';
-        }
-
-        return $this->normalizeExamCodeMatchValue($matches[1]);
     }
 
     /**

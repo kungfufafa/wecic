@@ -5,153 +5,133 @@ declare(strict_types=1);
 namespace App\Jobs;
 
 use App\Enums\PortalOperationStage;
-use App\Services\AttendanceShortcutService;
-use App\Services\Extractors\ClassesExtractor;
-use App\Services\Extractors\DashboardExtractor;
-use App\Services\Extractors\ProfileExtractor;
+use App\Exceptions\PortalException;
 use App\Services\PortalBroadcastService;
+use App\Services\PortalDataCache;
+use App\Services\PortalDatasetRepository;
 use App\Services\PortalSessionManager;
-use App\Services\PortalSnapshotStore;
-use App\Services\SipandaiSubmissionService;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 
-class RefreshPortalDataJob implements ShouldQueue
+/**
+ * Re-sync dataset snapshots from upstream, then tell the browser to re-read them.
+ *
+ * Unique per session + datasets + params, so repeated stale reads or refresh
+ * clicks queue a single job. Each dataset is rebuilt with resource caches
+ * bypassed; the browser only re-reads the stored snapshot afterwards.
+ */
+class RefreshPortalDataJob implements ShouldBeUnique, ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
+    public int $tries = 1;
+
     /**
-     * @param  list<string>  $domains
+     * Parameters for parameterized datasets. A plain property with a default
+     * (not promoted) so jobs queued before it existed still unserialize.
+     *
+     * @var array<string, mixed>
+     */
+    private array $params = [];
+
+    /**
+     * @param  list<string>  $domains  Dataset names from `portal.datasets`.
+     * @param  array<string, mixed>  $params
      */
     public function __construct(
         private readonly string $sessionId,
         private readonly string $campusSessionToken,
-        private readonly array $domains
+        private readonly array $domains,
+        array $params = []
     ) {
+        $this->params = $params;
         $this->onQueue('campus-refresh');
     }
 
-    public function handle(
-        PortalSessionManager $sessionManager,
-        PortalBroadcastService $broadcast,
-        AttendanceShortcutService $attendanceShortcutService,
-        ClassesExtractor $classesExtractor,
-        ProfileExtractor $profileExtractor,
-        SipandaiSubmissionService $submissionService,
-        ?DashboardExtractor $dashboardExtractor = null,
-        ?PortalSnapshotStore $snapshotStore = null
-    ): void {
-        $snapshotStore ??= app(PortalSnapshotStore::class);
-        $lock = Cache::lock(
-            'portal_refresh_'.$this->campusSessionToken.'_'.md5(json_encode($this->domains)),
-            (int) config('portal.realtime.refresh_lock_ttl', 120)
-        );
+    public function uniqueId(): string
+    {
+        $domains = array_values(array_unique($this->domains));
+        sort($domains);
 
-        if (! $lock->get()) {
-            $broadcast->syncStatus(
-                $this->sessionId,
-                $this->campusSessionToken,
-                PortalOperationStage::Connecting,
-                'Refresh data sedang berjalan di tab atau perangkat lain.'
-            );
+        return md5($this->campusSessionToken.'|'.implode(',', $domains).'|'.PortalDataCache::paramsHash($this->params));
+    }
+
+    public function uniqueFor(): int
+    {
+        return (int) config('portal.sync.lock_ttl', 300);
+    }
+
+    public function handle(
+        PortalDatasetRepository $datasets,
+        PortalBroadcastService $broadcast,
+        PortalSessionManager $sessionManager
+    ): void {
+        if (! $sessionManager->isSessionUsable($this->campusSessionToken)) {
+            $broadcast->syncStatus($this->sessionId, $this->campusSessionToken, PortalOperationStage::Relogin, 'Sesi perlu login ulang.');
 
             return;
         }
 
-        try {
-            $broadcast->syncStatus($this->sessionId, $this->campusSessionToken, PortalOperationStage::Connecting, 'Menghubungkan ke portal kampus...');
+        $broadcast->syncStatus($this->sessionId, $this->campusSessionToken, PortalOperationStage::FetchingSchedule, 'Mengambil jadwal dan data terbaru...');
 
-            if (! $sessionManager->validateSession($this->campusSessionToken)) {
-                $broadcast->syncStatus($this->sessionId, $this->campusSessionToken, PortalOperationStage::Relogin, 'Sesi perlu login ulang.');
+        $syncedDatasets = [];
+        $failedDatasets = [];
 
-                return;
+        foreach (array_values(array_unique($this->domains)) as $dataset) {
+            if (! is_array(config("portal.datasets.{$dataset}"))) {
+                continue;
             }
 
-            $broadcast->syncStatus($this->sessionId, $this->campusSessionToken, PortalOperationStage::FetchingSchedule, 'Mengambil jadwal dan data terbaru...');
+            try {
+                $datasets->sync($this->campusSessionToken, $dataset, $this->params);
+                $syncedDatasets[] = $dataset;
+            } catch (\Throwable $throwable) {
+                if (PortalException::indicatesExpiredSession($throwable)) {
+                    $broadcast->syncStatus($this->sessionId, $this->campusSessionToken, PortalOperationStage::Relogin, 'Sesi perlu login ulang.');
 
-            $uniqueDomains = array_values(array_unique($this->domains));
-            $syncedAssignments = false;
+                    return;
+                }
 
-            foreach ($uniqueDomains as $domain) {
-                match ($domain) {
-                    'dashboard' => (function () use ($dashboardExtractor, $attendanceShortcutService, $snapshotStore, &$syncedAssignments): void {
-                        if ($dashboardExtractor !== null) {
-                            $dashboardData = $dashboardExtractor->extractDashboardData($this->campusSessionToken);
-                            $snapshotStore->put($this->campusSessionToken, 'dashboard', $dashboardData);
-                        }
-
-                        if (! $syncedAssignments) {
-                            $pendingData = $attendanceShortcutService->getPendingAssignmentsSnapshot($this->campusSessionToken);
-                            $snapshotStore->put($this->campusSessionToken, 'assignments', $pendingData);
-                            $syncedAssignments = true;
-                        }
-                    })(),
-                    'assignments' => (function () use ($attendanceShortcutService, $snapshotStore, &$syncedAssignments): void {
-                        if (! $syncedAssignments) {
-                            $pendingData = $attendanceShortcutService->getPendingAssignmentsSnapshot($this->campusSessionToken);
-                            $snapshotStore->put($this->campusSessionToken, 'assignments', $pendingData);
-                            $syncedAssignments = true;
-                        }
-                    })(),
-                    'classes' => (function () use ($classesExtractor, $snapshotStore): void {
-                        $classesData = $classesExtractor->extractClassesData($this->campusSessionToken);
-                        $snapshotStore->put($this->campusSessionToken, 'classes', $classesData);
-                    })(),
-                    'profile' => (function () use ($profileExtractor, $snapshotStore): void {
-                        $profileData = $profileExtractor->extractProfileData($this->campusSessionToken);
-                        $snapshotStore->put($this->campusSessionToken, 'profile', $profileData);
-                    })(),
-                    'exams' => (function () use ($submissionService, $snapshotStore): void {
-                        $examsData = $submissionService->getExamList($this->campusSessionToken);
-                        $snapshotStore->put($this->campusSessionToken, 'exams', ['exams' => $examsData]);
-                    })(),
-                    default => null,
-                };
+                Log::warning('Background portal dataset sync failed', [
+                    'dataset' => $dataset,
+                    'error' => $throwable->getMessage(),
+                ]);
+                $failedDatasets[] = $dataset;
             }
+        }
 
-            $domainConfig = collect($this->domains)
-                ->map(fn (string $domain): array => config('portal.realtime.domains.'.$domain, []));
-            $cacheKeys = $domainConfig
-                ->flatMap(fn (array $config): array => $config['cache_keys'] ?? [])
-                ->unique()
-                ->values()
-                ->all();
-            $syncKeys = $domainConfig
-                ->flatMap(fn (array $config): array => $config['sync_keys'] ?? [])
-                ->unique()
-                ->values()
-                ->all();
+        if ($syncedDatasets !== []) {
+            $keys = PortalDatasetRepository::realtimeKeys(...$syncedDatasets);
 
             $broadcast->syncStatus(
                 $this->sessionId,
                 $this->campusSessionToken,
                 PortalOperationStage::Completed,
                 'Selesai. Data terbaru siap ditampilkan.',
-                $cacheKeys,
-                $syncKeys
+                $keys['cache_keys'],
+                $keys['sync_keys']
             );
             $broadcast->dataInvalidated(
                 $this->sessionId,
                 $this->campusSessionToken,
-                $cacheKeys,
-                $syncKeys,
+                $keys['cache_keys'],
+                $keys['sync_keys'],
                 'Data portal diperbarui di background.'
             );
-        } catch (\Throwable $throwable) {
+        }
+
+        if ($failedDatasets !== []) {
             $broadcast->syncStatus(
                 $this->sessionId,
                 $this->campusSessionToken,
                 PortalOperationStage::Failed,
-                'Gagal memperbarui data.'
+                'Gagal memperbarui sebagian data. Data terakhir tetap ditampilkan.'
             );
-
-            throw $throwable;
-        } finally {
-            $lock->release();
         }
     }
 }

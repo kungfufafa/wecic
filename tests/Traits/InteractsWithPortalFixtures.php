@@ -31,8 +31,6 @@ trait InteractsWithPortalFixtures
 
         $html = file_get_contents(base_path($fixture));
 
-        $extractor->shouldReceive('getCachedResponse')->andReturn(null);
-        $extractor->shouldReceive('cacheResponse')->andReturnNull();
         $extractor->shouldReceive('get')->andReturn($html);
 
         return $extractor;

@@ -1783,10 +1783,8 @@ class SipandaiSubmissionService extends PortalScrapingService
             ],
         ], $options);
 
-        $delay = config('portal.request_delay', 1000);
-        if ($delay > 0) {
-            usleep($delay * 1000);
-        }
+        $this->pauseBetweenRequests();
+        $this->forgetMemoizedPages();
 
         try {
             $response = $this->client->request($method, $url, $requestOptions);

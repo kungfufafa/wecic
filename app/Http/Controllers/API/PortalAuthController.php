@@ -168,6 +168,11 @@ class PortalAuthController extends CampusApiController
                     'expires_at' => $refreshResult['expires_at'] ?? null,
                 ],
             ], campusSessionValid: true);
+        } catch (PortalConnectionException $e) {
+            // The portal is unreachable; the session may well still be valid.
+            Log::warning('Session refresh could not reach the campus portal', ['error' => $e->getMessage()]);
+
+            return $this->statusError('Portal kampus sedang tidak dapat diakses. Coba lagi beberapa saat.', 503, campusSessionValid: true);
         } catch (\Throwable $e) {
             Log::error('Session refresh failed', ['error' => $e->getMessage()]);
             session()->forget(['campus_session_token', 'campus_user_info']);

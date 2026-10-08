@@ -21,8 +21,21 @@ class PortalRefreshRequest extends FormRequest
     {
         return [
             'domains' => ['required', 'array', 'min:1'],
-            'domains.*' => ['required', 'string', Rule::in(array_keys(config('portal.realtime.domains', [])))],
+            'domains.*' => ['required', 'string', Rule::in($this->refreshableDatasets())],
         ];
+    }
+
+    /**
+     * Datasets that can be refreshed without parameters.
+     *
+     * @return list<string>
+     */
+    private function refreshableDatasets(): array
+    {
+        return array_keys(array_filter(
+            config('portal.datasets', []),
+            static fn (array $dataset): bool => ! ($dataset['parameterized'] ?? false)
+        ));
     }
 
     /**

@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Tests\Unit;
 
+use App\Exceptions\PortalConnectionException;
 use App\Jobs\RefreshPortalSessionJob;
 use App\Services\PortalAuthService;
-use App\Services\PortalEndpointRegistry;
+use App\Services\PortalDataOwner;
 use App\Services\PortalSessionManager;
-use GuzzleHttp\Client;
+use Carbon\CarbonImmutable;
 use GuzzleHttp\Cookie\CookieJar;
-use GuzzleHttp\Psr7\Response;
 use Illuminate\Cache\ArrayStore;
 use Illuminate\Contracts\Cache\Lock;
 use Illuminate\Contracts\Cache\LockTimeoutException;
@@ -103,39 +103,6 @@ class PortalSessionManagerTest extends TestCase
             ->once();
     }
 
-    public function test_get_session_keeps_cache_entry_expiring_when_last_activity_is_updated(): void
-    {
-        config([
-            'portal.session_prefix' => 'portal_session_touch_',
-            'portal.session_refresh_interval' => 600,
-            'portal.auto_relogin' => false,
-        ]);
-
-        Cache::flush();
-        Queue::fake();
-
-        $authService = Mockery::mock(PortalAuthService::class);
-        $authService->shouldReceive('login')
-            ->once()
-            ->with('20251030031', 'touch-pass')
-            ->andReturn($this->makeLoginResult([
-                'nama' => 'Mahasiswa Touch',
-            ]));
-
-        $manager = new PortalSessionManager($authService, Mockery::mock(Encrypter::class));
-
-        $createdSession = $manager->createSession('20251030031', 'touch-pass');
-        $cacheKey = config('portal.session_prefix').$createdSession['session_token'];
-        $beforeTouch = $this->cacheEntries()[$cacheKey]['expiresAt'];
-
-        $session = $manager->getSession($createdSession['session_token']);
-        $afterTouch = $this->cacheEntries()[$cacheKey]['expiresAt'];
-
-        $this->assertNotNull($session);
-        $this->assertGreaterThan(0, $afterTouch);
-        $this->assertGreaterThanOrEqual($beforeTouch, $afterTouch);
-    }
-
     public function test_destroy_session_calls_upstream_logout_endpoints_before_clearing_cache(): void
     {
         config([
@@ -144,33 +111,10 @@ class PortalSessionManagerTest extends TestCase
 
         Cache::flush();
 
-        $client = Mockery::mock(Client::class);
-        $client->shouldReceive('request')
-            ->once()
-            ->ordered()
-            ->with(
-                'GET',
-                PortalEndpointRegistry::url('student_logout'),
-                Mockery::on(fn (array $options): bool => ($options['timeout'] ?? null) === 10 && ($options['cookies'] ?? null) instanceof CookieJar)
-            )
-            ->andReturn(new Response(200));
-        $client->shouldReceive('request')
-            ->once()
-            ->ordered()
-            ->with(
-                'GET',
-                PortalEndpointRegistry::url('sipandai_logout'),
-                Mockery::on(fn (array $options): bool => ($options['timeout'] ?? null) === 10 && ($options['cookies'] ?? null) instanceof CookieJar)
-            )
-            ->andReturn(new Response(200));
-
         $authService = Mockery::mock(PortalAuthService::class);
-        $authService->shouldReceive('setCookieJar')
+        $authService->shouldReceive('logout')
             ->once()
-            ->with(Mockery::type(CookieJar::class));
-        $authService->shouldReceive('getClient')
-            ->once()
-            ->andReturn($client);
+            ->with(Mockery::on(fn (CookieJar $jar): bool => $jar->getCookieByName('PHPSESSID')?->getValue() === 'cookie-value'));
 
         $manager = new PortalSessionManager($authService, Mockery::mock(Encrypter::class));
         $cacheKey = config('portal.session_prefix').'logout-token';
@@ -289,90 +233,163 @@ class PortalSessionManagerTest extends TestCase
             ->once();
     }
 
-    public function test_validate_session_checks_upstream_when_session_is_stale(): void
+    public function test_validate_session_is_local_and_slides_the_idle_expiry(): void
     {
         config([
             'portal.session_prefix' => 'portal_session_validate_',
-            'portal.session_refresh_interval' => 1200,
+            'portal.session_idle_timeout' => 7200,
+            'portal.session_activity_touch_interval' => 60,
         ]);
 
-        Cache::flush();
-
-        $client = Mockery::mock(Client::class);
-        $client->shouldReceive('get')
-            ->once()
-            ->with(
-                PortalEndpointRegistry::url('dashboard'),
-                Mockery::on(fn (array $options): bool => ($options['timeout'] ?? null) === 10 && ($options['cookies'] ?? null) instanceof CookieJar)
-            )
-            ->andReturn(new Response(200, [], '<html><body>dashboard</body></html>'));
+        Queue::fake();
 
         $authService = Mockery::mock(PortalAuthService::class);
-        $authService->shouldReceive('setCookieJar')
-            ->once()
-            ->with(Mockery::type(CookieJar::class));
-        $authService->shouldReceive('getClient')
-            ->once()
-            ->andReturn($client);
-        $authService->shouldReceive('isSessionExpired')
-            ->once()
-            ->with('<html><body>dashboard</body></html>')
-            ->andReturnFalse();
+        $authService->shouldNotReceive('isSessionAlive');
 
         $manager = new PortalSessionManager($authService, Mockery::mock(Encrypter::class));
-        $cacheKey = config('portal.session_prefix').'stale-token';
-        $session = $this->makeStoredSession('stale-token', [
+        $cacheKey = config('portal.session_prefix').'active-token';
+        $session = $this->makeStoredSession('active-token', [
             'last_activity' => now()->subMinutes(11)->toISOString(),
+            'upstream_checked_at' => now()->subMinutes(5)->toISOString(),
         ]);
 
         Cache::put($cacheKey, $session, 1200);
 
-        $this->assertTrue($manager->validateSession('stale-token'));
+        $this->assertTrue($manager->validateSession('active-token'));
 
         $updatedSession = Cache::get($cacheKey);
-        $this->assertTrue($updatedSession['is_active']);
         $this->assertNotSame($session['last_activity'], $updatedSession['last_activity']);
+        $this->assertTrue(CarbonImmutable::parse($updatedSession['expires_at'])->greaterThan(now()->addMinutes(119)));
+        Queue::assertNothingPushed();
     }
 
-    public function test_validate_session_marks_session_inactive_when_upstream_is_expired(): void
+    public function test_validate_session_writes_activity_at_most_once_per_touch_interval(): void
+    {
+        config([
+            'portal.session_prefix' => 'portal_session_touch_throttle_',
+            'portal.session_activity_touch_interval' => 60,
+        ]);
+
+        $manager = new PortalSessionManager(Mockery::mock(PortalAuthService::class), Mockery::mock(Encrypter::class));
+        $cacheKey = config('portal.session_prefix').'recent-token';
+        $session = $this->makeStoredSession('recent-token', [
+            'last_activity' => now()->subSeconds(10)->toISOString(),
+            'upstream_checked_at' => now()->toISOString(),
+        ]);
+
+        Cache::put($cacheKey, $session, 1200);
+
+        $this->assertTrue($manager->validateSession('recent-token'));
+        $this->assertSame($session, Cache::get($cacheKey));
+    }
+
+    public function test_validate_session_ends_a_session_idle_past_the_timeout(): void
+    {
+        config([
+            'portal.session_prefix' => 'portal_session_idle_',
+        ]);
+
+        Log::spy();
+
+        $manager = new PortalSessionManager(Mockery::mock(PortalAuthService::class), Mockery::mock(Encrypter::class));
+        $cacheKey = config('portal.session_prefix').'idle-token';
+
+        Cache::put($cacheKey, $this->makeStoredSession('idle-token', [
+            'expires_at' => now()->subMinute()->toISOString(),
+        ]), 1200);
+
+        $this->assertFalse($manager->validateSession('idle-token'));
+        $this->assertFalse(Cache::get($cacheKey)['is_active']);
+        Log::shouldHaveReceived('warning')
+            ->withArgs(fn (string $message, array $context): bool => $message === 'campus_session.invalidated'
+                && ($context['reason'] ?? null) === 'idle_timeout')
+            ->once();
+    }
+
+    public function test_validate_session_touch_is_best_effort_when_the_session_lock_times_out(): void
+    {
+        config([
+            'portal.session_prefix' => 'portal_session_touch_timeout_',
+        ]);
+
+        Log::spy();
+
+        $storedSession = $this->makeStoredSession('touch-timeout-token', [
+            'last_activity' => now()->subMinutes(5)->toISOString(),
+            'upstream_checked_at' => now()->toISOString(),
+        ]);
+
+        $lock = Mockery::mock(Lock::class);
+        $lock->shouldReceive('block')
+            ->once()
+            ->andThrow(new LockTimeoutException);
+
+        Cache::shouldReceive('get')
+            ->once()
+            ->andReturn($storedSession);
+        Cache::shouldReceive('put')->never();
+        Cache::shouldReceive('lock')
+            ->once()
+            ->andReturn($lock);
+        Cache::shouldReceive('flush'); // tearDown still flushes while the facade is mocked
+
+        $manager = new PortalSessionManager(
+            Mockery::mock(PortalAuthService::class),
+            Mockery::mock(Encrypter::class),
+            Mockery::mock(PortalDataOwner::class)
+        );
+
+        $this->assertTrue($manager->validateSession('touch-timeout-token'));
+
+        Log::shouldHaveReceived('warning')
+            ->withArgs(fn (string $message): bool => $message === 'campus_session.mutation_lock_timeout')
+            ->once();
+    }
+
+    public function test_keep_alive_pings_the_portal_and_records_the_check(): void
+    {
+        config([
+            'portal.session_prefix' => 'portal_session_keepalive_',
+        ]);
+
+        $authService = Mockery::mock(PortalAuthService::class);
+        $authService->shouldReceive('isSessionAlive')->once()->with(Mockery::type(CookieJar::class))->andReturnTrue();
+
+        $manager = new PortalSessionManager($authService, Mockery::mock(Encrypter::class));
+        $cacheKey = config('portal.session_prefix').'alive-token';
+        $session = $this->makeStoredSession('alive-token', [
+            'upstream_checked_at' => now()->subMinutes(20)->toISOString(),
+        ]);
+
+        Cache::put($cacheKey, $session, 1200);
+
+        $this->assertSame('alive', $manager->keepAlive('alive-token'));
+
+        $updatedSession = Cache::get($cacheKey);
+        $this->assertNotSame($session['upstream_checked_at'], $updatedSession['upstream_checked_at']);
+        // A keep-alive ping is not user activity.
+        $this->assertSame($session['last_activity'], $updatedSession['last_activity']);
+        $this->assertSame($session['expires_at'], $updatedSession['expires_at']);
+    }
+
+    public function test_keep_alive_marks_session_inactive_when_upstream_is_expired(): void
     {
         config([
             'portal.session_prefix' => 'portal_session_expired_',
-            'portal.session_refresh_interval' => 1200,
+            'portal.auto_relogin' => false,
         ]);
 
-        Cache::flush();
         Log::spy();
 
-        $client = Mockery::mock(Client::class);
-        $client->shouldReceive('get')
-            ->once()
-            ->with(
-                PortalEndpointRegistry::url('dashboard'),
-                Mockery::on(fn (array $options): bool => ($options['timeout'] ?? null) === 10 && ($options['cookies'] ?? null) instanceof CookieJar)
-            )
-            ->andReturn(new Response(200, [], '<html><body>expired</body></html>'));
-
         $authService = Mockery::mock(PortalAuthService::class);
-        $authService->shouldReceive('setCookieJar')
-            ->once()
-            ->with(Mockery::type(CookieJar::class));
-        $authService->shouldReceive('getClient')
-            ->once()
-            ->andReturn($client);
-        $authService->shouldReceive('isSessionExpired')
-            ->once()
-            ->with('<html><body>expired</body></html>')
-            ->andReturnTrue();
+        $authService->shouldReceive('isSessionAlive')->once()->andReturnFalse();
 
         $manager = new PortalSessionManager($authService, Mockery::mock(Encrypter::class));
         $cacheKey = config('portal.session_prefix').'expired-token';
 
-        Cache::put($cacheKey, $this->makeStoredSession('expired-token', [
-            'last_activity' => now()->subMinutes(11)->toISOString(),
-        ]), 1200);
+        Cache::put($cacheKey, $this->makeStoredSession('expired-token'), 1200);
 
-        $this->assertFalse($manager->validateSession('expired-token'));
+        $this->assertSame('expired', $manager->keepAlive('expired-token'));
         $this->assertFalse(Cache::get($cacheKey)['is_active']);
         Log::shouldHaveReceived('warning')
             ->withArgs(function (string $message, array $context): bool {
@@ -382,6 +399,73 @@ class PortalSessionManagerTest extends TestCase
                     && ($context['metric']['name'] ?? null) === 'campus_session_events_total';
             })
             ->once();
+    }
+
+    public function test_keep_alive_stops_and_logs_out_an_idle_session(): void
+    {
+        config([
+            'portal.session_prefix' => 'portal_session_keepalive_idle_',
+        ]);
+
+        $authService = Mockery::mock(PortalAuthService::class);
+        $authService->shouldNotReceive('isSessionAlive');
+        $authService->shouldReceive('logout')->once()->with(Mockery::type(CookieJar::class));
+
+        $manager = new PortalSessionManager($authService, Mockery::mock(Encrypter::class));
+        $cacheKey = config('portal.session_prefix').'abandoned-token';
+
+        Cache::put($cacheKey, $this->makeStoredSession('abandoned-token', [
+            'expires_at' => now()->subMinute()->toISOString(),
+        ]), 1200);
+
+        $this->assertSame('idle', $manager->keepAlive('abandoned-token'));
+        $this->assertFalse(Cache::get($cacheKey)['is_active']);
+    }
+
+    public function test_keep_alive_leaves_session_untouched_when_portal_is_unreachable(): void
+    {
+        config([
+            'portal.session_prefix' => 'portal_session_keepalive_network_',
+        ]);
+
+        $authService = Mockery::mock(PortalAuthService::class);
+        $authService->shouldReceive('isSessionAlive')->once()->andThrow(PortalConnectionException::networkError('https://my.cic.ac.id', 'timeout'));
+
+        $manager = new PortalSessionManager($authService, Mockery::mock(Encrypter::class));
+        $cacheKey = config('portal.session_prefix').'network-token';
+        $session = $this->makeStoredSession('network-token');
+
+        Cache::put($cacheKey, $session, 1200);
+
+        try {
+            $manager->keepAlive('network-token');
+            $this->fail('A network failure must surface so the keep-alive job can retry.');
+        } catch (PortalConnectionException) {
+            $this->assertSame($session, Cache::get($cacheKey));
+        }
+    }
+
+    public function test_create_session_records_the_student_as_data_owner(): void
+    {
+        config([
+            'portal.session_prefix' => 'portal_session_owner_',
+            'portal.auto_relogin' => false,
+        ]);
+
+        Queue::fake();
+
+        $authService = Mockery::mock(PortalAuthService::class);
+        $authService->shouldReceive('login')->twice()->andReturn($this->makeLoginResult(['nama' => 'Mahasiswa Owner']));
+
+        $manager = new PortalSessionManager($authService, Mockery::mock(Encrypter::class));
+        $first = $manager->createSession('20251030040', 'secret');
+        $second = $manager->createSession(' 20251030040 ', 'secret');
+
+        $owner = app(PortalDataOwner::class);
+        $this->assertSame($owner->key($first['session_token']), $owner->key($second['session_token']));
+        $this->assertSame($owner->keyForUsername('20251030040'), $owner->key($first['session_token']));
+
+        Queue::assertPushed(RefreshPortalSessionJob::class, 2);
     }
 
     public function test_invalidate_session_skipped_when_cookies_were_rotated_by_relogin(): void
@@ -491,43 +575,6 @@ class PortalSessionManagerTest extends TestCase
         );
 
         $this->assertNull($manager->invalidateSession('lock-timeout-token', 'session_expired_indicator_detected'));
-
-        Log::shouldHaveReceived('warning')
-            ->withArgs(fn (string $message): bool => $message === 'campus_session.mutation_lock_timeout')
-            ->once();
-    }
-
-    public function test_get_session_touch_is_best_effort_when_the_session_lock_times_out(): void
-    {
-        config([
-            'portal.session_prefix' => 'portal_session_touch_timeout_',
-        ]);
-
-        Cache::flush();
-        Log::spy();
-
-        $storedSession = $this->makeStoredSession('touch-timeout-token');
-
-        $lock = Mockery::mock(Lock::class);
-        $lock->shouldReceive('block')
-            ->once()
-            ->andThrow(new LockTimeoutException);
-
-        Cache::shouldReceive('get')
-            ->once()
-            ->andReturn($storedSession);
-        Cache::shouldReceive('put')->never();
-        Cache::shouldReceive('lock')
-            ->once()
-            ->andReturn($lock);
-        Cache::shouldReceive('flush'); // tearDown still flushes while the facade is mocked
-
-        $manager = new PortalSessionManager(
-            Mockery::mock(PortalAuthService::class),
-            Mockery::mock(Encrypter::class)
-        );
-
-        $this->assertSame($storedSession, $manager->getSession('touch-timeout-token'));
 
         Log::shouldHaveReceived('warning')
             ->withArgs(fn (string $message): bool => $message === 'campus_session.mutation_lock_timeout')

@@ -20,37 +20,23 @@ class StudentCourseExtractor extends PortalScrapingService
             $this->setSession($sessionToken);
             $this->logScraping('Extracting student course data with room info', ['session_token' => $sessionToken]);
 
-            // Try to get cached data first
-            $cacheKey = 'student_course_'.md5($sessionToken);
-            $cachedData = $this->getCachedResponse($cacheKey);
+            return $this->rememberResource('student_course', [], function (): array {
+                $html = $this->get(PortalEndpointRegistry::url('student_course'));
+                $crawler = $this->createCrawler($html);
 
-            if ($cachedData) {
-                $this->logScraping('Using cached student course data');
+                $classesData = [
+                    'student_info' => $this->extractStudentCourseInfo($crawler),
+                    'classes' => $this->extractStudentCourseClassesList($crawler),
+                    'semester_info' => $this->extractStudentCourseSemesterInfo($crawler),
+                    'extracted_at' => now()->toISOString(),
+                ];
 
-                return $this->withSyncMeta(json_decode($cachedData, true), 'server_cache');
-            }
+                $this->logScraping('Student course data extracted successfully', [
+                    'classes_count' => count($classesData['classes']),
+                ]);
 
-            // Get classes HTML from student course endpoint
-            $studentCourseUrl = PortalEndpointRegistry::url('student_course');
-            $html = $this->get($studentCourseUrl);
-            $crawler = $this->createCrawler($html);
-
-            // Extract classes data
-            $classesData = [
-                'student_info' => $this->extractStudentCourseInfo($crawler),
-                'classes' => $this->extractStudentCourseClassesList($crawler),
-                'semester_info' => $this->extractStudentCourseSemesterInfo($crawler),
-                'extracted_at' => now()->toISOString(),
-            ];
-
-            // Cache the extracted data
-            $this->cacheResponse($cacheKey, json_encode($classesData));
-
-            $this->logScraping('Student course data extracted successfully', [
-                'classes_count' => count($classesData['classes']),
-            ]);
-
-            return $this->withSyncMeta($classesData, 'upstream');
+                return $classesData;
+            });
 
         } catch (PortalScrapingException $e) {
             throw $e;

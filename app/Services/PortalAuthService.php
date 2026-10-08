@@ -15,13 +15,16 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Symfony\Component\DomCrawler\Crawler;
 
+/**
+ * Stateless gateway for the portal's authentication pages.
+ *
+ * Every call works on the cookie jar it is given (or creates for a login), so
+ * one instance can be shared by a long-running queue worker without leaking
+ * cookies or a cached login form between students.
+ */
 class PortalAuthService
 {
     private Client $client;
-
-    private ?CookieJar $cookieJar = null;
-
-    private array $loginFormData = [];
 
     public function __construct()
     {
@@ -40,7 +43,6 @@ class PortalAuthService
                 'Sec-Fetch-Site' => 'none',
                 'Cache-Control' => 'max-age=0',
             ],
-            RequestOptions::COOKIES => true,
             RequestOptions::ALLOW_REDIRECTS => [
                 'max' => 5,
                 'strict' => true,
@@ -52,13 +54,17 @@ class PortalAuthService
 
     /**
      * Analyze login form to extract form data and field names
+     *
+     * @return array{action: string, method: string, fields: array<string, array{type: string, value: string, required: bool}>}
      */
-    public function analyzeLoginForm(): array
+    public function analyzeLoginForm(?CookieJar $cookieJar = null): array
     {
         $loginPageUrl = PortalEndpointRegistry::url('login_page');
 
         try {
-            $response = $this->client->get($loginPageUrl);
+            $response = $this->client->get($loginPageUrl, [
+                RequestOptions::COOKIES => $cookieJar ?? new CookieJar,
+            ]);
             $html = (string) $response->getBody();
 
             // Generic wording is common inside valid page scripts, so the
@@ -123,7 +129,7 @@ class PortalAuthService
                 }
             });
 
-            $this->loginFormData = [
+            $loginFormData = [
                 'action' => $formAction,
                 'method' => strtolower($loginForm->attr('method') ?? 'post'),
                 'fields' => $formFields,
@@ -145,7 +151,7 @@ class PortalAuthService
                 ],
             ]);
 
-            return $this->loginFormData;
+            return $loginFormData;
 
         } catch (GuzzleException $e) {
             Log::error('Failed to analyze login form', [
@@ -172,17 +178,16 @@ class PortalAuthService
      */
     public function login(string $username, string $password): array
     {
-        if (empty($this->loginFormData)) {
-            $this->analyzeLoginForm();
-        }
-
-        $this->cookieJar = new CookieJar;
+        // The login page and the login POST share one fresh jar, like a
+        // browser would, and the form is analyzed again for every login.
+        $cookieJar = new CookieJar;
+        $loginFormData = $this->analyzeLoginForm($cookieJar);
         $loginPageUrl = PortalEndpointRegistry::url('login_page');
 
         try {
             // Prepare login data - map to CIC-specific field names
             $loginData = [];
-            foreach ($this->loginFormData['fields'] as $fieldName => $fieldInfo) {
+            foreach ($loginFormData['fields'] as $fieldName => $fieldInfo) {
                 if ($fieldName === 'txt_username') {
                     $loginData[$fieldName] = $username;
                 } elseif ($fieldName === 'txt_password') {
@@ -202,9 +207,9 @@ class PortalAuthService
             }
 
             // Perform login request
-            $response = $this->client->post($this->loginFormData['action'], [
+            $response = $this->client->post($loginFormData['action'], [
                 RequestOptions::FORM_PARAMS => $loginData,
-                RequestOptions::COOKIES => $this->cookieJar,
+                RequestOptions::COOKIES => $cookieJar,
                 RequestOptions::HEADERS => [
                     'Referer' => $loginPageUrl,
                     'Origin' => config('portal.base_url'),
@@ -215,7 +220,7 @@ class PortalAuthService
             $redirectHistory = $response->getHeader(\GuzzleHttp\RedirectMiddleware::HISTORY_HEADER);
 
             // Check if login was successful
-            $loginSuccess = $this->isLoginSuccessful($responseHtml, $redirectHistory);
+            $loginSuccess = $this->isLoginSuccessful($responseHtml, $redirectHistory, $cookieJar);
 
             if (! $loginSuccess) {
                 throw PortalAuthenticationException::invalidCredentials();
@@ -224,7 +229,7 @@ class PortalAuthService
             // Get dashboard to confirm session
             $dashboardUrl = PortalEndpointRegistry::url('dashboard');
             $dashboardResponse = $this->client->get($dashboardUrl, [
-                RequestOptions::COOKIES => $this->cookieJar,
+                RequestOptions::COOKIES => $cookieJar,
             ]);
 
             $dashboardHtml = (string) $dashboardResponse->getBody();
@@ -241,7 +246,7 @@ class PortalAuthService
                 'event' => 'login_succeeded',
                 'username_fingerprint' => $this->fingerprint($username),
                 'user_info' => array_keys($userInfo),
-                'cookie_count' => count($this->cookieJar?->toArray() ?? []),
+                'cookie_count' => count($cookieJar->toArray()),
                 'metric' => [
                     'name' => 'campus_auth_events_total',
                     'type' => 'counter',
@@ -256,7 +261,7 @@ class PortalAuthService
             return [
                 'success' => true,
                 'user_info' => $userInfo,
-                'cookies' => $this->cookieJar->toArray(),
+                'cookies' => $cookieJar->toArray(),
                 'session_data' => [
                     'login_time' => now()->toISOString(),
                     'last_activity' => now()->toISOString(),
@@ -280,14 +285,14 @@ class PortalAuthService
                     ],
                 ],
             ]);
-            throw PortalConnectionException::networkError($this->loginFormData['action'], $e->getMessage());
+            throw PortalConnectionException::networkError($loginFormData['action'], $e->getMessage());
         }
     }
 
     /**
      * Check if login was successful based on response and redirect history
      */
-    private function isLoginSuccessful(string $responseHtml, array $redirectHistory): bool
+    private function isLoginSuccessful(string $responseHtml, array $redirectHistory, ?CookieJar $cookieJar = null): bool
     {
         // Check if redirected to dashboard
         foreach ($redirectHistory as $redirectUrl) {
@@ -308,7 +313,7 @@ class PortalAuthService
                     $fullRefreshUrl = PortalUrlGuard::resolve($refreshUrl, PortalEndpointRegistry::url('login_page'));
 
                     $refreshResponse = $this->client->get($fullRefreshUrl, [
-                        RequestOptions::COOKIES => $this->cookieJar,
+                        RequestOptions::COOKIES => $cookieJar ?? new CookieJar,
                     ]);
 
                     $refreshHtml = (string) $refreshResponse->getBody();
@@ -399,6 +404,53 @@ class PortalAuthService
         }
 
         return false;
+    }
+
+    /**
+     * Ping the portal with the session's cookies; true when it still serves
+     * the authenticated dashboard.
+     *
+     * @throws PortalConnectionException when the portal cannot be reached, so
+     *                                   callers can tell a network blip from
+     *                                   an expired session
+     */
+    public function isSessionAlive(CookieJar $cookieJar): bool
+    {
+        $dashboardUrl = PortalEndpointRegistry::url('dashboard');
+
+        try {
+            $html = (string) $this->client->get($dashboardUrl, [
+                RequestOptions::COOKIES => $cookieJar,
+                RequestOptions::TIMEOUT => 10,
+            ])->getBody();
+        } catch (GuzzleException $e) {
+            throw PortalConnectionException::networkError($dashboardUrl, $e->getMessage());
+        }
+
+        return ! $this->isSessionExpired($html)
+            && ! PortalScrapingService::isLoginPage($html)
+            && $this->hasAuthenticatedPortalMarker($html);
+    }
+
+    /**
+     * Best-effort logout from both the mahasiswa portal and SIPANDAI
+     */
+    public function logout(CookieJar $cookieJar): void
+    {
+        foreach (['student_logout', 'sipandai_logout'] as $endpoint) {
+            try {
+                $this->client->request(PortalEndpointRegistry::method($endpoint), PortalEndpointRegistry::url($endpoint), [
+                    RequestOptions::COOKIES => $cookieJar,
+                    RequestOptions::TIMEOUT => 10,
+                ]);
+            } catch (\Throwable $e) {
+                Log::warning('campus_auth.logout_endpoint_failed', [
+                    'domain' => 'campus_auth',
+                    'endpoint' => $endpoint,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
     }
 
     private function hasAuthenticatedPortalMarker(string $html): bool
@@ -499,38 +551,6 @@ class PortalAuthService
         }
 
         return $userInfo;
-    }
-
-    /**
-     * Get current cookie jar for session persistence
-     */
-    public function getCookieJar(): ?CookieJar
-    {
-        return $this->cookieJar;
-    }
-
-    /**
-     * Set cookie jar for existing session
-     */
-    public function setCookieJar(CookieJar $cookieJar): void
-    {
-        $this->cookieJar = $cookieJar;
-    }
-
-    /**
-     * Get login form analysis data
-     */
-    public function getLoginFormData(): array
-    {
-        return $this->loginFormData;
-    }
-
-    /**
-     * Get the HTTP client instance
-     */
-    public function getClient(): Client
-    {
-        return $this->client;
     }
 
     private function fingerprint(string $value): string

@@ -20,38 +20,24 @@ class ClassesExtractor extends PortalScrapingService
             $this->setSession($sessionToken);
             $this->logScraping('Extracting student classes data', ['session_token' => $sessionToken]);
 
-            // Try to get cached data first
-            $cacheKey = 'student_classes_'.md5($sessionToken);
-            $cachedData = $this->getCachedResponse($cacheKey);
+            return $this->rememberResource('lms_classes', [], function (): array {
+                $html = $this->get(PortalEndpointRegistry::url('sipandai_dashboard'));
+                $crawler = $this->createCrawler($html);
 
-            if ($cachedData) {
-                $this->logScraping('Using cached classes data');
+                $classesData = [
+                    'student_info' => $this->extractStudentInfo($crawler),
+                    'classes' => $this->extractClassesList($crawler),
+                    'semester_info' => $this->extractSemesterInfo($crawler),
+                    'academic_summary' => $this->extractAcademicSummary($crawler),
+                    'extracted_at' => now()->toISOString(),
+                ];
 
-                return $this->withSyncMeta(json_decode($cachedData, true), 'server_cache');
-            }
+                $this->logScraping('Classes data extracted successfully', [
+                    'classes_count' => count($classesData['classes']),
+                ]);
 
-            // Get classes HTML from SIPANDAI
-            $classesUrl = PortalEndpointRegistry::url('sipandai_dashboard');
-            $html = $this->get($classesUrl);
-            $crawler = $this->createCrawler($html);
-
-            // Extract classes data
-            $classesData = [
-                'student_info' => $this->extractStudentInfo($crawler),
-                'classes' => $this->extractClassesList($crawler),
-                'semester_info' => $this->extractSemesterInfo($crawler),
-                'academic_summary' => $this->extractAcademicSummary($crawler),
-                'extracted_at' => now()->toISOString(),
-            ];
-
-            // Cache the extracted data
-            $this->cacheResponse($cacheKey, json_encode($classesData));
-
-            $this->logScraping('Classes data extracted successfully', [
-                'classes_count' => count($classesData['classes']),
-            ]);
-
-            return $this->withSyncMeta($classesData, 'upstream');
+                return $classesData;
+            });
 
         } catch (PortalScrapingException $e) {
             throw $e;
@@ -80,48 +66,36 @@ class ClassesExtractor extends PortalScrapingService
                 'dosen_id' => $params['dosen_id'] ?? null,
                 'course_id' => $params['course_id'] ?? null,
             ], static fn ($value) => $value !== null && $value !== '');
-            $cacheKey = 'parsed_class_detail_'.md5($sessionToken.json_encode($detailParams));
 
-            $cachedDetail = $this->shouldForceFresh($params) ? null : cache()->get($cacheKey);
+            return $this->rememberResource('class_detail', $detailParams, function () use ($detailParams): array {
+                $fullUrl = PortalEndpointRegistry::url('course_materials', $detailParams);
+                $html = $this->get($fullUrl);
+                $crawler = $this->createCrawler($html);
 
-            if (is_array($cachedDetail)) {
-                $this->logScraping('Using cached parsed class detail', [
-                    'params' => $detailParams,
+                // Extract class detail - this could be various types of content
+                $classDetail = [
+                    'request_url' => $fullUrl,
+                    'content_type' => $this->detectContentType($html),
+                    'course_info' => $this->extractCourseInfo($crawler),
+                    'lecturer_info' => $this->extractLecturerInfo($crawler),
+                    'attendance_info' => $this->extractAttendanceInfo($crawler),
+                    'assignment_history' => $this->extractAssignmentHistory($crawler),
+                    'course_materials' => $this->extractCourseMaterials($crawler),
+                    'file_info' => $this->extractFileInfo($html),
+                    'students_list' => $this->extractStudentsList($crawler),
+                    'extracted_at' => now()->toISOString(),
+                ];
+
+                $this->logScraping('Class detail extracted successfully', [
+                    'course_name' => $classDetail['course_info']['name'] ?? 'Unknown',
+                    'content_type' => $classDetail['content_type'],
                 ]);
 
-                return $this->withSyncMeta($cachedDetail, 'server_cache');
-            }
-
-            $fullUrl = PortalEndpointRegistry::url('course_materials', $detailParams);
-
-            // Get class detail HTML
-            $html = $this->get($fullUrl);
-            $crawler = $this->createCrawler($html);
-
-            // Extract class detail - this could be various types of content
-            $classDetail = [
-                'request_url' => $fullUrl,
-                'content_type' => $this->detectContentType($html),
-                'course_info' => $this->extractCourseInfo($crawler),
-                'lecturer_info' => $this->extractLecturerInfo($crawler),
-                'attendance_info' => $this->extractAttendanceInfo($crawler),
-                'assignment_history' => $this->extractAssignmentHistory($crawler),
-                'course_materials' => $this->extractCourseMaterials($crawler),
-                'file_info' => $this->extractFileInfo($html),
-                'students_list' => $this->extractStudentsList($crawler),
-                'extracted_at' => now()->toISOString(),
-            ];
-
-            $this->logScraping('Class detail extracted successfully', [
-                'course_name' => $classDetail['course_info']['name'] ?? 'Unknown',
-                'content_type' => $classDetail['content_type'],
-            ]);
-
-            if (! in_array($classDetail['content_type'], ['error_page', 'login_page'], true)) {
-                cache()->put($cacheKey, $classDetail, now()->addHours(2));
-            }
-
-            return $this->withSyncMeta($classDetail, 'upstream');
+                return $classDetail;
+            },
+                static fn (array $classDetail): bool => ! in_array($classDetail['content_type'] ?? null, ['error_page', 'login_page'], true),
+                ($params['fresh'] ?? false) === true
+            );
 
         } catch (PortalScrapingException $e) {
             throw $e;
@@ -139,57 +113,45 @@ class ClassesExtractor extends PortalScrapingService
         try {
             $this->setSession($sessionToken);
             $this->logScraping('Extracting meeting detail', ['session_token' => $sessionToken, 'params' => $params]);
-            $forceFresh = $this->shouldForceFresh($params);
-            $cacheKey = 'parsed_meeting_detail_'.md5($sessionToken.json_encode([
-                'meeting_id' => $params['meeting_id'] ?? null,
-                'courses_id' => $params['courses_id'] ?? null,
-            ]));
+            $isLoginPage = false;
 
-            $cachedDetail = $forceFresh ? null : cache()->get($cacheKey);
+            return $this->rememberResource('meeting_detail', self::meetingResourceParams($params), function () use ($params, &$isLoginPage): array {
+                $fullUrl = PortalEndpointRegistry::url('discussion', array_filter([
+                    'id' => $params['meeting_id'] ?? null,
+                    'courses_id' => $params['courses_id'] ?? null,
+                ], static fn ($value) => $value !== null && $value !== ''));
 
-            if (is_array($cachedDetail)) {
-                $this->logScraping('Using cached parsed meeting detail', [
-                    'params' => $params,
+                $html = $this->get($fullUrl);
+                $crawler = $this->createCrawler($html);
+                $isLoginPage = $this->detectContentType($html) === 'login_page';
+
+                $meetingDetail = [
+                    'request_url' => $fullUrl,
+                    'content_type' => 'meeting_detail',
+                    'meeting_info' => $this->extractMeetingInfo($crawler),
+                    'lecturer_info' => $this->extractMeetingLecturerInfo($crawler),
+                    'schedule_info' => $this->extractMeetingScheduleInfo($crawler),
+                    'rps_info' => $this->extractRpsInfo($crawler),
+                    'attendance_info' => $this->extractMeetingAttendanceInfo($crawler),
+                    'assignment_info' => $this->extractMeetingAssignmentInfo($crawler),
+                    'conformity_info' => $this->extractConformityInfo($crawler),
+                    'materials' => $this->extractMeetingMaterials($crawler),
+                    'instructions' => $this->extractMeetingInstructions($crawler),
+                    'extracted_at' => now()->toISOString(),
+                ];
+
+                $this->logScraping('Meeting detail extracted successfully', [
+                    'meeting_id' => $params['meeting_id'],
+                    'course_id' => $params['courses_id'],
                 ]);
 
-                return $this->withSyncMeta($cachedDetail, 'server_cache');
-            }
-
-            $fullUrl = PortalEndpointRegistry::url('discussion', array_filter([
-                'id' => $params['meeting_id'] ?? null,
-                'courses_id' => $params['courses_id'] ?? null,
-            ], static fn ($value) => $value !== null && $value !== ''));
-
-            // Get meeting detail HTML
-            $html = $this->get($fullUrl);
-            $crawler = $this->createCrawler($html);
-
-            // Extract meeting detail
-            $meetingDetail = [
-                'request_url' => $fullUrl,
-                'content_type' => 'meeting_detail',
-                'meeting_info' => $this->extractMeetingInfo($crawler),
-                'lecturer_info' => $this->extractMeetingLecturerInfo($crawler),
-                'schedule_info' => $this->extractMeetingScheduleInfo($crawler),
-                'rps_info' => $this->extractRpsInfo($crawler),
-                'attendance_info' => $this->extractMeetingAttendanceInfo($crawler),
-                'assignment_info' => $this->extractMeetingAssignmentInfo($crawler),
-                'conformity_info' => $this->extractConformityInfo($crawler),
-                'materials' => $this->extractMeetingMaterials($crawler),
-                'instructions' => $this->extractMeetingInstructions($crawler),
-                'extracted_at' => now()->toISOString(),
-            ];
-
-            $this->logScraping('Meeting detail extracted successfully', [
-                'meeting_id' => $params['meeting_id'],
-                'course_id' => $params['courses_id'],
-            ]);
-
-            if ($this->detectContentType($html) !== 'login_page') {
-                cache()->put($cacheKey, $meetingDetail, now()->addHours(24));
-            }
-
-            return $this->withSyncMeta($meetingDetail, 'upstream');
+                return $meetingDetail;
+            },
+                static function () use (&$isLoginPage): bool {
+                    return ! $isLoginPage;
+                },
+                ($params['fresh'] ?? false) === true
+            );
 
         } catch (PortalScrapingException $e) {
             throw $e;
@@ -199,21 +161,16 @@ class ClassesExtractor extends PortalScrapingService
         }
     }
 
-    public function invalidateMeetingDetailCache(string $sessionToken, string $meetingId, string $coursesId): void
+    /**
+     * @param  array<string, mixed>  $params
+     * @return array{meeting_id: mixed, courses_id: mixed}
+     */
+    private static function meetingResourceParams(array $params): array
     {
-        $cacheKey = 'parsed_meeting_detail_'.md5($sessionToken.json_encode([
-            'meeting_id' => $meetingId,
-            'courses_id' => $coursesId,
-        ]));
-
-        cache()->forget($cacheKey);
-        $this->forgetCachedResponse(
-            PortalEndpointRegistry::url('discussion', [
-                'id' => $meetingId,
-                'courses_id' => $coursesId,
-            ]),
-            sessionToken: $sessionToken
-        );
+        return [
+            'meeting_id' => $params['meeting_id'] ?? null,
+            'courses_id' => $params['courses_id'] ?? null,
+        ];
     }
 
     /**

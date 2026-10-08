@@ -232,6 +232,8 @@ class PortalPasswordService extends PortalScrapingService
             $options[RequestOptions::FORM_PARAMS] = $payload;
         }
 
+        $this->forgetMemoizedPages();
+
         return $this->client->request($method, $url, $options);
     }
 

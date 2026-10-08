@@ -7,8 +7,7 @@ namespace Tests\Unit;
 use App\Events\PortalNotificationSent;
 use App\Jobs\ScanPortalNotificationsJob;
 use App\Services\AttendanceShortcutService;
-use App\Services\PortalBroadcastService;
-use App\Services\SipandaiSubmissionService;
+use App\Services\PortalDatasetRepository;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Event;
@@ -31,9 +30,9 @@ class ScanPortalNotificationsJobTest extends TestCase
         Event::fake([PortalNotificationSent::class]);
 
         $this->instance(
-            AttendanceShortcutService::class,
-            Mockery::mock(AttendanceShortcutService::class, function (MockInterface $mock): void {
-                $mock->shouldReceive('getPendingAssignmentsSnapshot')->once()->andReturn([
+            PortalDatasetRepository::class,
+            Mockery::mock(PortalDatasetRepository::class, function (MockInterface $mock): void {
+                $mock->shouldReceive('ensureFresh')->once()->with('campus-token', 'assignments')->andReturn([
                     'assignments' => [
                         [
                             'title' => 'Tugas Algoritma',
@@ -41,25 +40,22 @@ class ScanPortalNotificationsJobTest extends TestCase
                         ],
                     ],
                 ]);
+                $mock->shouldReceive('ensureFresh')->once()->with('campus-token', 'exams')->andReturn([
+                    'exams' => [],
+                ]);
+            })
+        );
+
+        $this->instance(
+            AttendanceShortcutService::class,
+            Mockery::mock(AttendanceShortcutService::class, function (MockInterface $mock): void {
                 $mock->shouldReceive('getTodayShortcuts')->once()->andReturn([
                     'classes' => [],
                 ]);
             })
         );
 
-        $this->instance(
-            SipandaiSubmissionService::class,
-            Mockery::mock(SipandaiSubmissionService::class, function (MockInterface $mock): void {
-                $mock->shouldReceive('getExamList')->once()->andReturn([]);
-            })
-        );
-
-        $job = new ScanPortalNotificationsJob('laravel-session', 'campus-token');
-        $job->handle(
-            app(AttendanceShortcutService::class),
-            app(PortalBroadcastService::class),
-            app(SipandaiSubmissionService::class)
-        );
+        app()->call([new ScanPortalNotificationsJob('laravel-session', 'campus-token'), 'handle']);
 
         Event::assertDispatched(PortalNotificationSent::class, function (PortalNotificationSent $event): bool {
             $payload = $event->broadcastWith();

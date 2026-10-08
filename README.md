@@ -4,7 +4,8 @@ Portal modern berbasis Laravel 12 yang bertugas menjadi _wrapper_ untuk aplikasi
 
 ## Gambaran Singkat
 MyCIC memadukan tiga lapisan utama:
-- **Autentikasi & Session** – `App\Services\PortalAuthService` menganalisis form login kampus dan mengeksekusi proses login, sedangkan `App\Services\PortalSessionManager` menyimpan cookie terenkripsi di cache database, memperbarui sesi via job `RefreshPortalSessionJob`, dan otomatis relogin jika sesi drop.
+- **Autentikasi & Session** – `App\Services\PortalAuthService` (stateless) menganalisis form login kampus dan mengeksekusi login, sedangkan `App\Services\PortalSessionManager` menyimpan cookie di cache, memvalidasi sesi secara lokal (idle timeout), dan menjaga sesi upstream lewat keep-alive `RefreshPortalSessionJob` (unik per sesi; relogin otomatis bila diaktifkan).
+- **Data (snapshot-first)** – `App\Services\PortalDatasetRepository` menyajikan setiap endpoint dari snapshot milik mahasiswa: snapshot basi tetap dikirim sambil satu `RefreshPortalDataJob` menyinkronkan ulang, snapshot kosong dibangun sekali. Cara membangun tiap dataset ada di `PortalDatasetBuilder`; halaman upstream hasil parse disimpan di `PortalDataCache`.
 - **Scraping & Transformasi** – `App\Services\PortalScrapingService` menjadi fondasi untuk extractor khusus (`ProfileExtractor`, `ClassesExtractor`, `DashboardExtractor`, `SipandaiClassesExtractor`, `StudentCourseExtractor`) yang mengubah HTML menjadi struktur data yang bersih.
 - **API & UI** – `App\Http\Controllers\API` mengekspos REST API berformat standar (`status`, `message`, `data`, `meta`), sementara route web + komponen Blade + Tailwind v4 menghadirkan dashboard modern yang memakai `ToastService` dan utilitas JS di `resources/js/app.js`.
 
@@ -12,16 +13,17 @@ MyCIC memadukan tiga lapisan utama:
 - Login terpusat yang menjaga sesi kampus tetap aktif tanpa blank page.
 - API kampus modern (`/api/*`) lengkap dengan validasi `FormRequest` dan response envelope konsisten.
 - Ekstraksi data dashboard, profil, jadwal, kelas, SIPANDAI, serta detail meeting lengkap dengan fallback selector.
-- Sistem cache berlapis (profile, data dinamis, HTML) berbasis database cache store untuk menekan beban scraping.
-- Middleware `portal.session` dan job `RefreshPortalSessionJob` demi pengalaman pengguna yang tidak perlu login ulang.
+- Snapshot per dataset (stale-while-revalidate) + cache resource per mahasiswa dengan TTL di `config/portal.php` dan invalidasi eksplisit setelah aksi (upload/absen/hapus).
+- Middleware `portal.session` (validasi lokal) dan keep-alive `RefreshPortalSessionJob` agar sesi kampus tidak putus selama mahasiswa aktif.
 - UI responsif berbasis Tailwind CSS v4 + Vite dengan komponen toast dan indikator status sesi real time.
 - Paket pendukung seperti Guzzle 7, Symfony DomCrawler 7, Dedoc Scramble (auto API docs), Laravel Pail (live log), dan Laravel Boost toolings.
 
 ## Arsitektur Singkat
 | Lapisan | Lokasi | Fungsi |
 | --- | --- | --- |
-| Autentikasi & Session | `app/Services/PortalAuthService.php`, `app/Services/PortalSessionManager.php`, `app/Jobs/RefreshPortalSessionJob.php` | Login ke portal kampus, menyimpan cookie terenkripsi di cache database, memvalidasi kesehatan sesi, dan menjadwalkan auto refresh. |
-| Scraping Base & Extractor | `app/Services/PortalScrapingService.php`, `app/Services/Extractors/*` | Menyediakan HTTP client dengan retry, validasi HTML, caching dan parser DomCrawler untuk setiap jenis data. |
+| Autentikasi & Session | `app/Services/PortalAuthService.php`, `app/Services/PortalSessionManager.php`, `app/Jobs/RefreshPortalSessionJob.php` | Login ke portal kampus, menyimpan cookie di cache, validasi sesi lokal + idle timeout, dan keep-alive upstream. |
+| Data & Sinkronisasi | `app/Services/PortalDatasetRepository.php`, `app/Services/PortalDatasetBuilder.php`, `app/Services/PortalSnapshotStore.php`, `app/Jobs/RefreshPortalDataJob.php` | Snapshot-first read, sinkronisasi background yang benar-benar fresh, single-flight, dan invalidasi setelah aksi. |
+| Scraping Base & Extractor | `app/Services/PortalScrapingService.php`, `app/Services/PortalDataCache.php`, `app/Services/Extractors/*` | HTTP client dengan retry, memo halaman per request/job, deteksi sesi kedaluwarsa (halaman login), cache resource, dan parser DomCrawler. |
 | API Controller & Validasi | `app/Http/Controllers/API`, `app/Http/Requests/ClassDetailRequest.php` | Menyajikan endpoint dashboard, profil, kelas, detail kelas/meeting, SIPANDAI, serta auth API dengan validasi parameter ketat. |
 | Middleware & Routing | `bootstrap/app.php`, `app/Http/Middleware/PortalSessionMiddleware.php`, `app/Http/Middleware/VerifyCsrfTokenMiddleware.php`, `routes/web.php`, `routes/api.php` | Alias middleware `portal.session`, pengecualian CSRF untuk API, pemisahan web & API routes, dan debug endpoint. |
 | UI & Assets | `resources/views`, `resources/js`, `resources/css`, `vite.config.js` | Template Blade untuk login/dashboard/kelas, JS util untuk toast & session refresh, Tailwind v4 @import, serta bundling Vite. |
@@ -88,7 +90,8 @@ npm run dev               # atau npm run build untuk production assets
 | `CAMPUS_SIPANDAI_ASSIGNMENT_URL`, `CAMPUS_SIPANDAI_ATTENDANCE_URL` | Base URL aksi SIPANDAI untuk upload tugas dan validasi kehadiran; tambahkan parameter dinamis (`courses_id`, `id`, `pertemuan`, `course_id`) saat runtime. |
 | `CAMPUS_REQUEST_TIMEOUT`, `CAMPUS_REQUEST_DELAY`, `CAMPUS_SESSION_REFRESH_INTERVAL` | Atur timeout HTTP, jeda antar request (ms), serta interval refresh sesi (detik). |
 | `CAMPUS_SESSION_PREFIX`, `CAMPUS_AUTO_RELOGIN` | Prefix cache sesi dan flag relogin otomatis menggunakan kredensial terenkripsi. |
-| `CAMPUS_CACHE_PROFILE_TTL`, `CAMPUS_CACHE_DYNAMIC_TTL`, `CAMPUS_CACHE_HTML_TTL`, `CAMPUS_CACHE_FAILED_TTL` | Menentukan TTL cache untuk profil, data dinamis, HTML mentah, dan request gagal. |
+| `CAMPUS_SESSION_IDLE_TIMEOUT` | Detik tanpa aktivitas sebelum sesi kampus diakhiri dan keep-alive berhenti (default 7200). |
+| `CAMPUS_CACHE_PROFILE_TTL`, `CAMPUS_CACHE_DYNAMIC_TTL`, `CAMPUS_CACHE_HTML_TTL` | TTL cache resource untuk profil, keuangan, dan halaman daftar kelas/jadwal. |
 
 ## Daftar Endpoint Saat Ini
 
@@ -146,7 +149,7 @@ Daftar di atas mencakup seluruh route dari `routes/web.php` dan `routes/api.php`
 ## Checklist Agar Aplikasi Tetap Bagus
 ### 1. Manajemen Session & Security
 - Selalu gunakan `PortalSessionManager` untuk membuat, menyegarkan, dan memvalidasi sesi; jangan menyimpan cookie mentah.
-- Pastikan queue worker untuk `campus-sessions` aktif agar job `RefreshPortalSessionJob` berjalan sebelum `expires_at`.
+- Pastikan queue worker untuk `campus-sessions` dan `campus-refresh` aktif: keep-alive sesi dan sinkronisasi snapshot berjalan di sana.
 - Simpan kredensial kampus menggunakan enkripsi bawaan Laravel (`encrypt()`), tidak pernah hardcode di kode atau config.
 - Aktifkan `auto_relogin` hanya di lingkungan aman dan audit log (`storage/logs/laravel.log`) untuk setiap relogin.
 - Terapkan rate limiting di layer API Gateway / middleware tambahan saat menuju produksi.
@@ -154,7 +157,7 @@ Daftar di atas mencakup seluruh route dari `routes/web.php` dan `routes/api.php`
 ### 2. Scraping & Transformasi Data
 - Gunakan `PortalScrapingService` agar setiap request mendapat retry, delay, dan validasi blank page otomatis.
 - Tambahkan fallback selector pada extractor ketika struktur HTML bisa berubah (bandingkan `extractClassesList`, `extractCourseMaterials`, dsb).
-- Selalu periksa cache sebelum melakukan scraping berat (`cacheResponse`, `getCachedResponse`) agar tidak menekan server kampus.
+- Bungkus hasil parse halaman dengan `rememberResource()` dan sajikan data endpoint lewat `PortalDatasetRepository::read()`; setelah aksi yang mengubah portal, panggil `PortalDatasetRepository::invalidate()`.
 - Log setiap kegagalan scraping lewat `logScrapingError` untuk memudahkan debugging.
 
 ### 3. API & Pengalaman Pengguna
@@ -164,7 +167,7 @@ Daftar di atas mencakup seluruh route dari `routes/web.php` dan `routes/api.php`
 - Komunikasikan status sesi di UI dengan `ToastService::sessionExpired()` dan polling `/api/check-session`.
 
 ### 4. Performa & Observabilitas
-- Gunakan `CACHE_STORE=database` atau Redis untuk menyimpan cache HTML/data dengan TTL berbeda (profil 1 jam, data dinamis 15 menit, HTML 5 menit, kegagalan 1 menit).
+- TTL cache resource ada di `portal.cache.resources`, jendela segar snapshot di `portal.datasets.*.fresh_for`; gunakan `CACHE_STORE=database` atau Redis.
 - Simpan log penting melalui `Log::info/warning/error` (lihat `PortalAuthService`, `PortalSessionManager`) agar mudah dianalisis via Laravel Pail.
 - Jalankan `php artisan schedule:work` atau cron untuk job berkala (mis. warm-up cache) apabila ditambahkan.
 - Aktifkan `CAMPUS_REQUEST_DELAY` minimal 1000 ms untuk menghormati server kampus (rate limiting).

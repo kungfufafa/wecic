@@ -6,8 +6,7 @@ namespace App\Jobs;
 
 use App\Services\AttendanceShortcutService;
 use App\Services\PortalBroadcastService;
-use App\Services\PortalSnapshotStore;
-use App\Services\SipandaiSubmissionService;
+use App\Services\PortalDatasetRepository;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -28,12 +27,10 @@ class ScanPortalNotificationsJob implements ShouldQueue
     }
 
     public function handle(
+        PortalDatasetRepository $datasets,
         AttendanceShortcutService $attendanceShortcutService,
-        PortalBroadcastService $broadcast,
-        SipandaiSubmissionService $submissionService,
-        ?PortalSnapshotStore $snapshotStore = null
+        PortalBroadcastService $broadcast
     ): void {
-        $snapshotStore ??= app(PortalSnapshotStore::class);
         $lock = Cache::lock(
             'portal_notification_scan_'.$this->campusSessionToken,
             (int) config('portal.realtime.notifications.scan_lock_ttl', 300)
@@ -44,8 +41,7 @@ class ScanPortalNotificationsJob implements ShouldQueue
         }
 
         try {
-            $pending = $attendanceShortcutService->getPendingAssignmentsSnapshot($this->campusSessionToken);
-            $snapshotStore->put($this->campusSessionToken, 'assignments', $pending);
+            $pending = $datasets->ensureFresh($this->campusSessionToken, 'assignments');
             $shortcuts = $attendanceShortcutService->getTodayShortcuts($this->campusSessionToken);
 
             foreach (($pending['assignments'] ?? []) as $assignment) {
@@ -87,7 +83,7 @@ class ScanPortalNotificationsJob implements ShouldQueue
             }
 
             try {
-                $exams = $submissionService->getExamList($this->campusSessionToken);
+                $exams = $datasets->ensureFresh($this->campusSessionToken, 'exams')['exams'] ?? [];
 
                 foreach ($exams as $exam) {
                     $status = strtolower((string) ($exam['status'] ?? ''));
