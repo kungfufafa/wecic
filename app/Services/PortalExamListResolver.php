@@ -43,15 +43,30 @@ class PortalExamListResolver
             ]);
 
             return [
-                'exams' => $fallbackExams,
+                'exams' => $this->withUploadAvailability($fallbackExams),
                 'source' => 'class_schedule_fallback',
             ];
         }
 
         return [
-            'exams' => $this->resolveExamListFromClasses($sessionToken, $exams),
+            'exams' => $this->withUploadAvailability($this->resolveExamListFromClasses($sessionToken, $exams)),
             'source' => 'exam_page',
         ];
+    }
+
+    /**
+     * Only a link the portal put on the exam row itself opens an upload form;
+     * ids borrowed from the class list are guesses (a course id, not an exam id).
+     *
+     * @param  list<array<string, mixed>>  $exams
+     * @return list<array<string, mixed>>
+     */
+    private function withUploadAvailability(array $exams): array
+    {
+        return array_map(static fn (array $exam): array => [
+            ...$exam,
+            'can_upload' => $exam['can_upload'] ?? (($exam['upload_url'] ?? null) !== null),
+        ], $exams);
     }
 
     /**
@@ -123,7 +138,8 @@ class PortalExamListResolver
                 'course_name' => $courseName,
                 'schedule' => $this->formatClassSchedule($class['schedule'] ?? []),
                 'status' => 'Terjadwal',
-                'upload_url' => PortalEndpointRegistry::url('exam_upload_form', ['id' => $courseId]),
+                'upload_url' => null,
+                'can_upload' => false,
                 'source' => 'class_schedule',
                 'class_reference' => [
                     'id' => $class['join_link']['params']['id'] ?? null,
@@ -191,7 +207,7 @@ class PortalExamListResolver
                 return [
                     ...$exam,
                     'id' => $classExamMap[$key]['id'],
-                    'upload_url' => $exam['upload_url'] ?? $classExamMap[$key]['upload_url'],
+                    'can_upload' => false,
                     'source' => $exam['source'] ?? 'exam_list_with_class_id',
                     'class_reference' => $classExamMap[$key]['class_reference'] ?? null,
                 ];

@@ -464,6 +464,12 @@ class PortalActionController extends CampusApiController
             }
 
             $examDetail = $this->submissionService->getExamDetail($sessionToken, $request->examId());
+
+            // The id of a row the portal gave no upload link for is a guess.
+            if (($course['can_upload'] ?? true) === false) {
+                $examDetail['form']['available'] = false;
+            }
+
             $examDetail['course'] = $course === null ? null : [
                 'code' => $course['course_code'] ?? null,
                 'name' => $course['course_name'] ?? null,

@@ -708,7 +708,9 @@ class PortalActionControllerTest extends TestCase
             ->assertJsonPath('data.exams.0.course_code', 'UC01024011')
             ->assertJsonPath('data.exams.0.course_name', 'Bahasa Indonesia')
             ->assertJsonPath('data.exams.0.schedule', 'Senin 09:30 - 11:00')
-            ->assertJsonPath('data.exams.0.source', 'class_schedule');
+            ->assertJsonPath('data.exams.0.source', 'class_schedule')
+            ->assertJsonPath('data.exams.0.upload_url', null)
+            ->assertJsonPath('data.exams.0.can_upload', false);
     }
 
     public function test_list_exams_fills_missing_exam_ids_from_sipandai_classes(): void
@@ -797,6 +799,37 @@ class PortalActionControllerTest extends TestCase
             ]);
     }
 
+    public function test_exam_detail_keeps_upload_closed_for_an_exam_id_guessed_from_the_class_list(): void
+    {
+        $this->mockValidCampusSession('token-exam-detail');
+        $this->instance(
+            SipandaiSubmissionService::class,
+            Mockery::mock(SipandaiSubmissionService::class, function (MockInterface $mock): void {
+                $mock->shouldReceive('getExamDetail')
+                    ->once()
+                    ->with('token-exam-detail', 8810)
+                    ->andReturn([
+                        'exam_id' => 8810,
+                        'status' => 'not_uploaded',
+                        'form' => [
+                            'file_field' => 'file',
+                            'available' => true,
+                        ],
+                    ]);
+            })
+        );
+        $this->mockExamListSnapshot('token-exam-detail', [
+            'source' => 'class_schedule',
+            'upload_url' => null,
+            'can_upload' => false,
+        ]);
+
+        $this->withSession(['campus_session_token' => 'token-exam-detail'])
+            ->getJson('/api/exam/8810')
+            ->assertOk()
+            ->assertJsonPath('data.exam_detail.form.available', false);
+    }
+
     public function test_exam_detail_is_not_found_for_an_id_outside_the_exam_list(): void
     {
         $this->mockValidCampusSession('token-exam-detail');
@@ -829,16 +862,26 @@ class PortalActionControllerTest extends TestCase
             ->assertJsonPath('errors.attachment.0', 'File tugas harus berformat PDF.');
     }
 
-    private function mockExamListSnapshot(string $token): void
+    /**
+     * @param  array<string, mixed>  $examOverrides
+     */
+    private function mockExamListSnapshot(string $token, array $examOverrides = []): void
     {
         $this->instance(
             PortalDatasetRepository::class,
-            Mockery::mock(PortalDatasetRepository::class, function (MockInterface $mock) use ($token): void {
+            Mockery::mock(PortalDatasetRepository::class, function (MockInterface $mock) use ($token, $examOverrides): void {
                 $mock->shouldReceive('read')
                     ->withArgs(fn (string $sessionToken, string $dataset): bool => $sessionToken === $token && $dataset === 'exams')
                     ->andReturn([
                         'data' => ['exams' => [
-                            ['id' => 8810, 'course_code' => 'IF101', 'course_name' => 'Algoritma', 'schedule' => 'Senin 09:30', 'status' => 'Terjadwal'],
+                            [
+                                'id' => 8810,
+                                'course_code' => 'IF101',
+                                'course_name' => 'Algoritma',
+                                'schedule' => 'Senin 09:30',
+                                'status' => 'Terjadwal',
+                                ...$examOverrides,
+                            ],
                         ]],
                         'meta' => [],
                     ]);

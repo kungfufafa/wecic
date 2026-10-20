@@ -137,6 +137,73 @@ class PortalAuthControllerTest extends TestCase
             ->assertJsonPath('success', true);
     }
 
+    public function test_password_page_json_payload_changes_password(): void
+    {
+        $sessionManager = Mockery::mock(PortalSessionManager::class);
+        $sessionManager->shouldReceive('validateSession')
+            ->once()
+            ->with('campus-token-123')
+            ->andReturnTrue();
+        $sessionManager->shouldReceive('forgetStoredCredentials')
+            ->once()
+            ->with('campus-token-123');
+
+        $passwordService = Mockery::mock(PortalPasswordService::class);
+        $passwordService->shouldReceive('changePassword')
+            ->once()
+            ->with('campus-token-123', 'old-secret', 'new-secret', 'new-secret')
+            ->andReturn([
+                'success' => true,
+                'message' => 'Password changed successfully.',
+                'data' => [],
+            ]);
+
+        $this->instance(PortalSessionManager::class, $sessionManager);
+        $this->instance(PortalPasswordService::class, $passwordService);
+
+        $response = $this->withSession([
+            '_token' => 'known-csrf-token',
+            'campus_session_token' => 'campus-token-123',
+        ])->postJson('/api/auth/password', [
+            'current_password' => 'old-secret',
+            'new_password' => 'new-secret',
+            'new_password_confirmation' => 'new-secret',
+        ], ['X-CSRF-TOKEN' => 'known-csrf-token']);
+
+        $response->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('message', 'Password changed successfully.');
+    }
+
+    public function test_password_change_reports_errors_per_field(): void
+    {
+        $sessionManager = Mockery::mock(PortalSessionManager::class);
+        $sessionManager->shouldReceive('validateSession')
+            ->with('campus-token-123')
+            ->andReturnTrue();
+        $sessionManager->shouldNotReceive('forgetStoredCredentials');
+
+        $passwordService = Mockery::mock(PortalPasswordService::class);
+        $passwordService->shouldNotReceive('changePassword');
+
+        $this->instance(PortalSessionManager::class, $sessionManager);
+        $this->instance(PortalPasswordService::class, $passwordService);
+
+        $response = $this->withSession([
+            '_token' => 'known-csrf-token',
+            'campus_session_token' => 'campus-token-123',
+        ])->postJson('/api/auth/password', [
+            'current_password' => '',
+            'new_password' => 'short',
+            'new_password_confirmation' => 'different',
+        ], ['X-CSRF-TOKEN' => 'known-csrf-token']);
+
+        $response->assertUnprocessable()
+            ->assertJsonPath('errors.current_password.0', 'Password lama wajib diisi.')
+            ->assertJsonPath('errors.new_password.0', 'Password baru minimal 6 karakter.')
+            ->assertJsonMissingPath('errors.new_password_confirmation');
+    }
+
     public function test_refresh_session_does_not_return_raw_session_token(): void
     {
         Event::fake([PortalSessionNoticeSent::class, PortalNotificationSent::class]);

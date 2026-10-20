@@ -217,6 +217,10 @@ html[data-theme='dark'] {
         @apply text-xs leading-relaxed text-ink-subtle;
     }
 
+    .mycic-field-error {
+        @apply text-xs font-medium leading-relaxed text-danger;
+    }
+
     .mycic-form {
         @apply flex flex-col gap-5;
     }
@@ -283,6 +287,10 @@ html[data-theme='dark'] {
 
     .mycic-input {
         @apply min-h-11 w-full rounded-[var(--radius-control)] border border-border bg-panel px-3.5 text-sm text-ink transition-all duration-150 placeholder:text-ink-subtle/80 focus:border-brand focus:outline-none focus:ring-4 focus:ring-brand/15;
+    }
+
+    .mycic-input[aria-invalid='true'] {
+        @apply border-danger focus:border-danger focus:ring-danger/15;
     }
 
     .mycic-input[type='file'] {
@@ -604,8 +612,14 @@ html[data-theme='dark'] {
     }
 
     .mycic-sticky-action {
-        @apply fixed inset-x-0 bottom-0 z-30 border-t border-border bg-panel p-4 md:static md:border-0 md:bg-transparent md:p-0;
-        padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+        @apply fixed inset-x-3 z-30 rounded-2xl border border-border bg-panel/95 p-2 backdrop-blur-md md:static md:rounded-none md:border-0 md:bg-transparent md:p-0 md:backdrop-blur-none;
+        bottom: calc(6.5rem + env(safe-area-inset-bottom, 0px));
+    }
+
+    @media (max-width: 767.98px) {
+        .mycic-page:has(.mycic-sticky-action) {
+            padding-bottom: calc(12rem + env(safe-area-inset-bottom, 0px));
+        }
     }
 
     .mycic-list-row {

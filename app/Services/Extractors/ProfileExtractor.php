@@ -8,6 +8,7 @@ use App\Exceptions\PortalScrapingException;
 use App\Services\PortalEndpointRegistry;
 use App\Services\PortalScrapingService;
 use App\Services\PortalUrlGuard;
+use Illuminate\Support\Facades\Log;
 use Symfony\Component\DomCrawler\Crawler;
 
 class ProfileExtractor extends PortalScrapingService

@@ -566,7 +566,7 @@ class SipandaiSubmissionServiceTest extends TestCase
         $this->assertSame(PortalEndpointRegistry::url('exam_submit'), $detail['form']['post_url']);
     }
 
-    public function test_extract_exam_detail_keeps_direct_upload_available_when_submission_already_exists_without_form(): void
+    public function test_extract_exam_detail_marks_upload_unavailable_when_submission_already_exists_without_form(): void
     {
         $service = new SipandaiSubmissionService($this->createMock(PortalSessionManager::class));
 
@@ -590,7 +590,7 @@ class SipandaiSubmissionServiceTest extends TestCase
         ]);
 
         $this->assertSame('uploaded', $detail['status']);
-        $this->assertTrue($detail['form']['available']);
+        $this->assertFalse($detail['form']['available']);
         $this->assertTrue($detail['form']['available_via_direct_submit']);
         $this->assertSame(PortalEndpointRegistry::url('exam_submit'), $detail['form']['post_url']);
         $this->assertSame('9184', $detail['form']['fields']['data[id]']);
@@ -840,7 +840,7 @@ class SipandaiSubmissionServiceTest extends TestCase
         $this->assertFalse($formMeta['has_upload_form']);
     }
 
-    public function test_extract_exam_detail_allows_direct_submit_when_upload_form_is_not_rendered(): void
+    public function test_extract_exam_detail_marks_upload_unavailable_when_upload_form_is_not_rendered(): void
     {
         $service = new SipandaiSubmissionService($this->createMock(PortalSessionManager::class));
 
@@ -858,7 +858,7 @@ class SipandaiSubmissionServiceTest extends TestCase
         ]);
 
         $this->assertSame('not_uploaded', $detail['status']);
-        $this->assertTrue($detail['form']['available']);
+        $this->assertFalse($detail['form']['available']);
         $this->assertTrue($detail['form']['available_via_direct_submit']);
         $this->assertSame('file', $detail['form']['file_field']);
         $this->assertSame(PortalEndpointRegistry::url('exam_submit'), $detail['form']['action_url']);

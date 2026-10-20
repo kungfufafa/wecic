@@ -7,6 +7,7 @@ namespace App\Services\Extractors;
 use App\Exceptions\PortalScrapingException;
 use App\Services\PortalEndpointRegistry;
 use App\Services\PortalScrapingService;
+use Illuminate\Support\Facades\Log;
 use Symfony\Component\DomCrawler\Crawler;
 
 class ClassesExtractor extends PortalScrapingService
@@ -1240,9 +1241,9 @@ class ClassesExtractor extends PortalScrapingService
                                     $material['meeting_number'] = (int) $meetingMatches[1];
                                 }
 
-                                // Extract date
-                                if (preg_match('/([A-Z]+, \d+ [A-Z]+ \d+)/', $content, $matches)) {
-                                    $material['date'] = $matches[1];
+                                // Extract date, e.g. "Rabu, 05 November 2025" or "Jum'at, 7 Maret 2025"
+                                if (preg_match('/([\p{L}\'\x{2019}]+),\s*(\d{1,2})\s+(\p{L}+)\s+(\d{4})/iu', $this->richTextToPlain($content), $matches)) {
+                                    $material['date'] = "{$matches[1]}, {$matches[2]} {$matches[3]} {$matches[4]}";
                                 }
 
                                 // Extract time
