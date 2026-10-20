@@ -567,6 +567,106 @@ class AttendanceShortcutServiceTest extends TestCase
         $this->assertFalse($result['classes'][0]['attendance_status']['already_marked']);
     }
 
+    public function test_it_targets_todays_meeting_from_newest_first_materials_in_portal_date_format(): void
+    {
+        $service = new AttendanceShortcutService(
+            Mockery::mock(ClassesExtractor::class, function (MockInterface $mock): void {
+                $mock->shouldReceive('extractClassDetail')
+                    ->once()
+                    ->with('token-303', [
+                        'id' => '2265',
+                        'dosen_id' => '5240',
+                        'course_id' => '8987',
+                    ])
+                    ->andReturn([
+                        'course_materials' => [
+                            [
+                                'title' => 'Materi Pertemuan 5 Pokok Bahasan : ERP',
+                                'date' => 'RABU, 05 NOVEMBER 2025',
+                                'meeting_number' => 5,
+                                'join_link' => [
+                                    'href' => '?mod=sipandai&act=discuss&id=30061&courses_id=8987',
+                                ],
+                            ],
+                            [
+                                'title' => 'Materi Pertemuan 4 Pokok Bahasan : ERP',
+                                'date' => 'Rabu, 22 Oktober 2025',
+                                'meeting_number' => 4,
+                                'join_link' => [
+                                    'href' => '?mod=sipandai&act=discuss&id=29524&courses_id=8987',
+                                ],
+                            ],
+                        ],
+                        'attendance_info' => [
+                            'summary' => [
+                                'held_meetings' => 4,
+                            ],
+                            'meetings' => [],
+                        ],
+                    ]);
+
+                $mock->shouldReceive('extractMeetingDetail')
+                    ->once()
+                    ->with('token-303', [
+                        'meeting_id' => '30061',
+                        'courses_id' => '8987',
+                        'fresh' => true,
+                    ])
+                    ->andReturn([
+                        'attendance_info' => [
+                            'status' => 'Silakan scan QR untuk absensi',
+                            'time' => '',
+                        ],
+                    ]);
+            }),
+            Mockery::mock(SipandaiClassesExtractor::class, function (MockInterface $mock): void {
+                $mock->shouldReceive('extractSipandaiClassesData')
+                    ->once()
+                    ->with('token-303')
+                    ->andReturn([
+                        'classes' => [
+                            [
+                                'schedule' => [
+                                    'day' => 'Rabu',
+                                    'start_time' => '16:00:00',
+                                    'end_time' => '17:30:00',
+                                    'formatted_time' => '16:00 - 17:30',
+                                ],
+                                'course_info' => [
+                                    'code' => 'SI052025',
+                                    'name' => 'Enterprise Resource Planning',
+                                ],
+                                'lecturer_info' => [
+                                    'name' => 'Dosen Uji',
+                                ],
+                                'join_link' => [
+                                    'params' => [
+                                        'id' => '2265',
+                                        'dosen_id' => '5240',
+                                        'course_id' => '8987',
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ]);
+            }),
+        );
+
+        $result = $service->getTodayShortcuts(
+            'token-303',
+            CarbonImmutable::create(2025, 11, 5, 16, 15, 0, 'Asia/Jakarta')
+        );
+
+        $class = $result['classes'][0];
+
+        $this->assertTrue($class['attendance_target_reliable']);
+        $this->assertTrue($class['today_material']['is_today']);
+        $this->assertSame(5, $class['meeting_number']);
+        $this->assertSame(5, $class['today_material']['meeting_number']);
+        $this->assertSame('30061', $class['meeting_id']);
+        $this->assertSame(5, $class['attendance_payload']['pertemuan']);
+    }
+
     public function test_it_uses_app_timezone_when_reference_is_not_provided(): void
     {
         config(['app.timezone' => 'Asia/Jakarta']);

@@ -197,9 +197,7 @@
             };
 
             const renderUploadPanel = (detail, form, isUploadReady) => {
-                const usesDirectSubmit = Boolean(form.available_via_direct_submit);
-                const postUrl = form.post_url || detail.submit_url || form.action_url || '';
-                const uploadTone = isUploadReady ? (usesDirectSubmit ? 'warning' : 'success') : 'secondary';
+                const uploadTone = isUploadReady ? 'success' : 'secondary';
 
                 return `
                 <div class="mycic-card">
@@ -208,7 +206,7 @@
                     </div>
                     <div class="mycic-card-body">
                         <div class="${app.alertTone(uploadTone)} mb-3">
-                            <div class="font-medium">${isUploadReady ? 'Jawaban bisa dikirim dari sini.' : 'Pengumpulan jawaban belum dibuka.'}</div>
+                            <div class="font-medium">${isUploadReady ? 'Jawaban bisa dikirim dari sini.' : 'Portal tidak menampilkan form upload saat ini.'}</div>
                             <div class="text-caption ${app.textToneClass(uploadTone)}">${app.escapeHtml(statusBadge(detail.status)[0])}</div>
                         </div>
                         ${isUploadReady ? `
@@ -270,7 +268,7 @@
             const render = (payload) => {
                 const detail = payload.data?.exam_detail || {};
                 const form = detail.form || {};
-                const isUploadReady = Boolean(form.available || form.post_url || detail.submit_url || form.action_url || detail.exam_id);
+                const isUploadReady = form.available === true;
                 const relatedLinks = detail.related_links || [];
                 const fileLinks = relatedLinks.filter(isDownloadableLink);
                 const portalLinks = relatedLinks.filter((link) => !isDownloadableLink(link) && link?.type !== 'action');
@@ -301,7 +299,7 @@
                     ${app.renderStatCards([
                         { label: 'Status', value: statusLabel, note: 'Dibaca dari halaman ujian di portal.' },
                         { label: 'Soal', value: fileLinks.length || '0', note: fileLinks.length ? 'Soal atau lampiran tersedia.' : 'Belum ada soal yang diunggah dosen.' },
-                        { label: 'Pengumpulan', value: isUploadReady ? 'Dibuka' : 'Belum dibuka', note: isUploadReady ? 'Kirim jawaban dari halaman ini.' : 'Cek lagi mendekati jadwal ujian.' },
+                        { label: 'Pengumpulan', value: isUploadReady ? 'Dibuka' : 'Tertutup', note: isUploadReady ? 'Kirim jawaban dari halaman ini.' : 'Form upload belum dibuka atau sudah ditutup portal.' },
                         { label: 'Jadwal', value: course.schedule || 'Belum ada', note: course.schedule ? 'Sesuai jadwal kelas.' : 'Jadwal ujian belum diumumkan.' },
                     ])}
                 `;

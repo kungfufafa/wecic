@@ -7,6 +7,7 @@ namespace App\Services\Extractors;
 use App\Exceptions\PortalScrapingException;
 use App\Services\PortalEndpointRegistry;
 use App\Services\PortalScrapingService;
+use Illuminate\Support\Facades\Log;
 use Symfony\Component\DomCrawler\Crawler;
 
 class SipandaiClassesExtractor extends PortalScrapingService

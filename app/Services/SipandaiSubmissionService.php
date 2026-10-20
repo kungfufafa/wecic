@@ -1002,7 +1002,7 @@ class SipandaiSubmissionService extends PortalScrapingService
 
         $submitUrl = PortalEndpointRegistry::url('exam_submit');
         $directSubmitFallback = (bool) ($formMeta['direct_submit_fallback'] ?? false);
-        $uploadAvailable = $formMeta['file_field'] !== null && $submitUrl !== '';
+        $uploadAvailable = ! $directSubmitFallback && $formMeta['file_field'] !== null && $submitUrl !== '';
 
         return [
             'exam_id' => $examId,

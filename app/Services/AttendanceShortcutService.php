@@ -654,7 +654,7 @@ class AttendanceShortcutService
                 continue;
             }
 
-            $material['meeting_number'] = $index + 1;
+            $material['meeting_number'] = isset($material['meeting_number']) ? (int) $material['meeting_number'] : ($index + 1);
 
             return $material;
         }
@@ -700,7 +700,7 @@ class AttendanceShortcutService
             return null;
         }
 
-        if (! preg_match('/(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})/u', $value, $matches)) {
+        if (! preg_match('/(\d{1,2})\s+(\p{L}+)\s+(\d{4})/iu', $value, $matches)) {
             return null;
         }
 
@@ -719,7 +719,7 @@ class AttendanceShortcutService
             'desember' => 12,
         ];
 
-        $month = $months[strtolower($matches[2])] ?? null;
+        $month = $months[mb_strtolower($matches[2])] ?? null;
 
         if ($month === null) {
             return null;
