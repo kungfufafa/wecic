@@ -270,9 +270,10 @@ class SipandaiSubmissionService extends PortalScrapingService
      */
     public function downloadCampusFile(string $sessionToken, string $path, ?string $suggestedName = null): array
     {
+        $downloadUrl = PortalUrlGuard::assertCampusFileUrl($path);
+
         $this->setSession($sessionToken);
 
-        $downloadUrl = $this->resolveCampusFileUrl($path);
         $response = $this->client->request('GET', $downloadUrl, [
             RequestOptions::COOKIES => $this->cookieJar,
             RequestOptions::HEADERS => [
@@ -1547,32 +1548,6 @@ class SipandaiSubmissionService extends PortalScrapingService
         return $forms->first();
     }
 
-    private function resolveCampusFileUrl(string $path): string
-    {
-        $rawPath = trim($path);
-
-        if ($rawPath === '') {
-            throw PortalScrapingException::invalidHtmlStructure('empty download path');
-        }
-
-        if (Str::startsWith($rawPath, ['http://', 'https://'])) {
-            return PortalUrlGuard::assertAllowed($rawPath);
-        }
-
-        $normalizedPath = preg_replace('#^(?:\.\./|\.\/)+#', '', str_replace('\\', '/', $rawPath));
-        $normalizedPath = ltrim((string) $normalizedPath, '/');
-
-        if (Str::startsWith($normalizedPath, 'portal/files/')) {
-            return rtrim(config('portal.base_url'), '/').'/'.$normalizedPath;
-        }
-
-        if (Str::startsWith($normalizedPath, 'files/')) {
-            return rtrim(config('portal.base_url'), '/').'/portal/'.$normalizedPath;
-        }
-
-        throw PortalScrapingException::invalidResponse($rawPath, 'Unsupported campus file path');
-    }
-
     /**
      * Build assignment URL with query parameters.
      */
@@ -2257,7 +2232,7 @@ class SipandaiSubmissionService extends PortalScrapingService
             }
         }
 
-        $path = (string) parse_url($downloadUrl, PHP_URL_PATH);
+        $path = rawurldecode((string) parse_url($downloadUrl, PHP_URL_PATH));
 
         return $this->sanitizeDownloadFilename(basename($path)) ?? 'download';
     }

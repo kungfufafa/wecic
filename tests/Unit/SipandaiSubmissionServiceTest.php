@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit;
 
+use App\Exceptions\PortalScrapingException;
 use App\Models\ExamSubmissionRecord;
 use App\Services\PortalEndpointRegistry;
 use App\Services\PortalScrapingService;
@@ -663,6 +664,109 @@ class SipandaiSubmissionServiceTest extends TestCase
         $this->assertTrue($detail['related_links'][0]['downloadable']);
         $this->assertSame('Download soal', $detail['related_links'][0]['text']);
         $this->assertSame('https://my.cic.ac.id/portal/files/soal/9197-UTS-tgs-591.pdf', $detail['related_links'][0]['url']);
+    }
+
+    public function test_download_campus_file_rejects_portal_write_endpoints_before_any_request(): void
+    {
+        config(['portal.base_url' => 'https://my.cic.ac.id']);
+
+        $sessionManager = $this->createMock(PortalSessionManager::class);
+        $sessionManager->expects($this->never())->method('getSessionCookieJar');
+
+        $service = new SipandaiSubmissionService($sessionManager);
+        $history = [];
+        $stack = HandlerStack::create(new MockHandler([]));
+        $stack->push(Middleware::history($history));
+
+        $this->setNonPublicProperty($service, 'client', new Client([
+            'handler' => $stack,
+        ]));
+
+        $maliciousPaths = [
+            'https://my.cic.ac.id/portal/sipandai/?mod=sipandai&act=jobdel&id=30095&idx=29833&pertemuan=6',
+            'https://my.cic.ac.id/portal/sipandai/?mod=sipandai&act=jobdelujian&id=9184',
+            'https://my.cic.ac.id/portal/?mod=student&act=kesesuaian&id=1&jawab=1',
+            'https://my.cic.ac.id/portal/?mod=logout',
+            'files/../sipandai/?mod=sipandai&act=jobdel&id=30095&idx=29833&pertemuan=6',
+            'files/%2e%2e/sipandai/index.php',
+            'files\\..\\sipandai\\index.php',
+        ];
+
+        foreach ($maliciousPaths as $path) {
+            try {
+                $service->downloadCampusFile('token-download', $path);
+                $this->fail("Download path should be rejected: {$path}");
+            } catch (PortalScrapingException $exception) {
+                $this->assertSame(422, $exception->getCode());
+            }
+        }
+
+        $this->assertSame([], $history);
+    }
+
+    public function test_download_campus_file_serves_exam_soal_from_absolute_and_relative_paths(): void
+    {
+        config(['portal.base_url' => 'https://my.cic.ac.id', 'portal.request_delay' => 0]);
+
+        $sessionManager = $this->createMock(PortalSessionManager::class);
+        $sessionManager->method('getSessionCookieJar')
+            ->with('token-download')
+            ->willReturn(CookieJar::fromArray([], 'my.cic.ac.id'));
+
+        $service = new SipandaiSubmissionService($sessionManager);
+        $history = [];
+        $stack = HandlerStack::create(new MockHandler([
+            new Response(200, ['Content-Type' => 'application/pdf'], '%PDF-absolute'),
+            new Response(200, ['Content-Type' => 'application/pdf'], '%PDF-relative'),
+        ]));
+        $stack->push(Middleware::history($history));
+
+        $this->setNonPublicProperty($service, 'client', new Client([
+            'handler' => $stack,
+        ]));
+
+        $absolute = $service->downloadCampusFile('token-download', 'https://my.cic.ac.id/portal/files/soal/9197-UTS-tgs-591.pdf');
+        $relative = $service->downloadCampusFile('token-download', 'portal/files/soal/9197-UTS-tgs-591.pdf');
+
+        $this->assertCount(2, $history);
+        $this->assertSame('https://my.cic.ac.id/portal/files/soal/9197-UTS-tgs-591.pdf', (string) $history[0]['request']->getUri());
+        $this->assertSame('https://my.cic.ac.id/portal/files/soal/9197-UTS-tgs-591.pdf', (string) $history[1]['request']->getUri());
+        $this->assertSame('%PDF-absolute', $absolute['contents']);
+        $this->assertSame('9197-UTS-tgs-591.pdf', $absolute['filename']);
+        $this->assertSame('%PDF-relative', $relative['contents']);
+    }
+
+    public function test_download_campus_file_encodes_spaces_in_kolokium_file_names(): void
+    {
+        config(['portal.base_url' => 'https://my.cic.ac.id', 'portal.request_delay' => 0]);
+
+        $sessionManager = $this->createMock(PortalSessionManager::class);
+        $sessionManager->method('getSessionCookieJar')
+            ->with('token-download')
+            ->willReturn(CookieJar::fromArray([], 'my.cic.ac.id'));
+
+        $service = new SipandaiSubmissionService($sessionManager);
+        $history = [];
+        $stack = HandlerStack::create(new MockHandler([
+            new Response(200, ['Content-Type' => 'application/pdf'], '%PDF-kolokium'),
+        ]));
+        $stack->push(Middleware::history($history));
+
+        $this->setNonPublicProperty($service, 'client', new Client([
+            'handler' => $stack,
+        ]));
+
+        $download = $service->downloadCampusFile(
+            'token-download',
+            '../files/skripsi/kolokium/TUGAS AKHIR-SIDANG-20251030030-KOLOKIUM-ab12c.pdf'
+        );
+
+        $this->assertCount(1, $history);
+        $this->assertSame(
+            'https://my.cic.ac.id/portal/files/skripsi/kolokium/TUGAS%20AKHIR-SIDANG-20251030030-KOLOKIUM-ab12c.pdf',
+            (string) $history[0]['request']->getUri()
+        );
+        $this->assertSame('TUGAS AKHIR-SIDANG-20251030030-KOLOKIUM-ab12c.pdf', $download['filename']);
     }
 
     public function test_extract_exam_form_meta_prefers_form_with_file_input(): void

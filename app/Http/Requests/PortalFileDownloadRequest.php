@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Http\Requests;
 
+use App\Services\PortalUrlGuard;
+use Closure;
+
 class PortalFileDownloadRequest extends ApiFormRequest
 {
     public function authorize(): bool
@@ -14,7 +17,16 @@ class PortalFileDownloadRequest extends ApiFormRequest
     public function rules(): array
     {
         return [
-            'path' => ['required', 'string', 'max:2048'],
+            'path' => [
+                'required',
+                'string',
+                'max:2048',
+                function (string $attribute, mixed $value, Closure $fail): void {
+                    if (is_string($value) && PortalUrlGuard::campusFileUrl($value) === null) {
+                        $fail('Tautan unduhan tidak valid. Hanya file materi, soal, tugas, dan dokumen kampus yang bisa diunduh.');
+                    }
+                },
+            ],
             'name' => ['sometimes', 'nullable', 'string', 'max:255'],
         ];
     }
