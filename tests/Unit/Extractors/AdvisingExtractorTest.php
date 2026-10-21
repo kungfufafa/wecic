@@ -52,7 +52,7 @@ class AdvisingExtractorTest extends TestCase
             ['krs_id' => 90004, 'academic_year' => '2026/2027', 'date' => '2026-09-23', 'semester' => 3, 'semester_is_regular' => true, 'semester_label' => 'Semester 3'],
             ['krs_id' => 90003, 'academic_year' => '2025/2026', 'date' => '2026-03-10', 'semester' => 2, 'semester_is_regular' => true, 'semester_label' => 'Semester 2'],
             ['krs_id' => 90001, 'academic_year' => '2025/2026', 'date' => '2025-09-25', 'semester' => 1, 'semester_is_regular' => true, 'semester_label' => 'Semester 1'],
-            ['krs_id' => 90002, 'academic_year' => '2024/2025', 'date' => '2026-02-27', 'semester' => 'T', 'semester_is_regular' => false, 'semester_label' => 'Semester T (non-reguler, makna belum diketahui)'],
+            ['krs_id' => 90002, 'academic_year' => '2024/2025', 'date' => '2026-02-27', 'semester' => 'T', 'semester_is_regular' => false, 'semester_label' => 'Semester T (konversi)'],
         ], $advising['krs_history']);
         $this->assertSame(90004, $advising['latest_krs_id']);
         $this->assertSame(3, $advising['latest_semester_number']);

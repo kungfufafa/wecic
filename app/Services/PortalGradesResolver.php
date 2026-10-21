@@ -8,6 +8,7 @@ use App\Exceptions\PortalException;
 use App\Exceptions\PortalScrapingException;
 use App\Services\Extractors\AdvisingExtractor;
 use App\Services\Extractors\KhsExtractor;
+use App\Services\Extractors\KrsDetailExtractor;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -18,7 +19,8 @@ use Illuminate\Support\Facades\Log;
  * ABSEN/TUGAS components). Portal Mahasiswa `act=viewkrs` of the latest KRS
  * (from the student's own KRS history) adds the official summary, is used to
  * cross-check the rows, and replaces them when the score page fails
- * ("data sebagian": no components).
+ * ("data sebagian": no components). The KRS of semester `T` (conversion of
+ * a D3 → S1 continuation) adds its courses to the earned SKS (K16).
  */
 class PortalGradesResolver
 {
@@ -28,9 +30,15 @@ class PortalGradesResolver
      */
     private const IPK_TOLERANCE = 0.005;
 
+    /**
+     * Semester of the advising history whose KRS lists the conversion courses
+     */
+    private const CONVERSION_SEMESTER = 'T';
+
     public function __construct(
         private readonly KhsExtractor $khsExtractor,
         private readonly AdvisingExtractor $advisingExtractor,
+        private readonly KrsDetailExtractor $krsDetailExtractor,
         private readonly AcademicProgressCalculator $calculator
     ) {}
 
@@ -45,12 +53,14 @@ class PortalGradesResolver
      *         mismatch_fields: list<string>,
      *         ipk: float|null,
      *         sks_passed: int,
+     *         conversion_sks: int,
      *         quality_points_total: float,
      *         source: 'official'|'computed',
      *         progress: array<string, mixed>
      *     },
      *     transcript: list<array<string, mixed>>,
      *     transcript_print_url: string|null,
+     *     conversion: array{status: 'ok'|'none'|'failed'|'skipped', krs_ids: list<int>, courses: list<array{code: string, name: string|null, sks: int}>, course_count: int, sks: int, already_graded_codes: list<string>},
      *     sources: array{
      *         khs: 'sipandai_score'|'student_krs_detail',
      *         is_partial: bool,
@@ -66,7 +76,8 @@ class PortalGradesResolver
     public function resolve(string $sessionToken): array
     {
         [$scoreData, $scoreStatus, $scoreError] = $this->fetchScorePage($sessionToken);
-        [$krsData, $krsStatus, $krsId] = $this->fetchKrsDetailGrades($sessionToken);
+        $advising = $this->fetchAdvising($sessionToken);
+        [$krsData, $krsStatus, $krsId] = $this->fetchKrsDetailGrades($sessionToken, $advising);
 
         $primarySource = match (true) {
             $scoreStatus === 'ok' => KhsExtractor::SOURCE_SCORE,
@@ -105,6 +116,7 @@ class PortalGradesResolver
         $official = $krsData['cumulative'] ?? $scoreData['cumulative'] ?? null;
         $computed = $this->calculator->summarize($semesters);
         $mismatchFields = $official === null ? [] : $this->mismatchFields($official, $computed);
+        $conversion = $this->conversion($sessionToken, $advising, $semesters);
 
         if ($mismatchFields !== []) {
             Log::warning('Official cumulative summary differs from the computed one', [
@@ -115,9 +127,10 @@ class PortalGradesResolver
         return [
             'found' => ! $noKhsYet,
             'semesters' => $semesters,
-            'summary' => $this->buildSummary($official, $computed, $mismatchFields),
+            'summary' => $this->buildSummary($official, $computed, $mismatchFields, $conversion['sks']),
             'transcript' => $this->calculator->transcript($semesters),
             'transcript_print_url' => $scoreData['transcript_print_url'] ?? null,
+            'conversion' => $conversion,
             'sources' => [
                 'khs' => $primarySource,
                 'is_partial' => $primarySource !== KhsExtractor::SOURCE_SCORE,
@@ -156,12 +169,15 @@ class PortalGradesResolver
     }
 
     /**
-     * @return array{0: array<string, mixed>|null, 1: 'ok'|'empty'|'failed'|'skipped', 2: string|null}
+     * Advising page (KRS history), or null when it fails: only the official
+     * summary and the conversion SKS depend on it
+     *
+     * @return array<string, mixed>|null
      */
-    private function fetchKrsDetailGrades(string $sessionToken): array
+    private function fetchAdvising(string $sessionToken): ?array
     {
         try {
-            $advising = $this->advisingExtractor->extractAdvisingData($sessionToken);
+            return $this->advisingExtractor->extractAdvisingData($sessionToken);
         } catch (\Throwable $throwable) {
             if (PortalException::indicatesExpiredSession($throwable)) {
                 throw $throwable;
@@ -169,10 +185,17 @@ class PortalGradesResolver
 
             Log::warning('Advising page failed, official grade summary skipped', ['error' => $throwable->getMessage()]);
 
-            return [null, 'skipped', null];
+            return null;
         }
+    }
 
-        $krsId = $this->gradesKrsId($advising);
+    /**
+     * @param  array<string, mixed>|null  $advising
+     * @return array{0: array<string, mixed>|null, 1: 'ok'|'empty'|'failed'|'skipped', 2: string|null}
+     */
+    private function fetchKrsDetailGrades(string $sessionToken, ?array $advising): array
+    {
+        $krsId = $advising === null ? null : $this->gradesKrsId($advising);
 
         if ($krsId === null) {
             return [null, 'skipped', null];
@@ -191,6 +214,71 @@ class PortalGradesResolver
 
             return [null, 'failed', $krsId];
         }
+    }
+
+    /**
+     * Conversion credits from every KRS `T` of the advising history (K16)
+     *
+     * A failed KRS `T` page adds no SKS at all rather than part of them, so
+     * the remaining SKS never drops on a half-read list.
+     *
+     * @param  array<string, mixed>|null  $advising
+     * @param  list<array<string, mixed>>  $semesters
+     * @return array{status: 'ok'|'none'|'failed'|'skipped', krs_ids: list<int>, courses: list<array{code: string, name: string|null, sks: int}>, course_count: int, sks: int, already_graded_codes: list<string>}
+     */
+    private function conversion(string $sessionToken, ?array $advising, array $semesters): array
+    {
+        $krsIds = $advising === null ? [] : $this->conversionKrsIds($advising);
+        $status = match (true) {
+            $advising === null => 'skipped',
+            $krsIds === [] => 'none',
+            default => 'ok',
+        };
+        $courses = [];
+
+        try {
+            foreach ($krsIds as $krsId) {
+                $detail = $this->krsDetailExtractor->extractKrsDetailData($sessionToken, $krsId);
+                array_push($courses, ...array_values(is_array($detail['courses'] ?? null) ? $detail['courses'] : []));
+            }
+        } catch (\Throwable $throwable) {
+            if (PortalException::indicatesExpiredSession($throwable)) {
+                throw $throwable;
+            }
+
+            Log::warning('Conversion KRS failed, conversion SKS left out', ['error' => $throwable->getMessage()]);
+
+            [$status, $courses] = ['failed', []];
+        }
+
+        return [
+            'status' => $status,
+            'krs_ids' => $krsIds,
+            ...$this->calculator->conversionCredits($courses, $semesters),
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $advising
+     * @return list<int>
+     */
+    private function conversionKrsIds(array $advising): array
+    {
+        $krsIds = [];
+
+        foreach (is_array($advising['krs_history'] ?? null) ? $advising['krs_history'] : [] as $entry) {
+            if (! is_array($entry) || ($entry['semester'] ?? null) !== self::CONVERSION_SEMESTER) {
+                continue;
+            }
+
+            $krsId = $this->numericKrsId($entry['krs_id'] ?? null);
+
+            if ($krsId !== null) {
+                $krsIds[] = (int) $krsId;
+            }
+        }
+
+        return array_values(array_unique($krsIds));
     }
 
     /**
@@ -235,15 +323,18 @@ class PortalGradesResolver
     }
 
     /**
+     * Conversion SKS are earned but ungraded: they raise the earned SKS and
+     * lower the portal's remaining SKS, and stay out of the IPK figures.
+     *
      * @param  array<string, mixed>|null  $official
      * @param  array<string, mixed>  $computed
      * @param  list<string>  $mismatchFields
      * @return array<string, mixed>
      */
-    private function buildSummary(?array $official, array $computed, array $mismatchFields): array
+    private function buildSummary(?array $official, array $computed, array $mismatchFields, int $conversionSks): array
     {
         $useOfficial = $official !== null && $official['ipk'] !== null;
-        $earnedSks = $useOfficial && $official['sks_total'] !== null ? (int) $official['sks_total'] : (int) $computed['sks_passed'];
+        $earnedSks = $conversionSks + ($useOfficial && $official['sks_total'] !== null ? (int) $official['sks_total'] : (int) $computed['sks_passed']);
         $countedSks = $useOfficial && $official['sks_total'] !== null ? (int) $official['sks_total'] : (int) $computed['sks_total'];
         $qualityPoints = $useOfficial && $official['quality_points_total'] !== null
             ? (float) $official['quality_points_total']
@@ -255,7 +346,7 @@ class PortalGradesResolver
             $earnedSks,
             $targetSks,
             $computed['average_sks_per_semester'],
-            $useOfficial ? $official['sks_remaining'] : null
+            $useOfficial && $official['sks_remaining'] !== null ? (int) $official['sks_remaining'] - $conversionSks : null
         );
 
         return [
@@ -265,6 +356,7 @@ class PortalGradesResolver
             'mismatch_fields' => $mismatchFields,
             'ipk' => $ipk,
             'sks_passed' => $earnedSks,
+            'conversion_sks' => $conversionSks,
             'quality_points_total' => round($qualityPoints, 2),
             'source' => $useOfficial ? 'official' : 'computed',
             'progress' => [

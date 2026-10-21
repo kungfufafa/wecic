@@ -120,6 +120,44 @@ class AcademicProgressCalculatorTest extends TestCase
         $this->assertSame(['T'], $summary['excluded_semesters']);
     }
 
+    public function test_conversion_credits_count_each_ungraded_course_once(): void
+    {
+        $credits = $this->calculator()->conversionCredits([
+            ['code' => 'KV001', 'name' => 'Konversi Satu', 'sks' => 3, 'semester' => 1],
+            ['code' => ' kv001', 'name' => 'Konversi Satu', 'sks' => 3, 'semester' => 1],
+            ['code' => 'mk1002', 'name' => 'Mata Kuliah Dua', 'sks' => 3, 'semester' => null],
+            ['code' => 'MK9001', 'name' => 'Dinilai di kartu T', 'sks' => 4, 'semester' => null],
+            ['code' => 'MK2003', 'name' => 'Sedang diulang', 'sks' => 2, 'semester' => null],
+            ['code' => '', 'name' => 'Tanpa Kode', 'sks' => 2, 'semester' => null],
+            ['code' => 'KV002', 'name' => '', 'sks' => 3, 'semester' => null],
+            ['code' => 'KV003', 'name' => 'Tanpa SKS', 'sks' => null, 'semester' => null],
+            ['code' => '', 'name' => '', 'sks' => 3, 'semester' => null],
+            'bukan-baris',
+        ], [
+            $this->semester(3, [$this->course('MK2003', 2, null, null)]),
+            $this->semester(1, [$this->course('MK1002', 3, 'B', 3)]),
+            $this->semester('T', [$this->course('MK9001', 4, 'A', 4)]),
+        ]);
+
+        $this->assertSame([
+            ['code' => 'KV001', 'name' => 'Konversi Satu', 'sks' => 3],
+            ['code' => 'MK2003', 'name' => 'Sedang diulang', 'sks' => 2],
+            ['code' => '', 'name' => 'Tanpa Kode', 'sks' => 2],
+            ['code' => 'KV002', 'name' => null, 'sks' => 3],
+        ], $credits['courses']);
+        $this->assertSame(4, $credits['course_count']);
+        $this->assertSame(10, $credits['sks']);
+        $this->assertSame(['MK1002', 'MK9001'], $credits['already_graded_codes']);
+    }
+
+    public function test_conversion_credits_without_courses_are_zero(): void
+    {
+        $this->assertSame(
+            ['courses' => [], 'course_count' => 0, 'sks' => 0, 'already_graded_codes' => []],
+            $this->calculator()->conversionCredits([], $this->studentSemesters())
+        );
+    }
+
     public function test_a_semester_flagged_non_regular_is_excluded_even_with_a_number(): void
     {
         $semester = $this->semester(4, [$this->course('MK4001', 3, 'A', 4)]);

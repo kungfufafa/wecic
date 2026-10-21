@@ -450,7 +450,10 @@
                     return {
                         value: String(metric.value),
                         note: target ? `dari ${target} SKS${percent !== null ? ` · ${Math.round(percent)}%` : ''}` : 'SKS terkumpul',
-                        title: Number.isInteger(metric.remaining_sks) ? `Sisa ${metric.remaining_sks} SKS lagi untuk lulus.` : '',
+                        title: [
+                            Number.isInteger(metric.remaining_sks) ? `Sisa ${metric.remaining_sks} SKS lagi untuk lulus.` : '',
+                            metric.conversion_sks > 0 ? `Termasuk ${metric.conversion_sks} SKS konversi.` : '',
+                        ].filter(Boolean).join(' '),
                         progress: percent,
                     };
                 }

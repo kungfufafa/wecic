@@ -151,7 +151,8 @@ class AcademicPagesTest extends TestCase
         $this->assertStringContainsString('Hubungi DPA', $html);
         $this->assertStringContainsString('Tahapan KRS', $html);
         $this->assertStringContainsString('aria-current="step"', $html);
-        $this->assertStringContainsString('Non-reguler (makna belum diketahui)', $html);
+        $this->assertStringContainsString("row.semester === 'T' ? 'Konversi' : 'Non-reguler'", $html);
+        $this->assertStringContainsString('SKS diakui', $html);
         $this->assertStringContainsString('krs.print_available === true', $html);
         $this->assertStringContainsString('Cetak KRS', $html);
         $this->assertStringContainsString('bukan dokumen resmi', $html);
@@ -185,7 +186,7 @@ class AcademicPagesTest extends TestCase
         $this->assertStringContainsString('const endpoint = `/api/academic/krs/${krsId}`;', $html);
         $this->assertStringContainsString("{ aliases: ['advising-index'] }", $html);
         $this->assertStringContainsString('error?.status === 404', $html);
-        $this->assertStringContainsString('KRS semester T bersifat non-reguler', $html);
+        $this->assertStringContainsString('KRS semester T berisi mata kuliah konversi', $html);
         $this->assertStringContainsString("'/api/academic/grades'", $html);
     }
 
@@ -216,7 +217,7 @@ class AcademicPagesTest extends TestCase
         $this->assertStringContainsString('KRS kamu belum divalidasi DPA', $html);
         $this->assertStringContainsString('dosen mengisi nilai', $html);
         $this->assertStringContainsString('Data sebagian', $html);
-        $this->assertStringContainsString('Semester T bersifat non-reguler (makna belum diketahui)', $html);
+        $this->assertStringContainsString('Semester T berisi mata kuliah konversi', $html);
         $this->assertStringContainsString("absen: 'Absen', tugas: 'Tugas', uts: 'UTS', uas: 'UAS'", $html);
         $this->assertStringContainsString("searchParams.set('semester', key)", $html);
     }

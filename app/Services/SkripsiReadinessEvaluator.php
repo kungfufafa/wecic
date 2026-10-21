@@ -165,7 +165,9 @@ class SkripsiReadinessEvaluator
         }
 
         $official = is_array($summary['official'] ?? null) ? $summary['official'] : [];
-        $sks = $official['sks_total'] ?? $summary['sks_passed'] ?? null;
+        $sks = is_numeric($official['sks_total'] ?? null)
+            ? (int) $official['sks_total'] + (is_numeric($summary['conversion_sks'] ?? null) ? (int) $summary['conversion_sks'] : 0)
+            : $summary['sks_passed'] ?? null;
         $ipk = $official['ipk'] ?? $summary['ipk'] ?? null;
         $semesters = array_values(array_filter(is_array($grades['semesters'] ?? null) ? $grades['semesters'] : [], 'is_array'));
         $computed = $this->calculator->summarize($semesters);

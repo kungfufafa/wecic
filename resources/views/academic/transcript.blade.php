@@ -270,6 +270,8 @@
                 const progress = data.progress || {};
                 const target = Number(data.target_sks || progress.target_sks) || null;
                 const earned = Number(progress.earned_sks ?? summary.sks_passed) || 0;
+                const conversion = data.conversion || {};
+                const conversionSks = Math.min(earned, Number(summary.conversion_sks) || 0);
                 const remaining = Number.isInteger(data.remaining_sks) ? data.remaining_sks : (target ? Math.max(0, target - earned) : null);
                 const currentLoad = data.current_load && Number(data.current_load.sks) > 0 ? data.current_load : null;
                 const projected = progress.projected_semesters_remaining;
@@ -287,9 +289,14 @@
                     },
                     { label: 'Sedang ditempuh', value: currentLoad ? `${currentLoad.sks} SKS` : '–', note: currentLoad ? `${currentLoad.courses} MK di KRS semester ini` : 'KRS semester ini belum terbaca' },
                 ];
-                const caption = progress.target_sks_source === 'config'
-                    ? 'Target SKS memakai standar 144 SKS karena portal belum menyebut sisa SKS.'
-                    : (data.excluded_semesters?.length ? `Semester ${data.excluded_semesters.join(', ')} (non-reguler) tidak dihitung.` : '');
+                const caption = [
+                    progress.target_sks_source === 'config' ? 'Target SKS memakai standar 144 SKS karena portal belum menyebut sisa SKS.' : '',
+                    conversionSks > 0 ? `Termasuk ${conversionSks} SKS konversi (${conversion.course_count} MK di KRS semester T), tanpa nilai sehingga tidak masuk IPK.` : '',
+                    conversion.status === 'failed' ? 'KRS konversi (semester T) gagal dibaca, jadi sisa SKS belum dikurangi SKS konversi.' : '',
+                    progress.target_sks_source !== 'config' && conversionSks === 0 && conversion.status !== 'failed' && data.excluded_semesters?.length
+                        ? `Semester ${data.excluded_semesters.join(', ')} (non-reguler) tidak dihitung.`
+                        : '',
+                ].filter(Boolean).join(' ');
 
                 hosts.hero.innerHTML = `
                     <section class="mycic-card" aria-labelledby="transcript-ipk-label">
@@ -306,7 +313,8 @@
                                     label: 'SKS menuju lulus',
                                     valueLabel: `${earned} dari ${target} SKS`,
                                     segments: [
-                                        { value: earned, tone: 'success', label: 'Lulus', valueLabel: `${earned}` },
+                                        { value: earned - conversionSks, tone: 'success', label: 'Lulus', valueLabel: `${earned - conversionSks}` },
+                                        ...(conversionSks > 0 ? [{ value: conversionSks, tone: 'info', label: 'Konversi', valueLabel: `${conversionSks}` }] : []),
                                         ...(currentLoad ? [{ value: currentLoad.sks, tone: 'brand', striped: true, label: 'Sedang ditempuh', valueLabel: `${currentLoad.sks}` }] : []),
                                     ],
                                     remainderLabel: 'Belum diambil',

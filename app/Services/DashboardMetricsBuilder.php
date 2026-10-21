@@ -32,7 +32,7 @@ class DashboardMetricsBuilder
      * @param  array<string, array{data: array<string, mixed>|null, meta: array<string, mixed>}>  $reads  results of PortalDatasetRepository::peekMany()
      * @return array{
      *     ipk: array{value: float|null, source: 'official'|'computed'|null, predicate_estimate: string|null, status: MetricStatus},
-     *     sks_passed: array{value: int|null, target_sks: int|null, remaining_sks: int|null, progress_percent: float|null, status: MetricStatus},
+     *     sks_passed: array{value: int|null, conversion_sks: int|null, target_sks: int|null, remaining_sks: int|null, progress_percent: float|null, status: MetricStatus},
      *     sks_current: array{value: int|null, courses: int|null, status: MetricStatus},
      *     bills: array{status: 'clear'|'outstanding'|'unknown'|'pending'|'failed', has_outstanding: bool|null, total_amount: int|null, total_amount_label: string|null, count: int|null},
      *     skkm: array{valid_points: int|float|null, required_points: int|float|null, remaining_points: int|float|null, progress_percent: float|null, is_met: bool|null, status: MetricStatus},
@@ -92,8 +92,10 @@ class DashboardMetricsBuilder
     }
 
     /**
+     * `value` already includes the conversion SKS of the KRS `T`.
+     *
      * @param  array<string, mixed>|null  $grades
-     * @return array{value: int|null, target_sks: int|null, remaining_sks: int|null, progress_percent: float|null, status: string}
+     * @return array{value: int|null, conversion_sks: int|null, target_sks: int|null, remaining_sks: int|null, progress_percent: float|null, status: string}
      */
     private function sksPassed(?array $grades, string $sourceStatus): array
     {
@@ -103,6 +105,7 @@ class DashboardMetricsBuilder
 
         return [
             'value' => $value,
+            'conversion_sks' => $value !== null && is_int($summary['conversion_sks'] ?? null) ? $summary['conversion_sks'] : null,
             'target_sks' => $value !== null && is_int($progress['target_sks'] ?? null) ? $progress['target_sks'] : null,
             'remaining_sks' => $value !== null && is_int($progress['remaining_sks'] ?? null) ? $progress['remaining_sks'] : null,
             'progress_percent' => $value !== null && is_numeric($progress['progress_percent'] ?? null) ? (float) $progress['progress_percent'] : null,
