@@ -1,0 +1,493 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8" />
+	<link rel="icon" type="image/png" href="../assets/img/ucic.png">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+
+	<title>MyUCIC - Sistem Akademik Universitas Catur Insan Cendekia (CIC) Cirebon</title>
+
+	<meta content='width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0' name='viewport' />
+    <meta name="viewport" content="width=device-width" />
+
+
+    <!-- Bootstrap core CSS     -->
+    <link href="../assets/css/bootstrap.min.css" rel="stylesheet" />
+
+    <!-- Animation library for notifications   -->
+    <link href="../assets/css/animate.min.css" rel="stylesheet"/>
+
+    <!--  Light Bootstrap Table core CSS    -->
+    <link href="../assets/css/light-bootstrap-dashboard.css?v=1.4.0" rel="stylesheet"/>
+
+
+    <!--  CSS for Demo Purpose, don't include it in your project     -->
+    <link href="../assets/css/demo.css" rel="stylesheet" />
+
+
+    <!--     Fonts and icons     -->
+    <link href="https://maxcdn.bootstrapcdn.com/font-awesome/4.2.0/css/font-awesome.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css?family=Roboto:400,700,300" rel='stylesheet' type='text/css'>
+    <link href="../assets/css/pe-icon-7-stroke.css" rel="stylesheet" />
+    
+   <link rel="stylesheet" href="controllers/adminlte/plugins/normalize.css">
+    <!-- Bootstrap 3.3.5 -->
+    <link rel="stylesheet" href="controllers/adminlte/bootstrap/css/bootstrap.min.css">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="controllers/adminlte/font-awesome/css/font-awesome.min.css">
+    <!-- Ionicons -->
+    <link rel="stylesheet" href="controllers/adminlte/ionic/css/ionicons.min.css">
+    
+    <!-- Theme style -->
+    <link rel="stylesheet" href="controllers/adminlte/dist/css/skins/_all-skins.min.css">
+    
+
+
+    <style type="text/css">
+	/* style untuk link popup */
+	a.popup-link {
+		padding:17px 0;
+		text-align: center;
+		margin:10% auto;
+		position: relative;
+		width: 300px;
+		color: #fff;
+		text-decoration: none;
+		background-color: #FFBA00;
+		border-radius: 3px;
+		box-shadow: 0 5px 0px 0px #eea900;
+		display: block;
+	}
+	a.popup-link:hover {
+		background-color: #ff9900;
+		box-shadow: 0 3px 0px 0px #eea900;
+		-webkit-transition:all 1s;
+		transition:all 1s;
+	}
+	/* end link popup*/
+	/* animasi popup */
+
+	@-webkit-keyframes autopopup {
+		from {opacity: 0;margin-top:-200px;}
+		to {opacity: 1;}
+	}
+	@-moz-keyframes autopopup {
+		from {opacity: 0;margin-top:-200px;}
+		to {opacity: 1;}
+	}
+	@keyframes autopopup {
+		from {opacity: 0;margin-top:-200px;}
+		to {opacity: 1;}
+	}
+	/* end animasi popup */
+	/*style untuk popup */	
+	#popup {
+		background-color: rgba(0,0,0,0.8);
+		position: fixed;
+		top:0;
+		left:0;
+		right:0;
+		bottom:0;
+		margin:0;
+		-webkit-animation:autopopup 2s;
+		-moz-animation:autopopup 2s;
+		animation:autopopup 2s;
+	}
+	#popup:target {
+		-webkit-transition:all 1s;
+		-moz-transition:all 1s;
+		transition:all 1s;
+		opacity: 0;
+		visibility: hidden;
+	}
+
+	@media (min-width: 768px){
+		.popup-container {
+			width:600px;
+		}
+	}
+	@media (max-width: 767px){
+		.popup-container {
+			width:100%;
+		}
+	}
+	.popup-container {
+		position: relative;
+		margin:7% auto;
+		padding:30px 50px;
+		background-color: #fafafa;
+		color:#333;
+		border-radius: 3px;
+	}
+
+	a.popup-close {
+		position: absolute;
+		top:3px;
+		right:3px;
+		background-color: #333;
+		padding:7px 10px;
+		font-size: 20px;
+		text-decoration: none;
+		line-height: 1;
+		color:#fff;
+	}
+	/* end style popup */
+
+	/* style untuk isi popup */
+	.popup-form {
+		margin:10px auto;
+	}
+		.popup-form h2 {
+			margin-bottom: 5px;
+			font-size: 37px;
+			text-transform: uppercase;
+		}
+		.popup-form .input-group {
+			margin:10px auto;
+		}
+			.popup-form .input-group input {
+				padding:17px;
+				text-align: center;
+				margin-bottom: 10px;
+				border-radius:3px;
+				font-size: 16px; 
+				display: block;
+				width: 100%;
+			}
+			.popup-form .input-group input:focus {
+				outline-color:#FB8833; 
+			}
+			.popup-form .input-group input[type="email"] {
+				border:0px;
+				position: relative;
+			}
+			.popup-form .input-group input[type="submit"] {
+				background-color: #FB8833;
+				color: #fff;
+				border: 0;
+				cursor: pointer;
+			}
+			.popup-form .input-group input[type="submit"]:focus {
+				box-shadow: inset 0 3px 7px 3px #ea7722;
+			}
+			
+	
+	/* end style isi popup */
+
+	</style>
+ 
+</head>
+<body>
+
+<div class="wrapper">
+    <div class="sidebar" data-color="purple" data-image="../assets/img/sidebar-5.jpg">
+    	<div class="sidebar-wrapper">
+            <div class="logo">
+                <a href="" class="simple-text">
+                                    Selasa, 20 Oktober 2026 
+                </a>
+            </div>
+	            <ul class="nav">
+                <li>
+                    <a href="?mod=student&act=dashboard">
+                        <i class="pe-7s-home"></i>
+                        <p>Dashboard</p>
+                    </a>
+                </li>
+                 <li>
+                    <a href="?mod=student&act=pengumuman">
+                        <i class="pe-7s-speaker"></i>
+                        <p>Pengumuman</p>
+                    </a>
+                </li>
+                <li>
+                    <a href="?mod=student&act=profile">
+                        <i class="pe-7s-users"></i>
+                        <p>Profil Mahasiswa</p>
+                    </a>
+                </li>
+               
+                <li>
+                    <a href="?mod=student&act=course">
+                        <i class="pe-7s-browser"></i>
+                        <p>Jadwal Kuliah</p>
+                    </a>
+                </li>
+                                 <li>
+                    <a href="?mod=student&act=credit">
+                        <i class="pe-7s-news-paper"></i>
+                        <p>Reg & KRS Online</p>
+                    </a>
+                </li>
+                                
+                <li>
+                    <a href="?mod=student&act=perwalian">
+                        <i class="pe-7s-id"></i>
+                        <p>Perwalian</p>
+                    </a>
+                </li>
+              
+                <li>
+                                         <i class="pe-7s-alarm"></i>
+                        
+                         <form class="login100-form validate-form" method="post" action="../sipandai/?mod=login&act=loginact.php">
+                              <input type="hidden" name="id" value="" />
+                              <input type="hidden" name="p" value="" />
+                              <input type="hidden" name="who" value="" />
+                               <input type="hidden" name="ak" value="" />
+                                    <p> <input style='font-size: 11pt; color: white; font-weight:' class="btn app-btn-primary w-100 theme-btn mx-auto" type="submit" value="SiPANDAI" /></p>
+						</form>
+                        
+                    </a>
+                </li>
+
+                <li>
+                    <a href="?mod=student&act=skkm">
+                        <i class="pe-7s-map-2"></i>
+                        <p>SIREKA (SKKM)</p>
+                    </a>
+                </li>
+                             
+               					<li>
+                    <a href="?mod=student&act=simasita">
+                        <i class="pe-7s-map-marker"></i>
+                        <p>SiMASITA</p>
+                    </a>
+                </li>
+                                <li>
+                    <a href="?mod=student&act=keuangan">
+                        <i class="pe-7s-cash"></i>
+                        <p>Keuangan </p>
+                    </a>
+                </li>
+                
+                <li class="active">
+                    <a href="?mod=student&act=ebook">
+                        <i class="pe-7s-notebook"></i>
+                        <p>e-Book </p>
+                    </a>
+                </li>
+            </ul>				 
+			
+    	</div>
+    </div>
+
+    <div class="main-panel">
+        <nav class="navbar navbar-default navbar-fixed">
+            <div class="container-fluid">
+                <div class="navbar-header">
+                    <button type="button" class="navbar-toggle" data-toggle="collapse" data-target="#navigation-example-2">
+                        <span class="sr-only">Toggle navigation</span>
+                        <span class="icon-bar"></span>
+                        <span class="icon-bar"></span>
+                        <span class="icon-bar"></span>
+                    </button>
+                    
+                    <a class="navbar-brand" href="#">PORTAL MyCIC T.A 2026/2027 SEMESTER GANJIL</a>
+                </div>
+                <div class="collapse navbar-collapse">
+              
+                    <ul class="nav navbar-nav navbar-right">
+                       
+                        <li class="dropdown">
+                              <a href="#" class="dropdown-toggle" data-toggle="dropdown">
+                                    <p>
+										Panduan MyCIC
+										<b class="caret"></b>
+									</p>
+
+                              </a>
+                              <ul class="dropdown-menu">
+                                <li class="divider"></li>
+                                <li><a href="../files/Panduan_Her-registrasi-KRS_dan_Perwalian.pdf">Panduan Her-registrasi Online</a></li>
+                               
+                              </ul>
+                        </li>
+                        <li class="dropdown">
+                              <a href="#" class="dropdown-toggle" data-toggle="dropdown">
+                                    <p>
+										Setting
+										<b class="caret"></b>
+									</p>
+
+                              </a>
+                              <ul class="dropdown-menu">
+                                <li class="divider"></li>
+                                <li><a href="?mod=student&act=password">Ganti Passowrd</a></li>
+                               
+                              </ul>
+                        </li>
+                        <li>
+                            <a href="?mod=logout">
+                                <p>Log out</p>
+                            </a>
+                        </li>
+						<li class="separator hidden-lg"></li>
+                    </ul>                </div>
+            </div>
+        </nav>
+        <div class="content">
+            <div class="container-fluid">
+                <div class="row">
+                    <div class="col-md-12">
+                        <div class="card">
+                            <div class="header">
+                                <h4 class="title">Repositori Skripsi</h4>
+                                <p class="category">SiMASITA Repositori Universitas Catur Insan Cendekia</p>
+                            </div>
+                            <div class="content table-responsive table-full-width">
+                            <div class="linkadd"></div>
+                            <table class="table table-hover">
+                            <form method='post' action='?mod=student&act=repositori'></form>
+                                <tr>
+                                    <th>No</th>
+                                    <th>T.a</th>
+                                    <th>Program Studi</th>
+                                    <th>NIM / Nama</th>
+                                    <th colspan=3>File</th>
+                                </tr>
+                                <tr>
+                                    <td align=right>1.</td>
+                                    <td width=14%> 2023/2024 </td>
+                                    <td>SISTEM INFORMASI</td>
+                                    <td>190100001<br>MAHASISWA CONTOH SATU</td>
+                                    <td colspan=3><a class='btn app-btn-primary' href='../files/skripsi/kolokium/TUGAS AKHIR-SIDANG-190100001-KOLOKIUM-a1b2c.pdf' target='blank'><button type='button' class='btn btn-sm btn-fill' title='File Full'><i class='fa fa-file-pdf-o'></i></button></a></td>
+                                </tr>
+                                <tr>
+                                    <td></td>
+                                    <td>Judul Skripsi</td>
+                                    <td colspan=5>SISTEM INFORMASI PERSEDIAAN BARANG BERBASIS WEB PADA TOKO CONTOH</td>
+                                </tr>
+                                <tr>
+                                    <td></td>
+                                    <td>Pembimbing 1</td>
+                                    <td colspan=5>Dosen Contoh Alfa, S.Kom., M.Kom.</td>
+                                </tr>
+                                <tr>
+                                    <td></td>
+                                    <td>Pembimbing 2</td>
+                                    <td colspan=5>Dosen Contoh Beta, S.T., M.T.</td>
+                                </tr>
+                                <tr class="altrow">
+                                    <td align=right>2.</td>
+                                    <td width=14%> 2023/2024 </td>
+                                    <td>TEKNIK INFORMATIKA</td>
+                                    <td>190200002<br>Mahasiswa&nbsp;Contoh Dua</td>
+                                    <td colspan=3><a class='btn app-btn-primary' href='../files/skripsi/kolokium/TUGAS AKHIR-SIDANG-190200002-KOLOKIUM-d3e4f.pdf' target='blank'><button type='button' class='btn btn-sm btn-fill' title='File Full'><i class='fa fa-file-pdf-o'></i></button></a></td>
+                                </tr>
+                                <tr>
+                                    <td></td>
+                                    <td>Judul Skripsi</td>
+                                    <td colspan=5>Klasifikasi Citra Daun Menggunakan Convolutional Neural Network &amp; Augmentasi Data</td>
+                                </tr>
+                                <tr>
+                                    <td></td>
+                                    <b><td>Pembimbing 1</td></b>
+                                    <td colspan=5>Dosen Contoh Gamma, M.Kom.</td>
+                                </tr>
+                                <tr>
+                                    <td></td>
+                                    <td>Pembimbing 2</td>
+                                    <td colspan=5>-</td>
+                                </tr>
+                                <tr>
+                                    <td align=right>3.</td>
+                                    <td width=14%> 2022/2023 </td>
+                                    <td>SISTEM INFORMASI</td>
+                                    <td>180100003<br>MAHASISWA CONTOH TIGA</td>
+                                    <td colspan=3></td>
+                                </tr>
+                                <tr>
+                                    <td></td>
+                                    <td>Judul Skripsi</td>
+                                    <td colspan=5>Rancang Bangun Aplikasi Monitoring Kehadiran Berbasis Android</td>
+                                </tr>
+                                <tr>
+                                    <td></td>
+                                    <td>Pembimbing 1</td>
+                                    <td colspan=5>Dosen Contoh Alfa, S.Kom, M.Kom</td>
+                                </tr>
+                                <tr>
+                                    <td></td>
+                                    <td>Pembimbing 2</td>
+                                    <td colspan=5>Dosen Contoh Delta, S.Kom., M.T.I.</td>
+                                </tr>
+                                <tr class="altrow">
+                                    <td align=right>4.</td>
+                                    <td width=14%> 2022/2023 </td>
+                                    <td>MANAJEMEN</td>
+                                    <td>180300004<br>MAHASISWA CONTOH EMPAT</td>
+                                    <td colspan=3><a class='btn app-btn-primary' href='../files/skripsi/kolokium/TUGAS AKHIR-SIDANG-180300004-KOLOKIUM-g5h6i.pdf' target='blank'><button type='button' class='btn btn-sm btn-fill' title='File Full'><i class='fa fa-file-pdf-o'></i></button></a></td>
+                                </tr>
+                                <tr>
+                                    <td></td>
+                                    <td>Judul Skripsi</td>
+                                    <td colspan=5>Pengaruh Kualitas Layanan Terhadap Kepuasan Pelanggan Pada Koperasi Contoh</td>
+                                </tr>
+                                <tr>
+                                    <td></td>
+                                    <td>Pembimbing 1</td>
+                                    <td colspan=5>Dosen Contoh Epsilon, S.E., M.M.</td>
+                                </tr>
+                                <tr>
+                                    <td></td>
+                                    <td>Pembimbing 2</td>
+                                    <td colspan=5></td>
+                                </tr>
+                            </table>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="paging">
+                        <a class="page-link" href="#">&lt;&lt; Previous</a>								|
+								[ 1-100 of 212 ]								|
+								<a class="page-link" href="?mod=student&act=repositori&page=2">Next &gt;&gt;</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer class="footer">
+            <div class="container-fluid">
+                <nav class="pull-left">
+                    <ul>
+                        <li>
+                            <a href="?mod=student&act=dashboard">
+                                Home
+                            </a>
+                        </li>
+                        
+                    </ul>
+                </nav>
+                <p class="copyright pull-right">
+                    &copy; <a href="https://www.cic.ac.id">Universitas Catur Insan Cendekia - Pusat Data & Informasi.</a>
+                </p>
+            </div>
+        </footer>
+
+    </div>
+</div>
+
+
+
+
+
+</body>
+
+    <!--   Core JS Files   -->
+    
+	
+
+	<!--  Charts Plugin -->
+	
+
+    <!--  Notifications Plugin    -->
+    
+
+
+    <!-- Light Bootstrap Table Core javascript and methods for Demo purpose -->
+	
+
+	<!-- Light Bootstrap Table DEMO methods, don't include it in your project! -->
+		
+</html>

@@ -68,6 +68,11 @@ class PortalApp {
             { pattern: /^\/api\/finance\/summary$/, freshFor: 30 * 60 * 1000, retainFor: 7 * 24 * 60 * 60 * 1000, label: 'ringkasan keuangan' },
             { pattern: /^\/api\/finance\/payments$/, freshFor: 30 * 60 * 1000, retainFor: 7 * 24 * 60 * 60 * 1000, label: 'riwayat pembayaran' },
             { pattern: /^\/api\/skkm$/, freshFor: 30 * 60 * 1000, retainFor: 14 * 24 * 60 * 60 * 1000, label: 'poin SKKM' },
+            { pattern: /^\/api\/thesis$/, freshFor: 6 * 60 * 60 * 1000, retainFor: 14 * 24 * 60 * 60 * 1000, label: 'syarat & status skripsi' },
+            { pattern: /^\/api\/thesis\/readiness$/, freshFor: 60 * 60 * 1000, retainFor: 14 * 24 * 60 * 60 * 1000, label: 'kesiapan skripsi' },
+            { pattern: /^\/api\/library$/, freshFor: 24 * 60 * 60 * 1000, retainFor: 30 * 24 * 60 * 60 * 1000, label: 'perpustakaan digital' },
+            // Only the unfiltered first page is kept; searches and filters request with { cache: false }.
+            { pattern: /^\/api\/library\/theses$/, freshFor: 6 * 60 * 60 * 1000, retainFor: 14 * 24 * 60 * 60 * 1000, label: 'repositori skripsi' },
             { pattern: /^\/api\/action-items$/, freshFor: 5 * 60 * 1000, retainFor: 2 * 24 * 60 * 60 * 1000, label: 'pusat tindakan' },
             { pattern: /^\/api\/portal\/context$/, freshFor: 6 * 60 * 60 * 1000, retainFor: 14 * 24 * 60 * 60 * 1000, label: 'info periode & panduan' },
             { pattern: /^\/api\/notifications$/, freshFor: 60 * 1000, retainFor: 7 * 24 * 60 * 60 * 1000, label: 'notifikasi' },
@@ -1022,6 +1027,9 @@ class PortalApp {
             'announcement-index': ['announcements'],
             'announcement-show': ['announcements'],
             'skkm-index': ['skkm'],
+            'thesis-index': ['thesis', 'grades', 'payments'],
+            'library-index': ['library', 'thesis_repository'],
+            'library-theses': ['thesis_repository'],
             'more-index': ['portal_context', 'payments', 'announcements', 'skkm'],
         };
 

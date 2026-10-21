@@ -75,7 +75,7 @@
     $isClassSection = request()->routeIs('class.*', 'meeting.show', 'exam.*');
     $isAcademicSection = request()->routeIs('krs.*', 'grades.*', 'transcript.*');
     $isFinanceSection = request()->routeIs('finance.*');
-    $isMoreSection = request()->routeIs('skkm.*', 'announcement.*', 'profile', 'password.*', 'more');
+    $isMoreSection = request()->routeIs('skkm.*', 'announcement.*', 'thesis.*', 'library.*', 'profile', 'password.*', 'more');
 
     $mobileNavigation = [
         'start' => [
@@ -97,6 +97,8 @@
 
     $moreMenu = [
         ['href' => route('skkm.index'), 'label' => 'SKKM', 'badge' => 'skkm', 'active' => request()->routeIs('skkm.*')],
+        ['href' => route('thesis.index'), 'label' => 'Skripsi', 'badge' => 'thesis', 'active' => request()->routeIs('thesis.*')],
+        ['href' => route('library.index'), 'label' => 'Perpustakaan', 'badge' => 'library', 'active' => request()->routeIs('library.*')],
         ['href' => route('announcement.index'), 'label' => 'Pengumuman', 'badge' => 'announcement', 'active' => request()->routeIs('announcement.*')],
         ['href' => route('profile'), 'label' => 'Profil', 'badge' => 'profile', 'active' => request()->routeIs('profile')],
         ['href' => route('password.edit'), 'label' => 'Ubah password', 'badge' => 'password', 'active' => request()->routeIs('password.*')],

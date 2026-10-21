@@ -15,6 +15,8 @@ const PROTECTED_PAGE_PREFIXES = [
     '/transcript',
     '/announcement',
     '/skkm',
+    '/thesis',
+    '/library',
     '/more',
     '/notifications',
 ];

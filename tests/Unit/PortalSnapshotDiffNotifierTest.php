@@ -307,6 +307,17 @@ class PortalSnapshotDiffNotifierTest extends TestCase
         $this->assertSame('/exam/9301', $created[1]->url);
     }
 
+    public function test_thesis_status_change_is_announced_and_an_unreadable_status_is_not(): void
+    {
+        $thesis = static fn (string $state): array => ['found' => true, 'status' => ['state' => $state, 'message' => null, 'raw_sections' => [], 'available' => $state !== 'unknown']];
+
+        $created = $this->syncSequence('thesis', $thesis('not_enrolled'), $thesis('unknown'), $thesis('not_enrolled'), $thesis('active_unparsed'));
+
+        $this->assertSame(['thesis_status_changed'], $this->types($created));
+        $this->assertSame('/thesis', $created[0]->url);
+        $this->assertSame('Status skripsi di portal berubah', $created[0]->title);
+    }
+
     public function test_portal_context_changes_are_announced(): void
     {
         $created = $this->syncSequence(

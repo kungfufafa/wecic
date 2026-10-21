@@ -11,10 +11,13 @@ use App\Services\Extractors\DashboardExtractor;
 use App\Services\Extractors\FinancialHistoryExtractor;
 use App\Services\Extractors\KrsDetailExtractor;
 use App\Services\Extractors\KrsExtractor;
+use App\Services\Extractors\LibraryExtractor;
 use App\Services\Extractors\ProfileExtractor;
 use App\Services\Extractors\SipandaiClassesExtractor;
 use App\Services\Extractors\SkkmExtractor;
+use App\Services\Extractors\SkripsiExtractor;
 use App\Services\Extractors\StudentCourseExtractor;
+use App\Services\Extractors\ThesisRepositoryExtractor;
 use InvalidArgumentException;
 
 /**
@@ -43,7 +46,11 @@ class PortalDatasetBuilder
         private readonly AdvisingExtractor $advisingExtractor,
         private readonly KrsDetailExtractor $krsDetailExtractor,
         private readonly PortalGradesResolver $gradesResolver,
-        private readonly SkkmExtractor $skkmExtractor
+        private readonly SkkmExtractor $skkmExtractor,
+        private readonly SkripsiExtractor $skripsiExtractor,
+        private readonly LibraryExtractor $libraryExtractor,
+        private readonly ThesisRepositoryExtractor $thesisRepositoryExtractor,
+        private readonly PortalSnapshotStore $snapshots
     ) {}
 
     /**
@@ -75,6 +82,13 @@ class PortalDatasetBuilder
             'krs_detail' => $this->krsDetailExtractor->extractKrsDetailData($sessionToken, $this->krsDetailId($params)),
             'grades' => $this->gradesResolver->resolve($sessionToken),
             'skkm' => $this->skkmExtractor->extractSkkmData($sessionToken),
+            'thesis' => $this->skripsiExtractor->extractSkripsiData($sessionToken),
+            'library' => $this->libraryExtractor->extractLibraryLinksData($sessionToken),
+            // The previous index lets an unchanged repository skip pages 2..n.
+            'thesis_repository' => $this->thesisRepositoryExtractor->extractRepositoryIndex(
+                $sessionToken,
+                $this->snapshots->get($sessionToken, 'thesis_repository')['data'] ?? null
+            ),
             default => throw new InvalidArgumentException("Unknown portal dataset [{$dataset}]."),
         };
     }

@@ -84,6 +84,64 @@ trait InteractsWithPortalFixtures
     }
 
     /**
+     * Extractor that answers each portal URL with its own sanitized raw page
+     *
+     * Like makeExtractorWithRawFixture(), for extractors that read several
+     * pages (a paged list, a hub built from two portal pages). A URL mapped
+     * to a Throwable throws it, as a failing request would; a URL that is not
+     * mapped fails the test, so an unexpected request never goes unnoticed.
+     * Every requested URL is recorded in `$requestedUrls`, in order.
+     *
+     * @template T of \App\Services\PortalScrapingService
+     *
+     * @param  class-string<T>  $extractorClass
+     * @param  array<string, string|\Throwable>  $fixturesByUrl
+     * @param  list<string>|null  $requestedUrls
+     * @return T
+     */
+    protected function makeExtractorWithRawFixtures(string $extractorClass, array $fixturesByUrl, ?array &$requestedUrls = null): object
+    {
+        $pages = [];
+
+        foreach ($fixturesByUrl as $url => $fixture) {
+            if ($fixture instanceof \Throwable) {
+                $pages[$url] = $fixture;
+
+                continue;
+            }
+
+            $this->assertFixtureParsesLikeLivePortal($fixture);
+            $pages[$url] = (string) file_get_contents($this->portalFixturePath($fixture));
+        }
+
+        $requestedUrls = [];
+
+        $sessionManager = Mockery::mock(PortalSessionManager::class);
+        $sessionManager->shouldReceive('getSessionCookieJar')->andReturn(new CookieJar);
+        $sessionManager->shouldReceive('invalidateSession')->byDefault();
+
+        $extractor = Mockery::mock($extractorClass, [$sessionManager])
+            ->makePartial()
+            ->shouldAllowMockingProtectedMethods();
+
+        $extractor->shouldReceive('get')->andReturnUsing(function (string $url) use ($extractor, $pages, &$requestedUrls): string {
+            $requestedUrls[] = $url;
+
+            Assert::assertArrayHasKey($url, $pages, "Unexpected portal request: {$url}");
+
+            if ($pages[$url] instanceof \Throwable) {
+                throw $pages[$url];
+            }
+
+            (fn () => $this->validateResponse($pages[$url], $url))->call($extractor);
+
+            return $pages[$url];
+        });
+
+        return $extractor;
+    }
+
+    /**
      * Fail unless DomCrawler would parse the fixture with its HTML5 parser,
      * as it does every live portal page (doctype first, after optional
      * whitespace or comments)

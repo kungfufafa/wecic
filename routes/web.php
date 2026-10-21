@@ -85,6 +85,9 @@ Route::middleware('portal.web')->group(function (): void {
     })->where('id', '[0-9a-f]{40}')->name('announcement.show');
 
     Route::view('/skkm', 'skkm.index')->name('skkm.index');
+    Route::view('/thesis', 'thesis.index')->name('thesis.index');
+    Route::view('/library', 'library.index')->name('library.index');
+    Route::view('/library/theses', 'library.theses')->name('library.theses');
     Route::view('/more', 'more')->name('more');
     Route::view('/notifications', 'notifications.index')->name('notifications.index');
 });

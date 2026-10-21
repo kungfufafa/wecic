@@ -118,6 +118,9 @@ return [
             'krs_detail' => (int) env('CAMPUS_CACHE_KRS_DETAIL_TTL', 21600),
             'khs' => (int) env('CAMPUS_CACHE_GRADES_TTL', 3600),
             'skkm' => (int) env('CAMPUS_CACHE_SKKM_TTL', 1800),
+            'thesis' => (int) env('CAMPUS_CACHE_THESIS_TTL', 3600),
+            'library_links' => (int) env('CAMPUS_CACHE_LIBRARY_TTL', 86400),
+            'thesis_repository' => (int) env('CAMPUS_CACHE_THESIS_REPOSITORY_TTL', 43200),
         ],
         'default_ttl' => (int) env('CAMPUS_CACHE_HTML_TTL', 300),
     ],
@@ -174,6 +177,40 @@ return [
 
     'skkm' => [
         'required_points' => env('CAMPUS_SKKM_REQUIRED_POINTS'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Thesis & Library
+    |--------------------------------------------------------------------------
+    |
+    | Thesis thresholds are read from SiMASITA's requirement list; these
+    | defaults only fill a value the portal does not state (marked `default`).
+    | The library links are served when act=ebook yields none.
+    |
+    */
+
+    'thesis' => [
+        'default_thresholds' => [
+            'min_sks' => [
+                'D3' => (int) env('CAMPUS_THESIS_MIN_SKS_D3', 90),
+                'S1' => (int) env('CAMPUS_THESIS_MIN_SKS_S1', 120),
+            ],
+            'min_ipk' => (float) env('CAMPUS_THESIS_MIN_IPK', 2.0),
+            'max_d' => (int) env('CAMPUS_THESIS_MAX_D', 2),
+            'allow_e' => false,
+        ],
+    ],
+
+    'library' => [
+        'fallback_links' => [
+            ['title' => 'Perpustakaan UCIC', 'url' => 'https://pustaka.cic.ac.id/'],
+            ['title' => 'Digital Library Mahardika', 'url' => 'https://digilib.mahardika.ac.id/'],
+            ['title' => 'Repository USNI', 'url' => 'https://repository.usni.ac.id/'],
+            ['title' => 'UCIC Library', 'url' => 'https://uciclibrary.perpustakaan.co.id/home.ks', 'requires_account' => true],
+            ['title' => 'eBook UCIC', 'url' => 'https://ebook.cic.ac.id/home/daftar', 'requires_account' => true],
+            ['title' => 'Repositori Skripsi', 'internal_route' => '/library/theses'],
+        ],
     ],
 
     /*
@@ -238,8 +275,8 @@ return [
         ],
         'payments' => [
             'fresh_for' => 1800,
-            'cache_keys' => ['/api/finance/payments', '/api/finance/summary', '/api/dashboard', '/api/action-items'],
-            'sync_keys' => ['finance', 'dashboard-overview', 'dashboard-action-items'],
+            'cache_keys' => ['/api/finance/payments', '/api/finance/summary', '/api/dashboard', '/api/action-items', '/api/thesis/readiness'],
+            'sync_keys' => ['finance', 'dashboard-overview', 'dashboard-action-items', 'thesis-index'],
             'notify' => [
                 [
                     'type' => 'bill_new',
@@ -421,8 +458,8 @@ return [
         ],
         'grades' => [
             'fresh_for' => 3600,
-            'cache_keys' => ['/api/academic/grades', '/api/academic/transcript', '/api/dashboard', '/api/action-items'],
-            'sync_keys' => ['grades-index', 'transcript-index', 'dashboard-overview', 'dashboard-action-items'],
+            'cache_keys' => ['/api/academic/grades', '/api/academic/transcript', '/api/dashboard', '/api/action-items', '/api/thesis/readiness'],
+            'sync_keys' => ['grades-index', 'transcript-index', 'dashboard-overview', 'dashboard-action-items', 'thesis-index'],
             'notify' => [
                 [
                     'type' => 'grade_released',
@@ -483,6 +520,35 @@ return [
                     'urgency' => 'warning',
                 ],
             ],
+        ],
+        'thesis' => [
+            'fresh_for' => 43200,
+            'cache_keys' => ['/api/thesis', '/api/thesis/readiness'],
+            'sync_keys' => ['thesis-index'],
+            'notify' => [
+                [
+                    'type' => 'thesis_status_changed',
+                    'on' => 'changed',
+                    'field' => 'status.state',
+                    // A status page that could not be read is not a new status.
+                    'ignore' => 'unknown',
+                    'requires' => ['found' => true],
+                    'title' => 'Status skripsi di portal berubah',
+                    'body' => 'Cek status e-Skripsi dan kesiapanmu di MyCIC.',
+                    'url' => '/thesis',
+                ],
+            ],
+        ],
+        'library' => [
+            'fresh_for' => 604800,
+            'cache_keys' => ['/api/library'],
+            'sync_keys' => ['library-index'],
+        ],
+        // The whole repository (about 7 portal pages), crawled in the background.
+        'thesis_repository' => [
+            'fresh_for' => 86400,
+            'cache_keys' => ['/api/library/theses', '/api/library'],
+            'sync_keys' => ['library-theses', 'library-index'],
         ],
     ],
 

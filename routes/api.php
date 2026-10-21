@@ -8,9 +8,11 @@ use App\Http\Controllers\API\PortalActionController;
 use App\Http\Controllers\API\PortalAnnouncementController;
 use App\Http\Controllers\API\PortalAuthController;
 use App\Http\Controllers\API\PortalDataController;
+use App\Http\Controllers\API\PortalLibraryController;
 use App\Http\Controllers\API\PortalNotificationController;
 use App\Http\Controllers\API\PortalOperationController;
 use App\Http\Controllers\API\PortalSupportController;
+use App\Http\Controllers\API\PortalThesisController;
 use Illuminate\Support\Facades\Route;
 
 // Session-aware middleware stack for campus API routes (cookie + session + CSRF).
@@ -76,6 +78,16 @@ Route::middleware($sessionMiddleware)->group(function () {
             Route::get('krs/{id}', 'krsDetail')->whereNumber('id');
             Route::get('grades', 'grades');
             Route::get('transcript', 'transcript');
+        });
+
+        Route::prefix('thesis')->controller(PortalThesisController::class)->group(function (): void {
+            Route::get('', 'index');
+            Route::get('readiness', 'readiness');
+        });
+
+        Route::prefix('library')->controller(PortalLibraryController::class)->group(function (): void {
+            Route::get('', 'index');
+            Route::get('theses', 'theses');
         });
 
         Route::prefix('announcement')->controller(PortalAnnouncementController::class)->group(function (): void {

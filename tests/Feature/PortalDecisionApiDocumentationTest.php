@@ -37,6 +37,10 @@ class PortalDecisionApiDocumentationTest extends TestCase
             '/skkm' => ['found', 'stats', 'graduation_status', 'entries', 'summary'],
             '/portal/context' => ['academic_period', 'semester_number', 'guide_links', 'questionnaire'],
             '/dashboard' => ['dashboard_overview', 'portal_context', 'metrics', 'pending_sources'],
+            '/thesis' => ['requirements', 'thresholds', 'documents', 'status', 'krs_hint'],
+            '/thesis/readiness' => ['checklist_items', 'summary', 'sks_progress', 'courses', 'insights'],
+            '/library' => ['links', 'source', 'repository'],
+            '/library/theses' => ['mode', 'items'],
         ];
 
         foreach ($expected as $path => $keys) {
@@ -53,5 +57,6 @@ class PortalDecisionApiDocumentationTest extends TestCase
 
         $this->assertArrayHasKey('404', $spec['paths']['/academic/krs/{id}']['get']['responses']);
         $this->assertArrayHasKey('422', $spec['paths']['/academic/transcript']['get']['responses']);
+        $this->assertArrayHasKey('422', $spec['paths']['/library/theses']['get']['responses']);
     }
 }

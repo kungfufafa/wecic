@@ -35,6 +35,9 @@ class AppShellPagesTest extends TestCase
             'announcements' => ['/announcement', 'announcement-index'],
             'announcement detail' => ['/announcement/'.self::ANNOUNCEMENT_ID, 'announcement-show'],
             'skkm' => ['/skkm', 'skkm-index'],
+            'thesis' => ['/thesis', 'thesis-index'],
+            'library' => ['/library', 'library-index'],
+            'library theses' => ['/library/theses', 'library-theses'],
             'more' => ['/more', 'more-index'],
             'notifications' => ['/notifications', 'notification-index'],
         ];
@@ -157,7 +160,7 @@ class AppShellPagesTest extends TestCase
         $moreMenu = $crawler->filter('nav[aria-label="Navigasi utama"] [data-dropdown-panel] a')->extract(['href']);
         $moreMenuPaths = array_map(fn (string $href): string => (string) parse_url($href, PHP_URL_PATH), $moreMenu);
 
-        $this->assertSame(['/skkm', '/announcement', '/profile', '/password', '/more'], $moreMenuPaths);
+        $this->assertSame(['/skkm', '/thesis', '/library', '/announcement', '/profile', '/password', '/more'], $moreMenuPaths);
     }
 
     /**
@@ -176,6 +179,9 @@ class AppShellPagesTest extends TestCase
             'finance' => ['/finance', 'lainnya', 'keuangan'],
             'skkm' => ['/skkm', 'lainnya', 'lainnya'],
             'announcement' => ['/announcement', 'lainnya', 'lainnya'],
+            'thesis' => ['/thesis', 'lainnya', 'lainnya'],
+            'library' => ['/library', 'lainnya', 'lainnya'],
+            'library theses' => ['/library/theses', 'lainnya', 'lainnya'],
             'profile' => ['/profile', 'lainnya', 'lainnya'],
             'password' => ['/password', 'lainnya', 'lainnya'],
             'more' => ['/more', 'lainnya', 'lainnya'],
@@ -295,7 +301,7 @@ class AppShellPagesTest extends TestCase
             $tiles->extract(['href'])
         );
 
-        foreach (['/class', '/exam', '/krs', '/grades', '/transcript', '/finance', '/skkm', '/announcement', '/profile', '/password'] as $path) {
+        foreach (['/class', '/exam', '/krs', '/grades', '/transcript', '/finance', '/skkm', '/announcement', '/thesis', '/library', '/profile', '/password'] as $path) {
             $this->assertContains($path, $paths);
         }
 

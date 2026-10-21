@@ -197,4 +197,27 @@ class PortalEndpointRegistryTest extends TestCase
         $this->assertGreaterThan(0, config('portal.academic.target_sks'));
         $this->assertSame(['portal_context', 'krs', 'advising', 'payments', 'grades', 'skkm', 'announcements', 'exams'], config('portal.sync.warmup_datasets'));
     }
+
+    public function test_thesis_and_library_datasets_are_configured(): void
+    {
+        foreach (['thesis' => 'thesis', 'library' => 'library_links', 'thesis_repository' => 'thesis_repository'] as $dataset => $resource) {
+            $this->assertIsInt(config("portal.datasets.{$dataset}.fresh_for"), $dataset);
+            $this->assertFalse(config("portal.datasets.{$dataset}.parameterized", false), $dataset);
+            $this->assertGreaterThan(0, config("portal.cache.resources.{$resource}"), $resource);
+        }
+
+        $this->assertSame(['/api/thesis', '/api/thesis/readiness'], config('portal.datasets.thesis.cache_keys'));
+        $this->assertContains('/api/library/theses', config('portal.datasets.thesis_repository.cache_keys'));
+        $this->assertContains('library-theses', config('portal.datasets.thesis_repository.sync_keys'));
+
+        // Readiness is computed from grades and payments too, so their syncs reload it.
+        foreach (['grades', 'payments'] as $dataset) {
+            $this->assertContains('/api/thesis/readiness', config("portal.datasets.{$dataset}.cache_keys"), $dataset);
+            $this->assertContains('thesis-index', config("portal.datasets.{$dataset}.sync_keys"), $dataset);
+        }
+
+        // A full repository crawl never joins the login warm-up.
+        $this->assertNotContains('thesis_repository', config('portal.sync.warmup_datasets'));
+        $this->assertContains('/library/theses', array_column(config('portal.library.fallback_links'), 'internal_route'));
+    }
 }

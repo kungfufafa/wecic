@@ -36,6 +36,9 @@ class InfoPagesTest extends TestCase
             'announcement detail' => ['/announcement/'.self::ANNOUNCEMENT_ID, 'announcement-show', "app.registerSyncHandler('announcement-show', loadAnnouncement, { aliases: ['announcement-index'] });", "app.primeCachedView(detailUrl, renderDetail, 'detail pengumuman')"],
             'skkm' => ['/skkm', 'skkm-index', "app.registerSyncHandler('skkm-index', loadSkkm);", "app.primeCachedView('/api/skkm', renderSkkm, 'poin SKKM');"],
             'finance' => ['/finance', 'finance', "app.registerSyncHandler('finance', loadFinance, { aliases: ['portal-context', 'announcement-index'] });", "app.primeCachedView('/api/finance/summary', renderSummary, 'ringkasan keuangan');"],
+            'thesis' => ['/thesis', 'thesis-index', "app.registerSyncHandler('thesis-index', loadThesis);", "app.primeCachedView('/api/thesis', renderThesis, 'syarat & status skripsi');"],
+            'library' => ['/library', 'library-index', "app.registerSyncHandler('library-index', loadLibrary);", "app.primeCachedView('/api/library', renderLibrary, 'perpustakaan digital');"],
+            'library theses' => ['/library/theses', 'library-theses', "app.registerSyncHandler('library-theses', ({ force = false } = {}) => fetchResults({ force }));", "app.primeCachedView('/api/library/theses', (payload) => renderResults(payload), 'repositori skripsi');"],
         ];
     }
 
@@ -243,7 +246,7 @@ class InfoPagesTest extends TestCase
     {
         config()->set('portal.base_url', 'https://portal.example.test/</script><script>alert(1)</script>');
 
-        foreach (['/skkm', '/finance'] as $path) {
+        foreach (['/skkm', '/finance', '/thesis'] as $path) {
             $this->mockValidCampusSession();
 
             $this->page($path)
