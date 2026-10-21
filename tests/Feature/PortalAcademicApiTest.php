@@ -292,9 +292,12 @@ class PortalAcademicApiTest extends TestCase
             ->assertJsonPath('data.summary.ipk', 3.1)
             ->assertJsonPath('data.summary.source', 'official')
             ->assertJsonPath('data.summary.sks_total', 20)
+            ->assertJsonPath('data.summary.sks_passed', 86)
+            ->assertJsonPath('data.summary.conversion_sks', 66)
             ->assertJsonPath('data.target_sks', 144)
-            ->assertJsonPath('data.remaining_sks', 124)
-            ->assertJsonPath('data.progress.progress_percent', 13.9)
+            ->assertJsonPath('data.remaining_sks', 58)
+            ->assertJsonPath('data.progress.progress_percent', 59.7)
+            ->assertJsonPath('data.conversion', ['status' => 'ok', 'sks' => 66, 'course_count' => 24, 'already_graded_codes' => []])
             ->assertJsonPath('data.current_load.sks', 14)
             ->assertJsonPath('data.low_grades.d_courses.0.code', 'MK1004')
             ->assertJsonPath('data.letter_counts.D', 1)
@@ -385,7 +388,7 @@ class PortalAcademicApiTest extends TestCase
             'krs_history' => [
                 ['krs_id' => 90004, 'academic_year' => '2026/2027', 'date' => '2026-09-14', 'semester' => 3, 'semester_is_regular' => true, 'semester_label' => 'Semester 3'],
                 ['krs_id' => 90003, 'academic_year' => '2025/2026', 'date' => '2026-02-10', 'semester' => 2, 'semester_is_regular' => true, 'semester_label' => 'Semester 2'],
-                ['krs_id' => 90001, 'academic_year' => '2025/2026', 'date' => '2026-07-01', 'semester' => 'T', 'semester_is_regular' => false, 'semester_label' => 'Semester T (non-reguler, makna belum diketahui)'],
+                ['krs_id' => 90001, 'academic_year' => '2025/2026', 'date' => '2026-07-01', 'semester' => 'T', 'semester_is_regular' => false, 'semester_label' => 'Semester T (konversi)'],
             ],
             'latest_krs_id' => 90004,
             'latest_semester_number' => 3,
@@ -443,14 +446,16 @@ class PortalAcademicApiTest extends TestCase
                 'mismatch' => false,
                 'mismatch_fields' => [],
                 'ipk' => 3.1,
-                'sks_passed' => 20,
+                'sks_passed' => 86,
+                'conversion_sks' => 66,
                 'quality_points_total' => 62.0,
                 'source' => 'official',
-                'progress' => ['target_sks' => 144, 'earned_sks' => 20, 'remaining_sks' => 124, 'progress_percent' => 13.9, 'average_sks_per_semester' => 10.0, 'projected_semesters_remaining' => 13, 'target_sks_source' => 'official', 'graduation_targets' => []],
+                'progress' => ['target_sks' => 144, 'earned_sks' => 86, 'remaining_sks' => 58, 'progress_percent' => 59.7, 'average_sks_per_semester' => 10.0, 'projected_semesters_remaining' => 13, 'target_sks_source' => 'official', 'graduation_targets' => []],
                 'predicate_estimate' => 'Sangat Memuaskan',
             ],
             'transcript' => [$dCourse],
             'transcript_print_url' => 'https://my.cic.ac.id/portal/sipandai/views/transcripts/print.php',
+            'conversion' => ['status' => 'ok', 'krs_ids' => [90001], 'courses' => [['code' => 'SI013002', 'name' => 'Manajemen dan organisasi', 'sks' => 3]], 'course_count' => 24, 'sks' => 66, 'already_graded_codes' => []],
             'sources' => ['khs' => 'sipandai_score', 'is_partial' => false, 'score_page' => 'ok', 'krs_detail' => 'ok', 'krs_id' => '90004', 'cross_check' => ['compared' => 8, 'mismatched' => 0]],
             'extracted_at' => '2026-10-20T02:00:00+00:00',
         ];

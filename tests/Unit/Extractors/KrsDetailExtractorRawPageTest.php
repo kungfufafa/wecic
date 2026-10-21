@@ -172,7 +172,7 @@ class KrsDetailExtractorRawPageTest extends TestCase
 
         $this->assertSame('T', $detail['header']['semester']);
         $this->assertFalse($detail['header']['semester_is_regular']);
-        $this->assertSame('Semester T (non-reguler, makna belum diketahui)', $detail['header']['semester_label']);
+        $this->assertSame('Semester T (konversi)', $detail['header']['semester_label']);
         $this->assertFalse($detail['counts_as_study_load']);
         $this->assertSame(18, $detail['totals']['sks']);
     }

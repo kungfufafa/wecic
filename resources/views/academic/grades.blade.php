@@ -180,7 +180,7 @@
                     <div class="mycic-metric">
                         <div class="mycic-metric-label">SKS lulus</div>
                         <div class="mycic-metric-value">${esc(summary.sks_passed ?? '–')}</div>
-                        <div class="mycic-metric-note">${progress.target_sks ? `dari ${esc(progress.target_sks)} SKS` : 'SKS terkumpul'}</div>
+                        <div class="mycic-metric-note">${progress.target_sks ? `dari ${esc(progress.target_sks)} SKS` : 'SKS terkumpul'}${summary.conversion_sks > 0 ? ` · ${esc(summary.conversion_sks)} konversi` : ''}</div>
                     </div>
                 `;
             };
@@ -211,7 +211,7 @@
 
             const chipCaption = (semester) => {
                 if (semester.is_regular === false || !Number.isInteger(semester.semester)) {
-                    return 'non-reguler';
+                    return semester.semester === 'T' ? 'konversi' : 'non-reguler';
                 }
 
                 if (semester.status === 'graded') {
@@ -285,8 +285,8 @@
                 if (semester.is_regular === false || !Number.isInteger(semester.semester)) {
                     return `
                         <div class="${app.alertTone('neutral')}">
-                            <div class="font-semibold text-ink">Semester T bersifat non-reguler (makna belum diketahui)</div>
-                            <p class="mt-1">Kartu nilai semester T di portal selalu kosong dan tidak dihitung ke IPK maupun SKS lulus.</p>
+                            <div class="font-semibold text-ink">Semester T berisi mata kuliah konversi</div>
+                            <p class="mt-1">Portal tidak mencantumkan nilai MK konversi, jadi kartu nilai semester T selalu kosong dan tidak masuk IPK. SKS-nya tetap dihitung sebagai SKS lulus dari KRS semester T.</p>
                         </div>
                     `;
                 }
@@ -409,7 +409,7 @@
                 const lowCourses = courses.filter((course) => course.is_graded && typeof course.weight === 'number' && course.weight <= 2);
                 const shown = state.lowOnly ? lowCourses : courses;
                 const regular = semester.is_regular !== false && Number.isInteger(semester.semester);
-                const statusBadge = !regular ? app.renderBadge('Non-reguler', 'secondary') : {
+                const statusBadge = !regular ? app.renderBadge(semester.semester === 'T' ? 'Konversi' : 'Non-reguler', 'secondary') : {
                     graded: app.renderBadge('Lengkap', 'success'),
                     partial: app.renderBadge('Sebagian keluar', 'warning'),
                     pending: app.renderBadge('Belum keluar', 'secondary'),

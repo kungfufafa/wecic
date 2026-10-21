@@ -181,11 +181,14 @@ class PortalAcademicController extends CampusApiController
     /**
      * Transkrip & progres studi: IPK, SKS lulus dari target, sisa SKS, proyeksi, MK D/E, dan simulasi target IPK.
      *
+     * SKS lulus dan sisa SKS sudah memperhitungkan MK konversi dari KRS semester T (`conversion`); SKS
+     * konversi tidak punya nilai, jadi tidak masuk IPK maupun simulasi.
+     *
      * Semua angka dihitung dari snapshot KHS tanpa request tambahan ke portal. Kirim `target_ipk` dan
      * `next_sks` untuk mendapat `simulation` (IPS minimal semester depan; `achievable=false` berarti
      * tidak tercapai semester ini).
      */
-    #[Response(description: 'Transkrip dan progres studi berhasil diambil.', type: "array{status: 'success', message: string, data: array{summary: array{ipk: float|null, source: 'official'|'computed', sks_passed: int, sks_total: int|null, quality_points_total: float, predicate_estimate: string|null, mismatch: bool, mismatch_fields: list<string>, official: array<string, mixed>|null}, progress: array{target_sks: int, earned_sks: int, remaining_sks: int, progress_percent: float, average_sks_per_semester: float|null, projected_semesters_remaining: int|null, target_sks_source: 'official'|'config', graduation_targets: list<array{predicate: string, target_ipk: float, current_ipk: float|null, additional_sks: int, required_ips: float|null, achievable: bool, already_reached: bool}>}, target_sks: int, remaining_sks: int, current_load: array{sks: int, courses: int}|null, transcript: list<".self::TRANSCRIPT_ROW.'>, ips_series: list<array{semester: int, label: string, ips: float|null, ips_portal: float|null, ips_computed: float|null, ips_mismatch: bool, sks: int, quality_points: float, graded_count: int, course_count: int, is_complete: bool}>, latest_ips: array{semester: int, ips: float, previous_semester: int|null, previous_ips: float|null, delta: float|null}|null, letter_counts: array<string, int>, low_grades: array{d_courses: list<'.self::TRANSCRIPT_ROW.'>, e_courses: list<'.self::TRANSCRIPT_ROW.'>, low_grade_courses: list<'.self::TRANSCRIPT_ROW.'>, repeated_courses: list<'.self::TRANSCRIPT_ROW.'>}, excluded_semesters: list<string>, simulation: array{target_ipk: float, current_ipk: float|null, additional_sks: int, required_ips: float|null, achievable: bool, already_reached: bool}|null, is_partial: bool, transcript_print_available: bool, extracted_at: string|null}, '.self::SNAPSHOT_META.'}')]
+    #[Response(description: 'Transkrip dan progres studi berhasil diambil.', type: "array{status: 'success', message: string, data: array{summary: array{ipk: float|null, source: 'official'|'computed', sks_passed: int, conversion_sks: int, sks_total: int|null, quality_points_total: float, predicate_estimate: string|null, mismatch: bool, mismatch_fields: list<string>, official: array<string, mixed>|null}, progress: array{target_sks: int, earned_sks: int, remaining_sks: int, progress_percent: float, average_sks_per_semester: float|null, projected_semesters_remaining: int|null, target_sks_source: 'official'|'config', graduation_targets: list<array{predicate: string, target_ipk: float, current_ipk: float|null, additional_sks: int, required_ips: float|null, achievable: bool, already_reached: bool}>}, target_sks: int, remaining_sks: int, current_load: array{sks: int, courses: int}|null, conversion: array{status: 'ok'|'none'|'failed'|'skipped', sks: int, course_count: int, already_graded_codes: list<string>}, transcript: list<".self::TRANSCRIPT_ROW.'>, ips_series: list<array{semester: int, label: string, ips: float|null, ips_portal: float|null, ips_computed: float|null, ips_mismatch: bool, sks: int, quality_points: float, graded_count: int, course_count: int, is_complete: bool}>, latest_ips: array{semester: int, ips: float, previous_semester: int|null, previous_ips: float|null, delta: float|null}|null, letter_counts: array<string, int>, low_grades: array{d_courses: list<'.self::TRANSCRIPT_ROW.'>, e_courses: list<'.self::TRANSCRIPT_ROW.'>, low_grade_courses: list<'.self::TRANSCRIPT_ROW.'>, repeated_courses: list<'.self::TRANSCRIPT_ROW.'>}, excluded_semesters: list<string>, simulation: array{target_ipk: float, current_ipk: float|null, additional_sks: int, required_ips: float|null, achievable: bool, already_reached: bool}|null, is_partial: bool, transcript_print_available: bool, extracted_at: string|null}, '.self::SNAPSHOT_META.'}')]
     #[Response(401, description: 'Endpoint ini membutuhkan sesi kampus yang aktif.', type: CampusApiController::SCRAMBLE_SESSION_ERROR_RESPONSE)]
     #[Response(422, description: 'Parameter simulasi target IPK tidak valid.', type: CampusApiController::SCRAMBLE_VALIDATION_ERROR_RESPONSE)]
     #[Response(500, description: 'Transkrip gagal diambil.', type: CampusApiController::SCRAMBLE_STATUS_ERROR_RESPONSE)]
@@ -216,12 +219,14 @@ class PortalAcademicController extends CampusApiController
         $qualityPoints = (float) ($summary['quality_points_total'] ?? $computed['quality_points_total'] ?? 0);
         $sksTotal = $official['sks_total'] ?? $computed['sks_total'] ?? null;
         $krsFound = ($krs['found'] ?? false) === true && is_array($krs['totals'] ?? null);
+        $conversion = is_array($grades['conversion'] ?? null) ? $grades['conversion'] : [];
 
         return [
             'summary' => [
                 'ipk' => $summary['ipk'] ?? null,
                 'source' => $summary['source'] ?? 'computed',
                 'sks_passed' => (int) ($summary['sks_passed'] ?? 0),
+                'conversion_sks' => (int) ($summary['conversion_sks'] ?? 0),
                 'sks_total' => is_int($sksTotal) ? $sksTotal : null,
                 'quality_points_total' => $qualityPoints,
                 'predicate_estimate' => $summary['predicate_estimate'] ?? null,
@@ -236,6 +241,12 @@ class PortalAcademicController extends CampusApiController
                 'sks' => (int) ($krs['totals']['sks'] ?? 0),
                 'courses' => (int) ($krs['totals']['courses'] ?? 0),
             ] : null,
+            'conversion' => [
+                'status' => $conversion['status'] ?? 'skipped',
+                'sks' => (int) ($conversion['sks'] ?? 0),
+                'course_count' => (int) ($conversion['course_count'] ?? 0),
+                'already_graded_codes' => $conversion['already_graded_codes'] ?? [],
+            ],
             'transcript' => $grades['transcript'] ?? [],
             'ips_series' => $computed['ips_series'] ?? [],
             'latest_ips' => $computed['latest_ips'] ?? null,

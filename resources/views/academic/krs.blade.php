@@ -938,7 +938,11 @@
                                 }
 
                                 if (!regular) {
-                                    chips.push(app.renderBadge('Non-reguler (makna belum diketahui)', 'secondary'));
+                                    chips.push(app.renderBadge(row.semester === 'T' ? 'Konversi' : 'Non-reguler', 'secondary'));
+                                }
+
+                                if (row.semester === 'T' && detail?.found && detail.totals) {
+                                    chips.push(`<span class="mycic-chip tabular-nums">${esc(detail.totals.courses)} MK · ${esc(detail.totals.sks)} SKS diakui</span>`);
                                 }
 
                                 if (regular && detail?.found && detail.counts_as_study_load !== false && detail.totals) {

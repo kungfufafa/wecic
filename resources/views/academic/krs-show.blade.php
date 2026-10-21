@@ -205,7 +205,7 @@
                 }
 
                 if (!isRegular()) {
-                    chips.push(app.renderBadge('Non-reguler (makna belum diketahui)', 'secondary'));
+                    chips.push(app.renderBadge(state.detail.header?.semester === 'T' ? 'Konversi' : 'Non-reguler', 'secondary'));
                 }
 
                 const status = krsStatus();
@@ -227,8 +227,8 @@
                 if (!isRegular()) {
                     alerts.push(`
                         <div class="${app.alertTone('neutral')}">
-                            <div class="font-semibold text-ink">KRS semester T bersifat non-reguler</div>
-                            <p class="mt-1">Arti semester T belum diketahui. Mata kuliah di sini tidak dihitung sebagai beban studi, IPK, atau proyeksi kelulusan.</p>
+                            <div class="font-semibold text-ink">KRS semester T berisi mata kuliah konversi</div>
+                            <p class="mt-1">Mata kuliah ini diakui dari studi sebelumnya, misalnya D3 ke S1 lanjutan. SKS-nya dihitung sebagai SKS lulus dan mengurangi sisa SKS, tetapi bukan beban studi semester ini dan tidak masuk IPK karena portal tidak mencantumkan nilainya.</p>
                         </div>
                     `);
                 }

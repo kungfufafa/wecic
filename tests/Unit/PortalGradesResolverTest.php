@@ -9,6 +9,7 @@ use App\Exceptions\PortalScrapingException;
 use App\Services\AcademicProgressCalculator;
 use App\Services\Extractors\AdvisingExtractor;
 use App\Services\Extractors\KhsExtractor;
+use App\Services\Extractors\KrsDetailExtractor;
 use App\Services\PortalEndpointRegistry;
 use App\Services\PortalGradesResolver;
 use App\Services\PortalSessionManager;
@@ -27,12 +28,48 @@ class PortalGradesResolverTest extends TestCase
 
     private AdvisingExtractor&MockInterface $advisingExtractor;
 
+    private KrsDetailExtractor&MockInterface $krsDetailExtractor;
+
+    /**
+     * Conversion KRS (semester T) of a D3 → S1 continuation student as the
+     * portal lists it: code, name, SKS, semester column (often empty)
+     *
+     * @var list<array{0: string, 1: string, 2: int, 3: int|null}>
+     */
+    private const CONVERSION_COURSES = [
+        ['UC01012002', 'General English', 2, 1],
+        ['UC01012003', 'Pembangunan karakter & Etika Profesi', 2, 1],
+        ['SI013002', 'Manajemen dan organisasi', 3, 1],
+        ['SI014003', 'Sistem dan teknologi informasi', 3, null],
+        ['UC01032006', 'English for Specific Purpose', 2, 3],
+        ['SI033011', 'Statistik', 3, null],
+        ['SI033013', 'Analisa dan Perancangan Sistem Informasi', 3, 3],
+        ['SI033014', 'Sistem Basis Data', 3, null],
+        ['SI052021', 'Jaringan Komputer', 3, 5],
+        ['UC01022005', 'Intermediate English', 2, 2],
+        ['UC01042007', 'TOEFL Preparations', 2, 4],
+        ['SI043017', 'Analisa sistem berorientasi obyek', 3, 4],
+        ['SI063026', 'Proyek Sistem Informasi', 4, 6],
+        ['SI013004', 'Algoritma dan Pemrograman', 3, 1],
+        ['SI033010', 'Sistem Informasi Manajemen', 3, 3],
+        ['SI033015', 'Pemrograman Internet 1', 3, null],
+        ['UC01052008', 'Technopreneurship', 2, 5],
+        ['TIX053003', 'Student Exchange (Augmented Reality)', 3, null],
+        ['SI023009', 'Algoritma dan Pemrograman 2', 3, 2],
+        ['SI023008', 'Pemrograman Web (HTML+CSS)', 3, null],
+        ['UC01062013', 'Proyek Technopreneurhip', 2, 6],
+        ['SI053024', 'Pemrograman Internet Advance ( Laravel, React Vu Js )', 3, 5],
+        ['SI043019', 'Pemrograman Internet Intermediate (Framework, MVC)', 3, 4],
+        ['CIC20021', 'Pancasila, Kewarganegaraan, dan Anti Korupsi', 3, 1],
+    ];
+
     protected function setUp(): void
     {
         parent::setUp();
 
         $this->khsExtractor = Mockery::mock(KhsExtractor::class);
         $this->advisingExtractor = Mockery::mock(AdvisingExtractor::class);
+        $this->krsDetailExtractor = Mockery::mock(KrsDetailExtractor::class);
     }
 
     protected function tearDown(): void
@@ -170,6 +207,7 @@ class PortalGradesResolverTest extends TestCase
         $grades = $this->resolver()->resolve('token');
 
         $this->assertSame('skipped', $grades['sources']['krs_detail']);
+        $this->assertSame('skipped', $grades['conversion']['status']);
         $this->assertNull($grades['summary']['official']);
         $this->assertSame(KhsExtractor::SOURCE_SCORE, $grades['sources']['khs']);
     }
@@ -313,7 +351,7 @@ class PortalGradesResolverTest extends TestCase
 
     private function resolver(): PortalGradesResolver
     {
-        return new PortalGradesResolver($this->khsExtractor, $this->advisingExtractor, new AcademicProgressCalculator);
+        return new PortalGradesResolver($this->khsExtractor, $this->advisingExtractor, $this->krsDetailExtractor, new AcademicProgressCalculator);
     }
 
     /**
@@ -349,7 +387,9 @@ class PortalGradesResolverTest extends TestCase
         $khs = Mockery::mock(KhsExtractor::class, [$sessionManager])->makePartial()->shouldAllowMockingProtectedMethods();
         $khs->shouldReceive('get')->twice()->andReturnUsing($page);
 
-        $grades = (new PortalGradesResolver($khs, $advising, new AcademicProgressCalculator))->resolve('token');
+        $this->krsDetailExtractor->shouldReceive('extractKrsDetailData')->once()->with('token', 90002)->andReturn($this->conversionDetail(90002, self::CONVERSION_COURSES));
+
+        $grades = (new PortalGradesResolver($khs, $advising, $this->krsDetailExtractor, new AcademicProgressCalculator))->resolve('token');
 
         $this->assertSame([
             'khs' => KhsExtractor::SOURCE_SCORE,
@@ -362,8 +402,9 @@ class PortalGradesResolverTest extends TestCase
         $this->assertFalse($grades['summary']['mismatch']);
         $this->assertSame('official', $grades['summary']['source']);
         $this->assertSame(3.1, $grades['summary']['ipk']);
-        $this->assertSame(20, $grades['summary']['sks_passed']);
-        $this->assertSame(['target_sks' => 144, 'remaining_sks' => 124], array_intersect_key($grades['summary']['progress'], array_flip(['target_sks', 'remaining_sks'])));
+        $this->assertSame(86, $grades['summary']['sks_passed']);
+        $this->assertSame(66, $grades['summary']['conversion_sks']);
+        $this->assertSame(['target_sks' => 144, 'remaining_sks' => 58], array_intersect_key($grades['summary']['progress'], array_flip(['target_sks', 'remaining_sks'])));
         $this->assertSame(['T'], $grades['summary']['computed']['excluded_semesters']);
     }
 
@@ -376,8 +417,9 @@ class PortalGradesResolverTest extends TestCase
     public function test_the_raw_pages_give_an_official_summary_equal_to_the_computed_one(): void
     {
         $this->advisingExtractor->shouldReceive('extractAdvisingData')->with('token')->andReturn($this->advisingHistoryPayload(90004));
+        $this->krsDetailExtractor->shouldReceive('extractKrsDetailData')->once()->with('token', 90001)->andReturn($this->conversionDetail(90001, self::CONVERSION_COURSES));
 
-        $grades = (new PortalGradesResolver($this->rawKhsExtractor($requestedUrls), $this->advisingExtractor, new AcademicProgressCalculator))->resolve('token');
+        $grades = (new PortalGradesResolver($this->rawKhsExtractor($requestedUrls), $this->advisingExtractor, $this->krsDetailExtractor, new AcademicProgressCalculator))->resolve('token');
         $summary = $grades['summary'];
         $computed = $summary['computed'];
 
@@ -403,13 +445,24 @@ class PortalGradesResolverTest extends TestCase
         $this->assertSame(3.21, $summary['ipk']);
         $this->assertSame(42, $summary['official']['sks_total']);
         $this->assertSame(42, $computed['sks_total']);
-        $this->assertSame(42, $summary['sks_passed']);
+        $this->assertSame(108, $summary['sks_passed']);
+        $this->assertSame(66, $summary['conversion_sks']);
         $this->assertSame(135.0, $summary['official']['quality_points_total']);
         $this->assertSame(135.0, $computed['quality_points_total']);
         $this->assertSame($summary['official']['letter_counts'], $computed['letter_counts']);
         $this->assertSame(['A' => 7, 'B' => 5, 'C' => 4, 'D' => 0, 'E' => 0], $computed['letter_counts']);
         $this->assertSame('Sangat Memuaskan', $summary['predicate_estimate']);
-        $this->assertSame(['target_sks' => 144, 'remaining_sks' => 102, 'target_sks_source' => 'official'], array_intersect_key($summary['progress'], array_flip(['target_sks', 'remaining_sks', 'target_sks_source'])));
+        $this->assertSame(102, $summary['official']['sks_remaining']);
+        $this->assertSame(
+            ['target_sks' => 144, 'earned_sks' => 108, 'remaining_sks' => 36, 'progress_percent' => 75.0, 'average_sks_per_semester' => 21.0, 'projected_semesters_remaining' => 2, 'target_sks_source' => 'official'],
+            array_intersect_key($summary['progress'], array_flip(['target_sks', 'earned_sks', 'remaining_sks', 'progress_percent', 'average_sks_per_semester', 'projected_semesters_remaining', 'target_sks_source']))
+        );
+        $this->assertSame([36, 36, 36], array_column($summary['progress']['graduation_targets'], 'additional_sks'));
+        $this->assertSame('ok', $grades['conversion']['status']);
+        $this->assertSame([90001], $grades['conversion']['krs_ids']);
+        $this->assertSame(24, $grades['conversion']['course_count']);
+        $this->assertSame(66, $grades['conversion']['sks']);
+        $this->assertSame([], $grades['conversion']['already_graded_codes']);
         $this->assertSame(['T'], $computed['excluded_semesters']);
         $this->assertSame([1, 2], array_column($computed['ips_series'], 'semester'));
         $this->assertSame([3.11, 3.29], array_column($computed['ips_series'], 'ips'));
@@ -427,7 +480,9 @@ class PortalGradesResolverTest extends TestCase
         $advising['krs_history'] = [['krs_id' => 90001, 'academic_year' => '2024/2025', 'date' => null, 'semester' => 'T', 'semester_is_regular' => false, 'semester_label' => 'Semester T']];
         $this->advisingExtractor->shouldReceive('extractAdvisingData')->with('token')->andReturn($advising);
 
-        $grades = (new PortalGradesResolver($this->rawKhsExtractor($requestedUrls, '90001'), $this->advisingExtractor, new AcademicProgressCalculator))->resolve('token');
+        $this->krsDetailExtractor->shouldReceive('extractKrsDetailData')->once()->with('token', 90001)->andReturn($this->conversionDetail(90001, []));
+
+        $grades = (new PortalGradesResolver($this->rawKhsExtractor($requestedUrls, '90001'), $this->advisingExtractor, $this->krsDetailExtractor, new AcademicProgressCalculator))->resolve('token');
 
         $this->assertSame(PortalEndpointRegistry::url('student_krs_detail', ['id' => '90001']), $requestedUrls[1]);
         $this->assertSame('ok', $grades['sources']['krs_detail']);
@@ -444,8 +499,111 @@ class PortalGradesResolverTest extends TestCase
         $this->scoreReturns($this->scorePayload());
         $this->advisingExtractor->shouldReceive('extractAdvisingData')->with('token')->andReturn($advising);
         $this->khsExtractor->shouldNotReceive('extractKrsGradesData');
+        $this->krsDetailExtractor->shouldNotReceive('extractKrsDetailData');
 
-        $this->assertSame('skipped', $this->resolver()->resolve('token')['sources']['krs_detail']);
+        $grades = $this->resolver()->resolve('token');
+
+        $this->assertSame('skipped', $grades['sources']['krs_detail']);
+        $this->assertSame('none', $grades['conversion']['status']);
+    }
+
+    public function test_a_conversion_course_listed_twice_or_already_graded_counts_once(): void
+    {
+        $this->scoreReturns($this->scorePayload());
+        $this->advisingHistoryReturns(90004, [
+            ['krs_id' => 90004, 'semester' => 3, 'semester_is_regular' => true],
+            ['krs_id' => 90002, 'semester' => 'T', 'semester_is_regular' => false],
+            ['krs_id' => 90001, 'semester' => 'T', 'semester_is_regular' => false],
+        ]);
+        $this->khsExtractor->shouldReceive('extractKrsGradesData')->andReturn($this->krsPayload());
+        $this->krsDetailExtractor->shouldReceive('extractKrsDetailData')->once()->with('token', 90002)->andReturn($this->conversionDetail(90002, [
+            ['KV001', 'Konversi Satu', 3, null],
+            ['mk1001 ', 'Sudah dinilai di semester 1', 3, 1],
+        ]));
+        $this->krsDetailExtractor->shouldReceive('extractKrsDetailData')->once()->with('token', 90001)->andReturn($this->conversionDetail(90001, [
+            ['KV001', 'Konversi Satu', 3, null],
+            ['KV002', 'Konversi Dua', 2, null],
+            ['KV003', 'Tanpa SKS', 0, null],
+        ]));
+
+        $grades = $this->resolver()->resolve('token');
+
+        $this->assertSame([90002, 90001], $grades['conversion']['krs_ids']);
+        $this->assertSame(['KV001', 'KV002'], array_column($grades['conversion']['courses'], 'code'));
+        $this->assertSame(5, $grades['conversion']['sks']);
+        $this->assertSame(['MK1001'], $grades['conversion']['already_graded_codes']);
+        $this->assertSame(25, $grades['summary']['sks_passed']);
+        $this->assertSame(5, $grades['summary']['conversion_sks']);
+        $this->assertSame(119, $grades['summary']['progress']['remaining_sks']);
+        $this->assertSame(3.1, $grades['summary']['ipk']);
+        $this->assertSame(20, $grades['summary']['computed']['sks_total']);
+    }
+
+    public function test_conversion_sks_also_lower_a_remaining_derived_from_the_config_target(): void
+    {
+        $this->scoreReturns($this->scorePayload());
+        $this->advisingHistoryReturns(null, [['krs_id' => 'abc', 'semester' => 'T'], ['krs_id' => 90001, 'semester' => 'T', 'semester_is_regular' => false]]);
+        $this->khsExtractor->shouldReceive('extractKrsGradesData')->with('token', '90001')->andThrow(PortalScrapingException::dataExtractionFailed('KHS', 'timeout'));
+        $this->krsDetailExtractor->shouldReceive('extractKrsDetailData')->once()->with('token', 90001)->andReturn($this->conversionDetail(90001, self::CONVERSION_COURSES));
+
+        $grades = $this->resolver()->resolve('token');
+        $progress = $grades['summary']['progress'];
+
+        $this->assertSame('computed', $grades['summary']['source']);
+        $this->assertSame('config', $progress['target_sks_source']);
+        $this->assertSame(86, $progress['earned_sks']);
+        $this->assertSame(58, $progress['remaining_sks']);
+    }
+
+    public function test_only_the_krs_of_semester_t_is_read_as_conversion(): void
+    {
+        $this->scoreReturns($this->scorePayload());
+        $this->advisingHistoryReturns(90004, [
+            ['krs_id' => 90004, 'semester' => 3, 'semester_is_regular' => true],
+            ['krs_id' => 90003, 'semester' => 'P', 'semester_is_regular' => false],
+            ['krs_id' => 90002, 'semester' => null, 'semester_is_regular' => false],
+        ]);
+        $this->khsExtractor->shouldReceive('extractKrsGradesData')->andReturn($this->krsPayload());
+        $this->krsDetailExtractor->shouldNotReceive('extractKrsDetailData');
+
+        $grades = $this->resolver()->resolve('token');
+
+        $this->assertSame('none', $grades['conversion']['status']);
+        $this->assertSame(0, $grades['summary']['conversion_sks']);
+        $this->assertSame(124, $grades['summary']['progress']['remaining_sks']);
+    }
+
+    public function test_a_failed_conversion_krs_adds_no_sks(): void
+    {
+        $this->scoreReturns($this->scorePayload());
+        $this->advisingHistoryReturns(90004, [
+            ['krs_id' => 90002, 'semester' => 'T', 'semester_is_regular' => false],
+            ['krs_id' => 90001, 'semester' => 'T', 'semester_is_regular' => false],
+        ]);
+        $this->khsExtractor->shouldReceive('extractKrsGradesData')->andReturn($this->krsPayload());
+        $this->krsDetailExtractor->shouldReceive('extractKrsDetailData')->with('token', 90002)->andReturn($this->conversionDetail(90002, self::CONVERSION_COURSES));
+        $this->krsDetailExtractor->shouldReceive('extractKrsDetailData')->with('token', 90001)->andThrow(PortalScrapingException::dataExtractionFailed('KRS detail', 'timeout'));
+
+        $grades = $this->resolver()->resolve('token');
+
+        $this->assertSame('failed', $grades['conversion']['status']);
+        $this->assertSame(0, $grades['conversion']['sks']);
+        $this->assertSame([], $grades['conversion']['courses']);
+        $this->assertSame(20, $grades['summary']['sks_passed']);
+        $this->assertSame(124, $grades['summary']['progress']['remaining_sks']);
+        $this->assertSame('ok', $grades['sources']['krs_detail']);
+    }
+
+    public function test_an_expired_session_on_the_conversion_krs_is_rethrown(): void
+    {
+        $this->scoreReturns($this->scorePayload());
+        $this->advisingHistoryReturns(90004, [['krs_id' => 90001, 'semester' => 'T', 'semester_is_regular' => false]]);
+        $this->khsExtractor->shouldReceive('extractKrsGradesData')->andReturn($this->krsPayload());
+        $this->krsDetailExtractor->shouldReceive('extractKrsDetailData')->andThrow(PortalAuthenticationException::sessionExpired());
+
+        $this->expectException(PortalAuthenticationException::class);
+
+        $this->resolver()->resolve('token');
     }
 
     /**
@@ -505,6 +663,50 @@ class PortalGradesResolverTest extends TestCase
             'extracted_at' => now()->toISOString(),
             '_sync' => ['data_origin' => 'upstream', 'requested_fresh' => false, 'synced_at' => now()->toISOString()],
         ];
+    }
+
+    /**
+     * KrsDetailExtractor's return shape for a KRS of semester T
+     *
+     * @param  list<array{0: string, 1: string, 2: int, 3: int|null}>  $courses
+     * @return array<string, mixed>
+     */
+    private function conversionDetail(int $krsId, array $courses): array
+    {
+        $rows = array_map(static fn (array $course): array => [
+            'code' => $course[0],
+            'name' => $course[1],
+            'sks' => $course[2],
+            'semester' => $course[3],
+            'status' => 'Baru',
+            'is_retake' => false,
+        ], $courses);
+        $sks = array_sum(array_column($rows, 'sks'));
+
+        return [
+            'found' => true,
+            'krs_id' => $krsId,
+            'header' => ['academic_year' => '2024/2025', 'semester' => 'T', 'semester_is_regular' => false, 'semester_label' => 'Semester T (konversi)', 'date' => '2026-02-23', 'nim' => '20990000001', 'name' => 'Mahasiswa Contoh'],
+            'counts_as_study_load' => false,
+            'status' => ['code' => 'validated', 'label' => 'Sudah divalidasi DPA', 'raw_text' => null],
+            'courses' => $rows,
+            'totals' => ['courses' => count($rows), 'sks' => $sks, 'source' => 'portal', 'consistent' => true],
+            'print_available' => false,
+            'krs_id_confirmed' => null,
+            'extracted_at' => now()->toISOString(),
+        ];
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $history
+     */
+    private function advisingHistoryReturns(?int $latestKrsId, array $history): void
+    {
+        $this->advisingExtractor->shouldReceive('extractAdvisingData')->with('token')->andReturn([
+            'found' => true,
+            'krs_history' => $history,
+            'latest_krs_id' => $latestKrsId,
+        ]);
     }
 
     private function advisingReturns(int|string|null $latestKrsId): void

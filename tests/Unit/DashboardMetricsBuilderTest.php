@@ -15,9 +15,10 @@ class DashboardMetricsBuilderTest extends TestCase
             'grades' => $this->read(['summary' => [
                 'ipk' => 3.1,
                 'source' => 'official',
-                'sks_passed' => 20,
+                'sks_passed' => 86,
+                'conversion_sks' => 66,
                 'predicate_estimate' => 'Sangat Memuaskan',
-                'progress' => ['target_sks' => 144, 'remaining_sks' => 124, 'progress_percent' => 13.9],
+                'progress' => ['target_sks' => 144, 'remaining_sks' => 58, 'progress_percent' => 59.7],
             ]]),
             'krs' => $this->read(['found' => true, 'totals' => ['courses' => 6, 'sks' => 14]], 'syncing'),
             'payments' => $this->read(['outstanding_summary' => ['status' => 'outstanding', 'has_outstanding' => true, 'total_amount' => 1250000, 'total_amount_label' => 'Rp 1.250.000', 'count' => 1]]),
@@ -25,7 +26,7 @@ class DashboardMetricsBuilderTest extends TestCase
         ]);
 
         $this->assertSame(['value' => 3.1, 'source' => 'official', 'predicate_estimate' => 'Sangat Memuaskan', 'status' => 'ready'], $metrics['ipk']);
-        $this->assertSame(['value' => 20, 'target_sks' => 144, 'remaining_sks' => 124, 'progress_percent' => 13.9, 'status' => 'ready'], $metrics['sks_passed']);
+        $this->assertSame(['value' => 86, 'conversion_sks' => 66, 'target_sks' => 144, 'remaining_sks' => 58, 'progress_percent' => 59.7, 'status' => 'ready'], $metrics['sks_passed']);
         $this->assertSame(['value' => 14, 'courses' => 6, 'status' => 'ready'], $metrics['sks_current']);
         $this->assertSame('outstanding', $metrics['bills']['status']);
         $this->assertSame('Rp 1.250.000', $metrics['bills']['total_amount_label']);

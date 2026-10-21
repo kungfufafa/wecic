@@ -23,7 +23,13 @@ abstract class KrsPageExtractor extends PortalScrapingService
         'unknown' => 'Status KRS tidak dikenali',
     ];
 
-    protected const IRREGULAR_SEMESTER_NOTE = 'non-reguler, makna belum diketahui';
+    protected const IRREGULAR_SEMESTER_NOTE = 'non-reguler';
+
+    /**
+     * Semester `T` lists the courses converted from an earlier study
+     * (a D3 → S1 continuation); see K16
+     */
+    protected const CONVERSION_SEMESTER_NOTE = 'konversi';
 
     /**
      * Rows written as "label | : | value", in document order
@@ -205,7 +211,7 @@ abstract class KrsPageExtractor extends PortalScrapingService
 
     /**
      * A student's semester as the portal writes it: a number, or a letter
-     * such as "T" for a non-regular KRS (K16)
+     * such as "T" for the conversion KRS (K16)
      *
      * @return array{semester: int|string|null, semester_is_regular: bool, semester_label: string|null}
      */
@@ -227,7 +233,7 @@ abstract class KrsPageExtractor extends PortalScrapingService
             return [
                 'semester' => $semester,
                 'semester_is_regular' => false,
-                'semester_label' => 'Semester '.$semester.' ('.self::IRREGULAR_SEMESTER_NOTE.')',
+                'semester_label' => 'Semester '.$semester.' ('.($semester === 'T' ? self::CONVERSION_SEMESTER_NOTE : self::IRREGULAR_SEMESTER_NOTE).')',
             ];
         }
 

@@ -94,6 +94,18 @@ class SkripsiReadinessEvaluatorTest extends TestCase
         $this->assertSame(100.0, $result['summary']['progress_percent']);
     }
 
+    public function test_conversion_sks_count_towards_the_minimum_sks(): void
+    {
+        $grades = $this->grades(sks: 108);
+        $grades['summary']['conversion_sks'] = 66;
+
+        $this->assertSame(108, $this->item($this->evaluate($grades), 'sks')['current']);
+
+        $grades['summary']['official'] = ['ipk' => 3.21, 'sks_total' => 42];
+
+        $this->assertSame(108, $this->item($this->evaluate($grades), 'sks')['current']);
+    }
+
     public function test_missing_grades_leave_the_academic_items_unknown(): void
     {
         foreach ([[], ['found' => false, 'semesters' => [], 'summary' => ['ipk' => null, 'sks_passed' => 0]]] as $grades) {

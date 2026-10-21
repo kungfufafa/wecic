@@ -13,7 +13,8 @@ use InvalidArgumentException;
  * Pure: it only reads the KHS semesters it is given (the shape produced by
  * KhsExtractor) and never talks to the portal. Rules:
  * - Only regular (numeric) semesters count; semester `T` and any other
- *   non-numeric label is left out of every figure (K16).
+ *   non-numeric label is left out of every figure (K16). The conversion
+ *   courses of a KRS `T` only add SKS, through conversionCredits().
  * - A course taken more than once counts once, with its best attempt
  *   (highest weight; the latest attempt wins a tie), as the transcript does.
  * - IPS is per semester over every graded course of that semester.
@@ -304,6 +305,64 @@ class AcademicProgressCalculator
             'progress_percent' => min(100.0, round($earned / $target * 100, 1)),
             'average_sks_per_semester' => $averageSksPerSemester,
             'projected_semesters_remaining' => $projected,
+        ];
+    }
+
+    /**
+     * SKS that the conversion courses of a KRS `T` (a D3 → S1 continuation)
+     * add to the earned SKS
+     *
+     * The portal lists the recognized courses on the KRS `T` but leaves them
+     * out of the KHS, "SKS Terkumpul" and "Sisa SKS" (K16). They carry no
+     * grade, so they never touch the IPK. A course counts once: one listed
+     * twice, or already graded in a KHS (its SKS are earned there), is not
+     * added again.
+     *
+     * @param  list<array<string, mixed>>  $courses  course rows of KrsDetailExtractor
+     * @param  list<array<string, mixed>>  $semesters  KHS semesters
+     * @return array{courses: list<array{code: string, name: string|null, sks: int}>, course_count: int, sks: int, already_graded_codes: list<string>}
+     */
+    public function conversionCredits(array $courses, array $semesters): array
+    {
+        $graded = [];
+
+        foreach ($semesters as $semester) {
+            foreach ($this->gradedCourses($semester) as $course) {
+                $graded[$this->courseKey($course['code'], $course['name'])] = true;
+            }
+        }
+
+        $counted = [];
+        $alreadyGraded = [];
+
+        foreach ($courses as $course) {
+            if (! is_array($course)) {
+                continue;
+            }
+
+            $code = strtoupper(trim((string) ($course['code'] ?? '')));
+            $name = trim((string) ($course['name'] ?? ''));
+            $sks = is_numeric($course['sks'] ?? null) ? (int) $course['sks'] : 0;
+            $key = $this->courseKey($code, $name);
+
+            if (($code === '' && $name === '') || $sks <= 0 || isset($counted[$key])) {
+                continue;
+            }
+
+            if (isset($graded[$key])) {
+                $alreadyGraded[$key] = $code !== '' ? $code : $name;
+
+                continue;
+            }
+
+            $counted[$key] = ['code' => $code, 'name' => $name !== '' ? $name : null, 'sks' => $sks];
+        }
+
+        return [
+            'courses' => array_values($counted),
+            'course_count' => count($counted),
+            'sks' => array_sum(array_column($counted, 'sks')),
+            'already_graded_codes' => array_values($alreadyGraded),
         ];
     }
 
