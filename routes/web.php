@@ -86,4 +86,5 @@ Route::middleware('portal.web')->group(function (): void {
 
     Route::view('/skkm', 'skkm.index')->name('skkm.index');
     Route::view('/more', 'more')->name('more');
+    Route::view('/notifications', 'notifications.index')->name('notifications.index');
 });

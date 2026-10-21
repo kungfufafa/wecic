@@ -70,6 +70,7 @@ class PortalApp {
             { pattern: /^\/api\/skkm$/, freshFor: 30 * 60 * 1000, retainFor: 14 * 24 * 60 * 60 * 1000, label: 'poin SKKM' },
             { pattern: /^\/api\/action-items$/, freshFor: 5 * 60 * 1000, retainFor: 2 * 24 * 60 * 60 * 1000, label: 'pusat tindakan' },
             { pattern: /^\/api\/portal\/context$/, freshFor: 6 * 60 * 60 * 1000, retainFor: 14 * 24 * 60 * 60 * 1000, label: 'info periode & panduan' },
+            { pattern: /^\/api\/notifications$/, freshFor: 60 * 1000, retainFor: 7 * 24 * 60 * 60 * 1000, label: 'notifikasi' },
         ];
         this.syncAliases = new Map();
         this.actionItems = null;
@@ -79,6 +80,9 @@ class PortalApp {
         this.pendingQuickAttendance = false;
         this.pendingQuickAttendanceTimer = null;
         this.toastLimit = 3;
+        this.notificationUnreadCount = null;
+        this.notificationToastBuffer = [];
+        this.notificationToastTimer = null;
     }
 
     init() {
@@ -107,6 +111,7 @@ class PortalApp {
             this.initRealtime();
             this.resumeActiveOperations();
             this.scheduleActionItemBadges();
+            this.scheduleNotificationBadge();
             this.consumeQuickAttendanceRequest();
         }
     }
@@ -1100,10 +1105,78 @@ class PortalApp {
         }
     }
 
+    /**
+     * A new notification: the bell count comes with it, and a burst (one
+     * sync can find several changes) becomes a single toast.
+     */
     handlePortalNotification(payload) {
-        const tone = this.toneFromUrgency(payload?.urgency);
-        this.showNotice(payload?.message || payload?.title || 'Ada pembaruan portal.', tone);
+        if (Number.isFinite(payload?.unread_count)) {
+            this.setNotificationUnreadCount(payload.unread_count);
+        }
+
+        this.notificationToastBuffer.push(payload);
+        window.clearTimeout(this.notificationToastTimer);
+        this.notificationToastTimer = window.setTimeout(() => this.flushNotificationToasts(), 600);
         this.handleRealtimePayload(payload);
+        window.dispatchEvent(new CustomEvent('portal:notification', { detail: payload }));
+    }
+
+    flushNotificationToasts() {
+        const buffered = this.notificationToastBuffer;
+        this.notificationToastBuffer = [];
+
+        if (buffered.length === 0) {
+            return;
+        }
+
+        const tone = buffered
+            .map((payload) => this.toneFromUrgency(payload?.urgency))
+            .reduce((current, next) => (['error', 'warning', 'info'].indexOf(next) < ['error', 'warning', 'info'].indexOf(current) ? next : current), 'info');
+
+        if (buffered.length === 1) {
+            this.showNotice(buffered[0]?.message || buffered[0]?.title || 'Ada pembaruan portal.', tone);
+
+            return;
+        }
+
+        this.showNotice(`${buffered.length} notifikasi baru. Buka lonceng untuk melihatnya.`, tone);
+    }
+
+    /**
+     * Unread count for the header bell, read when the browser is idle so the
+     * page's own data loads first. Realtime events keep it current afterwards.
+     */
+    scheduleNotificationBadge() {
+        if (document.body.dataset.auth !== 'required' || !navigator.onLine) {
+            return;
+        }
+
+        const run = () => {
+            void this.loadNotificationCount();
+        };
+
+        if (typeof window.requestIdleCallback === 'function') {
+            window.requestIdleCallback(run, { timeout: 3000 });
+        } else {
+            window.setTimeout(run, 1200);
+        }
+    }
+
+    async loadNotificationCount() {
+        try {
+            const payload = await this.request('/api/notifications/unread-count', { redirectOnAuth: false, timeout: 15000 });
+
+            this.setNotificationUnreadCount(payload?.data?.unread_count);
+        } catch (error) {
+            // The bell simply stays as it was; the list page shows the error.
+        }
+    }
+
+    setNotificationUnreadCount(count) {
+        const value = Math.max(0, Math.floor(Number(count) || 0));
+
+        this.notificationUnreadCount = value;
+        this.setNavBadge('notifications', value, { tone: 'danger', label: `${value} belum dibaca` });
     }
 
     /**

@@ -16,6 +16,7 @@ const PROTECTED_PAGE_PREFIXES = [
     '/announcement',
     '/skkm',
     '/more',
+    '/notifications',
 ];
 const STATIC_ASSET_PREFIXES = ['/build/', '/icons/', '/vendor/'];
 

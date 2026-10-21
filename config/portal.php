@@ -131,7 +131,9 @@ return [
     | `fresh_for` is still served while one deduplicated background job
     | re-syncs it; a missing snapshot is built once, inline. `cache_keys` and
     | `sync_keys` tell the browser what to reload after a background sync.
-    | Parameterized datasets hold one snapshot per parameter set.
+    | Parameterized datasets hold one snapshot per parameter set. `notify`
+    | rules turn changes between syncs into notifications; the rule format is
+    | documented on `App\Services\PortalSnapshotDiffNotifier`.
     |
     */
 
@@ -202,6 +204,17 @@ return [
             'fresh_for' => 600,
             'cache_keys' => ['/api/assignment/pending', '/api/action-items'],
             'sync_keys' => ['dashboard-pending-assignments', 'dashboard-action-items'],
+            'notify' => [
+                [
+                    'type' => 'assignment_new',
+                    'on' => 'added',
+                    'records' => 'assignments',
+                    'key' => ['meeting_id'],
+                    'title' => 'Tugas baru: :course_name',
+                    'body' => ':material_title',
+                    'url' => ':meeting_url|path',
+                ],
+            ],
         ],
         'classes' => [
             'fresh_for' => 1800,
@@ -227,11 +240,61 @@ return [
             'fresh_for' => 1800,
             'cache_keys' => ['/api/finance/payments', '/api/finance/summary', '/api/dashboard', '/api/action-items'],
             'sync_keys' => ['finance', 'dashboard-overview', 'dashboard-action-items'],
+            'notify' => [
+                [
+                    'type' => 'bill_new',
+                    'on' => 'added',
+                    'records' => 'outstanding_bills',
+                    'key' => ['name', 'installment_stage', 'study_year'],
+                    'requires' => ['outstanding_summary.status' => ['clear', 'outstanding']],
+                    'title' => 'Tagihan baru: :name',
+                    'body' => ':amount_label',
+                    'url' => '/finance',
+                    'urgency' => 'warning',
+                ],
+                [
+                    'type' => 'bill_cleared',
+                    'on' => 'changed',
+                    'field' => 'outstanding_summary.status',
+                    'ignore' => 'unknown',
+                    'from' => 'outstanding',
+                    'to' => 'clear',
+                    'title' => 'Tagihan lunas tercatat',
+                    'body' => 'Portal tidak lagi mencatat tagihan yang belum dibayar.',
+                    'url' => '/finance',
+                ],
+                [
+                    'type' => 'payment_recorded',
+                    'on' => 'added',
+                    'records' => 'payment_history',
+                    'key' => ['paid_at', 'amount', 'reference', 'installment_stage', 'study_year'],
+                    'requires' => ['summary.history_available' => true],
+                    'title' => 'Pembayaran :amount_label tercatat',
+                    'body' => ':description · :paid_at_label',
+                    'url' => '/finance',
+                ],
+            ],
         ],
         'exams' => [
             'fresh_for' => 1800,
             'cache_keys' => ['/api/exam', '/api/action-items'],
             'sync_keys' => ['exam-index', 'dashboard-action-items'],
+            'notify' => [
+                [
+                    'type' => 'exam_opened',
+                    'on' => 'changed',
+                    'records' => 'exams',
+                    'key' => ['course_code', 'course_name'],
+                    'field' => 'can_upload',
+                    'to' => '@true',
+                    // Fallback rows guess from the class schedule; only the exam page is authoritative.
+                    'requires' => ['source' => 'exam_page'],
+                    'title' => 'Ujian :course_name dibuka',
+                    'body' => 'Unggah jawaban sebelum waktunya habis · :schedule',
+                    'url' => '/exam/:id',
+                    'urgency' => 'critical',
+                ],
+            ],
         ],
         'class_detail' => [
             'fresh_for' => 900,
@@ -249,11 +312,53 @@ return [
             'fresh_for' => 21600,
             'cache_keys' => ['/api/dashboard', '/api/portal/context', '/api/finance/summary', '/api/action-items'],
             'sync_keys' => ['dashboard-overview', 'portal-context', 'dashboard-action-items'],
+            'notify' => [
+                [
+                    'type' => 'academic_period_changed',
+                    'on' => 'changed',
+                    'field' => 'academic_period.label',
+                    'from' => '@filled',
+                    'title' => 'Periode akademik berganti',
+                    'body' => 'Sekarang :academic_period.label. KRS, jadwal, dan tagihan semester baru menyusul di MyCIC.',
+                    'url' => '/dashboard',
+                ],
+                [
+                    'type' => 'questionnaire_opened',
+                    'on' => 'changed',
+                    'field' => 'questionnaire.available',
+                    'to' => '@true',
+                    'title' => 'Kuesioner perlu diisi',
+                    'body' => ':questionnaire.title',
+                    'url' => '/dashboard',
+                    'urgency' => 'warning',
+                ],
+                [
+                    'type' => 'portal_menu_added',
+                    'on' => 'added',
+                    'records' => 'sidebar_menu',
+                    'key' => ['href_act'],
+                    'title' => 'Menu baru di portal: :label',
+                    'body' => 'Menu ini belum ada di MyCIC. Buka lewat portal kampus.',
+                    'url' => '/more',
+                ],
+            ],
         ],
         'announcements' => [
             'fresh_for' => 1800,
             'cache_keys' => ['/api/announcement', '/api/academic/krs', '/api/finance/summary', '/api/action-items'],
             'sync_keys' => ['announcement-index', 'dashboard-action-items'],
+            'notify' => [
+                [
+                    'type' => 'announcement_new',
+                    'on' => 'added',
+                    'records' => 'items',
+                    'key' => ['id'],
+                    'when' => ['duplicate_of' => '@empty'],
+                    'title' => 'Pengumuman: :title',
+                    'body' => ':publisher_unit_short · :excerpt',
+                    'url' => '/announcement/:id',
+                ],
+            ],
         ],
         'announcement_page' => [
             'fresh_for' => 86400,
@@ -265,6 +370,43 @@ return [
             'fresh_for' => 900,
             'cache_keys' => ['/api/academic/krs', '/api/academic/grades', '/api/academic/transcript', '/api/dashboard', '/api/action-items'],
             'sync_keys' => ['krs-index', 'dashboard-overview', 'dashboard-action-items'],
+            'notify' => [
+                [
+                    'type' => 'krs_validated',
+                    'on' => 'changed',
+                    'field' => 'status.code',
+                    'ignore' => 'unknown',
+                    'from' => ['pending_dpa', 'not_submitted'],
+                    'to' => 'validated',
+                    'requires' => ['found' => true],
+                    'title' => 'KRS sudah divalidasi DPA',
+                    'body' => 'KRS :academic_period.label sudah disetujui dosen pembimbing akademik.',
+                    'url' => '/krs',
+                ],
+                [
+                    'type' => 'krs_validation_reopened',
+                    'on' => 'changed',
+                    'field' => 'status.code',
+                    'ignore' => 'unknown',
+                    'from' => 'validated',
+                    'to' => 'pending_dpa',
+                    'requires' => ['found' => true],
+                    'title' => 'KRS kembali menunggu validasi DPA',
+                    'body' => 'KRS :academic_period.label berubah dan perlu disetujui DPA lagi.',
+                    'url' => '/krs',
+                    'urgency' => 'warning',
+                ],
+                [
+                    'type' => 'krs_period_announced',
+                    'on' => 'added',
+                    'records' => 'periods',
+                    'key' => ['kind', 'start', 'end'],
+                    'requires' => ['found' => true],
+                    'title' => 'Jadwal :label',
+                    'body' => ':start|date sampai :end|date',
+                    'url' => '/krs',
+                ],
+            ],
         ],
         'advising' => [
             'fresh_for' => 3600,
@@ -281,11 +423,66 @@ return [
             'fresh_for' => 3600,
             'cache_keys' => ['/api/academic/grades', '/api/academic/transcript', '/api/dashboard', '/api/action-items'],
             'sync_keys' => ['grades-index', 'transcript-index', 'dashboard-overview', 'dashboard-action-items'],
+            'notify' => [
+                [
+                    'type' => 'grade_released',
+                    'on' => 'changed',
+                    'records' => 'semesters.*.courses',
+                    'key' => ['parent.label', 'code'],
+                    'field' => 'letter',
+                    'to' => '@filled',
+                    'requires' => ['found' => true],
+                    'title' => 'Nilai :name keluar: :letter',
+                    'body' => ':parent.label · :sks SKS',
+                    'url' => '/grades',
+                ],
+                [
+                    'type' => 'ips_complete',
+                    'on' => 'changed',
+                    'records' => 'summary.computed.ips_series',
+                    'key' => ['label'],
+                    'field' => 'is_complete',
+                    'to' => '@true',
+                    'requires' => ['found' => true],
+                    'title' => 'IPS :label: :ips',
+                    'body' => 'Semua nilai semester ini sudah keluar.',
+                    'url' => '/grades',
+                ],
+            ],
         ],
         'skkm' => [
             'fresh_for' => 1800,
             'cache_keys' => ['/api/skkm', '/api/dashboard', '/api/action-items'],
             'sync_keys' => ['skkm-index', 'dashboard-overview', 'dashboard-action-items'],
+            'notify' => [
+                [
+                    'type' => 'skkm_validated',
+                    'on' => 'changed',
+                    'records' => 'entries',
+                    'key' => ['name', 'activity', 'level', 'type'],
+                    'field' => 'status',
+                    'ignore' => 'unknown',
+                    'to' => 'valid',
+                    'requires' => ['found' => true],
+                    'title' => 'SKKM divalidasi: :name',
+                    'body' => ':points_label poin · :activity',
+                    'url' => '/skkm',
+                ],
+                [
+                    'type' => 'skkm_rejected',
+                    'on' => 'changed',
+                    'records' => 'entries',
+                    'key' => ['name', 'activity', 'level', 'type'],
+                    'field' => 'status',
+                    'ignore' => 'unknown',
+                    'to' => 'invalid',
+                    'requires' => ['found' => true],
+                    'title' => 'SKKM ditolak: :name',
+                    'body' => 'Periksa lagi data dan berkas kegiatan ini di halaman SKKM.',
+                    'url' => '/skkm',
+                    'urgency' => 'warning',
+                ],
+            ],
         ],
     ],
 
@@ -818,10 +1015,28 @@ return [
         ],
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Notification Center
+    |--------------------------------------------------------------------------
+    |
+    | What the snapshot diff last saw is kept per student for
+    | `baseline_retention` seconds (longer than snapshots, so changes made
+    | while a student was away are still found). `max_per_sync` caps how many
+    | notifications one rule may raise in one sync.
+    |
+    */
+
+    'notifications' => [
+        'baseline_retention' => (int) env('PORTAL_NOTIFICATION_BASELINE_RETENTION', 15552000),
+        'retention_days' => (int) env('PORTAL_NOTIFICATION_RETENTION_DAYS', 90),
+        'max_per_sync' => (int) env('PORTAL_NOTIFICATION_MAX_PER_SYNC', 5),
+        'max_baseline_records' => 500,
+        'page_size' => 30,
+    ],
+
     'realtime' => [
         'notifications' => [
-            'deadline_urgent_hours' => (int) env('PORTAL_NOTIFICATION_DEADLINE_URGENT_HOURS', 24),
-            'deadline_warning_hours' => (int) env('PORTAL_NOTIFICATION_DEADLINE_WARNING_HOURS', 72),
             'scan_lock_ttl' => (int) env('PORTAL_NOTIFICATION_SCAN_LOCK_TTL', 300),
         ],
     ],

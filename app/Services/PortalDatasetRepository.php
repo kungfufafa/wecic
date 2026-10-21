@@ -38,7 +38,8 @@ class PortalDatasetRepository
         private readonly PortalFetchPolicy $fetchPolicy,
         private readonly PortalDataCache $dataCache,
         private readonly PortalDataOwner $owner,
-        private readonly PortalActionProjector $projector
+        private readonly PortalActionProjector $projector,
+        private readonly PortalSnapshotDiffNotifier $notifier
     ) {}
 
     /**
@@ -515,6 +516,9 @@ class PortalDatasetRepository
 
         $this->snapshots->put($sessionToken, $dataset, $data, $startedAt, $params);
         Cache::forget($this->buildFailedKey($sessionToken, $dataset, $params));
+
+        // What changed since the student last synced this dataset (K9).
+        $this->notifier->process($sessionToken, $dataset, $data, $params);
 
         return [
             'data' => $data,

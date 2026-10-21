@@ -36,6 +36,7 @@ class AppShellPagesTest extends TestCase
             'announcement detail' => ['/announcement/'.self::ANNOUNCEMENT_ID, 'announcement-show'],
             'skkm' => ['/skkm', 'skkm-index'],
             'more' => ['/more', 'more-index'],
+            'notifications' => ['/notifications', 'notification-index'],
         ];
     }
 

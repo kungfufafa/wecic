@@ -203,6 +203,20 @@
                 </nav>
 
                 <div class="ms-auto flex shrink-0 items-center gap-2">
+                    <a
+                        href="{{ route('notifications.index') }}"
+                        class="mycic-btn-icon relative"
+                        data-notification-bell
+                        @if (request()->routeIs('notifications.*')) aria-current="page" @endif
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M10 5a2 2 0 1 1 4 0a7 7 0 0 1 4 6v3a4 4 0 0 0 2 3h-16a4 4 0 0 0 2 -3v-3a7 7 0 0 1 4 -6" />
+                            <path d="M9 17v1a3 3 0 0 0 6 0v-1" />
+                        </svg>
+                        <span class="sr-only">Notifikasi</span>
+                        <span class="mycic-nav-badge hidden" data-nav-badge="notifications"></span>
+                    </a>
+
                     <button
                         type="button"
                         class="mycic-btn-icon"

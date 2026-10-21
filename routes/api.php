@@ -8,6 +8,7 @@ use App\Http\Controllers\API\PortalActionController;
 use App\Http\Controllers\API\PortalAnnouncementController;
 use App\Http\Controllers\API\PortalAuthController;
 use App\Http\Controllers\API\PortalDataController;
+use App\Http\Controllers\API\PortalNotificationController;
 use App\Http\Controllers\API\PortalOperationController;
 use App\Http\Controllers\API\PortalSupportController;
 use Illuminate\Support\Facades\Route;
@@ -60,6 +61,13 @@ Route::middleware($sessionMiddleware)->group(function () {
         });
 
         Route::get('action-items', [PortalActionCenterController::class, 'index']);
+
+        Route::prefix('notifications')->controller(PortalNotificationController::class)->group(function (): void {
+            Route::get('', 'index');
+            Route::get('unread-count', 'unreadCount');
+            // Local bookkeeping only: must not spend the portal-action budget meant for attendance and uploads.
+            Route::post('read', 'markRead');
+        });
 
         Route::prefix('academic')->controller(PortalAcademicController::class)->group(function (): void {
             Route::get('krs', 'krs');

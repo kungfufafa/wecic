@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\PortalNotification;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
@@ -11,3 +12,6 @@ Artisan::command('inspire', function () {
 Schedule::command('queue:work --queue=campus-sessions,campus-uploads,campus-refresh,campus-notifications,default --stop-when-empty')
     ->everyMinute()
     ->withoutOverlapping();
+
+// Notifications older than `portal.notifications.retention_days`.
+Schedule::command('model:prune', ['--model' => [PortalNotification::class]])->daily();
