@@ -111,7 +111,7 @@ class PortalAuthControllerTest extends TestCase
     {
         $response = $this->withMiddleware(VerifyCsrfTokenMiddleware::class)
             ->post('/api/auth/login', [
-                'username' => '20251030030',
+                'username' => '20990000001',
                 'password' => 'secret-password',
             ], ['Accept' => 'application/json']);
 
@@ -145,7 +145,7 @@ class PortalAuthControllerTest extends TestCase
             Mockery::mock(PortalSessionManager::class, function (MockInterface $mock): void {
                 $mock->shouldReceive('createSession')
                     ->once()
-                    ->with('20251030030', 'secret-password')
+                    ->with('20990000001', 'secret-password')
                     ->andReturn([
                         'success' => true,
                         'session_token' => 'campus-token-123',
@@ -162,7 +162,7 @@ class PortalAuthControllerTest extends TestCase
         $response = $this->withMiddleware(VerifyCsrfTokenMiddleware::class)
             ->post('/api/auth/login', [
                 '_token' => 'known-csrf-token',
-                'username' => '20251030030',
+                'username' => '20990000001',
                 'password' => 'secret-password',
             ], ['Accept' => 'application/json']);
 
@@ -340,14 +340,14 @@ public function test_create_session_does_not_store_encrypted_credentials_by_defa
     $authService = Mockery::mock(PortalAuthService::class);
     $authService->shouldReceive('login')
         ->once()
-        ->with('20251030036', 'login-pass')
+        ->with('20990000036', 'login-pass')
         ->andReturn($this->makeLoginResult([
             'nama' => 'Mahasiswa No Credentials',
         ]));
 
     $manager = new PortalSessionManager($authService, Mockery::mock(Encrypter::class));
 
-    $result = $manager->createSession('20251030036', 'login-pass');
+    $result = $manager->createSession('20990000036', 'login-pass');
     $storedSession = Cache::get(config('portal.session_prefix').$result['session_token']);
 
     $this->assertArrayNotHasKey('encrypted_credentials', $storedSession);
@@ -562,7 +562,7 @@ public function test_log_scraping_replaces_raw_session_token_with_fingerprint():
         {
             $this->logScraping('token leak check', [
                 'session_token' => 'raw-campus-token',
-                'username' => '20251030030',
+                'username' => '20990000001',
                 'course_id' => 8837,
             ]);
         }
@@ -895,7 +895,7 @@ public function test_login_is_rate_limited_by_username_and_ip(): void
         $response = $this->withSession(['_token' => 'known-csrf-token'])
             ->post('/api/auth/login', [
                 '_token' => 'known-csrf-token',
-                'username' => '20251030030',
+                'username' => '20990000001',
             ], ['Accept' => 'application/json']);
 
         $response->assertStatus(422);
@@ -904,7 +904,7 @@ public function test_login_is_rate_limited_by_username_and_ip(): void
     $response = $this->withSession(['_token' => 'known-csrf-token'])
         ->post('/api/auth/login', [
             '_token' => 'known-csrf-token',
-            'username' => '20251030030',
+            'username' => '20990000001',
         ], ['Accept' => 'application/json']);
 
     $response->assertStatus(429);
@@ -1279,15 +1279,15 @@ public function test_exam_submission_records_are_deduplicated_by_record_key(): v
     $sessionManager->method('getSession')
         ->with('token-exam-records')
         ->willReturn([
-            'username' => '20251030030',
+            'username' => '20990000001',
         ]);
 
     $service = new SipandaiSubmissionService($sessionManager);
     $records = [[
         'exam_id' => 9195,
         'submission_id' => 131828,
-        'file_url' => 'https://my.cic.ac.id/portal/files/tugasmhs/9195-UTS-20251030030-785.pdf',
-        'file_name' => '9195-UTS-20251030030-785.pdf',
+        'file_url' => 'https://my.cic.ac.id/portal/files/tugasmhs/9195-UTS-20990000001-785.pdf',
+        'file_name' => '9195-UTS-20990000001-785.pdf',
         'delete_url' => 'https://my.cic.ac.id/portal/sipandai/?mod=sipandai&act=jobdelujian&id=131828',
         'uploaded_at_label' => 'Rabu, 20 Mei 2026',
         'exam_type' => 'UTS / Reguler',

@@ -463,7 +463,7 @@ class AttendanceShortcutServiceTest extends TestCase
                                     'name' => 'Teknologi dan trend E-commerce',
                                 ],
                                 'lecturer_info' => [
-                                    'name' => 'Lena Magdalena, MMSI.',
+                                    'name' => 'Dosen Contoh Dua, MMSI.',
                                 ],
                                 'join_link' => [
                                     'params' => [

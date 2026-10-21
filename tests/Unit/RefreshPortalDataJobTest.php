@@ -71,15 +71,36 @@ class RefreshPortalDataJobTest extends TestCase
         $this->assertSame(['dataset' => 'assignments'], $snapshot['data']);
 
         Event::assertDispatched(PortalSyncStatusUpdated::class, function (PortalSyncStatusUpdated $event): bool {
-            return ($event->broadcastWith()['status'] ?? null) === PortalOperationStage::Completed->value;
+            $payload = $event->broadcastWith();
+
+            return ($payload['status'] ?? null) === PortalOperationStage::Completed->value
+                && in_array('/api/dashboard', $payload['cache_keys'] ?? [], true)
+                && in_array('/api/assignment/pending', $payload['cache_keys'] ?? [], true);
         });
+
+        // Each dataset is announced as soon as it is stored, not after the whole job.
+        Event::assertDispatchedTimes(PortalDataInvalidated::class, 2);
         Event::assertDispatched(PortalDataInvalidated::class, function (PortalDataInvalidated $event): bool {
             $payload = $event->broadcastWith();
 
             return in_array('/api/dashboard', $payload['cache_keys'], true)
-                && in_array('/api/assignment/pending', $payload['cache_keys'], true)
+                && ! in_array('/api/assignment/pending', $payload['cache_keys'], true);
+        });
+        Event::assertDispatched(PortalDataInvalidated::class, function (PortalDataInvalidated $event): bool {
+            $payload = $event->broadcastWith();
+
+            return in_array('/api/assignment/pending', $payload['cache_keys'], true)
                 && in_array('dashboard-pending-assignments', $payload['sync_keys'], true);
         });
+    }
+
+    public function test_refresh_job_timeout_grows_with_its_datasets(): void
+    {
+        $this->assertSame(120, (new RefreshPortalDataJob('laravel-session', 'campus-token', ['dashboard']))->timeout);
+        $this->assertSame(600, (new RefreshPortalDataJob('laravel-session', 'campus-token', [
+            'portal_context', 'krs', 'advising', 'payments', 'grades', 'skkm', 'announcements', 'exams',
+        ]))->timeout);
+        $this->assertSame(150, (new RefreshPortalDataJob('laravel-session', 'campus-token', ['krs', 'grades', 'krs']))->timeout);
     }
 
     public function test_refresh_job_keeps_syncing_other_datasets_and_marks_the_failed_one(): void

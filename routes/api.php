@@ -2,7 +2,10 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\API\PortalAcademicController;
+use App\Http\Controllers\API\PortalActionCenterController;
 use App\Http\Controllers\API\PortalActionController;
+use App\Http\Controllers\API\PortalAnnouncementController;
 use App\Http\Controllers\API\PortalAuthController;
 use App\Http\Controllers\API\PortalDataController;
 use App\Http\Controllers\API\PortalOperationController;
@@ -50,7 +53,26 @@ Route::middleware($sessionMiddleware)->group(function () {
             });
             Route::prefix('finance')->group(function (): void {
                 Route::get('payments', 'paymentHistory');
+                Route::get('summary', 'financeSummary');
             });
+            Route::get('portal/context', 'portalContext');
+            Route::get('skkm', 'skkm');
+        });
+
+        Route::get('action-items', [PortalActionCenterController::class, 'index']);
+
+        Route::prefix('academic')->controller(PortalAcademicController::class)->group(function (): void {
+            Route::get('krs', 'krs');
+            Route::get('advising', 'advising');
+            // Registered after any future `krs/print/official` route; only numeric ids match.
+            Route::get('krs/{id}', 'krsDetail')->whereNumber('id');
+            Route::get('grades', 'grades');
+            Route::get('transcript', 'transcript');
+        });
+
+        Route::prefix('announcement')->controller(PortalAnnouncementController::class)->group(function (): void {
+            Route::get('', 'index');
+            Route::get('{id}', 'show')->where('id', '[0-9a-f]{40}');
         });
 
         Route::prefix('assignment')->controller(PortalActionController::class)->group(function (): void {

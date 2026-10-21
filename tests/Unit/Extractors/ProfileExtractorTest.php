@@ -30,13 +30,13 @@ class ProfileExtractorTest extends TestCase
 
         $data = $extractor->extractProfileData('fake-session-token');
 
-        $this->assertSame('20251030030', $data['personal_data']['nim']);
-        $this->assertSame('Apriansyah Rizqi Setiawan', $data['personal_data']['nama']);
+        $this->assertSame('20990000001', $data['personal_data']['nim']);
+        $this->assertSame('Mahasiswa Contoh', $data['personal_data']['nama']);
         $this->assertSame('Aktif', $data['personal_data']['status']);
-        $this->assertSame('Karawang', $data['personal_data']['tempat_lahir']);
-        $this->assertSame('Jl. Kembang', $data['contact_data']['alamat_rumah']);
-        $this->assertSame('Kota Cirebon', $data['contact_data']['kota']);
-        $this->assertSame('0895636786435', $data['contact_data']['hp']);
-        $this->assertSame('apriansyah@rizqis.com', $data['contact_data']['email']);
+        $this->assertSame('Kota Lahir Contoh', $data['personal_data']['tempat_lahir']);
+        $this->assertSame('Jl. Contoh No. 1', $data['contact_data']['alamat_rumah']);
+        $this->assertSame('Kota Contoh', $data['contact_data']['kota']);
+        $this->assertSame('081200000000', $data['contact_data']['hp']);
+        $this->assertSame('mahasiswa@example.test', $data['contact_data']['email']);
     }
 }

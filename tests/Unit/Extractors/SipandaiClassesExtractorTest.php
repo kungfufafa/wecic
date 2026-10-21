@@ -38,7 +38,7 @@ class SipandaiClassesExtractorTest extends TestCase
         $this->assertSame('09:30:00', $firstClass['schedule']['start_time']);
         $this->assertSame('UC01024011', $firstClass['course_info']['code']);
         $this->assertSame('Bahasa Indonesia', $firstClass['course_info']['name']);
-        $this->assertSame('Mohammad Umar Fakhrudin, M.Pd', $firstClass['lecturer_info']['name']);
+        $this->assertSame('Dosen Contoh Tiga, M.Pd', $firstClass['lecturer_info']['name']);
         $this->assertSame('8810', $firstClass['join_link']['params']['course_id']);
     }
 }

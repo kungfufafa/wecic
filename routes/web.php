@@ -71,4 +71,19 @@ Route::middleware('portal.web')->group(function (): void {
     Route::get('/exam/{id}', function (string $id) {
         return view('exams.show', ['id' => $id]);
     })->name('exam.show');
+
+    Route::view('/krs', 'academic.krs')->name('krs.index');
+    Route::get('/krs/{id}', function (string $id) {
+        return view('academic.krs-show', ['id' => $id]);
+    })->whereNumber('id')->name('krs.show');
+    Route::view('/grades', 'academic.grades')->name('grades.index');
+    Route::view('/transcript', 'academic.transcript')->name('transcript.index');
+
+    Route::view('/announcement', 'announcements.index')->name('announcement.index');
+    Route::get('/announcement/{id}', function (string $id) {
+        return view('announcements.show', ['id' => $id]);
+    })->where('id', '[0-9a-f]{40}')->name('announcement.show');
+
+    Route::view('/skkm', 'skkm.index')->name('skkm.index');
+    Route::view('/more', 'more')->name('more');
 });

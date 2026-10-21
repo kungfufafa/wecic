@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<title>Portal - SiPANDAI CIC (Sistem Informasi Pembelajaran dan Administrasi Terintergrasi)</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body class="app">
+<header class="app-header fixed-top">
+<div class="app-header-inner">
+<div class="container-fluid py-2">
+<div class="app-header-content">
+<div class="row justify-content-between align-items-center">
+<div class="col-auto">
+<a id="sidepanel-toggler" class="sidepanel-toggler d-inline-block d-xl-none" href="#">
+</a>
+</div>
+<div class="search-mobile-trigger d-sm-none col">
+<i class="search-mobile-trigger-icon fas fa-search"></i>
+</div>
+<div class="app-search-box col">
+<a class="navbar-brand" href="#">SISTEM MYCIC TAHUN AKADEMIK 2026/2027 SEMESTER GANJIL</a>
+</div>
+<div class="app-utilities col-auto">
+<div class="app-utility-item app-notifications-dropdown dropdown">
+<a class="dropdown-toggle no-toggle-arrow" id="notifications-dropdown-toggle" data-bs-toggle="dropdown" href="#" role="button" aria-expanded="false" title="Notifications">
+<span class="icon-badge">3</span>
+</a>
+<div class="dropdown-menu p-0" aria-labelledby="notifications-dropdown-toggle">
+<div class="dropdown-menu-header p-3">
+<h5 class="dropdown-menu-title mb-0">Notifications</h5>
+</div>
+<div class="dropdown-menu-content">
+<div class="item p-3">
+<div class="row gx-2 justify-content-between align-items-center">
+<div class="col-auto">
+<img class="profile-image" src="assets/images/profiles/profile-1.png" alt="">
+</div>
+<div class="col">
+<div class="info">
+<div class="desc">Amy shared a file with you. Lorem ipsum dolor sit amet, consectetur adipiscing elit. </div>
+<div class="meta"> 2 hrs ago</div>
+</div>
+</div>
+</div>
+<a class="link-mask" href=""></a>
+</div>
+<div class="item p-3">
+<div class="row gx-2 justify-content-between align-items-center">
+<div class="col-auto">
+<div class="app-icon-holder">
+</div>
+</div>
+<div class="col">
+<div class="info">
+<div class="desc">You have a new invoice. Proin venenatis interdum est.</div>
+<div class="meta"> 1 day ago</div>
+</div>
+</div>
+</div>
+<a class="link-mask" href=""></a>
+</div>
+</div>
+<div class="dropdown-menu-footer p-2 text-center">
+<a href="">View all</a>
+</div>
+</div>
+</div>
+<div class="app-utility-item app-user-dropdown dropdown">
+<a class="dropdown-toggle" id="user-dropdown-toggle" data-bs-toggle="dropdown" href="#" role="button" aria-expanded="false"><img src="controllers/assets/images/nopic.png" alt="user profile"></a>
+<ul class="dropdown-menu" aria-labelledby="user-dropdown-toggle">
+<li><a class="dropdown-item" href="controllers/logout.php">Log Out</a></li>
+</ul>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div id="app-sidepanel" class="app-sidepanel">
+<div id="sidepanel-drop" class="sidepanel-drop"></div>
+<div class="sidepanel-inner d-flex flex-column">
+<a href="#" id="sidepanel-close" class="sidepanel-close d-xl-none">&times;</a>
+<div class="app-branding"> SiPANDAI 2.0<br> Selasa, 20 Oktober 2026 <br><br><br><br><br><br><br><br><br><br><br><br><br><br><br>
+<a class="app-logo" href=""><img src="controllers/assets/images/download.png" alt="logo"><span class="logo-text"></span></a>
+</div>
+<nav id="app-nav-main" class="app-nav app-nav-main flex-grow-1">
+<ul class="app-menu list-unstyled accordion" id="menu-accordion">
+<li class="nav-item">
+<a class="nav-link active" href="?mod=sipandai&amp;act=">
+<span class="nav-icon">
+</span>
+<span class="nav-link-text">Beranda</span>
+</a>
+</li>
+<li class="nav-item">
+<a class="nav-link" href="?mod=sipandai&amp;act=score">
+<span class="nav-icon">
+</span>
+<span class="nav-link-text">Kartu Hasil Studi</span>
+</a>
+</li>
+<li class="nav-item">
+<a class="nav-link" href="?mod=sipandai&amp;act=ujian">
+<span class="nav-icon">
+</span>Ujian (UTS/UAS/SP) </a>
+</li>
+<li class="nav-item">
+<a class="nav-link" href="">
+<span class="nav-icon">
+</span>
+<span class="nav-link-text">Arsip Kelas</span>
+</a>
+</li>
+</ul>
+</nav>
+<div class="app-sidepanel-footer">
+<nav class="app-nav app-nav-footer">
+<ul class="app-menu footer-menu list-unstyled">
+<li class="nav-item">
+<a class="nav-link" href="controllers/logout.php">
+<span class="nav-icon">
+</span>
+<span class="nav-link-text">Logout</span>
+</a>
+</li>
+</ul>
+</nav>
+</div>
+</div>
+</div>
+</header>
+<div class="app-wrapper">
+<div class="app-content pt-3 p-md-3 p-lg-4">
+<div class="container-xl">
+<center>
+<h6 class="app-page-title">SELAMAT DATANG DI APLIKASI SiPANDAI CIC<br> (Sistem Informasi Pembelajaran dan Administrasi Terintergrasi)</h6>
+</center>
+<div class="row">
+<div class="col-md-12">
+<div class="card">
+<div class="header">
+<h4 class="title">Kartu Hasil Studi (KHS)</h4>
+</div>
+<div class="content table-responsive table-full-width">
+<table class="table table-hover table-striped">
+<tbody><tr>
+<td width="220">Fakultas</td><td>:</td>
+<td>FAKULTAS CONTOH</td>
+</tr>
+<tr>
+<td width="220">Program Studi</td><td>:</td>
+<td>PROGRAM STUDI CONTOH - S1</td>
+</tr>
+<tr>
+<td>Th Akademik</td><td>:</td>
+<td>2026/2027</td>
+</tr>
+<tr>
+<td>N I M</td><td>:</td>
+<td>20990000001</td>
+</tr>
+<tr>
+<td>Nama</td><td>:</td>
+<td>Mahasiswa Contoh</td>
+</tr>
+</tbody></table>
+</div>
+</div>
+<div class="row">
+<div class="col-md-12">
+<div class="card">
+<div class="header">
+<h4 class="title">KHS Semester : 3</h4>
+</div>
+<div class="content table-responsive table-full-width">
+<table class="table table-hover">
+<tbody><tr bgcolor="#c8c1bd">
+<td width="40"><b>KODE</b></td>
+<td width="320"><b>NAMA MATA KULIAH</b></td>
+<td width="40" align="center"><b>SKS</b></td>
+<td width="40" align="center"><b>ABSEN</b></td>
+<td width="40" align="center"><b>TUGAS</b></td>
+<td width="40" align="center"><b>UTS</b></td>
+<td width="40" align="center"><b>UAS</b></td>
+<td width="60" align="center"><b>NILAI</b></td>
+<td width="60" align="center"><b>BOBOT</b></td>
+<td width="50" align="center"><b>MUTU</b></td>
+</tr>
+<tr>
+<td colspan="2" align="right">Total SKS</td>
+<td align="center">0</td>
+<td colspan="6" align="right">Jumlah Mutu</td>
+<td align="center">0</td>
+</tr>
+<tr>
+<td colspan="9" align="right"> Indeks Prestasi Semester : </td>
+<td align="center">0</td>
+</tr>
+</tbody></table>
+</div>
+</div>
+</div>
+</div>
+<div class="row">
+<div class="col-md-12">
+<div class="card">
+<div class="header">
+<h4 class="title">KHS Semester : 2</h4>
+</div>
+<div class="content table-responsive table-full-width">
+<table class="table table-hover">
+<tbody><tr bgcolor="#c8c1bd">
+<td width="40"><b>KODE</b></td>
+<td width="320"><b>NAMA MATA KULIAH</b></td>
+<td width="40" align="center"><b>SKS</b></td>
+<td width="40" align="center"><b>ABSEN</b></td>
+<td width="40" align="center"><b>TUGAS</b></td>
+<td width="40" align="center"><b>UTS</b></td>
+<td width="40" align="center"><b>UAS</b></td>
+<td width="60" align="center"><b>NILAI</b></td>
+<td width="60" align="center"><b>BOBOT</b></td>
+<td width="50" align="center"><b>MUTU</b></td>
+</tr>
+<tr>
+<td>MK2001</td>
+<td>Mata Kuliah Lima</td>
+<td align="center">3</td>
+<td align="center">95&nbsp;</td>
+<td align="center">90&nbsp;</td>
+<td align="center">92&nbsp;</td>
+<td align="center">94&nbsp;</td>
+<td align="center" width="50">A&nbsp;</td>
+<td align="center" width="50">4&nbsp;</td>
+<td align="center" width="50">12&nbsp;</td>
+</tr>
+<tr class="altrow">
+<td>MK2002</td>
+<td>Mata Kuliah Enam : Pengantar</td>
+<td align="center">3</td>
+<td align="center">85&nbsp;</td>
+<td align="center">80&nbsp;</td>
+<td align="center">76&nbsp;</td>
+<td align="center">79&nbsp;</td>
+<td align="center" width="50">B&nbsp;</td>
+<td align="center" width="50">3&nbsp;</td>
+<td align="center" width="50">9&nbsp;</td>
+</tr>
+<tr>
+<td>MK2003</td>
+<td>Mata Kuliah Tujuh</td>
+<td align="center">2</td>
+<td align="center">70&nbsp;</td>
+<td align="center">65&nbsp;</td>
+<td align="center">68&nbsp;</td>
+<td align="center">66&nbsp;</td>
+<td align="center" width="50">C&nbsp;</td>
+<td align="center" width="50">2&nbsp;</td>
+<td align="center" width="50">4&nbsp;</td>
+</tr>
+<tr class="altrow">
+<td>MK1003</td>
+<td>Mata Kuliah Tiga</td>
+<td align="center">2</td>
+<td align="center">85&nbsp;</td>
+<td align="center">80&nbsp;</td>
+<td align="center">82&nbsp;</td>
+<td align="center">78&nbsp;</td>
+<td align="center" width="50">B&nbsp;</td>
+<td align="center" width="50">3&nbsp;</td>
+<td align="center" width="50">6&nbsp;</td>
+</tr>
+<tr>
+<td>MK2004</td>
+<td>Mata Kuliah Delapan &amp; Praktikum</td>
+<td align="center">2</td>
+<td align="center">100&nbsp;</td>
+<td align="center">95&nbsp;</td>
+<td align="center">90&nbsp;</td>
+<td align="center">96&nbsp;</td>
+<td align="center" width="50">A&nbsp;</td>
+<td align="center" width="50">4&nbsp;</td>
+<td align="center" width="50">8&nbsp;</td>
+</tr>
+<tr>
+<td colspan="2" align="right">Total SKS</td>
+<td align="center">12</td>
+<td colspan="6" align="right">Jumlah Mutu</td>
+<td align="center">39</td>
+</tr>
+<tr>
+<td colspan="9" align="right"> Indeks Prestasi Semester : </td>
+<td align="center">3.25</td>
+</tr>
+</tbody></table>
+</div>
+</div>
+</div>
+</div>
+<div class="row">
+<div class="col-md-12">
+<div class="card">
+<div class="header">
+<h4 class="title">KHS Semester : 1</h4>
+</div>
+<div class="content table-responsive table-full-width">
+<table class="table table-hover">
+<tbody><tr bgcolor="#c8c1bd">
+<td width="40"><b>KODE</b></td>
+<td width="320"><b>NAMA MATA KULIAH</b></td>
+<td width="40" align="center"><b>SKS</b></td>
+<td width="40" align="center"><b>ABSEN</b></td>
+<td width="40" align="center"><b>TUGAS</b></td>
+<td width="40" align="center"><b>UTS</b></td>
+<td width="40" align="center"><b>UAS</b></td>
+<td width="60" align="center"><b>NILAI</b></td>
+<td width="60" align="center"><b>BOBOT</b></td>
+<td width="50" align="center"><b>MUTU</b></td>
+</tr>
+<tr>
+<td>MK1001</td>
+<td>Mata Kuliah Satu</td>
+<td align="center">3</td>
+<td align="center">90&nbsp;</td>
+<td align="center">85&nbsp;</td>
+<td align="center">88&nbsp;</td>
+<td align="center">92&nbsp;</td>
+<td align="center" width="50">A&nbsp;</td>
+<td align="center" width="50">4&nbsp;</td>
+<td align="center" width="50">12&nbsp;</td>
+</tr>
+<tr class="altrow">
+<td>MK1002</td>
+<td>Mata Kuliah Dua</td>
+<td align="center">3</td>
+<td align="center">80&nbsp;</td>
+<td align="center">75&nbsp;</td>
+<td align="center">78&nbsp;</td>
+<td align="center">74&nbsp;</td>
+<td align="center" width="50">B&nbsp;</td>
+<td align="center" width="50">3&nbsp;</td>
+<td align="center" width="50">9&nbsp;</td>
+</tr>
+<tr>
+<td>MK1003</td>
+<td>Mata Kuliah Tiga</td>
+<td align="center">2</td>
+<td align="center">40&nbsp;</td>
+<td align="center">30&nbsp;</td>
+<td align="center">35&nbsp;</td>
+<td align="center">20&nbsp;</td>
+<td align="center" width="50">E&nbsp;</td>
+<td align="center" width="50">0&nbsp;</td>
+<td align="center" width="50">0&nbsp;</td>
+</tr>
+<tr class="altrow">
+<td>MK1004</td>
+<td>Mata Kuliah Empat </td>
+<td align="center">2</td>
+<td align="center">60&nbsp;</td>
+<td align="center">50&nbsp;</td>
+<td align="center">45&nbsp;</td>
+<td align="center">48&nbsp;</td>
+<td align="center" width="50">D&nbsp;</td>
+<td align="center" width="50">1&nbsp;</td>
+<td align="center" width="50">2&nbsp;</td>
+</tr>
+<tr>
+<td colspan="2" align="right">Total SKS</td>
+<td align="center">10</td>
+<td colspan="6" align="right">Jumlah Mutu</td>
+<td align="center">23</td>
+</tr>
+<tr>
+<td colspan="9" align="right"> Indeks Prestasi Semester : </td>
+<td align="center">2.30</td>
+</tr>
+</tbody></table>
+</div>
+</div>
+</div>
+</div>
+<div class="row">
+<div class="col-md-12">
+<div class="card">
+<div class="header">
+<h4 class="title">KHS Semester : T</h4>
+</div>
+<div class="content table-responsive table-full-width">
+<table class="table table-hover">
+<tbody><tr bgcolor="#c8c1bd">
+<td width="40"><b>KODE</b></td>
+<td width="320"><b>NAMA MATA KULIAH</b></td>
+<td width="40" align="center"><b>SKS</b></td>
+<td width="40" align="center"><b>ABSEN</b></td>
+<td width="40" align="center"><b>TUGAS</b></td>
+<td width="40" align="center"><b>UTS</b></td>
+<td width="40" align="center"><b>UAS</b></td>
+<td width="60" align="center"><b>NILAI</b></td>
+<td width="60" align="center"><b>BOBOT</b></td>
+<td width="50" align="center"><b>MUTU</b></td>
+</tr>
+<tr>
+<td colspan="2" align="right">Total SKS</td>
+<td align="center">0</td>
+<td colspan="6" align="right">Jumlah Mutu</td>
+<td align="center">0</td>
+</tr>
+<tr>
+<td colspan="9" align="right"> Indeks Prestasi Semester : </td>
+<td align="center">0</td>
+</tr>
+</tbody></table>
+</div>
+</div>
+</div>
+<center>
+<a target="_blank" href="views/transcripts/print.php" class="btn app-btn-primary">
+<button class="btn app-btn-primary" type="button" rel="tooltip" title="Cetak Transkrip Mahasiswa Contoh"><i class="fa fa-download"></i> Cetak Transkrip</button>
+</a>
+</center>
+</div>
+<br>
+</div>
+</div></div></div></div>
+</body>
+</html>

@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<link rel="icon" type="image/png" href="../assets/img/ucic.png">
+<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+<title>MyUCIC - Sistem Akademik Universitas Catur Insan Cendekia (CIC) Cirebon</title>
+<meta content='width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0' name='viewport' />
+<link href="../assets/css/bootstrap.min.css" rel="stylesheet" />
+<link href="../assets/css/light-bootstrap-dashboard.css?v=1.4.0" rel="stylesheet"/>
+<link rel="stylesheet" href="controllers/adminlte/dist/css/skins/_all-skins.min.css">
+</head>
+<body>
+<div class="wrapper">
+<div class="sidebar" data-color="purple" data-image="../assets/img/sidebar-5.jpg">
+<div class="sidebar-wrapper">
+<div class="logo">
+<a href="" class="simple-text"> Selasa, 20 Oktober 2026 </a>
+</div>
+<ul class="nav">
+<li>
+<a href="?mod=student&amp;act=dashboard">
+<i class="pe-7s-home"></i>
+<p>Dashboard</p>
+</a>
+</li>
+<li>
+<a href="?mod=student&amp;act=pengumuman">
+<i class="pe-7s-speaker"></i>
+<p>Pengumuman</p>
+</a>
+</li>
+<li>
+<a href="?mod=student&amp;act=profile">
+<i class="pe-7s-users"></i>
+<p>Profil Mahasiswa</p>
+</a>
+</li>
+<li>
+<a href="?mod=student&amp;act=course">
+<i class="pe-7s-browser"></i>
+<p>Jadwal Kuliah</p>
+</a>
+</li>
+<li>
+<a href="?mod=student&amp;act=credit">
+<i class="pe-7s-news-paper"></i>
+<p>Reg &amp; KRS Online</p>
+</a>
+</li>
+<li>
+<a href="?mod=student&amp;act=perwalian">
+<i class="pe-7s-id"></i>
+<p>Perwalian</p>
+</a>
+</li>
+<li>
+<i class="pe-7s-alarm"></i>
+<form class="login100-form validate-form" method="post" action="../sipandai/?mod=login&amp;act=loginact.php">
+<input type="hidden" name="id" value="">
+<input type="hidden" name="p" value="">
+<input type="hidden" name="who" value="">
+<input type="hidden" name="ak" value="">
+<p>
+<input style="font-size: 11pt; color: white; font-weight:" class="btn app-btn-primary w-100 theme-btn mx-auto" type="submit" value="SiPANDAI"></p>
+</form>
+</li>
+<li class="active">
+<a href="?mod=student&amp;act=skkm">
+<i class="pe-7s-map-2"></i>
+<p>SIREKA (SKKM)</p>
+</a>
+</li>
+<li>
+<a href="?mod=student&amp;act=simasita">
+<i class="pe-7s-map-marker"></i>
+<p>SiMASITA</p>
+</a>
+</li>
+<li>
+<a href="?mod=student&amp;act=keuangan">
+<i class="pe-7s-cash"></i>
+<p>Keuangan </p>
+</a>
+</li>
+<li>
+<a href="?mod=student&amp;act=ebook">
+<i class="pe-7s-notebook"></i>
+<p>e-Book </p>
+</a>
+</li>
+</ul>
+</div>
+</div>
+<div class="main-panel">
+<nav class="navbar navbar-default navbar-fixed">
+<div class="container-fluid">
+<div class="navbar-header">
+<button type="button" class="navbar-toggle" data-toggle="collapse" data-target="#navigation-example-2">
+<span class="sr-only">Toggle navigation</span>
+<span class="icon-bar"></span>
+<span class="icon-bar"></span>
+<span class="icon-bar"></span>
+</button>
+<a class="navbar-brand" href="#">PORTAL MyCIC T.A 2026/2027 SEMESTER GANJIL</a>
+</div>
+<div class="collapse navbar-collapse">
+<ul class="nav navbar-nav navbar-right">
+<li class="dropdown">
+<a href="#" class="dropdown-toggle" data-toggle="dropdown">
+<p> Panduan MyCIC <b class="caret"></b>
+</p>
+</a>
+<ul class="dropdown-menu">
+<li class="divider"></li>
+<li><a href="../files/Panduan_Her-registrasi-KRS_dan_Perwalian.pdf">Panduan Her-registrasi Online</a></li>
+</ul>
+</li>
+<li class="dropdown">
+<a href="#" class="dropdown-toggle" data-toggle="dropdown">
+<p> Setting <b class="caret"></b>
+</p>
+</a>
+<ul class="dropdown-menu">
+<li class="divider"></li>
+<li><a href="?mod=student&amp;act=password">Ganti Passowrd</a></li>
+</ul>
+</li>
+<li>
+<a href="?mod=logout">
+<p>Log out</p>
+</a>
+</li>
+<li class="separator hidden-lg"></li>
+</ul>
+</div>
+</div>
+</nav>
+<div class="content">
+<div class="container-fluid">
+<section class="content-header">
+<h2> Statistik Point Satuan Kredit Kegiatan Mahasiswa </h2>
+<ol class="breadcrumb">
+<li><a href="?mod=student&amp;act=dashboard"><i class="fa fa-dashboard"></i>Dashboard</a></li>
+<li class="active">Statistik Point SKKM</li>
+</ol>
+</section>
+<section class="content">
+<div class="row">
+<div class="col-lg-3 col-xs-6">
+<div class="small-box bg-green">
+<div class="inner">
+<h2> 1 </h2>
+<p class="text-uppercase">skkm valid</p>
+</div>
+</div>
+</div>
+<div class="col-lg-3 col-xs-6">
+<div class="small-box bg-red">
+<div class="inner">
+<h2> 1 </h2>
+<p class="text-uppercase">skkm tidak valid</p>
+</div>
+</div>
+</div>
+<div class="col-lg-3 col-xs-6">
+<div class="small-box bg-yellow">
+<div class="inner">
+<h2> 1 </h2>
+<p class="text-uppercase">skkm belum divalidasi</p>
+</div>
+</div>
+</div>
+</div>
+</section>
+<hr>
+<section class="content">
+<div class="row">
+<div class="col-xs-12">
+<div class="box">
+<div class="box-header">
+<marquee>
+<h4>
+<font color="red">
+<b>Silakan Konsultasi dengan Dosen Pembimbing Akademik masing-masing dan baca Pedoman SKKM, sebelum melakukan upload Satuan Kredit Kegiatan Mahasiswa, Penilaian SKKM dilakukan berdasarkan bukti-bukti sesuai dengan PEDOMAN SKKM UCIC, Dan untuk validasi SKKM hubungi dosen DPA masing-masing. </b>
+</font>
+</h4>
+</marquee>
+<h3>Daftar Data SKKM</h3>
+<div class="col-md-4">
+<a href="?mod=student&amp;act=addskkm" class="btn btn-primary">Tambah SKKM</a>
+<a href="../files/skkm/Pedoman_SKKM_2024.pdf" class="btn btn-primary">Pedoman SKKM</a>
+</div>
+<div class="col-md-4 text-center">
+<strong style="margin-top: 4px;" id="message">
+</strong>
+</div>
+</div>
+<div class="box-body">
+<table class="table table-bordered table-striped">
+<thead>
+<tr>
+<th>No</th>
+<th>Nama Kegiatan</th>
+<th>Kegiatan</th>
+<th>Tingkat</th>
+<th>Jenis</th>
+<th>Nilai</th>
+<th>Status</th>
+<th>Lampiran</th>
+<th>Aksi</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Kegiatan Contoh Satu</td>
+<td>UCIC Values</td>
+<td>UCIC</td>
+<td>Bina Keluarga Kampus (UCIC)</td>
+<td>10</td>
+<td><span class="label label-success">Valid</span></td>
+<td><a href="../files/skkm/SKKM_90001_bukti.pdf" target="_blank">Lihat Bukti</a></td>
+<td></td>
+</tr>
+<tr>
+<td>2</td>
+<td>Kegiatan Contoh Dua</td>
+<td>Organisasi/Kepanitiaan</td>
+<td>Internal Kampus</td>
+<td>Anggota ORMAWA</td>
+<td>3</td>
+<td>Tidak Valid</td>
+<td><a href="../files/skkm/SKKM_90002_bukti.pdf" target="_blank">Lihat Bukti</a></td>
+<td><a href="?mod=student&amp;act=delskkm&amp;id=90002" class="btn btn-danger btn-xs" onclick="return confirm('Yakin akan menghapus data ini?')"><i class="fa fa-trash"></i> Hapus</a></td>
+</tr>
+<tr>
+<td>3</td>
+<td>Kegiatan Contoh Tiga</td>
+<td>Kegiatan Lainnya (Tri Dharma Pendidikan, Penelitian dan Pengabdian)</td>
+<td>Wilayah/Provinsi</td>
+<td>Peserta Seminar/Workshop</td>
+<td>5</td>
+<td>Belum Divalidasi</td>
+<td><a href="?mod=student&amp;act=viewlampiran&amp;id=90003" target="_blank">Lihat Bukti</a></td>
+<td><a href="?mod=student&amp;act=editskkm&amp;id=90003" class="btn btn-warning btn-xs"><i class="fa fa-pencil"></i> Ubah</a>
+<a href="?mod=student&amp;act=delskkm&amp;id=90003" class="btn btn-danger btn-xs" onclick="return confirm('Yakin akan menghapus data ini?')"><i class="fa fa-trash"></i> Hapus</a></td>
+</tr>
+</tbody>
+</table>
+<p>
+<strong> Total poin belum divalidasi: 5 </strong>
+</p>
+<p>
+<strong> Total Poin tidak valid: 3 </strong>
+</p>
+<p>
+<strong> Total Poin valid: 10 </strong>
+</p>
+<p>
+<strong>Status Kelulusan SKKM: Belum Memenuhi Kelulusan Nilai SKKM </strong>
+</p>
+</div>
+</div>
+</div>
+</div>
+</section>
+</div>
+</div>
+<footer class="footer">
+<div class="container-fluid">
+<nav class="pull-left">
+<ul>
+<li>
+<a href="?mod=student&amp;act=dashboard"> Home </a>
+</li>
+</ul>
+</nav>
+<p class="copyright pull-right"> © <a href="https://www.cic.ac.id">Universitas Catur Insan Cendekia - Pusat Data &amp; Informasi.</a>
+</p>
+</div>
+</footer>
+</div>
+</div>
+</body>
+<script src="../assets/js/jquery.3.2.1.min.js" type="text/javascript"></script>
+<script src="../assets/js/bootstrap.min.js" type="text/javascript"></script>
+</html>

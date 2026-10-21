@@ -129,10 +129,7 @@ class ProfileExtractor extends PortalScrapingService
 
                         // Cloudflare replaces e-mail addresses with "[email protected]"
                         // and keeps the real one encoded in data-cfemail.
-                        $obfuscated = $cells->eq(2)->filter('[data-cfemail]');
-                        if ($obfuscated->count() > 0) {
-                            $value = $this->decodeCloudflareEmail((string) $obfuscated->first()->attr('data-cfemail')) ?? $value;
-                        }
+                        $value = $this->extractCloudflareEmail($cells->eq(2)) ?? $value;
 
                         // Clean up value
                         $value = strip_tags($value);
@@ -474,25 +471,6 @@ class ProfileExtractor extends PortalScrapingService
         ];
 
         return $this->extractText($crawler, $statusSelectors);
-    }
-
-    /**
-     * data-cfemail is hex: the first byte is the key, the rest is XOR-ed with it.
-     */
-    private function decodeCloudflareEmail(string $encoded): ?string
-    {
-        if (! preg_match('/^[0-9a-f]+$/i', $encoded) || strlen($encoded) < 4 || strlen($encoded) % 2 !== 0) {
-            return null;
-        }
-
-        $key = hexdec(substr($encoded, 0, 2));
-        $email = '';
-
-        for ($i = 2; $i < strlen($encoded); $i += 2) {
-            $email .= chr(hexdec(substr($encoded, $i, 2)) ^ $key);
-        }
-
-        return filter_var($email, FILTER_VALIDATE_EMAIL) ? $email : null;
     }
 
     /**

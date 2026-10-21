@@ -45,8 +45,8 @@ class PortalUrlGuardTest extends TestCase
                 'https://my.cic.ac.id/portal/files/sap/SIE053004-rps47a.pdf',
             ],
             'submitted assignment' => [
-                '../files/tugasmhs/8987-3-20251030030-a6b.pdf',
-                'https://my.cic.ac.id/portal/files/tugasmhs/8987-3-20251030030-a6b.pdf',
+                '../files/tugasmhs/8987-3-20990000001-a6b.pdf',
+                'https://my.cic.ac.id/portal/files/tugasmhs/8987-3-20990000001-a6b.pdf',
             ],
             'skkm' => [
                 'files/skkm/sertifikat.jpg',
@@ -57,12 +57,12 @@ class PortalUrlGuardTest extends TestCase
                 'https://my.cic.ac.id/portal/files/fotostudent/nopic.gif',
             ],
             'kolokium with spaces' => [
-                '../files/skripsi/kolokium/TUGAS AKHIR-SIDANG-20251030030-KOLOKIUM-ab12c.pdf',
-                'https://my.cic.ac.id/portal/files/skripsi/kolokium/TUGAS%20AKHIR-SIDANG-20251030030-KOLOKIUM-ab12c.pdf',
+                '../files/skripsi/kolokium/TUGAS AKHIR-SIDANG-20990000001-KOLOKIUM-ab12c.pdf',
+                'https://my.cic.ac.id/portal/files/skripsi/kolokium/TUGAS%20AKHIR-SIDANG-20990000001-KOLOKIUM-ab12c.pdf',
             ],
             'absolute kolokium with encoded spaces' => [
-                'https://my.cic.ac.id/portal/files/skripsi/kolokium/TUGAS%20AKHIR-SIDANG-20251030030-KOLOKIUM-ab12c.pdf',
-                'https://my.cic.ac.id/portal/files/skripsi/kolokium/TUGAS%20AKHIR-SIDANG-20251030030-KOLOKIUM-ab12c.pdf',
+                'https://my.cic.ac.id/portal/files/skripsi/kolokium/TUGAS%20AKHIR-SIDANG-20990000001-KOLOKIUM-ab12c.pdf',
+                'https://my.cic.ac.id/portal/files/skripsi/kolokium/TUGAS%20AKHIR-SIDANG-20990000001-KOLOKIUM-ab12c.pdf',
             ],
             'root SOP' => [
                 'https://my.cic.ac.id/portal/files/SOP_Mekanisme_proses_penyelesaian_tugas_akhir.pdf',

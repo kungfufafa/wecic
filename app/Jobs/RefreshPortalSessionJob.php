@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Jobs;
 
 use App\Services\PortalBroadcastService;
+use App\Services\PortalDatasetRepository;
 use App\Services\PortalSessionManager;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUniqueUntilProcessing;
@@ -55,7 +56,7 @@ class RefreshPortalSessionJob implements ShouldBeUniqueUntilProcessing, ShouldQu
         return (int) config('portal.session_refresh_interval', 1200) + 600;
     }
 
-    public function handle(PortalSessionManager $sessionManager, PortalBroadcastService $broadcast): void
+    public function handle(PortalSessionManager $sessionManager, PortalBroadcastService $broadcast, PortalDatasetRepository $datasets): void
     {
         $outcome = $sessionManager->keepAlive($this->sessionToken);
         $sessionId = $sessionManager->laravelSessionId($this->sessionToken) ?? $this->sessionId;
@@ -69,6 +70,14 @@ class RefreshPortalSessionJob implements ShouldBeUniqueUntilProcessing, ShouldQu
 
         if (in_array($outcome, ['alive', 'relogged'], true)) {
             $sessionManager->scheduleKeepAlive($this->sessionToken);
+
+            // Top up decision datasets that went stale since the last ping, but
+            // only while the student is actually using the app: a session kept
+            // alive for a closed tab must not re-scrape portal pages for nobody.
+            if (config('portal.sync.keepalive_warmup', true)
+                && $sessionManager->wasActiveWithin($this->sessionToken, (int) config('portal.session_refresh_interval', 1200))) {
+                $datasets->warmUp($this->sessionToken, $sessionId);
+            }
         }
 
         if ($sessionId === null) {

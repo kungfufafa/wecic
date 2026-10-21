@@ -23,10 +23,10 @@ class ExamSubmissionRecordFactory extends Factory
     {
         $examId = $this->faker->numberBetween(8800, 9300);
         $submissionId = $this->faker->numberBetween(120000, 140000);
-        $filename = "{$examId}-UTS-20251030030-{$this->faker->regexify('[a-f0-9]{3}')}.pdf";
+        $filename = "{$examId}-UTS-20990000001-{$this->faker->regexify('[a-f0-9]{3}')}.pdf";
 
         return [
-            'username' => '20251030030',
+            'username' => '20990000001',
             'exam_id' => $examId,
             'submission_id' => $submissionId,
             'file_url' => "https://my.cic.ac.id/portal/files/tugasmhs/{$filename}",

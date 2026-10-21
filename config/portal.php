@@ -111,6 +111,13 @@ return [
             'class_catalog' => (int) env('CAMPUS_CACHE_CLASS_CATALOG_TTL', 1800),
             'class_detail' => (int) env('CAMPUS_CACHE_CLASS_DETAIL_TTL', 7200),
             'meeting_detail' => (int) env('CAMPUS_CACHE_MEETING_DETAIL_TTL', 86400),
+            'portal_context' => (int) env('CAMPUS_CACHE_PORTAL_CONTEXT_TTL', 3600),
+            'announcements' => (int) env('CAMPUS_CACHE_ANNOUNCEMENTS_TTL', 900),
+            'krs' => (int) env('CAMPUS_CACHE_KRS_TTL', 900),
+            'advising' => (int) env('CAMPUS_CACHE_ADVISING_TTL', 3600),
+            'krs_detail' => (int) env('CAMPUS_CACHE_KRS_DETAIL_TTL', 21600),
+            'khs' => (int) env('CAMPUS_CACHE_GRADES_TTL', 3600),
+            'skkm' => (int) env('CAMPUS_CACHE_SKKM_TTL', 1800),
         ],
         'default_ttl' => (int) env('CAMPUS_CACHE_HTML_TTL', 300),
     ],
@@ -133,8 +140,38 @@ return [
         'lock_wait' => (int) env('PORTAL_SYNC_LOCK_WAIT', 20),
         'force_cooldown' => (int) env('PORTAL_SYNC_FORCE_COOLDOWN', 30),
         'failure_backoff' => (int) env('PORTAL_SYNC_FAILURE_BACKOFF', 120),
+        // Seconds a background build that failed before any snapshot existed
+        // is not queued again (reads then report the dataset `failed`).
+        'build_failure_backoff' => (int) env('PORTAL_SYNC_BUILD_FAILURE_BACKOFF', 900),
         'snapshot_retention' => (int) env('PORTAL_SNAPSHOT_RETENTION', 604800),
         'bulk_request_delay' => (int) env('CAMPUS_BULK_REQUEST_DELAY', 250),
+        // Datasets a student needs to decide what to do, synced in one background
+        // job right after login (and topped up by the keep-alive ping), so their
+        // pages and the action center open from a snapshot instead of the portal.
+        'warmup_datasets' => ['portal_context', 'krs', 'advising', 'payments', 'grades', 'skkm', 'announcements', 'exams'],
+        // Seconds the login warm-up waits, so the first dashboard build is not
+        // competing with it for the same portal session.
+        'warmup_delay' => (int) env('PORTAL_SYNC_WARMUP_DELAY', 5),
+        'keepalive_warmup' => (bool) env('PORTAL_SYNC_KEEPALIVE_WARMUP', true),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Academic & SKKM Targets
+    |--------------------------------------------------------------------------
+    |
+    | Fallbacks used only when the portal itself does not state the target:
+    | graduation SKS (the official "SKS Terkumpul + Sisa SKS" wins) and the
+    | SKKM graduation points (curated from the SKKM guide; unset = unknown).
+    |
+    */
+
+    'academic' => [
+        'target_sks' => (int) env('CAMPUS_ACADEMIC_TARGET_SKS', 144),
+    ],
+
+    'skkm' => [
+        'required_points' => env('CAMPUS_SKKM_REQUIRED_POINTS'),
     ],
 
     /*
@@ -163,8 +200,8 @@ return [
         ],
         'assignments' => [
             'fresh_for' => 600,
-            'cache_keys' => ['/api/assignment/pending'],
-            'sync_keys' => ['dashboard-pending-assignments'],
+            'cache_keys' => ['/api/assignment/pending', '/api/action-items'],
+            'sync_keys' => ['dashboard-pending-assignments', 'dashboard-action-items'],
         ],
         'classes' => [
             'fresh_for' => 1800,
@@ -188,13 +225,13 @@ return [
         ],
         'payments' => [
             'fresh_for' => 1800,
-            'cache_keys' => ['/api/finance/payments'],
-            'sync_keys' => ['finance'],
+            'cache_keys' => ['/api/finance/payments', '/api/finance/summary', '/api/dashboard', '/api/action-items'],
+            'sync_keys' => ['finance', 'dashboard-overview', 'dashboard-action-items'],
         ],
         'exams' => [
             'fresh_for' => 1800,
-            'cache_keys' => ['/api/exam'],
-            'sync_keys' => ['exam-index'],
+            'cache_keys' => ['/api/exam', '/api/action-items'],
+            'sync_keys' => ['exam-index', 'dashboard-action-items'],
         ],
         'class_detail' => [
             'fresh_for' => 900,
@@ -207,6 +244,48 @@ return [
             'parameterized' => true,
             'cache_keys' => [],
             'sync_keys' => ['meeting-show'],
+        ],
+        'portal_context' => [
+            'fresh_for' => 21600,
+            'cache_keys' => ['/api/dashboard', '/api/portal/context', '/api/finance/summary', '/api/action-items'],
+            'sync_keys' => ['dashboard-overview', 'portal-context', 'dashboard-action-items'],
+        ],
+        'announcements' => [
+            'fresh_for' => 1800,
+            'cache_keys' => ['/api/announcement', '/api/academic/krs', '/api/finance/summary', '/api/action-items'],
+            'sync_keys' => ['announcement-index', 'dashboard-action-items'],
+        ],
+        'announcement_page' => [
+            'fresh_for' => 86400,
+            'parameterized' => true,
+            'cache_keys' => [],
+            'sync_keys' => ['announcement-index'],
+        ],
+        'krs' => [
+            'fresh_for' => 900,
+            'cache_keys' => ['/api/academic/krs', '/api/academic/grades', '/api/academic/transcript', '/api/dashboard', '/api/action-items'],
+            'sync_keys' => ['krs-index', 'dashboard-overview', 'dashboard-action-items'],
+        ],
+        'advising' => [
+            'fresh_for' => 3600,
+            'cache_keys' => ['/api/academic/advising', '/api/academic/krs', '/api/action-items'],
+            'sync_keys' => ['advising-index', 'krs-index', 'dashboard-action-items'],
+        ],
+        'krs_detail' => [
+            'fresh_for' => 21600,
+            'parameterized' => true,
+            'cache_keys' => [],
+            'sync_keys' => ['krs-show'],
+        ],
+        'grades' => [
+            'fresh_for' => 3600,
+            'cache_keys' => ['/api/academic/grades', '/api/academic/transcript', '/api/dashboard', '/api/action-items'],
+            'sync_keys' => ['grades-index', 'transcript-index', 'dashboard-overview', 'dashboard-action-items'],
+        ],
+        'skkm' => [
+            'fresh_for' => 1800,
+            'cache_keys' => ['/api/skkm', '/api/dashboard', '/api/action-items'],
+            'sync_keys' => ['skkm-index', 'dashboard-overview', 'dashboard-action-items'],
         ],
     ],
 
@@ -505,6 +584,237 @@ return [
             'category' => 'data',
             'priority' => 'high',
             'requires_session' => true,
+        ],
+        'student_announcement' => [
+            'method' => 'GET',
+            'url' => "{$mahasiswaBase}/",
+            'default_query' => [
+                'mod' => 'student',
+                'act' => 'pengumuman',
+            ],
+            'description' => 'University announcements (3 per page, optional page).',
+            'category' => 'data',
+            'priority' => 'high',
+            'requires_session' => true,
+        ],
+        'student_questionnaire_form' => [
+            'method' => 'POST',
+            'url' => "{$mahasiswaBase}/",
+            'default_query' => [
+                'mod' => 'student',
+                'act' => 'kuesionerform',
+            ],
+            'description' => 'Opens the VMTS questionnaire form (body: vmts). Never called automatically.',
+            'category' => 'action',
+            'priority' => 'medium',
+            'requires_session' => true,
+        ],
+        'student_credit' => [
+            'method' => 'GET',
+            'url' => $studentCreditUrl,
+            'default_query' => [
+                'mod' => 'student',
+                'act' => 'credit',
+            ],
+            'description' => 'Reg & KRS Online: KRS period, validation status and planned courses.',
+            'category' => 'data',
+            'priority' => 'high',
+            'requires_session' => true,
+        ],
+        'student_advising' => [
+            'method' => 'GET',
+            'url' => "{$mahasiswaBase}/",
+            'default_query' => [
+                'mod' => 'student',
+                'act' => 'perwalian',
+            ],
+            'description' => 'Perwalian: academic advisor (DPA) and KRS history.',
+            'category' => 'data',
+            'priority' => 'high',
+            'requires_session' => true,
+        ],
+        'student_krs_detail' => [
+            'method' => 'GET',
+            'url' => "{$mahasiswaBase}/",
+            'default_query' => [
+                'mod' => 'student',
+                'act' => 'viewkrs',
+            ],
+            'description' => 'KRS detail of one semester plus the full KHS (id = krs id from the KRS history).',
+            'category' => 'data',
+            'priority' => 'high',
+            'requires_session' => true,
+            'required_params' => ['id'],
+        ],
+        'student_krs_print' => [
+            'method' => 'GET',
+            'url' => "{$mahasiswaBase}/views/cetakkrs/print.php",
+            'description' => 'Printable proof of the current KRS (the portal ignores id).',
+            'category' => 'data',
+            'priority' => 'medium',
+            'requires_session' => true,
+        ],
+        'student_skkm' => [
+            'method' => 'GET',
+            'url' => "{$mahasiswaBase}/",
+            'default_query' => [
+                'mod' => 'student',
+                'act' => 'skkm',
+            ],
+            'description' => 'SIREKA: SKKM point statistics and entries.',
+            'category' => 'data',
+            'priority' => 'high',
+            'requires_session' => true,
+        ],
+        'student_skkm_add_form' => [
+            'method' => 'GET',
+            'url' => "{$mahasiswaBase}/",
+            'default_query' => [
+                'mod' => 'student',
+                'act' => 'addskkm',
+            ],
+            'description' => 'SKKM upload form.',
+            'category' => 'action',
+            'priority' => 'medium',
+            'requires_session' => true,
+        ],
+        'student_skkm_submit' => [
+            'method' => 'POST',
+            'url' => "{$mahasiswaBase}/",
+            'default_query' => [
+                'mod' => 'student',
+                'act' => 'addskkm',
+            ],
+            'description' => 'Submit an SKKM entry (multipart: data[nama_kegiatan], berkas, data[kegiatan_id], data[tingkat_id], data[jenis_id], cmd=Simpan).',
+            'category' => 'action',
+            'priority' => 'medium',
+            'requires_session' => true,
+        ],
+        'student_skkm_kegiatan_options' => [
+            'method' => 'POST',
+            'url' => "{$mahasiswaBase}/views/skkm/get_kegiatan.php",
+            'description' => 'SKKM activity options (<option> fragment, empty body).',
+            'category' => 'data',
+            'priority' => 'medium',
+            'requires_session' => true,
+        ],
+        'student_skkm_tingkat_options' => [
+            'method' => 'POST',
+            'url' => "{$mahasiswaBase}/views/skkm/get_tingkat.php",
+            'description' => 'SKKM level options for an activity (body: kegiatan).',
+            'category' => 'data',
+            'priority' => 'medium',
+            'requires_session' => true,
+        ],
+        'student_skkm_jenis_options' => [
+            'method' => 'POST',
+            'url' => "{$mahasiswaBase}/views/skkm/get_jenis.php",
+            'description' => 'SKKM type options for a level (body: tingkat).',
+            'category' => 'data',
+            'priority' => 'medium',
+            'requires_session' => true,
+        ],
+        'student_simasita' => [
+            'method' => 'GET',
+            'url' => "{$mahasiswaBase}/",
+            'default_query' => [
+                'mod' => 'student',
+                'act' => 'simasita',
+            ],
+            'description' => 'SiMASITA: thesis requirements and SOP.',
+            'category' => 'data',
+            'priority' => 'medium',
+            'requires_session' => true,
+        ],
+        'student_skripsi' => [
+            'method' => 'GET',
+            'url' => "{$mahasiswaBase}/",
+            'default_query' => [
+                'mod' => 'student',
+                'act' => 'skripsi',
+            ],
+            'description' => 'Thesis (e-Skripsi) status.',
+            'category' => 'data',
+            'priority' => 'medium',
+            'requires_session' => true,
+        ],
+        'student_ebook' => [
+            'method' => 'GET',
+            'url' => "{$mahasiswaBase}/",
+            'default_query' => [
+                'mod' => 'student',
+                'act' => 'ebook',
+            ],
+            'description' => 'e-Book and digital library links.',
+            'category' => 'data',
+            'priority' => 'medium',
+            'requires_session' => true,
+        ],
+        'student_repository' => [
+            'method' => 'GET',
+            'url' => "{$mahasiswaBase}/",
+            'default_query' => [
+                'mod' => 'student',
+                'act' => 'repositori',
+            ],
+            'description' => 'Thesis repository (optional page).',
+            'category' => 'data',
+            'priority' => 'medium',
+            'requires_session' => true,
+        ],
+        'sipandai_score' => [
+            'method' => 'GET',
+            'url' => "{$sipandaiBase}/",
+            'default_query' => [
+                'mod' => 'sipandai',
+                'act' => 'score',
+            ],
+            'description' => 'SIPANDAI Kartu Hasil Studi (KHS) for every semester.',
+            'category' => 'data',
+            'priority' => 'high',
+            'requires_session' => true,
+        ],
+        'sipandai_transcript_print' => [
+            'method' => 'GET',
+            'url' => "{$sipandaiViewsBase}/transcripts/print.php",
+            'description' => 'Printable official transcript.',
+            'category' => 'data',
+            'priority' => 'medium',
+            'requires_session' => true,
+        ],
+        'exam_card' => [
+            'method' => 'GET',
+            'url' => "{$sipandaiViewsBase}/ujian/kartuujian.php",
+            'description' => 'Printable exam card.',
+            'category' => 'data',
+            'priority' => 'medium',
+            'requires_session' => true,
+        ],
+        'meeting_conformity' => [
+            'method' => 'GET',
+            'url' => "{$sipandaiBase}/",
+            'default_query' => [
+                'mod' => 'sipandai',
+                'act' => 'kesesuaian',
+            ],
+            'description' => 'Confirm whether a meeting followed the RPS (GET with write effect; payload comes from the server-side href).',
+            'category' => 'action',
+            'priority' => 'medium',
+            'requires_session' => true,
+            'required_params' => ['subject', 'pertemuan', 'courses', 'dosen', 'sesuai', 'modules'],
+        ],
+        'exam_submission_delete' => [
+            'method' => 'GET',
+            'url' => "{$sipandaiBase}/",
+            'default_query' => [
+                'mod' => 'sipandai',
+                'act' => 'jobdelujian',
+            ],
+            'description' => 'Delete an uploaded exam answer (GET with write effect).',
+            'category' => 'action',
+            'priority' => 'high',
+            'requires_session' => true,
+            'required_params' => ['id'],
         ],
     ],
 

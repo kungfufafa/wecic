@@ -14,6 +14,7 @@ use Dedoc\Scramble\Attributes\QueryParameter;
 use Dedoc\Scramble\Attributes\Response;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 
 #[Group('Support & Metadata', 'Endpoint bantuan parameter, status sesi, dan metadata utilitas untuk integrasi portal.', 40)]
@@ -183,7 +184,9 @@ class PortalSupportController extends CampusApiController
                 return $this->statusError('Sesi kampus sudah berakhir. Silakan masuk lagi.', 401, campusSessionValid: false);
             }
 
-            return $this->statusError('Unduhan gagal: '.$throwable->getMessage(), 500, campusSessionValid: false);
+            Log::warning('Campus file download failed', ['error' => $throwable->getMessage()]);
+
+            return $this->statusError('Unduhan gagal. Coba lagi beberapa saat.', 500, campusSessionValid: false);
         }
     }
 

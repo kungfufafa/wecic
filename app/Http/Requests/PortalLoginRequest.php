@@ -17,7 +17,7 @@ class PortalLoginRequest extends ApiFormRequest
             /**
              * NIM atau username mahasiswa pada portal kampus.
              *
-             * @example "20251030030"
+             * @example "20990000001"
              */
             'username' => ['required', 'string', 'max:255'],
             /**

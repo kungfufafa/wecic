@@ -29,7 +29,7 @@ class DashboardTodayClassesBuilderTest extends TestCase
                         'name' => 'Bahasa Indonesia',
                     ],
                     'lecturer_info' => [
-                        'name' => 'Mohammad Umar Fakhrudin, M.Pd',
+                        'name' => 'Dosen Contoh Tiga, M.Pd',
                     ],
                 ],
                 [
@@ -45,7 +45,7 @@ class DashboardTodayClassesBuilderTest extends TestCase
                         'name' => 'Perancangan Aplikasi Mobile',
                     ],
                     'lecturer_info' => [
-                        'name' => 'Muhammad Hatta, M.Kom.',
+                        'name' => 'Dosen Contoh Satu, M.Kom.',
                     ],
                 ],
             ],
