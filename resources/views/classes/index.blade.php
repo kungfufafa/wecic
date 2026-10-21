@@ -4,8 +4,13 @@
 @section('page_id', 'class-index')
 
 @section('content')
-    <header class="mb-4">
+    <header class="mb-4 flex items-center justify-between gap-3">
         <h1 class="mycic-page-heading">Jadwal & Kelas</h1>
+        <a href="{{ route('exam.index') }}" class="mycic-btn-secondary-sm relative min-h-11 shrink-0 sm:min-h-9">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3v4a1 1 0 0 0 1 1h4" /><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z" /><path d="M9 15l2 2l4 -4" /></svg>
+            Ujian
+            <span class="mycic-nav-badge hidden" data-nav-badge="exam"></span>
+        </a>
     </header>
 
     <div id="class-summary" class="mb-5 grid grid-cols-3 gap-3">
@@ -181,8 +186,30 @@
             const INDO_DAYS = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
             const TODAY_DAY = INDO_DAYS[new Date().getDay()];
 
-            let currentViewMode = localStorage.getItem('mycic-class-view-mode') || 'blocking';
+            const VIEW_MODES = ['blocking', 'timeline', 'list'];
+            const requestedView = new URLSearchParams(window.location.search).get('view');
+            let currentViewMode = 'blocking';
             let selectedDayFilter = 'all';
+
+            try {
+                const storedView = localStorage.getItem('mycic-class-view-mode');
+                currentViewMode = VIEW_MODES.includes(storedView) ? storedView : 'blocking';
+            } catch (error) {
+                currentViewMode = 'blocking';
+            }
+
+            // `?view=today` (the "Jadwal hari ini" shortcut): today's classes as a list,
+            // without overwriting the view the student picked before.
+            let persistViewMode = true;
+
+            if (requestedView === 'today') {
+                currentViewMode = 'list';
+                selectedDayFilter = DAYS_LIST.includes(TODAY_DAY) ? TODAY_DAY : 'all';
+                persistViewMode = false;
+            } else if (VIEW_MODES.includes(requestedView)) {
+                currentViewMode = requestedView;
+                persistViewMode = false;
+            }
             let currentSearchQuery = '';
             let cachedClassesData = [];
             let cachedPayload = null;
@@ -1156,9 +1183,16 @@
                 });
             }
 
-            const switchView = (targetView) => {
+            const switchView = (targetView, { persist = true } = {}) => {
                 currentViewMode = targetView;
-                localStorage.setItem('mycic-class-view-mode', targetView);
+
+                if (persist) {
+                    try {
+                        localStorage.setItem('mycic-class-view-mode', targetView);
+                    } catch (error) {
+                        // Storage blocked: the choice lasts for this visit only.
+                    }
+                }
 
                 viewTabs.forEach((tab) => {
                     const isCurrent = tab.dataset.viewTarget === targetView;
@@ -1185,7 +1219,7 @@
                 });
             });
 
-            switchView(currentViewMode);
+            switchView(currentViewMode, { persist: persistViewMode });
 
             const setDayFilter = (day) => {
                 selectedDayFilter = day;
@@ -1222,7 +1256,7 @@
                 renderTimeline(dayMap);
                 renderCardList(parsedClasses, selectedDayFilter, currentSearchQuery);
                 renderUnscheduledClasses(unscheduled);
-                switchView(currentViewMode);
+                switchView(currentViewMode, { persist: false });
             };
 
             app.primeCachedView(endpoint, renderSource, 'daftar kelas utama');

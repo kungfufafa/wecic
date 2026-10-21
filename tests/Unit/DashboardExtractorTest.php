@@ -164,6 +164,9 @@ class DashboardExtractorTest extends TestCase
 
         $this->assertSame('9', $data['dashboard_overview']['total_courses']);
         $this->assertSame('27', $data['dashboard_overview']['total_credits']);
+        // SIPANDAI shows neither an IPK nor a bill: unknown, never "0.00" / "Rp 0" (Fase 0.7).
+        $this->assertNull($data['dashboard_overview']['gpa']);
+        $this->assertNull($data['dashboard_overview']['outstanding_payments']);
         $this->assertSame(9, $data['classes_summary']['total_classes']);
         $this->assertSame(9, $data['classes_summary']['actionable_attendance_count']);
         $this->assertTrue($data['classes_summary']['today_classes'][0]['attendance']['actionable']);

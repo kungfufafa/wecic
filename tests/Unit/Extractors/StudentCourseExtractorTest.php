@@ -38,6 +38,24 @@ class StudentCourseExtractorTest extends TestCase
         $this->assertSame('12:30:00', $class['schedule']['start_time']);
         $this->assertSame('SI-EB-1/5, SI-EN-1/5', $class['class_room_info']['class_name']);
         $this->assertSame('Ruang Lab 2', $class['class_room_info']['room']);
-        $this->assertSame('Muhammad Hatta, M.Kom.', $class['lecturer_info']['name']);
+        $this->assertSame('Dosen Contoh Satu, M.Kom.', $class['lecturer_info']['name']);
+    }
+
+    public function test_it_reads_the_student_rows_and_exact_course_names_from_fixture(): void
+    {
+        /** @var StudentCourseExtractor $extractor */
+        $extractor = $this->makeExtractorWithFixture(
+            StudentCourseExtractor::class,
+            'tests/Fixtures/portal/student_course.html'
+        );
+
+        $data = $extractor->extractStudentCourseData('fake-session-token');
+
+        $this->assertSame([
+            'program_studi' => 'SISTEM INFORMASI - S1',
+            'nim' => '20990000001',
+            'nama' => 'Mahasiswa Contoh',
+        ], $data['student_info']);
+        $this->assertSame('Perancangan Aplikasi Mobile', $data['classes'][1]['course_info']['name']);
     }
 }

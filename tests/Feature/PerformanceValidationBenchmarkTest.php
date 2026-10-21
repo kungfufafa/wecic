@@ -22,6 +22,9 @@ class PerformanceValidationBenchmarkTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        // The dashboard queues background builds for its secondary widgets;
+        // they must not run inline on the sync test queue.
+        Queue::fake([RefreshPortalDataJob::class]);
         $this->snapshotStore = app(PortalSnapshotStore::class);
     }
 

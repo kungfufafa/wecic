@@ -48,41 +48,45 @@ class StudentCourseExtractor extends PortalScrapingService
     }
 
     /**
-     * Extract student information from student course page
+     * Student rows of the schedule page header
+     *
+     * The portal writes them as "label | : | value", so the value is the
+     * first cell after the label that is not the ':' separator.
+     *
+     * @return array{program_studi?: string, nim?: string, nama?: string}
      */
     private function extractStudentCourseInfo(Crawler $crawler): array
     {
         $studentInfo = [];
+        $keys = [
+            'program studi' => 'program_studi',
+            'n i m' => 'nim',
+            'nim' => 'nim',
+            'nama' => 'nama',
+            'nama mahasiswa' => 'nama',
+        ];
 
         try {
-            // Look for student information in any table or card
-            $crawler->filter('.card, .info-section')->each(function (Crawler $section) use (&$studentInfo) {
-                $section->filter('table tr')->each(function (Crawler $row) use (&$studentInfo) {
-                    $cells = $row->filter('td');
-                    if ($cells->count() >= 2) {
-                        $label = trim($cells->eq(0)->text());
-                        $value = trim($cells->eq(1)->text());
+            foreach ($crawler->filter('.card table, .info-section table') as $table) {
+                foreach ($this->tableRows(new Crawler($table)) as $row) {
+                    $cells = $this->rowCells($row);
+                    $key = $keys[mb_strtolower($this->cellText($cells[0] ?? new Crawler))] ?? null;
 
-                        // Clean up the value
-                        $value = strip_tags($value);
-                        $value = preg_replace('/\s+/', ' ', $value);
-                        $value = trim($value);
+                    if ($key === null || isset($studentInfo[$key])) {
+                        continue;
+                    }
 
-                        switch (strtolower($label)) {
-                            case 'program studi':
-                                $studentInfo['program_studi'] = $value;
-                                break;
-                            case 'n i m':
-                            case 'nim':
-                                $studentInfo['nim'] = $value;
-                                break;
-                            case 'nama':
-                                $studentInfo['nama'] = $value;
-                                break;
+                    foreach (array_slice($cells, 1) as $cell) {
+                        $value = $this->cellText($cell);
+
+                        if ($value !== '' && $value !== ':') {
+                            $studentInfo[$key] = $value;
+
+                            break;
                         }
                     }
-                });
-            });
+                }
+            }
         } catch (\Exception $e) {
             Log::warning('Failed to extract student info from student course page', ['error' => $e->getMessage()]);
         }
@@ -251,6 +255,9 @@ class StudentCourseExtractor extends PortalScrapingService
 
     /**
      * Extract course information from student course course cell
+     *
+     * The code and name are cut from the cell's serialized HTML, which writes
+     * entities (`&nbsp;`, `&amp;`), so both parts are decoded and trimmed.
      */
     private function extractStudentCourseCourseInfo(Crawler $cell): array
     {
@@ -263,8 +270,8 @@ class StudentCourseExtractor extends PortalScrapingService
         $courseInfo = [];
 
         if (count($parts) >= 2) {
-            $courseInfo['code'] = trim(strip_tags($parts[0]));
-            $courseInfo['name'] = trim(strip_tags($parts[1]));
+            $courseInfo['code'] = $this->normalizePortalText(strip_tags($parts[0]));
+            $courseInfo['name'] = $this->normalizePortalText(strip_tags($parts[1]));
         } else {
             // Try to extract from text format
             if (preg_match('/^([A-Z]{2,4}\d{3,})\s+(.+)$/', $text, $matches)) {
@@ -308,24 +315,31 @@ class StudentCourseExtractor extends PortalScrapingService
     }
 
     /**
-     * Extract semester information from student course page
+     * The semester number from the schedule card heading "Semester : <n>" (K2)
+     *
+     * Only a card heading in the page content counts, so the navbar brand and
+     * the period heading ("... SEMESTER GANJIL") never become a number. The
+     * heading text is normalized first, because raw pages write the gap as
+     * `&nbsp;` as well as plain spaces.
+     *
+     * @return array{semester?: string}
      */
     private function extractStudentCourseSemesterInfo(Crawler $crawler): array
     {
-        $semesterInfo = [];
-
         try {
-            // Look for semester info in the card header
-            $crawler->filter('.card .header .title, .card .header h4')->each(function (Crawler $title) use (&$semesterInfo) {
-                $text = $title->text();
-                if (preg_match('/Semester\s*:\s*(\d+)/i', $text, $matches)) {
-                    $semesterInfo['semester'] = trim($matches[1]);
+            $titles = $this->mainContent($crawler)->filter('.card .header .title, .card .header h4');
+
+            foreach ($titles as $title) {
+                $text = $this->cellText(new Crawler($title));
+
+                if (preg_match('/\bsemester\s*:\s*(\d{1,2})\b/iu', $text, $matches) === 1) {
+                    return ['semester' => $matches[1]];
                 }
-            });
+            }
         } catch (\Exception $e) {
             Log::warning('Failed to extract semester info from student course page', ['error' => $e->getMessage()]);
         }
 
-        return $semesterInfo;
+        return [];
     }
 }

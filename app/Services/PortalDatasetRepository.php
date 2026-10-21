@@ -26,6 +26,12 @@ use Illuminate\Support\Facades\Log;
  */
 class PortalDatasetRepository
 {
+    /**
+     * What `meta.error` says about a failed sync. The exception text (portal
+     * URLs, cURL or SQL errors) stays in the log and never reaches the browser.
+     */
+    public const SYNC_FAILED_CODE = 'sync_failed';
+
     public function __construct(
         private readonly PortalSnapshotStore $snapshots,
         private readonly PortalDatasetBuilder $builder,
@@ -55,7 +61,13 @@ class PortalDatasetRepository
         try {
             return $this->syncOnce($sessionToken, $dataset, $params, $forceFresh);
         } catch (\Throwable $throwable) {
-            if ($snapshot === null || PortalException::indicatesExpiredSession($throwable)) {
+            if (PortalException::indicatesExpiredSession($throwable)) {
+                throw $throwable;
+            }
+
+            if ($snapshot === null) {
+                $this->recordBuildFailure($sessionToken, $dataset, $params);
+
                 throw $throwable;
             }
 
@@ -68,8 +80,220 @@ class PortalDatasetRepository
             return $this->snapshotResult($snapshot, [
                 'status' => 'failed',
                 'requested_fresh' => $forceFresh,
+                'error' => self::SYNC_FAILED_CODE,
+            ]);
+        }
+    }
+
+    /**
+     * Snapshot-only read for secondary data (dashboard metrics, action center,
+     * insights on another page). It never contacts the portal: a stale
+     * snapshot is served while one background re-sync runs, exactly like
+     * read(); a missing snapshot is queued for a background build and comes
+     * back as `data: null` with status `pending`.
+     *
+     * @param  array<string, mixed>  $params
+     * @return array{data: array<string, mixed>|null, meta: array<string, mixed>}
+     */
+    public function peek(
+        string $sessionToken,
+        string $dataset,
+        array $params = [],
+        ?string $broadcastSessionId = null,
+        bool $queueWhenMissing = true
+    ): array {
+        $snapshot = $this->snapshots->get($sessionToken, $dataset, $params);
+
+        if ($snapshot !== null) {
+            return $this->serveSnapshot($sessionToken, $dataset, $params, $snapshot, false, $broadcastSessionId);
+        }
+
+        if ($this->buildFailedRecently($sessionToken, $dataset, $params)) {
+            return $this->missingResult('failed');
+        }
+
+        if ($queueWhenMissing) {
+            $this->queueSync($sessionToken, [$dataset], $params, $broadcastSessionId);
+        }
+
+        return $this->missingResult($queueWhenMissing ? 'pending' : 'missing');
+    }
+
+    /**
+     * peek() for several datasets at once, queueing at most ONE background
+     * job for all of them: missing snapshots come back `pending`, stale ones
+     * `syncing`, and the job's scope shares the pages they have in common.
+     *
+     * Only the datasets in `$refreshable` (all of them when null) are built or
+     * re-synced; the others are reuse-only: their snapshot is served as is,
+     * stale or not, and a missing one comes back `missing`. A heavy crawl
+     * (pending assignments) is therefore never started by a secondary read.
+     * A dataset that cannot be read, or whose background build just failed
+     * without leaving a snapshot, comes back `failed`.
+     *
+     * @param  list<string>  $datasets
+     * @param  list<string>|null  $refreshable
+     * @return array<string, array{data: array<string, mixed>|null, meta: array<string, mixed>}>
+     */
+    public function peekMany(string $sessionToken, array $datasets, ?string $broadcastSessionId = null, ?array $refreshable = null): array
+    {
+        $results = [];
+        $toSync = [];
+
+        foreach (array_values(array_unique($datasets)) as $dataset) {
+            $canRefresh = $refreshable === null || in_array($dataset, $refreshable, true);
+
+            try {
+                $snapshot = $this->snapshots->get($sessionToken, $dataset, []);
+
+                if ($snapshot === null) {
+                    $failed = $this->buildFailedRecently($sessionToken, $dataset, []);
+                    $results[$dataset] = $this->missingResult($failed ? 'failed' : 'missing');
+
+                    if ($canRefresh && ! $failed) {
+                        $toSync[] = $dataset;
+                    }
+
+                    continue;
+                }
+
+                $results[$dataset] = $this->snapshotResult($snapshot, $this->failureMeta($snapshot));
+
+                if ($canRefresh && $this->needsBackgroundSync($sessionToken, $dataset, $snapshot)) {
+                    $toSync[] = $dataset;
+                }
+            } catch (\Throwable $throwable) {
+                Log::warning('Portal dataset snapshot could not be read', [
+                    'dataset' => $dataset,
+                    'error' => $throwable->getMessage(),
+                ]);
+                $results[$dataset] = $this->missingResult('failed');
+            }
+        }
+
+        if ($toSync === []) {
+            return $results;
+        }
+
+        try {
+            $queued = $this->queueSync($sessionToken, $toSync, [], $broadcastSessionId);
+        } catch (\Throwable $throwable) {
+            Log::warning('Background sync of portal datasets could not be queued', [
+                'datasets' => $toSync,
                 'error' => $throwable->getMessage(),
             ]);
+
+            return $results;
+        }
+
+        foreach ($toSync as $dataset) {
+            if ($results[$dataset]['data'] === null) {
+                // Queued now or by an earlier call whose build is still running.
+                $results[$dataset]['meta']['status'] = 'pending';
+            } elseif (in_array($dataset, $queued, true)) {
+                $results[$dataset]['meta']['status'] = 'syncing';
+            }
+        }
+
+        return $results;
+    }
+
+    /**
+     * Queue one background sync for the datasets whose snapshot is missing or
+     * stale, without waiting for it. A dataset already being synced (or
+     * backing off after a failure) is left alone, and a missing one is queued
+     * at most once per sync lock window, so repeated calls never pile up jobs.
+     *
+     * @param  list<string>  $datasets
+     * @param  array<string, mixed>  $params
+     * @return list<string> The datasets this call queued.
+     */
+    public function queueSync(
+        string $sessionToken,
+        array $datasets,
+        array $params = [],
+        ?string $broadcastSessionId = null,
+        int $delaySeconds = 0
+    ): array {
+        $queued = [];
+        $markers = [];
+
+        foreach (array_values(array_unique($datasets)) as $dataset) {
+            if (! is_array(config("portal.datasets.{$dataset}"))) {
+                continue;
+            }
+
+            $snapshot = $this->snapshots->get($sessionToken, $dataset, $params);
+
+            if ($snapshot === null) {
+                if ($this->buildFailedRecently($sessionToken, $dataset, $params)) {
+                    continue;
+                }
+
+                $marker = $this->queuedKey($sessionToken, $dataset, $params);
+
+                if (Cache::add($marker, now()->toISOString(), (int) config('portal.sync.lock_ttl', 300))) {
+                    $queued[] = $dataset;
+                    $markers[] = $marker;
+                }
+
+                continue;
+            }
+
+            if ($this->needsBackgroundSync($sessionToken, $dataset, $snapshot)) {
+                $this->snapshots->markSyncing($sessionToken, $dataset, $params);
+                $queued[] = $dataset;
+            }
+        }
+
+        if ($queued === []) {
+            return [];
+        }
+
+        try {
+            $job = new RefreshPortalDataJob((string) $broadcastSessionId, $sessionToken, $queued, $params);
+
+            if ($delaySeconds > 0) {
+                $job->delay(now()->addSeconds($delaySeconds));
+            }
+
+            dispatch($job);
+        } catch (\Throwable $throwable) {
+            // Nothing is queued after all: let the next read try again.
+            foreach ($markers as $marker) {
+                Cache::forget($marker);
+            }
+
+            throw $throwable;
+        }
+
+        return $queued;
+    }
+
+    /**
+     * Queue the decision datasets (`portal.sync.warmup_datasets`) that are
+     * missing or stale in one background job, so their pages and the action
+     * center open from a snapshot later. Never throws: a warm-up must not
+     * fail the login or keep-alive that triggers it.
+     *
+     * @return list<string> The datasets this call queued.
+     */
+    public function warmUp(string $sessionToken, ?string $broadcastSessionId = null, int $delaySeconds = 0): array
+    {
+        try {
+            return $this->queueSync(
+                $sessionToken,
+                array_values(array_filter((array) config('portal.sync.warmup_datasets', []), 'is_string')),
+                [],
+                $broadcastSessionId,
+                $delaySeconds
+            );
+        } catch (\Throwable $throwable) {
+            Log::warning('Portal dataset warm-up could not be queued', [
+                'error' => $throwable->getMessage(),
+            ]);
+
+            return [];
         }
     }
 
@@ -84,7 +308,13 @@ class PortalDatasetRepository
         try {
             return $this->syncOnce($sessionToken, $dataset, $params, true)['data'];
         } catch (\Throwable $throwable) {
-            if (! PortalException::indicatesExpiredSession($throwable)) {
+            if (PortalException::indicatesExpiredSession($throwable)) {
+                throw $throwable;
+            }
+
+            if ($this->snapshots->get($sessionToken, $dataset, $params) === null) {
+                $this->recordBuildFailure($sessionToken, $dataset, $params);
+            } else {
                 $this->snapshots->markFailed($sessionToken, $dataset, $throwable->getMessage(), $params);
             }
 
@@ -158,17 +388,80 @@ class PortalDatasetRepository
     ): array {
         $status = $snapshot['status'] ?? 'synced';
 
-        if ($this->isStale($sessionToken, $dataset, $snapshot) && ! $this->isSyncInFlight($snapshot) && ! $this->isBackingOffAfterFailure($snapshot)) {
+        if ($this->needsBackgroundSync($sessionToken, $dataset, $snapshot)) {
             RefreshPortalDataJob::dispatch((string) $broadcastSessionId, $sessionToken, [$dataset], $params);
             $this->snapshots->markSyncing($sessionToken, $dataset, $params);
             $status = 'syncing';
         }
 
-        return $this->snapshotResult($snapshot, array_filter([
+        return $this->snapshotResult($snapshot, [
             'status' => $status,
             'requested_fresh' => $forceFresh,
-            'error' => $status === 'failed' ? ($snapshot['error'] ?? null) : null,
-        ], static fn (mixed $value): bool => $value !== null));
+            ...($status === 'failed' ? ['error' => self::SYNC_FAILED_CODE] : []),
+        ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $snapshot
+     * @return array{error?: string}
+     */
+    private function failureMeta(array $snapshot): array
+    {
+        return ($snapshot['status'] ?? null) === 'failed' ? ['error' => self::SYNC_FAILED_CODE] : [];
+    }
+
+    /**
+     * @return array{data: null, meta: array{data_origin: 'snapshot', synced_at: null, status: string}}
+     */
+    private function missingResult(string $status): array
+    {
+        return [
+            'data' => null,
+            'meta' => [
+                'data_origin' => 'snapshot',
+                'synced_at' => null,
+                'status' => $status,
+            ],
+        ];
+    }
+
+    /**
+     * A stale snapshot that is not already being re-synced and is not backing
+     * off after a failed sync.
+     *
+     * @param  array<string, mixed>  $snapshot
+     */
+    private function needsBackgroundSync(string $sessionToken, string $dataset, array $snapshot): bool
+    {
+        return $this->isStale($sessionToken, $dataset, $snapshot)
+            && ! $this->isSyncInFlight($snapshot)
+            && ! $this->isBackingOffAfterFailure($snapshot);
+    }
+
+    /**
+     * A build that failed before any snapshot existed leaves nothing to carry
+     * a `failed` state, so a marker does: reads report the dataset `failed`
+     * and background builds back off for `portal.sync.build_failure_backoff`
+     * seconds instead of re-queueing the same failing crawl every lock window.
+     *
+     * @param  array<string, mixed>  $params
+     */
+    private function recordBuildFailure(string $sessionToken, string $dataset, array $params): void
+    {
+        Cache::forget($this->queuedKey($sessionToken, $dataset, $params));
+        Cache::put(
+            $this->buildFailedKey($sessionToken, $dataset, $params),
+            now()->toISOString(),
+            max(1, (int) config('portal.sync.build_failure_backoff', 900))
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $params
+     */
+    private function buildFailedRecently(string $sessionToken, string $dataset, array $params): bool
+    {
+        return Cache::has($this->buildFailedKey($sessionToken, $dataset, $params));
     }
 
     /**
@@ -221,6 +514,7 @@ class PortalDatasetRepository
         $data = $this->projector->apply($sessionToken, $dataset, $params, $data);
 
         $this->snapshots->put($sessionToken, $dataset, $data, $startedAt, $params);
+        Cache::forget($this->buildFailedKey($sessionToken, $dataset, $params));
 
         return [
             'data' => $data,
@@ -321,5 +615,24 @@ class PortalDatasetRepository
     private function lockKey(string $sessionToken, string $dataset, array $params): string
     {
         return 'portal_sync_'.md5($this->owner->key($sessionToken).'|'.$dataset.'|'.PortalDataCache::paramsHash($params));
+    }
+
+    /**
+     * Marker of a background build queued for a dataset that has no snapshot
+     * yet; there is no snapshot to carry a `syncing` state.
+     *
+     * @param  array<string, mixed>  $params
+     */
+    private function queuedKey(string $sessionToken, string $dataset, array $params): string
+    {
+        return 'portal_sync_queued_'.md5($this->owner->key($sessionToken).'|'.$dataset.'|'.PortalDataCache::paramsHash($params));
+    }
+
+    /**
+     * @param  array<string, mixed>  $params
+     */
+    private function buildFailedKey(string $sessionToken, string $dataset, array $params): string
+    {
+        return 'portal_sync_build_failed_'.md5($this->owner->key($sessionToken).'|'.$dataset.'|'.PortalDataCache::paramsHash($params));
     }
 }

@@ -418,11 +418,44 @@ html[data-theme='dark'] {
     }
 
     .mycic-top-nav {
-        @apply hidden items-center gap-1 md:flex;
+        @apply hidden min-w-0 flex-1 items-center justify-center gap-1 md:flex;
     }
 
     .mycic-top-nav-link {
-        @apply inline-flex items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-semibold text-ink-muted transition-colors hover:bg-surface hover:text-ink;
+        @apply inline-flex min-h-10 shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-ink-muted transition-colors hover:bg-surface hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand lg:px-3.5;
+    }
+
+    .mycic-nav-badge {
+        @apply pointer-events-none absolute -end-1.5 -top-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 text-[0.6rem] font-bold leading-none text-white tabular-nums ring-2 ring-panel;
+    }
+
+    .mycic-bottom-nav-item .mycic-nav-badge {
+        @apply end-2 top-0;
+    }
+
+    /* White digits on amber are below 4.5:1 in both themes; dark digits are not. */
+    .mycic-nav-badge[data-tone='warning'],
+    .mycic-nav-badge-inline[data-tone='warning'] {
+        @apply bg-warning text-amber-950;
+    }
+
+    .mycic-nav-badge[data-tone='brand'],
+    .mycic-nav-badge-inline[data-tone='brand'],
+    .mycic-nav-badge[data-tone='info'],
+    .mycic-nav-badge-inline[data-tone='info'] {
+        @apply bg-brand;
+    }
+
+    .mycic-nav-badge[data-variant='dot'] {
+        @apply h-2.5 min-w-2.5 px-0;
+    }
+
+    .mycic-nav-badge-inline {
+        @apply inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-danger px-1.5 text-[0.65rem] font-bold leading-none text-white tabular-nums;
+    }
+
+    .mycic-nav-badge-inline[data-variant='dot'] {
+        @apply h-2.5 min-w-2.5 px-0;
     }
 
     .mycic-top-nav-link-active {
@@ -443,7 +476,7 @@ html[data-theme='dark'] {
     }
 
     .mycic-bottom-nav-item .mycic-nav-icon {
-        @apply flex h-8 w-14 items-center justify-center rounded-lg transition-colors duration-150;
+        @apply relative flex h-8 w-14 items-center justify-center rounded-lg transition-colors duration-150;
     }
 
     .mycic-bottom-nav-item-active {
@@ -528,6 +561,56 @@ html[data-theme='dark'] {
 
     .mycic-modal-close {
         @apply inline-flex min-h-9 min-w-9 items-center justify-center rounded-lg text-ink-subtle transition-colors hover:bg-surface hover:text-ink;
+    }
+
+    .mycic-sheet {
+        @apply fixed inset-0 z-[55] flex items-end justify-center md:items-center md:p-4;
+    }
+
+    .mycic-sheet-backdrop {
+        @apply absolute inset-0 bg-black/55 backdrop-blur-sm;
+    }
+
+    .mycic-sheet-panel {
+        @apply relative z-10 max-h-[85dvh] w-full overflow-y-auto rounded-t-[var(--radius-sheet)] border border-b-0 border-border bg-panel focus:outline-none md:max-w-md md:rounded-[var(--radius-modal)] md:border-b;
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+        animation: mycic-sheet-in 200ms var(--ease-snappy);
+    }
+
+    .mycic-sheet-handle {
+        @apply mx-auto mt-2 h-1 w-10 rounded-full bg-border md:hidden;
+    }
+
+    .mycic-sheet-action {
+        @apply flex min-h-12 w-full items-center gap-3 rounded-[var(--radius-control)] border border-border-light bg-panel px-3 py-2.5 text-start text-sm transition-colors hover:border-brand/30 hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand active:scale-[0.99];
+    }
+
+    .mycic-sheet-action-icon {
+        @apply flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-surface-tint text-brand-pressed;
+    }
+
+    @keyframes mycic-sheet-in {
+        from {
+            opacity: 0;
+            transform: translateY(1rem);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .mycic-progress-track {
+        @apply flex w-full gap-0.5 overflow-hidden rounded-full bg-surface;
+    }
+
+    .mycic-progress-fill {
+        @apply h-full shrink-0 transition-[width] duration-300 ease-[var(--ease-snappy)] first:rounded-s-full last:rounded-e-full;
+    }
+
+    .mycic-progress-striped {
+        background-image: repeating-linear-gradient(135deg, rgb(255 255 255 / 38%) 0 4px, transparent 4px 8px);
     }
 
     .mycic-toast-host {

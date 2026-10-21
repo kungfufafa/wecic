@@ -7,7 +7,9 @@ namespace App\Http\Controllers\API;
 use App\Exceptions\PortalException;
 use App\Http\Controllers\Controller;
 use App\Services\PortalBroadcastService;
+use App\Services\PortalDatasetRepository;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
 abstract class CampusApiController extends Controller
@@ -19,6 +21,14 @@ abstract class CampusApiController extends Controller
     public const SCRAMBLE_VALIDATION_ERROR_RESPONSE = "array{status: 'error', message: string, errors: array<string, list<string>>}";
 
     public const SCRAMBLE_BOOLEAN_RESPONSE = 'array{success: bool, message: string, data: mixed}';
+
+    public const SCRAMBLE_NOT_FOUND_RESPONSE = "array{status: 'error', message: string, meta: array{timestamp: string, campus_session_valid: true}}";
+
+    /**
+     * Portal pages whose GET has a write effect (K13). A link to one of them
+     * must never reach the browser, where a click or a prefetch would run it.
+     */
+    private const WRITE_EFFECT_LINK_PATTERN = '~(?:[?&]act=(?:jobdel|jobdelujian|kesesuaian|delskkm|hapusskkm|editskkm|addskkm|kuesionerform|passwordact|sentujian|sent|actabsen)\b|[?&]mod=(?:logout|loginact)\b|loginact\.php|controllers/logout\.php)~i';
 
     protected function sessionToken(): ?string
     {
@@ -97,6 +107,56 @@ abstract class CampusApiController extends Controller
         return response()->json($payload, $statusCode);
     }
 
+    /**
+     * Snapshot-first dataset read (stale-while-revalidate, `?fresh=1` forces a rebuild).
+     *
+     * @param  array<string, mixed>  $params
+     * @return array{data: array<string, mixed>, meta: array<string, mixed>}
+     */
+    protected function readDataset(Request $request, string $sessionToken, string $dataset, array $params = []): array
+    {
+        return app(PortalDatasetRepository::class)->read(
+            $sessionToken,
+            $dataset,
+            $params,
+            $request->boolean('fresh'),
+            (string) session()->getId()
+        );
+    }
+
+    /**
+     * Snapshot-only reads for secondary data; never waits on the portal.
+     * Missing snapshots are built together in one background job.
+     *
+     * @param  list<string>  $datasets
+     * @return array<string, array{data: array<string, mixed>|null, meta: array<string, mixed>}>
+     */
+    protected function peekDatasets(string $sessionToken, array $datasets): array
+    {
+        return app(PortalDatasetRepository::class)->peekMany($sessionToken, $datasets, (string) session()->getId());
+    }
+
+    /**
+     * Drop every link (a string without whitespace) to a portal page with a
+     * write effect (K13). Text such as an announcement body is left alone;
+     * its extractor already unwraps such links.
+     *
+     * @param  array<array-key, mixed>  $payload
+     * @return array<array-key, mixed>
+     */
+    protected function withoutWriteEffectLinks(array $payload): array
+    {
+        foreach ($payload as $key => $value) {
+            if (is_array($value)) {
+                $payload[$key] = $this->withoutWriteEffectLinks($value);
+            } elseif (is_string($value) && preg_match('/\s/', $value) !== 1 && preg_match(self::WRITE_EFFECT_LINK_PATTERN, $value) === 1) {
+                $payload[$key] = null;
+            }
+        }
+
+        return $payload;
+    }
+
     protected function consumeSyncMeta(array &$payload, array $meta = []): array
     {
         $syncMeta = is_array($payload['_sync'] ?? null) ? $payload['_sync'] : [];
@@ -166,8 +226,10 @@ abstract class CampusApiController extends Controller
                 'trace' => $throwable->getTraceAsString(),
             ], $logContext));
 
+            // The exception text (portal URLs with ids, cURL, SQL or cache
+            // errors, English extractor messages) stays in the log only.
             return $this->statusError(
-                $clientErrorPrefix.': '.$throwable->getMessage(),
+                $clientErrorPrefix.'. Coba lagi beberapa saat.',
                 500,
                 campusSessionValid: false,
             );

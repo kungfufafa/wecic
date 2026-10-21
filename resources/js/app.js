@@ -5,7 +5,6 @@ import jsQR from 'jsqr';
 class PortalApp {
     constructor() {
         this.campusBase = document.documentElement.dataset.campusBase || window.location.origin;
-        this.noticeTimeout = null;
         this.onlineState = navigator.onLine;
         this.syncHandlers = new Map();
         this.isSyncing = false;
@@ -45,6 +44,7 @@ class PortalApp {
         this.operationPollIntervalMs = 2000;
         this.operationPollLimitMs = 4 * 60 * 1000;
         this.realtimeRefreshTimers = new Map();
+        this.actionItemsReloadTimer = null;
         this.cachePolicies = [
             { pattern: /^\/api\/dashboard$/, freshFor: 30 * 60 * 1000, retainFor: 7 * 24 * 60 * 60 * 1000, label: 'ringkasan dashboard' },
             { pattern: /^\/api\/attendance\/today$/, freshFor: 15 * 60 * 1000, retainFor: 48 * 60 * 60 * 1000, label: 'shortcut hari ini' },
@@ -57,7 +57,28 @@ class PortalApp {
             { pattern: /^\/api\/meeting\/[^/?]+(?:\?.*)?$/, freshFor: 6 * 60 * 60 * 1000, retainFor: 14 * 24 * 60 * 60 * 1000, label: 'detail meeting' },
             { pattern: /^\/api\/exam$/, freshFor: 2 * 60 * 60 * 1000, retainFor: 7 * 24 * 60 * 60 * 1000, label: 'daftar ujian' },
             { pattern: /^\/api\/exam\/[^/?]+$/, freshFor: 2 * 60 * 60 * 1000, retainFor: 7 * 24 * 60 * 60 * 1000, label: 'detail ujian' },
+            { pattern: /^\/api\/academic\/krs$/, freshFor: 15 * 60 * 1000, retainFor: 14 * 24 * 60 * 60 * 1000, label: 'KRS semester ini' },
+            { pattern: /^\/api\/academic\/krs\/\d+$/, freshFor: 6 * 60 * 60 * 1000, retainFor: 14 * 24 * 60 * 60 * 1000, label: 'detail KRS' },
+            { pattern: /^\/api\/academic\/advising$/, freshFor: 60 * 60 * 1000, retainFor: 14 * 24 * 60 * 60 * 1000, label: 'riwayat perwalian' },
+            { pattern: /^\/api\/academic\/grades$/, freshFor: 60 * 60 * 1000, retainFor: 14 * 24 * 60 * 60 * 1000, label: 'nilai semester' },
+            { pattern: /^\/api\/academic\/transcript$/, freshFor: 60 * 60 * 1000, retainFor: 14 * 24 * 60 * 60 * 1000, label: 'transkrip' },
+            { pattern: /^\/api\/announcement(?:\?.*)?$/, freshFor: 30 * 60 * 1000, retainFor: 7 * 24 * 60 * 60 * 1000, label: 'pengumuman' },
+            { pattern: /^\/api\/announcement\/[^/?]+$/, freshFor: 6 * 60 * 60 * 1000, retainFor: 7 * 24 * 60 * 60 * 1000, label: 'detail pengumuman' },
+            // Payment history is sensitive: kept on the device for at most 7 days.
+            { pattern: /^\/api\/finance\/summary$/, freshFor: 30 * 60 * 1000, retainFor: 7 * 24 * 60 * 60 * 1000, label: 'ringkasan keuangan' },
+            { pattern: /^\/api\/finance\/payments$/, freshFor: 30 * 60 * 1000, retainFor: 7 * 24 * 60 * 60 * 1000, label: 'riwayat pembayaran' },
+            { pattern: /^\/api\/skkm$/, freshFor: 30 * 60 * 1000, retainFor: 14 * 24 * 60 * 60 * 1000, label: 'poin SKKM' },
+            { pattern: /^\/api\/action-items$/, freshFor: 5 * 60 * 1000, retainFor: 2 * 24 * 60 * 60 * 1000, label: 'pusat tindakan' },
+            { pattern: /^\/api\/portal\/context$/, freshFor: 6 * 60 * 60 * 1000, retainFor: 14 * 24 * 60 * 60 * 1000, label: 'info periode & panduan' },
         ];
+        this.syncAliases = new Map();
+        this.actionItems = null;
+        this.actionItemsRequest = null;
+        this.navBadgeOverrides = new Map();
+        this.sheetState = { host: null, returnFocus: null, onClose: null };
+        this.pendingQuickAttendance = false;
+        this.pendingQuickAttendanceTimer = null;
+        this.toastLimit = 3;
     }
 
     init() {
@@ -74,6 +95,7 @@ class PortalApp {
         this.bindThemeToggle();
         this.bindQuickQrAction();
         this.bindRealtimeTestHook();
+        this.bindContactSheetTriggers();
 
         if (document.body.dataset.auth !== 'guest') {
             const authSnapshot = this.getAuthSnapshot();
@@ -84,6 +106,8 @@ class PortalApp {
 
             this.initRealtime();
             this.resumeActiveOperations();
+            this.scheduleActionItemBadges();
+            this.consumeQuickAttendanceRequest();
         }
     }
 
@@ -209,7 +233,25 @@ class PortalApp {
                     return;
                 }
 
-                this.showNotice(this.quickQrEmptyMessage || 'Tidak ada absensi yang bisa diisi sekarang. Buka pertemuan yang sedang berlangsung dari halaman Kelas.', 'warning');
+                // Pages that say nothing about attendance fall back to today's
+                // schedule already stored on this device (no portal request).
+                if (this.quickQrEmptyMessage === null) {
+                    const cachedTarget = this.quickQrTargetFromCache();
+
+                    if (cachedTarget === undefined) {
+                        window.location.href = '/dashboard?absen=1';
+
+                        return;
+                    }
+
+                    if (cachedTarget) {
+                        window.location.href = cachedTarget;
+
+                        return;
+                    }
+                }
+
+                this.showNotice(this.quickQrEmptyMessage || 'Tidak ada absensi yang bisa diisi sekarang. Buka pertemuan yang sedang berlangsung dari halaman Kuliah.', 'warning');
             });
         });
     }
@@ -221,6 +263,83 @@ class PortalApp {
     setQuickQrTarget(url, emptyMessage = null) {
         this.quickQrTarget = url || null;
         this.quickQrEmptyMessage = emptyMessage;
+
+        if (this.quickQrTarget) {
+            this.resolvePendingQuickAttendance();
+        }
+    }
+
+    /**
+     * The meeting to scan for, read from today's dashboard snapshot cached on
+     * this device. `null` when today has nothing to scan, `undefined` when the
+     * device has no usable copy of today's schedule.
+     */
+    quickQrTargetFromCache() {
+        const summary = this.getCachedResponse('/api/dashboard')?.payload?.data?.classes_summary;
+        const todayIso = new Date().toLocaleDateString('sv-SE');
+
+        if (!summary || !Array.isArray(summary.today_classes) || (summary.date && summary.date !== todayIso)) {
+            return undefined;
+        }
+
+        const scannable = summary.today_classes.find((klass) => klass.attendance?.actionable && klass.attendance?.meeting_url);
+
+        return scannable ? `${scannable.attendance.meeting_url}&qr=1` : null;
+    }
+
+    /**
+     * `?absen=1` (the "Absen sekarang" PWA shortcut, or the quick QR button
+     * on a page without today's schedule) opens the scanner as soon as the
+     * page knows which class is running.
+     */
+    consumeQuickAttendanceRequest() {
+        const url = new URL(window.location.href);
+
+        if (url.searchParams.get('absen') !== '1') {
+            return;
+        }
+
+        url.searchParams.delete('absen');
+        window.history.replaceState({}, '', url.toString());
+        this.pendingQuickAttendance = true;
+        this.pendingQuickAttendanceTimer = window.setTimeout(() => {
+            this.resolvePendingQuickAttendance({ final: true });
+        }, 30000);
+
+        const input = document.querySelector('[data-field="kode"]') || document.querySelector('#attendance-code');
+
+        if (input) {
+            this.resolvePendingQuickAttendance();
+        }
+    }
+
+    resolvePendingQuickAttendance({ final = false } = {}) {
+        if (!this.pendingQuickAttendance) {
+            return;
+        }
+
+        const input = document.querySelector('[data-field="kode"]') || document.querySelector('#attendance-code');
+
+        if (!input && !this.quickQrTarget && !final) {
+            return;
+        }
+
+        this.pendingQuickAttendance = false;
+        window.clearTimeout(this.pendingQuickAttendanceTimer);
+
+        if (input) {
+            void this.openQrScanner(input);
+
+            return;
+        }
+
+        if (this.quickQrTarget) {
+            window.location.href = this.quickQrTarget;
+
+            return;
+        }
+
+        this.showNotice(this.quickQrEmptyMessage || 'Tidak ada absensi yang bisa diisi sekarang.', 'warning');
     }
 
     /**
@@ -241,10 +360,21 @@ class PortalApp {
         void this.openQrScanner(input);
     }
 
+    /**
+     * Account menu and the desktop "Lainnya" menu: one open at a time,
+     * closed by an outside click or Escape.
+     */
     bindAccountMenu() {
-        document.querySelectorAll('[data-account-menu]').forEach((menu) => {
-            const trigger = menu.querySelector('[data-account-menu-trigger]');
-            const panel = menu.querySelector('[data-account-menu-panel]');
+        const panelSelector = '[data-account-menu-panel], [data-dropdown-panel]';
+        const triggerSelector = '[data-account-menu-trigger], [data-dropdown-trigger]';
+        const closeAll = () => {
+            document.querySelectorAll(panelSelector).forEach((panel) => panel.classList.add('hidden'));
+            document.querySelectorAll(triggerSelector).forEach((trigger) => trigger.setAttribute('aria-expanded', 'false'));
+        };
+
+        document.querySelectorAll('[data-account-menu], [data-dropdown]').forEach((menu) => {
+            const trigger = menu.querySelector(triggerSelector);
+            const panel = menu.querySelector(panelSelector);
 
             if (!trigger || !panel) {
                 return;
@@ -256,17 +386,9 @@ class PortalApp {
 
                 const isOpen = !panel.classList.contains('hidden');
 
-                document.querySelectorAll('[data-account-menu-panel]').forEach((otherPanel) => {
-                    otherPanel.classList.add('hidden');
-                });
-
-                document.querySelectorAll('[data-account-menu-trigger]').forEach((otherTrigger) => {
-                    otherTrigger.setAttribute('aria-expanded', 'false');
-                });
+                closeAll();
 
                 if (isOpen) {
-                    trigger.setAttribute('aria-expanded', 'false');
-
                     return;
                 }
 
@@ -283,6 +405,21 @@ class PortalApp {
                 trigger.setAttribute('aria-expanded', 'false');
             });
         });
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key !== 'Escape') {
+                return;
+            }
+
+            const openTrigger = document.querySelector(
+                '[data-account-menu-trigger][aria-expanded="true"], [data-dropdown-trigger][aria-expanded="true"]',
+            );
+
+            if (openTrigger) {
+                closeAll();
+                openTrigger.focus();
+            }
+        });
     }
 
     bindPullToRefresh() {
@@ -296,6 +433,10 @@ class PortalApp {
             }
 
             if (this.isInteractiveTarget(event.target)) {
+                return;
+            }
+
+            if (event.target instanceof Element && event.target.closest('[data-app-sheet], [data-qr-scanner-modal]')) {
                 return;
             }
 
@@ -452,12 +593,18 @@ class PortalApp {
         }
     }
 
-    registerSyncHandler(key, handler) {
+    /**
+     * `aliases`: other sync keys (from realtime events) that should re-run
+     * this handler, e.g. `registerSyncHandler('more-index', load, { aliases: ['portal-context'] })`.
+     * The handler still runs once per manual sync.
+     */
+    registerSyncHandler(key, handler, { aliases = [] } = {}) {
         if (!key || typeof handler !== 'function') {
             return;
         }
 
         this.syncHandlers.set(key, handler);
+        aliases.filter(Boolean).forEach((alias) => this.syncAliases.set(alias, key));
     }
 
     async runSyncHandlers({ force = false } = {}) {
@@ -489,6 +636,17 @@ class PortalApp {
     }
 
     async request(url, options = {}) {
+        try {
+            return await this.performRequest(url, options);
+        } finally {
+            if (this.pendingQuickAttendance && new URL(url, window.location.origin).pathname === '/api/dashboard') {
+                // Runs after the page has rendered the dashboard it asked for.
+                window.setTimeout(() => this.resolvePendingQuickAttendance({ final: true }), 0);
+            }
+        }
+    }
+
+    async performRequest(url, options = {}) {
         const method = String(options.method || 'GET').toUpperCase();
         const requestUrl = this.buildRequestUrl(url, options);
         const cacheUrl = this.normalizeCacheUrl(requestUrl);
@@ -684,7 +842,7 @@ class PortalApp {
         });
 
         const initial = (userName.trim()[0] || 'M').toUpperCase();
-        document.querySelectorAll('[data-user-avatar], .mycic-avatar').forEach((element) => {
+        document.querySelectorAll('[data-user-avatar]').forEach((element) => {
             if (!element.querySelector('img')) {
                 element.textContent = initial;
             }
@@ -742,7 +900,7 @@ class PortalApp {
         this.echo = createPortalEcho();
 
         if (!this.echo) {
-            this.setRealtimeStatus('Real-time tidak dikonfigurasi.', 'warning');
+            this.setRealtimeStatus('Pembaruan otomatis belum aktif.', 'warning');
 
             return;
         }
@@ -768,11 +926,11 @@ class PortalApp {
         this.echoChannel
             .subscribed(() => {
                 this.realtimeConnected = true;
-                this.setRealtimeStatus('Real-time aktif.', 'success');
+                this.setRealtimeStatus('Pembaruan otomatis aktif.', 'success');
             })
             .error(() => {
                 this.realtimeConnected = false;
-                this.setRealtimeStatus('Real-time tidak tersedia. Status dicek berkala.', 'warning');
+                this.setRealtimeStatus('Pembaruan otomatis tidak tersedia. Data dicek berkala.', 'warning');
             });
     }
 
@@ -784,7 +942,7 @@ class PortalApp {
         this.echo = null;
         this.echoChannel = null;
         this.realtimeConnected = false;
-        this.setRealtimeStatus('Real-time terputus.', 'warning');
+        this.setRealtimeStatus('Pembaruan otomatis terputus.', 'warning');
     }
 
     async queueBackgroundRefresh() {
@@ -844,7 +1002,7 @@ class PortalApp {
         const page = document.body.dataset.page || 'app';
 
         const pageDomains = {
-            dashboard: ['dashboard', 'assignments'],
+            dashboard: ['dashboard', 'assignments', 'portal_context', 'krs', 'payments', 'announcements'],
             'class-index': ['classes'],
             'class-show': [],
             'meeting-show': [],
@@ -852,9 +1010,33 @@ class PortalApp {
             'exam-show': [],
             profile: ['profile'],
             finance: ['payments'],
+            'krs-index': ['krs', 'advising'],
+            'krs-show': [],
+            'grades-index': ['grades'],
+            'transcript-index': ['grades'],
+            'announcement-index': ['announcements'],
+            'announcement-show': ['announcements'],
+            'skkm-index': ['skkm'],
+            'more-index': ['portal_context', 'payments', 'announcements', 'skkm'],
         };
 
-        return pageDomains[page] ?? ['dashboard'];
+        return this.filterRefreshableDomains(pageDomains[page] ?? ['dashboard']);
+    }
+
+    /**
+     * Drop datasets the server cannot refresh in the background (the layout
+     * lists the refreshable ones), so one unknown name never fails the sync.
+     */
+    filterRefreshableDomains(domains) {
+        const declared = document.body.dataset.refreshableDatasets;
+
+        if (declared === undefined) {
+            return domains;
+        }
+
+        const refreshable = new Set(declared.split(',').map((name) => name.trim()).filter(Boolean));
+
+        return domains.filter((domain) => refreshable.has(domain));
     }
 
     handleRealtimePayload(payload) {
@@ -867,11 +1049,26 @@ class PortalApp {
 
         cacheKeys.forEach((cacheKey) => this.clearCachedResponse(cacheKey));
 
+        if (cacheKeys.includes('/api/action-items')) {
+            // A background job announces each dataset as it lands, then once
+            // more when it completes: one re-read per burst is enough. It stays
+            // shorter than the 250 ms handler delay below, so page handlers
+            // reuse this request instead of asking again.
+            window.clearTimeout(this.actionItemsReloadTimer);
+            this.actionItemsReloadTimer = window.setTimeout(() => {
+                void this.loadActionItems({ force: true });
+            }, 100);
+        }
+
         if (payload?.message) {
             this.setSyncStatus(payload.message, this.toneFromUrgency(payload.urgency));
         }
 
-        syncKeys.forEach((syncKey) => {
+        const handlerKeys = new Set(syncKeys
+            .map((syncKey) => (this.syncHandlers.has(syncKey) ? syncKey : this.syncAliases.get(syncKey)))
+            .filter(Boolean));
+
+        handlerKeys.forEach((syncKey) => {
             window.clearTimeout(this.realtimeRefreshTimers.get(syncKey));
             this.realtimeRefreshTimers.set(syncKey, window.setTimeout(() => {
                 const handler = this.syncHandlers.get(syncKey);
@@ -1211,11 +1408,15 @@ class PortalApp {
     }
 
     clearCachedResponses() {
-        Object.keys(localStorage).forEach((key) => {
-            if (key.startsWith(`${this.cacheNamespace}:response:`)) {
-                localStorage.removeItem(key);
-            }
-        });
+        try {
+            Object.keys(localStorage).forEach((key) => {
+                if (key.startsWith(`${this.cacheNamespace}:response:`)) {
+                    localStorage.removeItem(key);
+                }
+            });
+        } catch (error) {
+            // Storage blocked: nothing is cached on this device anyway.
+        }
     }
 
     clearCachedResponse(url) {
@@ -1223,8 +1424,12 @@ class PortalApp {
             return;
         }
 
-        const requestUrl = this.normalizeCacheUrl(new URL(url, window.location.origin));
-        localStorage.removeItem(this.buildCacheKey(requestUrl));
+        try {
+            const requestUrl = this.normalizeCacheUrl(new URL(url, window.location.origin));
+            localStorage.removeItem(this.buildCacheKey(requestUrl));
+        } catch (error) {
+            // Storage blocked: nothing to clear.
+        }
     }
 
     clearOfflineData() {
@@ -1657,17 +1862,21 @@ class PortalApp {
     }
 
     getCachedResponse(url) {
-        const requestUrl = this.normalizeCacheUrl(new URL(url, window.location.origin));
-        const record = this.readCachedResponse(requestUrl);
+        try {
+            const requestUrl = this.normalizeCacheUrl(new URL(url, window.location.origin));
+            const record = this.readCachedResponse(requestUrl);
 
-        if (!record) {
+            if (!record) {
+                return null;
+            }
+
+            return {
+                ...record,
+                payload: this.decorateCachedPayload(record, 'prefill'),
+            };
+        } catch (error) {
             return null;
         }
-
-        return {
-            ...record,
-            payload: this.decorateCachedPayload(record, 'prefill'),
-        };
     }
 
     primeCachedView(url, render, label = null) {
@@ -1677,7 +1886,15 @@ class PortalApp {
             return false;
         }
 
-        render(cached.payload);
+        try {
+            render(cached.payload);
+        } catch (error) {
+            // A device copy from an older payload shape must not break the page;
+            // the live request renders it again.
+            console.warn('Cached view could not be rendered', error);
+
+            return false;
+        }
 
         const cacheLabel = label || cached.label || 'data';
 
@@ -1722,21 +1939,35 @@ class PortalApp {
         return `${this.cacheNamespace}:response:${requestUrl.pathname}${requestUrl.search}`;
     }
 
+    /**
+     * Keep a device copy of a response. Never throws: a full or blocked
+     * storage must not turn a successful response into an error.
+     */
     writeCachedResponse(requestUrl, payload, policy) {
-        const now = Date.now();
-        const cacheKey = this.buildCacheKey(requestUrl);
+        try {
+            const now = Date.now();
+            const cacheKey = this.buildCacheKey(requestUrl);
 
-        localStorage.setItem(cacheKey, JSON.stringify({
-            payload,
-            cached_at: new Date(now).toISOString(),
-            fresh_until: new Date(now + policy.freshFor).toISOString(),
-            expires_at: new Date(now + policy.retainFor).toISOString(),
-            label: policy.label,
-        }));
+            localStorage.setItem(cacheKey, JSON.stringify({
+                payload,
+                cached_at: new Date(now).toISOString(),
+                fresh_until: new Date(now + policy.freshFor).toISOString(),
+                expires_at: new Date(now + policy.retainFor).toISOString(),
+                label: policy.label,
+            }));
+        } catch (error) {
+            // Storage full or blocked: the copy is a convenience, skip it.
+        }
     }
 
     readCachedResponse(requestUrl) {
-        const rawRecord = localStorage.getItem(this.buildCacheKey(requestUrl));
+        let rawRecord = null;
+
+        try {
+            rawRecord = localStorage.getItem(this.buildCacheKey(requestUrl));
+        } catch (error) {
+            return null;
+        }
 
         if (!rawRecord) {
             return null;
@@ -1759,14 +1990,26 @@ class PortalApp {
                 isStale: Number.isNaN(freshUntil) ? true : Date.now() > freshUntil,
             };
         } catch (error) {
-            localStorage.removeItem(this.buildCacheKey(requestUrl));
+            try {
+                localStorage.removeItem(this.buildCacheKey(requestUrl));
+            } catch (removeError) {
+                // Storage blocked: ignore.
+            }
 
             return null;
         }
     }
 
     pruneExpiredCacheEntries() {
-        Object.keys(localStorage).forEach((key) => {
+        let keys = [];
+
+        try {
+            keys = Object.keys(localStorage);
+        } catch (error) {
+            return;
+        }
+
+        keys.forEach((key) => {
             if (!key.startsWith(`${this.cacheNamespace}:response:`)) {
                 return;
             }
@@ -1779,7 +2022,11 @@ class PortalApp {
                     localStorage.removeItem(key);
                 }
             } catch (error) {
-                localStorage.removeItem(key);
+                try {
+                    localStorage.removeItem(key);
+                } catch (removeError) {
+                    // Storage blocked: ignore.
+                }
             }
         });
     }
@@ -1828,38 +2075,42 @@ class PortalApp {
         return `Menampilkan ${label} terakhir${isStale ? ' yang mungkin sudah lama' : ''}.`;
     }
 
+    /**
+     * The shared freshness line, in the same words as the pages' own
+     * "Diperbarui …" lines: "Data diperbarui 5 menit lalu · sedang diperbarui".
+     */
     markViewSynced(label, payload = null, { force = false } = {}) {
-        const syncTime = this.formatTimeOnly(new Date());
         const dataOrigin = payload?.meta?.data_origin || null;
         const portalTime = this.portalDataTime(payload);
-        const portalSuffix = portalTime ? ` · portal per ${this.formatTimeOnly(portalTime)}` : '';
+        const updatedAgo = portalTime ? this.formatTimeAgo(portalTime) : '';
+        const updatedLine = updatedAgo ? `Data diperbarui ${updatedAgo}` : 'Data baru saja dimuat';
 
         if (payload?.meta?.status === 'failed') {
-            this.setSyncStatus(`Gagal sinkron dengan portal — menampilkan data terakhir${portalSuffix}.`, 'warning');
+            this.setSyncStatus(`Portal belum bisa dihubungi. Menampilkan data terakhir${updatedAgo ? ` (diperbarui ${updatedAgo})` : ''}.`, 'warning');
 
             return;
         }
 
         if (force) {
             if (dataOrigin === 'device_cache') {
-                this.setSyncStatus('Server belum terjangkau — memakai data tersimpan.', 'warning');
+                this.setSyncStatus('Server belum terjangkau. Menampilkan data tersimpan di perangkat.', 'warning');
 
                 return;
             }
 
-            this.setSyncStatus(`Sinkron ${syncTime}${portalSuffix}`, 'success');
+            this.setSyncStatus(updatedLine, 'success');
 
             return;
         }
 
         if (dataOrigin === 'snapshot' || dataOrigin === 'server_cache') {
-            const statusSuffix = payload?.meta?.status === 'syncing' ? ' · menyinkronkan...' : '';
-            this.setSyncStatus(`Data tersimpan${portalSuffix || ` · dimuat ${syncTime}`}${statusSuffix}`, 'info');
+            const statusSuffix = payload?.meta?.status === 'syncing' ? ' · sedang diperbarui dari portal' : '';
+            this.setSyncStatus(`${updatedLine}${statusSuffix}`, 'info');
 
             return;
         }
 
-        this.setSyncStatus(portalTime ? `Data portal per ${this.formatTimeOnly(portalTime)}` : `Data dimuat ${syncTime}`, 'success');
+        this.setSyncStatus(updatedLine, 'success');
     }
 
     portalDataTime(payload) {
@@ -1978,11 +2229,15 @@ class PortalApp {
         return tones[tone] || tones.neutral;
     }
 
+    /**
+     * Button classes. Small buttons stay compact from `sm` up but keep the
+     * 44 px touch target on phones (§5).
+     */
     buttonClass(variant = 'primary', { small = false } = {}) {
         const variants = {
-            primary: small ? 'mycic-btn-primary-sm' : 'mycic-btn-primary',
-            secondary: small ? 'mycic-btn-secondary-sm' : 'mycic-btn-secondary',
-            ghost: small ? 'mycic-btn-ghost-sm' : 'mycic-btn-ghost',
+            primary: small ? 'mycic-btn-primary-sm min-h-11 sm:min-h-9' : 'mycic-btn-primary',
+            secondary: small ? 'mycic-btn-secondary-sm min-h-11 sm:min-h-9' : 'mycic-btn-secondary',
+            ghost: small ? 'mycic-btn-ghost-sm min-h-11 sm:min-h-9' : 'mycic-btn-ghost',
             destructive: 'mycic-btn-destructive',
             icon: 'mycic-btn-icon',
         };
@@ -2045,7 +2300,7 @@ class PortalApp {
                 ${safeItems.map((item) => `
                     <div class="mycic-metric">
                         <div class="mycic-metric-label">${this.escapeHtml(item.label || '')}</div>
-                        <div class="mycic-metric-value">${this.escapeHtml(item.value || '-')}</div>
+                        <div class="mycic-metric-value">${this.escapeHtml(item.value === null || item.value === '' ? '-' : item.value)}</div>
                         ${item.note ? `<div class="mycic-metric-note">${this.escapeHtml(item.note)}</div>` : ''}
                     </div>
                 `).join('')}
@@ -2065,7 +2320,7 @@ class PortalApp {
                 ${safeItems.map((item) => `
                     <div>
                         <div class="mb-1 text-caption uppercase tracking-wide text-ink-subtle">${this.escapeHtml(item.label || '')}</div>
-                        <div class="font-medium text-ink">${this.escapeHtml(item.value || '-')}</div>
+                        <div class="font-medium text-ink">${this.escapeHtml(item.value === null || item.value === '' ? '-' : item.value)}</div>
                         ${item.note ? `<div class="mt-1 text-caption text-ink-subtle">${this.escapeHtml(item.note)}</div>` : ''}
                     </div>
                 `).join('')}
@@ -2181,16 +2436,34 @@ class PortalApp {
             info: 'info',
         };
 
-        host.innerHTML = '';
+        const tone = toneMap[type] || toneMap.info;
+        const text = String(message ?? '').trim();
+
+        if (text === '') {
+            return;
+        }
+
+        // The same message again only restarts its timer.
+        const duplicate = Array.from(host.children).find((element) => element.dataset.message === text && element.dataset.tone === tone);
+
+        if (duplicate) {
+            this.scheduleToastDismiss(duplicate, tone);
+
+            return;
+        }
+
+        while (host.children.length >= this.toastLimit) {
+            this.dismissToast(host.firstElementChild);
+        }
 
         const notice = document.createElement('div');
-        const tone = toneMap[type] || toneMap.info;
 
         notice.className = `mycic-toast mycic-toast-${tone}`;
-        notice.setAttribute('role', 'alert');
+        notice.dataset.message = text;
+        notice.dataset.tone = tone;
         notice.innerHTML = `
             <span class="mycic-toast-icon mycic-toast-icon-${tone}">${this.toastIcon(tone)}</span>
-            <span class="mycic-toast-message">${this.escapeHtml(message)}</span>
+            <span class="mycic-toast-message">${this.escapeHtml(text)}</span>
             <button type="button" class="mycic-toast-close" aria-label="Tutup notifikasi">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
@@ -2202,13 +2475,48 @@ class PortalApp {
 
         host.appendChild(notice);
         notice.querySelector('[aria-label="Tutup notifikasi"]')?.addEventListener('click', () => {
-            host.innerHTML = '';
+            this.dismissToast(notice);
         });
 
-        window.clearTimeout(this.noticeTimeout);
-        this.noticeTimeout = window.setTimeout(() => {
-            host.innerHTML = '';
-        }, 4200);
+        this.announce(text, tone === 'danger' ? 'assertive' : 'polite');
+        this.scheduleToastDismiss(notice, tone);
+    }
+
+    /**
+     * Read a message out through the live regions that exist from page load
+     * (a live region inserted together with its text is often not announced).
+     */
+    announce(message, politeness = 'polite') {
+        const region = document.querySelector(politeness === 'assertive' ? '[data-live-assertive]' : '[data-live-polite]');
+
+        if (!region) {
+            return;
+        }
+
+        region.textContent = '';
+        window.clearTimeout(Number(region.dataset.timer));
+        region.dataset.timer = String(window.setTimeout(() => {
+            region.textContent = message;
+        }, 50));
+    }
+
+    /**
+     * Errors stay long enough to be read (8 s); other toasts leave after 4.2 s.
+     */
+    scheduleToastDismiss(notice, tone) {
+        window.clearTimeout(Number(notice.dataset.timer));
+        notice.dataset.timer = String(window.setTimeout(() => {
+            this.dismissToast(notice);
+        }, tone === 'danger' ? 8000 : 4200));
+    }
+
+    dismissToast(notice) {
+        if (!notice) {
+            return;
+        }
+
+        window.clearTimeout(Number(notice.dataset.timer));
+        notice.remove();
     }
 
     absoluteCampusUrl(path) {
@@ -2251,7 +2559,7 @@ class PortalApp {
         }
     }
 
-    buildCampusDownloadUrl(path, filename = null) {
+    buildCampusDownloadUrl(path, filename = null, { disposition = null } = {}) {
         if (!path) {
             return null;
         }
@@ -2262,6 +2570,10 @@ class PortalApp {
 
         if (filename) {
             params.set('name', String(filename));
+        }
+
+        if (disposition === 'inline' || disposition === 'attachment') {
+            params.set('disposition', disposition);
         }
 
         return `/api/support/download?${params.toString()}`;
@@ -2379,7 +2691,7 @@ class PortalApp {
     }
 
     escapeHtml(value) {
-        return String(value)
+        return String(value ?? '')
             .replaceAll('&', '&amp;')
             .replaceAll('<', '&lt;')
             .replaceAll('>', '&gt;')
@@ -2401,6 +2713,1202 @@ class PortalApp {
         return rows
             ? `<div class="flex flex-col divide-y divide-border-light">${rows}</div>`
             : this.renderEmptyState('Tidak ada data.', 'secondary');
+    }
+
+    /**
+     * Turn any date-like value into a Date. A plain `YYYY-MM-DD` is read as a
+     * local calendar day (not UTC midnight), so it never shifts by a day.
+     */
+    toDate(value) {
+        if (value instanceof Date) {
+            return Number.isNaN(value.getTime()) ? null : value;
+        }
+
+        if (value === null || value === undefined || value === '') {
+            return null;
+        }
+
+        if (typeof value === 'number') {
+            const fromNumber = new Date(value);
+
+            return Number.isNaN(fromNumber.getTime()) ? null : fromNumber;
+        }
+
+        const text = String(value).trim();
+        const dateOnly = text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        const date = dateOnly
+            ? new Date(Number(dateOnly[1]), Number(dateOnly[2]) - 1, Number(dateOnly[3]))
+            : new Date(text.replace(/^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2})/, '$1T$2'));
+
+        return Number.isNaN(date.getTime()) ? null : date;
+    }
+
+    /**
+     * "20 Oktober 2026"; `{ weekday: true }` gives "Selasa, 20 Oktober 2026",
+     * `{ month: 'short', year: false }` gives "20 Okt". Empty input gives `fallback`.
+     */
+    formatIndonesianDate(value, { weekday = false, month = 'long', year = true, time = false, fallback = '–' } = {}) {
+        const date = this.toDate(value);
+
+        if (!date) {
+            return fallback;
+        }
+
+        const options = { day: 'numeric', month };
+
+        if (year) {
+            options.year = 'numeric';
+        }
+
+        if (weekday) {
+            options.weekday = 'long';
+        }
+
+        if (time) {
+            options.hour = '2-digit';
+            options.minute = '2-digit';
+        }
+
+        return new Intl.DateTimeFormat('id-ID', options).format(date);
+    }
+
+    /**
+     * Whole calendar days from `now` to `value` (negative when it has passed),
+     * or null when `value` is not a date.
+     */
+    daysUntil(value, now = new Date()) {
+        const date = this.toDate(value);
+        const base = this.toDate(now);
+
+        if (!date || !base) {
+            return null;
+        }
+
+        const start = Date.UTC(base.getFullYear(), base.getMonth(), base.getDate());
+        const end = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
+
+        return Math.round((end - start) / 86400000);
+    }
+
+    /**
+     * "hari ini", "besok", "3 hari lagi", "kemarin", "lewat 2 hari".
+     * `{ natural: false }` keeps "1 hari lagi" / "lewat 1 hari".
+     */
+    formatRelativeDays(value, { now = new Date(), natural = true, fallback = '' } = {}) {
+        const days = this.daysUntil(value, now);
+
+        if (days === null) {
+            return fallback;
+        }
+
+        if (days === 0) {
+            return 'hari ini';
+        }
+
+        if (natural && days === 1) {
+            return 'besok';
+        }
+
+        if (natural && days === -1) {
+            return 'kemarin';
+        }
+
+        return days > 0 ? `${days} hari lagi` : `lewat ${Math.abs(days)} hari`;
+    }
+
+    /**
+     * "baru saja", "5 menit lalu", "2 jam lalu", "kemarin", "3 hari lalu":
+     * for honest "Diperbarui …" labels.
+     */
+    formatTimeAgo(value, { now = new Date() } = {}) {
+        const date = this.toDate(value);
+        const base = this.toDate(now);
+
+        if (!date || !base) {
+            return '';
+        }
+
+        const minutes = Math.floor((base.getTime() - date.getTime()) / 60000);
+
+        if (minutes < 1) {
+            return 'baru saja';
+        }
+
+        if (minutes < 60) {
+            return `${minutes} menit lalu`;
+        }
+
+        if (minutes < 24 * 60) {
+            return `${Math.floor(minutes / 60)} jam lalu`;
+        }
+
+        const days = Math.abs(this.daysUntil(date, base) ?? 0);
+
+        return days <= 1 ? 'kemarin' : `${days} hari lalu`;
+    }
+
+    /**
+     * A number from 1250000, "1.250.000", "Rp 1.250.000,00" or "1250000.00";
+     * null when there is no amount at all.
+     */
+    parseAmount(value) {
+        if (typeof value === 'number') {
+            return Number.isFinite(value) ? value : null;
+        }
+
+        if (value === null || value === undefined) {
+            return null;
+        }
+
+        let text = String(value).trim();
+        const negative = text.startsWith('-');
+
+        text = text.replace(/^-/, '').replace(/rp\.?/i, '').replace(/\s/g, '');
+
+        if (text === '' || text === '-' || text === '–') {
+            return null;
+        }
+
+        if (/^\d+\.\d{1,2}$/.test(text)) {
+            return (negative ? -1 : 1) * Number(text);
+        }
+
+        const digits = text.replace(/,\d{1,2}$/, '').replace(/\D/g, '');
+
+        if (digits === '') {
+            return null;
+        }
+
+        return (negative ? -1 : 1) * Number(digits);
+    }
+
+    /**
+     * "Rp 1.250.000". A missing amount gives `fallback` ("–"), never "Rp 0".
+     */
+    formatRupiah(value, { fallback = '–', signed = false } = {}) {
+        const amount = this.parseAmount(value);
+
+        if (amount === null) {
+            return fallback;
+        }
+
+        const formatted = new Intl.NumberFormat('id-ID', {
+            style: 'currency',
+            currency: 'IDR',
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0,
+        }).format(Math.abs(amount));
+
+        if (amount < 0) {
+            return `-${formatted}`;
+        }
+
+        return signed && amount > 0 ? `+${formatted}` : formatted;
+    }
+
+    /**
+     * Only links a student can safely follow: same-site paths, http(s),
+     * mailto and tel. Anything else (javascript:, data:) gives null.
+     */
+    safeHref(url) {
+        if (!url) {
+            return null;
+        }
+
+        try {
+            const parsed = new URL(String(url), window.location.origin);
+
+            return ['http:', 'https:', 'mailto:', 'tel:'].includes(parsed.protocol) ? String(url) : null;
+        } catch (error) {
+            return null;
+        }
+    }
+
+    isExternalHref(url) {
+        try {
+            const parsed = new URL(String(url), window.location.origin);
+
+            return ['http:', 'https:'].includes(parsed.protocol) && parsed.origin !== window.location.origin;
+        } catch (error) {
+            return false;
+        }
+    }
+
+    /**
+     * Map an action-item severity (critical/high/warning/info/…) to a tone:
+     * 'danger' | 'warning' | 'info' | 'success' | 'neutral'.
+     */
+    severityTone(severity) {
+        const value = String(severity ?? '').toLowerCase();
+
+        if (['critical', 'urgent', 'high', 'danger', 'error', 'overdue'].includes(value)) {
+            return 'danger';
+        }
+
+        if (['warning', 'medium', 'soon', 'attention'].includes(value)) {
+            return 'warning';
+        }
+
+        if (['success', 'done', 'ok', 'clear', 'resolved', 'paid'].includes(value)) {
+            return 'success';
+        }
+
+        if (['info', 'low', 'normal', 'notice'].includes(value)) {
+            return 'info';
+        }
+
+        return 'neutral';
+    }
+
+    strongerTone(current, next) {
+        const rank = { danger: 3, warning: 2, info: 1, success: 0, neutral: 0 };
+
+        return (rank[next] ?? 0) > (rank[current] ?? -1) ? next : current;
+    }
+
+    renderSeverityBadge(severity, label = null) {
+        const tone = this.severityTone(severity);
+        const defaults = {
+            danger: 'Mendesak',
+            warning: 'Segera',
+            info: 'Info',
+            success: 'Beres',
+            neutral: 'Catatan',
+        };
+
+        return this.renderBadge(label || defaults[tone], tone === 'neutral' ? 'secondary' : tone);
+    }
+
+    fillToneClass(tone = 'brand') {
+        const tones = {
+            brand: 'bg-brand',
+            primary: 'bg-brand',
+            success: 'bg-success',
+            warning: 'bg-warning',
+            danger: 'bg-danger',
+            error: 'bg-danger',
+            info: 'bg-info',
+            accent: 'bg-accent',
+            neutral: 'bg-ink-subtle/50',
+            secondary: 'bg-ink-subtle/50',
+        };
+
+        return tones[tone] || tones.brand;
+    }
+
+    /**
+     * Progress bar. One value: `{ value: 62, max: 144, label: 'SKS lulus', valueLabel: '62 dari 144 SKS' }`.
+     * Segments: `{ max: 144, segments: [{ value: 62, label: 'Lulus' }, { value: 20, striped: true, label: 'Sedang ditempuh' }], remainderLabel: 'Sisa' }`.
+     * A null value draws an empty track with "–", never 0 %.
+     */
+    renderProgressBar({ value = null, max = 100, tone = 'brand', label = '', valueLabel = '', caption = '', segments = null, remainderLabel = '', size = 'md' } = {}) {
+        const isNumber = (amount) => amount !== null && amount !== undefined && amount !== '' && Number.isFinite(Number(amount));
+        const safeMax = Number(max) > 0 ? Number(max) : 100;
+        const parts = Array.isArray(segments) && segments.length ? segments : [{ value, tone }];
+        const known = parts.some((part) => isNumber(part?.value));
+        const heights = { sm: 'h-1.5', md: 'h-2.5', lg: 'h-3.5' };
+        let used = 0;
+
+        const fills = parts.map((part) => {
+            if (!isNumber(part?.value) || Number(part.value) <= 0) {
+                return '';
+            }
+
+            const width = Math.min(100 - used, (Number(part.value) / safeMax) * 100);
+
+            if (width <= 0) {
+                return '';
+            }
+
+            used += width;
+
+            return `<div class="mycic-progress-fill ${this.fillToneClass(part.tone || tone)}${part.striped ? ' mycic-progress-striped' : ''}" style="width: ${width.toFixed(2)}%"${part.label ? ` title="${this.escapeHtml(part.label)}"` : ''}></div>`;
+        }).join('');
+
+        const total = parts.reduce((sum, part) => sum + (isNumber(part?.value) ? Number(part.value) : 0), 0);
+        const shownValue = valueLabel || (known ? `${Math.round(Math.min(100, (total / safeMax) * 100))}%` : '–');
+        const legendParts = Array.isArray(segments) && segments.length
+            ? [
+                ...segments.filter((part) => part?.label).map((part) => `
+                    <li class="inline-flex items-center gap-1.5">
+                        <span class="h-2.5 w-2.5 shrink-0 rounded-sm ${this.fillToneClass(part.tone || tone)}${part.striped ? ' mycic-progress-striped' : ''}" aria-hidden="true"></span>
+                        <span>${this.escapeHtml(part.label)}</span>
+                        ${isNumber(part.value) ? `<span class="font-semibold tabular-nums text-ink">${this.escapeHtml(part.valueLabel ?? part.value)}</span>` : ''}
+                    </li>
+                `),
+                remainderLabel ? `
+                    <li class="inline-flex items-center gap-1.5">
+                        <span class="h-2.5 w-2.5 shrink-0 rounded-sm border border-border bg-surface" aria-hidden="true"></span>
+                        <span>${this.escapeHtml(remainderLabel)}</span>
+                        ${known ? `<span class="font-semibold tabular-nums text-ink">${this.escapeHtml(Math.max(0, safeMax - total))}</span>` : ''}
+                    </li>
+                ` : '',
+            ].join('')
+            : '';
+
+        return `
+            <div class="min-w-0">
+                ${label || valueLabel ? `
+                    <div class="mb-1.5 flex items-baseline justify-between gap-3 text-sm">
+                        <span class="min-w-0 truncate font-semibold text-ink">${this.escapeHtml(label)}</span>
+                        <span class="shrink-0 tabular-nums text-ink-muted">${this.escapeHtml(shownValue)}</span>
+                    </div>
+                ` : ''}
+                <div
+                    class="mycic-progress-track ${heights[size] || heights.md}"
+                    role="progressbar"
+                    aria-valuemin="0"
+                    aria-valuemax="${safeMax}"
+                    ${known ? `aria-valuenow="${Math.min(safeMax, total)}"` : ''}
+                    aria-valuetext="${this.escapeHtml(shownValue)}"
+                    ${label ? `aria-label="${this.escapeHtml(label)}"` : ''}
+                >${fills}</div>
+                ${legendParts ? `<ul class="mt-2 flex flex-wrap gap-x-4 gap-y-1.5 text-caption text-ink-muted">${legendParts}</ul>` : ''}
+                ${caption ? `<p class="mt-1.5 text-caption text-ink-subtle">${this.escapeHtml(caption)}</p>` : ''}
+            </div>
+        `;
+    }
+
+    /**
+     * Hidden data table behind every chart, so values never depend on sight.
+     */
+    renderChartTable(caption, rows, format) {
+        return `
+            <table class="sr-only">
+                <caption>${this.escapeHtml(caption)}</caption>
+                <thead><tr><th scope="col">Periode</th><th scope="col">Nilai</th></tr></thead>
+                <tbody>
+                    ${rows.map((row) => `<tr><th scope="row">${this.escapeHtml(row.label)}</th><td>${this.escapeHtml(row.value === null ? '–' : format(row.value))}</td></tr>`).join('')}
+                </tbody>
+            </table>
+        `;
+    }
+
+    /**
+     * Inline SVG line for a trend such as IPS per semester:
+     * `renderSparkline([{ label: 'Smt 1', value: 3.2 }, …], { label: 'IPS per semester', min: 0, max: 4, valueFormat: (v) => v.toFixed(2) })`.
+     * Points without a value are left out.
+     */
+    renderSparkline(points = [], { label = '', min = null, max = null, width = 280, height = 72, tone = 'brand', area = true, dots = 'all', axisLabels = true, valueFormat = null } = {}) {
+        const format = typeof valueFormat === 'function' ? valueFormat : (amount) => String(amount);
+        const valid = (Array.isArray(points) ? points : [])
+            .filter((point) => point && point.value !== null && point.value !== undefined && point.value !== '' && Number.isFinite(Number(point.value)))
+            .map((point) => ({ label: String(point.label ?? ''), value: Number(point.value) }));
+
+        if (!valid.length) {
+            return this.renderEmptyState('Belum ada data untuk grafik.', 'secondary');
+        }
+
+        const values = valid.map((point) => point.value);
+        const low = min ?? Math.min(...values);
+        const high = max ?? Math.max(...values);
+        const span = high - low || 1;
+        const padX = 8;
+        const padY = 8;
+        const baseline = height - padY;
+        const coords = valid.map((point, index) => ({
+            ...point,
+            x: valid.length === 1 ? width / 2 : padX + (index * (width - padX * 2)) / (valid.length - 1),
+            y: padY + (1 - (Math.min(high, Math.max(low, point.value)) - low) / span) * (height - padY * 2),
+        }));
+        const line = coords.map((point, index) => `${index ? 'L' : 'M'}${point.x.toFixed(1)} ${point.y.toFixed(1)}`).join(' ');
+        const last = coords[coords.length - 1];
+        const areaPath = area && coords.length > 1
+            ? `${line} L${last.x.toFixed(1)} ${baseline} L${coords[0].x.toFixed(1)} ${baseline} Z`
+            : '';
+        const marks = coords.map((point, index) => {
+            const showDot = dots === 'all' || (dots === 'end' && index === coords.length - 1) || coords.length === 1;
+
+            return `
+                <g>
+                    ${showDot ? `<circle cx="${point.x.toFixed(1)}" cy="${point.y.toFixed(1)}" r="4" fill="currentColor" stroke="var(--color-panel)" stroke-width="2"></circle>` : ''}
+                    <circle cx="${point.x.toFixed(1)}" cy="${point.y.toFixed(1)}" r="12" fill="transparent"><title>${this.escapeHtml(point.label)}: ${this.escapeHtml(format(point.value))}</title></circle>
+                </g>
+            `;
+        }).join('');
+        const summary = label || 'Grafik tren';
+
+        return `
+            <figure class="m-0 min-w-0">
+                <svg class="block h-auto w-full overflow-visible ${this.textToneClass(tone)}" viewBox="0 0 ${width} ${height}" role="img" aria-label="${this.escapeHtml(summary)}">
+                    <line x1="${padX}" y1="${baseline}" x2="${width - padX}" y2="${baseline}" stroke="var(--color-border-light)" stroke-width="1"></line>
+                    ${areaPath ? `<path d="${areaPath}" fill="currentColor" fill-opacity="0.1" stroke="none"></path>` : ''}
+                    ${coords.length > 1 ? `<path d="${line}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>` : ''}
+                    ${marks}
+                </svg>
+                ${axisLabels ? `
+                    <figcaption class="mt-1 flex items-baseline justify-between gap-3 text-caption text-ink-subtle">
+                        <span class="truncate">${coords.length > 1 ? this.escapeHtml(coords[0].label) : ''}</span>
+                        <span class="shrink-0 tabular-nums">${this.escapeHtml(last.label)} · <span class="font-semibold text-ink">${this.escapeHtml(format(last.value))}</span></span>
+                    </figcaption>
+                ` : ''}
+                ${this.renderChartTable(summary, coords, format)}
+            </figure>
+        `;
+    }
+
+    /**
+     * Column chart (CSS, no library) for a value per period such as IPS:
+     * `renderBarChart([{ label: 'Smt 1', value: 3.2 }, { label: 'Smt 2', value: null }], { label: 'IPS per semester', max: 4 })`.
+     * A null value shows "–" without a bar. The last column with a value is
+     * emphasised (`highlight: 'last'`); pass `highlight: null` for equal bars.
+     */
+    renderBarChart(items = [], { label = '', max = null, tone = 'brand', valueFormat = null, heightClass = 'h-36', highlight = 'last', emptyLabel = '–' } = {}) {
+        const format = typeof valueFormat === 'function' ? valueFormat : (amount) => String(amount);
+        const rows = (Array.isArray(items) ? items : []).map((item) => {
+            const raw = item?.value;
+            const hasValue = raw !== null && raw !== undefined && raw !== '' && Number.isFinite(Number(raw));
+
+            return {
+                label: String(item?.label ?? ''),
+                value: hasValue ? Number(raw) : null,
+                tone: item?.tone || null,
+            };
+        });
+
+        if (!rows.length) {
+            return this.renderEmptyState('Belum ada data untuk grafik.', 'secondary');
+        }
+
+        const numeric = rows.filter((row) => row.value !== null).map((row) => row.value);
+        const top = max ?? (Math.max(0, ...numeric) || 1);
+        let emphasised = -1;
+
+        if (highlight === 'last') {
+            rows.forEach((row, index) => {
+                if (row.value !== null) {
+                    emphasised = index;
+                }
+            });
+        } else if (Number.isInteger(highlight)) {
+            emphasised = highlight;
+        }
+
+        const columns = rows.map((row, index) => {
+            const percent = row.value === null ? 0 : Math.max(0, Math.min(100, (row.value / top) * 100));
+            const muted = emphasised !== -1 && index !== emphasised;
+            const valueText = row.value === null ? emptyLabel : format(row.value);
+
+            return `
+                <div class="flex min-w-0 flex-1 flex-col items-center gap-1" title="${this.escapeHtml(row.label)}: ${this.escapeHtml(valueText)}">
+                    <span class="text-caption font-semibold tabular-nums ${row.value === null ? 'text-ink-subtle' : 'text-ink'}">${this.escapeHtml(valueText)}</span>
+                    <div class="flex w-full flex-1 items-end justify-center border-b border-border px-0.5 sm:px-1.5">
+                        ${row.value === null ? '' : `<div class="w-full max-w-6 rounded-t ${this.fillToneClass(row.tone || tone)}${muted ? ' opacity-40' : ''}" style="height: ${percent.toFixed(1)}%"></div>`}
+                    </div>
+                    <span class="w-full truncate text-center text-[0.65rem] font-medium text-ink-subtle">${this.escapeHtml(row.label)}</span>
+                </div>
+            `;
+        }).join('');
+        const summary = label || 'Grafik batang';
+
+        return `
+            <figure class="m-0 min-w-0">
+                <div class="flex ${heightClass} items-stretch" role="img" aria-label="${this.escapeHtml(summary)}">${columns}</div>
+                ${this.renderChartTable(summary, rows, format)}
+            </figure>
+        `;
+    }
+
+    /**
+     * One horizontal stacked bar with a legend, e.g. the A–E grade spread:
+     * `renderStackedBar([{ label: 'A', value: 3, tone: 'success' }, { label: 'B', value: 3, tone: 'info' }], { label: 'Sebaran nilai' })`.
+     */
+    renderStackedBar(segments = [], { label = '', valueFormat = null, legend = true, size = 'md' } = {}) {
+        const format = typeof valueFormat === 'function' ? valueFormat : (amount) => String(amount);
+        const rows = (Array.isArray(segments) ? segments : [])
+            .filter((segment) => segment && segment.label !== undefined)
+            .map((segment) => ({
+                label: String(segment.label),
+                value: Math.max(0, Number(segment.value) || 0),
+                tone: segment.tone || 'brand',
+            }));
+        const total = rows.reduce((sum, row) => sum + row.value, 0);
+        const heights = { sm: 'h-2', md: 'h-3', lg: 'h-4' };
+        const summary = label || 'Komposisi';
+        const fills = total > 0
+            ? rows.filter((row) => row.value > 0).map((row) => `
+                <div class="mycic-progress-fill ${this.fillToneClass(row.tone)}" style="width: ${((row.value / total) * 100).toFixed(2)}%" title="${this.escapeHtml(row.label)}: ${this.escapeHtml(format(row.value))}"></div>
+            `).join('')
+            : '';
+
+        return `
+            <figure class="m-0 min-w-0">
+                <div class="mycic-progress-track ${heights[size] || heights.md}" role="img" aria-label="${this.escapeHtml(summary)}">${fills}</div>
+                ${legend && rows.length ? `
+                    <ul class="mt-2 flex flex-wrap gap-x-4 gap-y-1.5 text-caption text-ink-muted">
+                        ${rows.map((row) => `
+                            <li class="inline-flex items-center gap-1.5">
+                                <span class="h-2.5 w-2.5 shrink-0 rounded-sm ${this.fillToneClass(row.tone)}" aria-hidden="true"></span>
+                                <span>${this.escapeHtml(row.label)}</span>
+                                <span class="font-semibold tabular-nums text-ink">${this.escapeHtml(format(row.value))}</span>
+                            </li>
+                        `).join('')}
+                    </ul>
+                ` : ''}
+                ${this.renderChartTable(summary, rows, format)}
+            </figure>
+        `;
+    }
+
+    /**
+     * One row of the action centre, as served by `GET /api/action-items`:
+     * `{type, title, description, due_at, days_left, severity, cta_label, cta_url, cta_external, source}`.
+     */
+    renderActionItem(item = {}) {
+        const days = Number.isInteger(item.days_left) ? item.days_left : (item.due_at ? this.daysUntil(item.due_at) : null);
+        let dueText = '';
+
+        if (days !== null) {
+            const dateText = item.due_at ? ` · ${this.formatIndonesianDate(item.due_at, { month: 'short', year: false })}` : '';
+            const relative = days === 0 ? 'hari ini' : (days === 1 ? 'besok' : `${days} hari lagi`);
+
+            dueText = days < 0
+                ? `Lewat ${Math.abs(days)} hari${dateText}`
+                : `Tenggat ${relative}${dateText}`;
+        }
+
+        const dueTone = days !== null && days <= 1 ? 'text-danger' : (days !== null && days <= 3 ? 'text-warning' : 'text-ink-subtle');
+        const href = this.safeHref(item.cta_url);
+        const external = href && (item.cta_external === true || this.isExternalHref(href)) ? ' target="_blank" rel="noopener noreferrer"' : '';
+        const content = `
+            <span class="flex min-w-0 flex-1 flex-col gap-1">
+                <span class="flex flex-wrap items-center gap-2">
+                    ${this.renderSeverityBadge(item.severity)}
+                    ${dueText ? `<span class="text-caption font-semibold ${dueTone}">${this.escapeHtml(dueText)}</span>` : ''}
+                </span>
+                <span class="text-sm font-semibold text-ink">${this.escapeHtml(item.title || 'Perlu dicek')}</span>
+                ${item.description ? `<span class="line-clamp-2 text-caption text-ink-subtle">${this.escapeHtml(item.description)}</span>` : ''}
+            </span>
+            ${href ? `
+                <span class="inline-flex shrink-0 items-center gap-1 self-center text-xs font-semibold text-brand-pressed">
+                    ${this.escapeHtml(item.cta_label || 'Buka')}
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6l-6 6" /></svg>
+                </span>
+            ` : ''}
+        `;
+
+        return href
+            ? `<a href="${this.escapeHtml(href)}" class="mycic-list-row min-h-11 rounded-md transition-colors hover:bg-surface/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"${external}>${content}</a>`
+            : `<div class="mycic-list-row">${content}</div>`;
+    }
+
+    /**
+     * Action items (`GET /api/action-items`), read once per page load: a fresh
+     * device copy is used as is, a stale or missing one is fetched once.
+     * Resolves to the item list ([] when unavailable) and fires
+     * `portal:action-items` on window with `{ items }`.
+     */
+    loadActionItems({ force = false } = {}) {
+        if (document.body.dataset.auth !== 'required') {
+            return Promise.resolve([]);
+        }
+
+        if (this.actionItemsRequest && !force) {
+            return this.actionItemsRequest;
+        }
+
+        const cached = force ? null : this.getCachedResponse('/api/action-items');
+
+        if (cached && !cached.isStale) {
+            const items = this.extractActionItems(cached.payload);
+
+            this.receiveActionItems(items);
+            this.actionItemsRequest = Promise.resolve(items);
+
+            return this.actionItemsRequest;
+        }
+
+        this.actionItemsRequest = (async () => {
+            try {
+                const payload = await this.request('/api/action-items', { redirectOnAuth: false, timeout: 15000 });
+                const items = this.extractActionItems(payload);
+
+                this.receiveActionItems(items);
+
+                return items;
+            } catch (error) {
+                return this.actionItems || [];
+            }
+        })();
+
+        return this.actionItemsRequest;
+    }
+
+    extractActionItems(payload) {
+        const data = payload?.data;
+
+        if (Array.isArray(data)) {
+            return data;
+        }
+
+        if (Array.isArray(data?.items)) {
+            return data.items;
+        }
+
+        return Array.isArray(data?.action_items) ? data.action_items : [];
+    }
+
+    receiveActionItems(items) {
+        this.actionItems = Array.isArray(items) ? items : [];
+        this.applyActionItemBadges(this.actionItems);
+        window.dispatchEvent(new CustomEvent('portal:action-items', { detail: { items: this.actionItems } }));
+    }
+
+    /**
+     * Paint stored badges at once, then read action items when the browser is
+     * idle so the page's own data loads first.
+     */
+    scheduleActionItemBadges() {
+        if (document.body.dataset.auth !== 'required') {
+            return;
+        }
+
+        const cached = this.getCachedResponse('/api/action-items');
+
+        if (cached && !cached.isStale) {
+            void this.loadActionItems();
+
+            return;
+        }
+
+        if (cached) {
+            this.receiveActionItems(this.extractActionItems(cached.payload));
+        }
+
+        if (!navigator.onLine) {
+            return;
+        }
+
+        const run = () => {
+            void this.loadActionItems();
+        };
+
+        if (typeof window.requestIdleCallback === 'function') {
+            window.requestIdleCallback(run, { timeout: 3000 });
+        } else {
+            window.setTimeout(run, 1200);
+        }
+    }
+
+    /**
+     * Badge key for one action item: krs, grades, transcript, finance, skkm,
+     * announcement, profile, password, exam or class (from `cta_url`, else
+     * from `source`/`type`); null when it belongs nowhere in the nav.
+     */
+    actionItemBadgeKey(item) {
+        let path = '';
+
+        try {
+            const url = new URL(String(item?.cta_url || ''), window.location.origin);
+
+            path = url.origin === window.location.origin ? url.pathname : '';
+        } catch (error) {
+            path = '';
+        }
+
+        const byPath = [
+            [/^\/krs(?:\/|$)/, 'krs'],
+            [/^\/grades(?:\/|$)/, 'grades'],
+            [/^\/transcript(?:\/|$)/, 'transcript'],
+            [/^\/finance(?:\/|$)/, 'finance'],
+            [/^\/skkm(?:\/|$)/, 'skkm'],
+            [/^\/announcement(?:\/|$)/, 'announcement'],
+            [/^\/profile(?:\/|$)/, 'profile'],
+            [/^\/password(?:\/|$)/, 'password'],
+            [/^\/exam(?:\/|$)/, 'exam'],
+            [/^\/(?:class|meeting)(?:\/|$)/, 'class'],
+        ];
+        const bySource = [
+            [/krs|advising|perwalian/, 'krs'],
+            [/grade|khs|nilai/, 'grades'],
+            [/transcript|transkrip/, 'transcript'],
+            [/payment|finance|tagihan|ukt|bill/, 'finance'],
+            [/skkm/, 'skkm'],
+            [/announcement|pengumuman/, 'announcement'],
+            [/password/, 'password'],
+            [/exam|ujian/, 'exam'],
+            [/class|meeting|attendance|assignment/, 'class'],
+        ];
+        const source = `${item?.source ?? ''} ${item?.type ?? ''}`.toLowerCase();
+
+        return byPath.find(([pattern]) => pattern.test(path))?.[1]
+            || bySource.find(([pattern]) => pattern.test(source))?.[1]
+            || null;
+    }
+
+    /**
+     * Count action items per badge: tiles (krs, grades, transcript, finance,
+     * skkm, announcement, profile, password, exam) and nav slots (akademik =
+     * KRS/nilai/transkrip, keuangan = tagihan, lainnya = the mobile /more
+     * slot with tagihan, lainnya-desktop = the desktop dropdown without it,
+     * kuliah = exams and critical class items). Only items that need action
+     * (critical or warning) light a badge; informational ones stay in the
+     * action center. A value set with setNavBadge wins.
+     */
+    applyActionItemBadges(items = []) {
+        const counts = new Map();
+        const tones = new Map();
+        const bump = (key, tone) => {
+            counts.set(key, (counts.get(key) || 0) + 1);
+            tones.set(key, this.strongerTone(tones.get(key), tone));
+        };
+
+        (Array.isArray(items) ? items : []).forEach((item) => {
+            const key = this.actionItemBadgeKey(item);
+            const tone = this.severityTone(item?.severity);
+
+            if (!key || (tone !== 'danger' && tone !== 'warning')) {
+                return;
+            }
+
+            if (key === 'class') {
+                if (tone === 'danger') {
+                    bump('kuliah', tone);
+                    bump('class', tone);
+                }
+
+                return;
+            }
+
+            bump(key, tone);
+
+            if (key === 'exam') {
+                bump('kuliah', tone);
+            }
+
+            if (['krs', 'grades', 'transcript'].includes(key)) {
+                bump('akademik', tone);
+            }
+
+            if (key === 'finance') {
+                bump('keuangan', tone);
+            }
+
+            if (['finance', 'skkm', 'announcement', 'profile', 'password'].includes(key)) {
+                bump('lainnya', tone);
+            }
+
+            // The desktop "Lainnya" dropdown has no Keuangan entry (it is a top-level link).
+            if (['skkm', 'announcement', 'profile', 'password'].includes(key)) {
+                bump('lainnya-desktop', tone);
+            }
+        });
+
+        const keys = new Set([
+            ...Array.from(document.querySelectorAll('[data-nav-badge]')).map((element) => element.dataset.navBadge),
+            ...counts.keys(),
+            ...this.navBadgeOverrides.keys(),
+        ]);
+
+        keys.forEach((key) => {
+            const override = this.navBadgeOverrides.get(key);
+
+            if (override) {
+                this.paintNavBadge(key, override.value, override);
+
+                return;
+            }
+
+            const tone = tones.get(key);
+
+            this.paintNavBadge(key, counts.get(key) || 0, {
+                tone: tone === 'danger' || tone === 'warning' ? tone : 'brand',
+            });
+        });
+    }
+
+    /**
+     * Show a badge on every `[data-nav-badge="<key>"]` element: nav slots
+     * (kuliah, akademik, keuangan, lainnya) and /more tiles (krs, grades,
+     * transcript, finance, skkm, announcement, profile, password). A page can
+     * add its own `data-nav-badge` element and it is painted too.
+     * `value`: a count, `true` for a dot, 0/false to hide; `null` drops the
+     * page's value and returns to the action-item count.
+     * `tone`: 'danger' (default) | 'warning' | 'brand'.
+     */
+    setNavBadge(key, value, { tone = 'danger', label = '' } = {}) {
+        if (!key) {
+            return;
+        }
+
+        if (value === null || value === undefined) {
+            this.navBadgeOverrides.delete(key);
+            this.applyActionItemBadges(this.actionItems || []);
+
+            return;
+        }
+
+        this.navBadgeOverrides.set(key, { value, tone, label });
+        this.paintNavBadge(key, value, { tone, label });
+    }
+
+    paintNavBadge(key, value, { tone = 'danger', label = '' } = {}) {
+        const isDot = value === true;
+        const count = typeof value === 'number' ? Math.max(0, Math.floor(value)) : (value ? 1 : 0);
+        const description = label || `${count} hal perlu dicek`;
+
+        document.querySelectorAll(`[data-nav-badge="${CSS.escape(String(key))}"]`).forEach((badge) => {
+            if (!count) {
+                badge.classList.add('hidden');
+                badge.textContent = '';
+                badge.removeAttribute('title');
+                delete badge.dataset.variant;
+
+                return;
+            }
+
+            badge.classList.remove('hidden');
+            badge.dataset.tone = tone;
+            badge.title = description;
+
+            if (isDot) {
+                badge.dataset.variant = 'dot';
+                badge.innerHTML = `<span class="sr-only">${this.escapeHtml(description)}</span>`;
+
+                return;
+            }
+
+            delete badge.dataset.variant;
+            badge.innerHTML = `<span aria-hidden="true">${count > 9 ? '9+' : count}</span><span class="sr-only">${this.escapeHtml(description)}</span>`;
+        });
+    }
+
+    /**
+     * Digits for wa.me: "0812-3456-7890", "+62 812…" and "812…" all become
+     * "62812…". Only the first number of "0812… / 0813…" is used. Null when
+     * no plausible number is left.
+     */
+    normalizeWhatsAppNumber(value) {
+        const first = String(value ?? '').split(/[/,;|]|\batau\b/i)[0] || '';
+        let digits = first.replace(/\D/g, '');
+
+        if (digits.startsWith('00')) {
+            digits = digits.slice(2);
+        }
+
+        if (digits.startsWith('0')) {
+            digits = `62${digits.slice(1)}`;
+        } else if (digits.startsWith('8')) {
+            digits = `62${digits}`;
+        }
+
+        return /^\d{9,15}$/.test(digits) ? digits : null;
+    }
+
+    /**
+     * Links for a contact: `{ whatsapp, tel, mailto, phoneLabel, email }`.
+     * WhatsApp uses `contact.whatsapp`, else `contact.phone` when it is a
+     * mobile number (62 8…); `contact.message` pre-fills the chat.
+     */
+    buildContactLinks(contact = {}) {
+        const phoneDigits = this.normalizeWhatsAppNumber(contact.phone) || this.normalizeWhatsAppNumber(contact.whatsapp);
+        const explicitWhatsApp = this.normalizeWhatsAppNumber(contact.whatsapp);
+        const whatsappDigits = explicitWhatsApp || (phoneDigits?.startsWith('628') ? phoneDigits : null);
+        const email = String(contact.email ?? '').trim();
+        const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : null;
+        const message = String(contact.message ?? '').trim();
+
+        return {
+            whatsapp: whatsappDigits ? `https://wa.me/${whatsappDigits}${message ? `?text=${encodeURIComponent(message)}` : ''}` : null,
+            tel: phoneDigits ? `tel:+${phoneDigits}` : null,
+            mailto: validEmail ? `mailto:${validEmail}` : null,
+            phoneLabel: phoneDigits ? String(contact.phone || contact.whatsapp || '').trim() || `+${phoneDigits}` : null,
+            phoneLocal: phoneDigits ? (phoneDigits.startsWith('62') ? `0${phoneDigits.slice(2)}` : phoneDigits) : null,
+            phoneDigits,
+            email: validEmail,
+        };
+    }
+
+    /**
+     * The action list of a contact sheet (WhatsApp, Telepon, Email, Salin),
+     * usable inline in a card too.
+     */
+    renderContactActions(contact = {}) {
+        const links = this.buildContactLinks(contact);
+        const icons = {
+            whatsapp: '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21l1.65 -3.8a9 9 0 1 1 3.4 2.9l-5.05 .9" /><path d="M9 10a.5 .5 0 0 0 1 0v-1a.5 .5 0 0 0 -1 0v1a5 5 0 0 0 5 5h1a.5 .5 0 0 0 0 -1h-1a.5 .5 0 0 0 0 1" /></svg>',
+            tel: '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h4l2 5l-2.5 1.5a11 11 0 0 0 5 5l1.5 -2.5l5 2v4a2 2 0 0 1 -2 2a16 16 0 0 1 -15 -15a2 2 0 0 1 2 -2" /></svg>',
+            mail: '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v10a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-10z" /><path d="M3 7l9 6l9 -6" /></svg>',
+            copy: '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7m0 2.667a2.667 2.667 0 0 1 2.667 -2.667h8.666a2.667 2.667 0 0 1 2.667 2.667v8.666a2.667 2.667 0 0 1 -2.667 2.667h-8.666a2.667 2.667 0 0 1 -2.667 -2.667z" /><path d="M4.012 16.737a2.005 2.005 0 0 1 -1.012 -1.737v-10c0 -1.1 .9 -2 2 -2h10c.75 0 1.158 .385 1.5 1" /></svg>',
+        };
+        const row = (href, icon, title, detail, external = false) => `
+            <a href="${this.escapeHtml(href)}" class="mycic-sheet-action"${external ? ' target="_blank" rel="noopener noreferrer"' : ''}>
+                <span class="mycic-sheet-action-icon">${icon}</span>
+                <span class="min-w-0 flex-1">
+                    <span class="block font-semibold text-ink">${this.escapeHtml(title)}</span>
+                    ${detail ? `<span class="block truncate text-caption text-ink-subtle">${this.escapeHtml(detail)}</span>` : ''}
+                </span>
+            </a>
+        `;
+        const rows = [
+            links.whatsapp ? row(links.whatsapp, icons.whatsapp, 'WhatsApp', contact.message ? 'Pesan sudah disiapkan, tinggal kirim' : links.phoneLabel, true) : '',
+            links.tel ? row(links.tel, icons.tel, 'Telepon', links.phoneLabel) : '',
+            links.mailto ? row(links.mailto, icons.mail, 'Email', links.email) : '',
+        ].filter(Boolean);
+
+        if (!rows.length) {
+            return this.renderEmptyState('Kontak belum tersedia di portal.', 'secondary', 'Tanyakan lewat BAAK atau buka Portal kampus.');
+        }
+
+        const copies = [
+            links.phoneDigits ? `<button type="button" class="${this.buttonClass('secondary', { small: true })}" data-copy-text="${this.escapeHtml(links.phoneLocal)}" data-copy-label="Nomor">${icons.copy}Salin nomor</button>` : '',
+            links.email ? `<button type="button" class="${this.buttonClass('secondary', { small: true })}" data-copy-text="${this.escapeHtml(links.email)}" data-copy-label="Email">${icons.copy}Salin email</button>` : '',
+        ].filter(Boolean).join('');
+
+        return `
+            <div class="flex flex-col gap-2">
+                ${rows.join('')}
+                ${copies ? `<div class="flex flex-wrap gap-2 pt-1">${copies}</div>` : ''}
+            </div>
+        `;
+    }
+
+    /**
+     * Open the contact bottom sheet (K6) for a lecturer or DPA:
+     * `openContactSheet({ name, role, email, phone, whatsapp, message })`.
+     */
+    openContactSheet(contact = {}) {
+        return this.openSheet({
+            pretitle: contact.role || 'Kontak',
+            title: contact.name || 'Kontak',
+            body: this.renderContactActions(contact),
+        });
+    }
+
+    /**
+     * Same as openContactSheet (the K6 name): opens the sheet and returns its panel.
+     */
+    renderContactSheet(contact = {}) {
+        return this.openContactSheet(contact);
+    }
+
+    /**
+     * A button that opens the contact sheet, safe to put in any rendered HTML.
+     */
+    renderContactButton(contact = {}, { label = 'Hubungi', variant = 'secondary', small = true, className = '' } = {}) {
+        return `
+            <button type="button" class="${this.buttonClass(variant, { small })}${className ? ` ${this.escapeHtml(className)}` : ''}" data-contact-sheet="${this.escapeHtml(JSON.stringify(contact || {}))}">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21l1.65 -3.8a9 9 0 1 1 3.4 2.9l-5.05 .9" /></svg>
+                ${this.escapeHtml(label)}
+            </button>
+        `;
+    }
+
+    bindContactSheetTriggers() {
+        document.addEventListener('click', (event) => {
+            const target = event.target instanceof Element ? event.target : null;
+            const contactTrigger = target?.closest('[data-contact-sheet]');
+
+            if (contactTrigger) {
+                event.preventDefault();
+
+                let contact = {};
+
+                try {
+                    contact = JSON.parse(contactTrigger.getAttribute('data-contact-sheet') || '{}') || {};
+                } catch (error) {
+                    contact = {};
+                }
+
+                this.openContactSheet(contact);
+
+                return;
+            }
+
+            const copyTrigger = target?.closest('[data-copy-text]');
+
+            if (copyTrigger) {
+                event.preventDefault();
+                void this.copyText(copyTrigger.getAttribute('data-copy-text'), copyTrigger.getAttribute('data-copy-label') || 'Teks');
+            }
+        });
+    }
+
+    /**
+     * Copy text and say so in a toast ("Nomor disalin."). Resolves to true on success.
+     */
+    async copyText(text, label = 'Teks') {
+        const value = String(text ?? '');
+
+        if (value === '') {
+            return false;
+        }
+
+        try {
+            if (navigator.clipboard?.writeText && window.isSecureContext) {
+                await navigator.clipboard.writeText(value);
+            } else {
+                const field = document.createElement('textarea');
+
+                field.value = value;
+                field.setAttribute('readonly', '');
+                field.className = 'sr-only';
+                document.body.appendChild(field);
+                field.select();
+
+                const copied = document.execCommand('copy');
+
+                field.remove();
+
+                if (!copied) {
+                    throw new Error('Copy failed');
+                }
+            }
+
+            this.showNotice(`${label} disalin.`, 'success');
+
+            return true;
+        } catch (error) {
+            this.showNotice(`${label} gagal disalin. Salin manual: ${value}`, 'warning');
+
+            return false;
+        }
+    }
+
+    ensureSheetHost() {
+        if (this.sheetState.host?.isConnected) {
+            return this.sheetState.host;
+        }
+
+        const host = document.createElement('div');
+
+        host.className = 'mycic-sheet hidden';
+        host.setAttribute('data-app-sheet', '');
+        host.setAttribute('aria-hidden', 'true');
+        host.innerHTML = `
+            <div class="mycic-sheet-backdrop" data-app-sheet-close></div>
+            <div class="mycic-sheet-panel" role="dialog" aria-modal="true" aria-labelledby="app-sheet-title" tabindex="-1" data-app-sheet-panel>
+                <div class="mycic-sheet-handle" aria-hidden="true"></div>
+                <div class="mycic-modal-header">
+                    <div class="min-w-0">
+                        <div class="text-caption uppercase tracking-wide text-ink-subtle" data-app-sheet-pretitle></div>
+                        <h2 class="text-subtitle font-bold text-ink" id="app-sheet-title" data-app-sheet-title></h2>
+                    </div>
+                    <button type="button" class="mycic-modal-close" aria-label="Tutup" data-app-sheet-close>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6l-12 12" /><path d="M6 6l12 12" /></svg>
+                    </button>
+                </div>
+                <div class="mycic-modal-body" data-app-sheet-body></div>
+            </div>
+        `;
+
+        host.addEventListener('click', (event) => {
+            if (event.target instanceof Element && event.target.closest('[data-app-sheet-close]')) {
+                this.closeSheet();
+            }
+        });
+
+        host.addEventListener('keydown', (event) => this.handleSheetKeydown(event));
+        document.body.appendChild(host);
+        this.sheetState.host = host;
+
+        return host;
+    }
+
+    /**
+     * Generic bottom sheet (dialog on md+): `openSheet({ title, pretitle, body, onClose })`.
+     * `body` is an HTML string or a Node. Focus is trapped inside, Escape and
+     * the backdrop close it, and focus returns to where it was. Returns the panel.
+     */
+    openSheet({ title = '', pretitle = '', body = '', onClose = null } = {}) {
+        const host = this.ensureSheetHost();
+        const panel = host.querySelector('[data-app-sheet-panel]');
+        const pretitleNode = host.querySelector('[data-app-sheet-pretitle]');
+        const bodyHost = host.querySelector('[data-app-sheet-body]');
+        const alreadyOpen = !host.classList.contains('hidden');
+
+        if (alreadyOpen) {
+            this.sheetState.onClose?.();
+        } else {
+            this.sheetState.returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        }
+
+        host.querySelector('[data-app-sheet-title]').textContent = title;
+        pretitleNode.textContent = pretitle;
+        pretitleNode.classList.toggle('hidden', !pretitle);
+
+        if (body instanceof Node) {
+            bodyHost.replaceChildren(body);
+        } else {
+            bodyHost.innerHTML = body;
+        }
+
+        this.sheetState.onClose = typeof onClose === 'function' ? onClose : null;
+        host.classList.remove('hidden');
+        host.setAttribute('aria-hidden', 'false');
+        document.documentElement.classList.add('overflow-hidden');
+        panel.focus();
+
+        return panel;
+    }
+
+    closeSheet({ restoreFocus = true } = {}) {
+        const host = this.sheetState.host;
+
+        if (!host || host.classList.contains('hidden')) {
+            return;
+        }
+
+        host.classList.add('hidden');
+        host.setAttribute('aria-hidden', 'true');
+        document.documentElement.classList.remove('overflow-hidden');
+        host.querySelector('[data-app-sheet-body]').innerHTML = '';
+
+        const onClose = this.sheetState.onClose;
+        const returnFocus = this.sheetState.returnFocus;
+
+        this.sheetState.onClose = null;
+        this.sheetState.returnFocus = null;
+
+        if (restoreFocus && returnFocus?.isConnected) {
+            returnFocus.focus();
+        }
+
+        onClose?.();
+    }
+
+    focusableElements(root) {
+        if (!root) {
+            return [];
+        }
+
+        return Array.from(root.querySelectorAll('a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'))
+            .filter((element) => element.getClientRects().length > 0);
+    }
+
+    handleSheetKeydown(event) {
+        if (event.key === 'Escape') {
+            event.preventDefault();
+            event.stopPropagation();
+            this.closeSheet();
+
+            return;
+        }
+
+        if (event.key !== 'Tab') {
+            return;
+        }
+
+        const panel = this.sheetState.host?.querySelector('[data-app-sheet-panel]');
+        const focusable = this.focusableElements(panel);
+
+        if (!focusable.length) {
+            event.preventDefault();
+            panel?.focus();
+
+            return;
+        }
+
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+
+        if (event.shiftKey && (document.activeElement === first || document.activeElement === panel)) {
+            event.preventDefault();
+            last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+            event.preventDefault();
+            first.focus();
+        }
     }
 }
 

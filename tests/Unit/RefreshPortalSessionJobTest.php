@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace Tests\Unit;
 
 use App\Events\PortalSessionNoticeSent;
+use App\Jobs\RefreshPortalDataJob;
 use App\Jobs\RefreshPortalSessionJob;
 use App\Services\PortalSessionManager;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Queue;
 use Mockery;
@@ -25,6 +27,7 @@ class RefreshPortalSessionJobTest extends TestCase
     public function test_relogin_schedules_next_ping_and_notifies_the_browser(): void
     {
         Event::fake([PortalSessionNoticeSent::class]);
+        Bus::fake([RefreshPortalDataJob::class]);
         $this->mockKeepAlive('relogged', expectReschedule: true);
 
         app()->call([new RefreshPortalSessionJob('campus-token'), 'handle']);
@@ -37,15 +40,20 @@ class RefreshPortalSessionJobTest extends TestCase
     public function test_alive_session_schedules_next_ping_silently(): void
     {
         Event::fake([PortalSessionNoticeSent::class]);
+        Bus::fake([RefreshPortalDataJob::class]);
         $this->mockKeepAlive('alive', expectReschedule: true);
 
         app()->call([new RefreshPortalSessionJob('campus-token'), 'handle']);
 
         Event::assertNotDispatched(PortalSessionNoticeSent::class);
+        // Decision datasets without a snapshot are built in the background.
+        Bus::assertDispatchedTimes(RefreshPortalDataJob::class, 1);
     }
 
     public function test_expired_or_idle_session_ends_the_chain_and_asks_for_login(): void
     {
+        Bus::fake([RefreshPortalDataJob::class]);
+
         foreach (['expired', 'idle'] as $outcome) {
             Event::fake([PortalSessionNoticeSent::class]);
             $this->mockKeepAlive($outcome, expectReschedule: false);
@@ -56,6 +64,8 @@ class RefreshPortalSessionJobTest extends TestCase
                 return ($event->broadcastWith()['status'] ?? null) === 'manual_relogin_required';
             });
         }
+
+        Bus::assertNotDispatched(RefreshPortalDataJob::class);
     }
 
     public function test_only_one_keep_alive_chain_exists_per_session(): void
@@ -69,13 +79,26 @@ class RefreshPortalSessionJobTest extends TestCase
         Queue::assertPushed(RefreshPortalSessionJob::class, 2);
     }
 
-    private function mockKeepAlive(string $outcome, bool $expectReschedule): void
+    public function test_alive_session_of_an_inactive_student_skips_the_warm_up(): void
+    {
+        Event::fake([PortalSessionNoticeSent::class]);
+        Bus::fake([RefreshPortalDataJob::class]);
+        $this->mockKeepAlive('alive', expectReschedule: true, recentlyActive: false);
+
+        app()->call([new RefreshPortalSessionJob('campus-token'), 'handle']);
+
+        // The chain goes on (the session stays alive), but nothing is scraped for nobody.
+        Bus::assertNotDispatched(RefreshPortalDataJob::class);
+    }
+
+    private function mockKeepAlive(string $outcome, bool $expectReschedule, bool $recentlyActive = true): void
     {
         $this->instance(
             PortalSessionManager::class,
-            Mockery::mock(PortalSessionManager::class, function (MockInterface $mock) use ($outcome, $expectReschedule): void {
+            Mockery::mock(PortalSessionManager::class, function (MockInterface $mock) use ($outcome, $expectReschedule, $recentlyActive): void {
                 $mock->shouldReceive('keepAlive')->once()->with('campus-token')->andReturn($outcome);
                 $mock->shouldReceive('laravelSessionId')->with('campus-token')->andReturn('laravel-session');
+                $mock->shouldReceive('wasActiveWithin')->with('campus-token', 1200)->andReturn($recentlyActive);
 
                 if ($expectReschedule) {
                     $mock->shouldReceive('scheduleKeepAlive')->once()->with('campus-token');

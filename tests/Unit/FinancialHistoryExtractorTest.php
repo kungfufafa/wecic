@@ -42,7 +42,7 @@ class FinancialHistoryExtractorTest extends TestCase
                     <body>
                         <div class="card">
                             <table>
-                                <tr><td>NIM</td><td>:</td><td>20251030030</td></tr>
+                                <tr><td>NIM</td><td>:</td><td>20990000001</td></tr>
                                 <tr><td>Nama</td><td>:</td><td>Mahasiswa Uji</td></tr>
                                 <tr><td>Program Studi</td><td>:</td><td>Sistem Informasi</td></tr>
                             </table>
@@ -87,7 +87,7 @@ class FinancialHistoryExtractorTest extends TestCase
 
         $data = $extractor->extractPaymentHistoryData('fake-session-token');
 
-        $this->assertSame('20251030030', $data['student_info']['nim']);
+        $this->assertSame('20990000001', $data['student_info']['nim']);
         $this->assertSame('Mahasiswa Uji', $data['student_info']['nama']);
         $this->assertCount(2, $data['payment_history']);
         $this->assertSame('12 Mei 2026', $data['payment_history'][0]['paid_at_label']);

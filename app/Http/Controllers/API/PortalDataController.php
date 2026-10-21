@@ -9,11 +9,12 @@ use App\Http\Requests\PortalRefreshRequest;
 use App\Http\Requests\SipandaiFlowRequest;
 use App\Http\Requests\SipandaiMeetingDetailRequest;
 use App\Jobs\RefreshPortalDataJob;
+use App\Services\DashboardMetricsBuilder;
 use App\Services\Extractors\ClassesExtractor;
 use App\Services\PortalClassCatalog;
-use App\Services\PortalDatasetRepository;
 use App\Services\PortalEndpointRegistry;
 use App\Services\PortalFetchPolicy;
+use App\Services\PortalFinanceStatusResolver;
 use Dedoc\Scramble\Attributes\Group;
 use Dedoc\Scramble\Attributes\PathParameter;
 use Dedoc\Scramble\Attributes\Response;
@@ -24,7 +25,13 @@ use Illuminate\Support\Facades\Log;
 #[Group('Portal Data', 'Endpoint pembacaan data profil, kelas, detail materi, dan alur data SIPANDAI.', 20)]
 class PortalDataController extends CampusApiController
 {
-    private const DASHBOARD_RESPONSE = "array{status: 'success', message: string, data: array{user_info: array<string, mixed>, dashboard_overview: array<string, mixed>, recent_activity: list<array<string, mixed>>, classes_summary: array<string, mixed>, status: string, timestamp: string}, meta: array{timestamp: string, campus_session_valid: true}}";
+    private const DASHBOARD_RESPONSE = "array{status: 'success', message: string, data: array{user_info: array<string, mixed>, dashboard_overview: array{total_courses: string, gpa: null, total_credits: string, outstanding_payments: null}, recent_activity: list<array<string, mixed>>, classes_summary: array<string, mixed>, status: string, timestamp: string, portal_context: array{academic_period: array{label: string, academic_year: string, term: 'ganjil'|'genap'|null, source: string}|null, semester_number: int|null, semester_source: string|null, semester_is_estimate: bool, semester_label: string|null, summary_label: string|null, server_date: string|null, server_date_label: string|null, guide_links: list<array{label: string, path: string, filename: string}>, questionnaire: array{available: bool, title: string|null, academic_year: string|null, description: string|null, details: list<string>}, notice: array{text: string, dates: list<string>, is_future: bool, kind: string}|null, sidebar_menu: list<array{label: string, href_act: string|null}>, extracted_at: string}|null, metrics: array{ipk: array{value: float|null, source: 'official'|'computed'|null, predicate_estimate: string|null, status: 'ready'|'pending'|'unavailable'|'failed'}, sks_passed: array{value: int|null, target_sks: int|null, remaining_sks: int|null, progress_percent: float|null, status: string}, sks_current: array{value: int|null, courses: int|null, status: string}, bills: array{status: 'clear'|'outstanding'|'unknown'|'pending'|'failed', has_outstanding: bool|null, total_amount: int|null, total_amount_label: string|null, count: int|null}, skkm: array{valid_points: int|float|null, required_points: int|float|null, remaining_points: int|float|null, progress_percent: float|null, is_met: bool|null, status: string}, sources: array<string, array{status: string, synced_at: string|null}>, pending_sources: list<string>, syncing_sources: list<string>}, pending_sources: list<string>}, meta: array{timestamp: string, campus_session_valid: true, status: string, synced_at: string|null, data_origin: string}}";
+
+    private const PORTAL_CONTEXT_RESPONSE = "array{status: 'success', message: string, data: array{academic_period: array{label: string, academic_year: string, term: 'ganjil'|'genap'|null, source: string}|null, semester_number: int|null, semester_source: string|null, semester_is_estimate: bool, semester_label: string|null, summary_label: string|null, server_date: string|null, server_date_label: string|null, guide_links: list<array{label: string, path: string, filename: string}>, questionnaire: array{available: bool, title: string|null, academic_year: string|null, description: string|null, details: list<string>}, notice: array{text: string, dates: list<string>, is_future: bool, kind: string}|null, sidebar_menu: list<array{label: string, href_act: string|null}>, extracted_at: string}, meta: array{timestamp: string, campus_session_valid: true, status: string, synced_at: string|null, data_origin: string}}";
+
+    private const FINANCE_SUMMARY_RESPONSE = "array{status: 'success', message: string, data: array{outstanding_summary: array{status: 'clear'|'outstanding'|'unknown', has_outstanding: bool|null, total_amount: int|null, total_amount_label: string|null, count: int, rows_sum_matches_total: bool|null}, outstanding_bills: list<array{no: string|null, name: string, amount: int|null, amount_label: string|null, description: string|null, installment_stage: int|null, study_year: int|null, installment_amount: int|null, academic_year: string|null}>, has_outstanding: bool|null, outstanding_total: int|null, outstanding_total_label: string|null, current_study_year: int|null, current_academic_year: string|null, current_year: array<string, mixed>|null, current_year_stages_paid: list<int>, stage1_paid_for_current_year: bool|'unknown', next_stage: array{study_year: int, academic_year: string|null, stage: int, status: 'unpaid'|'upcoming'|'unknown', reason: string, deadline: string|null}|null, active_deadline: array{stage: int|null, date: string, days_left: int, is_future: true, text: string, source: 'portal_notice'}|null, latest_payment: array<string, mixed>|null, total_paid_amount: int|null, portal_total_amount: int|null, portal_total_amount_label: string|null, history_available: bool, extracted_at: string|null}, meta: array{timestamp: string, campus_session_valid: true, status: string, synced_at: string|null, data_origin: string, notice_sources: array<string, string>}}";
+
+    private const SKKM_RESPONSE = "array{status: 'success', message: string, data: array{found: bool, stats: array{stat_counts: array{valid: int|null, invalid: int|null, pending: int|null}, total_points: array{valid: int|float|null, invalid: int|float|null, pending: int|float|null}, required_points: int|float|null, required_points_source: 'portal'|'config'|null}, graduation_status: array{text: string|null, is_met: bool|null}, entries: list<array{no: int|null, skkm_id: string|null, name: string, activity: string|null, level: string|null, type: string|null, points: int|float|null, points_label: string|null, status: 'valid'|'invalid'|'pending'|'unknown', status_label: string|null, has_attachment: bool, attachment_path: string|null, has_actions: bool, action_types: list<string>}>, summary: array<string, mixed>, notice: array{text: string, dates: list<string>, is_future: bool, kind: string}|null, message: string|null, guide_path: string|null, guide_year: int|null, add_available: bool, extracted_at: string}, meta: array{timestamp: string, campus_session_valid: true, status: string, synced_at: string|null, data_origin: string}}";
 
     private const PROFILE_RESPONSE = "array{status: 'success', message: string, user_info: array<string, mixed>, profile: array<string, mixed>, meta: array{timestamp: string, campus_session_valid: true}}";
 
@@ -36,12 +43,13 @@ class PortalDataController extends CampusApiController
 
     private const MERGED_CLASSES_RESPONSE = "array{status: 'success', message: string, user_info: array<string, mixed>, classes: list<array<string, mixed>>, semester_info: array<string, mixed>, data_sources: array<string, bool>, meta: array{timestamp: string, campus_session_valid: true, data_source: string}}";
 
-    private const PAYMENT_HISTORY_RESPONSE = "array{status: 'success', message: string, data: array{student_info: array<string, string>, payment_history: list<array<string, mixed>>, summary: array<string, mixed>, extracted_at: string}, meta: array{timestamp: string, campus_session_valid: true}}";
+    private const PAYMENT_HISTORY_RESPONSE = "array{status: 'success', message: string, data: array{student_info: array<string, string>, payment_history: list<array<string, mixed>>, summary: array{total_records: int, total_paid_amount: int, currency: 'IDR', latest_payment_label: string|null, history_available: bool, portal_total_amount: int|null, portal_total_amount_label: string|null, totals_match: bool|null, latest_payment: array<string, mixed>|null, by_study_year: list<array<string, mixed>>}, outstanding_bills: list<array<string, mixed>>, outstanding_summary: array{status: 'clear'|'outstanding'|'unknown', has_outstanding: bool|null, total_amount: int|null, total_amount_label: string|null, count: int, rows_sum_matches_total: bool|null}, outstanding_total: int|null, outstanding_total_label: string|null, has_outstanding: bool|null, payment_stages: list<array<string, mixed>>, payment_stage_summary: array<string, mixed>, extracted_at: string}, meta: array{timestamp: string, campus_session_valid: true}}";
 
     private const FLOW_RESPONSE = "array{status: 'success', message: string, data: array{course_detail: array<string, mixed>, meeting_detail: array<string, mixed>|null, links: array<string, string>}, meta: array{timestamp: string, campus_session_valid: true, script_reference: list<int>}}";
 
     public function __construct(
-        private readonly PortalDatasetRepository $datasets,
+        private readonly DashboardMetricsBuilder $dashboardMetrics,
+        private readonly PortalFinanceStatusResolver $financeStatus,
         private readonly PortalClassCatalog $classCatalog,
         private readonly ClassesExtractor $classesExtractor,
         private readonly PortalFetchPolicy $fetchPolicy
@@ -51,6 +59,10 @@ class PortalDataController extends CampusApiController
      * Ambil data dashboard kampus terbaru.
      *
      * Menggabungkan ringkasan profil, kelas aktif, dan aktivitas terbaru dari DASHBOARD SIPANDAI.
+     * `data.portal_context` (periode akademik, semester, panduan, kuesioner) dan `data.metrics`
+     * (IPK, SKS lulus, SKS semester ini, tagihan, SKKM) hanya dibaca dari snapshot: dashboard tidak
+     * pernah menunggu portal untuk data ini. Snapshot yang belum ada dibangun di background dan
+     * namanya muncul di `data.pending_sources`; nilai yang belum terbaca bernilai `null`, bukan 0.
      */
     #[Response(description: 'Ringkasan dashboard portal berhasil diambil.', type: self::DASHBOARD_RESPONSE)]
     #[Response(401, description: 'Endpoint ini membutuhkan sesi kampus yang aktif.', type: CampusApiController::SCRAMBLE_SESSION_ERROR_RESPONSE)]
@@ -67,9 +79,42 @@ class PortalDataController extends CampusApiController
                 }
             }
 
+            // Secondary widgets never wait on the portal; missing snapshots are built in one background job.
+            $secondary = $this->peekDatasets($sessionToken, ['portal_context', ...DashboardMetricsBuilder::SOURCES]);
+            $metrics = $this->dashboardMetrics->fromSnapshots($secondary);
+            $pendingSources = array_keys(array_filter(
+                $secondary,
+                static fn (array $read): bool => $read['data'] === null && ($read['meta']['status'] ?? null) === 'pending'
+            ));
+
             return $this->statusSuccess('Dashboard data retrieved successfully', [
-                'data' => $dashboard['data'],
+                'data' => [
+                    ...$dashboard['data'],
+                    'portal_context' => $secondary['portal_context']['data'],
+                    'metrics' => $metrics,
+                    'pending_sources' => $pendingSources,
+                ],
             ], meta: $dashboard['meta'], campusSessionValid: true);
+        });
+    }
+
+    /**
+     * Ambil konteks portal: periode akademik, semester ke-N, panduan PDF, dan kuesioner VMTS.
+     *
+     * Sumber periode adalah judul dashboard portal; semester ke-N dibaca dari jadwal kuliah atau
+     * SIPANDAI (`semester_is_estimate` bernilai true bila hanya bisa diperkirakan dari angkatan).
+     */
+    #[Response(description: 'Konteks portal berhasil diambil.', type: self::PORTAL_CONTEXT_RESPONSE)]
+    #[Response(401, description: 'Endpoint ini membutuhkan sesi kampus yang aktif.', type: CampusApiController::SCRAMBLE_SESSION_ERROR_RESPONSE)]
+    #[Response(500, description: 'Konteks portal gagal diambil.', type: CampusApiController::SCRAMBLE_STATUS_ERROR_RESPONSE)]
+    public function portalContext(Request $request): JsonResponse
+    {
+        return $this->withCampusSession('Portal context extraction failed', 'Gagal memuat konteks portal', function (string $sessionToken) use ($request): JsonResponse {
+            $portalContext = $this->readDataset($request, $sessionToken, 'portal_context');
+
+            return $this->statusSuccess('Portal context retrieved successfully', [
+                'data' => $portalContext['data'],
+            ], meta: $portalContext['meta'], campusSessionValid: true);
         });
     }
 
@@ -125,6 +170,58 @@ class PortalDataController extends CampusApiController
             return $this->statusSuccess('Payment history retrieved successfully', [
                 'data' => $payments['data'],
             ], meta: $payments['meta'], campusSessionValid: true);
+        });
+    }
+
+    /**
+     * Ringkasan keuangan untuk keputusan: tagihan aktif, status tahap UKT, dan tenggat bayar.
+     *
+     * Dibaca dari histori keuangan yang sama dengan `/api/finance/payments`. Bila tabel tagihan tidak
+     * terbaca, `outstanding_summary.status` bernilai `unknown` dan nominalnya `null` (tidak pernah "Rp 0").
+     * `active_deadline` hanya terisi bila tanggal tenggat di teks berjalan portal belum lewat dan tahap
+     * yang disebut belum tercatat lunas.
+     */
+    #[Response(description: 'Ringkasan keuangan berhasil diambil.', type: self::FINANCE_SUMMARY_RESPONSE)]
+    #[Response(401, description: 'Endpoint ini membutuhkan sesi kampus yang aktif.', type: CampusApiController::SCRAMBLE_SESSION_ERROR_RESPONSE)]
+    #[Response(500, description: 'Ringkasan keuangan gagal diambil.', type: CampusApiController::SCRAMBLE_STATUS_ERROR_RESPONSE)]
+    public function financeSummary(Request $request): JsonResponse
+    {
+        return $this->withCampusSession('Finance summary extraction failed', 'Gagal memuat ringkasan keuangan', function (string $sessionToken) use ($request): JsonResponse {
+            $payments = $this->readDataset($request, $sessionToken, 'payments');
+            ['portal_context' => $portalContext, 'announcements' => $announcements] = $this->peekDatasets($sessionToken, ['portal_context', 'announcements']);
+
+            return $this->statusSuccess('Finance summary retrieved successfully', [
+                'data' => $this->financeStatus->summarize($payments['data'], [
+                    $portalContext['data']['notice'] ?? null,
+                    $announcements['data']['notice'] ?? null,
+                ]),
+            ], meta: [
+                ...$payments['meta'],
+                'notice_sources' => [
+                    'portal_context' => (string) ($portalContext['meta']['status'] ?? 'missing'),
+                    'announcements' => (string) ($announcements['meta']['status'] ?? 'missing'),
+                ],
+            ], campusSessionValid: true);
+        });
+    }
+
+    /**
+     * Ambil data SKKM (SIREKA): poin valid, menunggu, ditolak, status kelulusan, dan daftar kegiatan.
+     *
+     * `found=false` berarti halaman SIREKA tidak bisa dibaca, bukan 0 poin. Link aksi portal tidak pernah
+     * dikirim; `action_types` hanya memberi tahu aksi yang tersedia.
+     */
+    #[Response(description: 'Data SKKM berhasil diambil.', type: self::SKKM_RESPONSE)]
+    #[Response(401, description: 'Endpoint ini membutuhkan sesi kampus yang aktif.', type: CampusApiController::SCRAMBLE_SESSION_ERROR_RESPONSE)]
+    #[Response(500, description: 'Data SKKM gagal diambil.', type: CampusApiController::SCRAMBLE_STATUS_ERROR_RESPONSE)]
+    public function skkm(Request $request): JsonResponse
+    {
+        return $this->withCampusSession('SKKM extraction failed', 'Gagal memuat data SKKM', function (string $sessionToken) use ($request): JsonResponse {
+            $skkm = $this->readDataset($request, $sessionToken, 'skkm');
+
+            return $this->statusSuccess('SKKM data retrieved successfully', [
+                'data' => $this->withoutWriteEffectLinks($skkm['data']),
+            ], meta: $skkm['meta'], campusSessionValid: true);
         });
     }
 
@@ -274,21 +371,6 @@ class PortalDataController extends CampusApiController
 
             return null;
         }
-    }
-
-    /**
-     * @param  array<string, mixed>  $params
-     * @return array{data: array<string, mixed>, meta: array<string, mixed>}
-     */
-    private function readDataset(Request $request, string $sessionToken, string $dataset, array $params = []): array
-    {
-        return $this->datasets->read(
-            $sessionToken,
-            $dataset,
-            $params,
-            $request->boolean('fresh'),
-            (string) session()->getId()
-        );
     }
 
     /**

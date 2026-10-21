@@ -4,11 +4,16 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Services\Extractors\AdvisingExtractor;
+use App\Services\Extractors\AnnouncementExtractor;
 use App\Services\Extractors\ClassesExtractor;
 use App\Services\Extractors\DashboardExtractor;
 use App\Services\Extractors\FinancialHistoryExtractor;
+use App\Services\Extractors\KrsDetailExtractor;
+use App\Services\Extractors\KrsExtractor;
 use App\Services\Extractors\ProfileExtractor;
 use App\Services\Extractors\SipandaiClassesExtractor;
+use App\Services\Extractors\SkkmExtractor;
 use App\Services\Extractors\StudentCourseExtractor;
 use InvalidArgumentException;
 
@@ -30,7 +35,15 @@ class PortalDatasetBuilder
         private readonly StudentCourseExtractor $studentCourseExtractor,
         private readonly FinancialHistoryExtractor $financialHistoryExtractor,
         private readonly PortalExamListResolver $examListResolver,
-        private readonly PortalMeetingDetailResolver $meetingDetailResolver
+        private readonly PortalMeetingDetailResolver $meetingDetailResolver,
+        private readonly PortalContextResolver $portalContextResolver,
+        private readonly PortalAnnouncementFeed $announcementFeed,
+        private readonly AnnouncementExtractor $announcementExtractor,
+        private readonly KrsExtractor $krsExtractor,
+        private readonly AdvisingExtractor $advisingExtractor,
+        private readonly KrsDetailExtractor $krsDetailExtractor,
+        private readonly PortalGradesResolver $gradesResolver,
+        private readonly SkkmExtractor $skkmExtractor
     ) {}
 
     /**
@@ -54,8 +67,33 @@ class PortalDatasetBuilder
                 (string) ($params['meeting_id'] ?? ''),
                 (string) ($params['courses_id'] ?? '')
             ),
+            'portal_context' => $this->portalContextResolver->resolve($sessionToken),
+            'announcements' => $this->announcementFeed->fetch($sessionToken),
+            'announcement_page' => $this->announcementExtractor->extractAnnouncementsData($sessionToken, max(1, (int) ($params['page'] ?? 1))),
+            'krs' => $this->krsExtractor->extractKrsData($sessionToken),
+            'advising' => $this->advisingExtractor->extractAdvisingData($sessionToken),
+            'krs_detail' => $this->krsDetailExtractor->extractKrsDetailData($sessionToken, $this->krsDetailId($params)),
+            'grades' => $this->gradesResolver->resolve($sessionToken),
+            'skkm' => $this->skkmExtractor->extractSkkmData($sessionToken),
             default => throw new InvalidArgumentException("Unknown portal dataset [{$dataset}]."),
         };
+    }
+
+    /**
+     * KRS ids are only ever taken from the student's own advising history
+     * (see PortalKrsDetailRequest), so anything else is a programming error.
+     *
+     * @param  array<string, mixed>  $params
+     */
+    private function krsDetailId(array $params): int
+    {
+        $krsId = $params['id'] ?? null;
+
+        if (! is_int($krsId) && ! (is_string($krsId) && ctype_digit($krsId))) {
+            throw new InvalidArgumentException('Dataset [krs_detail] needs a numeric id parameter.');
+        }
+
+        return (int) $krsId;
     }
 
     /**

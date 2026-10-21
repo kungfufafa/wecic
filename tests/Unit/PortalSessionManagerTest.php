@@ -46,7 +46,7 @@ class PortalSessionManagerTest extends TestCase
         $authService = Mockery::mock(PortalAuthService::class);
         $authService->shouldReceive('login')
             ->once()
-            ->with('20251030030', 'top-secret')
+            ->with('20990000001', 'top-secret')
             ->andReturn($this->makeLoginResult([
                 'nama' => 'Mahasiswa Refresh',
             ]));
@@ -56,7 +56,7 @@ class PortalSessionManagerTest extends TestCase
             ->once()
             ->with('encrypted-credentials')
             ->andReturn(json_encode([
-                'username' => '20251030030',
+                'username' => '20990000001',
                 'password' => 'top-secret',
             ]));
         $encrypter->shouldReceive('encrypt')
@@ -68,7 +68,7 @@ class PortalSessionManagerTest extends TestCase
 
         Cache::put($cacheKey, [
             'token' => 'existing-token',
-            'username' => '20251030030',
+            'username' => '20990000001',
             'user_info' => ['nama' => 'Mahasiswa Lama'],
             'cookies' => [],
             'login_time' => now()->subMinutes(5)->toISOString(),
@@ -87,7 +87,7 @@ class PortalSessionManagerTest extends TestCase
 
         $this->assertSame('existing-token', $result['session_token']);
         $this->assertSame('existing-token', $storedSession['token']);
-        $this->assertSame('20251030030', $storedSession['username']);
+        $this->assertSame('20990000001', $storedSession['username']);
         $this->assertSame('re-encrypted-credentials', $storedSession['encrypted_credentials']);
         $this->assertCount(1, $sessionCacheKeys);
 
@@ -121,7 +121,7 @@ class PortalSessionManagerTest extends TestCase
 
         Cache::put($cacheKey, [
             'token' => 'logout-token',
-            'username' => '20251030032',
+            'username' => '20990000032',
             'user_info' => ['nama' => 'Mahasiswa Logout'],
             'cookies' => [[
                 'Name' => 'PHPSESSID',
@@ -156,14 +156,14 @@ class PortalSessionManagerTest extends TestCase
         $authService = Mockery::mock(PortalAuthService::class);
         $authService->shouldReceive('login')
             ->once()
-            ->with('20251030036', 'login-pass')
+            ->with('20990000036', 'login-pass')
             ->andReturn($this->makeLoginResult([
                 'nama' => 'Mahasiswa No Credentials',
             ]));
 
         $manager = new PortalSessionManager($authService, Mockery::mock(Encrypter::class));
 
-        $result = $manager->createSession('20251030036', 'login-pass');
+        $result = $manager->createSession('20990000036', 'login-pass');
         $storedSession = Cache::get(config('portal.session_prefix').$result['session_token']);
 
         $this->assertArrayNotHasKey('encrypted_credentials', $storedSession);
@@ -211,14 +211,14 @@ class PortalSessionManagerTest extends TestCase
         $authService = Mockery::mock(PortalAuthService::class);
         $authService->shouldReceive('login')
             ->once()
-            ->with('20251030035', 'login-pass')
+            ->with('20990000035', 'login-pass')
             ->andReturn($this->makeLoginResult([
                 'nama' => 'Mahasiswa Login',
             ]));
 
         $manager = new PortalSessionManager($authService, Mockery::mock(Encrypter::class));
 
-        $result = $manager->createSession('20251030035', 'login-pass');
+        $result = $manager->createSession('20990000035', 'login-pass');
 
         $this->assertArrayHasKey('session_token', $result);
         Log::shouldHaveReceived('info')
@@ -281,6 +281,25 @@ class PortalSessionManagerTest extends TestCase
 
         $this->assertTrue($manager->validateSession('recent-token'));
         $this->assertSame($session, Cache::get($cacheKey));
+    }
+
+    public function test_was_active_within_reads_the_last_recorded_activity_without_touching_it(): void
+    {
+        config(['portal.session_prefix' => 'portal_session_activity_window_']);
+
+        $manager = new PortalSessionManager(Mockery::mock(PortalAuthService::class), Mockery::mock(Encrypter::class));
+        $prefix = config('portal.session_prefix');
+        Cache::put($prefix.'recent-token', $this->makeStoredSession('recent-token', ['last_activity' => now()->subMinutes(5)->toISOString()]), 1200);
+        Cache::put($prefix.'closed-tab-token', $this->makeStoredSession('closed-tab-token', ['last_activity' => now()->subMinutes(45)->toISOString()]), 1200);
+        Cache::put($prefix.'no-activity-token', $this->makeStoredSession('no-activity-token', ['last_activity' => null]), 1200);
+        $before = Cache::get($prefix.'closed-tab-token');
+
+        $this->assertTrue($manager->wasActiveWithin('recent-token', 1200));
+        $this->assertFalse($manager->wasActiveWithin('closed-tab-token', 1200));
+        $this->assertFalse($manager->wasActiveWithin('no-activity-token', 1200));
+        $this->assertFalse($manager->wasActiveWithin('unknown-token', 1200));
+        // A background check is not activity: nothing is written.
+        $this->assertSame($before, Cache::get($prefix.'closed-tab-token'));
     }
 
     public function test_validate_session_ends_a_session_idle_past_the_timeout(): void
@@ -458,12 +477,12 @@ class PortalSessionManagerTest extends TestCase
         $authService->shouldReceive('login')->twice()->andReturn($this->makeLoginResult(['nama' => 'Mahasiswa Owner']));
 
         $manager = new PortalSessionManager($authService, Mockery::mock(Encrypter::class));
-        $first = $manager->createSession('20251030040', 'secret');
-        $second = $manager->createSession(' 20251030040 ', 'secret');
+        $first = $manager->createSession('20990000040', 'secret');
+        $second = $manager->createSession(' 20990000040 ', 'secret');
 
         $owner = app(PortalDataOwner::class);
         $this->assertSame($owner->key($first['session_token']), $owner->key($second['session_token']));
-        $this->assertSame($owner->keyForUsername('20251030040'), $owner->key($first['session_token']));
+        $this->assertSame($owner->keyForUsername('20990000040'), $owner->key($first['session_token']));
 
         Queue::assertPushed(RefreshPortalSessionJob::class, 2);
     }
@@ -617,7 +636,7 @@ class PortalSessionManagerTest extends TestCase
     {
         return array_merge([
             'token' => $token,
-            'username' => '20251030030',
+            'username' => '20990000001',
             'user_info' => ['nama' => 'Mahasiswa Uji'],
             'cookies' => [[
                 'Name' => 'PHPSESSID',

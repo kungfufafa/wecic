@@ -105,14 +105,21 @@ class DashboardExtractor extends PortalScrapingService
 
     /**
      * Extract dashboard overview information
+     *
+     * The SIPANDAI dashboard shows neither an IPK nor a bill amount, so
+     * `gpa` and `outstanding_payments` stay null instead of a made-up "0.00"
+     * or "Rp 0" (Fase 0.7). The real values come from the `grades` and
+     * `payments` snapshots via `data.metrics` of GET /api/dashboard.
+     *
+     * @return array{total_courses: string, gpa: null, total_credits: string, outstanding_payments: null}
      */
     private function extractDashboardOverview(Crawler $crawler): array
     {
         $overview = [
             'total_courses' => '0',
-            'gpa' => '0.00',
+            'gpa' => null,
             'total_credits' => '0',
-            'outstanding_payments' => 'Rp 0',
+            'outstanding_payments' => null,
         ];
 
         // Look for dashboard statistics
@@ -120,15 +127,10 @@ class DashboardExtractor extends PortalScrapingService
             $title = $node->filter('h3, .title, .stat-title')->text('');
             $value = $node->filter('h2, .value, .stat-value')->text('');
 
-            // Map based on title content
             if (stripos($title, 'mata kuliah') !== false || stripos($title, 'course') !== false) {
                 $overview['total_courses'] = $value;
-            } elseif (stripos($title, 'ip') !== false || stripos($title, 'gpa') !== false) {
-                $overview['gpa'] = $value;
             } elseif (stripos($title, 'sks') !== false || stripos($title, 'credit') !== false) {
                 $overview['total_credits'] = $value;
-            } elseif (stripos($title, 'tunggakan') !== false || stripos($title, 'payment') !== false) {
-                $overview['outstanding_payments'] = $value;
             }
         });
 
@@ -143,8 +145,6 @@ class DashboardExtractor extends PortalScrapingService
 
                         if (stripos($label, 'mata kuliah') !== false) {
                             $overview['total_courses'] = $value;
-                        } elseif (stripos($label, 'ipk') !== false || stripos($label, 'ip') !== false) {
-                            $overview['gpa'] = $value;
                         } elseif (stripos($label, 'sks') !== false) {
                             $overview['total_credits'] = $value;
                         }
@@ -357,7 +357,7 @@ class DashboardExtractor extends PortalScrapingService
     {
         try {
             $creditTotal = $this->rememberResource('credit_total', [], fn (): array => [
-                'total' => $this->extractCreditPageTotal($this->get((string) config('portal.student_credit_url'))),
+                'total' => $this->extractCreditPageTotal($this->get(PortalEndpointRegistry::url('student_credit'))),
             ]);
             $syncMeta = [
                 'data_origin' => $creditTotal['_sync']['data_origin'] ?? 'upstream',

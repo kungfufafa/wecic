@@ -11,6 +11,7 @@ use App\Http\Requests\PortalLoginRequest;
 use App\Http\Requests\PortalPasswordChangeRequest;
 use App\Jobs\ScanPortalNotificationsJob;
 use App\Services\PortalBroadcastService;
+use App\Services\PortalDatasetRepository;
 use App\Services\PortalLogContext;
 use App\Services\PortalPasswordService;
 use App\Services\PortalSessionManager;
@@ -32,7 +33,8 @@ class PortalAuthController extends CampusApiController
 
     public function __construct(
         private readonly PortalSessionManager $sessionManager,
-        private readonly PortalPasswordService $passwordService
+        private readonly PortalPasswordService $passwordService,
+        private readonly PortalDatasetRepository $datasets
     ) {}
 
     /**
@@ -41,6 +43,8 @@ class PortalAuthController extends CampusApiController
      * Kredensial kampus (NIM dan kata sandi) akan diverifikasi lalu dibuatkan
      * sesi baru via `PortalSessionManager`. Token hasil login disimpan di session
      * browser sehingga permintaan API lain bisa memakai `campus_session_token`.
+     * Setelah login, data untuk keputusan (KRS, perwalian, nilai, tagihan, SKKM,
+     * pengumuman, konteks portal) disinkronkan di background tanpa menahan respons.
      */
     #[Response(description: 'Login berhasil dan sesi kampus aktif.', type: self::LOGIN_RESPONSE)]
     #[Response(401, description: 'Kredensial portal tidak valid atau sesi gagal dibuat.', type: CampusApiController::SCRAMBLE_SESSION_ERROR_RESPONSE)]
@@ -68,6 +72,14 @@ class PortalAuthController extends CampusApiController
             ScanPortalNotificationsJob::dispatch(
                 (string) session()->getId(),
                 $sessionResult['session_token']
+            );
+
+            // KRS, grades, bills, SKKM and announcements sync in the background
+            // right away, so those pages and the action center open instantly.
+            $this->datasets->warmUp(
+                $sessionResult['session_token'],
+                (string) session()->getId(),
+                (int) config('portal.sync.warmup_delay', 5)
             );
 
             Log::info('User logged in successfully', ['username_fingerprint' => PortalLogContext::fingerprint($username)]);

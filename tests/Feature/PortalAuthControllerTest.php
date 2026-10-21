@@ -7,6 +7,7 @@ namespace Tests\Feature;
 use App\Events\PortalNotificationSent;
 use App\Events\PortalSessionNoticeSent;
 use App\Http\Middleware\VerifyCsrfTokenMiddleware;
+use App\Jobs\RefreshPortalDataJob;
 use App\Jobs\ScanPortalNotificationsJob;
 use App\Services\PortalBroadcastService;
 use App\Services\PortalPasswordService;
@@ -30,7 +31,7 @@ class PortalAuthControllerTest extends TestCase
     {
         $response = $this->withMiddleware(VerifyCsrfTokenMiddleware::class)
             ->post('/api/auth/login', [
-                'username' => '20251030030',
+                'username' => '20990000001',
                 'password' => 'secret-password',
             ], ['Accept' => 'application/json']);
 
@@ -60,14 +61,14 @@ class PortalAuthControllerTest extends TestCase
     public function test_login_rotates_laravel_session_id_and_does_not_return_session_token(): void
     {
         Event::fake([PortalSessionNoticeSent::class, PortalNotificationSent::class]);
-        Bus::fake([ScanPortalNotificationsJob::class]);
+        Bus::fake([ScanPortalNotificationsJob::class, RefreshPortalDataJob::class]);
 
         $this->instance(
             PortalSessionManager::class,
             Mockery::mock(PortalSessionManager::class, function (MockInterface $mock): void {
                 $mock->shouldReceive('createSession')
                     ->once()
-                    ->with('20251030030', 'secret-password')
+                    ->with('20990000001', 'secret-password')
                     ->andReturn([
                         'success' => true,
                         'session_token' => 'campus-token-123',
@@ -87,7 +88,7 @@ class PortalAuthControllerTest extends TestCase
         $response = $this->withMiddleware(VerifyCsrfTokenMiddleware::class)
             ->post('/api/auth/login', [
                 '_token' => 'known-csrf-token',
-                'username' => '20251030030',
+                'username' => '20990000001',
                 'password' => 'secret-password',
             ], ['Accept' => 'application/json']);
 
@@ -249,7 +250,7 @@ class PortalAuthControllerTest extends TestCase
             $response = $this->withSession(['_token' => 'known-csrf-token'])
                 ->post('/api/auth/login', [
                     '_token' => 'known-csrf-token',
-                    'username' => '20251030030',
+                    'username' => '20990000001',
                 ], ['Accept' => 'application/json']);
 
             $response->assertStatus(422);
@@ -258,7 +259,7 @@ class PortalAuthControllerTest extends TestCase
         $response = $this->withSession(['_token' => 'known-csrf-token'])
             ->post('/api/auth/login', [
                 '_token' => 'known-csrf-token',
-                'username' => '20251030030',
+                'username' => '20990000001',
             ], ['Accept' => 'application/json']);
 
         $response->assertStatus(429);

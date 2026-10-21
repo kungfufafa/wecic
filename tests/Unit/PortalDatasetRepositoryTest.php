@@ -143,7 +143,8 @@ class PortalDatasetRepositoryTest extends TestCase
         $result = $this->repository()->read('token', 'exams');
 
         $this->assertSame('failed', $result['meta']['status']);
-        $this->assertSame('Portal down', $result['meta']['error']);
+        // The exception text stays in the log; the browser only gets a code.
+        $this->assertSame(PortalDatasetRepository::SYNC_FAILED_CODE, $result['meta']['error']);
         Queue::assertNothingPushed();
 
         Carbon::setTestNow(now()->addSeconds(config('portal.sync.failure_backoff') + 1));
@@ -167,8 +168,8 @@ class PortalDatasetRepositoryTest extends TestCase
     public function test_snapshots_from_a_previous_login_are_available_after_relogin(): void
     {
         $owner = app(PortalDataOwner::class);
-        $owner->remember('old-login', '20251030030', 600);
-        $owner->remember('new-login', '20251030030', 600);
+        $owner->remember('old-login', '20990000001', 600);
+        $owner->remember('new-login', '20990000001', 600);
 
         $this->snapshots->put('old-login', 'dashboard', ['overview' => 'from previous login']);
         $this->expectBuilds(0);
@@ -208,6 +209,146 @@ class PortalDatasetRepositoryTest extends TestCase
 
         $this->assertSame(['40000'], array_column($result['data']['assignments'], 'meeting_id'));
         $this->assertSame(['40000'], array_column($this->snapshots->get('token', 'assignments')['data']['assignments'], 'meeting_id'));
+    }
+
+    public function test_peek_never_builds_inline_and_queues_a_missing_snapshot_once(): void
+    {
+        $this->expectBuilds(0);
+
+        $first = $this->repository()->peek('token', 'krs', [], 'laravel-session');
+        $second = $this->repository()->peek('token', 'krs', [], 'laravel-session');
+
+        $this->assertNull($first['data']);
+        $this->assertSame('pending', $first['meta']['status']);
+        $this->assertSame('pending', $second['meta']['status']);
+        Queue::assertPushed(RefreshPortalDataJob::class, 1);
+    }
+
+    public function test_peek_serves_a_stale_snapshot_while_it_resyncs(): void
+    {
+        $this->snapshots->put('token', 'grades', ['summary' => ['ipk' => 3.1]], now()->subHours(2)->toISOString());
+        $this->expectBuilds(0);
+
+        $result = $this->repository()->peek('token', 'grades');
+
+        $this->assertSame(['summary' => ['ipk' => 3.1]], $result['data']);
+        $this->assertSame('syncing', $result['meta']['status']);
+        Queue::assertPushed(RefreshPortalDataJob::class, 1);
+    }
+
+    public function test_peek_can_leave_a_missing_snapshot_alone(): void
+    {
+        $this->expectBuilds(0);
+
+        $result = $this->repository()->peek('token', 'assignments', [], null, false);
+
+        $this->assertSame('missing', $result['meta']['status']);
+        Queue::assertNothingPushed();
+    }
+
+    public function test_peek_many_queues_every_missing_dataset_in_one_job(): void
+    {
+        $this->snapshots->put('token', 'krs', ['found' => true]);
+        $this->expectBuilds(0);
+
+        $reads = $this->repository()->peekMany('token', ['krs', 'grades', 'skkm', 'exams'], 'laravel-session', ['grades', 'skkm']);
+
+        $this->assertSame(['found' => true], $reads['krs']['data']);
+        $this->assertSame('pending', $reads['grades']['meta']['status']);
+        $this->assertSame('pending', $reads['skkm']['meta']['status']);
+        $this->assertSame('missing', $reads['exams']['meta']['status']);
+        Queue::assertPushed(RefreshPortalDataJob::class, 1);
+        Queue::assertPushed(RefreshPortalDataJob::class, fn (RefreshPortalDataJob $job): bool => (fn (): array => $this->domains)->call($job) === ['grades', 'skkm']);
+    }
+
+    public function test_peek_many_leaves_stale_reuse_only_datasets_alone(): void
+    {
+        $this->snapshots->put('token', 'assignments', ['assignments' => []], now()->subHour()->toISOString());
+        $this->expectBuilds(0);
+
+        $reads = $this->repository()->peekMany('token', ['assignments'], 'laravel-session', ['krs']);
+
+        // Served as is: the heavy crawl is never started by a secondary read.
+        $this->assertSame(['assignments' => []], $reads['assignments']['data']);
+        $this->assertSame('synced', $reads['assignments']['meta']['status']);
+        Queue::assertNothingPushed();
+    }
+
+    public function test_peek_many_resyncs_every_stale_and_missing_dataset_in_one_job(): void
+    {
+        $this->snapshots->put('token', 'krs', ['found' => true], now()->subHours(2)->toISOString());
+        $this->snapshots->put('token', 'skkm', ['found' => true], now()->subHours(2)->toISOString());
+        $this->expectBuilds(0);
+
+        $reads = $this->repository()->peekMany('token', ['krs', 'skkm', 'grades'], 'laravel-session');
+
+        $this->assertSame('syncing', $reads['krs']['meta']['status']);
+        $this->assertSame('syncing', $reads['skkm']['meta']['status']);
+        $this->assertSame('pending', $reads['grades']['meta']['status']);
+        Queue::assertPushed(RefreshPortalDataJob::class, 1);
+        Queue::assertPushed(RefreshPortalDataJob::class, fn (RefreshPortalDataJob $job): bool => (fn (): array => $this->domains)->call($job) === ['krs', 'skkm', 'grades']);
+
+        // While that job runs, repeated reads queue nothing more.
+        $this->repository()->peekMany('token', ['krs', 'skkm', 'grades'], 'laravel-session');
+        Queue::assertPushed(RefreshPortalDataJob::class, 1);
+    }
+
+    public function test_a_background_build_that_fails_without_a_snapshot_backs_off_and_reports_failed(): void
+    {
+        config(['portal.sync.build_failure_backoff' => 900]);
+        $this->mockBuilder(function (MockInterface $mock): void {
+            $mock->shouldReceive('build')->once()->andThrow(PortalScrapingException::dataExtractionFailed('grades', 'Kartu Hasil Studi tidak ditemukan di portal.'));
+        });
+
+        try {
+            $this->repository()->sync('token', 'grades');
+            $this->fail('The failed build should be rethrown to the job.');
+        } catch (PortalScrapingException) {
+            // expected
+        }
+
+        $reads = $this->repository()->peekMany('token', ['grades'], 'laravel-session');
+
+        $this->assertNull($reads['grades']['data']);
+        $this->assertSame('failed', $reads['grades']['meta']['status']);
+        $this->assertSame('failed', $this->repository()->peek('token', 'grades')['meta']['status']);
+        $this->assertSame([], $this->repository()->queueSync('token', ['grades']));
+        Queue::assertNothingPushed();
+
+        // After the back-off the build is queued again.
+        Carbon::setTestNow(now()->addSeconds(901));
+        $this->assertSame('pending', $this->repository()->peekMany('token', ['grades'], 'laravel-session')['grades']['meta']['status']);
+        Queue::assertPushed(RefreshPortalDataJob::class, 1);
+    }
+
+    public function test_a_successful_build_clears_an_earlier_build_failure(): void
+    {
+        $this->mockBuilder(function (MockInterface $mock): void {
+            $mock->shouldReceive('build')->once()->andThrow(PortalScrapingException::dataExtractionFailed('skkm', 'down'));
+            $mock->shouldReceive('build')->once()->andReturn(['found' => true]);
+        });
+
+        try {
+            $this->repository()->read('token', 'skkm');
+        } catch (PortalScrapingException) {
+            // The first inline build fails: no snapshot, the page shows its error.
+        }
+
+        $this->assertSame('failed', $this->repository()->peek('token', 'skkm')['meta']['status']);
+
+        // Opening the page again still builds inline (the student asked for it).
+        $this->assertSame(['found' => true], $this->repository()->read('token', 'skkm')['data']);
+        $this->assertSame('synced', $this->repository()->peek('token', 'skkm')['meta']['status']);
+    }
+
+    public function test_queue_sync_skips_fresh_in_flight_and_unknown_datasets(): void
+    {
+        $this->snapshots->put('token', 'payments', ['outstanding_summary' => []]);
+        $this->snapshots->put('token', 'krs', ['found' => true], now()->subHour()->toISOString());
+        $this->snapshots->markSyncing('token', 'krs');
+
+        $this->assertSame([], $this->repository()->queueSync('token', ['payments', 'krs', 'not_a_dataset']));
+        Queue::assertNothingPushed();
     }
 
     private function repository(): PortalDatasetRepository

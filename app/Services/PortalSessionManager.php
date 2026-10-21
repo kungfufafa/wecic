@@ -113,6 +113,27 @@ class PortalSessionManager
     }
 
     /**
+     * Whether the student used the app within the last `$seconds` (requests
+     * record `last_activity`); background pings and jobs never count. Lets
+     * background work skip a student who closed the app but whose session
+     * has not reached the idle timeout yet.
+     */
+    public function wasActiveWithin(string $sessionToken, int $seconds): bool
+    {
+        $lastActivity = $this->loadSession($sessionToken)['last_activity'] ?? null;
+
+        if (! is_string($lastActivity) || $lastActivity === '') {
+            return false;
+        }
+
+        try {
+            return CarbonImmutable::parse($lastActivity)->addSeconds(max(0, $seconds))->isFuture();
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    /**
      * Whether the session can be used, without recording user activity; for
      * background work, which must not keep an abandoned session alive
      */

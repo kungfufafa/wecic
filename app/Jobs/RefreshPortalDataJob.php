@@ -23,13 +23,31 @@ use Illuminate\Support\Facades\Log;
  *
  * Unique per session + datasets + params, so repeated stale reads or refresh
  * clicks queue a single job. Each dataset is rebuilt with resource caches
- * bypassed; the browser only re-reads the stored snapshot afterwards.
+ * bypassed and announced as soon as it is stored; the browser only re-reads
+ * the stored snapshot afterwards.
  */
 class RefreshPortalDataJob implements ShouldBeUnique, ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public int $tries = 1;
+
+    /**
+     * Seconds per dataset in the timeout budget: a few portal pages, each
+     * with the politeness delay, a 30 s request timeout and retries.
+     */
+    private const SECONDS_PER_DATASET = 75;
+
+    private const MIN_TIMEOUT = 120;
+
+    private const MAX_TIMEOUT = 600;
+
+    /**
+     * Worker timeout for this job, sized by its datasets (set in the
+     * constructor): the worker's 60 s default would kill a login warm-up of
+     * eight datasets on a slow portal.
+     */
+    public int $timeout = self::MIN_TIMEOUT;
 
     /**
      * Parameters for parameterized datasets. A plain property with a default
@@ -50,6 +68,7 @@ class RefreshPortalDataJob implements ShouldBeUnique, ShouldQueue
         array $params = []
     ) {
         $this->params = $params;
+        $this->timeout = max(self::MIN_TIMEOUT, min(self::MAX_TIMEOUT, self::SECONDS_PER_DATASET * count(array_unique($domains))));
         $this->onQueue('campus-refresh');
     }
 
@@ -90,6 +109,17 @@ class RefreshPortalDataJob implements ShouldBeUnique, ShouldQueue
             try {
                 $datasets->sync($this->campusSessionToken, $dataset, $this->params);
                 $syncedDatasets[] = $dataset;
+
+                // Announce each dataset as soon as it is stored: a slow later
+                // dataset (or a worker timeout) must not hold back the ones done.
+                $keys = PortalDatasetRepository::realtimeKeys($dataset);
+                $broadcast->dataInvalidated(
+                    $this->sessionId,
+                    $this->campusSessionToken,
+                    $keys['cache_keys'],
+                    $keys['sync_keys'],
+                    'Data portal diperbarui di background.'
+                );
             } catch (\Throwable $throwable) {
                 if (PortalException::indicatesExpiredSession($throwable)) {
                     $broadcast->syncStatus($this->sessionId, $this->campusSessionToken, PortalOperationStage::Relogin, 'Sesi perlu login ulang.');
@@ -115,13 +145,6 @@ class RefreshPortalDataJob implements ShouldBeUnique, ShouldQueue
                 'Selesai. Data terbaru siap ditampilkan.',
                 $keys['cache_keys'],
                 $keys['sync_keys']
-            );
-            $broadcast->dataInvalidated(
-                $this->sessionId,
-                $this->campusSessionToken,
-                $keys['cache_keys'],
-                $keys['sync_keys'],
-                'Data portal diperbarui di background.'
             );
         }
 

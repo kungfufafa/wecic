@@ -35,9 +35,9 @@ class PortalDataCacheTest extends TestCase
     public function test_entries_belong_to_the_student_and_survive_a_relogin(): void
     {
         $owner = app(PortalDataOwner::class);
-        $owner->remember('first-login-token', '20251030030', 600);
-        $owner->remember('second-login-token', '20251030030', 600);
-        $owner->remember('other-student-token', '20251030099', 600);
+        $owner->remember('first-login-token', '20990000001', 600);
+        $owner->remember('second-login-token', '20990000001', 600);
+        $owner->remember('other-student-token', '20990000099', 600);
 
         $this->cache->remember('first-login-token', 'profile', [], fn (): array => ['nama' => 'Mahasiswa A']);
 

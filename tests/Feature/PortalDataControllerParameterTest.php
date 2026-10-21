@@ -5,17 +5,27 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Exceptions\PortalScrapingException;
+use App\Jobs\RefreshPortalDataJob;
 use App\Services\Extractors\ClassesExtractor;
 use App\Services\Extractors\DashboardExtractor;
 use App\Services\PortalSessionManager;
 use App\Services\PortalSnapshotStore;
 use App\Services\SipandaiSubmissionService;
+use Illuminate\Support\Facades\Bus;
 use Mockery;
 use Mockery\MockInterface;
 use Tests\TestCase;
 
 class PortalDataControllerParameterTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        // The dashboard queues background builds for its secondary widgets.
+        Bus::fake([RefreshPortalDataJob::class]);
+    }
+
     protected function tearDown(): void
     {
         Mockery::close();
@@ -110,7 +120,7 @@ class PortalDataControllerParameterTest extends TestCase
                                     'date' => 'Selasa, 21 April 2026',
                                     'score' => '0',
                                     'file_info' => [
-                                        'href' => '../files/tugasmhs/9198-5-20251030030-a14.pdf',
+                                        'href' => '../files/tugasmhs/9198-5-20990000001-a14.pdf',
                                         'text' => 'Open File',
                                     ],
                                 ],
@@ -133,7 +143,7 @@ class PortalDataControllerParameterTest extends TestCase
                             'pertemuan' => '5',
                         ],
                         'file_info' => [
-                            'href' => '../files/tugasmhs/9198-5-20251030030-a14.pdf',
+                            'href' => '../files/tugasmhs/9198-5-20990000001-a14.pdf',
                             'text' => 'Open File',
                         ],
                     ]);
@@ -145,7 +155,7 @@ class PortalDataControllerParameterTest extends TestCase
 
         $response->assertOk()
             ->assertJsonPath('class_detail.assignment_info.status', 'uploaded')
-            ->assertJsonPath('class_detail.assignment_info.submission.file_info.href', '../files/tugasmhs/9198-5-20251030030-a14.pdf')
+            ->assertJsonPath('class_detail.assignment_info.submission.file_info.href', '../files/tugasmhs/9198-5-20990000001-a14.pdf')
             ->assertJsonPath('class_detail.assignment_info.submission.date', 'Selasa, 21 April 2026')
             ->assertJsonPath('class_detail.assignment_info.delete_payload.id', '126663');
     }
@@ -466,9 +476,9 @@ class PortalDataControllerParameterTest extends TestCase
                         'user_info' => [],
                         'dashboard_overview' => [
                             'total_courses' => '7',
-                            'gpa' => '3.75',
+                            'gpa' => null,
                             'total_credits' => '21',
-                            'outstanding_payments' => 'Rp 0',
+                            'outstanding_payments' => null,
                         ],
                         'recent_activity' => [],
                         'classes_summary' => [
@@ -502,7 +512,15 @@ class PortalDataControllerParameterTest extends TestCase
             ->assertJsonPath('data.classes_summary.day', 'Sabtu')
             ->assertJsonPath('data.classes_summary.today_classes_count', 1)
             ->assertJsonPath('data.classes_summary.today_classes.0.course_name', 'Algoritma')
-            ->assertJsonPath('data.classes_summary.today_classes.0.room', 'Ruang 301');
+            ->assertJsonPath('data.classes_summary.today_classes.0.room', 'Ruang 301')
+            // IPK and bills come from their own snapshots, never a made-up 0 (Fase 0.7).
+            ->assertJsonPath('data.dashboard_overview.gpa', null)
+            ->assertJsonPath('data.dashboard_overview.outstanding_payments', null)
+            ->assertJsonPath('data.metrics.ipk.value', null)
+            ->assertJsonPath('data.metrics.ipk.status', 'pending')
+            ->assertJsonPath('data.metrics.bills.status', 'pending')
+            ->assertJsonPath('data.portal_context', null)
+            ->assertJsonPath('data.pending_sources', ['portal_context', 'grades', 'krs', 'payments', 'skkm']);
     }
 
     public function test_dashboard_route_returns_unauthorized_when_upstream_session_has_expired_during_scraping(): void
