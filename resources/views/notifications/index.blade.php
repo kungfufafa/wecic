@@ -68,6 +68,7 @@
                 academic_period_changed: 'Portal',
                 questionnaire_opened: 'Portal',
                 portal_menu_added: 'Portal',
+                archive_suspect: 'Arsip',
             };
             const URGENCY_BADGES = { critical: 'danger', warning: 'warning', info: 'brand' };
             const GROUPS = [

@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use App\Services\PortalDataArchive;
+use App\Services\PortalDataOwner;
 use App\Services\PortalSessionManager;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -90,4 +92,31 @@ Route::middleware('portal.web')->group(function (): void {
     Route::view('/library/theses', 'library.theses')->name('library.theses');
     Route::view('/more', 'more')->name('more');
     Route::view('/notifications', 'notifications.index')->name('notifications.index');
+
+    Route::view('/notebook', 'notebook.index')->name('notebook.index');
+    Route::get('/notebook/{id}', fn (string $id) => view('notebook.show', ['notebookId' => (int) $id]))
+        ->whereNumber('id')
+        ->name('notebook.show');
+
+    Route::view('/archive', 'archive.index')->name('archive.index');
+    Route::get('/archive/versions/{version}/print', function (PortalDataArchive $archive, PortalDataOwner $owner, string $version) {
+        $archived = $archive->findForOwner($owner->key((string) session('campus_session_token')), (int) $version);
+
+        abort_if($archived === null, 404);
+
+        $baseline = $archive->baseline($archived);
+
+        return view('archive.print', [
+            'version' => $archived,
+            'label' => $archive->label($archived->dataset),
+            'baseline' => $baseline,
+            'diff' => $baseline !== null ? $archive->diff($baseline->payload, $archived->payload) : [],
+            'entries' => $archive->diff([], $archived->payload, 2000),
+        ]);
+    })->whereNumber('version')->name('archive.print');
+    Route::get('/archive/{dataset}', function (PortalDataArchive $archive, string $dataset) {
+        abort_unless($archive->archives($dataset), 404);
+
+        return view('archive.show', ['dataset' => $dataset, 'label' => $archive->label($dataset)]);
+    })->where('dataset', '[a-z_]+')->name('archive.show');
 });

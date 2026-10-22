@@ -99,6 +99,49 @@ class SipandaiSubmissionServiceTest extends TestCase
         $this->assertCount(2, $history);
         $this->assertSame('GET', $history[0]['request']->getMethod());
         $this->assertSame('POST', $history[1]['request']->getMethod());
+        $this->assertStringContainsString('act=discussabsen', (string) $history[1]['request']->getUri());
+        parse_str((string) $history[1]['request']->getBody(), $submittedPayload);
+
+        $this->assertSame('35533429', $submittedPayload['qrcode']);
+        $this->assertSame('35533429', $submittedPayload['kode']);
+        $this->assertTrue($result['success']);
+        $this->assertSame('marked', $result['data']['status']);
+    }
+
+    public function test_submit_attendance_falls_back_to_actabsen_when_qr_page_has_no_redirect_script(): void
+    {
+        config(['portal.request_delay' => 0]);
+
+        $sessionManager = $this->createMock(PortalSessionManager::class);
+        $sessionManager->expects($this->once())
+            ->method('getSessionCookieJar')
+            ->with('token-fallback')
+            ->willReturn(CookieJar::fromArray([], 'my.cic.ac.id'));
+
+        $service = new SipandaiSubmissionService($sessionManager);
+        $history = [];
+
+        $htmlWithoutScript = '<html><head><title>Absensi</title></head><body><div class="container"><h3>ABSEN</h3></div></body></html>';
+
+        $handler = new MockHandler([
+            new Response(200, [], $htmlWithoutScript),
+            new Response(200, [], $this->successfulAttendanceResponseHtml()),
+        ]);
+
+        $stack = HandlerStack::create($handler);
+        $stack->push(Middleware::history($history));
+
+        $this->setNonPublicProperty($service, 'client', new Client([
+            'handler' => $stack,
+        ]));
+
+        $result = $service->submitAttendance('token-fallback', 8837, 30216, 9, [
+            'kode' => '35533429',
+        ]);
+
+        $this->assertCount(2, $history);
+        $this->assertSame('GET', $history[0]['request']->getMethod());
+        $this->assertSame('POST', $history[1]['request']->getMethod());
         $this->assertSame(
             PortalEndpointRegistry::url('attendance_submit', [
                 'modulesid' => 30216,
@@ -334,6 +377,34 @@ class SipandaiSubmissionServiceTest extends TestCase
 
         $this->assertTrue($status['success']);
         $this->assertSame('already_marked', $status['code']);
+    }
+
+    public function test_determine_attendance_status_detects_data_kelas_tidak_ditemukan(): void
+    {
+        $service = new SipandaiSubmissionService($this->createMock(PortalSessionManager::class));
+
+        $status = $this->invokeNonPublicMethod($service, 'determineAttendanceStatus', [
+            '<html><body><div class="alert alert-danger">Maaf, Data Kelas tidak ditemukan..! Pastikan Code Unix Sesuai Dengan Kelas Yang Diambil</div></body></html>',
+            ['Maaf, Data Kelas tidak ditemukan..! Pastikan Code Unix Sesuai Dengan Kelas Yang Diambil'],
+        ]);
+
+        $this->assertFalse($status['success']);
+        $this->assertSame('invalid_code', $status['code']);
+        $this->assertStringContainsString('Data kelas tidak ditemukan', $status['message']);
+    }
+
+    public function test_determine_attendance_status_detects_waktu_absen_berakhir(): void
+    {
+        $service = new SipandaiSubmissionService($this->createMock(PortalSessionManager::class));
+
+        $status = $this->invokeNonPublicMethod($service, 'determineAttendanceStatus', [
+            '<html><body><div class="alert alert-warning">Waktu absen berakhir pada jam 17:59 Wib</div></body></html>',
+            ['Waktu absen berakhir pada jam 17:59 Wib'],
+        ]);
+
+        $this->assertFalse($status['success']);
+        $this->assertSame('expired', $status['code']);
+        $this->assertStringContainsString('sudah ditutup', $status['message']);
     }
 
     public function test_determine_delete_status_does_not_assume_success_when_target_is_missing(): void

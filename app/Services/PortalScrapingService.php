@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Exceptions\PortalConnectionException;
+use App\Exceptions\PortalOfflineException;
 use App\Exceptions\PortalScrapingException;
 use Carbon\CarbonImmutable;
 use GuzzleHttp\Client;
@@ -112,6 +113,12 @@ abstract class PortalScrapingService
      */
     public function setSession(string $sessionToken): void
     {
+        // An offline session holds no portal cookies; using it would only
+        // reach the login page and end the session.
+        if (app(PortalOfflineAccess::class)->isOfflineSession($sessionToken)) {
+            throw PortalOfflineException::offlineSession();
+        }
+
         $this->sessionToken = $sessionToken;
         $this->cookieJar = $this->sessionContext()->cookieJar(
             $sessionToken,

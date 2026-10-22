@@ -87,6 +87,50 @@ class PortalSessionManager
     }
 
     /**
+     * Create a read-only session for a student whose password matched their
+     * last online login while the portal is unreachable (see
+     * PortalOfflineAccess). It carries no portal cookies and no keep-alive.
+     *
+     * @param  array<string, mixed>  $userInfo
+     * @return array{success: true, session_token: string, user_info: array<string, mixed>, expires_at: string, offline: true}
+     */
+    public function createOfflineSession(string $username, array $userInfo): array
+    {
+        $sessionToken = $this->generateSessionToken();
+        $sessionData = [
+            'token' => $sessionToken,
+            'username' => $username,
+            'user_info' => $userInfo,
+            'cookies' => [],
+            'login_time' => now()->toISOString(),
+            'last_activity' => now()->toISOString(),
+            'expires_at' => $this->idleExpiry(),
+            'upstream_checked_at' => null,
+            'is_active' => true,
+            'offline' => true,
+        ];
+
+        $this->storeSession($sessionToken, $sessionData);
+        $this->logSessionEvent('offline_login_succeeded', sessionToken: $sessionToken, username: $username, session: $sessionData);
+
+        return [
+            'success' => true,
+            'session_token' => $sessionToken,
+            'user_info' => $userInfo,
+            'expires_at' => $sessionData['expires_at'],
+            'offline' => true,
+        ];
+    }
+
+    /**
+     * Seconds a stored session lives in the cache.
+     */
+    public function sessionTtl(): int
+    {
+        return (int) config('portal.session_idle_timeout', 7200) + (int) config('portal.session_refresh_interval', 1200);
+    }
+
+    /**
      * Read the stored session without recording activity
      */
     public function getSession(string $sessionToken): ?array
@@ -244,7 +288,8 @@ class PortalSessionManager
         $session = $this->loadSession($sessionToken);
 
         try {
-            if (is_array($session['cookies'] ?? null)) {
+            // An offline session never reached the portal; there is nothing to log out of.
+            if (is_array($session['cookies'] ?? null) && ! ($session['offline'] ?? false)) {
                 $this->authService->logout($this->recreateCookieJar($session['cookies']));
             }
 
@@ -454,7 +499,7 @@ class PortalSessionManager
      */
     private function storeSession(string $sessionToken, array $sessionData, ?int $ttl = null): void
     {
-        $ttl ??= (int) config('portal.session_idle_timeout', 7200) + (int) config('portal.session_refresh_interval', 1200);
+        $ttl ??= $this->sessionTtl();
 
         Cache::put($this->cacheKey($sessionToken), $sessionData, $ttl);
 

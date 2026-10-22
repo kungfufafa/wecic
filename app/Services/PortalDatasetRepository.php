@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Exceptions\PortalException;
+use App\Exceptions\PortalOfflineException;
 use App\Jobs\RefreshPortalDataJob;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Cache\LockTimeoutException;
@@ -23,6 +24,12 @@ use Illuminate\Support\Facades\Log;
  * A failed rebuild never hides data the student already has: the previous
  * snapshot is served with a `failed` status instead. Only an expired campus
  * session propagates, because that requires a new login.
+ *
+ * Archived datasets (PortalDataArchive) outlive their snapshot: a missing
+ * snapshot is restored from the archive and treated as stale, and a build
+ * that looks like the portal lost data keeps serving the trusted version.
+ * An offline session (PortalOfflineAccess) only ever reads snapshots and the
+ * archive, with status `offline`.
  */
 class PortalDatasetRepository
 {
@@ -39,7 +46,11 @@ class PortalDatasetRepository
         private readonly PortalDataCache $dataCache,
         private readonly PortalDataOwner $owner,
         private readonly PortalActionProjector $projector,
-        private readonly PortalSnapshotDiffNotifier $notifier
+        private readonly PortalSnapshotDiffNotifier $notifier,
+        private readonly PortalDataArchive $archive,
+        private readonly PortalOfflineAccess $offlineAccess,
+        private readonly PortalArchivedFileStore $archivedFiles,
+        private readonly NotebookCourseSync $courseNotebooks
     ) {}
 
     /**
@@ -53,7 +64,13 @@ class PortalDatasetRepository
         bool $forceFresh = false,
         ?string $broadcastSessionId = null
     ): array {
-        $snapshot = $this->snapshots->get($sessionToken, $dataset, $params);
+        $snapshot = $this->snapshotOrArchive($sessionToken, $dataset, $params);
+
+        if ($this->offlineAccess->isOfflineSession($sessionToken)) {
+            return $snapshot !== null
+                ? $this->snapshotResult($snapshot, ['status' => 'offline', 'requested_fresh' => $forceFresh])
+                : throw PortalOfflineException::offlineSession();
+        }
 
         if ($snapshot !== null && (! $forceFresh || $this->isWithinForceCooldown($sessionToken, $dataset, $snapshot))) {
             return $this->serveSnapshot($sessionToken, $dataset, $params, $snapshot, $forceFresh, $broadcastSessionId);
@@ -103,7 +120,13 @@ class PortalDatasetRepository
         ?string $broadcastSessionId = null,
         bool $queueWhenMissing = true
     ): array {
-        $snapshot = $this->snapshots->get($sessionToken, $dataset, $params);
+        $snapshot = $this->snapshotOrArchive($sessionToken, $dataset, $params);
+
+        if ($this->offlineAccess->isOfflineSession($sessionToken)) {
+            return $snapshot !== null
+                ? $this->snapshotResult($snapshot, ['status' => 'offline'])
+                : $this->missingResult('offline');
+        }
 
         if ($snapshot !== null) {
             return $this->serveSnapshot($sessionToken, $dataset, $params, $snapshot, false, $broadcastSessionId);
@@ -140,16 +163,17 @@ class PortalDatasetRepository
     {
         $results = [];
         $toSync = [];
+        $offline = $this->offlineAccess->isOfflineSession($sessionToken);
 
         foreach (array_values(array_unique($datasets)) as $dataset) {
-            $canRefresh = $refreshable === null || in_array($dataset, $refreshable, true);
+            $canRefresh = ! $offline && ($refreshable === null || in_array($dataset, $refreshable, true));
 
             try {
-                $snapshot = $this->snapshots->get($sessionToken, $dataset, []);
+                $snapshot = $this->snapshotOrArchive($sessionToken, $dataset, []);
 
                 if ($snapshot === null) {
                     $failed = $this->buildFailedRecently($sessionToken, $dataset, []);
-                    $results[$dataset] = $this->missingResult($failed ? 'failed' : 'missing');
+                    $results[$dataset] = $this->missingResult($offline ? 'offline' : ($failed ? 'failed' : 'missing'));
 
                     if ($canRefresh && ! $failed) {
                         $toSync[] = $dataset;
@@ -158,7 +182,7 @@ class PortalDatasetRepository
                     continue;
                 }
 
-                $results[$dataset] = $this->snapshotResult($snapshot, $this->failureMeta($snapshot));
+                $results[$dataset] = $this->snapshotResult($snapshot, $offline ? ['status' => 'offline'] : $this->failureMeta($snapshot));
 
                 if ($canRefresh && $this->needsBackgroundSync($sessionToken, $dataset, $snapshot)) {
                     $toSync[] = $dataset;
@@ -218,6 +242,10 @@ class PortalDatasetRepository
     ): array {
         $queued = [];
         $markers = [];
+
+        if ($this->offlineAccess->isOfflineSession($sessionToken)) {
+            return [];
+        }
 
         foreach (array_values(array_unique($datasets)) as $dataset) {
             if (! is_array(config("portal.datasets.{$dataset}"))) {
@@ -514,19 +542,38 @@ class PortalDatasetRepository
         // and a build that began before the action never saw it.
         $data = $this->projector->apply($sessionToken, $dataset, $params, $data);
 
-        $this->snapshots->put($sessionToken, $dataset, $data, $startedAt, $params);
+        // A payload that looks like the portal lost data is held back; the
+        // snapshot keeps serving the version MyCIC trusts.
+        $archived = $this->archive->record($sessionToken, $dataset, $params, $data, $startedAt);
+
+        $this->snapshots->put($sessionToken, $dataset, $archived['data'], $startedAt, $params, integrity: $archived['integrity']);
         Cache::forget($this->buildFailedKey($sessionToken, $dataset, $params));
 
         // What changed since the student last synced this dataset (K9).
-        $this->notifier->process($sessionToken, $dataset, $data, $params);
+        if ($archived['integrity'] === null) {
+            $this->notifier->process($sessionToken, $dataset, $data, $params);
+        }
+
+        // Course files a meeting links to are copied into the archive in the
+        // background, and the meeting joins its course notebook.
+        if ($dataset === 'meeting_detail') {
+            $this->archivedFiles->queueFromMeeting($sessionToken, $data, $params);
+            $this->courseNotebooks->addOpenedMeeting($sessionToken, $archived['data'], $params);
+        }
+
+        // Every class in the class list gets its course notebook.
+        if ($dataset === 'lms_classes' || $dataset === 'classes') {
+            $this->courseNotebooks->provisionFromClasses($sessionToken, $archived['data']);
+        }
 
         return [
-            'data' => $data,
+            'data' => $archived['data'],
             'meta' => [
                 'data_origin' => $syncMeta['data_origin'] ?? 'upstream',
                 'synced_at' => $startedAt,
                 'status' => 'synced',
                 'requested_fresh' => $forceFresh,
+                ...($archived['integrity'] !== null ? ['integrity' => $archived['integrity']] : []),
             ],
         ];
     }
@@ -541,12 +588,40 @@ class PortalDatasetRepository
         return [
             'data' => $snapshot['data'],
             'meta' => [
-                'data_origin' => 'snapshot',
+                'data_origin' => ($snapshot['source'] ?? null) === PortalDataArchive::SOURCE ? 'archive' : 'snapshot',
                 'synced_at' => $snapshot['synced_at'] ?? null,
                 'status' => $snapshot['status'] ?? 'synced',
+                ...(is_array($snapshot['integrity'] ?? null) ? ['integrity' => $snapshot['integrity']] : []),
                 ...$meta,
             ],
         ];
+    }
+
+    /**
+     * The snapshot, or else the archived trusted version stored as a stale
+     * snapshot (stamped with when the portal last showed it), so it is served
+     * at once and re-synced in the background like any stale snapshot.
+     *
+     * @param  array<string, mixed>  $params
+     * @return array<string, mixed>|null
+     */
+    private function snapshotOrArchive(string $sessionToken, string $dataset, array $params): ?array
+    {
+        $snapshot = $this->snapshots->get($sessionToken, $dataset, $params);
+
+        if ($snapshot !== null) {
+            return $snapshot;
+        }
+
+        $restored = $this->archive->restore($sessionToken, $dataset, $params);
+
+        if ($restored === null) {
+            return null;
+        }
+
+        $this->snapshots->put($sessionToken, $dataset, $restored['data'], $restored['seen_at'], $params, PortalDataArchive::SOURCE, $restored['integrity']);
+
+        return $this->snapshots->get($sessionToken, $dataset, $params);
     }
 
     /**

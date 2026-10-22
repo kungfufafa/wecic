@@ -95,7 +95,13 @@ class PortalNotificationFlowTest extends TestCase
         app(PortalDataOwner::class)->remember($nextLogin, '20990000003', 3600);
         $this->assertNull(app(\App\Services\PortalSnapshotStore::class)->get($nextLogin, 'krs'));
 
-        $repository->read($nextLogin, 'krs');
+        // The archived KRS is served at once while the background sync finds the change.
+        $read = $repository->read($nextLogin, 'krs');
+        $this->assertSame('archive', $read['meta']['data_origin']);
+        $this->assertSame('pending_dpa', $read['data']['status']['code']);
+        Queue::assertPushed(RefreshPortalDataJob::class);
+
+        app()->call([new RefreshPortalDataJob('laravel-session-flow', $nextLogin, ['krs']), 'handle']);
 
         $this->assertSame(['krs_validated'], PortalNotification::query()->pluck('type')->all());
     }

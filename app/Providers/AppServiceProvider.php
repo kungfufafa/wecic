@@ -46,6 +46,11 @@ class AppServiceProvider extends ServiceProvider
                 (int) config('portal.security.action_rate_limit_attempts', 10)
             )->by($sessionToken);
         });
+
+        // Bursts only; the daily notebook budget is enforced by NotebookAssistant.
+        RateLimiter::for('notebook-ai', function (Request $request): Limit {
+            return Limit::perMinute(6)->by((string) $request->session()->get('campus_session_token', $request->ip()));
+        });
     }
 
     /**
