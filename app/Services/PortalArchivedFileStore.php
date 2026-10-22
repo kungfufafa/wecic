@@ -92,6 +92,12 @@ class PortalArchivedFileStore
                 return;
             }
 
+            // A background sync stores the files itself (PortalCourseArchiver):
+            // its session is gone before a queued download would run.
+            if (app(PortalSessionManager::class)->isBackgroundSession($sessionToken)) {
+                return;
+            }
+
             $items = $this->candidatesFromMeeting($meetingDetail, $params);
             $known = PortalArchivedFile::query()
                 ->forOwner($ownerHash)

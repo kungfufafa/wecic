@@ -25,6 +25,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property \Illuminate\Support\Carbon|null $last_background_sync_at
  * @property string|null $last_background_sync_status
  * @property string|null $last_background_sync_error
+ * @property \Illuminate\Support\Carbon|null $last_course_sync_at
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  */
@@ -52,6 +53,7 @@ class PortalOfflineAccount extends Model
         'last_background_sync_at',
         'last_background_sync_status',
         'last_background_sync_error',
+        'last_course_sync_at',
     ];
 
     protected $hidden = [
@@ -73,6 +75,7 @@ class PortalOfflineAccount extends Model
             'last_online_login_at' => 'datetime',
             'last_offline_login_at' => 'datetime',
             'last_background_sync_at' => 'datetime',
+            'last_course_sync_at' => 'datetime',
         ];
     }
 

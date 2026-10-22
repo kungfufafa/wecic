@@ -64,6 +64,8 @@ class NotebookCourseSyncTest extends TestCase
         $this->instance(PortalSessionManager::class, Mockery::mock(PortalSessionManager::class, function (MockInterface $mock): void {
             $mock->shouldReceive('validateSession')->andReturnTrue();
             $mock->shouldReceive('isSessionUsable')->andReturnTrue();
+            // A student's own session: files a meeting links to are queued for the archive.
+            $mock->shouldReceive('isBackgroundSession')->andReturnFalse();
         }));
         app(PortalDataOwner::class)->remember(self::TOKEN, self::USERNAME, 3600);
         $this->ownerHash = app(PortalDataOwner::class)->keyForUsername(self::USERNAME);
