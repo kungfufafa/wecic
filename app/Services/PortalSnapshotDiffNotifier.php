@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Models\PortalNotification;
+use App\Support\PortalPayloadRecords;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -26,12 +27,9 @@ use Illuminate\Support\Facades\Log;
  * that come back empty (or listed in `ignore`), keep their last known value:
  * a page that failed to load must not make anything "new" again.
  *
- * `records` is a dot path to a list, or `parent.*.children` for one nested
- * level (each child then sees its parent as `parent`). `requires` guards the
- * whole payload (unreadable → the rule is skipped), `when` filters records.
- *
- * Matchers: `@any`, `@empty`, `@filled`, `@true`, `@false`, `@positive`,
- * `@zero`, a scalar (case-insensitive equality) or a list of them (any).
+ * `records` paths and matchers follow `App\Support\PortalPayloadRecords`.
+ * `requires` guards the whole payload (unreadable → the rule is skipped),
+ * `when` filters records.
  * Templates fill `:path.in.record` from the new record, plus `:old`/`:new`
  * for the watched field; `|date` formats a date, `|path` keeps a MyCIC path
  * as is (URL values are encoded otherwise).
@@ -152,12 +150,12 @@ class PortalSnapshotDiffNotifier
      */
     private function isReliable(array $rule, array $data): bool
     {
-        if ($this->records($rule['records'] ?? null, $data) === null) {
+        if (PortalPayloadRecords::records($rule['records'] ?? null, $data) === null) {
             return false;
         }
 
         foreach ($rule['requires'] ?? [] as $path => $matcher) {
-            if (! $this->matches($matcher, $this->normalize(data_get($data, $path)))) {
+            if (! PortalPayloadRecords::matches($matcher, PortalPayloadRecords::normalize(data_get($data, $path)))) {
                 return false;
             }
         }
@@ -176,15 +174,15 @@ class PortalSnapshotDiffNotifier
     {
         $observed = [];
 
-        foreach ($this->records($rule['records'] ?? null, $data) ?? [] as $record) {
-            if (! $this->passesGuards($rule['when'] ?? [], $record)) {
+        foreach (PortalPayloadRecords::records($rule['records'] ?? null, $data) ?? [] as $record) {
+            if (! PortalPayloadRecords::passes($rule['when'] ?? [], $record)) {
                 continue;
             }
 
-            $recordKey = isset($rule['records']) ? $this->recordKey($rule['key'] ?? [], $record) : self::SINGLE_RECORD_KEY;
-            $value = $rule['on'] === 'added' ? true : $this->normalize(data_get($record, $rule['field']));
+            $recordKey = isset($rule['records']) ? PortalPayloadRecords::recordKey($rule['key'] ?? [], $record) : self::SINGLE_RECORD_KEY;
+            $value = $rule['on'] === 'added' ? true : PortalPayloadRecords::normalize(data_get($record, $rule['field']));
 
-            if ($recordKey === null || $value === null || (isset($rule['ignore']) && $this->matches($rule['ignore'], $value))) {
+            if ($recordKey === null || $value === null || (isset($rule['ignore']) && PortalPayloadRecords::matches($rule['ignore'], $value))) {
                 continue;
             }
 
@@ -192,49 +190,6 @@ class PortalSnapshotDiffNotifier
         }
 
         return $observed;
-    }
-
-    /**
-     * @param  array<string, mixed>  $data
-     * @return list<array<string, mixed>>|null Null when the list is missing.
-     */
-    private function records(?string $path, array $data): ?array
-    {
-        if ($path === null) {
-            return [$data];
-        }
-
-        if (! str_contains($path, '.*.')) {
-            $records = data_get($data, $path);
-
-            return is_array($records) ? array_values(array_filter($records, 'is_array')) : null;
-        }
-
-        [$parentPath, $childPath] = explode('.*.', $path, 2);
-        $parents = data_get($data, $parentPath);
-
-        if (! is_array($parents)) {
-            return null;
-        }
-
-        $records = [];
-
-        foreach (array_filter($parents, 'is_array') as $parent) {
-            $children = data_get($parent, $childPath);
-
-            if (! is_array($children)) {
-                continue;
-            }
-
-            $context = $parent;
-            data_forget($context, $childPath);
-
-            foreach (array_filter($children, 'is_array') as $child) {
-                $records[] = [...$child, 'parent' => $context];
-            }
-        }
-
-        return $records;
     }
 
     /**
@@ -261,8 +216,8 @@ class PortalSnapshotDiffNotifier
                 $identity = [$dataset, $rule['type'], $recordKey, 'added'];
             } else {
                 if ($old === $new
-                    || ! $this->matches($rule['from'] ?? null, $old)
-                    || ! $this->matches($rule['to'] ?? null, $new)) {
+                    || ! PortalPayloadRecords::matches($rule['from'] ?? null, $old)
+                    || ! PortalPayloadRecords::matches($rule['to'] ?? null, $new)) {
                     continue;
                 }
 
@@ -323,75 +278,6 @@ class PortalSnapshotDiffNotifier
         }
 
         return $merged + $retained;
-    }
-
-    /**
-     * @param  array<string, mixed>  $guards
-     * @param  array<string, mixed>  $record
-     */
-    private function passesGuards(array $guards, array $record): bool
-    {
-        foreach ($guards as $path => $matcher) {
-            if (! $this->matches($matcher, $this->normalize(data_get($record, $path)))) {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    /**
-     * @param  list<string>  $paths
-     * @param  array<string, mixed>  $record
-     */
-    private function recordKey(array $paths, array $record): ?string
-    {
-        $parts = array_map(fn (string $path): string => (string) ($this->normalize(data_get($record, $path)) ?? ''), $paths);
-
-        if ($paths === [] || implode('', $parts) === '') {
-            return null;
-        }
-
-        $key = implode('|', $parts);
-
-        return mb_strlen($key) > 191 ? 'sha1:'.sha1($key) : $key;
-    }
-
-    private function normalize(mixed $value): bool|int|float|string|null
-    {
-        return match (true) {
-            $value === null, is_bool($value), is_int($value), is_float($value) => $value,
-            is_string($value) => trim($value) === '' ? null : trim($value),
-            is_array($value) => $value === [] ? null : (string) json_encode($value),
-            default => null,
-        };
-    }
-
-    private function matches(mixed $matcher, bool|int|float|string|null $value): bool
-    {
-        if (is_array($matcher)) {
-            foreach ($matcher as $candidate) {
-                if ($this->matches($candidate, $value)) {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        return match (true) {
-            $matcher === null, $matcher === '@any' => true,
-            $matcher === '@empty' => $value === null,
-            $matcher === '@filled' => $value !== null,
-            $matcher === '@true' => $value === true,
-            $matcher === '@false' => $value === false,
-            $matcher === '@positive' => is_numeric($value) && (float) $value > 0,
-            $matcher === '@zero' => is_numeric($value) && (float) $value === 0.0,
-            is_bool($matcher) => $value === $matcher,
-            is_int($matcher), is_float($matcher) => is_numeric($value) && (float) $value === (float) $matcher,
-            is_string($matcher) => is_scalar($value) && ! is_bool($value) && mb_strtolower((string) $value) === mb_strtolower($matcher),
-            default => false,
-        };
     }
 
     /**

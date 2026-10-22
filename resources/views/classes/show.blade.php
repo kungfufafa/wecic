@@ -21,6 +21,17 @@
             <div id="class-assignments">
                 {!! '<div class="mycic-alert-neutral mb-0">Memuat...</div>' !!}
             </div>
+
+            <section class="mycic-card" aria-labelledby="class-study-title">
+                <div class="mycic-card-header">
+                    <h2 class="mycic-card-title" id="class-study-title">Arsip & belajar</h2>
+                    <p class="mt-0.5 text-caption text-ink-subtle">Setiap mata kuliah punya notebook sendiri. Pertemuan yang kamu buka masuk otomatis; dari notebook kamu bisa belajar mandiri atau menyusun kerangka tugas dari materinya.</p>
+                </div>
+                <div class="mycic-card-body flex flex-col gap-2">
+                    <button type="button" class="mycic-btn-primary" id="class-open-notebook">Buka notebook mata kuliah ini</button>
+                    <button type="button" class="mycic-btn-secondary" id="class-archive-materials" data-online-required>Arsipkan semua materi</button>
+                </div>
+            </section>
         </div>
     </div>
 @endsection
@@ -33,6 +44,7 @@
             const classId = @json($id);
             const dosenId = @json($dosenId);
             const courseId = @json($courseId);
+            const studyContext = { name: null, courseId };
 
             const endpoint = () => {
                 const query = new URLSearchParams();
@@ -51,6 +63,8 @@
             const render = (payload) => {
                 const detail = payload.class_detail || {};
                 const courseInfo = detail.course_info || {};
+                studyContext.name = courseInfo.name || studyContext.name;
+                studyContext.courseId = payload.meta?.parameters?.course_id || studyContext.courseId;
                 const lecturerInfo = detail.lecturer_info || {};
                 const attendance = detail.attendance_info || {};
                 const assignments = detail.assignment_history || {};
@@ -268,6 +282,53 @@
                     }
                 }
             };
+
+            const archiveButton = document.getElementById('class-archive-materials');
+            const notebookButton = document.getElementById('class-open-notebook');
+
+            archiveButton.addEventListener('click', () => {
+                if (!app.requireOnlineAction('Mengarsipkan materi butuh koneksi ke portal.')) {
+                    return;
+                }
+
+                app.withSubmitLoading(archiveButton, async () => {
+                    try {
+                        const payload = await app.request('/api/archive/files/sync', { method: 'POST', json: { id: Number(classId) } });
+
+                        app.showNotice(payload?.message || 'Materi kelas sedang diarsipkan.', 'success');
+                    } catch (error) {
+                        app.showNotice(`Materi belum bisa diarsipkan. ${app.describeError(error)}`, 'error');
+                    }
+                });
+            });
+
+            notebookButton.addEventListener('click', () => {
+                if (!studyContext.courseId) {
+                    app.showNotice('Mata kuliah kelas ini belum dikenal. Muat ulang halaman lalu coba lagi.', 'warning');
+
+                    return;
+                }
+
+                app.withSubmitLoading(notebookButton, async () => {
+                    try {
+                        const payload = await app.request('/api/notebooks/course', {
+                            method: 'POST',
+                            json: { course_key: String(studyContext.courseId) },
+                        });
+                        const notebook = payload?.data?.notebook;
+
+                        if (notebook?.id) {
+                            if (!notebook.meetings_count) {
+                                app.storeNotice('Ini notebook mata kuliahmu. Tambahkan pertemuan agar catatan dan materinya masuk.', 'info');
+                            }
+
+                            window.location.href = `/notebook/${notebook.id}`;
+                        }
+                    } catch (error) {
+                        app.showNotice(`Notebook gagal dibuka. ${app.describeError(error)}`, 'error');
+                    }
+                });
+            });
 
             app.registerSyncHandler('class-show', loadClassDetail);
 

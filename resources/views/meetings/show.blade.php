@@ -238,9 +238,12 @@
                 const safeTime = app.escapeHtml(scheduleInfo.start_time || '-');
                 const safeAttendanceStatus = app.escapeHtml(attendanceStatusText || (attendanceRecorded ? 'Hadir' : 'Belum Absen'));
 
+                const attendanceExpired = !attendanceRecorded && /berakhir|ditutup|tutup|selesai/i.test(attendanceStatusText);
                 const attendanceBadgeMarkup = attendanceRecorded
                     ? `<span class="inline-flex items-center rounded-full border border-emerald-400/30 bg-emerald-500/20 px-2.5 py-0.5 text-xs font-semibold text-emerald-200">Hadir</span>`
-                    : `<span class="inline-flex items-center rounded-full border border-amber-400/30 bg-amber-500/20 px-2.5 py-0.5 text-xs font-semibold text-amber-200">Belum</span>`;
+                    : (attendanceExpired
+                        ? `<span class="inline-flex items-center rounded-full border border-rose-400/30 bg-rose-500/20 px-2.5 py-0.5 text-xs font-semibold text-rose-200">Ditutup</span>`
+                        : `<span class="inline-flex items-center rounded-full border border-amber-400/30 bg-amber-500/20 px-2.5 py-0.5 text-xs font-semibold text-amber-200">Belum</span>`);
 
                 hero.innerHTML = `
                     <div class="mycic-hero">
@@ -410,12 +413,24 @@
                         </div>
                     `;
                 } else {
+                    const expiredNotice = attendanceExpired ? `
+                        <div class="rounded-xl border border-rose-500/30 bg-rose-500/10 p-3.5 mb-3 text-xs text-rose-600 dark:text-rose-300">
+                            <div class="font-bold flex items-center gap-1.5 mb-1">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                                <span>Waktu Absen Telah Berakhir</span>
+                            </div>
+                            <div>${app.escapeHtml(attendanceStatusText)}. Kode presensi yang dikirim kemungkinan akan ditolak oleh sistem kampus karena batas waktu sudah lewat.</div>
+                        </div>
+                    ` : '';
+
                     attendanceSectionMarkup = `
                         <div class="mycic-card">
-                            <div class="mycic-card-header">
+                            <div class="mycic-card-header flex items-center justify-between">
                                 <h3 class="mycic-card-title">Presensi</h3>
+                                ${attendanceExpired ? app.renderBadge('Ditutup', 'danger') : app.renderBadge('Belum Absen', 'warning')}
                             </div>
                             <div class="mycic-card-body">
+                                ${expiredNotice}
                                 <form id="attendance-form" class="space-y-4">
                                     <div class="grid grid-cols-2 gap-2">
                                         <button type="button" class="${app.buttonClass('secondary')} flex items-center justify-center gap-1.5 py-2.5 text-xs font-bold" data-qr-scan>
@@ -522,12 +537,48 @@
                     `;
                 }
 
+                const notebookSectionMarkup = `
+                    <div class="mycic-card">
+                        <div class="mycic-card-header">
+                            <h3 class="mycic-card-title">Notebook</h3>
+                            <p class="mt-0.5 text-caption text-ink-subtle">Saat dibuka, catatan pertemuan ini dan berkas materinya masuk otomatis ke notebook ${app.escapeHtml(courseName)}: untuk belajar mandiri, tanya jawab bersitasi, dan kerangka tugas. Tombol ini memperbarui catatannya dan membuka notebooknya.</p>
+                        </div>
+                        <div class="mycic-card-body flex flex-col gap-2">
+                            <button type="button" class="${app.buttonClass('secondary')} mycic-btn-block" id="meeting-add-notebook">Buka di Notebook</button>
+                        </div>
+                    </div>
+                `;
+
                 actionsContainer.innerHTML = `
                     <div class="space-y-5">
                         ${attendanceSectionMarkup}
                         ${assignmentSectionMarkup}
+                        ${notebookSectionMarkup}
                     </div>
                 `;
+
+                const addNotebookButton = document.getElementById('meeting-add-notebook');
+                addNotebookButton?.addEventListener('click', () => {
+                    app.withSubmitLoading(addNotebookButton, async () => {
+                        try {
+                            const result = await app.request('/api/notebooks/meetings', {
+                                method: 'POST',
+                                json: { meeting_id: String(meetingId), courses_id: String(coursesId) },
+                                timeout: 120000,
+                            });
+                            const notebook = result?.data?.notebook;
+                            const queued = Number(result?.data?.meeting?.queued_files || 0);
+
+                            app.showNotice(`${result?.message || 'Pertemuan masuk ke notebook.'}${queued ? ` ${queued} berkas diarsipkan di background.` : ''}`, 'success');
+
+                            if (notebook?.id) {
+                                addNotebookButton.outerHTML = `<a href="/notebook/${notebook.id}" class="${app.buttonClass('primary')} mycic-btn-block">Buka di Notebook</a>`;
+                            }
+                        } catch (error) {
+                            app.showNotice(`Belum bisa dimasukkan ke notebook. ${app.describeError(error)}`, 'error');
+                        }
+                    });
+                });
 
                 // Wire up preview toggles
                 document.querySelectorAll('[data-toggle-preview]').forEach(btn => {

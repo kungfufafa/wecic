@@ -31,7 +31,8 @@ class PortalSnapshotStore
      *     updated_at?: string,
      *     syncing_since?: string,
      *     failed_at?: string,
-     *     error?: string|null
+     *     error?: string|null,
+     *     integrity?: array<string, mixed>|null
      * }|null
      */
     public function get(string $sessionToken, string $domain, array $params = []): ?array
@@ -46,21 +47,43 @@ class PortalSnapshotStore
     }
 
     /**
+     * `source` is `mycic_archive` for a snapshot restored from the archive;
+     * `integrity` describes a portal version MyCIC holds back (see
+     * PortalDataArchive) while serving the trusted data.
+     *
      * @param  array<string, mixed>  $data
      * @param  array<string, mixed>  $params
+     * @param  array<string, mixed>|null  $integrity
      */
-    public function put(string $sessionToken, string $domain, array $data, ?string $syncedAt = null, array $params = []): void
-    {
+    public function put(
+        string $sessionToken,
+        string $domain,
+        array $data,
+        ?string $syncedAt = null,
+        array $params = [],
+        string $source = 'campus_portal',
+        ?array $integrity = null
+    ): void {
         $now = now()->toISOString();
 
         Cache::put($this->cacheKey($sessionToken, $domain, $params), [
             'data' => $data,
             'synced_at' => $syncedAt ?? $now,
             'status' => 'synced',
-            'source' => 'campus_portal',
+            'source' => $source,
             'updated_at' => $now,
             'error' => null,
+            ...($integrity !== null ? ['integrity' => $integrity] : []),
         ], $this->retention());
+    }
+
+    /**
+     * @param  array<string, mixed>  $params
+     * @param  array<string, mixed>|null  $integrity
+     */
+    public function setIntegrity(string $sessionToken, string $domain, ?array $integrity, array $params = []): void
+    {
+        $this->updateState($sessionToken, $domain, $params, ['integrity' => $integrity]);
     }
 
     /**

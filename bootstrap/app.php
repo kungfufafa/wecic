@@ -17,6 +17,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'portal.session' => \App\Http\Middleware\PortalSessionMiddleware::class,
             'portal.web' => \App\Http\Middleware\EnsurePortalWebSession::class,
+            'portal.online' => \App\Http\Middleware\EnsurePortalOnline::class,
         ]);
 
         // Replace default CSRF middleware with our custom one that has API exceptions

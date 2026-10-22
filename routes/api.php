@@ -2,10 +2,12 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\API\NotebookController;
 use App\Http\Controllers\API\PortalAcademicController;
 use App\Http\Controllers\API\PortalActionCenterController;
 use App\Http\Controllers\API\PortalActionController;
 use App\Http\Controllers\API\PortalAnnouncementController;
+use App\Http\Controllers\API\PortalArchiveController;
 use App\Http\Controllers\API\PortalAuthController;
 use App\Http\Controllers\API\PortalDataController;
 use App\Http\Controllers\API\PortalLibraryController;
@@ -35,13 +37,14 @@ Route::middleware($sessionMiddleware)->group(function () {
     });
 
     Route::middleware('portal.session')->group(function (): void {
-        Route::prefix('auth')->controller(PortalAuthController::class)->group(function (): void {
+        // An offline session (portal unreachable at login) only reads the archive.
+        Route::prefix('auth')->middleware('portal.online')->controller(PortalAuthController::class)->group(function (): void {
             Route::get('password/form', 'passwordForm');
             Route::post('password', 'changePassword')->middleware('throttle:portal-action');
         });
 
         Route::controller(PortalDataController::class)->group(function (): void {
-            Route::post('refresh', 'refresh')->middleware('throttle:portal-action');
+            Route::post('refresh', 'refresh')->middleware(['portal.online', 'throttle:portal-action']);
             Route::get('dashboard', 'dashboard');
             Route::get('profile', 'profile');
             Route::get('class', 'mergedClasses');
@@ -49,7 +52,7 @@ Route::middleware($sessionMiddleware)->group(function () {
             Route::get('meeting/{meeting_id}', 'meetingDetail');
             Route::prefix('lms')->group(function (): void {
                 Route::get('class', 'classes');
-                Route::get('flow', 'sipandaiFlow');
+                Route::get('flow', 'sipandaiFlow')->middleware('portal.online');
             });
             Route::prefix('schedule')->group(function (): void {
                 Route::get('class', 'studentCourse');
@@ -97,22 +100,57 @@ Route::middleware($sessionMiddleware)->group(function () {
 
         Route::prefix('assignment')->controller(PortalActionController::class)->group(function (): void {
             Route::get('pending', 'pendingAssignments');
-            Route::post('', 'uploadAssignment')->middleware('throttle:portal-action');
-            Route::delete('', 'deleteAssignment')->middleware('throttle:portal-action');
+            Route::post('', 'uploadAssignment')->middleware(['portal.online', 'throttle:portal-action']);
+            Route::delete('', 'deleteAssignment')->middleware(['portal.online', 'throttle:portal-action']);
         });
 
         Route::get('operations/{operation}', [PortalOperationController::class, 'show'])->whereUuid('operation');
 
         Route::get('attendance/today', [PortalActionController::class, 'todayAttendanceShortcuts']);
-        Route::post('attendance', [PortalActionController::class, 'markAttendance'])->middleware('throttle:portal-action');
+        Route::post('attendance', [PortalActionController::class, 'markAttendance'])->middleware(['portal.online', 'throttle:portal-action']);
 
         Route::prefix('exam')->controller(PortalActionController::class)->group(function (): void {
             Route::get('', 'listExams');
-            Route::post('', 'uploadExam')->middleware('throttle:portal-action');
+            Route::post('', 'uploadExam')->middleware(['portal.online', 'throttle:portal-action']);
             Route::get('{id}', 'examDetail');
         });
 
-        Route::get('support/download', [PortalSupportController::class, 'downloadFile']);
+        Route::get('support/download', [PortalSupportController::class, 'downloadFile'])->middleware('portal.online');
+
+        Route::prefix('archive')->controller(PortalArchiveController::class)->group(function (): void {
+            Route::get('', 'index');
+            Route::delete('', 'destroy')->middleware('throttle:portal-action');
+            Route::get('files', 'files');
+            Route::post('files/sync', 'archiveClass')->middleware(['portal.online', 'throttle:portal-action']);
+            Route::get('files/{file}', 'file')->whereNumber('file');
+            Route::get('versions/{version}', 'show')->whereNumber('version');
+            Route::get('versions/{version}/export', 'export')->whereNumber('version');
+            // Local bookkeeping only, like marking notifications read.
+            Route::post('versions/{version}/accept', 'accept')->whereNumber('version');
+            Route::post('versions/{version}/reject', 'reject')->whereNumber('version');
+            Route::get('{dataset}', 'versions')->where('dataset', '[a-z_]+');
+        });
+
+        // The notebook reads stored portal data, so it also works in offline mode
+        // (adding a meeting that was never opened is the one read that needs the portal).
+        Route::prefix('notebooks')->controller(NotebookController::class)->group(function (): void {
+            Route::get('', 'index');
+            Route::post('', 'store');
+            Route::post('course', 'storeCourse');
+            Route::post('meetings', 'addMeeting');
+            Route::get('{notebook}', 'show')->whereNumber('notebook');
+            Route::get('{notebook}/meetings', 'meetings')->whereNumber('notebook');
+            Route::post('{notebook}/meetings/sync', 'syncMeetings')->whereNumber('notebook')->middleware(['portal.online', 'throttle:portal-action']);
+            Route::patch('{notebook}', 'update')->whereNumber('notebook');
+            Route::delete('{notebook}', 'destroy')->whereNumber('notebook');
+            Route::post('{notebook}/sources', 'storeSource')->whereNumber('notebook');
+            Route::post('{notebook}/sources/{source}/retry', 'retrySource')->whereNumber(['notebook', 'source']);
+            Route::delete('{notebook}/sources/{source}', 'destroySource')->whereNumber(['notebook', 'source']);
+            Route::post('{notebook}/messages', 'ask')->whereNumber('notebook')->middleware('throttle:notebook-ai');
+            Route::post('{notebook}/studio', 'studio')->whereNumber('notebook')->middleware('throttle:notebook-ai');
+            Route::patch('{notebook}/messages/{message}', 'updateMessage')->whereNumber(['notebook', 'message']);
+            Route::delete('{notebook}/messages/{message}', 'destroyMessage')->whereNumber(['notebook', 'message']);
+        });
     });
 
     Route::prefix('support')->controller(PortalSupportController::class)->group(function (): void {

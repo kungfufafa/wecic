@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\API;
 
 use App\Exceptions\PortalException;
+use App\Exceptions\PortalOfflineException;
 use App\Http\Controllers\Controller;
 use App\Services\PortalBroadcastService;
 use App\Services\PortalDatasetRepository;
@@ -215,6 +216,15 @@ abstract class CampusApiController extends Controller
         try {
             return $callback($sessionToken);
         } catch (\Throwable $throwable) {
+            if ($throwable instanceof PortalOfflineException) {
+                return $this->statusError(
+                    'Data ini belum tersimpan di arsip MyCIC, jadi belum bisa dibuka selama mode offline.',
+                    503,
+                    meta: ['offline' => true],
+                    campusSessionValid: true,
+                );
+            }
+
             if ($this->isCampusSessionExpiredException($throwable)) {
                 session()->forget(['campus_session_token', 'campus_user_info']);
 

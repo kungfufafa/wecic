@@ -160,7 +160,7 @@ class AppShellPagesTest extends TestCase
         $moreMenu = $crawler->filter('nav[aria-label="Navigasi utama"] [data-dropdown-panel] a')->extract(['href']);
         $moreMenuPaths = array_map(fn (string $href): string => (string) parse_url($href, PHP_URL_PATH), $moreMenu);
 
-        $this->assertSame(['/skkm', '/thesis', '/library', '/announcement', '/profile', '/password', '/more'], $moreMenuPaths);
+        $this->assertSame(['/skkm', '/thesis', '/library', '/announcement', '/notebook', '/archive', '/profile', '/password', '/more'], $moreMenuPaths);
     }
 
     /**

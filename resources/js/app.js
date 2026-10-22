@@ -1539,9 +1539,19 @@ class PortalApp {
         });
     }
 
+    /**
+     * The session was opened from the archive while the portal was down:
+     * nothing can be sent to the portal until the student logs in again.
+     */
+    isPortalOfflineSession() {
+        return document.body?.dataset.portalOffline === '1';
+    }
+
     refreshOnlineRequiredState() {
+        const portalOffline = this.isPortalOfflineSession();
+
         document.querySelectorAll('[data-online-required]').forEach((element) => {
-            const shouldDisable = !navigator.onLine;
+            const shouldDisable = !navigator.onLine || portalOffline;
 
             if ('disabled' in element) {
                 element.disabled = shouldDisable;
@@ -1549,7 +1559,7 @@ class PortalApp {
 
             if (shouldDisable) {
                 element.setAttribute('aria-disabled', 'true');
-                element.setAttribute('title', 'Butuh koneksi internet');
+                element.setAttribute('title', portalOffline ? 'Tidak tersedia di mode offline' : 'Butuh koneksi internet');
             } else {
                 element.removeAttribute('aria-disabled');
                 element.removeAttribute('title');
@@ -2165,6 +2175,26 @@ class PortalApp {
         const portalTime = this.portalDataTime(payload);
         const updatedAgo = portalTime ? this.formatTimeAgo(portalTime) : '';
         const updatedLine = updatedAgo ? `Data diperbarui ${updatedAgo}` : 'Data baru saja dimuat';
+        const integrity = payload?.meta?.integrity || null;
+
+        if (integrity?.status === 'suspect') {
+            this.setSyncStatus(`Data ${label} dari portal terlihat janggal. MyCIC tetap menampilkan versi tersimpan; periksa di menu Arsip.`, 'warning');
+
+            return;
+        }
+
+        if (payload?.meta?.status === 'offline') {
+            this.setSyncStatus(`Mode offline. Menampilkan arsip MyCIC${updatedAgo ? ` (terakhir dari portal ${updatedAgo})` : ''}.`, 'warning');
+
+            return;
+        }
+
+        if (dataOrigin === 'archive') {
+            const statusSuffix = payload?.meta?.status === 'syncing' ? ' · sedang diperbarui dari portal' : '';
+            this.setSyncStatus(`Menampilkan arsip MyCIC${updatedAgo ? ` dari ${updatedAgo}` : ''}${statusSuffix}`, payload?.meta?.status === 'failed' ? 'warning' : 'info');
+
+            return;
+        }
 
         if (payload?.meta?.status === 'failed') {
             this.setSyncStatus(`Portal belum bisa dihubungi. Menampilkan data terakhir${updatedAgo ? ` (diperbarui ${updatedAgo})` : ''}.`, 'warning');
@@ -2220,6 +2250,12 @@ class PortalApp {
     }
 
     requireOnlineAction(message = 'Fitur ini butuh koneksi internet.') {
+        if (this.isPortalOfflineSession()) {
+            this.showNotice('Kamu sedang di mode offline. Keluar lalu masuk lagi saat portal kampus sudah bisa diakses.', 'warning');
+
+            return false;
+        }
+
         if (navigator.onLine) {
             return true;
         }

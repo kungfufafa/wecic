@@ -123,6 +123,31 @@ class SipandaiSubmissionService extends PortalScrapingService
         );
 
         if ($crawler->filter('form')->count() === 0) {
+            $qrRedirectUrl = $this->extractQrRedirectUrl($pageHtml, $targetUrl);
+
+            if ($qrRedirectUrl !== null) {
+                $qrPayload = array_merge($payload, [
+                    'qrcode' => (string) ($overrides['kode'] ?? $payload['kode'] ?? $overrides['qrcode'] ?? ''),
+                ]);
+
+                $response = $this->dispatchRequest('POST', $qrRedirectUrl, [
+                    RequestOptions::FORM_PARAMS => $qrPayload,
+                ], $targetUrl);
+
+                $result = $this->buildAttendanceResultPayload((string) $response->getBody(), $qrRedirectUrl, [
+                    'course_id' => $courseId,
+                    'discussion_id' => $moduleId,
+                    'meeting_number' => $meetingNumber,
+                ]);
+
+                if (($result['success'] ?? false) === true) {
+                    $result['data']['redirect_history'] = $response->getHeader(\GuzzleHttp\RedirectMiddleware::HISTORY_HEADER);
+                    $result['data']['sent_fields'] = array_keys($qrPayload);
+
+                    return $result;
+                }
+            }
+
             $responseUrl = $this->buildAttendanceSubmitUrl($courseId, $moduleId);
             $response = $this->dispatchRequest('POST', $responseUrl, [
                 RequestOptions::FORM_PARAMS => $payload,
@@ -1585,6 +1610,15 @@ class SipandaiSubmissionService extends PortalScrapingService
         ]);
     }
 
+    private function extractQrRedirectUrl(string $html, string $baseUrl): ?string
+    {
+        if (preg_match('/var\s+redirect\s*=\s*[\'"]([^\'"]+)[\'"]/i', $html, $matches)) {
+            return $this->resolveActionUrl($matches[1], $baseUrl);
+        }
+
+        return null;
+    }
+
     private function resolveFormForAttendance(Crawler $crawler): Crawler
     {
         $forms = $crawler->filter('form');
@@ -2050,11 +2084,20 @@ class SipandaiSubmissionService extends PortalScrapingService
         }
 
         // Expired / outside time window
-        if (Str::contains($haystack, ['expired', 'kadaluarsa', 'waktu habis', 'belum dibuka', 'sudah ditutup'])) {
+        if (Str::contains($haystack, ['expired', 'kadaluarsa', 'waktu habis', 'belum dibuka', 'sudah ditutup', 'berakhir pada jam'])) {
             return [
                 'success' => false,
                 'code' => 'expired',
                 'message' => 'Sesi absensi sudah ditutup atau belum dibuka.',
+            ];
+        }
+
+        // Data kelas tidak ditemukan (portal memunculkan ini saat kode salah atau sesi absensi sudah ditutup)
+        if (Str::contains($haystack, ['data kelas tidak ditemukan'])) {
+            return [
+                'success' => false,
+                'code' => 'invalid_code',
+                'message' => 'Data kelas tidak ditemukan di portal (kemungkinan batas waktu absensi sudah berakhir atau kode presensi tidak sesuai).',
             ];
         }
 

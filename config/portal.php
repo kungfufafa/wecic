@@ -257,6 +257,9 @@ return [
             'fresh_for' => 1800,
             'cache_keys' => ['/api/class'],
             'sync_keys' => ['class-index'],
+            'archive' => [
+                'label' => 'Jadwal & kelas',
+            ],
         ],
         'lms_classes' => [
             'fresh_for' => 1800,
@@ -272,11 +275,32 @@ return [
             'fresh_for' => 3600,
             'cache_keys' => ['/api/profile'],
             'sync_keys' => ['profile'],
+            'archive' => [
+                'label' => 'Profil',
+                'guards' => [
+                    ['type' => 'field', 'path' => 'personal_data.student_id', 'label' => 'NIM'],
+                    ['type' => 'field', 'path' => 'personal_data.name', 'label' => 'Nama'],
+                ],
+            ],
         ],
         'payments' => [
             'fresh_for' => 1800,
             'cache_keys' => ['/api/finance/payments', '/api/finance/summary', '/api/dashboard', '/api/action-items', '/api/thesis/readiness'],
             'sync_keys' => ['finance', 'dashboard-overview', 'dashboard-action-items', 'thesis-index'],
+            'archive' => [
+                'label' => 'Keuangan',
+                'requires' => ['summary.history_available' => true],
+                'guards' => [
+                    ['type' => 'count', 'records' => 'payment_history', 'label' => 'Riwayat pembayaran'],
+                    [
+                        'type' => 'values',
+                        'records' => 'payment_history',
+                        'key' => ['paid_at', 'reference', 'installment_stage', 'study_year'],
+                        'field' => 'amount',
+                        'label' => 'Nominal pembayaran',
+                    ],
+                ],
+            ],
             'notify' => [
                 [
                     'type' => 'bill_new',
@@ -316,6 +340,10 @@ return [
             'fresh_for' => 1800,
             'cache_keys' => ['/api/exam', '/api/action-items'],
             'sync_keys' => ['exam-index', 'dashboard-action-items'],
+            'archive' => [
+                'label' => 'Ujian',
+                'requires' => ['source' => 'exam_page'],
+            ],
             'notify' => [
                 [
                     'type' => 'exam_opened',
@@ -338,12 +366,37 @@ return [
             'parameterized' => true,
             'cache_keys' => [],
             'sync_keys' => ['class-show'],
+            'archive' => [
+                'label' => 'Detail kelas (presensi & tugas)',
+                'subject' => ['course_info.name', 'course_info.course_name'],
+                // Classmates' data is not the student's to keep.
+                'exclude' => ['students_list'],
+                'requires' => ['content_type' => ['class_info', 'students_list']],
+                'guards' => [
+                    ['type' => 'count', 'records' => 'attendance_info.meetings', 'label' => 'Rekap presensi'],
+                    [
+                        'type' => 'values',
+                        'records' => 'attendance_info.meetings',
+                        'key' => ['meeting_number'],
+                        'field' => 'status',
+                        'from' => ['present', 'late', 'permit', 'sick'],
+                        'label' => 'Status presensi pertemuan',
+                        'display' => ['present' => 'Hadir', 'late' => 'Terlambat', 'permit' => 'Izin', 'sick' => 'Sakit', 'absent' => 'Absen'],
+                    ],
+                    ['type' => 'count', 'records' => 'assignment_history.assignments', 'label' => 'Riwayat tugas terkumpul'],
+                ],
+            ],
         ],
         'meeting_detail' => [
             'fresh_for' => 900,
             'parameterized' => true,
             'cache_keys' => [],
             'sync_keys' => ['meeting-show'],
+            'archive' => [
+                'label' => 'Detail pertemuan',
+                'subject' => ['materials.main_topic', 'materials.assignment_topic'],
+                'requires' => ['found' => true],
+            ],
         ],
         'portal_context' => [
             'fresh_for' => 21600,
@@ -384,6 +437,9 @@ return [
             'fresh_for' => 1800,
             'cache_keys' => ['/api/announcement', '/api/academic/krs', '/api/finance/summary', '/api/action-items'],
             'sync_keys' => ['announcement-index', 'dashboard-action-items'],
+            'archive' => [
+                'label' => 'Pengumuman',
+            ],
             'notify' => [
                 [
                     'type' => 'announcement_new',
@@ -407,6 +463,10 @@ return [
             'fresh_for' => 900,
             'cache_keys' => ['/api/academic/krs', '/api/academic/grades', '/api/academic/transcript', '/api/dashboard', '/api/action-items'],
             'sync_keys' => ['krs-index', 'dashboard-overview', 'dashboard-action-items'],
+            'archive' => [
+                'label' => 'KRS',
+                'requires' => ['found' => true],
+            ],
             'notify' => [
                 [
                     'type' => 'krs_validated',
@@ -449,17 +509,43 @@ return [
             'fresh_for' => 3600,
             'cache_keys' => ['/api/academic/advising', '/api/academic/krs', '/api/action-items'],
             'sync_keys' => ['advising-index', 'krs-index', 'dashboard-action-items'],
+            'archive' => [
+                'label' => 'Perwalian',
+                'requires' => ['found' => true],
+            ],
         ],
         'krs_detail' => [
             'fresh_for' => 21600,
             'parameterized' => true,
             'cache_keys' => [],
             'sync_keys' => ['krs-show'],
+            'archive' => [
+                'label' => 'Detail KRS',
+                'subject' => ['header.academic_year'],
+                'requires' => ['found' => true],
+                'guards' => [
+                    ['type' => 'count', 'records' => 'courses', 'label' => 'Mata kuliah di KRS'],
+                ],
+            ],
         ],
         'grades' => [
             'fresh_for' => 3600,
             'cache_keys' => ['/api/academic/grades', '/api/academic/transcript', '/api/dashboard', '/api/action-items', '/api/thesis/readiness'],
             'sync_keys' => ['grades-index', 'transcript-index', 'dashboard-overview', 'dashboard-action-items', 'thesis-index'],
+            'archive' => [
+                'label' => 'Nilai (KHS)',
+                'requires' => ['found' => true],
+                'guards' => [
+                    ['type' => 'count', 'records' => 'semesters.*.courses', 'label' => 'Mata kuliah di KHS'],
+                    [
+                        'type' => 'values',
+                        'records' => 'semesters.*.courses',
+                        'key' => ['parent.label', 'code'],
+                        'field' => 'letter',
+                        'label' => 'Nilai huruf',
+                    ],
+                ],
+            ],
             'notify' => [
                 [
                     'type' => 'grade_released',
@@ -491,6 +577,22 @@ return [
             'fresh_for' => 1800,
             'cache_keys' => ['/api/skkm', '/api/dashboard', '/api/action-items'],
             'sync_keys' => ['skkm-index', 'dashboard-overview', 'dashboard-action-items'],
+            'archive' => [
+                'label' => 'SKKM',
+                'requires' => ['found' => true],
+                'guards' => [
+                    ['type' => 'count', 'records' => 'entries', 'label' => 'Kegiatan SKKM'],
+                    [
+                        'type' => 'values',
+                        'records' => 'entries',
+                        'key' => ['name', 'activity', 'level', 'type'],
+                        'field' => 'status',
+                        'from' => 'valid',
+                        'label' => 'Status SKKM yang sudah valid',
+                        'display' => ['valid' => 'Valid', 'invalid' => 'Ditolak', 'pending' => 'Menunggu'],
+                    ],
+                ],
+            ],
             'notify' => [
                 [
                     'type' => 'skkm_validated',
@@ -525,6 +627,10 @@ return [
             'fresh_for' => 43200,
             'cache_keys' => ['/api/thesis', '/api/thesis/readiness'],
             'sync_keys' => ['thesis-index'],
+            'archive' => [
+                'label' => 'Skripsi',
+                'requires' => ['found' => true],
+            ],
             'notify' => [
                 [
                     'type' => 'thesis_status_changed',
@@ -1099,6 +1205,36 @@ return [
         'max_per_sync' => (int) env('PORTAL_NOTIFICATION_MAX_PER_SYNC', 5),
         'max_baseline_records' => 500,
         'page_size' => 30,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Local Archive (Backup of Portal Data)
+    |--------------------------------------------------------------------------
+    |
+    | Datasets with an `archive` block are kept per student in the database,
+    | one encrypted row per distinct content, `max_versions` per dataset. The
+    | guards are documented on `App\Services\PortalArchiveGuard`; keys in
+    | `volatile_keys` (scrape timestamps) never make a version "new".
+    |
+    | Offline login lets a student who logged in online within
+    | `offline_login_days` read the archive while the portal is unreachable,
+    | checked against a hash of that last password. Course files linked from
+    | meetings (modul, latihan, RPS) are archived up to `max_file_size` bytes.
+    |
+    */
+
+    'archive' => [
+        'enabled' => (bool) env('PORTAL_ARCHIVE_ENABLED', true),
+        'max_versions' => (int) env('PORTAL_ARCHIVE_MAX_VERSIONS', 30),
+        'volatile_keys' => ['extracted_at', 'generated_at', 'last_updated', 'request_url'],
+        'offline_login' => (bool) env('PORTAL_ARCHIVE_OFFLINE_LOGIN', true),
+        'offline_login_days' => (int) env('PORTAL_ARCHIVE_OFFLINE_LOGIN_DAYS', 30),
+        'files' => [
+            'enabled' => (bool) env('PORTAL_ARCHIVE_FILES_ENABLED', true),
+            'disk' => env('PORTAL_ARCHIVE_FILES_DISK', 'local'),
+            'max_file_size' => (int) env('PORTAL_ARCHIVE_MAX_FILE_SIZE', 26214400),
+        ],
     ],
 
     'realtime' => [

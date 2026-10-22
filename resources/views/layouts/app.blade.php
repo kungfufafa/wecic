@@ -75,7 +75,8 @@
     $isClassSection = request()->routeIs('class.*', 'meeting.show', 'exam.*');
     $isAcademicSection = request()->routeIs('krs.*', 'grades.*', 'transcript.*');
     $isFinanceSection = request()->routeIs('finance.*');
-    $isMoreSection = request()->routeIs('skkm.*', 'announcement.*', 'thesis.*', 'library.*', 'profile', 'password.*', 'more');
+    $isMoreSection = request()->routeIs('skkm.*', 'announcement.*', 'thesis.*', 'library.*', 'profile', 'password.*', 'more', 'archive.*', 'notebook.*');
+    $isPortalOffline = session('campus_offline') === true;
 
     $mobileNavigation = [
         'start' => [
@@ -100,6 +101,8 @@
         ['href' => route('thesis.index'), 'label' => 'Skripsi', 'badge' => 'thesis', 'active' => request()->routeIs('thesis.*')],
         ['href' => route('library.index'), 'label' => 'Perpustakaan', 'badge' => 'library', 'active' => request()->routeIs('library.*')],
         ['href' => route('announcement.index'), 'label' => 'Pengumuman', 'badge' => 'announcement', 'active' => request()->routeIs('announcement.*')],
+        ['href' => route('notebook.index'), 'label' => 'Notebook', 'badge' => 'notebook', 'active' => request()->routeIs('notebook.*')],
+        ['href' => route('archive.index'), 'label' => 'Arsip', 'badge' => 'archive', 'active' => request()->routeIs('archive.*')],
         ['href' => route('profile'), 'label' => 'Profil', 'badge' => 'profile', 'active' => request()->routeIs('profile')],
         ['href' => route('password.edit'), 'label' => 'Ubah password', 'badge' => 'password', 'active' => request()->routeIs('password.*')],
     ];
@@ -112,7 +115,7 @@
     $hideStatusStrip = trim($__env->yieldContent('hide_status_strip')) === '1';
     $hideSyncRefresh = trim($__env->yieldContent('hide_sync_refresh')) === '1';
 @endphp
-<body data-auth="@yield('auth_mode', 'required')" data-page="@yield('page_id', 'app')" data-refreshable-datasets="{{ implode(',', $refreshableDatasets) }}">
+<body data-auth="@yield('auth_mode', 'required')" data-page="@yield('page_id', 'app')" data-refreshable-datasets="{{ implode(',', $refreshableDatasets) }}" data-portal-offline="{{ $isPortalOffline ? '1' : '0' }}">
     <div id="notice-host" class="mycic-toast-host"></div>
     {{-- Live regions exist from page load so toasts are announced (app.announce). --}}
     <div class="sr-only" role="status" aria-live="polite" aria-atomic="true" data-live-polite></div>
@@ -316,6 +319,16 @@
                 @endunless
 
                 <div data-operation-status class="mb-4"></div>
+
+                @if ($isPortalOffline)
+                    <div class="mycic-alert-warning mb-4 flex flex-wrap items-center justify-between gap-3 print:hidden" role="status">
+                        <span class="min-w-0">
+                            <span class="block font-bold">Mode offline</span>
+                            <span class="block text-sm">Portal kampus tidak bisa diakses saat kamu masuk. Data diambil dari arsip MyCIC; absen, upload, dan sinkronisasi belum tersedia.</span>
+                        </span>
+                        <button type="button" class="mycic-btn-secondary-sm" data-logout>Masuk ulang</button>
+                    </div>
+                @endif
 
                 @yield('content')
             </div>
