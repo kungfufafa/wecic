@@ -28,7 +28,7 @@ class EnsurePortalOnline
 
         return response()->json([
             'status' => 'error',
-            'message' => 'Kamu sedang di mode offline, jadi aksi ke portal kampus belum bisa dijalankan. Keluar lalu masuk lagi saat portal sudah bisa diakses.',
+            'message' => 'Kamu sedang di mode offline, jadi aksi ke portal kampus belum bisa dijalankan. MyCIC menyambung lagi otomatis begitu portal bisa diakses.',
             'meta' => [
                 'timestamp' => now()->toISOString(),
                 'campus_session_valid' => true,

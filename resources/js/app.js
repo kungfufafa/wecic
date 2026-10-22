@@ -1106,11 +1106,31 @@ class PortalApp {
         this.showNotice(message, tone);
         this.setSyncStatus(message, tone);
 
+        if (payload?.status === 'offline_session_resumed') {
+            this.leavePortalOfflineMode();
+
+            return;
+        }
+
         if (payload?.status === 'logged_out' || payload?.status === 'manual_relogin_required') {
             this.clearAuthSnapshot();
             this.disconnectRealtime();
             window.location.href = '/login';
         }
+    }
+
+    /**
+     * The offline session logged in again in the background: portal actions
+     * open up and the pages re-read their data as the warm-up announces it.
+     */
+    leavePortalOfflineMode() {
+        if (document.body) {
+            document.body.dataset.portalOffline = '0';
+        }
+
+        document.querySelectorAll('[data-portal-offline-banner]').forEach((banner) => banner.remove());
+        this.refreshOnlineRequiredState();
+        window.dispatchEvent(new CustomEvent('portal:online-resumed'));
     }
 
     /**
@@ -2251,7 +2271,7 @@ class PortalApp {
 
     requireOnlineAction(message = 'Fitur ini butuh koneksi internet.') {
         if (this.isPortalOfflineSession()) {
-            this.showNotice('Kamu sedang di mode offline. Keluar lalu masuk lagi saat portal kampus sudah bisa diakses.', 'warning');
+            this.showNotice('Kamu sedang di mode offline. MyCIC menyambung lagi otomatis begitu portal kampus bisa diakses.', 'warning');
 
             return false;
         }

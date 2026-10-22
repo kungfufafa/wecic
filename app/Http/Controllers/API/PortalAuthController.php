@@ -32,7 +32,7 @@ class PortalAuthController extends CampusApiController
 
     private const LOGOUT_RESPONSE = "array{status: 'success', message: string, meta: array{timestamp: string, campus_session_valid: false}}";
 
-    private const OFFLINE_ACTION_MESSAGE = 'Kamu sedang di mode offline. Keluar lalu masuk lagi saat portal kampus sudah bisa diakses.';
+    private const OFFLINE_ACTION_MESSAGE = 'Kamu sedang di mode offline. MyCIC menyambung lagi otomatis begitu portal kampus bisa diakses.';
 
     public function __construct(
         private readonly PortalSessionManager $sessionManager,
@@ -53,7 +53,8 @@ class PortalAuthController extends CampusApiController
      * Saat portal tidak bisa dihubungi, mahasiswa yang pernah login online dalam
      * `portal.archive.offline_login_days` hari terakhir dengan password yang sama
      * masuk ke mode offline (`data.offline: true`): hanya membaca arsip MyCIC,
-     * tanpa aksi ke portal.
+     * tanpa aksi ke portal. Sesi itu mencoba login lagi di background dan
+     * tersambung otomatis begitu portal pulih (notice `offline_session_resumed`).
      */
     #[Response(description: 'Login berhasil dan sesi kampus aktif.', type: self::LOGIN_RESPONSE)]
     #[Response(401, description: 'Kredensial portal tidak valid atau sesi gagal dibuat.', type: CampusApiController::SCRAMBLE_SESSION_ERROR_RESPONSE)]
@@ -344,7 +345,7 @@ class PortalAuthController extends CampusApiController
                 return null;
             }
 
-            $sessionResult = $this->sessionManager->createOfflineSession($username, $userInfo);
+            $sessionResult = $this->sessionManager->createOfflineSession($username, $userInfo, $password);
             $this->offlineAccess->markOfflineSession($sessionResult['session_token'], $this->sessionManager->sessionTtl());
 
             session()->regenerate();
@@ -358,7 +359,7 @@ class PortalAuthController extends CampusApiController
 
             Log::info('User logged in offline from the archive', ['username_fingerprint' => PortalLogContext::fingerprint($username)]);
 
-            return $this->statusSuccess('Portal kampus sedang tidak bisa diakses. Kamu masuk dalam mode offline: data diambil dari arsip MyCIC dan aksi ke portal belum tersedia.', [
+            return $this->statusSuccess('Portal kampus sedang tidak bisa diakses. Kamu masuk dalam mode offline: data diambil dari arsip MyCIC dan aksi ke portal belum tersedia. MyCIC menyambung lagi otomatis begitu portal pulih.', [
                 'data' => [
                     'user_info' => $sessionResult['user_info'],
                     'expires_at' => $sessionResult['expires_at'],

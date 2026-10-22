@@ -8,6 +8,7 @@ use App\Exceptions\PortalConnectionException;
 use App\Exceptions\PortalOfflineException;
 use App\Jobs\RefreshPortalDataJob;
 use App\Jobs\RefreshPortalSessionJob;
+use App\Jobs\ResumeOfflineSessionJob;
 use App\Jobs\ScanPortalNotificationsJob;
 use App\Models\PortalArchiveVersion;
 use App\Models\PortalOfflineAccount;
@@ -37,7 +38,7 @@ class PortalOfflineLoginTest extends TestCase
     {
         parent::setUp();
 
-        Bus::fake([RefreshPortalSessionJob::class, ScanPortalNotificationsJob::class, RefreshPortalDataJob::class]);
+        Bus::fake([RefreshPortalSessionJob::class, ResumeOfflineSessionJob::class, ScanPortalNotificationsJob::class, RefreshPortalDataJob::class]);
         $this->withSession(['_token' => 'known-csrf-token'])->withHeader('X-CSRF-TOKEN', 'known-csrf-token');
     }
 
@@ -63,6 +64,7 @@ class PortalOfflineLoginTest extends TestCase
         $this->assertNotSame(self::PASSWORD, $account->password_hash);
         $this->assertTrue(Hash::check(self::PASSWORD, $account->password_hash));
         $this->assertSame('Mahasiswa Arsip', $account->user_info['name']);
+        $this->assertSame(self::PASSWORD, $account->credentials['password']);
     }
 
     public function test_the_same_password_opens_an_offline_session_while_the_portal_is_down(): void

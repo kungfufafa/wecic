@@ -120,6 +120,8 @@ Route::middleware($sessionMiddleware)->group(function () {
         Route::prefix('archive')->controller(PortalArchiveController::class)->group(function (): void {
             Route::get('', 'index');
             Route::delete('', 'destroy')->middleware('throttle:portal-action');
+            // Local bookkeeping: switches the stored credentials on or off.
+            Route::patch('background-sync', 'backgroundSync')->middleware('throttle:portal-action');
             Route::get('files', 'files');
             Route::post('files/sync', 'archiveClass')->middleware(['portal.online', 'throttle:portal-action']);
             Route::get('files/{file}', 'file')->whereNumber('file');

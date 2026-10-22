@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Middleware;
 
+use App\Services\PortalOfflineAccess;
 use App\Services\PortalSessionManager;
 use Closure;
 use Illuminate\Http\RedirectResponse;
@@ -12,7 +13,10 @@ use Symfony\Component\HttpFoundation\Response;
 
 class EnsurePortalWebSession
 {
-    public function __construct(private readonly PortalSessionManager $sessionManager) {}
+    public function __construct(
+        private readonly PortalSessionManager $sessionManager,
+        private readonly PortalOfflineAccess $offlineAccess
+    ) {}
 
     /**
      * @param  \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response)  $next
@@ -29,6 +33,10 @@ class EnsurePortalWebSession
             if (! $this->sessionManager->validateSession($sessionToken)) {
                 return $this->redirectToLogin($request);
             }
+
+            // An offline session can go online in the background
+            // (ResumeOfflineSessionJob); pages read the flag from the session.
+            $request->session()->put('campus_offline', $this->offlineAccess->isOfflineSession($sessionToken));
         } catch (\Throwable) {
             return $this->redirectToLogin($request);
         }
