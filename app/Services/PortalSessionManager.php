@@ -7,6 +7,7 @@ namespace App\Services;
 use App\Exceptions\PortalAuthenticationException;
 use App\Exceptions\PortalConnectionException;
 use App\Jobs\RefreshPortalSessionJob;
+use App\Jobs\ResumeOfflineSessionJob;
 use Carbon\CarbonImmutable;
 use GuzzleHttp\Cookie\CookieJar;
 use GuzzleHttp\Cookie\SetCookie;
@@ -87,16 +88,80 @@ class PortalSessionManager
     }
 
     /**
+     * Log in for a background job (PortalBackgroundSync): a full upstream
+     * session without keep-alive, never reused for a browser, destroyed by
+     * the job once it is done.
+     *
+     * @return array{success: true, session_token: string, user_info: array<string, mixed>, expires_at: string, background: true}
+     */
+    public function createBackgroundSession(string $username, string $password): array
+    {
+        $startedAt = microtime(true);
+        $this->logSessionEvent('background_login_started', username: $username);
+
+        try {
+            $loginResult = $this->authService->login($username, $password);
+            $sessionToken = $this->generateSessionToken();
+            $sessionData = [...$this->buildSessionData($sessionToken, $username, $loginResult), 'background' => true];
+
+            $this->storeSession($sessionToken, $sessionData);
+            $this->logSessionEvent('background_login_succeeded', sessionToken: $sessionToken, username: $username, session: $sessionData, context: [
+                'duration_ms' => $this->durationMs($startedAt),
+            ]);
+
+            return [
+                'success' => true,
+                'session_token' => $sessionToken,
+                'user_info' => $loginResult['user_info'],
+                'expires_at' => $sessionData['expires_at'],
+                'background' => true,
+            ];
+        } catch (\Exception $e) {
+            $this->logSessionEvent('background_login_failed', level: 'warning', username: $username, context: [
+                'error' => $e->getMessage(),
+                'duration_ms' => $this->durationMs($startedAt),
+            ]);
+
+            throw $e;
+        }
+    }
+
+    /**
+     * The student's current online session, for background work that would
+     * otherwise log in a second time; null when there is none (or it is an
+     * offline or background session).
+     */
+    public function activeOnlineSessionTokenForOwner(string $ownerKey): ?string
+    {
+        $sessionToken = Cache::get($this->ownerSessionKey($ownerKey));
+
+        if (! is_string($sessionToken) || $sessionToken === '') {
+            return null;
+        }
+
+        $session = $this->loadSession($sessionToken);
+
+        if (! $this->isUsable($sessionToken, $session) || ($session['offline'] ?? false) || ($session['background'] ?? false)) {
+            return null;
+        }
+
+        return $sessionToken;
+    }
+
+    /**
      * Create a read-only session for a student whose password matched their
      * last online login while the portal is unreachable (see
-     * PortalOfflineAccess). It carries no portal cookies and no keep-alive.
+     * PortalOfflineAccess). It carries no portal cookies and no keep-alive;
+     * with the password it keeps it encrypted and schedules its own resume
+     * (ResumeOfflineSessionJob), which logs in once the portal is back.
      *
      * @param  array<string, mixed>  $userInfo
      * @return array{success: true, session_token: string, user_info: array<string, mixed>, expires_at: string, offline: true}
      */
-    public function createOfflineSession(string $username, array $userInfo): array
+    public function createOfflineSession(string $username, array $userInfo, ?string $password = null): array
     {
         $sessionToken = $this->generateSessionToken();
+        $canResume = $password !== null && $password !== '' && config('portal.archive.offline_resume', true);
         $sessionData = [
             'token' => $sessionToken,
             'username' => $username,
@@ -108,10 +173,17 @@ class PortalSessionManager
             'upstream_checked_at' => null,
             'is_active' => true,
             'offline' => true,
+            ...($canResume ? ['encrypted_credentials' => $this->encryptCredentials($username, $password)] : []),
         ];
 
         $this->storeSession($sessionToken, $sessionData);
-        $this->logSessionEvent('offline_login_succeeded', sessionToken: $sessionToken, username: $username, session: $sessionData);
+        $this->logSessionEvent('offline_login_succeeded', sessionToken: $sessionToken, username: $username, session: $sessionData, context: [
+            'resume_scheduled' => $canResume,
+        ]);
+
+        if ($canResume) {
+            $this->scheduleOfflineResume($sessionToken);
+        }
 
         return [
             'success' => true,
@@ -120,6 +192,138 @@ class PortalSessionManager
             'expires_at' => $sessionData['expires_at'],
             'offline' => true,
         ];
+    }
+
+    /**
+     * Try to turn an offline session into an online one with the password it
+     * keeps, without changing its token.
+     *
+     * @return 'resumed'|'unreachable'|'rejected'|'online'|'idle'|'inactive'|'missing'
+     */
+    public function resumeOfflineSession(string $sessionToken): string
+    {
+        $session = $this->loadSession($sessionToken);
+
+        if ($session === null) {
+            return 'missing';
+        }
+
+        if (! ($session['is_active'] ?? false)) {
+            return 'inactive';
+        }
+
+        if ($this->isIdleExpired($session)) {
+            $this->deactivateSession($sessionToken, 'idle_timeout', [
+                'expires_at' => $session['expires_at'] ?? null,
+            ]);
+
+            return 'idle';
+        }
+
+        if (! ($session['offline'] ?? false)) {
+            return 'online';
+        }
+
+        try {
+            $credentials = isset($session['encrypted_credentials']) ? $this->decryptCredentials($session['encrypted_credentials']) : [];
+        } catch (\Throwable) {
+            $credentials = [];
+        }
+
+        $username = (string) ($credentials['username'] ?? $session['username'] ?? '');
+        $password = (string) ($credentials['password'] ?? '');
+
+        if ($username === '' || $password === '') {
+            $this->logSessionEvent('offline_resume_rejected', level: 'warning', sessionToken: $sessionToken, session: $session, context: [
+                'reason' => 'no_stored_credentials',
+            ]);
+
+            return 'rejected';
+        }
+
+        try {
+            $loginResult = $this->authService->login($username, $password);
+        } catch (PortalAuthenticationException $exception) {
+            // The password changed meanwhile: stop trying with the old one.
+            $this->forgetStoredCredentials($sessionToken);
+            $this->logSessionEvent('offline_resume_rejected', level: 'warning', sessionToken: $sessionToken, session: $session, context: [
+                'reason' => 'invalid_credentials',
+                'error' => $exception->getMessage(),
+            ]);
+
+            return 'rejected';
+        } catch (\Throwable $throwable) {
+            $this->logSessionEvent('offline_resume_unreachable', level: 'debug', sessionToken: $sessionToken, session: $session, context: [
+                'error' => $throwable->getMessage(),
+            ]);
+
+            return 'unreachable';
+        }
+
+        try {
+            $sessionData = $this->mutateSession($sessionToken, function (?array $stored) use ($sessionToken, $username, $password, $loginResult): ?array {
+                if ($stored === null || ! ($stored['offline'] ?? false)) {
+                    return null;
+                }
+
+                $sessionData = $this->buildSessionData($sessionToken, $username, $loginResult);
+                // Resuming is not user activity: keep the idle clock where it was.
+                $sessionData['last_activity'] = $stored['last_activity'] ?? $sessionData['last_activity'];
+                $sessionData['expires_at'] = $stored['expires_at'] ?? $sessionData['expires_at'];
+                $sessionData['laravel_session_id'] = $stored['laravel_session_id'] ?? null;
+                $sessionData['encrypted_credentials'] = config('portal.auto_relogin', false)
+                    ? $this->encryptCredentials($username, $password)
+                    : null;
+
+                return array_filter($sessionData, static fn (mixed $value): bool => $value !== null);
+            });
+        } catch (\RuntimeException) {
+            // The session lock was busy: the portal is up, so the next attempt will do.
+            return 'unreachable';
+        }
+
+        if ($sessionData === null) {
+            $this->authService->logout($this->recreateCookieJar($loginResult['cookies'] ?? []));
+
+            return $this->loadSession($sessionToken) === null ? 'missing' : 'online';
+        }
+
+        $this->scheduleKeepAlive($sessionToken);
+        $this->logSessionEvent('offline_resume_succeeded', sessionToken: $sessionToken, session: $sessionData);
+
+        return 'resumed';
+    }
+
+    /**
+     * Schedule the next attempt to bring an offline session online; the job
+     * is unique per session, so repeated scheduling never starts a second chain
+     */
+    public function scheduleOfflineResume(string $sessionToken, int $attempt = 1): void
+    {
+        if (! config('portal.archive.offline_resume', true)) {
+            return;
+        }
+
+        $delay = $this->offlineResumeDelay($attempt);
+
+        ResumeOfflineSessionJob::dispatch($sessionToken, $attempt)->delay(now()->addSeconds($delay));
+
+        $this->logSessionEvent('offline_resume_scheduled', level: 'debug', sessionToken: $sessionToken, context: [
+            'attempt' => $attempt,
+            'delay_seconds' => $delay,
+        ]);
+    }
+
+    /**
+     * Seconds before attempt `$attempt`: the base interval, doubling up to
+     * the configured maximum.
+     */
+    public function offlineResumeDelay(int $attempt): int
+    {
+        $base = max(30, (int) config('portal.archive.offline_resume_interval', 120));
+        $max = max($base, (int) config('portal.archive.offline_resume_max_interval', 900));
+
+        return (int) min($max, $base * (2 ** min(16, max(0, $attempt - 1))));
     }
 
     /**
@@ -310,6 +514,7 @@ class PortalSessionManager
             // Always drop the local session, even when the upstream logout fails
             $this->deleteSession($sessionToken);
             $this->dataOwner->forget($sessionToken);
+            $this->forgetOwnerSession($sessionToken, $session);
         }
     }
 
@@ -505,7 +710,49 @@ class PortalSessionManager
 
         if (isset($sessionData['username']) && is_string($sessionData['username'])) {
             $this->dataOwner->remember($sessionToken, $sessionData['username'], $ttl);
+            $this->indexOwnerSession($sessionToken, $sessionData, $ttl);
         }
+    }
+
+    /**
+     * Owner → current online session, for activeOnlineSessionTokenForOwner().
+     * Offline, background and deactivated sessions never take the slot, and
+     * a deactivated one gives it back.
+     *
+     * @param  array<string, mixed>  $sessionData
+     */
+    private function indexOwnerSession(string $sessionToken, array $sessionData, int $ttl): void
+    {
+        $key = $this->ownerSessionKey($this->dataOwner->keyForUsername((string) $sessionData['username']));
+
+        if (($sessionData['is_active'] ?? false) && ! ($sessionData['offline'] ?? false) && ! ($sessionData['background'] ?? false)) {
+            Cache::put($key, $sessionToken, $ttl);
+        } elseif (Cache::get($key) === $sessionToken) {
+            Cache::forget($key);
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $session
+     */
+    private function forgetOwnerSession(string $sessionToken, ?array $session): void
+    {
+        $username = $session['username'] ?? null;
+
+        if (! is_string($username) || $username === '') {
+            return;
+        }
+
+        $key = $this->ownerSessionKey($this->dataOwner->keyForUsername($username));
+
+        if (Cache::get($key) === $sessionToken) {
+            Cache::forget($key);
+        }
+    }
+
+    private function ownerSessionKey(string $ownerKey): string
+    {
+        return 'portal_owner_session_'.hash('sha256', $ownerKey);
     }
 
     private function loadSession(string $sessionToken): ?array

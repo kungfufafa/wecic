@@ -1219,8 +1219,12 @@ return [
     |
     | Offline login lets a student who logged in online within
     | `offline_login_days` read the archive while the portal is unreachable,
-    | checked against a hash of that last password. Course files linked from
-    | meetings (modul, latihan, RPS) are archived up to `max_file_size` bytes.
+    | checked against a hash of that last password. An offline session keeps
+    | that password encrypted and tries to log in again every
+    | `offline_resume_interval` seconds (doubling up to
+    | `offline_resume_max_interval`), so it turns into an online session on
+    | its own once the portal is back. Course files linked from meetings
+    | (modul, latihan, RPS) are archived up to `max_file_size` bytes.
     |
     */
 
@@ -1230,11 +1234,38 @@ return [
         'volatile_keys' => ['extracted_at', 'generated_at', 'last_updated', 'request_url'],
         'offline_login' => (bool) env('PORTAL_ARCHIVE_OFFLINE_LOGIN', true),
         'offline_login_days' => (int) env('PORTAL_ARCHIVE_OFFLINE_LOGIN_DAYS', 30),
+        'offline_resume' => (bool) env('PORTAL_ARCHIVE_OFFLINE_RESUME', true),
+        'offline_resume_interval' => (int) env('PORTAL_ARCHIVE_OFFLINE_RESUME_INTERVAL', 120),
+        'offline_resume_max_interval' => (int) env('PORTAL_ARCHIVE_OFFLINE_RESUME_MAX_INTERVAL', 900),
         'files' => [
             'enabled' => (bool) env('PORTAL_ARCHIVE_FILES_ENABLED', true),
             'disk' => env('PORTAL_ARCHIVE_FILES_DISK', 'local'),
             'max_file_size' => (int) env('PORTAL_ARCHIVE_MAX_FILE_SIZE', 26214400),
         ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Background Sync (Archive Kept Current While the Student Is Away)
+    |--------------------------------------------------------------------------
+    |
+    | With background sync on, every online login stores the student's
+    | portal credentials encrypted (PortalOfflineAccount). The scheduler then
+    | re-syncs `datasets` for each student every `interval` minutes, until
+    | `credential_days` after their last online login: an active online
+    | session is reused, otherwise MyCIC logs in, syncs and logs out again.
+    | A login the portal rejects (password changed) stops the syncs until the
+    | student logs in online again. Each scheduler tick handles at most
+    | `batch_size` students, so a big campus is spread over several ticks.
+    |
+    */
+
+    'background_sync' => [
+        'enabled' => (bool) env('PORTAL_BACKGROUND_SYNC_ENABLED', true),
+        'interval' => (int) env('PORTAL_BACKGROUND_SYNC_INTERVAL', 180),
+        'credential_days' => (int) env('PORTAL_BACKGROUND_SYNC_CREDENTIAL_DAYS', 30),
+        'batch_size' => (int) env('PORTAL_BACKGROUND_SYNC_BATCH_SIZE', 10),
+        'datasets' => ['portal_context', 'profile', 'classes', 'dashboard', 'assignments', 'krs', 'advising', 'payments', 'grades', 'skkm', 'announcements', 'exams'],
     ],
 
     'realtime' => [

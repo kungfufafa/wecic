@@ -321,10 +321,10 @@
                 <div data-operation-status class="mb-4"></div>
 
                 @if ($isPortalOffline)
-                    <div class="mycic-alert-warning mb-4 flex flex-wrap items-center justify-between gap-3 print:hidden" role="status">
+                    <div class="mycic-alert-warning mb-4 flex flex-wrap items-center justify-between gap-3 print:hidden" role="status" data-portal-offline-banner>
                         <span class="min-w-0">
                             <span class="block font-bold">Mode offline</span>
-                            <span class="block text-sm">Portal kampus tidak bisa diakses saat kamu masuk. Data diambil dari arsip MyCIC; absen, upload, dan sinkronisasi belum tersedia.</span>
+                            <span class="block text-sm">Portal kampus tidak bisa diakses saat kamu masuk. Data diambil dari arsip MyCIC; absen, upload, dan sinkronisasi belum tersedia. MyCIC menyambung lagi otomatis begitu portal pulih.</span>
                         </span>
                         <button type="button" class="mycic-btn-secondary-sm" data-logout>Masuk ulang</button>
                     </div>

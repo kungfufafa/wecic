@@ -62,9 +62,20 @@
             <div class="mycic-card-body flex flex-col gap-3 text-sm text-ink-muted">
                 <ul class="flex list-disc flex-col gap-1.5 ps-5">
                     <li>Data disimpan terenkripsi di server MyCIC dan hanya bisa dibuka lewat akunmu. Daftar teman sekelas tidak ikut diarsipkan.</li>
-                    <li>Saat portal mati, kamu tetap bisa masuk dengan password terakhir yang berhasil login (maks. {{ (int) config('portal.archive.offline_login_days', 30) }} hari). Yang disimpan hanya hash password, bukan password-nya.</li>
+                    <li>Saat portal mati, kamu tetap bisa masuk dengan password terakhir yang berhasil login (maks. {{ (int) config('portal.archive.offline_login_days', 30) }} hari), dan MyCIC menyambung lagi otomatis begitu portal pulih.</li>
+                    <li>Dengan sinkronisasi di background aktif, password terakhirmu disimpan terenkripsi supaya MyCIC bisa masuk ke portal sendiri setiap {{ (int) config('portal.background_sync.interval', 180) }} menit dan memperbarui arsip saat kamu tidak membuka MyCIC. Matikan di bawah kalau tidak mau; yang tersisa hanya hash password.</li>
                     <li>Kalau data dari portal terlihat janggal (nilai hilang, presensi berubah jadi absen, riwayat bayar berkurang), MyCIC tetap menampilkan versi terakhir yang dipercaya sampai kamu memeriksanya.</li>
                 </ul>
+                <div class="mycic-alert-info mb-0 flex flex-wrap items-center justify-between gap-3" id="archive-background-sync" hidden>
+                    <span class="min-w-0">
+                        <span class="block font-bold text-ink">Sinkronisasi di background</span>
+                        <span class="block text-sm" id="archive-background-sync-caption"></span>
+                    </span>
+                    <label class="flex min-h-11 shrink-0 cursor-pointer items-center gap-2 text-sm font-semibold text-ink">
+                        <input type="checkbox" class="h-5 w-5 cursor-pointer accent-brand" id="archive-background-sync-toggle">
+                        <span>Aktif</span>
+                    </label>
+                </div>
                 <div>
                     <button type="button" class="mycic-btn-destructive" id="archive-delete">Hapus seluruh arsip saya</button>
                 </div>
@@ -192,6 +203,71 @@
                 }
             };
 
+            const backgroundSyncHost = document.getElementById('archive-background-sync');
+            const backgroundSyncCaption = document.getElementById('archive-background-sync-caption');
+            const backgroundSyncToggle = document.getElementById('archive-background-sync-toggle');
+
+            const describeBackgroundSync = (status) => {
+                if (!status.enabled) {
+                    return 'Nonaktif. Password tidak disimpan; arsip hanya diperbarui saat kamu membuka MyCIC.';
+                }
+
+                if (status.rejected) {
+                    return 'Portal menolak password yang tersimpan. Masuk lagi di MyCIC saat portal online untuk memperbaruinya.';
+                }
+
+                if (status.pending_login) {
+                    return 'Aktif sejak kamu masuk lagi saat portal online.';
+                }
+
+                const lastSync = status.last_synced_at ? `Terakhir ${app.formatTimeAgo(status.last_synced_at)}` : 'Belum pernah berjalan';
+                const outcome = {
+                    synced: 'berhasil',
+                    partial: 'sebagian berhasil',
+                    failed: 'gagal',
+                    unreachable: 'portal tidak bisa dihubungi',
+                    rejected: 'password ditolak',
+                }[status.last_status] || '';
+
+                return `${lastSync}${outcome ? ` (${outcome})` : ''} · setiap ${status.interval_minutes} menit, sampai ${status.credential_days} hari setelah login terakhirmu.`;
+            };
+
+            const renderBackgroundSync = (status) => {
+                if (!status || !status.available) {
+                    backgroundSyncHost.hidden = true;
+
+                    return;
+                }
+
+                backgroundSyncHost.hidden = false;
+                backgroundSyncToggle.checked = Boolean(status.enabled);
+                backgroundSyncCaption.textContent = describeBackgroundSync(status);
+            };
+
+            backgroundSyncToggle.addEventListener('change', async () => {
+                const enabled = backgroundSyncToggle.checked;
+
+                if (!enabled && !window.confirm('Matikan sinkronisasi di background? Password yang tersimpan langsung dihapus dan arsip hanya diperbarui saat kamu membuka MyCIC.')) {
+                    backgroundSyncToggle.checked = true;
+
+                    return;
+                }
+
+                backgroundSyncToggle.disabled = true;
+
+                try {
+                    const payload = await app.request('/api/archive/background-sync', { method: 'PATCH', json: { enabled } });
+
+                    renderBackgroundSync(payload?.data || null);
+                    app.showNotice(payload?.message || 'Pengaturan sinkronisasi disimpan.', 'success');
+                } catch (error) {
+                    backgroundSyncToggle.checked = !enabled;
+                    app.showNotice(`Pengaturan belum tersimpan. ${app.describeError(error)}`, 'error');
+                } finally {
+                    backgroundSyncToggle.disabled = false;
+                }
+            });
+
             const loadArchive = async () => {
                 try {
                     const [summary, files] = await Promise.all([
@@ -205,6 +281,7 @@
 
                     renderDatasets(Array.isArray(summary?.data?.datasets) ? summary.data.datasets : []);
                     renderFiles(files);
+                    renderBackgroundSync(summary?.data?.background_sync || null);
                     app.setSyncStatus('Arsip dibaca dari database MyCIC.', 'info');
                 } catch (error) {
                     datasetsHost.removeAttribute('aria-busy');
