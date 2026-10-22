@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\PortalNotification;
+use App\Models\PortalOutboxItem;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
@@ -13,8 +14,9 @@ Schedule::command('queue:work --queue=campus-sessions,campus-uploads,campus-refr
     ->everyMinute()
     ->withoutOverlapping();
 
-// Notifications older than `portal.notifications.retention_days`.
-Schedule::command('model:prune', ['--model' => [PortalNotification::class]])->daily();
+// Notifications older than `portal.notifications.retention_days`, and settled
+// outbox items older than `portal.outbox.retention_days`.
+Schedule::command('model:prune', ['--model' => [PortalNotification::class, PortalOutboxItem::class]])->daily();
 
 // Background syncs of the archive for students whose last sync is due
 // (`portal.background_sync`); each run queues one batch.

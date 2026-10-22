@@ -22,6 +22,9 @@
         </div>
     </div>
 
+    {{-- Attendance or upload queued for this meeting while offline: not at the portal yet. --}}
+    <div class="mb-5 hidden" data-outbox-list data-outbox-match="meeting:{{ e($meetingId) }}" data-outbox-heading="Antrean offline pertemuan ini"></div>
+
     <div class="grid gap-5 lg:grid-cols-12">
         <div class="space-y-5 lg:col-span-8" id="meeting-content">
             <div class="mycic-card">
@@ -448,7 +451,7 @@
                                     </div>
 
                                     <div class="pt-1">
-                                        <button type="submit" class="${app.buttonClass('primary')} mycic-btn-block py-2.5 font-bold shadow-xs" data-online-required>
+                                        <button type="submit" class="${app.buttonClass('primary')} mycic-btn-block py-2.5 font-bold shadow-xs" data-online-required data-outbox-capable>
                                             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
                                             <span>Kirim absen</span>
                                         </button>
@@ -528,7 +531,7 @@
                                         <textarea id="assignment-note" class="mycic-input" rows="2" placeholder="Opsional"></textarea>
                                     </div>
 
-                                    <button type="submit" class="${app.buttonClass('primary')} mycic-btn-block py-2.5 font-bold shadow-xs" data-online-required>
+                                    <button type="submit" class="${app.buttonClass('primary')} mycic-btn-block py-2.5 font-bold shadow-xs" data-online-required data-outbox-capable>
                                         <span>Kirim</span>
                                     </button>
                                 </form>
@@ -639,7 +642,7 @@
                     attendanceForm.addEventListener('submit', async (event) => {
                         event.preventDefault();
 
-                        if (!app.requireOnlineAction('Absen meeting butuh koneksi internet.')) {
+                        if (!app.requireOnlineAction('Absen meeting butuh koneksi internet.', { queueable: true })) {
                             return;
                         }
 
@@ -661,6 +664,11 @@
                                     method: 'POST',
                                     json: body,
                                 });
+
+                                // Offline session: the code waits in the outbox, not at the portal.
+                                if (app.handleQueuedActionResult(result)) {
+                                    return;
+                                }
 
                                 app.showNotice(
                                     result?.data?.status === 'already_marked'
@@ -694,7 +702,7 @@
                     assignmentForm.addEventListener('submit', async (event) => {
                         event.preventDefault();
 
-                        if (!app.requireOnlineAction('Upload tugas butuh koneksi internet.')) {
+                        if (!app.requireOnlineAction('Upload tugas butuh koneksi internet.', { queueable: true })) {
                             return;
                         }
 
@@ -722,6 +730,13 @@
                                     method: 'POST',
                                     formData,
                                 });
+
+                                // Offline session: the file waits in the outbox, not at the portal.
+                                if (app.handleQueuedActionResult(result)) {
+                                    assignmentForm.reset();
+
+                                    return;
+                                }
 
                                 const operationId = result?.data?.operation_id;
                                 if (operationId) {

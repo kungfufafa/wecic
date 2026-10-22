@@ -6,12 +6,15 @@ namespace App\Http\Middleware;
 
 use App\Services\PortalOfflineAccess;
 use Closure;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Routes that send something to the portal (attendance, uploads, password,
- * refresh) are closed to an offline session, which only reads the archive.
+ * Routes that send something to the portal (password, refresh, deletes,
+ * archive syncs) are closed to an offline session, which only reads the
+ * archive. Attendance and uploads are not behind this: they go to the
+ * outbox instead (PortalOutbox), because their windows close.
  */
 class EnsurePortalOnline
 {
@@ -26,6 +29,14 @@ class EnsurePortalOnline
             return $next($request);
         }
 
+        return self::offlineResponse();
+    }
+
+    /**
+     * Also the answer of the outbox endpoints when the outbox is switched off.
+     */
+    public static function offlineResponse(): JsonResponse
+    {
         return response()->json([
             'status' => 'error',
             'message' => 'Kamu sedang di mode offline, jadi aksi ke portal kampus belum bisa dijalankan. MyCIC menyambung lagi otomatis begitu portal bisa diakses.',

@@ -14,6 +14,7 @@ use App\Services\PortalBroadcastService;
 use App\Services\PortalDatasetRepository;
 use App\Services\PortalLogContext;
 use App\Services\PortalOfflineAccess;
+use App\Services\PortalOutbox;
 use App\Services\PortalPasswordService;
 use App\Services\PortalSessionManager;
 use Dedoc\Scramble\Attributes\Group;
@@ -38,7 +39,8 @@ class PortalAuthController extends CampusApiController
         private readonly PortalSessionManager $sessionManager,
         private readonly PortalPasswordService $passwordService,
         private readonly PortalDatasetRepository $datasets,
-        private readonly PortalOfflineAccess $offlineAccess
+        private readonly PortalOfflineAccess $offlineAccess,
+        private readonly PortalOutbox $outbox
     ) {}
 
     /**
@@ -52,9 +54,11 @@ class PortalAuthController extends CampusApiController
      *
      * Saat portal tidak bisa dihubungi, mahasiswa yang pernah login online dalam
      * `portal.archive.offline_login_days` hari terakhir dengan password yang sama
-     * masuk ke mode offline (`data.offline: true`): hanya membaca arsip MyCIC,
-     * tanpa aksi ke portal. Sesi itu mencoba login lagi di background dan
-     * tersambung otomatis begitu portal pulih (notice `offline_session_resumed`).
+     * masuk ke mode offline (`data.offline: true`): membaca arsip MyCIC; absensi
+     * dan unggahan masuk antrean offline (`/outbox`, belum terkirim ke portal).
+     * Sesi itu mencoba login lagi di background dan tersambung otomatis begitu
+     * portal pulih (notice `offline_session_resumed`); antrean dikirim saat itu
+     * atau saat login online berikutnya.
      */
     #[Response(description: 'Login berhasil dan sesi kampus aktif.', type: self::LOGIN_RESPONSE)]
     #[Response(401, description: 'Kredensial portal tidak valid atau sesi gagal dibuat.', type: CampusApiController::SCRAMBLE_SESSION_ERROR_RESPONSE)]
@@ -93,6 +97,10 @@ class PortalAuthController extends CampusApiController
                 (string) session()->getId(),
                 (int) config('portal.sync.warmup_delay', 5)
             );
+
+            // Attendance and uploads queued during an offline session go out
+            // with this online session (FlushPortalOutboxJob).
+            $this->outbox->flushWhenQueued($sessionResult['session_token'], (string) session()->getId());
 
             Log::info('User logged in successfully', ['username_fingerprint' => PortalLogContext::fingerprint($username)]);
 

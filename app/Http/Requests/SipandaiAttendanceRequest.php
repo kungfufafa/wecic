@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Requests;
 
+use Carbon\CarbonImmutable;
+
 /**
  * @mixin \Illuminate\Http\Request
  */
@@ -79,6 +81,13 @@ class SipandaiAttendanceRequest extends ApiFormRequest
              * @ignoreParam
              */
             'shortcut_context.course_id' => ['required_with:shortcut_context', 'integer', 'min:1'],
+            /**
+             * Batas waktu absensi (ISO 8601) bila klien mengetahuinya. Saat sesi offline,
+             * kode yang masih di antrean setelah batas ini tidak dikirim.
+             *
+             * @example "2026-04-14T10:00:00+07:00"
+             */
+            'deadline' => ['sometimes', 'nullable', 'date'],
         ];
     }
 
@@ -102,6 +111,7 @@ class SipandaiAttendanceRequest extends ApiFormRequest
             'shortcut_context.class_id.required_with' => 'shortcut_context.class_id wajib diisi saat menggunakan konteks kelas.',
             'shortcut_context.dosen_id.required_with' => 'shortcut_context.dosen_id wajib diisi saat menggunakan konteks kelas.',
             'shortcut_context.course_id.required_with' => 'shortcut_context.course_id wajib diisi saat menggunakan konteks kelas.',
+            'deadline.date' => 'Parameter deadline harus berupa tanggal yang valid.',
         ];
     }
 
@@ -164,6 +174,13 @@ class SipandaiAttendanceRequest extends ApiFormRequest
             $values,
             static fn (mixed $value): bool => is_string($value) && $value !== ''
         );
+    }
+
+    public function deadline(): ?CarbonImmutable
+    {
+        $deadline = $this->validated('deadline');
+
+        return is_string($deadline) && $deadline !== '' ? CarbonImmutable::parse($deadline, config('app.timezone')) : null;
     }
 
     /**

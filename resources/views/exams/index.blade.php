@@ -8,6 +8,9 @@
         <h1 class="mycic-page-heading">Ujian</h1>
     </header>
 
+    {{-- Exam answers queued while offline: not at the portal yet. --}}
+    <div class="mb-5 hidden" data-outbox-list data-outbox-match="action:exam_upload" data-outbox-heading="Antrean offline ujian"></div>
+
     <div id="exam-summary" class="mb-5 grid grid-cols-3 gap-3">
         @foreach (['Total', 'Jadwal', 'Terkirim'] as $label)
             <div class="mycic-metric">

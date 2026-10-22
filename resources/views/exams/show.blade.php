@@ -8,6 +8,9 @@
         {!! '<div class="mycic-alert-neutral mb-4">Menunggu ringkasan ujian.</div>' !!}
     </div>
 
+    {{-- An answer queued for this exam while offline: not at the portal yet. --}}
+    <div class="mb-4 hidden" data-outbox-list data-outbox-match="exam:{{ e($id) }}" data-outbox-heading="Antrean offline ujian ini"></div>
+
     <div class="grid items-start gap-4 lg:grid-cols-12">
         <div class="lg:col-span-8" id="exam-content">
             {!! '<div class="mycic-alert-neutral mb-0">Menunggu konten ujian.</div>' !!}
@@ -217,7 +220,7 @@
                                 </div>
                                 ${buildOverrideInputs(form.fields)}
                                 <div class="mycic-sticky-action">
-                                    <button type="submit" class="${app.buttonClass('primary')} mycic-btn-block" data-online-required>Kirim jawaban</button>
+                                    <button type="submit" class="${app.buttonClass('primary')} mycic-btn-block" data-online-required data-outbox-capable>Kirim jawaban</button>
                                 </div>
                             </form>
                         ` : app.renderDisabledButton('Upload belum tersedia')}
@@ -322,7 +325,7 @@
                     uploadForm.addEventListener('submit', async (event) => {
                         event.preventDefault();
 
-                        if (!app.requireOnlineAction('Upload ujian butuh koneksi internet.')) {
+                        if (!app.requireOnlineAction('Upload ujian butuh koneksi internet.', { queueable: true })) {
                             return;
                         }
 
@@ -352,6 +355,13 @@
                                     method: 'POST',
                                     formData,
                                 });
+
+                                // Offline session: the answer waits in the outbox, not at the portal.
+                                if (app.handleQueuedActionResult(result)) {
+                                    uploadForm.reset();
+
+                                    return;
+                                }
 
                                 const operationId = result?.data?.operation_id;
 

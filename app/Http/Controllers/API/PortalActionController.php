@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\API;
 
+use App\Http\Middleware\EnsurePortalOnline;
 use App\Http\Requests\SipandaiAssignmentDeleteRequest;
 use App\Http\Requests\SipandaiAssignmentUploadRequest;
 use App\Http\Requests\SipandaiAttendanceRequest;
@@ -11,12 +12,15 @@ use App\Http\Requests\SipandaiExamDetailRequest;
 use App\Http\Requests\SipandaiExamUploadRequest;
 use App\Jobs\ProcessPortalAssignmentUploadJob;
 use App\Jobs\ProcessPortalExamUploadJob;
+use App\Models\PortalOutboxItem;
 use App\Services\AttendanceShortcutService;
 use App\Services\PortalActionProjector;
 use App\Services\PortalBroadcastService;
 use App\Services\PortalDatasetRepository;
 use App\Services\PortalFetchPolicy;
+use App\Services\PortalOfflineAccess;
 use App\Services\PortalOperationTracker;
+use App\Services\PortalOutbox;
 use App\Services\SipandaiSubmissionService;
 use Dedoc\Scramble\Attributes\Group;
 use Dedoc\Scramble\Attributes\PathParameter;
@@ -45,6 +49,8 @@ class PortalActionController extends CampusApiController
 
     private const ASSIGNMENT_RESOURCES = ['class_detail', 'meeting_detail'];
 
+    private const QUEUED_OFFLINE_RESPONSE = "array{success: true, message: string, data: array{status: 'queued_offline', outbox_item: array<string, mixed>}}";
+
     public function __construct(
         private readonly SipandaiSubmissionService $submissionService,
         private readonly AttendanceShortcutService $attendanceShortcutService,
@@ -52,8 +58,35 @@ class PortalActionController extends CampusApiController
         private readonly PortalFetchPolicy $fetchPolicy,
         private readonly PortalActionProjector $projector,
         private readonly PortalOperationTracker $tracker,
-        private readonly PortalBroadcastService $broadcast
+        private readonly PortalBroadcastService $broadcast,
+        private readonly PortalOfflineAccess $offlineAccess,
+        private readonly PortalOutbox $outbox
     ) {}
+
+    /**
+     * An offline session cannot reach the portal: the validated action waits
+     * in the outbox (PortalOutbox) and the answer says it is not sent yet.
+     *
+     * @param  \Closure(): PortalOutboxItem  $queue
+     */
+    private function queueOffline(string $sessionToken, \Closure $queue): JsonResponse
+    {
+        if (! $this->outbox->enabled()) {
+            return EnsurePortalOnline::offlineResponse();
+        }
+
+        $item = $queue();
+        $this->outbox->announce((string) session()->getId(), $sessionToken, $item->actionLabel().' masuk antrean offline; belum terkirim ke portal.');
+
+        return response()->json([
+            'success' => true,
+            'message' => $this->outbox->queuedMessage($item),
+            'data' => [
+                'status' => 'queued_offline',
+                'outbox_item' => $item->toApiArray(),
+            ],
+        ], 202);
+    }
 
     /**
      * Other open tabs re-read the views an assignment or attendance action changed.
@@ -87,8 +120,14 @@ class PortalActionController extends CampusApiController
      * - `pertemuan` → nilai `pertemuan` pada URL upload (contoh `pertemuan=6`).
      * - `attachment` → upload file PDF yang akan dikirim sebagai `data[tugas]`.
      * - `form_values` → optional, untuk override field lain di form upload (misal `keterangan`, `cmd`, dsb.).
+     * - `deadline` → optional, tenggat tugas bila klien mengetahuinya; dipakai saat sesi offline.
+     *
+     * Saat sesi sedang offline, tugas tidak ditolak: file dan datanya disimpan di
+     * antrean MyCIC (`data.status: queued_offline`, belum terkirim ke portal) dan
+     * dikirim otomatis begitu sesi tersambung lagi, selama tenggatnya belum lewat.
      */
     #[Response(description: 'Unggah tugas berhasil diproses oleh SIPANDAI.', type: self::ACTION_RESULT_RESPONSE)]
+    #[Response(202, description: 'Diterima: sedang dikirim (`queued`), atau menunggu portal bisa diakses (`queued_offline`, belum terkirim).', type: self::QUEUED_OFFLINE_RESPONSE)]
     #[Response(401, description: 'Endpoint ini membutuhkan sesi kampus yang aktif.', type: CampusApiController::SCRAMBLE_SESSION_ERROR_RESPONSE)]
     #[Response(422, description: 'Payload unggah tugas tidak valid.', type: CampusApiController::SCRAMBLE_VALIDATION_ERROR_RESPONSE)]
     #[Response(500, description: 'Unggah tugas gagal diproses.', type: CampusApiController::SCRAMBLE_BOOLEAN_RESPONSE)]
@@ -101,6 +140,19 @@ class PortalActionController extends CampusApiController
         }
 
         try {
+            if ($this->offlineAccess->isOfflineSession($sessionToken)) {
+                return $this->queueOffline($sessionToken, fn (): PortalOutboxItem => $this->outbox->queueAssignmentUpload(
+                    $sessionToken,
+                    $request->courseId(),
+                    $request->hasDirectAssignmentPayload() ? $request->discussionId() : null,
+                    $request->hasDirectAssignmentPayload() ? $request->meetingNumber() : null,
+                    $request->hasMeetingContext() ? $request->meetingId() : null,
+                    $request->attachment(),
+                    $request->formValues(),
+                    $request->deadline()
+                ));
+            }
+
             $attachment = $request->attachment();
             $courseId = $request->courseId();
             $discussionId = $request->discussionId();
@@ -243,8 +295,14 @@ class PortalActionController extends CampusApiController
      * - `modulesid` → nilai `modulesid` pada URL absensi (contoh `modulesid=30728`).
      * - `kode` → kode QR/unix untuk absensi (contoh `35533429`).
      * - `pertemuan` → opsional; nomor pertemuan untuk referensi.
+     * - `deadline` → opsional; batas waktu absensi bila klien mengetahuinya (dipakai saat sesi offline).
+     *
+     * Saat sesi sedang offline, kode absen disimpan di antrean MyCIC (`data.status:
+     * queued_offline`, belum terkirim ke portal) dan dikirim otomatis begitu sesi
+     * tersambung lagi, selama harinya belum berganti.
      */
     #[Response(description: 'Absensi berhasil dikirim ke SIPANDAI.', type: self::ACTION_RESULT_RESPONSE)]
+    #[Response(202, description: 'Sesi offline: kode absen menunggu portal bisa diakses (belum terkirim).', type: self::QUEUED_OFFLINE_RESPONSE)]
     #[Response(401, description: 'Endpoint ini membutuhkan sesi kampus yang aktif.', type: CampusApiController::SCRAMBLE_SESSION_ERROR_RESPONSE)]
     #[Response(422, description: 'Payload absensi tidak valid.', type: CampusApiController::SCRAMBLE_VALIDATION_ERROR_RESPONSE)]
     #[Response(500, description: 'Absensi gagal diproses.', type: CampusApiController::SCRAMBLE_BOOLEAN_RESPONSE)]
@@ -261,6 +319,19 @@ class PortalActionController extends CampusApiController
         ]);
 
         try {
+            if ($this->offlineAccess->isOfflineSession($sessionToken)) {
+                return $this->queueOffline($sessionToken, fn (): PortalOutboxItem => $this->outbox->queueAttendance(
+                    $sessionToken,
+                    $request->hasDirectAttendancePayload() ? $request->courseId() : null,
+                    $request->hasDirectAttendancePayload() ? $request->discussionId() : null,
+                    $request->meetingNumber(),
+                    $request->shortcutContext(),
+                    (string) $request->validated('kode'),
+                    $request->formValues(),
+                    $request->deadline()
+                ));
+            }
+
             $courseId = $request->courseId();
             $discussionId = $request->discussionId();
             $meetingNumber = $request->meetingNumber();
@@ -501,8 +572,14 @@ class PortalActionController extends CampusApiController
      * - `id` → ambil dari parameter `id` pada URL upload ujian (`act=sendujian`).
      * - `attachment` → file ujian yang akan diunggah.
      * - `form_values` → optional, override field tambahan dari form upload ujian.
+     * - `deadline` → optional, batas akhir ujian bila klien mengetahuinya (dipakai saat sesi offline).
+     *
+     * Saat sesi sedang offline, jawaban disimpan di antrean MyCIC (`data.status:
+     * queued_offline`, belum terkirim ke portal) dan dikirim otomatis begitu sesi
+     * tersambung lagi; portal yang menentukan bila waktunya sudah habis.
      */
     #[Response(description: 'Unggah ujian berhasil diproses oleh SIPANDAI.', type: self::ACTION_RESULT_RESPONSE)]
+    #[Response(202, description: 'Diterima: sedang dikirim (`queued`), atau menunggu portal bisa diakses (`queued_offline`, belum terkirim).', type: self::QUEUED_OFFLINE_RESPONSE)]
     #[Response(401, description: 'Endpoint ini membutuhkan sesi kampus yang aktif.', type: CampusApiController::SCRAMBLE_SESSION_ERROR_RESPONSE)]
     #[Response(422, description: 'Payload unggah ujian tidak valid.', type: CampusApiController::SCRAMBLE_VALIDATION_ERROR_RESPONSE)]
     #[Response(500, description: 'Unggah ujian gagal diproses.', type: CampusApiController::SCRAMBLE_BOOLEAN_RESPONSE)]
@@ -515,6 +592,16 @@ class PortalActionController extends CampusApiController
         }
 
         try {
+            if ($this->offlineAccess->isOfflineSession($sessionToken)) {
+                return $this->queueOffline($sessionToken, fn (): PortalOutboxItem => $this->outbox->queueExamUpload(
+                    $sessionToken,
+                    $request->examId(),
+                    $request->attachment(),
+                    $request->formValues(),
+                    $request->deadline()
+                ));
+            }
+
             $attachment = $request->attachment();
             $operationId = (string) Str::uuid();
             $storedFilePath = $attachment->store('portal-uploads');

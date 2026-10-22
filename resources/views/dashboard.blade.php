@@ -27,6 +27,9 @@
         </ul>
     </section>
 
+    {{-- Everything queued while offline (attendance, uploads): not at the portal yet. --}}
+    <div class="mb-5 hidden" data-outbox-list data-outbox-heading="Antrean offline"></div>
+
     {{--
         The DOM follows the §4.2 mobile order (actions, today, assignments,
         metrics, announcements), so focus and reading order match the screen.
@@ -1106,7 +1109,7 @@
                                             <input type="file" class="peer sr-only" id="qr-file-${index}" data-qr-file accept="image/*">
                                             <label class="${app.buttonClass('secondary')} mb-0 cursor-pointer bg-panel peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-brand" for="qr-file-${index}">Upload QR</label>
                                         </div>
-                                        <button type="submit" class="${app.buttonClass('primary')} md:ms-auto" data-online-required>Kirim</button>
+                                        <button type="submit" class="${app.buttonClass('primary')} md:ms-auto" data-online-required data-outbox-capable>Kirim</button>
                                     </form>
                                 ` : attendance.status?.already_marked ? `
                                     <div class="text-sm font-medium ${textTone(statusColor)}">
@@ -1151,7 +1154,7 @@
                     form.addEventListener('submit', async (event) => {
                         event.preventDefault();
 
-                        if (!app.requireOnlineAction('Absen butuh koneksi internet.')) {
+                        if (!app.requireOnlineAction('Absen butuh koneksi internet.', { queueable: true })) {
                             return;
                         }
 
@@ -1173,6 +1176,11 @@
                                     method: 'POST',
                                     json: body,
                                 });
+
+                                // Offline session: the code waits in the outbox, not at the portal.
+                                if (app.handleQueuedActionResult(result)) {
+                                    return;
+                                }
 
                                 app.showNotice(
                                     result?.data?.status === 'already_marked'
