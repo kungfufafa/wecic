@@ -1258,6 +1258,12 @@ return [
     | student logs in online again. Each scheduler tick handles at most
     | `batch_size` students, so a big campus is spread over several ticks.
     |
+    | Every `courses.interval` minutes a sync also crawls the student's
+    | classes: the class detail, every meeting it lists and the files those
+    | meetings link to (PortalCourseArchiver), so materials are archived
+    | without the student opening each meeting. That is dozens of pages per
+    | student, hence the longer interval.
+    |
     */
 
     'background_sync' => [
@@ -1266,6 +1272,10 @@ return [
         'credential_days' => (int) env('PORTAL_BACKGROUND_SYNC_CREDENTIAL_DAYS', 30),
         'batch_size' => (int) env('PORTAL_BACKGROUND_SYNC_BATCH_SIZE', 10),
         'datasets' => ['portal_context', 'profile', 'classes', 'dashboard', 'assignments', 'krs', 'advising', 'payments', 'grades', 'skkm', 'announcements', 'exams'],
+        'courses' => [
+            'enabled' => (bool) env('PORTAL_BACKGROUND_SYNC_COURSES_ENABLED', true),
+            'interval' => (int) env('PORTAL_BACKGROUND_SYNC_COURSES_INTERVAL', 1440),
+        ],
     ],
 
     'realtime' => [

@@ -27,9 +27,11 @@ class SyncPortalArchiveJob implements ShouldBeUnique, ShouldQueue
     public int $tries = 1;
 
     /**
-     * A dozen datasets, each a few portal pages with the politeness delay.
+     * A dozen datasets, each a few portal pages with the politeness delay,
+     * plus, when the course crawl is due, every class with every meeting
+     * and its files (PortalCourseArchiver).
      */
-    public int $timeout = 900;
+    public int $timeout = 1800;
 
     public function __construct(private readonly int $accountId)
     {

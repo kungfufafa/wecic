@@ -34,7 +34,7 @@
             <div class="mycic-card-header flex flex-wrap items-start justify-between gap-3">
                 <div class="min-w-0">
                     <h2 class="mycic-card-title" id="archive-files-title">Materi kuliah</h2>
-                    <p class="mt-0.5 text-caption text-ink-subtle">Modul, latihan, dan RPS tersimpan otomatis setiap kali kamu membuka pertemuan. Bisa dibuka tanpa portal dan dijadikan sumber Notebook.</p>
+                    <p class="mt-0.5 text-caption text-ink-subtle">Modul, latihan, dan RPS tersimpan otomatis setiap kali kamu membuka pertemuan, dan sinkronisasi di background mengarsipkan semua kelasmu secara berkala. Bisa dibuka tanpa portal dan dijadikan sumber Notebook.</p>
                 </div>
                 <form class="flex w-full flex-wrap items-end gap-2 sm:w-auto" id="archive-class-form">
                     <label class="mycic-field min-w-0 flex-1 sm:w-64 sm:flex-none">
@@ -63,7 +63,7 @@
                 <ul class="flex list-disc flex-col gap-1.5 ps-5">
                     <li>Data disimpan terenkripsi di server MyCIC dan hanya bisa dibuka lewat akunmu. Daftar teman sekelas tidak ikut diarsipkan.</li>
                     <li>Saat portal mati, kamu tetap bisa masuk dengan password terakhir yang berhasil login (maks. {{ (int) config('portal.archive.offline_login_days', 30) }} hari), dan MyCIC menyambung lagi otomatis begitu portal pulih.</li>
-                    <li>Dengan sinkronisasi di background aktif, password terakhirmu disimpan terenkripsi supaya MyCIC bisa masuk ke portal sendiri setiap {{ (int) config('portal.background_sync.interval', 180) }} menit dan memperbarui arsip saat kamu tidak membuka MyCIC. Matikan di bawah kalau tidak mau; yang tersisa hanya hash password.</li>
+                    <li>Dengan sinkronisasi di background aktif, password terakhirmu disimpan terenkripsi supaya MyCIC bisa masuk ke portal sendiri setiap {{ (int) config('portal.background_sync.interval', 180) }} menit dan memperbarui arsip saat kamu tidak membuka MyCIC, termasuk detail kelas, pertemuan, dan materi semua kelasmu. Matikan di bawah kalau tidak mau; yang tersisa hanya hash password.</li>
                     <li>Kalau data dari portal terlihat janggal (nilai hilang, presensi berubah jadi absen, riwayat bayar berkurang), MyCIC tetap menampilkan versi terakhir yang dipercaya sampai kamu memeriksanya.</li>
                 </ul>
                 <div class="mycic-alert-info mb-0 flex flex-wrap items-center justify-between gap-3" id="archive-background-sync" hidden>
@@ -207,6 +207,26 @@
             const backgroundSyncCaption = document.getElementById('archive-background-sync-caption');
             const backgroundSyncToggle = document.getElementById('archive-background-sync-toggle');
 
+            const describeInterval = (minutes) => {
+                if (minutes % 1440 === 0) {
+                    return `${minutes / 1440} hari`;
+                }
+
+                return minutes % 60 === 0 ? `${minutes / 60} jam` : `${minutes} menit`;
+            };
+
+            const describeCourseSync = (status) => {
+                if (!status.courses_enabled) {
+                    return '';
+                }
+
+                const last = status.last_course_sync_at
+                    ? `terakhir ${app.formatTimeAgo(status.last_course_sync_at)}`
+                    : 'belum pernah diarsipkan';
+
+                return ` Materi semua kelas ${last} · setiap ${describeInterval(status.courses_interval_minutes)}.`;
+            };
+
             const describeBackgroundSync = (status) => {
                 if (!status.enabled) {
                     return 'Nonaktif. Password tidak disimpan; arsip hanya diperbarui saat kamu membuka MyCIC.';
@@ -229,7 +249,7 @@
                     rejected: 'password ditolak',
                 }[status.last_status] || '';
 
-                return `${lastSync}${outcome ? ` (${outcome})` : ''} · setiap ${status.interval_minutes} menit, sampai ${status.credential_days} hari setelah login terakhirmu.`;
+                return `${lastSync}${outcome ? ` (${outcome})` : ''} · setiap ${describeInterval(status.interval_minutes)}, sampai ${status.credential_days} hari setelah login terakhirmu.${describeCourseSync(status)}`;
             };
 
             const renderBackgroundSync = (status) => {

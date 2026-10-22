@@ -22,6 +22,11 @@ use Illuminate\Support\Facades\Log;
  * otherwise logs in, re-syncs `portal.background_sync.datasets` and logs out
  * again. Dataset builds archive and notify exactly as they do for a logged-in
  * student, so new grades or assignments found here become notifications too.
+ *
+ * Every `portal.background_sync.courses.interval` minutes a sync also crawls
+ * the student's classes (PortalCourseArchiver): the class detail, every
+ * meeting and the files they link to are archived without the student
+ * opening them. That is dozens of pages, hence its own, longer interval.
  */
 class PortalBackgroundSync
 {
@@ -30,7 +35,8 @@ class PortalBackgroundSync
     public function __construct(
         private readonly PortalSessionManager $sessionManager,
         private readonly PortalDatasetRepository $datasets,
-        private readonly PortalOfflineAccess $offlineAccess
+        private readonly PortalOfflineAccess $offlineAccess,
+        private readonly PortalCourseArchiver $courseArchiver
     ) {}
 
     /**
@@ -49,10 +55,18 @@ class PortalBackgroundSync
     }
 
     /**
+     * Whether syncs also crawl the classes (class detail, meetings, files).
+     */
+    public function crawlsCourses(): bool
+    {
+        return $this->enabled() && (bool) config('portal.background_sync.courses.enabled', true);
+    }
+
+    /**
      * What the archive page shows: whether syncs run for this student, when
      * the last one happened and how it went.
      *
-     * @return array{available: bool, enabled: bool, active: bool, pending_login: bool, rejected: bool, interval_minutes: int, credential_days: int, last_synced_at: string|null, last_status: string|null, last_error: string|null}
+     * @return array{available: bool, enabled: bool, active: bool, pending_login: bool, rejected: bool, interval_minutes: int, credential_days: int, last_synced_at: string|null, last_status: string|null, last_error: string|null, courses_enabled: bool, courses_interval_minutes: int, last_course_sync_at: string|null}
      */
     public function status(string $ownerHash): array
     {
@@ -72,6 +86,9 @@ class PortalBackgroundSync
             'last_synced_at' => $account?->last_background_sync_at?->toISOString(),
             'last_status' => $account?->last_background_sync_status,
             'last_error' => $account?->last_background_sync_error,
+            'courses_enabled' => $this->crawlsCourses(),
+            'courses_interval_minutes' => $this->coursesIntervalMinutes(),
+            'last_course_sync_at' => $account?->last_course_sync_at?->toISOString(),
         ];
     }
 
@@ -98,6 +115,11 @@ class PortalBackgroundSync
         return max(5, (int) config('portal.background_sync.interval', 180));
     }
 
+    public function coursesIntervalMinutes(): int
+    {
+        return max(5, (int) config('portal.background_sync.courses.interval', 1440));
+    }
+
     public function credentialDays(): int
     {
         return max(1, (int) config('portal.background_sync.credential_days', 30));
@@ -112,6 +134,19 @@ class PortalBackgroundSync
             array_unique(array_filter((array) config('portal.background_sync.datasets', []), 'is_string')),
             static fn (string $dataset): bool => is_array(config("portal.datasets.{$dataset}"))
         ));
+    }
+
+    /**
+     * Whether the next sync of this account also crawls the classes.
+     */
+    public function coursesDue(PortalOfflineAccount $account): bool
+    {
+        if (! $this->crawlsCourses()) {
+            return false;
+        }
+
+        return $account->last_course_sync_at === null
+            || $account->last_course_sync_at->addMinutes($this->coursesIntervalMinutes())->isPast();
     }
 
     /**
@@ -178,7 +213,7 @@ class PortalBackgroundSync
         $activeToken = $this->sessionManager->activeOnlineSessionTokenForOwner($account->owner_hash);
 
         if ($activeToken !== null) {
-            [$status, $error] = $this->syncDatasets($activeToken);
+            [$status, $error] = $this->syncAll($activeToken, $account);
 
             // A session the portal no longer accepts: log in on our own below.
             if ($status !== PortalOfflineAccount::SYNC_FAILED || ! $this->isExpiredSessionError($error)) {
@@ -200,12 +235,35 @@ class PortalBackgroundSync
 
         try {
             $this->offlineAccess->refreshUserInfo($username, $session['user_info']);
-            [$status, $error] = $this->syncDatasets($session['session_token']);
+            [$status, $error] = $this->syncAll($session['session_token'], $account);
         } finally {
             $this->sessionManager->destroySession($session['session_token']);
         }
 
         return $this->record($account, $status, $error);
+    }
+
+    /**
+     * The configured datasets, then the crawl of the classes when it is due.
+     * An expired session ends either at once: the caller logs in again.
+     *
+     * @return array{0: PortalOfflineAccount::SYNC_*, 1: string|null}
+     */
+    private function syncAll(string $sessionToken, PortalOfflineAccount $account): array
+    {
+        $datasets = $this->syncDatasets($sessionToken);
+
+        if ($this->isExpiredSessionError($datasets[1]) || ! $this->coursesDue($account)) {
+            return $datasets;
+        }
+
+        $courses = $this->syncCourses($sessionToken, $account);
+
+        if ($this->isExpiredSessionError($courses[1])) {
+            return $courses;
+        }
+
+        return $this->combine($datasets, $courses);
     }
 
     /**
@@ -245,6 +303,93 @@ class PortalBackgroundSync
             $synced > 0 => [PortalOfflineAccount::SYNC_PARTIAL, $error],
             default => [PortalOfflineAccount::SYNC_FAILED, $error],
         };
+    }
+
+    /**
+     * Crawl every class in the student's class list (PortalCourseArchiver).
+     * The crawl is stamped on the account unless no class could be archived
+     * at all, so a portal outage is retried with the next dataset sync
+     * instead of waiting a whole course interval.
+     *
+     * @return array{0: PortalOfflineAccount::SYNC_*, 1: string|null}
+     */
+    private function syncCourses(string $sessionToken, PortalOfflineAccount $account): array
+    {
+        try {
+            $classes = $this->courseArchiver->classParamsFrom($this->datasets->ensureFresh($sessionToken, 'classes'));
+        } catch (\Throwable $throwable) {
+            if (PortalException::indicatesExpiredSession($throwable)) {
+                return [PortalOfflineAccount::SYNC_FAILED, self::EXPIRED_SESSION_PREFIX.$throwable->getMessage()];
+            }
+
+            Log::warning('Background archive sync could not read the class list', ['error' => $throwable->getMessage()]);
+
+            return [PortalOfflineAccount::SYNC_FAILED, 'materi kelas: daftar kelas tidak terbaca: '.$throwable->getMessage()];
+        }
+
+        $archived = 0;
+        $errors = [];
+
+        foreach ($classes as $classParams) {
+            try {
+                $result = $this->courseArchiver->archiveClass($sessionToken, $classParams);
+                $archived++;
+                $label = $result['course_name'] ?? "kelas {$classParams['id']}";
+
+                foreach ($result['errors'] as $error) {
+                    $errors[] = "{$label}: {$error}";
+                }
+            } catch (\Throwable $throwable) {
+                if (PortalException::indicatesExpiredSession($throwable)) {
+                    return [PortalOfflineAccount::SYNC_FAILED, self::EXPIRED_SESSION_PREFIX.$throwable->getMessage()];
+                }
+
+                Log::warning('Background archive sync of a class failed', [
+                    'class_id' => $classParams['id'],
+                    'error' => $throwable->getMessage(),
+                ]);
+                $errors[] = "kelas {$classParams['id']}: {$throwable->getMessage()}";
+            }
+        }
+
+        $status = match (true) {
+            $errors === [] => PortalOfflineAccount::SYNC_SYNCED,
+            $archived > 0 => PortalOfflineAccount::SYNC_PARTIAL,
+            default => PortalOfflineAccount::SYNC_FAILED,
+        };
+
+        if ($status !== PortalOfflineAccount::SYNC_FAILED) {
+            $account->forceFill(['last_course_sync_at' => now()])->save();
+        }
+
+        Log::info('Background archive sync crawled the classes', [
+            'domain' => 'campus_session',
+            'event' => 'background_sync_courses_'.$status,
+            'component' => self::class,
+            'owner_hash' => $account->owner_hash,
+            'classes' => count($classes),
+            'archived' => $archived,
+        ]);
+
+        return [$status, $errors === [] ? null : 'materi kelas: '.implode('; ', $errors)];
+    }
+
+    /**
+     * @param  array{0: PortalOfflineAccount::SYNC_*, 1: string|null}  $datasets
+     * @param  array{0: PortalOfflineAccount::SYNC_*, 1: string|null}  $courses
+     * @return array{0: PortalOfflineAccount::SYNC_*, 1: string|null}
+     */
+    private function combine(array $datasets, array $courses): array
+    {
+        $statuses = [$datasets[0], $courses[0]];
+        $status = match (true) {
+            $statuses === [PortalOfflineAccount::SYNC_SYNCED, PortalOfflineAccount::SYNC_SYNCED] => PortalOfflineAccount::SYNC_SYNCED,
+            $statuses === [PortalOfflineAccount::SYNC_FAILED, PortalOfflineAccount::SYNC_FAILED] => PortalOfflineAccount::SYNC_FAILED,
+            default => PortalOfflineAccount::SYNC_PARTIAL,
+        };
+        $errors = array_values(array_filter([$datasets[1], $courses[1]], 'is_string'));
+
+        return [$status, $errors === [] ? null : implode('; ', $errors)];
     }
 
     private function isExpiredSessionError(?string $error): bool

@@ -29,7 +29,7 @@ class PortalArchiveController extends CampusApiController
 {
     private const VERSION_ITEM = "array{id: int, dataset: string, params: array<string, mixed>, subject: string|null, status: 'trusted'|'suspect'|'rejected'|'dismissed', findings: list<array{rule: string, label: string, message: string}>, first_seen_at: string|null, last_seen_at: string|null, seen_count: int, trusted_at: string|null, resolved_at: string|null}";
 
-    private const BACKGROUND_SYNC_STATUS = 'array{available: bool, enabled: bool, active: bool, pending_login: bool, rejected: bool, interval_minutes: int, credential_days: int, last_synced_at: string|null, last_status: string|null, last_error: string|null}';
+    private const BACKGROUND_SYNC_STATUS = 'array{available: bool, enabled: bool, active: bool, pending_login: bool, rejected: bool, interval_minutes: int, credential_days: int, last_synced_at: string|null, last_status: string|null, last_error: string|null, courses_enabled: bool, courses_interval_minutes: int, last_course_sync_at: string|null}';
 
     private const SUMMARY_RESPONSE = "array{status: 'success', message: string, data: array{datasets: list<array{dataset: string, label: string, versions: int, groups: int, open_suspects: int, last_seen_at: string|null}>, files: array{count: int, bytes: int}, background_sync: ".self::BACKGROUND_SYNC_STATUS.'}, meta: array{timestamp: string, campus_session_valid: true}}';
 
@@ -48,7 +48,8 @@ class PortalArchiveController extends CampusApiController
 
     /**
      * Ringkasan arsip: jumlah versi per data, data janggal yang menunggu dicek,
-     * dan status sinkronisasi di background.
+     * dan status sinkronisasi di background (termasuk kapan materi semua kelas
+     * terakhir diarsipkan).
      *
      * Dibaca dari database MyCIC, tidak pernah menunggu portal.
      */

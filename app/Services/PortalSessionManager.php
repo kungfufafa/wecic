@@ -391,6 +391,15 @@ class PortalSessionManager
     }
 
     /**
+     * A session a background job opened (createBackgroundSession): it ends
+     * with the job, so nothing may be queued against it.
+     */
+    public function isBackgroundSession(string $sessionToken): bool
+    {
+        return ($this->loadSession($sessionToken)['background'] ?? false) === true;
+    }
+
+    /**
      * Refresh the session on the student's request: confirm (or restore) the
      * upstream session now, extend the local expiry, and make sure the
      * keep-alive is scheduled
