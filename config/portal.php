@@ -1251,11 +1251,18 @@ return [
     | tokens the app has not registered again for
     | `push_token_retention_days` are pruned too.
     |
+    | With `away_reminders` on, a student whose app is closed still gets
+    | deadline reminders and "class started" pushes (PortalAwayReminders,
+    | `portal:remind-away`), built from snapshots no older than
+    | `away_reminder_max_data_age` seconds.
+    |
     */
 
     'mobile' => [
         'token_retention_days' => (int) env('PORTAL_MOBILE_TOKEN_RETENTION_DAYS', 30),
         'push_token_retention_days' => (int) env('PORTAL_PUSH_TOKEN_RETENTION_DAYS', 60),
+        'away_reminders' => (bool) env('PORTAL_AWAY_REMINDERS_ENABLED', true),
+        'away_reminder_max_data_age' => (int) env('PORTAL_AWAY_REMINDER_MAX_DATA_AGE', 86400),
     ],
 
     /*

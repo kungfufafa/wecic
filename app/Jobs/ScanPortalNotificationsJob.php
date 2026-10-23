@@ -10,6 +10,7 @@ use App\Services\AttendanceShortcutService;
 use App\Services\PortalDataOwner;
 use App\Services\PortalDatasetRepository;
 use App\Services\PortalNotificationCenter;
+use App\Services\PortalReminderBuilder;
 use App\Services\PortalSessionManager;
 use App\Services\PortalSnapshotStore;
 use Carbon\CarbonImmutable;
@@ -60,8 +61,6 @@ class ScanPortalNotificationsJob implements ShouldQueue
      */
     private const TIME_SENSITIVE_DATASETS = ['assignments', 'exams'];
 
-    private const REMINDER_SEVERITIES = ['critical', 'warning'];
-
     /**
      * Seconds after a class starts before its follow-up scan, so the class
      * already counts as in session.
@@ -96,7 +95,8 @@ class ScanPortalNotificationsJob implements ShouldQueue
         PortalNotificationCenter $notifications,
         PortalDataOwner $owner,
         PortalSessionManager $sessions,
-        PortalSnapshotStore $snapshots
+        PortalSnapshotStore $snapshots,
+        PortalReminderBuilder $reminders
     ): void {
         if ($this->followUp) {
             Cache::forget($this->followUpKey());
@@ -112,7 +112,7 @@ class ScanPortalNotificationsJob implements ShouldQueue
             }
         }
 
-        $classes = $this->scan($datasets, $actionCenter, $attendanceShortcutService, $notifications, $owner, $snapshots);
+        $classes = $this->scan($datasets, $actionCenter, $attendanceShortcutService, $notifications, $owner, $snapshots, $reminders);
 
         if ($classes !== null) {
             $this->scheduleFollowUp($sessions, $classes);
@@ -142,7 +142,8 @@ class ScanPortalNotificationsJob implements ShouldQueue
         AttendanceShortcutService $attendanceShortcutService,
         PortalNotificationCenter $notifications,
         PortalDataOwner $owner,
-        PortalSnapshotStore $snapshots
+        PortalSnapshotStore $snapshots,
+        PortalReminderBuilder $reminders
     ): ?array {
         $lock = Cache::lock(
             'portal_notification_scan_'.$owner->key($this->campusSessionToken),
@@ -176,7 +177,7 @@ class ScanPortalNotificationsJob implements ShouldQueue
 
             $notifications->publish(
                 $this->campusSessionToken,
-                $this->deadlineReminders($actionCenter->build($this->campusSessionToken, $this->sessionId)['items']),
+                $reminders->deadlineReminders($actionCenter->build($this->campusSessionToken, $this->sessionId)['items']),
                 $this->sessionId
             );
 
@@ -184,7 +185,7 @@ class ScanPortalNotificationsJob implements ShouldQueue
 
             $notifications->publish(
                 $this->campusSessionToken,
-                $this->attendanceReminders($classes),
+                $reminders->attendanceReminders($classes),
                 $this->sessionId
             );
 
@@ -260,100 +261,5 @@ class ScanPortalNotificationsJob implements ShouldQueue
     private function followUpKey(): string
     {
         return 'portal_notification_scan_next_'.hash('sha256', $this->campusSessionToken);
-    }
-
-    /**
-     * Action center items with a due date that turned warning or critical:
-     * at most one reminder per item, due date and severity.
-     *
-     * @param  list<array<string, mixed>>  $items
-     * @return list<array{type: string, dataset: string|null, record_key: string, dedupe_key: string, title: string, body: string|null, url: string|null, urgency: string}>
-     */
-    private function deadlineReminders(array $items): array
-    {
-        $reminders = [];
-
-        foreach ($items as $item) {
-            $dueAt = $item['due_at'] ?? null;
-            $severity = $item['severity'] ?? null;
-
-            if (! is_string($dueAt) || $dueAt === '' || ! in_array($severity, self::REMINDER_SEVERITIES, true)) {
-                continue;
-            }
-
-            $id = (string) ($item['id'] ?? '');
-
-            $reminders[] = [
-                'type' => 'deadline_reminder',
-                'dataset' => is_string($item['source'] ?? null) ? $item['source'] : null,
-                'record_key' => $id,
-                'dedupe_key' => hash('sha256', implode("\0", ['reminder', $id, $dueAt, $severity])),
-                'title' => (string) ($item['title'] ?? 'Tenggat mendekat'),
-                'body' => is_string($item['description'] ?? null) ? $item['description'] : null,
-                'url' => ($item['cta_external'] ?? false) === true ? '/dashboard' : $this->openableUrl((string) ($item['cta_url'] ?? '')),
-                'urgency' => $severity,
-            ];
-        }
-
-        return $reminders;
-    }
-
-    /**
-     * Classes in session now whose attendance has not been sent yet.
-     *
-     * @param  list<array<string, mixed>>  $classes
-     * @return list<array{type: string, dataset: null, record_key: string, dedupe_key: string, title: string, body: string, url: string, urgency: string}>
-     */
-    private function attendanceReminders(array $classes): array
-    {
-        $reminders = [];
-
-        foreach ($classes as $class) {
-            $meetingId = (string) ($class['meeting_id'] ?? '');
-
-            if ($meetingId === ''
-                || empty($class['attendance_payload'])
-                || ($class['active_now'] ?? false) !== true
-                || ($class['attendance_status']['already_marked'] ?? false) === true) {
-                continue;
-            }
-
-            $courseName = trim((string) ($class['course_name'] ?? ''));
-            $coursesId = (string) ($class['attendance_payload']['courseid'] ?? '');
-
-            $reminders[] = [
-                'type' => 'attendance_open',
-                'dataset' => null,
-                'record_key' => $meetingId,
-                'dedupe_key' => hash('sha256', implode("\0", ['attendance', $meetingId])),
-                'title' => $courseName !== '' ? "Absen {$courseName} sekarang" : 'Absen kelas yang sedang berlangsung',
-                'body' => 'Kelas sedang berlangsung dan absensimu belum tercatat. Kirim dari MyCIC.',
-                'url' => $this->openableUrl('/meeting/'.rawurlencode($meetingId).($coursesId !== '' ? '?courses_id='.rawurlencode($coursesId) : '')),
-                'urgency' => 'warning',
-            ];
-        }
-
-        return $reminders;
-    }
-
-    /**
-     * A meeting page cannot open without its `courses_id`; such a link falls
-     * back to the dashboard, which lists the same class and deadline.
-     */
-    private function openableUrl(string $url): string
-    {
-        if ($url === '') {
-            return '/dashboard';
-        }
-
-        if (str_starts_with($url, '/meeting/')) {
-            parse_str((string) parse_url($url, PHP_URL_QUERY), $query);
-
-            if (trim((string) ($query['courses_id'] ?? '')) === '') {
-                return '/dashboard';
-            }
-        }
-
-        return $url;
     }
 }

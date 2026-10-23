@@ -55,6 +55,11 @@ Schedule::command('model:prune', ['--model' => [PortalNotification::class, Porta
 // and their orphaned temporary files.
 Schedule::command('portal:recover-uploads')->everyFiveMinutes();
 
+// Deadline and class reminders for students whose mobile app is closed,
+// built from stored snapshots only (PortalAwayReminders); each run only
+// queues one light job per student with a registered app install.
+Schedule::command('portal:remind-away')->everyTenMinutes()->withoutOverlapping(expiresAt: 5);
+
 // Background syncs of the archive for students whose last sync is due
 // (`portal.background_sync`); each run queues one batch within seconds, so
 // the lock of a killed run expires before the next one is due.

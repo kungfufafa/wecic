@@ -53,6 +53,7 @@
             const TYPE_LABELS = {
                 assignment_new: 'Tugas',
                 attendance_open: 'Absensi',
+                class_started: 'Kelas',
                 exam_opened: 'Ujian',
                 grade_released: 'Nilai',
                 ips_complete: 'Nilai',

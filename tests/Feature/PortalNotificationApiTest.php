@@ -261,7 +261,7 @@ class PortalNotificationApiTest extends TestCase
         preg_match_all('/^\s*([a-z_]+):/m', $labels[1], $labelledTypes);
         $configuredTypes = collect(config('portal.datasets'))
             ->flatMap(static fn (array $dataset): array => array_column($dataset['notify'] ?? [], 'type'))
-            ->push('deadline_reminder', 'attendance_open', 'archive_suspect', 'archive_class_not_run')
+            ->push('deadline_reminder', 'attendance_open', 'class_started', 'archive_suspect', 'archive_class_not_run')
             ->unique();
 
         foreach ($configuredTypes as $type) {

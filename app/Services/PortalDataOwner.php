@@ -37,6 +37,16 @@ class PortalDataOwner
         Cache::put($this->mappingKey($sessionToken), $this->keyForUsername($username), $ttl);
     }
 
+    /**
+     * Map a token to an owner key known without the username (a stored
+     * row's `owner_hash`), for read-only work on that student's snapshots
+     * (PortalAwayReminders).
+     */
+    public function rememberKey(string $sessionToken, string $ownerKey, int $ttl): void
+    {
+        Cache::put($this->mappingKey($sessionToken), $ownerKey, $ttl);
+    }
+
     public function forget(string $sessionToken): void
     {
         Cache::forget($this->mappingKey($sessionToken));

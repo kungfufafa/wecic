@@ -104,6 +104,15 @@ class ScheduledQueueWorkerTest extends TestCase
         $this->assertStringContainsString(PortalPushToken::class, (string) $event->command);
     }
 
+    public function test_closed_app_reminders_are_queued_every_ten_minutes(): void
+    {
+        $event = $this->scheduledEvent('portal:remind-away');
+
+        $this->assertSame('*/10 * * * *', $event->expression);
+        $this->assertTrue($event->withoutOverlapping);
+        $this->assertLessThan(10, $event->expiresAt, 'A run killed mid-way would hold back the next one.');
+    }
+
     public function test_stuck_uploads_are_recovered_every_five_minutes(): void
     {
         $this->assertSame('*/5 * * * *', $this->scheduledEvent('portal:recover-uploads')->expression);
