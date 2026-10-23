@@ -103,7 +103,6 @@ return [
     'cache' => [
         'resources' => [
             'profile' => (int) env('CAMPUS_CACHE_PROFILE_TTL', 600),
-            'lms_classes' => (int) env('CAMPUS_CACHE_HTML_TTL', 300),
             'sipandai_classes' => (int) env('CAMPUS_CACHE_HTML_TTL', 300),
             'student_course' => (int) env('CAMPUS_CACHE_HTML_TTL', 300),
             'payments' => (int) env('CAMPUS_CACHE_DYNAMIC_TTL', 300),
@@ -277,9 +276,11 @@ return [
             'sync_keys' => ['profile'],
             'archive' => [
                 'label' => 'Profil',
+                // Paths are the keys ProfileExtractor writes (nim, nama).
+                'requires' => ['personal_data.nim' => '@filled'],
                 'guards' => [
-                    ['type' => 'field', 'path' => 'personal_data.student_id', 'label' => 'NIM'],
-                    ['type' => 'field', 'path' => 'personal_data.name', 'label' => 'Nama'],
+                    ['type' => 'field', 'path' => 'personal_data.nim', 'label' => 'NIM'],
+                    ['type' => 'field', 'path' => 'personal_data.nama', 'label' => 'Nama'],
                 ],
             ],
         ],
@@ -371,7 +372,9 @@ return [
                 'subject' => ['course_info.name', 'course_info.course_name'],
                 // Classmates' data is not the student's to keep.
                 'exclude' => ['students_list'],
-                'requires' => ['content_type' => ['class_info', 'students_list']],
+                // `found` is false for the empty page shell of an unknown or stale id;
+                // payloads cached before the flag existed carry none.
+                'requires' => ['content_type' => ['class_info', 'students_list'], 'found' => ['@true', '@empty']],
                 'guards' => [
                     ['type' => 'count', 'records' => 'attendance_info.meetings', 'label' => 'Rekap presensi'],
                     [
@@ -396,6 +399,16 @@ return [
                 'label' => 'Detail pertemuan',
                 'subject' => ['materials.main_topic', 'materials.assignment_topic'],
                 'requires' => ['found' => true],
+                'guards' => [
+                    // Recorded attendance does not turn into an absence or a closed window.
+                    [
+                        'type' => 'field',
+                        'path' => 'attendance_info.state',
+                        'from' => ['present', 'late', 'permit', 'sick'],
+                        'label' => 'Status presensi pertemuan',
+                        'display' => ['present' => 'Hadir', 'late' => 'Terlambat', 'permit' => 'Izin', 'sick' => 'Sakit', 'absent' => 'Absen', 'unavailable' => 'Absensi tidak tersedia', 'open' => 'Belum absen', 'unknown' => 'tidak terbaca'],
+                    ],
+                ],
             ],
         ],
         'portal_context' => [
@@ -447,17 +460,23 @@ return [
                     'records' => 'items',
                     'key' => ['id'],
                     'when' => ['duplicate_of' => '@empty'],
+                    // A re-post or edit on a later sync gets a new id; reading the same is not news.
+                    'repeat_window_days' => 7,
                     'title' => 'Pengumuman: :title',
                     'body' => ':publisher_unit_short · :excerpt',
                     'url' => '/announcement/:id',
                 ],
             ],
         ],
+        // One portal page past the feed ("Muat lagi"), kept per feed state so a
+        // page read before new posts is never continued after them.
         'announcement_page' => [
             'fresh_for' => 86400,
             'parameterized' => true,
             'cache_keys' => [],
             'sync_keys' => ['announcement-index'],
+            // Pages past the feed searched for an announcement detail (old notification links).
+            'detail_lookup_pages' => 4,
         ],
         'krs' => [
             'fresh_for' => 900,
@@ -558,6 +577,8 @@ return [
                     'title' => 'Nilai :name keluar: :letter',
                     'body' => ':parent.label · :sks SKS',
                     'url' => '/grades',
+                    // A whole semester's grades can land in one sync: the rest in one summary.
+                    'overflow' => ['title' => ':count nilai lain juga keluar', 'url' => '/grades'],
                 ],
                 [
                     'type' => 'ips_complete',
@@ -673,6 +694,10 @@ return [
         'web_request_timeout' => (int) env('CAMPUS_WEB_REQUEST_TIMEOUT', 15), // seconds; PHP-FPM friendly
         'user_agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
         'secure_dns_url' => env('CAMPUS_SECURE_DNS_URL', 'https://chrome.cloudflare-dns.com/dns-query'),
+        // Campus file downloads (/api/support/download) are streamed with their own limits.
+        'download_timeout' => (int) env('CAMPUS_DOWNLOAD_TIMEOUT', 120), // seconds for the whole transfer
+        'download_read_timeout' => (int) env('CAMPUS_DOWNLOAD_READ_TIMEOUT', 30), // seconds without a byte
+        'download_max_bytes' => (int) env('CAMPUS_DOWNLOAD_MAX_BYTES', 52428800), // 50 MB
     ],
 
     /*
@@ -688,8 +713,15 @@ return [
         'encrypt_credentials' => true,
         'login_rate_limit_attempts' => (int) env('CAMPUS_LOGIN_RATE_LIMIT_ATTEMPTS', 5),
         'login_rate_limit_decay' => (int) env('CAMPUS_LOGIN_RATE_LIMIT_DECAY', 300),
+        // Failed logins allowed per IP within login_rate_limit_decay, counting
+        // portal rejections and wrong offline passwords while the portal is down.
+        'login_failure_attempts_per_ip' => (int) env('CAMPUS_LOGIN_FAILURE_ATTEMPTS_PER_IP', 30),
         'action_rate_limit_attempts' => (int) env('CAMPUS_ACTION_RATE_LIMIT_ATTEMPTS', 10),
         'action_rate_limit_decay' => (int) env('CAMPUS_ACTION_RATE_LIMIT_DECAY', 60),
+        // Parameterized reads (class, meeting, flow) per minute per campus session.
+        'read_rate_limit_attempts' => (int) env('CAMPUS_READ_RATE_LIMIT_ATTEMPTS', 60),
+        // Comma-separated proxy addresses or CIDRs, or '*'; null trusts no proxy.
+        'trusted_proxies' => env('TRUSTED_PROXIES'),
     ],
 
     /*
@@ -1242,6 +1274,14 @@ return [
             'disk' => env('PORTAL_ARCHIVE_FILES_DISK', 'local'),
             'max_file_size' => (int) env('PORTAL_ARCHIVE_MAX_FILE_SIZE', 26214400),
         ],
+        // Secret every student's owner key (the `student_…` owner_hash of all
+        // archived data) is derived from; empty means APP_KEY, as before. Pin it
+        // to the current APP_KEY before rotating APP_KEY (PortalDataOwner).
+        'owner_key' => env('PORTAL_OWNER_KEY'),
+        // Earlier owner secrets, comma separated: data stored under them moves
+        // to the current key at the student's next login. APP_PREVIOUS_KEYS
+        // are tried as well.
+        'previous_owner_keys' => array_values(array_filter(array_map('trim', explode(',', (string) env('PORTAL_PREVIOUS_OWNER_KEYS', ''))))),
     ],
 
     /*
@@ -1258,6 +1298,12 @@ return [
     | student logs in online again. Each scheduler tick handles at most
     | `batch_size` students, so a big campus is spread over several ticks.
     |
+    | Every `courses.interval` minutes a sync also crawls the student's
+    | classes: the class detail, every meeting it lists and the files those
+    | meetings link to (PortalCourseArchiver), so materials are archived
+    | without the student opening each meeting. That is dozens of pages per
+    | student, hence the longer interval.
+    |
     */
 
     'background_sync' => [
@@ -1266,11 +1312,42 @@ return [
         'credential_days' => (int) env('PORTAL_BACKGROUND_SYNC_CREDENTIAL_DAYS', 30),
         'batch_size' => (int) env('PORTAL_BACKGROUND_SYNC_BATCH_SIZE', 10),
         'datasets' => ['portal_context', 'profile', 'classes', 'dashboard', 'assignments', 'krs', 'advising', 'payments', 'grades', 'skkm', 'announcements', 'exams'],
+        'courses' => [
+            'enabled' => (bool) env('PORTAL_BACKGROUND_SYNC_COURSES_ENABLED', true),
+            'interval' => (int) env('PORTAL_BACKGROUND_SYNC_COURSES_INTERVAL', 1440),
+        ],
     ],
 
     'realtime' => [
         'notifications' => [
             'scan_lock_ttl' => (int) env('PORTAL_NOTIFICATION_SCAN_LOCK_TTL', 300),
+            // Seconds between reminder scans while a session lives (sooner when a class starts).
+            'scan_interval' => (int) env('PORTAL_NOTIFICATION_SCAN_INTERVAL', 600),
+            // Seconds before a follow-up scan re-syncs assignments/exams; younger snapshots are reused.
+            'follow_up_resync_after' => (int) env('PORTAL_NOTIFICATION_FOLLOW_UP_RESYNC_AFTER', 3600),
         ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Debug: Recording the Portal's Answers to Write Actions
+    |--------------------------------------------------------------------------
+    |
+    | With `record_action_responses` on, SipandaiSubmissionService keeps a
+    | sanitized copy (PortalResponseRecorder) of what the portal answers to
+    | every write action (attendance, assignment upload and delete, exam
+    | upload) and of the pages read to verify it, under
+    | `capture_path`/{action}/{Y-m-d_His}_{hash}.html. Names, NIM, email
+    | addresses, phone numbers, cookies, hidden tokens, uploaded file names
+    | and the student's other profile values are replaced by placeholders.
+    | Production never records unless `allow_in_production` is on as well.
+    | The read-only `portal:capture-fixtures` command uses the same sanitizer.
+    |
+    */
+
+    'debug' => [
+        'record_action_responses' => (bool) env('PORTAL_RECORD_ACTION_RESPONSES', false),
+        'allow_in_production' => (bool) env('PORTAL_DEBUG_ALLOW_IN_PRODUCTION', false),
+        'capture_path' => env('PORTAL_CAPTURE_PATH') ?: storage_path('app/portal-captures'),
     ],
 ];

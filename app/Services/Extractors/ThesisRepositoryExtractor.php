@@ -69,9 +69,10 @@ class ThesisRepositoryExtractor extends PortalScrapingService
      *
      * Page 1 must succeed; it gives the total and so the last page. The walk
      * stops at the last page, at a page without a "Next" link or without
-     * records, or after MAX_PAGES. A later page that fails ends the walk and
-     * marks the index incomplete, except an expired session, which is
-     * rethrown so the student logs in again.
+     * records, or after MAX_PAGES. Without a readable total the "Next" links
+     * alone lead the walk. A later page that fails, or a walk cut off at
+     * MAX_PAGES while a "Next" link remains, marks the index incomplete; an
+     * expired session is rethrown so the student logs in again.
      *
      * With `$previous` (the last complete index) the walk stops after page 1
      * when the total and the first record are unchanged: nothing was added,
@@ -117,7 +118,7 @@ class ThesisRepositoryExtractor extends PortalScrapingService
 
         $pages = [1 => $first];
         $complete = true;
-        $lastPage = min(self::MAX_PAGES, $first['paging']['last_page'] ?? 1);
+        $lastPage = min(self::MAX_PAGES, $first['paging']['last_page'] ?? self::MAX_PAGES);
 
         $this->fetchPolicy()->withRequestDelay(
             (int) config('portal.sync.bulk_request_delay', 250),
@@ -168,7 +169,9 @@ class ThesisRepositoryExtractor extends PortalScrapingService
         }
 
         $lastLoaded = $pages[array_key_last($pages)];
-        $reachedEnd = ! $lastLoaded['paging']['has_next'] || $lastLoaded['records'] === [] || $lastLoaded['paging']['page'] >= ($first['paging']['last_page'] ?? 1);
+        $reachedEnd = ! $lastLoaded['paging']['has_next']
+            || $lastLoaded['records'] === []
+            || ($first['paging']['last_page'] !== null && $lastLoaded['paging']['page'] >= $first['paging']['last_page']);
 
         return [
             ...$this->indexPayload(array_values($records), $first['paging'], count($pages), $complete && $reachedEnd, false),

@@ -123,6 +123,33 @@ class PortalSnapshotStore
     }
 
     /**
+     * Put back the sync state a snapshot had before markSyncing(), when the
+     * background job it announced could not be queued after all. A sync that
+     * finished in the meantime (a newer `updated_at`) is left alone.
+     *
+     * @param  array<string, mixed>  $previous  The snapshot as read before markSyncing().
+     * @param  array<string, mixed>  $params
+     */
+    public function restoreSyncState(string $sessionToken, string $domain, array $previous, array $params = []): void
+    {
+        $snapshot = $this->get($sessionToken, $domain, $params);
+
+        if ($snapshot === null || ($snapshot['status'] ?? null) !== 'syncing' || ($snapshot['updated_at'] ?? null) !== ($previous['updated_at'] ?? null)) {
+            return;
+        }
+
+        foreach (['status', 'syncing_since', 'failed_at', 'error'] as $key) {
+            if (array_key_exists($key, $previous)) {
+                $snapshot[$key] = $previous[$key];
+            } else {
+                unset($snapshot[$key]);
+            }
+        }
+
+        Cache::put($this->cacheKey($sessionToken, $domain, $params), $snapshot, $this->retention());
+    }
+
+    /**
      * @param  array<string, mixed>  $params
      */
     public function isStale(string $sessionToken, string $domain, ?int $maxAgeSeconds = null, array $params = []): bool

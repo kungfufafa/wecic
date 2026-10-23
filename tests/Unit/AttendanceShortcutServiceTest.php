@@ -271,10 +271,12 @@ class AttendanceShortcutServiceTest extends TestCase
             CarbonImmutable::create(2026, 4, 13, 10, 0, 0, 'Asia/Jakarta')
         );
 
+        // "Silakan scan QR untuk absensi" asks for attendance: open, not an absence.
         $this->assertFalse($result['classes'][0]['attendance_status']['already_marked']);
-        $this->assertSame('absent', $result['classes'][0]['attendance_status']['status']);
-        $this->assertSame('Absen', $result['classes'][0]['attendance_status']['label']);
+        $this->assertSame('open', $result['classes'][0]['attendance_status']['status']);
+        $this->assertSame('Belum absen', $result['classes'][0]['attendance_status']['label']);
         $this->assertNull($result['classes'][0]['attendance_status']['time']);
+        $this->assertNull($result['classes'][0]['attendance_status']['window']);
     }
 
     public function test_it_exposes_pending_assignments_separately_from_today_attendance(): void
@@ -482,7 +484,8 @@ class AttendanceShortcutServiceTest extends TestCase
 
         $this->assertCount(1, $pendingAssignments);
         $this->assertSame('Teknologi dan trend E-commerce', $pendingAssignments[0]['course_name']);
-        $this->assertTrue($pendingAssignments[0]['can_submit_directly']);
+        // No upload link on the meeting page: the portal is not taking files.
+        $this->assertFalse($pendingAssignments[0]['can_submit_directly']);
         $this->assertSame('/meeting/32993?courses_id=9186', $pendingAssignments[0]['meeting_url']);
         $this->assertSame('9186', $pendingAssignments[0]['assignment_payload']['courses_id']);
     }

@@ -207,9 +207,12 @@
                 <span class="flex ${size} shrink-0 items-center justify-center rounded-lg font-bold ${letterClasses[letterTone(letter)]}" aria-hidden="true">${esc(letter || '–')}</span>
             `;
 
+            // Only graded SKS weigh in the IPK: conversion SKS (part of sks_passed) carry no grade.
             const ipkTotals = () => {
                 const summary = state.data?.summary || {};
-                const sks = Number.isInteger(summary.sks_total) && summary.sks_total > 0 ? summary.sks_total : (Number(summary.sks_passed) || 0);
+                const sks = Number.isInteger(summary.sks_total)
+                    ? Math.max(0, summary.sks_total)
+                    : Math.max(0, (Number(summary.sks_passed) || 0) - (Number(summary.conversion_sks) || 0));
                 const qualityPoints = Number(summary.quality_points_total) || 0;
 
                 return { sks, qualityPoints, ipk: sks > 0 ? Math.round((qualityPoints / sks) * 100) / 100 : null };
@@ -287,7 +290,13 @@
                         value: projected === null || projected === undefined ? '–' : (projected === 0 ? 'Selesai' : `${projected} smt lagi`),
                         note: average ? `rata-rata ${Number.isInteger(average) ? average : average.toFixed(1)} SKS lulus/semester` : 'butuh minimal satu semester bernilai',
                     },
-                    { label: 'Sedang ditempuh', value: currentLoad ? `${currentLoad.sks} SKS` : '–', note: currentLoad ? `${currentLoad.courses} MK di KRS semester ini` : 'KRS semester ini belum terbaca' },
+                    {
+                        label: 'Sedang ditempuh',
+                        value: currentLoad ? `${currentLoad.sks} SKS` : '–',
+                        note: currentLoad
+                            ? `${currentLoad.courses} MK di KRS semester ini${data.current_load.graded_courses > 0 ? ` · ${data.current_load.graded_courses} MK sudah dinilai` : ''}`
+                            : (Number(data.current_load?.graded_courses) > 0 ? 'Semua MK di KRS ini sudah dinilai' : 'KRS semester ini belum terbaca'),
+                    },
                 ];
                 const caption = [
                     progress.target_sks_source === 'config' ? 'Target SKS memakai standar 144 SKS karena portal belum menyebut sisa SKS.' : '',
@@ -345,9 +354,11 @@
                 let headline = 'Belum ada IPS yang bisa digambar.';
 
                 if (latest) {
+                    const semesterLabel = `IPS semester ${latest.semester}${latest.is_complete === false ? ' (sebagian)' : ''}`;
+
                     headline = delta === null
-                        ? `IPS semester ${latest.semester}: ${formatIp(latest.ips)}`
-                        : `IPS semester ${latest.semester}: ${formatIp(latest.ips)} (${delta > 0 ? 'naik' : (delta < 0 ? 'turun' : 'tetap')}${delta ? ` ${Math.abs(delta).toFixed(2)}` : ''} dari semester ${latest.previous_semester})`;
+                        ? `${semesterLabel}: ${formatIp(latest.ips)}`
+                        : `${semesterLabel}: ${formatIp(latest.ips)} (${delta > 0 ? 'naik' : (delta < 0 ? 'turun' : 'tetap')}${delta ? ` ${Math.abs(delta).toFixed(2)}` : ''} dari semester ${latest.previous_semester})`;
                 }
 
                 hosts.trend.innerHTML = `
@@ -782,9 +793,9 @@
                 return;
             }
 
-            const loadTranscript = async ({ force = false } = {}) => {
+            const loadTranscript = async ({ force = false, background = false } = {}) => {
                 try {
-                    const payload = await app.request(endpoint, { fresh: force });
+                    const payload = await app.request(endpoint, { fresh: force, background });
 
                     if (!payload) {
                         return;

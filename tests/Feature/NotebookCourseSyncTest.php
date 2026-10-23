@@ -11,6 +11,7 @@ use App\Models\NotebookChunk;
 use App\Models\NotebookMessage;
 use App\Models\NotebookSource;
 use App\Models\PortalArchivedFile;
+use App\Services\NotebookCourseSync;
 use App\Services\NotebookLibrary;
 use App\Services\PortalArchivedFileStore;
 use App\Services\PortalBroadcastService;
@@ -64,6 +65,8 @@ class NotebookCourseSyncTest extends TestCase
         $this->instance(PortalSessionManager::class, Mockery::mock(PortalSessionManager::class, function (MockInterface $mock): void {
             $mock->shouldReceive('validateSession')->andReturnTrue();
             $mock->shouldReceive('isSessionUsable')->andReturnTrue();
+            // A student's own session: files a meeting links to are queued for the archive.
+            $mock->shouldReceive('isBackgroundSession')->andReturnFalse();
         }));
         app(PortalDataOwner::class)->remember(self::TOKEN, self::USERNAME, 3600);
         $this->ownerHash = app(PortalDataOwner::class)->keyForUsername(self::USERNAME);
@@ -97,6 +100,20 @@ class NotebookCourseSyncTest extends TestCase
         $this->assertSame(0, Notebook::query()->where('owner_hash', '!=', $this->ownerHash)->count());
     }
 
+    public function test_the_class_list_background_sync_keeps_fresh_wins_over_an_old_lms_class_list(): void
+    {
+        // A week-old LMS snapshot from the parser that read the whole lecturer cell.
+        $stale = $this->classList();
+        $stale['classes'][0]['lecturer_info']['name'] = 'Dosen A Kontak Dosen : 081234567890 Email Dosen : dosen.a@example.com';
+        $this->snapshots()->put(self::TOKEN, 'lms_classes', $stale);
+        $this->snapshots()->put(self::TOKEN, 'classes', $this->classList());
+
+        $courses = collect($this->getAsStudent('/api/notebooks')->assertOk()->json('data.notebooks'))->keyBy('course_key');
+
+        $this->assertSame('Dosen A', $courses['8810']['lecturer_name']);
+        $this->assertSame('Dosen A', app(NotebookCourseSync::class)->describeCourse(self::TOKEN, '8810')['lecturer_name']);
+    }
+
     public function test_syncing_the_class_list_makes_the_course_notebooks(): void
     {
         $this->instance(PortalDatasetBuilder::class, Mockery::mock(PortalDatasetBuilder::class, function (MockInterface $mock): void {
@@ -114,9 +131,9 @@ class NotebookCourseSyncTest extends TestCase
         Queue::fake([ArchivePortalFilesJob::class]);
         $this->snapshots()->put(self::TOKEN, 'lms_classes', $this->classList());
         $this->snapshots()->put(self::TOKEN, 'meeting_detail', $this->meeting(), params: self::MEETING_PARAMS);
-        $modul = $this->archivedText(['meeting_id' => '445', 'meeting_number' => 3, 'kind' => 'modul', 'title' => 'Normalisasi', 'source_url' => 'https://my.cic.ac.id/portal/files/modul/abc-3-mod.pdf'], 'Normalisasi mengurangi redundansi.');
-        $this->archivedText(['meeting_id' => null, 'meeting_number' => null, 'kind' => 'rps', 'title' => 'RPS', 'source_url' => 'https://my.cic.ac.id/portal/files/sap/rps.pdf'], 'Capaian pembelajaran.');
-        $this->archivedText(['course_key' => '8811', 'meeting_id' => '900', 'kind' => 'modul', 'source_url' => 'https://my.cic.ac.id/portal/files/modul/other.pdf'], 'Mata kuliah lain.');
+        $modul = $this->archivedText(['meeting_id' => '445', 'meeting_number' => 3, 'kind' => 'modul', 'title' => 'Normalisasi', 'source_url' => $this->fileUrl('modul/abc-3-mod.pdf')], 'Normalisasi mengurangi redundansi.');
+        $this->archivedText(['meeting_id' => null, 'meeting_number' => null, 'kind' => 'rps', 'title' => 'RPS', 'source_url' => $this->fileUrl('sap/rps.pdf')], 'Capaian pembelajaran.');
+        $this->archivedText(['course_key' => '8811', 'meeting_id' => '900', 'kind' => 'modul', 'source_url' => $this->fileUrl('modul/other.pdf')], 'Mata kuliah lain.');
 
         $response = $this->sendAsStudent('POST', '/api/notebooks/meetings', self::MEETING_PARAMS)
             ->assertCreated()
@@ -215,11 +232,16 @@ class NotebookCourseSyncTest extends TestCase
         $store = app(PortalArchivedFileStore::class);
         $item = static fn (string $kind, string $url, ?string $meetingId, ?int $number): array => ['kind' => $kind, 'source_url' => $url, 'title' => null, 'course_key' => '8810', 'meeting_id' => $meetingId, 'meeting_number' => $number];
 
-        $tracked = $store->store(self::TOKEN, $item('modul', 'https://my.cic.ac.id/portal/files/modul/p3.pdf', '445', 3), 'Basis Data');
-        $store->store(self::TOKEN, $item('modul', 'https://my.cic.ac.id/portal/files/modul/p4.pdf', '446', 4), 'Basis Data');
-        $rps = $store->store(self::TOKEN, $item('rps', 'https://my.cic.ac.id/portal/files/sap/rps.pdf', null, null), 'Basis Data');
+        $tracked = $store->store(self::TOKEN, $item('modul', $this->fileUrl('modul/p3.pdf'), '445', 3), 'Basis Data');
+        $store->store(self::TOKEN, $item('modul', $this->fileUrl('modul/p4.pdf'), '446', 4), 'Basis Data');
+        $rps = $store->store(self::TOKEN, $item('rps', $this->fileUrl('sap/rps.pdf'), null, null), 'Basis Data');
 
         $this->assertEqualsCanonicalizing([$tracked->id, $rps->id], $notebook->sources()->whereNotNull('portal_archived_file_id')->pluck('portal_archived_file_id')->all());
+        // Archiving may run in a background sync: the file is read once the notebook is opened.
+        $this->assertSame('pending', $notebook->sources()->where('portal_archived_file_id', $tracked->id)->value('status'));
+
+        $this->getAsStudent("/api/notebooks/{$notebook->id}")->assertOk();
+
         $this->assertSame('ready', $notebook->sources()->where('portal_archived_file_id', $tracked->id)->value('status'));
         $this->assertSame('Isi p3.pdf', NotebookChunk::query()->where('notebook_source_id', $notebook->sources()->where('portal_archived_file_id', $tracked->id)->value('id'))->value('content'));
     }
@@ -454,6 +476,15 @@ class NotebookCourseSyncTest extends TestCase
         NotebookChunk::query()->create(['notebook_source_id' => $source->id, 'notebook_id' => $notebook->id, 'position' => 0, 'page' => null, 'content' => $content]);
 
         return $source;
+    }
+
+    /**
+     * A course file's canonical URL on the configured portal host, as
+     * PortalUrlGuard::campusFileUrl() builds it from a meeting page.
+     */
+    private function fileUrl(string $path): string
+    {
+        return rtrim((string) config('portal.base_url'), '/').'/portal/files/'.$path;
     }
 
     private function snapshots(): PortalSnapshotStore

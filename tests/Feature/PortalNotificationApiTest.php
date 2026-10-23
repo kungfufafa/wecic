@@ -169,6 +169,20 @@ class PortalNotificationApiTest extends TestCase
         $this->assertNull($theirs->fresh()->read_at);
     }
 
+    public function test_mark_all_read_leaves_notifications_the_page_never_showed(): void
+    {
+        $shown = PortalNotification::factory()->count(2)->forOwner($this->ownerHash)->create();
+        $arrivedLater = PortalNotification::factory()->forOwner($this->ownerHash)->create(['title' => 'Ujian Basis Data dibuka', 'urgency' => 'critical']);
+
+        $this->postAsStudent('/api/notifications/read', ['all' => true, 'up_to' => $shown->max('id')])
+            ->assertOk()
+            ->assertJsonPath('data.updated', 2)
+            ->assertJsonPath('data.unread_count', 1);
+
+        $this->assertNull($arrivedLater->fresh()->read_at);
+        $shown->each(fn (PortalNotification $notification) => $this->assertNotNull($notification->fresh()->read_at));
+    }
+
     /**
      * @return array<string, array{0: array<string, mixed>, 1: string}>
      */
@@ -180,6 +194,8 @@ class PortalNotificationApiTest extends TestCase
             'id not a number' => [['ids' => ['abc']], 'Id notifikasi harus berupa angka.'],
             'all false' => [['all' => false], 'Nilai all harus true.'],
             'too many ids' => [['ids' => range(1, 101)], 'Maksimal 100 notifikasi sekaligus.'],
+            'up_to not a number' => [['all' => true, 'up_to' => 'terbaru'], 'Batas notifikasi harus berupa angka.'],
+            'up_to zero' => [['all' => true, 'up_to' => 0], 'Batas notifikasi tidak valid.'],
         ];
     }
 
@@ -235,6 +251,63 @@ class PortalNotificationApiTest extends TestCase
             ->assertSee('Tandai semua sudah dibaca');
         $bell = (new Crawler((string) $response->getContent()))->filter('header [data-notification-bell]');
         $this->assertSame('page', $bell->attr('aria-current'));
+    }
+
+    public function test_notification_page_labels_every_notification_type(): void
+    {
+        $content = (string) $this->withSession(['campus_session_token' => self::TOKEN])->get('/notifications')->assertOk()->getContent();
+
+        $this->assertSame(1, preg_match('/const TYPE_LABELS = \{(.*?)\};/s', $content, $labels));
+        preg_match_all('/^\s*([a-z_]+):/m', $labels[1], $labelledTypes);
+        $configuredTypes = collect(config('portal.datasets'))
+            ->flatMap(static fn (array $dataset): array => array_column($dataset['notify'] ?? [], 'type'))
+            ->push('deadline_reminder', 'attendance_open', 'archive_suspect', 'archive_class_not_run')
+            ->unique();
+
+        foreach ($configuredTypes as $type) {
+            $this->assertContains($type, $labelledTypes[1], "Notification type {$type} has no label on the page.");
+        }
+    }
+
+    public function test_mark_all_stays_available_in_portal_offline_mode(): void
+    {
+        $content = (string) $this->withSession(['campus_session_token' => self::TOKEN, 'campus_offline' => true])
+            ->get('/notifications')
+            ->assertOk()
+            ->getContent();
+        $markAll = (new Crawler($content))->filter('#notification-mark-all');
+
+        $this->assertCount(1, $markAll);
+        // Marking read never reaches the portal; only a missing connection disables it.
+        $this->assertNull($markAll->attr('data-online-required'));
+    }
+
+    public function test_unread_filter_pages_through_the_servers_unread_list(): void
+    {
+        $content = (string) $this->withSession(['campus_session_token' => self::TOKEN])->get('/notifications?filter=unread')->assertOk()->getContent();
+
+        $this->assertStringContainsString("query.set('unread', '1')", $content);
+        $this->assertStringContainsString('up_to: upTo', $content);
+    }
+
+    public function test_a_filter_not_loaded_yet_shows_the_skeleton_instead_of_the_other_filters_list(): void
+    {
+        $content = (string) $this->withSession(['campus_session_token' => self::TOKEN])->get('/notifications?filter=unread')->assertOk()->getContent();
+
+        $this->assertStringContainsString('const skeletonMarkup = listHost.innerHTML;', $content);
+        $this->assertStringContainsString('listHost.innerHTML = skeletonMarkup;', $content);
+        // A filter whose first load failed keeps its error state, also when the other filter's list was on screen.
+        $this->assertStringContainsString('if (mode !== modeOf(state.unreadOnly) || Number.isFinite(coverageFloor())) {', $content);
+    }
+
+    public function test_a_refresh_is_merged_only_into_the_range_its_own_filter_received(): void
+    {
+        $content = (string) $this->withSession(['campus_session_token' => self::TOKEN])->get('/notifications')->assertOk()->getContent();
+
+        $this->assertStringContainsString("const covered = viewRange(mode === 'unread');", $content);
+        $this->assertStringContainsString('lowestId <= covered.top', $content);
+        // Ids another filter received never close a gap in this one.
+        $this->assertStringNotContainsString('lowestId > maxKnownId()', $content);
     }
 
     /**

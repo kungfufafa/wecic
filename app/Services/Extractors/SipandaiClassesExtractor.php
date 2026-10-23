@@ -199,7 +199,7 @@ class SipandaiClassesExtractor extends PortalScrapingService
     private function extractSipandaiCourseInfo(Crawler $cell): array
     {
         $html = $cell->html();
-        $text = trim($cell->text());
+        $text = $this->normalizePortalText($cell->text(''));
 
         // Split by <br> to get course code and name
         $parts = preg_split('/<br\s*\/?>/i', $html);
@@ -207,8 +207,9 @@ class SipandaiClassesExtractor extends PortalScrapingService
         $courseInfo = [];
 
         if (count($parts) >= 2) {
-            $courseInfo['code'] = trim(strip_tags($parts[0]));
-            $courseInfo['name'] = trim(strip_tags($parts[1]));
+            // Serialized HTML keeps entities (&amp;, &nbsp;) that strip_tags leaves in.
+            $courseInfo['code'] = $this->normalizePortalText(strip_tags($parts[0]));
+            $courseInfo['name'] = $this->normalizePortalText(strip_tags($parts[1]));
         } else {
             // Try to extract from text format
             if (preg_match('/^([A-Z]{2,4}\d{3,})\s+(.+)$/', $text, $matches)) {
@@ -224,44 +225,12 @@ class SipandaiClassesExtractor extends PortalScrapingService
 
     /**
      * Extract lecturer information from SIPANDAI lecturer cell
+     *
+     * @return array{name: string, contact: string|null, email: string|null}
      */
     private function extractSipandaiLecturerInfo(Crawler $cell): array
     {
-        $html = $cell->html();
-        $text = trim($cell->text());
-
-        $lecturerInfo = [];
-
-        // Extract lecturer name (usually in <b> tag)
-        $boldText = $cell->filter('b')->first();
-        if ($boldText->count() > 0) {
-            $nameText = trim($boldText->text());
-            // Clean name from contact info and email details
-            $nameText = preg_replace('/\s*Kontak Dosen\s*:.*$/', '', $nameText);
-            $nameText = preg_replace('/\s*Email Dosen\s*:.*$/', '', $nameText);
-            $lecturerInfo['name'] = trim($nameText);
-        } else {
-            $lines = explode("\n", $text);
-            $nameText = trim($lines[0] ?? '');
-            // Clean name from contact info and email details
-            $nameText = preg_replace('/\s*Kontak Dosen\s*:.*$/', '', $nameText);
-            $nameText = preg_replace('/\s*Email Dosen\s*:.*$/', '', $nameText);
-            $lecturerInfo['name'] = trim($nameText);
-        }
-
-        // Extract contact information
-        if (preg_match('/Kontak Dosen\s*:\s*([\d\s-]+)/', $html, $matches)) {
-            $contact = trim($matches[1]);
-            $lecturerInfo['contact'] = $contact !== '-' ? $contact : null;
-        }
-
-        // Extract email
-        if (preg_match('/Email Dosen\s*:\s*([^\s<]+)/', $html, $matches)) {
-            $email = trim($matches[1]);
-            $lecturerInfo['email'] = $email !== '-' ? $email : null;
-        }
-
-        return $lecturerInfo;
+        return $this->parseLecturerCell($cell);
     }
 
     /**

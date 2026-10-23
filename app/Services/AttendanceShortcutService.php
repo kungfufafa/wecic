@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Enums\MeetingAttendanceState;
 use App\Services\Extractors\ClassesExtractor;
 use App\Services\Extractors\SipandaiClassesExtractor;
 use Carbon\CarbonImmutable;
@@ -101,7 +102,7 @@ class AttendanceShortcutService
             $candidate = $this->resolveAttendanceCandidate($class, $detail, $reference);
 
             if ($candidate !== []) {
-                $candidate = $this->hydrateAttendanceStatusFromMeeting($sessionToken, $candidate, $syncOrigins);
+                $candidate = $this->hydrateAttendanceStatusFromMeeting($sessionToken, $candidate, $reference, $syncOrigins);
                 $attendanceClasses[] = $candidate;
             }
         }
@@ -224,7 +225,7 @@ class AttendanceShortcutService
             return null;
         }
 
-        return $this->hydrateAttendanceStatusFromMeeting($sessionToken, $candidate);
+        return $this->hydrateAttendanceStatusFromMeeting($sessionToken, $candidate, $reference);
     }
 
     /**
@@ -330,7 +331,7 @@ class AttendanceShortcutService
      * @param  array<string, mixed>  $candidate
      * @return array<string, mixed>
      */
-    private function hydrateAttendanceStatusFromMeeting(string $sessionToken, array $candidate, ?array &$syncOrigins = null): array
+    private function hydrateAttendanceStatusFromMeeting(string $sessionToken, array $candidate, CarbonImmutable $reference, ?array &$syncOrigins = null): array
     {
         $meetingId = (string) ($candidate['meeting_id'] ?? '');
         $coursesId = (string) ($candidate['assignment_payload']['courses_id'] ?? '');
@@ -357,7 +358,7 @@ class AttendanceShortcutService
             return $candidate;
         }
 
-        $meetingAttendanceStatus = $this->resolveMeetingAttendanceStatus($meetingDetail['attendance_info'] ?? []);
+        $meetingAttendanceStatus = $this->resolveMeetingAttendanceStatus($meetingDetail, $reference, $candidate['schedule']['end_time'] ?? null);
 
         if ($meetingAttendanceStatus['already_marked'] || ! ($candidate['attendance_status']['already_marked'] ?? false)) {
             $candidate['attendance_status'] = $meetingAttendanceStatus;
@@ -474,6 +475,10 @@ class AttendanceShortcutService
     }
 
     /**
+     * `can_submit_directly` follows the upload link: the meeting page only
+     * links the upload form while the portal accepts files, and without it
+     * an upload would be refused.
+     *
      * @param  array<string, mixed>  $class
      * @param  array<string, mixed>  $candidate
      * @param  array<string, mixed>  $meetingDetail
@@ -486,11 +491,13 @@ class AttendanceShortcutService
         $deadline = trim((string) ($assignmentInfo['deadline'] ?? ''));
         $deadline = $deadline === ':' || $deadline === '' ? (string) ($materials['assignment_instructions'] ?? '') : $deadline;
 
+        $hasUploadLink = trim((string) ($assignmentInfo['upload_link'] ?? '')) !== '';
+
         $hasAssignmentContent = ! empty($materials['assignment_topic'])
             || ! empty($materials['assignment_instructions'])
             || ! empty($materials['assignment_material_iframe'])
             || ! empty($assignmentInfo['upload_text'])
-            || trim((string) ($assignmentInfo['upload_link'] ?? '')) !== '';
+            || $hasUploadLink;
 
         if (! $hasAssignmentContent) {
             return null;
@@ -510,7 +517,7 @@ class AttendanceShortcutService
             'deadline_date' => $this->parsePortalDate($deadline)?->toDateString(),
             'meeting_url' => sprintf('/meeting/%s?courses_id=%s', $candidate['meeting_id'], $candidate['courses_id']),
             'assignment_file_url' => ! empty($materials['assignment_material_iframe']) ? (string) $materials['assignment_material_iframe'] : null,
-            'can_submit_directly' => true,
+            'can_submit_directly' => $hasUploadLink,
             'assignment_payload' => [
                 'courses_id' => $candidate['courses_id'],
                 'id' => $candidate['meeting_id'],
@@ -855,43 +862,70 @@ class AttendanceShortcutService
             'permit' => 'Izin',
             'sick' => 'Sakit',
             'absent' => 'Absen',
+            'open' => 'Belum absen',
             default => null,
         };
     }
 
     /**
-     * @param  array<string, mixed>  $attendanceInfo
-     * @return array{already_marked: bool, status: string|null, label: string|null, time: string|null}
+     * The attendance a meeting page shows, by MeetingAttendanceState. Only
+     * the portal's own markers make it present, late, permit, sick or
+     * absent. A page that shows no attendance window ("Waktu Absensi Tidak
+     * Tersedia") is `unavailable`: its `window` is `closed` once the meeting
+     * is over (the student was not recorded), `not_open` before that.
+     *
+     * @param  array<string, mixed>  $meetingDetail
+     * @return array{already_marked: bool, status: string|null, label: string|null, time: string|null, window: 'not_open'|'closed'|null}
      */
-    private function resolveMeetingAttendanceStatus(array $attendanceInfo): array
+    private function resolveMeetingAttendanceStatus(array $meetingDetail, CarbonImmutable $reference, ?string $endTime = null): array
     {
-        $statusText = strtolower(trim((string) ($attendanceInfo['status'] ?? '')));
+        $attendanceInfo = is_array($meetingDetail['attendance_info'] ?? null) ? $meetingDetail['attendance_info'] : [];
+        $state = MeetingAttendanceState::fromAttendanceInfo($attendanceInfo);
         $attendanceTime = isset($attendanceInfo['time']) && trim((string) $attendanceInfo['time']) !== ''
             ? (string) $attendanceInfo['time']
             : null;
-
-        $normalizedStatus = match (true) {
-            str_contains($statusText, 'terlambat') => 'late',
-            str_contains($statusText, 'izin') => 'permit',
-            str_contains($statusText, 'sakit') => 'sick',
-            str_contains($statusText, 'hadir') => 'present',
-            str_contains($statusText, 'absen') => 'absent',
-            default => null,
-        };
-
-        $alreadyMarked = $attendanceTime !== null
-            || (
-                $normalizedStatus !== null
-                && ! preg_match('/belum|silakan|scan|qr/', $statusText)
-                && in_array($normalizedStatus, ['present', 'late', 'permit', 'sick'], true)
-            );
+        $window = $state === MeetingAttendanceState::Unavailable
+            ? ($this->isMeetingOver($meetingDetail, $reference, $endTime) ? 'closed' : 'not_open')
+            : null;
 
         return [
-            'already_marked' => $alreadyMarked,
-            'status' => $normalizedStatus,
-            'label' => $normalizedStatus !== null ? $this->attendanceLabel($normalizedStatus) : null,
-            'time' => $attendanceTime,
+            'already_marked' => $state->isRecorded(),
+            'status' => $state === MeetingAttendanceState::Unknown ? null : $state->value,
+            'label' => match (true) {
+                $window === 'closed' => 'Tidak hadir',
+                $window === 'not_open' => 'Belum dibuka',
+                default => $this->attendanceLabel($state->value),
+            },
+            'time' => $state->isRecorded() ? $attendanceTime : null,
+            'window' => $window,
         ];
+    }
+
+    /**
+     * Whether the meeting has ended at `$reference`: its date (the meeting
+     * page's "Tanggal Pertemuan") is before today, or it is today and the
+     * class's end time has passed. A meeting without a readable date is not.
+     *
+     * @param  array<string, mixed>  $meetingDetail
+     */
+    private function isMeetingOver(array $meetingDetail, CarbonImmutable $reference, ?string $endTime): bool
+    {
+        $meetingDate = $this->parsePortalDate(is_string($meetingDetail['schedule_info']['date'] ?? null) ? $meetingDetail['schedule_info']['date'] : null);
+
+        if ($meetingDate === null) {
+            return false;
+        }
+
+        $today = $reference->setTimezone(config('app.timezone'))->startOfDay();
+
+        if (! $meetingDate->isSameDay($today)) {
+            return $meetingDate->lessThan($today);
+        }
+
+        $endMinutes = is_string($endTime) ? $this->minutesFromTime($endTime) : null;
+        $currentMinutes = ((int) $reference->format('H')) * 60 + (int) $reference->format('i');
+
+        return $endMinutes !== null && $currentMinutes > $endMinutes;
     }
 
     /**

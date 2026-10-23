@@ -194,12 +194,14 @@
             const ASSIGNMENT_PREVIEW_LIMIT = 3;
             const RECHECK_LIMIT = 3;
             const RECHECK_DELAY_MS = 20000;
+            const ANNOUNCEMENT_READ_KEY = 'mycic-announcement-read';
             const SECONDARY_REFRESH_AFTER_MS = 10 * 60 * 1000;
             const SECONDARY_REFRESH_COOLDOWN_MS = 60 * 1000;
-            // Snapshots behind the hero, the metrics and the action centre: a pull-to-refresh
-            // asks the server to rebuild the stale ones in the background (GET ?fresh=1 only
-            // forces the main dashboard dataset).
-            const SECONDARY_DATASETS = ['portal_context', 'krs', 'advising', 'grades', 'payments', 'skkm', 'announcements', 'exams'];
+            // Snapshots behind the hero, the metrics, the task list and the action centre: a
+            // pull-to-refresh asks the server to rebuild the stale ones in the background (GET
+            // ?fresh=1 only forces the main dashboard dataset; the task list crawls every class
+            // and meeting page, which never runs inline).
+            const SECONDARY_DATASETS = ['portal_context', 'krs', 'advising', 'grades', 'payments', 'skkm', 'announcements', 'exams', 'assignments'];
             const SOURCE_LABELS = {
                 portal_context: 'info periode',
                 krs: 'KRS',
@@ -302,7 +304,7 @@
 
             /**
              * A snapshot that is still being built is re-read a few times when no realtime
-             * connection will announce it.
+             * connection will announce it. `run` gets `{ background: true }` to pass on to its read.
              */
             const scheduleRecheck = (key, isPending, run) => {
                 if (!isPending) {
@@ -333,7 +335,8 @@
                         return;
                     }
 
-                    void run();
+                    // The page re-reads on its own: not the student's activity.
+                    void run({ background: true });
                 }, RECHECK_DELAY_MS * attempt));
             };
 
@@ -430,6 +433,11 @@
                         note: metric.source === 'computed' ? 'Dihitung dari KHS' : 'IPK resmi portal',
                         title: metric.predicate_estimate ? `Perkiraan predikat: ${metric.predicate_estimate}` : '',
                     };
+                }
+
+                // The KHS was read and holds no grade yet (a new student).
+                if (metric?.status === 'empty') {
+                    return { value: '–', note: 'Belum ada nilai', title: 'Belum ada nilai di KHS. IPK muncul setelah nilai pertama keluar.' };
                 }
 
                 // Fase 0.7: an IPK that is missing is unread, not "no grades yet".
@@ -825,7 +833,7 @@
                 const items = app.extractActionItems(payload);
                 const meta = payload.meta || {};
 
-                scheduleRecheck('actions', Array.isArray(meta.pending_sources) && meta.pending_sources.length > 0, () => loadActionCenter());
+                scheduleRecheck('actions', Array.isArray(meta.pending_sources) && meta.pending_sources.length > 0, (options) => loadActionCenter(options));
 
                 if (!hasChanged('actions', {
                     items,
@@ -927,21 +935,34 @@
                 .sort((first, second) => first.days - second.days)[0] || null;
 
             // Same rule as /announcement: unread on this device and published in the last 7 days.
-            const readAnnouncementIds = () => {
-                try {
-                    const stored = JSON.parse(window.localStorage.getItem('mycic-announcement-read') || 'null');
+            // A mark saved under an announcement's old wording-based id moves to its stable id.
+            const readAnnouncementIds = (feedItems) => {
+                let stored = null;
 
-                    return new Set(Array.isArray(stored?.ids) ? stored.ids : []);
+                try {
+                    stored = JSON.parse(window.localStorage.getItem(ANNOUNCEMENT_READ_KEY) || 'null');
                 } catch (error) {
                     return new Set();
                 }
+
+                const { ids, changed } = app.migrateAnnouncementReadIds(stored?.ids, feedItems);
+
+                if (changed && stored && typeof stored === 'object' && !Array.isArray(stored)) {
+                    try {
+                        window.localStorage.setItem(ANNOUNCEMENT_READ_KEY, JSON.stringify({ ...stored, ids }));
+                    } catch (error) {
+                        // The moved marks still apply to this render; the next one moves them again.
+                    }
+                }
+
+                return new Set(ids);
             };
 
             const renderAnnouncementCard = (item, readIds = new Set()) => {
                 const id = /^[0-9a-f]{40}$/.test(String(item.id || '')) ? item.id : null;
                 const href = id ? `/announcement/${id}` : '/announcement';
                 const publishedDays = app.daysUntil(item.published_date);
-                const isNew = !readIds.has(item.id) && publishedDays !== null && publishedDays <= 0 && publishedDays >= -7;
+                const isNew = !app.isAnnouncementRead(readIds, item) && publishedDays !== null && publishedDays <= 0 && publishedDays >= -7;
                 const deadline = nextDeadline(item);
                 const deadlineLabel = deadline
                     ? `Tenggat ${deadline.days === 0 ? 'hari ini' : (deadline.days === 1 ? 'besok' : `${deadline.days} hari lagi`)}`
@@ -972,15 +993,16 @@
 
                 latestAnnouncementPayload = payload;
 
-                const items = (Array.isArray(payload.data?.items) ? payload.data.items : [])
+                const feedItems = Array.isArray(payload.data?.items) ? payload.data.items : [];
+                const items = feedItems
                     .filter((item) => item && !item.duplicate_of)
                     .slice(0, 2);
 
                 announcementsRendered = true;
 
-                const readIds = readAnnouncementIds();
+                const readIds = readAnnouncementIds(feedItems);
 
-                if (!hasChanged('announcements', { items, day: todayIso(), read: items.map((item) => readIds.has(item.id)) })) {
+                if (!hasChanged('announcements', { items, day: todayIso(), read: items.map((item) => app.isAnnouncementRead(readIds, item)) })) {
                     return;
                 }
 
@@ -1017,16 +1039,25 @@
                     </div>
                 `;
 
-                // Where the quick QR button in the mobile nav should go.
-                const scannable = todayClasses.find((klass) => klass.attendance?.actionable && klass.attendance?.meeting_url);
+                // Where the quick QR button in the mobile nav should go. An older day's
+                // schedule points at that day's meetings, never at today's attendance.
+                const scannable = snapshotIsToday
+                    ? todayClasses.find((klass) => klass.attendance?.actionable && klass.attendance?.meeting_url)
+                    : null;
+                // Attendance is read after the schedule (class and meeting pages); until then it is "checking".
+                const attendanceChecking = todayClasses.some((klass) => klass.attendance?.state === 'checking');
                 app.setQuickQrTarget(
                     scannable ? `${scannable.attendance.meeting_url}&qr=1` : null,
-                    todayClasses.length
-                        ? 'Absensi untuk kelas hari ini belum dibuka dosen. Coba lagi saat kelas berlangsung.'
-                        : `Tidak ada kelas ${dayLabel}, jadi tidak ada absensi yang perlu diisi.`
+                    !snapshotIsToday
+                        ? 'Jadwal hari ini masih diambil dari portal kampus. Coba lagi sebentar lagi.'
+                        : (attendanceChecking
+                            ? 'Status absensi kelas hari ini masih dicek di portal kampus. Coba lagi sebentar lagi.'
+                            : (todayClasses.length
+                                ? 'Absensi untuk kelas hari ini belum dibuka dosen. Coba lagi saat kelas berlangsung.'
+                                : `Tidak ada kelas ${dayLabel}, jadi tidak ada absensi yang perlu diisi.`))
                 );
 
-                if (!hasChanged('today', { date: classesSummary.date, day: classesSummary.day, todayClasses })) {
+                if (!hasChanged('today', { date: classesSummary.date, day: classesSummary.day, todayClasses, snapshotIsToday })) {
                     return;
                 }
 
@@ -1051,10 +1082,13 @@
                 summaryHost.innerHTML = todayClasses.map((klass, index) => {
                     const attendance = klass.attendance || {};
                     const targetReliable = attendance.target_reliable !== false;
+                    // Only today's schedule takes attendance: an older day's form would
+                    // send today's code to that day's meeting.
+                    const actionable = snapshotIsToday && Boolean(attendance.actionable);
                     let statusColor = 'secondary';
-                    if (attendance.actionable) statusColor = 'primary';
+                    if (actionable) statusColor = 'primary';
                     else if (attendance.status?.already_marked && targetReliable) statusColor = 'success';
-                    else if (attendance.available && targetReliable) statusColor = 'warning';
+                    else if (snapshotIsToday && attendance.available && targetReliable) statusColor = 'warning';
 
                     const materialTitle = attendance.today_material?.title;
                     const materialIsToday = attendance.today_material?.is_today !== false;
@@ -1062,6 +1096,8 @@
                     // Without today's material, "Buka" leads to the class page, not an old meeting.
                     const openUrl = targetReliable ? attendance.meeting_url : (attendance.class_url || attendance.meeting_url);
                     const attendanceKey = attendance.meeting_url || [klass.course_code, klass.class_name, index].filter(Boolean).join('|');
+                    // The meeting page shows no attendance window: not open yet, or closed after class (not attended).
+                    const attendanceNote = targetReliable ? app.todayAttendanceNote(attendance.status) : null;
 
                     return `
                     <div class="mycic-card mb-3">
@@ -1093,9 +1129,21 @@
                             ` : ''}
 
                             <div class="${panelTone(statusColor)}">
-                                ${!targetReliable ? `
+                                ${!snapshotIsToday && !attendance.status?.already_marked ? `
+                                    <div class="text-sm text-ink-subtle">Absensi dibuka di sini setelah jadwal hari ini selesai dimuat.</div>
+                                ` : attendance.state === 'checking' ? `
+                                    <div class="flex items-center gap-2 text-sm text-ink-subtle" role="status">
+                                        <span class="mycic-spinner shrink-0" aria-hidden="true"></span>
+                                        <span>Mengecek status absensi di portal kampus...</span>
+                                    </div>
+                                ` : attendance.state === 'unavailable' ? `
+                                    <div class="text-sm text-ink-subtle">Status absensi belum bisa dibaca dari portal. Buka kelasnya untuk absen.</div>
+                                ` : !targetReliable ? `
                                     <div class="text-sm text-ink-subtle">Materi hari ini belum diunggah dosen, jadi absensi belum bisa dibuka dari sini.</div>
-                                ` : attendance.actionable ? `
+                                ` : attendanceNote && !actionable ? `
+                                    <div class="text-sm font-medium ${textTone(statusColor)}">${esc(attendanceNote)}</div>
+                                ` : actionable ? `
+                                    ${attendanceNote ? `<div class="mb-2 text-xs text-ink-subtle">${esc(attendanceNote)}</div>` : ''}
                                     <form class="flex flex-wrap items-center gap-2" data-attendance-card="${index}" data-attendance-key="${esc(attendanceKey)}">
                                         <div class="w-full min-w-0 md:w-auto md:min-w-[12rem] md:flex-1">
                                             <label class="sr-only" for="dashboard-attendance-code-${index}">Kode absen ${esc(klass.course_name || 'kelas ini')}</label>
@@ -1142,9 +1190,22 @@
                     }
 
                     app.bindAttendanceQrTools(form, codeInput, {
-                        onDetected: () => {
+                        // The schedule may have re-rendered while the camera was open:
+                        // send the code with this class's form as it is on screen now.
+                        onDetected: (code) => {
+                            const liveForm = Array.from(summaryHost.querySelectorAll('[data-attendance-card]'))
+                                .find((candidate) => candidate.dataset.attendanceKey === form.dataset.attendanceKey);
+                            const liveInput = liveForm?.querySelector('[data-field="kode"]');
+
+                            if (!liveForm || !liveInput) {
+                                app.showNotice('Absensi kelas ini sudah tidak bisa diisi dari jadwal. Muat ulang beranda untuk melihat statusnya.', 'warning');
+
+                                return;
+                            }
+
+                            liveInput.value = code;
                             app.showNotice('QR terbaca. Mengirim absensi...', 'info');
-                            app.requestFormSubmit(form);
+                            app.requestFormSubmit(liveForm);
                         },
                     });
 
@@ -1223,10 +1284,13 @@
 
                 const pendingSources = Array.isArray(data.pending_sources) ? data.pending_sources : [];
 
+                const attendanceChecking = (data.classes_summary?.today_classes || [])
+                    .some((klass) => klass?.attendance?.state === 'checking');
+
                 renderPeriod(data.portal_context, pendingSources);
                 renderMetrics(data);
                 renderTodaySchedule(data.classes_summary || {});
-                scheduleRecheck('dashboard', pendingSources.length > 0, () => loadDashboard());
+                scheduleRecheck('dashboard', pendingSources.length > 0 || attendanceChecking, (options) => loadDashboard(options));
             };
 
             // ---- Tugas ---------------------------------------------------------------------------
@@ -1311,13 +1375,13 @@
                                     ${assignment.can_submit_directly ? `
                                         <form class="flex flex-col gap-2 sm:flex-row sm:items-center" data-assignment-card="${index}">
                                             <div class="min-w-0 flex-1">
-                                                <label class="sr-only" for="dashboard-assignment-file-${index}">File tugas ${esc(assignment.course_name || '')} (PDF)</label>
-                                                <input type="file" class="mycic-input bg-panel" id="dashboard-assignment-file-${index}" data-field="attachment" accept=".pdf" required>
+                                                <label class="sr-only" for="dashboard-assignment-file-${index}">File tugas ${esc(assignment.course_name || '')} (PDF, maks. 10 MB)</label>
+                                                <input type="file" class="mycic-input bg-panel" id="dashboard-assignment-file-${index}" data-field="attachment" accept=".pdf,application/pdf" required>
                                             </div>
                                             <button type="submit" class="${app.buttonClass('primary')}" data-online-required>Kirim</button>
                                         </form>
                                     ` : `
-                                        <div class="text-sm text-ink-subtle">Buka detail untuk mengumpulkan.</div>
+                                        <div class="text-sm text-ink-subtle">Portal sedang tidak membuka upload tugas ini. Buka detail untuk melihat statusnya.</div>
                                     `}
                                 </div>
                             </div>
@@ -1357,6 +1421,19 @@
                             return;
                         }
 
+                        // The server takes PDFs up to 10 MB; checking here saves a long upload that would be refused.
+                        if (!/\.pdf$/i.test(file.name)) {
+                            app.showNotice('File tugas harus berformat PDF.', 'warning');
+
+                            return;
+                        }
+
+                        if (file.size > 10 * 1024 * 1024) {
+                            app.showNotice('Ukuran file tugas maksimal 10 MB.', 'warning');
+
+                            return;
+                        }
+
                         if (!candidate?.assignment_payload) {
                             app.showNotice('Tugas ini perlu dibuka dari detail meeting terlebih dahulu.', 'warning');
 
@@ -1387,6 +1464,15 @@
                                     await loadPendingAssignments();
                                 }
                             } catch (error) {
+                                // An upload of this task is still running (another tab, a
+                                // reload): follow it instead of sending the file again.
+                                if (error.status === 409 && error.payload?.data?.operation_id) {
+                                    app.showNotice(error.payload.message, 'warning');
+                                    await app.trackOperation(error.payload.data.operation_id, 'Upload tugas', { announce: false });
+
+                                    return;
+                                }
+
                                 app.showNotice(error.payload?.message || error.message, 'error');
                             }
                         }));
@@ -1484,11 +1570,13 @@
                     renderPendingAssignments(latestAssignmentsPayload);
                 }
 
-                void Promise.allSettled([loadDashboard(), loadPendingAssignments(), loadActionCenter()]);
+                void Promise.allSettled([loadDashboard({ background: true }), loadPendingAssignments({ background: true }), loadActionCenter({ background: true })]);
 
                 return true;
             };
 
+            // A new day and a tab shown again re-read on the page's own initiative: those reads
+            // never count as the student's activity, so an open tab still idles out.
             window.setInterval(refreshForNewDay, 60000);
             document.addEventListener('visibilitychange', () => {
                 if (document.visibilityState !== 'visible' || refreshForNewDay() || !navigator.onLine) {
@@ -1497,11 +1585,11 @@
 
                 // Back after a while: re-read the snapshots (never a forced portal scrape).
                 if (Date.now() - lastActionFetchAt > 5 * 60 * 1000) {
-                    void loadActionCenter();
+                    void loadActionCenter({ background: true });
                 }
 
                 if (Date.now() - lastDashboardFetchAt > 10 * 60 * 1000) {
-                    void loadDashboard();
+                    void loadDashboard({ background: true });
                 }
             });
 
@@ -1519,11 +1607,11 @@
                 return;
             }
 
-            loadDashboard = async ({ force = false } = {}) => {
+            loadDashboard = async ({ force = false, background = false } = {}) => {
                 lastDashboardFetchAt = Date.now();
 
                 try {
-                    const payload = await app.request('/api/dashboard', { fresh: force });
+                    const payload = await app.request('/api/dashboard', { fresh: force, background });
                     renderDashboard(payload);
                     dashboardOverviewHealthy = true;
                     app.markViewSynced('Beranda', payload, { force });
@@ -1568,14 +1656,16 @@
                 }
             };
 
-            loadPendingAssignments = async ({ force = false } = {}) => {
+            loadPendingAssignments = async ({ force = false, background = false } = {}) => {
                 try {
-                    const payload = await app.request('/api/assignment/pending', { fresh: force });
+                    // A snapshot read: a forced refresh rebuilds the task list in the
+                    // background (queueSecondaryRefresh) instead of crawling every class here.
+                    const payload = await app.request('/api/assignment/pending', { fresh: false, background });
                     renderPendingAssignments(payload);
 
                     // The action centre only reuses the assignments snapshot; this read just built it.
                     if (latestActionPayload?.meta?.sources?.assignments?.status === 'missing') {
-                        void loadActionCenter();
+                        void loadActionCenter({ background });
                     }
 
                     if (dashboardOverviewHealthy) {
@@ -1593,7 +1683,7 @@
                 }
             };
 
-            loadActionCenter = async ({ force = false } = {}) => {
+            loadActionCenter = async ({ force = false, background = false } = {}) => {
                 const shared = app.actionItemsRequest;
 
                 // A realtime update (or the nav badges) already started a read: reuse it.
@@ -1615,7 +1705,7 @@
                 lastActionFetchAt = Date.now();
 
                 // Built from snapshots only, so this never waits on the portal.
-                const request = app.request('/api/action-items', { fresh: force, timeout: 15000 });
+                const request = app.request('/api/action-items', { fresh: force, timeout: 15000, background });
                 ownActionItemsRequest = request
                     .then((payload) => app.extractActionItems(payload))
                     .catch(() => app.actionItems || []);
@@ -1650,11 +1740,11 @@
                 }
             };
 
-            loadAnnouncements = async ({ force = false } = {}) => {
+            loadAnnouncements = async ({ force = false, background = false } = {}) => {
                 try {
                     // A snapshot read: pull-to-refresh rebuilds the feed in the background
                     // (queueSecondaryRefresh) instead of scraping three portal pages here.
-                    const payload = await app.request('/api/announcement', { fresh: false });
+                    const payload = await app.request('/api/announcement', { fresh: false, background });
 
                     renderAnnouncements(payload);
                 } catch (error) {
@@ -1683,9 +1773,14 @@
                 whenIdle(() => resolve(loadAnnouncements()));
             });
 
+            // The task list is read once the schedule has answered: a stale schedule then queues
+            // its re-sync before the task list queues its crawl of every class and meeting page,
+            // and the worker runs them in that order.
+            const dashboardLoaded = loadDashboard();
+
             await Promise.allSettled([
-                loadDashboard(),
-                loadPendingAssignments(),
+                dashboardLoaded,
+                dashboardLoaded.then(() => loadPendingAssignments()),
                 loadActionCenter(),
                 announcementsLoaded,
             ]);

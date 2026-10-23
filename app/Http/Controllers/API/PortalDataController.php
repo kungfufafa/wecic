@@ -4,17 +4,24 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\API;
 
+use App\Exceptions\PortalException;
+use App\Exceptions\PortalOfflineException;
 use App\Http\Requests\ClassDetailRequest;
 use App\Http\Requests\PortalRefreshRequest;
 use App\Http\Requests\SipandaiFlowRequest;
 use App\Http\Requests\SipandaiMeetingDetailRequest;
 use App\Jobs\RefreshPortalDataJob;
 use App\Services\DashboardMetricsBuilder;
+use App\Services\DashboardTodayAttendance;
+use App\Services\DashboardTodayClassesBuilder;
 use App\Services\Extractors\ClassesExtractor;
 use App\Services\PortalClassCatalog;
+use App\Services\PortalDatasetRepository;
 use App\Services\PortalEndpointRegistry;
 use App\Services\PortalFetchPolicy;
 use App\Services\PortalFinanceStatusResolver;
+use App\Services\PortalOfflineAccess;
+use Carbon\CarbonImmutable;
 use Dedoc\Scramble\Attributes\Group;
 use Dedoc\Scramble\Attributes\PathParameter;
 use Dedoc\Scramble\Attributes\Response;
@@ -25,7 +32,7 @@ use Illuminate\Support\Facades\Log;
 #[Group('Portal Data', 'Endpoint pembacaan data profil, kelas, detail materi, dan alur data SIPANDAI.', 20)]
 class PortalDataController extends CampusApiController
 {
-    private const DASHBOARD_RESPONSE = "array{status: 'success', message: string, data: array{user_info: array<string, mixed>, dashboard_overview: array{total_courses: string, gpa: null, total_credits: string, outstanding_payments: null}, recent_activity: list<array<string, mixed>>, classes_summary: array<string, mixed>, status: string, timestamp: string, portal_context: array{academic_period: array{label: string, academic_year: string, term: 'ganjil'|'genap'|null, source: string}|null, semester_number: int|null, semester_source: string|null, semester_is_estimate: bool, semester_label: string|null, summary_label: string|null, server_date: string|null, server_date_label: string|null, guide_links: list<array{label: string, path: string, filename: string}>, questionnaire: array{available: bool, title: string|null, academic_year: string|null, description: string|null, details: list<string>}, notice: array{text: string, dates: list<string>, is_future: bool, kind: string}|null, sidebar_menu: list<array{label: string, href_act: string|null}>, extracted_at: string}|null, metrics: array{ipk: array{value: float|null, source: 'official'|'computed'|null, predicate_estimate: string|null, status: 'ready'|'pending'|'unavailable'|'failed'}, sks_passed: array{value: int|null, conversion_sks: int|null, target_sks: int|null, remaining_sks: int|null, progress_percent: float|null, status: string}, sks_current: array{value: int|null, courses: int|null, status: string}, bills: array{status: 'clear'|'outstanding'|'unknown'|'pending'|'failed', has_outstanding: bool|null, total_amount: int|null, total_amount_label: string|null, count: int|null}, skkm: array{valid_points: int|float|null, required_points: int|float|null, remaining_points: int|float|null, progress_percent: float|null, is_met: bool|null, status: string}, sources: array<string, array{status: string, synced_at: string|null}>, pending_sources: list<string>, syncing_sources: list<string>}, pending_sources: list<string>}, meta: array{timestamp: string, campus_session_valid: true, status: string, synced_at: string|null, data_origin: string}}";
+    private const DASHBOARD_RESPONSE = "array{status: 'success', message: string, data: array{user_info: array<string, mixed>, dashboard_overview: array{total_courses: string, gpa: null, total_credits: string, outstanding_payments: null}, recent_activity: list<array<string, mixed>>, classes_summary: array<string, mixed>, status: string, timestamp: string, portal_context: array{academic_period: array{label: string, academic_year: string, term: 'ganjil'|'genap'|null, source: string}|null, semester_number: int|null, semester_source: string|null, semester_is_estimate: bool, semester_label: string|null, summary_label: string|null, server_date: string|null, server_date_label: string|null, guide_links: list<array{label: string, path: string, filename: string}>, questionnaire: array{available: bool, title: string|null, academic_year: string|null, description: string|null, details: list<string>}, notice: array{text: string, dates: list<string>, is_future: bool, kind: string}|null, sidebar_menu: list<array{label: string, href_act: string|null}>, extracted_at: string}|null, metrics: array{ipk: array{value: float|null, source: 'official'|'computed'|null, predicate_estimate: string|null, status: 'ready'|'pending'|'unavailable'|'failed'|'empty'}, sks_passed: array{value: int|null, conversion_sks: int|null, target_sks: int|null, remaining_sks: int|null, progress_percent: float|null, status: string}, sks_current: array{value: int|null, courses: int|null, status: string}, bills: array{status: 'clear'|'outstanding'|'unknown'|'pending'|'failed', has_outstanding: bool|null, total_amount: int|null, total_amount_label: string|null, count: int|null}, skkm: array{valid_points: int|float|null, required_points: int|float|null, remaining_points: int|float|null, progress_percent: float|null, is_met: bool|null, status: string}, sources: array<string, array{status: string, synced_at: string|null}>, pending_sources: list<string>, syncing_sources: list<string>}, pending_sources: list<string>}, meta: array{timestamp: string, campus_session_valid: true, status: string, synced_at: string|null, data_origin: string}}";
 
     private const PORTAL_CONTEXT_RESPONSE = "array{status: 'success', message: string, data: array{academic_period: array{label: string, academic_year: string, term: 'ganjil'|'genap'|null, source: string}|null, semester_number: int|null, semester_source: string|null, semester_is_estimate: bool, semester_label: string|null, summary_label: string|null, server_date: string|null, server_date_label: string|null, guide_links: list<array{label: string, path: string, filename: string}>, questionnaire: array{available: bool, title: string|null, academic_year: string|null, description: string|null, details: list<string>}, notice: array{text: string, dates: list<string>, is_future: bool, kind: string}|null, sidebar_menu: list<array{label: string, href_act: string|null}>, extracted_at: string}, meta: array{timestamp: string, campus_session_valid: true, status: string, synced_at: string|null, data_origin: string}}";
 
@@ -37,7 +44,9 @@ class PortalDataController extends CampusApiController
 
     private const CLASSES_RESPONSE = "array{status: 'success', message: string, user_info: array<string, mixed>, classes: list<array<string, mixed>>, meta: array{timestamp: string, campus_session_valid: true}}";
 
-    private const CLASS_DETAIL_RESPONSE = "array{status: 'success', message: string, class_detail: array<string, mixed>, meta: array{timestamp: string, campus_session_valid: true, parameters?: array<string, mixed>, meeting_id?: string, courses_id?: string, id?: string}}";
+    private const CLASS_DETAIL_RESPONSE = "array{status: 'success', message: string, class_detail: array<string, mixed>, meta: array{timestamp: string, campus_session_valid: true, status: string, synced_at: string|null, data_origin: string, id: string, parameters: array<string, mixed>}}";
+
+    private const MEETING_DETAIL_RESPONSE = "array{status: 'success', message: string, class_detail: array<string, mixed>, meta: array{timestamp: string, campus_session_valid: true, status: string, synced_at: string|null, data_origin: string, meeting_id: string, courses_id: string, notebook_limit_reached?: true}}";
 
     private const CLASSES_WITH_SEMESTER_RESPONSE = "array{status: 'success', message: string, user_info: array<string, mixed>, classes: list<array<string, mixed>>, semester_info: array<string, mixed>, meta: array{timestamp: string, campus_session_valid: true, data_source: string}}";
 
@@ -52,7 +61,8 @@ class PortalDataController extends CampusApiController
         private readonly PortalFinanceStatusResolver $financeStatus,
         private readonly PortalClassCatalog $classCatalog,
         private readonly ClassesExtractor $classesExtractor,
-        private readonly PortalFetchPolicy $fetchPolicy
+        private readonly PortalFetchPolicy $fetchPolicy,
+        private readonly PortalOfflineAccess $offlineAccess
     ) {}
 
     /**
@@ -63,14 +73,36 @@ class PortalDataController extends CampusApiController
      * (IPK, SKS lulus, SKS semester ini, tagihan, SKKM) hanya dibaca dari snapshot: dashboard tidak
      * pernah menunggu portal untuk data ini. Snapshot yang belum ada dibangun di background dan
      * namanya muncul di `data.pending_sources`; nilai yang belum terbaca bernilai `null`, bukan 0.
+     *
+     * Jadwal hari ini cukup dibangun dari beberapa halaman daftar. Absensi tiap kelas
+     * (`data.classes_summary.today_classes.*.attendance`) butuh halaman kelas dan pertemuannya, jadi
+     * dibaca dari snapshot tersendiri yang diperbarui di background setelah jadwal: selama snapshot itu
+     * dibangun, `attendance.state` bernilai `checking` (`unavailable` bila gagal dibaca), dan
+     * `data.classes_summary.attendance_sync` memuat statusnya. `fresh=1` juga memperbarui absensi di background.
      */
     #[Response(description: 'Ringkasan dashboard portal berhasil diambil.', type: self::DASHBOARD_RESPONSE)]
     #[Response(401, description: 'Endpoint ini membutuhkan sesi kampus yang aktif.', type: CampusApiController::SCRAMBLE_SESSION_ERROR_RESPONSE)]
     #[Response(500, description: 'Data dashboard gagal diambil.', type: CampusApiController::SCRAMBLE_STATUS_ERROR_RESPONSE)]
-    public function dashboard(Request $request): JsonResponse
+    public function dashboard(Request $request, DashboardTodayClassesBuilder $todayClasses, DashboardTodayAttendance $todayAttendance): JsonResponse
     {
-        return $this->withCampusSession('Dashboard extraction failed', 'Gagal memuat dashboard', function (string $sessionToken) use ($request): JsonResponse {
+        return $this->withCampusSession('Dashboard extraction failed', 'Gagal memuat dashboard', function (string $sessionToken) use ($request, $todayClasses, $todayAttendance): JsonResponse {
             $dashboard = $this->readDataset($request, $sessionToken, 'dashboard');
+
+            if (is_array($dashboard['data']['classes_summary'] ?? null)) {
+                $now = CarbonImmutable::now(config('app.timezone'));
+
+                // The snapshot is served for hours; which class is in session is decided now, not when it was built.
+                $classesSummary = $todayClasses->refreshActiveState($dashboard['data']['classes_summary'], $now);
+
+                // Attendance is its own snapshot (class and meeting pages), queued after the schedule's re-sync.
+                $dashboard['data']['classes_summary'] = $todayAttendance->attach(
+                    $sessionToken,
+                    $classesSummary,
+                    $now,
+                    $request->boolean('fresh'),
+                    (string) session()->getId()
+                );
+            }
 
             if (! empty($dashboard['data']['user_info'])) {
                 $currentUserInfo = (array) session('campus_user_info', []);
@@ -150,7 +182,7 @@ class PortalDataController extends CampusApiController
             $classes = $this->readDataset($request, $sessionToken, 'lms_classes');
 
             return $this->statusSuccess('Classes data retrieved successfully', [
-                'user_info' => $classes['data']['user_info'] ?? [],
+                'user_info' => $classes['data']['student_info'] ?? [],
                 'classes' => $classes['data']['classes'] ?? [],
             ], meta: $classes['meta'], campusSessionValid: true);
         });
@@ -228,7 +260,10 @@ class PortalDataController extends CampusApiController
     /**
      * Ambil detail kelas/SIPANDAI berdasarkan parameter eksplisit.
      *
-     * Param `id`, `dosen_id`, dan `course_id` mengikuti struktur URL `act=download`.
+     * Param `id`, `dosen_id`, dan `course_id` mengikuti struktur URL `act=download`. Tanpa `dosen_id`
+     * dan `course_id`, keduanya dicari dari daftar kelas tersimpan selama daftar itu masih segar; daftar
+     * yang sudah usang dicocokkan dulu dengan daftar kelas portal, dan baru dipakai bila portal gagal
+     * atau sesi sedang offline. `fresh=1` selalu membaca daftar kelas dari portal.
      */
     #[PathParameter('id', 'Identifier `id` dari link kelas portal SIPANDAI.', type: 'integer', example: 2265)]
     #[Response(description: 'Detail kelas berhasil diambil.', type: self::CLASS_DETAIL_RESPONSE)]
@@ -243,7 +278,7 @@ class PortalDataController extends CampusApiController
             $resolvedParameters = $validated;
 
             if (empty($validated['dosen_id']) || empty($validated['course_id'])) {
-                $resolvedParameters = $this->findClassParameters($sessionToken, (string) $validated['id']) ?? [];
+                $resolvedParameters = $this->findClassParameters($sessionToken, (string) $validated['id'], $request->boolean('fresh')) ?? [];
 
                 if ($resolvedParameters === []) {
                     return $this->statusError('Kelas tidak ditemukan di daftar kelas kamu.', 404, campusSessionValid: true);
@@ -252,8 +287,12 @@ class PortalDataController extends CampusApiController
 
             $classDetail = $this->readDataset($request, $sessionToken, 'class_detail', $resolvedParameters);
 
+            if (($classDetail['data']['found'] ?? true) === false) {
+                return $this->statusError('Kelas tidak ditemukan. Periksa kembali link yang kamu buka.', 404, campusSessionValid: true);
+            }
+
             return $this->statusSuccess('Class detail retrieved successfully', [
-                'class_detail' => $classDetail['data'],
+                'class_detail' => $this->withoutWriteEffectLinks($classDetail['data']),
             ], meta: [
                 ...$classDetail['meta'],
                 'id' => (string) ($resolvedParameters['id'] ?? $validated['id']),
@@ -264,9 +303,13 @@ class PortalDataController extends CampusApiController
 
     /**
      * Ambil detail pertemuan SIPANDAI berdasarkan query `meeting_id` + `courses_id`.
+     *
+     * `class_detail.class_url`, bila diketahui, mengarah ke halaman kelas pertemuan ini (dibaca dari breadcrumb portal).
+     * `meta.notebook_limit_reached` bernilai `true` bila pertemuan ini tidak masuk notebook mata
+     * kuliahnya karena notebook itu sudah penuh; tanpa kondisi itu, kunci ini tidak dikirim.
      */
     #[PathParameter('meeting_id', 'Identifier `meeting_id` dari link diskusi atau materi SIPANDAI.', type: 'integer', example: 445)]
-    #[Response(description: 'Detail pertemuan berhasil diambil.', type: self::CLASS_DETAIL_RESPONSE)]
+    #[Response(description: 'Detail pertemuan berhasil diambil.', type: self::MEETING_DETAIL_RESPONSE)]
     #[Response(401, description: 'Endpoint ini membutuhkan sesi kampus yang aktif.', type: CampusApiController::SCRAMBLE_SESSION_ERROR_RESPONSE)]
     #[Response(422, description: 'Parameter detail pertemuan tidak valid.', type: CampusApiController::SCRAMBLE_VALIDATION_ERROR_RESPONSE)]
     #[Response(500, description: 'Detail pertemuan gagal diambil.', type: CampusApiController::SCRAMBLE_STATUS_ERROR_RESPONSE)]
@@ -286,7 +329,7 @@ class PortalDataController extends CampusApiController
             }
 
             return $this->statusSuccess('Meeting detail retrieved successfully', [
-                'class_detail' => $meetingDetail['data'],
+                'class_detail' => $this->withoutWriteEffectLinks($meetingDetail['data']),
             ], meta: [
                 ...$meetingDetail['meta'],
                 'meeting_id' => $meetingId,
@@ -295,6 +338,14 @@ class PortalDataController extends CampusApiController
         }, $request->query());
     }
 
+    /**
+     * Portal pages of the flow. A link with a write effect, such as the
+     * act=jobdel assignment delete, is never built (K13): deleting goes
+     * through `DELETE /api/assignment`.
+     *
+     * @param  array<string, mixed>  $params
+     * @return array<string, string>
+     */
     private function buildFlowLinks(array $params): array
     {
         $links = [];
@@ -331,18 +382,6 @@ class PortalDataController extends CampusApiController
         }
 
         try {
-            if (! empty($params['submission_id'])) {
-                $links['assignment_delete'] = PortalEndpointRegistry::url('assignment_delete', [
-                    'id' => $params['submission_id'],
-                    'idx' => $params['id'],
-                    'pertemuan' => $params['pertemuan'],
-                ]);
-            }
-        } catch (\Throwable $e) {
-            //
-        }
-
-        try {
             $links['qr_attendance'] = PortalEndpointRegistry::url('qr_attendance_page', [
                 'course_id' => $params['course_id'],
                 'id' => $params['meeting_id'] ?? $params['id'],
@@ -357,13 +396,48 @@ class PortalDataController extends CampusApiController
     /**
      * Resolve the upstream `dosen_id`/`course_id` for a class `id` from the class list.
      *
+     * A stored class list that is still fresh (within its `fresh_for`)
+     * answers without the portal. A stale one (or the archived version
+     * restored in its place) may map the id to parameters the portal has
+     * since changed, so while the session is online the live catalog
+     * answers first and the stored list only when the portal fails, times
+     * out or does not list the class; an offline session answers from the
+     * stored list at once. A forced read (`fresh`) bypasses the stored list
+     * and the catalog cache: the class list is re-read from the portal, and
+     * the stored list only answers when the portal cannot. An expired or
+     * offline session is rethrown so the student is sent to log in or told
+     * the data is not archived, instead of hearing the class is not theirs.
+     *
      * @return array<string, mixed>|null
      */
-    private function findClassParameters(string $sessionToken, string $id): ?array
+    private function findClassParameters(string $sessionToken, string $id, bool $fresh = false): ?array
     {
+        $stored = $fresh ? null : $this->storedClassParameters($sessionToken, $id);
+
+        if ($stored !== null && ($stored['fresh'] || $this->offlineAccess->isOfflineSession($sessionToken))) {
+            return $stored['params'];
+        }
+
         try {
-            return $this->classCatalog->findById($sessionToken, $id);
+            $live = $this->fetchPolicy->runFresh(
+                fn (): ?array => $this->classCatalog->findById($sessionToken, $id, $fresh),
+                $fresh
+            );
         } catch (\Throwable $throwable) {
+            if (PortalException::indicatesExpiredSession($throwable)) {
+                throw $throwable;
+            }
+
+            $stored ??= $fresh ? $this->storedClassParameters($sessionToken, $id) : null;
+
+            if ($stored !== null) {
+                return $stored['params'];
+            }
+
+            if ($throwable instanceof PortalOfflineException) {
+                throw $throwable;
+            }
+
             Log::error('Failed to get class parameters from classes list', [
                 'error' => $throwable->getMessage(),
                 'id' => $id,
@@ -371,6 +445,64 @@ class PortalDataController extends CampusApiController
 
             return null;
         }
+
+        if ($live !== null) {
+            return $live;
+        }
+
+        $stored ??= $fresh ? $this->storedClassParameters($sessionToken, $id) : null;
+
+        return $stored['params'] ?? null;
+    }
+
+    /**
+     * Class link parameters for `id` from the stored class lists, without
+     * contacting the portal or queueing a sync, and whether the class list
+     * that holds them is still fresh. A list that holds them fresh wins
+     * over one that holds them stale.
+     *
+     * @return array{params: array<string, mixed>, fresh: bool}|null
+     */
+    private function storedClassParameters(string $sessionToken, string $id): ?array
+    {
+        $repository = app(PortalDatasetRepository::class);
+        $stored = $repository->peekMany($sessionToken, ['lms_classes', 'classes'], (string) session()->getId(), refreshable: []);
+        $staleMatch = null;
+
+        foreach ($stored as $dataset => $read) {
+            $params = $this->classParametersIn((array) ($read['data']['classes'] ?? []), $id);
+
+            if ($params === null) {
+                continue;
+            }
+
+            if ($repository->hasFreshSnapshot($sessionToken, $dataset)) {
+                return ['params' => $params, 'fresh' => true];
+            }
+
+            $staleMatch ??= ['params' => $params, 'fresh' => false];
+        }
+
+        return $staleMatch;
+    }
+
+    /**
+     * The complete class link parameters of class `id` in a class list.
+     *
+     * @param  array<array-key, mixed>  $classes
+     * @return array<string, mixed>|null
+     */
+    private function classParametersIn(array $classes, string $id): ?array
+    {
+        foreach ($classes as $class) {
+            $params = is_array($class) ? ($class['join_link']['params'] ?? null) : null;
+
+            if (is_array($params) && (string) ($params['id'] ?? '') === $id && ! empty($params['dosen_id']) && ! empty($params['course_id'])) {
+                return $params;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -458,8 +590,8 @@ class PortalDataController extends CampusApiController
 
             return $this->statusSuccess('SIPANDAI flow data retrieved successfully', [
                 'data' => [
-                    'course_detail' => $courseDetail,
-                    'meeting_detail' => $meetingDetail,
+                    'course_detail' => $this->withoutWriteEffectLinks($courseDetail),
+                    'meeting_detail' => $meetingDetail === null ? null : $this->withoutWriteEffectLinks($meetingDetail),
                     'links' => $links,
                 ],
             ], meta: [

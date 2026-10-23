@@ -104,7 +104,7 @@ class PortalAcademicController extends CampusApiController
     #[PathParameter('id', 'Identifier `krs_id` dari `krs_history` di `GET /api/academic/advising`.', type: 'integer', example: 90004)]
     #[Response(description: 'Detail KRS berhasil diambil.', type: "array{status: 'success', message: string, data: array{found: true, krs_id: int, header: array{academic_year: string|null, semester: int|string|null, semester_is_regular: bool, semester_label: string|null, date: string|null, nim: string|null, name: string|null}, counts_as_study_load: bool, status: ".self::KRS_STATUS.', courses: list<array{code: string, name: string|null, sks: int|null, semester: int|null, status: string|null, is_retake: bool}>, totals: '.self::KRS_TOTALS.', print_available: bool, krs_id_confirmed: bool|null, extracted_at: string, history: array{krs_id: int, academic_year: string|null, date: string|null, semester: int|string|null, semester_is_regular: bool, semester_label: string|null}, navigation: array{newer_krs_id: int|null, older_krs_id: int|null, is_latest: bool}}, '.self::SNAPSHOT_META.'}')]
     #[Response(401, description: 'Endpoint ini membutuhkan sesi kampus yang aktif.', type: CampusApiController::SCRAMBLE_SESSION_ERROR_RESPONSE)]
-    #[Response(404, description: 'KRS tidak ada di histori KRS mahasiswa atau tidak terbaca di portal.', type: CampusApiController::SCRAMBLE_NOT_FOUND_RESPONSE)]
+    #[Response(404, description: 'KRS tidak ada di histori KRS mahasiswa (`reason=not_in_history`) atau sementara tidak terbaca di portal (`reason=unreadable`, coba lagi nanti).', type: "array{status: 'error', message: string, reason: 'not_in_history'|'unreadable', meta: array{timestamp: string, campus_session_valid: true}}")]
     #[Response(422, description: 'Parameter id KRS tidak valid.', type: CampusApiController::SCRAMBLE_VALIDATION_ERROR_RESPONSE)]
     #[Response(500, description: 'Detail KRS gagal diambil.', type: CampusApiController::SCRAMBLE_STATUS_ERROR_RESPONSE)]
     public function krsDetail(PortalKrsDetailRequest $request): JsonResponse
@@ -120,7 +120,7 @@ class PortalAcademicController extends CampusApiController
             $position = $this->historyPosition($history, $krsId);
 
             if ($position === null) {
-                return $this->statusError('KRS tidak ditemukan di riwayat KRS kamu.', 404, campusSessionValid: true);
+                return $this->statusError('KRS tidak ditemukan di riwayat KRS kamu.', 404, ['reason' => 'not_in_history'], campusSessionValid: true);
             }
 
             $params = ['id' => $krsId];
@@ -130,7 +130,7 @@ class PortalAcademicController extends CampusApiController
                 // An empty page is usually a portal hiccup: do not keep it for hours.
                 $this->snapshots->forget($sessionToken, 'krs_detail', $params);
 
-                return $this->statusError('KRS ini tidak terbaca di portal. Coba lagi beberapa saat.', 404, campusSessionValid: true);
+                return $this->statusError('KRS ini tidak terbaca di portal. Coba lagi beberapa saat.', 404, ['reason' => 'unreadable'], campusSessionValid: true);
             }
 
             return $this->statusSuccess('KRS detail retrieved successfully', [
@@ -188,7 +188,7 @@ class PortalAcademicController extends CampusApiController
      * `next_sks` untuk mendapat `simulation` (IPS minimal semester depan; `achievable=false` berarti
      * tidak tercapai semester ini).
      */
-    #[Response(description: 'Transkrip dan progres studi berhasil diambil.', type: "array{status: 'success', message: string, data: array{summary: array{ipk: float|null, source: 'official'|'computed', sks_passed: int, conversion_sks: int, sks_total: int|null, quality_points_total: float, predicate_estimate: string|null, mismatch: bool, mismatch_fields: list<string>, official: array<string, mixed>|null}, progress: array{target_sks: int, earned_sks: int, remaining_sks: int, progress_percent: float, average_sks_per_semester: float|null, projected_semesters_remaining: int|null, target_sks_source: 'official'|'config', graduation_targets: list<array{predicate: string, target_ipk: float, current_ipk: float|null, additional_sks: int, required_ips: float|null, achievable: bool, already_reached: bool}>}, target_sks: int, remaining_sks: int, current_load: array{sks: int, courses: int}|null, conversion: array{status: 'ok'|'none'|'failed'|'skipped', sks: int, course_count: int, already_graded_codes: list<string>}, transcript: list<".self::TRANSCRIPT_ROW.'>, ips_series: list<array{semester: int, label: string, ips: float|null, ips_portal: float|null, ips_computed: float|null, ips_mismatch: bool, sks: int, quality_points: float, graded_count: int, course_count: int, is_complete: bool}>, latest_ips: array{semester: int, ips: float, previous_semester: int|null, previous_ips: float|null, delta: float|null}|null, letter_counts: array<string, int>, low_grades: array{d_courses: list<'.self::TRANSCRIPT_ROW.'>, e_courses: list<'.self::TRANSCRIPT_ROW.'>, low_grade_courses: list<'.self::TRANSCRIPT_ROW.'>, repeated_courses: list<'.self::TRANSCRIPT_ROW.'>}, excluded_semesters: list<string>, simulation: array{target_ipk: float, current_ipk: float|null, additional_sks: int, required_ips: float|null, achievable: bool, already_reached: bool}|null, is_partial: bool, transcript_print_available: bool, extracted_at: string|null}, '.self::SNAPSHOT_META.'}')]
+    #[Response(description: 'Transkrip dan progres studi berhasil diambil.', type: "array{status: 'success', message: string, data: array{summary: array{ipk: float|null, source: 'official'|'computed', sks_passed: int, conversion_sks: int, sks_total: int|null, quality_points_total: float, predicate_estimate: string|null, mismatch: bool, mismatch_fields: list<string>, official: array<string, mixed>|null}, progress: array{target_sks: int, earned_sks: int, remaining_sks: int, progress_percent: float, average_sks_per_semester: float|null, projected_semesters_remaining: int|null, target_sks_source: 'official'|'config', graduation_targets: list<array{predicate: string, target_ipk: float, current_ipk: float|null, additional_sks: int, required_ips: float|null, achievable: bool, already_reached: bool}>}, target_sks: int, remaining_sks: int, current_load: array{sks: int, courses: int, graded_courses: int}|null, conversion: array{status: 'ok'|'none'|'failed'|'skipped', sks: int, course_count: int, already_graded_codes: list<string>}, transcript: list<".self::TRANSCRIPT_ROW.'>, ips_series: list<array{semester: int, label: string, ips: float|null, ips_portal: float|null, ips_computed: float|null, ips_mismatch: bool, sks: int, quality_points: float, graded_count: int, course_count: int, is_complete: bool}>, latest_ips: array{semester: int, ips: float, previous_semester: int|null, previous_ips: float|null, delta: float|null, is_complete: bool}|null, letter_counts: array<string, int>, low_grades: array{d_courses: list<'.self::TRANSCRIPT_ROW.'>, e_courses: list<'.self::TRANSCRIPT_ROW.'>, low_grade_courses: list<'.self::TRANSCRIPT_ROW.'>, repeated_courses: list<'.self::TRANSCRIPT_ROW.'>}, excluded_semesters: list<string>, simulation: array{target_ipk: float, current_ipk: float|null, additional_sks: int, required_ips: float|null, achievable: bool, already_reached: bool}|null, is_partial: bool, transcript_print_available: bool, extracted_at: string|null}, '.self::SNAPSHOT_META.'}')]
     #[Response(401, description: 'Endpoint ini membutuhkan sesi kampus yang aktif.', type: CampusApiController::SCRAMBLE_SESSION_ERROR_RESPONSE)]
     #[Response(422, description: 'Parameter simulasi target IPK tidak valid.', type: CampusApiController::SCRAMBLE_VALIDATION_ERROR_RESPONSE)]
     #[Response(500, description: 'Transkrip gagal diambil.', type: CampusApiController::SCRAMBLE_STATUS_ERROR_RESPONSE)]
@@ -218,7 +218,6 @@ class PortalAcademicController extends CampusApiController
         $progress = is_array($summary['progress'] ?? null) ? $summary['progress'] : [];
         $qualityPoints = (float) ($summary['quality_points_total'] ?? $computed['quality_points_total'] ?? 0);
         $sksTotal = $official['sks_total'] ?? $computed['sks_total'] ?? null;
-        $krsFound = ($krs['found'] ?? false) === true && is_array($krs['totals'] ?? null);
         $conversion = is_array($grades['conversion'] ?? null) ? $grades['conversion'] : [];
 
         return [
@@ -237,10 +236,7 @@ class PortalAcademicController extends CampusApiController
             'progress' => $progress,
             'target_sks' => $progress['target_sks'] ?? $this->calculator->defaultTargetSks(),
             'remaining_sks' => $progress['remaining_sks'] ?? null,
-            'current_load' => $krsFound ? [
-                'sks' => (int) ($krs['totals']['sks'] ?? 0),
-                'courses' => (int) ($krs['totals']['courses'] ?? 0),
-            ] : null,
+            'current_load' => $this->currentLoad($grades, $krs),
             'conversion' => [
                 'status' => $conversion['status'] ?? 'skipped',
                 'sks' => (int) ($conversion['sks'] ?? 0),
@@ -264,6 +260,35 @@ class PortalAcademicController extends CampusApiController
             'is_partial' => (bool) ($grades['sources']['is_partial'] ?? false),
             'transcript_print_available' => is_string($grades['transcript_print_url'] ?? null),
             'extracted_at' => $grades['extracted_at'] ?? null,
+        ];
+    }
+
+    /**
+     * The current KRS minus its courses already graded in the latest KHS
+     * semester: between grade release and the next KRS the portal still shows
+     * the graded semester's KRS, whose SKS are earned by then. A KRS of a new
+     * semester is never matched against the previous card (see
+     * AcademicProgressCalculator::gradedKrsCourses()).
+     *
+     * @param  array<string, mixed>  $grades
+     * @param  array<string, mixed>|null  $krs
+     * @return array{sks: int, courses: int, graded_courses: int}|null
+     */
+    private function currentLoad(array $grades, ?array $krs): ?array
+    {
+        if (($krs['found'] ?? false) !== true || ! is_array($krs['totals'] ?? null)) {
+            return null;
+        }
+
+        $graded = $this->calculator->gradedKrsCourses(
+            is_array($krs['courses'] ?? null) ? $krs['courses'] : [],
+            is_array($grades['semesters'] ?? null) ? $grades['semesters'] : []
+        );
+
+        return [
+            'sks' => max(0, (int) ($krs['totals']['sks'] ?? 0) - $graded['sks']),
+            'courses' => max(0, (int) ($krs['totals']['courses'] ?? 0) - $graded['courses']),
+            'graded_courses' => $graded['courses'],
         ];
     }
 

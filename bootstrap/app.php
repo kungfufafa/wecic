@@ -3,6 +3,7 @@
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Support\Facades\Route;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -11,6 +12,12 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         channels: __DIR__.'/../routes/channels.php',
         health: '/up',
+        // Browser-test helpers (fake sign-in), in the e2e environment only.
+        then: function (Application $app): void {
+            if ($app->environment('e2e')) {
+                Route::middleware('web')->group(__DIR__.'/../routes/e2e.php');
+            }
+        },
     )
     ->withMiddleware(function (Middleware $middleware): void {
         // Register middleware aliases
@@ -20,9 +27,10 @@ return Application::configure(basePath: dirname(__DIR__))
             'portal.online' => \App\Http\Middleware\EnsurePortalOnline::class,
         ]);
 
-        // Replace default CSRF middleware with our custom one that has API exceptions
+        // Web routes check CSRF with our middleware, which also enforces it in
+        // feature tests (the web group lists ValidateCsrfToken since Laravel 11).
         $middleware->web(replace: [
-            \Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class => \App\Http\Middleware\VerifyCsrfTokenMiddleware::class,
+            \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class => \App\Http\Middleware\VerifyCsrfTokenMiddleware::class,
         ]);
 
         // Apply api middleware to api routes (without CSRF)
@@ -33,8 +41,36 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(append: [
             \App\Http\Middleware\ResolvePortalBroadcastUser::class,
         ]);
+
+        // Proxies to trust come from portal.security.trusted_proxies (none by default).
+        $middleware->replace(
+            \Illuminate\Http\Middleware\TrustProxies::class,
+            \App\Http\Middleware\TrustConfiguredProxies::class
+        );
+
+        // Passwords reach the portal exactly as typed, like the login password
+        // (already excluded by the framework): a trimmed new password would
+        // differ from what the student types at the next login.
+        $middleware->trimStrings(except: [
+            'new_password',
+            'new_password_confirmation',
+            // Aliases PortalPasswordChangeRequest accepts.
+            'old_password',
+            'passwordold',
+            'konfirm',
+            'data.passwordold',
+            'data.password',
+            'data.konfirm',
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //
+    })
+    // Browser-test guards (no portal, no Vite dev server), in the e2e
+    // environment only; set while booting, so a cached route list keeps them.
+    ->booting(function (Application $app): void {
+        if ($app->environment('e2e')) {
+            (require __DIR__.'/e2e.php')($app);
+        }
     })
     ->create();

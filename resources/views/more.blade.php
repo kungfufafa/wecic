@@ -237,11 +237,11 @@
                 return;
             }
 
-            const loadMore = async ({ force = false } = {}) => {
-                const actionItems = app.loadActionItems({ force });
+            const loadMore = async ({ force = false, background = false } = {}) => {
+                const actionItems = app.loadActionItems({ force, background });
 
                 try {
-                    const payload = await app.request('/api/portal/context', { fresh: force });
+                    const payload = await app.request('/api/portal/context', { fresh: force, background });
 
                     renderGuides(payload);
                     app.markViewSynced('Lainnya', payload, { force });

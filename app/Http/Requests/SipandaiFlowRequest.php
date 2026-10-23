@@ -54,12 +54,6 @@ class SipandaiFlowRequest extends ApiFormRequest
              * @example 445
              */
             'meeting_id' => ['sometimes', 'nullable', 'integer', 'min:1'],
-            /**
-             * Identifier submission tugas bila ingin membentuk link hapus tugas.
-             *
-             * @example 126663
-             */
-            'submission_id' => ['sometimes', 'nullable', 'integer', 'min:1'],
         ];
     }
 
@@ -70,7 +64,6 @@ class SipandaiFlowRequest extends ApiFormRequest
             'course_id' => $this->input('course_id', $this->input('courseid')),
             'courses_id' => $this->input('courses_id', $this->input('course_id', $this->input('courseid'))),
             'pertemuan' => $this->input('pertemuan', $this->input('meeting_number')),
-            'submission_id' => $this->input('submission_id', $this->input('delete_id')),
         ]);
     }
 }

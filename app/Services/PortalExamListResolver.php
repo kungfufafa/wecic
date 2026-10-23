@@ -180,6 +180,10 @@ class PortalExamListResolver
     }
 
     /**
+     * A key shared by two different classes (same course name, codes that
+     * only differ in a suffix) identifies neither, so it is never used: a
+     * wrong class id would open another course's exam page.
+     *
      * @param  list<array<string, mixed>>  $exams
      * @param  list<array<string, mixed>>  $classExams
      * @return list<array<string, mixed>>
@@ -190,6 +194,12 @@ class PortalExamListResolver
 
         foreach ($classExams as $classExam) {
             foreach ($this->examMatchKeys($classExam) as $key) {
+                if (array_key_exists($key, $classExamMap) && ($classExamMap[$key]['id'] ?? null) !== $classExam['id']) {
+                    $classExamMap[$key] = null;
+
+                    continue;
+                }
+
                 $classExamMap[$key] = $classExam;
             }
         }
@@ -259,9 +269,16 @@ class PortalExamListResolver
         foreach ([$code, $name] as $candidate) {
             $parsed = $this->parseExamCourseIdentity($candidate);
 
-            if ($parsed['code'] !== '') {
-                return $parsed;
+            if ($parsed['code'] === '') {
+                continue;
             }
+
+            if ($parsed['name'] === '') {
+                $parsedName = $this->parseExamCourseIdentity($name)['name'];
+                $parsed['name'] = $parsedName !== '' ? $parsedName : $name;
+            }
+
+            return $parsed;
         }
 
         return [
@@ -271,13 +288,17 @@ class PortalExamListResolver
     }
 
     /**
+     * Splits "SI043020Machine Learning" into code and name. The digits are
+     * matched possessively: a bare code such as "SI033017" must keep its last
+     * digit instead of giving it up as the name.
+     *
      * @return array{code: string, name: string}
      */
     private function parseExamCourseIdentity(string $value): array
     {
         $normalizedValue = trim((string) preg_replace('/\s+/', ' ', $value));
 
-        if (preg_match('/\b([A-Z]{1,4}\d{4,})(.+)$/u', $normalizedValue, $matches) !== 1) {
+        if (preg_match('/\b([A-Z]{1,4}\d{4,}+)\s*(.*)$/u', $normalizedValue, $matches) !== 1) {
             return [
                 'code' => '',
                 'name' => '',

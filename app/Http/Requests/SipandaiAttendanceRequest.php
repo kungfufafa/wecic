@@ -193,6 +193,21 @@ class SipandaiAttendanceRequest extends ApiFormRequest
         });
     }
 
+    /**
+     * A typed code reaches the portal in the same form as a scanned one:
+     * trimmed, and a hex code in lower case (the QR scanner lowercases it).
+     */
+    private function normalizeAttendanceCode(mixed $code): mixed
+    {
+        if (! is_string($code)) {
+            return $code;
+        }
+
+        $code = trim($code);
+
+        return preg_match('/^[0-9a-f]+$/i', $code) === 1 ? strtolower($code) : $code;
+    }
+
     protected function prepareForValidation(): void
     {
         $formValues = $this->input('form_values');
@@ -201,7 +216,7 @@ class SipandaiAttendanceRequest extends ApiFormRequest
         $this->merge([
             'courseid' => $this->input('courseid', $this->input('course_id')),
             'modulesid' => $this->input('modulesid', $this->input('discussion_id', $this->input('id'))),
-            'kode' => $this->input('kode', $legacyFormValues['kode'] ?? null),
+            'kode' => $this->normalizeAttendanceCode($this->input('kode', $legacyFormValues['kode'] ?? null)),
             'pertemuan' => $this->input('pertemuan', $this->input('meeting_number')),
             'form_values' => $legacyFormValues,
         ]);

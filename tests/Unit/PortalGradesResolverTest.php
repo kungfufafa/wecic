@@ -469,7 +469,7 @@ class PortalGradesResolverTest extends TestCase
         $this->assertSame([3.11, 3.29], array_column($computed['ips_series'], 'ips_computed'));
         $this->assertSame([false, false], array_column($computed['ips_series'], 'ips_mismatch'));
         $this->assertSame([true, true], array_column($computed['ips_series'], 'is_complete'));
-        $this->assertSame(['semester' => 2, 'ips' => 3.29, 'previous_semester' => 1, 'previous_ips' => 3.11, 'delta' => 0.18], $computed['latest_ips']);
+        $this->assertSame(['semester' => 2, 'ips' => 3.29, 'previous_semester' => 1, 'previous_ips' => 3.11, 'delta' => 0.18, 'is_complete' => true], $computed['latest_ips']);
         $this->assertCount(16, $grades['transcript']);
         $this->assertSame(PortalEndpointRegistry::url('sipandai_transcript_print'), $grades['transcript_print_url']);
     }

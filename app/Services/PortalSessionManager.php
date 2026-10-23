@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Exceptions\PortalAuthenticationException;
 use App\Exceptions\PortalConnectionException;
+use App\Jobs\ExpirePortalSessionJob;
 use App\Jobs\RefreshPortalSessionJob;
 use App\Jobs\ResumeOfflineSessionJob;
 use Carbon\CarbonImmutable;
@@ -28,10 +29,29 @@ use Illuminate\Support\Str;
  *   ends the session once the student has been idle for too long.
  * - An expired upstream session met while scraping invalidates the session
  *   immediately (see PortalScrapingService::validateResponse).
+ * - Every session is also watched by ExpirePortalSessionJob, which ends it
+ *   once it idles out even when nothing else reads it any more, so its
+ *   password copy and portal cookies never outlive it in the cache.
  */
 class PortalSessionManager
 {
     private const SESSION_LOCK_SECONDS = 10;
+
+    /**
+     * Seconds an ended session stays readable (inactive) before it is gone.
+     */
+    private const ENDED_SESSION_RETENTION = 60;
+
+    /**
+     * Seconds before ExpirePortalSessionJob looks again at a session it could
+     * not end (its lock was busy).
+     */
+    private const IDLE_EXPIRY_RETRY_SECONDS = 30;
+
+    /**
+     * Session field marking a session ExpirePortalSessionJob watches.
+     */
+    private const IDLE_EXPIRY_WATCHED = 'idle_expiry_watched';
 
     public function __construct(
         private readonly PortalAuthService $authService,
@@ -54,14 +74,21 @@ class PortalSessionManager
         try {
             $loginResult = $this->authService->login($username, $password);
             $sessionToken = $this->generateSessionToken();
-            $sessionData = $this->buildSessionData($sessionToken, $username, $loginResult);
+            $sessionData = [...$this->buildSessionData($sessionToken, $username, $loginResult), self::IDLE_EXPIRY_WATCHED => true];
+            $keepsPassword = config('portal.auto_relogin', false) && $this->mayKeepPassword($username);
 
-            if (config('portal.auto_relogin', false)) {
+            if ($keepsPassword) {
                 $sessionData['encrypted_credentials'] = $this->encryptCredentials($username, $password);
             }
 
             $this->storeSession($sessionToken, $sessionData);
+
+            if ($keepsPassword) {
+                $this->trackPasswordCopy($sessionToken, $username);
+            }
+
             $this->scheduleKeepAlive($sessionToken);
+            $this->scheduleIdleExpiry($sessionToken);
 
             $this->logSessionEvent('login_succeeded', sessionToken: $sessionToken, username: $username, session: $sessionData, context: [
                 'expires_at' => $sessionData['expires_at'],
@@ -90,7 +117,8 @@ class PortalSessionManager
     /**
      * Log in for a background job (PortalBackgroundSync): a full upstream
      * session without keep-alive, never reused for a browser, destroyed by
-     * the job once it is done.
+     * the job once it is done. A job killed before that leaves it to
+     * ExpirePortalSessionJob, which logs it out once it idles out.
      *
      * @return array{success: true, session_token: string, user_info: array<string, mixed>, expires_at: string, background: true}
      */
@@ -102,9 +130,10 @@ class PortalSessionManager
         try {
             $loginResult = $this->authService->login($username, $password);
             $sessionToken = $this->generateSessionToken();
-            $sessionData = [...$this->buildSessionData($sessionToken, $username, $loginResult), 'background' => true];
+            $sessionData = [...$this->buildSessionData($sessionToken, $username, $loginResult), 'background' => true, self::IDLE_EXPIRY_WATCHED => true];
 
             $this->storeSession($sessionToken, $sessionData);
+            $this->scheduleIdleExpiry($sessionToken);
             $this->logSessionEvent('background_login_succeeded', sessionToken: $sessionToken, username: $username, session: $sessionData, context: [
                 'duration_ms' => $this->durationMs($startedAt),
             ]);
@@ -151,17 +180,21 @@ class PortalSessionManager
     /**
      * Create a read-only session for a student whose password matched their
      * last online login while the portal is unreachable (see
-     * PortalOfflineAccess). It carries no portal cookies and no keep-alive;
-     * with the password it keeps it encrypted and schedules its own resume
-     * (ResumeOfflineSessionJob), which logs in once the portal is back.
+     * PortalOfflineAccess). It carries no portal cookies and no keep-alive,
+     * and schedules its own resume (ResumeOfflineSessionJob). With the
+     * password it keeps it encrypted, and the resume logs in once the portal
+     * is back. A student who switched background sync off has no copy of
+     * their password kept anywhere: their session never logs in by itself,
+     * the resume only tells them once the portal answers again.
      *
      * @param  array<string, mixed>  $userInfo
-     * @return array{success: true, session_token: string, user_info: array<string, mixed>, expires_at: string, offline: true}
+     * @return array{success: true, session_token: string, user_info: array<string, mixed>, expires_at: string, offline: true, offline_reconnect: 'automatic'|'notify'|'manual'}
      */
     public function createOfflineSession(string $username, array $userInfo, ?string $password = null): array
     {
         $sessionToken = $this->generateSessionToken();
-        $canResume = $password !== null && $password !== '' && config('portal.archive.offline_resume', true);
+        $resumes = (bool) config('portal.archive.offline_resume', true);
+        $canResume = $resumes && $password !== null && $password !== '' && $this->mayKeepPassword($username);
         $sessionData = [
             'token' => $sessionToken,
             'username' => $username,
@@ -173,15 +206,23 @@ class PortalSessionManager
             'upstream_checked_at' => null,
             'is_active' => true,
             'offline' => true,
+            self::IDLE_EXPIRY_WATCHED => true,
             ...($canResume ? ['encrypted_credentials' => $this->encryptCredentials($username, $password)] : []),
         ];
 
         $this->storeSession($sessionToken, $sessionData);
-        $this->logSessionEvent('offline_login_succeeded', sessionToken: $sessionToken, username: $username, session: $sessionData, context: [
-            'resume_scheduled' => $canResume,
-        ]);
 
         if ($canResume) {
+            $this->trackPasswordCopy($sessionToken, $username);
+        }
+
+        $this->scheduleIdleExpiry($sessionToken);
+        $this->logSessionEvent('offline_login_succeeded', sessionToken: $sessionToken, username: $username, session: $sessionData, context: [
+            'resume_scheduled' => $resumes,
+            'password_kept' => $canResume,
+        ]);
+
+        if ($resumes) {
             $this->scheduleOfflineResume($sessionToken);
         }
 
@@ -191,14 +232,57 @@ class PortalSessionManager
             'user_info' => $userInfo,
             'expires_at' => $sessionData['expires_at'],
             'offline' => true,
+            'offline_reconnect' => $this->reconnectMode($sessionData) ?? 'manual',
         ];
+    }
+
+    /**
+     * How an offline session gets back online, so the student is told the
+     * right thing: 'automatic' (it keeps the password and logs in by itself
+     * once the portal is back), 'notify' (it keeps no password: MyCIC tells
+     * the student once the portal answers again), 'portal_back' (it did: the
+     * student logs out and in again to reconnect) or 'manual' (nothing
+     * watches the portal for it). Null for a session that is not offline.
+     *
+     * @return 'automatic'|'notify'|'portal_back'|'manual'|null
+     */
+    public function offlineReconnectMode(string $sessionToken): ?string
+    {
+        $session = $this->loadSession($sessionToken);
+
+        return $session === null ? null : $this->reconnectMode($session);
     }
 
     /**
      * Try to turn an offline session into an online one with the password it
      * keeps, without changing its token.
      *
-     * @return 'resumed'|'unreachable'|'rejected'|'online'|'idle'|'inactive'|'missing'
+     * 'rejected' means the portal refused that password: it changed since the
+     * session was opened, so the session is ended rather than left readable
+     * with a password nobody can log in with any more (and the student's
+     * data is no longer served to whoever still holds it). A failed login
+     * the portal did not visibly refuse (PortalAuthService::refusedPassword():
+     * a recovering portal answers with blank or half-loaded pages) is
+     * 'unreachable', like a timeout: tried again later.
+     *
+     * A session without a password to log in with (the student switched
+     * background sync off, or the copy no longer decrypts) never logs in: it
+     * only checks whether the portal serves its login page again. While it
+     * does not, that is 'unreachable'; once it does, 'unresumable': the
+     * session stays offline and readable until it idles out, and the student
+     * logs in again to reconnect. A copy kept from before the student
+     * switched background sync off, or one that no longer decrypts, is
+     * dropped unused.
+     *
+     * Once online, the session keeps the copy only for auto-relogin;
+     * otherwise it goes in the same write. Resuming is not user activity, so
+     * the idle clock stays where it was.
+     *
+     * Every write here is best-effort: while the session lock is busy (a
+     * copy to drop, a rejected session to end, the session to bring online)
+     * the outcome is 'unreachable' and the next attempt does it.
+     *
+     * @return 'resumed'|'unreachable'|'rejected'|'unresumable'|'online'|'idle'|'inactive'|'missing'
      */
     public function resumeOfflineSession(string $sessionToken): string
     {
@@ -224,34 +308,39 @@ class PortalSessionManager
             return 'online';
         }
 
-        try {
-            $credentials = isset($session['encrypted_credentials']) ? $this->decryptCredentials($session['encrypted_credentials']) : [];
-        } catch (\Throwable) {
-            $credentials = [];
-        }
-
+        $credentials = $this->storedCredentials($session);
         $username = (string) ($credentials['username'] ?? $session['username'] ?? '');
         $password = (string) ($credentials['password'] ?? '');
 
-        if ($username === '' || $password === '') {
-            $this->logSessionEvent('offline_resume_rejected', level: 'warning', sessionToken: $sessionToken, session: $session, context: [
-                'reason' => 'no_stored_credentials',
-            ]);
+        if (isset($session['encrypted_credentials'])
+            && ($password === '' || $this->optedOutOfBackgroundSync((string) ($session['username'] ?? $username)) === true)) {
+            if (! $this->tryForgetStoredCredentials($sessionToken)) {
+                return 'unreachable';
+            }
 
-            return 'rejected';
+            $password = '';
+        }
+
+        if ($username === '' || $password === '') {
+            return $this->awaitPortalWithoutPassword($sessionToken, $session);
         }
 
         try {
             $loginResult = $this->authService->login($username, $password);
         } catch (PortalAuthenticationException $exception) {
-            // The password changed meanwhile: stop trying with the old one.
-            $this->forgetStoredCredentials($sessionToken);
-            $this->logSessionEvent('offline_resume_rejected', level: 'warning', sessionToken: $sessionToken, session: $session, context: [
-                'reason' => 'invalid_credentials',
+            if (! PortalAuthService::refusedPassword($exception)) {
+                $this->logSessionEvent('offline_resume_unconfirmed', level: 'warning', sessionToken: $sessionToken, session: $session, context: [
+                    'error' => $exception->getMessage(),
+                ]);
+
+                return 'unreachable';
+            }
+
+            $this->deactivateSession($sessionToken, 'offline_resume_rejected', [
                 'error' => $exception->getMessage(),
             ]);
 
-            return 'rejected';
+            return ($this->loadSession($sessionToken)['is_active'] ?? false) === true ? 'unreachable' : 'rejected';
         } catch (\Throwable $throwable) {
             $this->logSessionEvent('offline_resume_unreachable', level: 'debug', sessionToken: $sessionToken, session: $session, context: [
                 'error' => $throwable->getMessage(),
@@ -260,25 +349,26 @@ class PortalSessionManager
             return 'unreachable';
         }
 
+        $keepForAutoRelogin = config('portal.auto_relogin', false) && $this->mayKeepPassword($username);
+
         try {
-            $sessionData = $this->mutateSession($sessionToken, function (?array $stored) use ($sessionToken, $username, $password, $loginResult): ?array {
+            $sessionData = $this->mutateSession($sessionToken, function (?array $stored) use ($sessionToken, $username, $password, $loginResult, $keepForAutoRelogin): ?array {
                 if ($stored === null || ! ($stored['offline'] ?? false)) {
                     return null;
                 }
 
                 $sessionData = $this->buildSessionData($sessionToken, $username, $loginResult);
-                // Resuming is not user activity: keep the idle clock where it was.
                 $sessionData['last_activity'] = $stored['last_activity'] ?? $sessionData['last_activity'];
                 $sessionData['expires_at'] = $stored['expires_at'] ?? $sessionData['expires_at'];
                 $sessionData['laravel_session_id'] = $stored['laravel_session_id'] ?? null;
-                $sessionData['encrypted_credentials'] = config('portal.auto_relogin', false)
+                $sessionData[self::IDLE_EXPIRY_WATCHED] = $stored[self::IDLE_EXPIRY_WATCHED] ?? null;
+                $sessionData['encrypted_credentials'] = $keepForAutoRelogin
                     ? $this->encryptCredentials($username, $password)
                     : null;
 
                 return array_filter($sessionData, static fn (mixed $value): bool => $value !== null);
             });
         } catch (\RuntimeException) {
-            // The session lock was busy: the portal is up, so the next attempt will do.
             return 'unreachable';
         }
 
@@ -391,6 +481,15 @@ class PortalSessionManager
     }
 
     /**
+     * A session a background job opened (createBackgroundSession): it ends
+     * with the job, so nothing may be queued against it.
+     */
+    public function isBackgroundSession(string $sessionToken): bool
+    {
+        return ($this->loadSession($sessionToken)['background'] ?? false) === true;
+    }
+
+    /**
      * Refresh the session on the student's request: confirm (or restore) the
      * upstream session now, extend the local expiry, and make sure the
      * keep-alive is scheduled
@@ -427,7 +526,16 @@ class PortalSessionManager
     /**
      * Keep the upstream session alive
      *
-     * @return 'alive'|'relogged'|'expired'|'idle'|'inactive'|'missing'
+     * An offline session has no upstream session to keep alive: it is left
+     * untouched ('offline'), since its own chain (ResumeOfflineSessionJob)
+     * brings it online once the portal is back.
+     *
+     * The auto-relogin copy of a student who switched background sync off
+     * since the login goes, unused (best-effort: while the session lock is
+     * busy, the next ping drops it). A session opened before
+     * ExpirePortalSessionJob existed is handed to it here.
+     *
+     * @return 'alive'|'relogged'|'expired'|'idle'|'inactive'|'missing'|'offline'
      *
      * @throws PortalConnectionException when the portal is unreachable; the
      *                                   session is left untouched so the
@@ -451,12 +559,22 @@ class PortalSessionManager
             return 'idle';
         }
 
+        if ($this->isOffline($session)) {
+            return 'offline';
+        }
+
+        if (isset($session['encrypted_credentials']) && $this->optedOutOfBackgroundSync((string) ($session['username'] ?? '')) === true) {
+            unset($session['encrypted_credentials']);
+            $this->tryForgetStoredCredentials($sessionToken);
+        }
+
         $cookies = is_array($session['cookies'] ?? null) ? $session['cookies'] : [];
 
         if ($cookies !== [] && $this->authService->isSessionAlive($this->recreateCookieJar($cookies))) {
             $this->mutateSession($sessionToken, static function (?array $stored): ?array {
-                return $stored === null ? null : [...$stored, 'upstream_checked_at' => now()->toISOString()];
+                return $stored === null ? null : [...$stored, 'upstream_checked_at' => now()->toISOString(), self::IDLE_EXPIRY_WATCHED => true];
             }, failOnLockTimeout: false);
+            $this->watchIdleExpiry($sessionToken, $session, markWatched: false);
             $this->logSessionEvent('keepalive_succeeded', level: 'debug', sessionToken: $sessionToken, session: $session);
 
             return 'alive';
@@ -465,6 +583,7 @@ class PortalSessionManager
         if (config('portal.auto_relogin', false) && isset($session['encrypted_credentials'])) {
             try {
                 $this->performAutoRelogin($sessionToken, $session);
+                $this->watchIdleExpiry($sessionToken, $session);
 
                 return 'relogged';
             } catch (PortalConnectionException $e) {
@@ -485,11 +604,22 @@ class PortalSessionManager
 
     /**
      * Destroy a session
+     *
+     * The local session goes first, so it is unusable at once even while the
+     * (slow, possibly unreachable) portal logout is still running or fails.
      */
     public function destroySession(string $sessionToken): bool
     {
         $startedAt = microtime(true);
         $session = $this->loadSession($sessionToken);
+
+        $this->deleteSession($sessionToken);
+        $this->dataOwner->forget($sessionToken);
+        $this->forgetOwnerSession($sessionToken, $session);
+
+        if (isset($session['encrypted_credentials'])) {
+            $this->untrackPasswordCopy($sessionToken, $session);
+        }
 
         try {
             // An offline session never reached the portal; there is nothing to log out of.
@@ -510,11 +640,6 @@ class PortalSessionManager
             ]);
 
             return false;
-        } finally {
-            // Always drop the local session, even when the upstream logout fails
-            $this->deleteSession($sessionToken);
-            $this->dataOwner->forget($sessionToken);
-            $this->forgetOwnerSession($sessionToken, $session);
         }
     }
 
@@ -549,6 +674,11 @@ class PortalSessionManager
         return is_string($laravelSessionId) && $laravelSessionId !== '' ? $laravelSessionId : null;
     }
 
+    /**
+     * Drop the password copy one session keeps.
+     *
+     * @throws \RuntimeException when the session lock stayed busy
+     */
     public function forgetStoredCredentials(string $sessionToken): void
     {
         $this->mutateSession($sessionToken, function (?array $session): ?array {
@@ -562,6 +692,34 @@ class PortalSessionManager
 
             return $session;
         });
+    }
+
+    /**
+     * Drop the password copy of every session the student has open, at
+     * once: for a student who switched background sync off (MyCIC then
+     * keeps no copy of their password anywhere) or changed their password
+     * (the copies hold the old one). False when a session could not be
+     * reached (a lock stayed busy): its copy still goes unused, at that
+     * session's next keep-alive ping or resume attempt.
+     */
+    public function forgetStoredCredentialsForOwner(string $ownerKey): bool
+    {
+        $forgotten = true;
+
+        $indexed = $this->mutatePasswordCopyIndex($ownerKey, function (array $sessionTokens) use (&$forgotten): array {
+            $remaining = [];
+
+            foreach ($sessionTokens as $sessionToken) {
+                if (! $this->tryForgetStoredCredentials($sessionToken)) {
+                    $remaining[] = $sessionToken;
+                    $forgotten = false;
+                }
+            }
+
+            return $remaining;
+        });
+
+        return $indexed && $forgotten;
     }
 
     /**
@@ -603,6 +761,102 @@ class PortalSessionManager
     }
 
     /**
+     * Start the ExpirePortalSessionJob of a session: it first looks at the
+     * session just after its idle expiry, then releases itself for as long
+     * as the session lives. Started once per session, when it is created.
+     */
+    public function scheduleIdleExpiry(string $sessionToken): void
+    {
+        $delay = $this->idleExpiryCheckDelay($sessionToken) ?? (int) config('portal.session_idle_timeout', 7200) + 1;
+
+        ExpirePortalSessionJob::dispatch($sessionToken)->delay(now()->addSeconds($delay));
+
+        $this->logSessionEvent('idle_expiry_scheduled', level: 'debug', sessionToken: $sessionToken, context: [
+            'delay_seconds' => $delay,
+        ]);
+    }
+
+    /**
+     * The check ExpirePortalSessionJob runs, for a session that may have
+     * nobody else watching it (its keep-alive chain gave up while the portal
+     * was down, a background job was killed): once it has idled out it ends
+     * as keepAlive() ends it, its password copy and portal cookies gone and
+     * its portal session logged out. An ended session is deleted once its
+     * retention is over, since a cache store that keeps expired entries
+     * until they are read (the database store) would otherwise keep it.
+     *
+     * 'idle' when this check ended the session, 'active' while it has not
+     * idled out yet (or could not be ended: its lock was busy), 'inactive'
+     * for a session that already ended and is still within its retention,
+     * 'missing' once it is gone.
+     *
+     * @return 'active'|'idle'|'inactive'|'missing'
+     */
+    public function expireIdleSession(string $sessionToken): string
+    {
+        $session = $this->loadSession($sessionToken);
+
+        if ($session === null) {
+            return 'missing';
+        }
+
+        if (! ($session['is_active'] ?? false)) {
+            if ($this->secondsUntilRetentionEnds($session) > 0) {
+                return 'inactive';
+            }
+
+            $this->deleteSession($sessionToken);
+            $this->dataOwner->forget($sessionToken);
+            $this->logSessionEvent('ended_session_removed', level: 'debug', sessionToken: $sessionToken, session: $session);
+
+            return 'missing';
+        }
+
+        if (! $this->isIdleExpired($session)) {
+            return 'active';
+        }
+
+        $this->endIdleSession($sessionToken, $session, ['observed_by' => 'idle_expiry_check']);
+
+        return ($this->loadSession($sessionToken)['is_active'] ?? false) === true ? 'active' : 'idle';
+    }
+
+    /**
+     * Seconds until ExpirePortalSessionJob should look at the session again:
+     * just past its idle expiry while it is active (soon, when it is past it
+     * already), just past its retention once it ended; null once it is gone.
+     */
+    public function idleExpiryCheckDelay(string $sessionToken): ?int
+    {
+        $session = $this->loadSession($sessionToken);
+
+        if ($session === null) {
+            return null;
+        }
+
+        if (! ($session['is_active'] ?? false)) {
+            return max(1, $this->secondsUntilRetentionEnds($session) + 1);
+        }
+
+        return max(self::IDLE_EXPIRY_RETRY_SECONDS, $this->secondsUntil($session['expires_at'] ?? null) + 1);
+    }
+
+    /**
+     * forgetStoredCredentials() for a caller that goes on while the session
+     * lock stays busy: false then, and a later attempt drops the copy.
+     */
+    private function tryForgetStoredCredentials(string $sessionToken): bool
+    {
+        try {
+            $this->forgetStoredCredentials($sessionToken);
+
+            return true;
+        } catch (\RuntimeException) {
+            return false;
+        }
+    }
+
+    /**
      * @param  array<string, mixed>|null  $session
      */
     private function isUsable(string $sessionToken, ?array $session): bool
@@ -625,11 +879,177 @@ class PortalSessionManager
     /**
      * @param  array<string, mixed>  $session
      */
+    private function isOffline(array $session): bool
+    {
+        return ($session['offline'] ?? false) === true;
+    }
+
+    /**
+     * See offlineReconnectMode().
+     *
+     * @param  array<string, mixed>  $session
+     * @return 'automatic'|'notify'|'portal_back'|'manual'|null
+     */
+    private function reconnectMode(array $session): ?string
+    {
+        if (! $this->isOffline($session)) {
+            return null;
+        }
+
+        return match (true) {
+            ! config('portal.archive.offline_resume', true) => 'manual',
+            isset($session['portal_back_at']) => 'portal_back',
+            isset($session['encrypted_credentials']) => 'automatic',
+            default => 'notify',
+        };
+    }
+
+    /**
+     * The resume of an offline session without a password: it never logs
+     * in, it only asks the portal for its login page (no credentials are
+     * sent). Once the portal serves it, the session notes so (see
+     * offlineReconnectMode()) and the student is told to log in again. The
+     * note is written before the student is told: while the session lock is
+     * busy the outcome stays 'unreachable', so the next attempt writes it,
+     * and a session that went online, ended or went away meanwhile says so
+     * instead.
+     *
+     * @param  array<string, mixed>  $session
+     * @return 'unreachable'|'unresumable'|'online'|'inactive'|'missing'
+     */
+    private function awaitPortalWithoutPassword(string $sessionToken, array $session): string
+    {
+        try {
+            $this->authService->analyzeLoginForm();
+        } catch (\Throwable $throwable) {
+            $this->logSessionEvent('offline_resume_portal_unreachable', level: 'debug', sessionToken: $sessionToken, session: $session, context: [
+                'reason' => 'no_stored_credentials',
+                'error' => $throwable->getMessage(),
+            ]);
+
+            return 'unreachable';
+        }
+
+        $stamped = $this->mutateSession($sessionToken, static function (?array $stored): ?array {
+            return $stored === null || ! ($stored['is_active'] ?? false) || ! ($stored['offline'] ?? false)
+                ? null
+                : [...$stored, 'portal_back_at' => now()->toISOString()];
+        }, failOnLockTimeout: false);
+
+        if ($stamped === null) {
+            $current = $this->loadSession($sessionToken);
+
+            return match (true) {
+                $current === null => 'missing',
+                ! ($current['is_active'] ?? false) => 'inactive',
+                ! $this->isOffline($current) => 'online',
+                default => 'unreachable',
+            };
+        }
+
+        $this->logSessionEvent('offline_resume_unavailable', sessionToken: $sessionToken, session: $session, context: [
+            'reason' => 'no_stored_credentials',
+            'portal_reachable' => true,
+        ]);
+
+        return 'unresumable';
+    }
+
+    /**
+     * Whether the student switched background sync off
+     * (PortalOfflineAccount::isBackgroundSyncEnabled()), null when that
+     * could not be checked. MyCIC then keeps no copy of their password,
+     * sessions included.
+     */
+    private function optedOutOfBackgroundSync(string $username): ?bool
+    {
+        if ($username === '') {
+            return null;
+        }
+
+        try {
+            return app(PortalOfflineAccess::class)->findForOwner($this->dataOwner->keyForUsername($username))?->isBackgroundSyncEnabled() === false;
+        } catch (\Throwable $throwable) {
+            $this->logSessionEvent('background_sync_choice_unreadable', level: 'warning', username: $username, context: [
+                'error' => $throwable->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
+
+    /**
+     * A session stores a copy of the password only for a student known not
+     * to have switched background sync off.
+     */
+    private function mayKeepPassword(string $username): bool
+    {
+        return $this->optedOutOfBackgroundSync($username) === false;
+    }
+
+    /**
+     * @param  array<string, mixed>  $session
+     */
     private function isIdleExpired(array $session): bool
     {
         $expiresAt = $session['expires_at'] ?? null;
 
         return ! is_string($expiresAt) || CarbonImmutable::parse($expiresAt)->isPast();
+    }
+
+    /**
+     * Seconds from now until `$moment` (negative once it passed); 0 for a
+     * moment that is missing or unreadable.
+     */
+    private function secondsUntil(mixed $moment): int
+    {
+        if (! is_string($moment) || $moment === '') {
+            return 0;
+        }
+
+        try {
+            return CarbonImmutable::parse($moment)->getTimestamp() - now()->getTimestamp();
+        } catch (\Throwable) {
+            return 0;
+        }
+    }
+
+    /**
+     * Seconds an ended session stays readable for (see deactivateSession());
+     * 0 or less once its retention is over, or when it does not say when it
+     * ended.
+     *
+     * @param  array<string, mixed>  $session
+     */
+    private function secondsUntilRetentionEnds(array $session): int
+    {
+        if (! is_string($session['ended_at'] ?? null)) {
+            return 0;
+        }
+
+        return $this->secondsUntil($session['ended_at']) + self::ENDED_SESSION_RETENTION;
+    }
+
+    /**
+     * The username and password the session keeps a copy of; empty when it
+     * keeps none or the copy no longer decrypts (a rotated app key).
+     *
+     * @param  array<string, mixed>  $session
+     * @return array{username?: string, password?: string}
+     */
+    private function storedCredentials(array $session): array
+    {
+        if (! is_string($session['encrypted_credentials'] ?? null)) {
+            return [];
+        }
+
+        try {
+            $credentials = $this->decryptCredentials($session['encrypted_credentials']);
+        } catch (\Throwable) {
+            return [];
+        }
+
+        return is_array($credentials) ? $credentials : [];
     }
 
     /**
@@ -670,10 +1090,17 @@ class PortalSessionManager
     }
 
     /**
+     * Whether the keep-alive chain needs a restart; never for an offline
+     * session, which has no portal session to keep alive (see keepAlive()).
+     *
      * @param  array<string, mixed>  $session
      */
     private function keepAliveLapsed(array $session): bool
     {
+        if ($this->isOffline($session)) {
+            return false;
+        }
+
         $checkedAt = $session['upstream_checked_at'] ?? null;
 
         return ! is_string($checkedAt)
@@ -684,11 +1111,13 @@ class PortalSessionManager
 
     /**
      * @param  array<string, mixed>  $session
+     * @param  array<string, mixed>  $context
      */
-    private function endIdleSession(string $sessionToken, array $session): void
+    private function endIdleSession(string $sessionToken, array $session, array $context = []): void
     {
         $this->deactivateSession($sessionToken, 'idle_timeout', [
             'expires_at' => $session['expires_at'] ?? null,
+            ...$context,
         ]);
 
         if (is_array($session['cookies'] ?? null) && $session['cookies'] !== []) {
@@ -700,13 +1129,14 @@ class PortalSessionManager
      * Store session data in cache
      *
      * The entry outlives the idle timeout slightly, so an idle session is
-     * observed as expired (and logged) rather than silently missing.
+     * observed as expired (and logged) rather than silently missing. The
+     * portal cookies are stored encrypted (see sealCookies()).
      */
     private function storeSession(string $sessionToken, array $sessionData, ?int $ttl = null): void
     {
         $ttl ??= $this->sessionTtl();
 
-        Cache::put($this->cacheKey($sessionToken), $sessionData, $ttl);
+        Cache::put($this->cacheKey($sessionToken), $this->sealCookies($sessionData), $ttl);
 
         if (isset($sessionData['username']) && is_string($sessionData['username'])) {
             $this->dataOwner->remember($sessionToken, $sessionData['username'], $ttl);
@@ -755,11 +1185,157 @@ class PortalSessionManager
         return 'portal_owner_session_'.hash('sha256', $ownerKey);
     }
 
+    /**
+     * Hand a session opened before ExpirePortalSessionJob existed to it, and
+     * list its password copy for forgetStoredCredentialsForOwner(); nothing
+     * for a session it already watches. Marking it (here, or by the caller
+     * in a write of its own) is best-effort: a skipped mark only starts a
+     * second, harmless check.
+     *
+     * @param  array<string, mixed>  $session  as read before the caller's own writes
+     */
+    private function watchIdleExpiry(string $sessionToken, array $session, bool $markWatched = true): void
+    {
+        if (isset($session[self::IDLE_EXPIRY_WATCHED])) {
+            return;
+        }
+
+        if ($markWatched) {
+            $this->mutateSession($sessionToken, static function (?array $stored): ?array {
+                return $stored === null ? null : [...$stored, self::IDLE_EXPIRY_WATCHED => true];
+            }, failOnLockTimeout: false);
+        }
+
+        $this->scheduleIdleExpiry($sessionToken);
+
+        if (isset($session['encrypted_credentials']) && is_string($session['username'] ?? null) && $session['username'] !== '') {
+            $this->trackPasswordCopy($sessionToken, $session['username']);
+        }
+    }
+
+    /**
+     * List a session that keeps a copy of the student's password, so
+     * forgetStoredCredentialsForOwner() reaches it. The list has no expiry,
+     * since activity keeps a session alive for as long as the student uses
+     * it: a session leaves it when it ends or its copy is dropped through
+     * it, and each addition drops the listed sessions that no longer keep a
+     * copy.
+     */
+    private function trackPasswordCopy(string $sessionToken, string $username): void
+    {
+        $this->mutatePasswordCopyIndex($this->dataOwner->keyForUsername($username), function (array $sessionTokens) use ($sessionToken): array {
+            $listed = array_filter(
+                $sessionTokens,
+                fn (string $listedToken): bool => $listedToken !== $sessionToken && isset($this->loadSession($listedToken)['encrypted_credentials'])
+            );
+
+            return [...array_values($listed), $sessionToken];
+        });
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $session
+     */
+    private function untrackPasswordCopy(string $sessionToken, ?array $session): void
+    {
+        $username = $session['username'] ?? null;
+
+        if (! is_string($username) || $username === '') {
+            return;
+        }
+
+        $this->mutatePasswordCopyIndex($this->dataOwner->keyForUsername($username), static function (array $sessionTokens) use ($sessionToken): array {
+            return array_values(array_diff($sessionTokens, [$sessionToken]));
+        });
+    }
+
+    /**
+     * Rewrite the student's list of sessions that keep a password copy
+     * under its own lock; false when the lock stayed busy (nothing written).
+     * Never taken while a session lock is held, so the two cannot deadlock.
+     *
+     * @param  callable(list<string>): list<string>  $mutator
+     */
+    private function mutatePasswordCopyIndex(string $ownerKey, callable $mutator): bool
+    {
+        $key = 'portal_owner_password_copies_'.hash('sha256', $ownerKey);
+
+        try {
+            Cache::lock($key.'_lock', self::SESSION_LOCK_SECONDS)->block(self::SESSION_LOCK_SECONDS, static function () use ($key, $mutator): void {
+                $stored = Cache::get($key);
+                $sessionTokens = $mutator(is_array($stored) ? array_values(array_filter($stored, 'is_string')) : []);
+
+                if ($sessionTokens === []) {
+                    Cache::forget($key);
+                } else {
+                    Cache::forever($key, $sessionTokens);
+                }
+            });
+
+            return true;
+        } catch (LockTimeoutException $exception) {
+            $this->logSessionEvent('password_copy_index_lock_timeout', level: 'warning', context: [
+                'error' => $exception->getMessage(),
+            ]);
+
+            return false;
+        }
+    }
+
     private function loadSession(string $sessionToken): ?array
     {
         $session = Cache::get($this->cacheKey($sessionToken));
 
-        return is_array($session) ? $session : null;
+        return is_array($session) ? $this->openCookies($sessionToken, $session) : null;
+    }
+
+    /**
+     * The portal cookies are a live login: whoever reads them from the cache
+     * (the shared database store by default, or a backup of it) could act as
+     * the student on the portal. They are kept encrypted with the app key.
+     *
+     * @param  array<string, mixed>  $session
+     * @return array<string, mixed>
+     */
+    private function sealCookies(array $session): array
+    {
+        $cookies = $session['cookies'] ?? null;
+
+        if (is_array($cookies) && $cookies !== []) {
+            $session['cookies'] = $this->encrypter->encrypt(json_encode($cookies, JSON_THROW_ON_ERROR), false);
+        }
+
+        return $session;
+    }
+
+    /**
+     * Reverse sealCookies(). A session stored before the cookies were sealed
+     * still holds them as a plain array and is read as is; cookies that no
+     * longer decrypt (a rotated app key) read as none, so the portal simply
+     * asks for a new login.
+     *
+     * @param  array<string, mixed>  $session
+     * @return array<string, mixed>
+     */
+    private function openCookies(string $sessionToken, array $session): array
+    {
+        $cookies = $session['cookies'] ?? null;
+
+        if (! is_string($cookies)) {
+            return $session;
+        }
+
+        try {
+            $decoded = json_decode($this->encrypter->decrypt($cookies, false), true, 512, JSON_THROW_ON_ERROR);
+            $session['cookies'] = is_array($decoded) ? $decoded : [];
+        } catch (\Throwable $throwable) {
+            $session['cookies'] = [];
+            $this->logSessionEvent('cookies_unreadable', level: 'warning', sessionToken: $sessionToken, context: [
+                'error' => $throwable->getMessage(),
+            ]);
+        }
+
+        return $session;
     }
 
     /**
@@ -897,6 +1473,7 @@ class PortalSessionManager
             $sessionData['last_activity'] = $stored['last_activity'] ?? $sessionData['last_activity'];
             $sessionData['expires_at'] = $stored['expires_at'] ?? $sessionData['expires_at'];
             $sessionData['laravel_session_id'] = $stored['laravel_session_id'] ?? null;
+            $sessionData[self::IDLE_EXPIRY_WATCHED] = $stored[self::IDLE_EXPIRY_WATCHED] ?? null;
             $sessionData['encrypted_credentials'] = $this->encryptCredentials($username, $password);
 
             return array_filter($sessionData, static fn (mixed $value): bool => $value !== null);
@@ -917,11 +1494,16 @@ class PortalSessionManager
      * another worker's auto-relogin — the stale report would otherwise kill a
      * freshly rotated session. Invalidation itself is best-effort: a lock
      * timeout is logged and the stored session is left untouched so the
-     * caller's own error path keeps its original exception.
+     * caller's own error path keeps its original exception. A deactivated
+     * session is never used again, so a stored copy of the password goes in
+     * the same write (the idle timeout among other reasons). It stays
+     * readable for ENDED_SESSION_RETENTION seconds, for reference.
      */
     private function deactivateSession(string $sessionToken, string $reason = 'manual', array $context = [], ?array $expectedCookies = null): void
     {
-        $this->mutateSession($sessionToken, function (?array $session) use ($sessionToken, $reason, $context, $expectedCookies): ?array {
+        $hadPasswordCopy = false;
+
+        $deactivated = $this->mutateSession($sessionToken, function (?array $session) use ($sessionToken, $reason, $context, $expectedCookies, &$hadPasswordCopy): ?array {
             if ($session === null) {
                 $this->logSessionEvent('invalidated_missing_session', level: 'warning', sessionToken: $sessionToken, context: array_merge([
                     'reason' => $reason,
@@ -938,14 +1520,21 @@ class PortalSessionManager
                 return null;
             }
 
+            $hadPasswordCopy = isset($session['encrypted_credentials']);
             $session['is_active'] = false;
+            $session['ended_at'] = now()->toISOString();
+            unset($session['encrypted_credentials']);
 
             $this->logSessionEvent('invalidated', level: 'warning', sessionToken: $sessionToken, session: $session, context: array_merge([
                 'reason' => $reason,
             ], $context));
 
             return $session;
-        }, 60, failOnLockTimeout: false); // Keep for 1 minute for reference
+        }, self::ENDED_SESSION_RETENTION, failOnLockTimeout: false);
+
+        if ($deactivated !== null && $hadPasswordCopy) {
+            $this->untrackPasswordCopy($sessionToken, $deactivated);
+        }
     }
 
     /**

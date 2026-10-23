@@ -673,9 +673,9 @@
                 return;
             }
 
-            const loadSkkm = async ({ force = false } = {}) => {
+            const loadSkkm = async ({ force = false, background = false } = {}) => {
                 try {
-                    const payload = await app.request('/api/skkm', { fresh: force });
+                    const payload = await app.request('/api/skkm', { fresh: force, background });
 
                     if (!payload) {
                         return;

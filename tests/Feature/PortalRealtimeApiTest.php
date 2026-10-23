@@ -9,6 +9,7 @@ use App\Jobs\ProcessPortalAssignmentUploadJob;
 use App\Jobs\ProcessPortalExamUploadJob;
 use App\Jobs\RefreshPortalDataJob;
 use App\Services\AttendanceShortcutService;
+use App\Services\PortalDatasetRepository;
 use App\Services\PortalSessionManager;
 use App\Services\SipandaiSubmissionService;
 use Illuminate\Http\UploadedFile;
@@ -62,6 +63,12 @@ class PortalRealtimeApiTest extends TestCase
 
         $file = UploadedFile::fake()->create('exam.zip', 256, 'application/zip');
         $this->mockValidCampusSession('token-exam-upload');
+        // The upload is checked against the student's exam list.
+        $this->instance(PortalDatasetRepository::class, Mockery::mock(PortalDatasetRepository::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('read')
+                ->withArgs(fn (string $sessionToken, string $dataset): bool => $dataset === 'exams')
+                ->andReturn(['data' => ['exams' => [['id' => 8833, 'can_upload' => true]]], 'meta' => []]);
+        }));
 
         $response = $this->withSession(['campus_session_token' => 'token-exam-upload'])
             ->post('/api/exam', [

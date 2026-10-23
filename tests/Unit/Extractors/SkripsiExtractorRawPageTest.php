@@ -9,6 +9,7 @@ use App\Exceptions\PortalScrapingException;
 use App\Services\Extractors\SkripsiExtractor;
 use App\Services\PortalEndpointRegistry;
 use Mockery;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 use Tests\Traits\InteractsWithPortalFixtures;
 
@@ -102,6 +103,46 @@ class SkripsiExtractorRawPageTest extends TestCase
         $this->assertSame('partial', $data['threshold_source']);
         $this->assertSame('default', $data['threshold_sources']['min_sks_s1']);
         $this->assertSame('portal', $data['threshold_sources']['min_ipk']);
+    }
+
+    /**
+     * @return array<string, array{array<string, string>}>
+     */
+    public static function footerNavigationInsideTheContent(): array
+    {
+        $footerLinks = [
+            "                                Home\n                            </a>\n                        </li>" => "Home</a></li>\n                        <li><a href=\"?mod=student&act=dokumen\">Dokumen</a></li>",
+        ];
+
+        return [
+            'footer inside the page content' => [[
+                "            </div>\n        </div>\n\n        <footer class=\"footer\">" => "            </div>\n\n        <footer class=\"footer\">",
+                ...$footerLinks,
+            ]],
+            'footer inside the requirements card' => [[
+                "                                </table>\n                            </div>\n                        </div>\n                    </div>\n                </div>\n            </div>\n        </div>\n\n        <footer class=\"footer\">" => "                                </table>\n\n        <footer class=\"footer\">",
+                ...$footerLinks,
+            ]],
+        ];
+    }
+
+    /**
+     * @param  array<string, string>  $replacements
+     */
+    #[DataProvider('footerNavigationInsideTheContent')]
+    public function test_the_portal_footer_navigation_never_becomes_a_requirement(array $replacements): void
+    {
+        $fixture = $this->variant(self::SIMASITA, $replacements);
+
+        $requirements = $this->makeExtractorWithRawFixture(SkripsiExtractor::class, $fixture)
+            ->parseSimasitaPage((string) file_get_contents($fixture))['requirements'];
+
+        $this->assertCount(6, $requirements['thesis']);
+        $this->assertSame([
+            'Lembar pengesahan yang ditandatangani pembimbing',
+            'Naskah skripsi hardcopy dan softcopy',
+            'Jadwal ujian akhir dari program studi',
+        ], $requirements['exam']);
     }
 
     public function test_sop_documents_are_campus_file_paths_and_the_empty_link_is_skipped(): void

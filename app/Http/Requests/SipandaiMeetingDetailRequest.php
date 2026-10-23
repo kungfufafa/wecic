@@ -31,6 +31,21 @@ class SipandaiMeetingDetailRequest extends ApiFormRequest
         ];
     }
 
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'meeting_id.required' => 'Parameter meeting_id wajib diisi.',
+            'meeting_id.integer' => 'Parameter meeting_id harus berupa angka.',
+            'meeting_id.min' => 'Parameter meeting_id tidak valid.',
+            'courses_id.required' => 'Parameter courses_id wajib diisi. Buka pertemuan dari halaman Kelas.',
+            'courses_id.integer' => 'Parameter courses_id harus berupa angka.',
+            'courses_id.min' => 'Parameter courses_id tidak valid.',
+        ];
+    }
+
     protected function prepareForValidation(): void
     {
         $this->merge([

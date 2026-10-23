@@ -16,7 +16,9 @@ use Illuminate\Support\Str;
  *   NIM); the title weighs 3, advisors 2, the author 1. The program has its
  *   own filter.
  * - Advisors are matched by a key without academic titles: everything after
- *   the first comma and every dot is dropped ("Dr. Ana, M.Kom." → "dr ana").
+ *   the first comma is dropped, and so are leading titles such as Dr., Prof.
+ *   or Ir. ("Dr. Ana, M.Kom." → "ana"), so a lecturer who earned a title
+ *   between two theses is still one advisor.
  * - Facets count the records that match every other filter, so a filter
  *   sheet shows how many results each option would give.
  */
@@ -39,6 +41,12 @@ class ThesisRepositorySearch
     private const WEIGHT_AUTHOR = 1;
 
     private const ADVISOR_FACET_LIMIT = 60;
+
+    /**
+     * Titles written before a lecturer's name (Doktor, Profesor, Insinyur,
+     * Doctorandus/Doctoranda, Haji/Hajah), already lowercased without dots.
+     */
+    private const ADVISOR_PREFIX_TITLES = ['dr', 'drs', 'dra', 'prof', 'ir', 'h', 'hj'];
 
     /**
      * Indonesian (and English) function words left out of similarity and topic keywords.
@@ -197,11 +205,15 @@ class ThesisRepositorySearch
     }
 
     /**
-     * Advisor name without academic titles: "Dr. Ana Putri, S.Kom., M.Kom." → "dr ana putri"
+     * Advisor name without academic titles: "Dr. Ana Putri, S.Kom., M.Kom." → "ana putri"
      */
     public static function advisorKey(string $name): string
     {
-        return self::normalize(str_replace('.', '', Str::before($name, ',')));
+        $key = self::normalize(str_replace('.', ' ', Str::before($name, ',')));
+        $titles = implode('|', self::ADVISOR_PREFIX_TITLES);
+        $withoutTitles = (string) preg_replace('/^(?:(?:'.$titles.') )+/', '', $key);
+
+        return $withoutTitles !== '' ? $withoutTitles : $key;
     }
 
     public static function programKey(string $program): string

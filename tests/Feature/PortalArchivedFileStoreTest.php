@@ -4,15 +4,18 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Exceptions\PortalAuthenticationException;
 use App\Jobs\ArchiveCourseMaterialsJob;
 use App\Jobs\ArchivePortalFilesJob;
 use App\Models\PortalArchivedFile;
+use App\Models\PortalNotification;
 use App\Services\PortalArchivedFileStore;
 use App\Services\PortalBroadcastService;
 use App\Services\PortalDataOwner;
 use App\Services\PortalDatasetBuilder;
 use App\Services\PortalDatasetRepository;
 use App\Services\PortalSessionManager;
+use App\Services\PortalSnapshotStore;
 use App\Services\SipandaiSubmissionService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
@@ -55,9 +58,9 @@ class PortalArchivedFileStoreTest extends TestCase
         $items = $this->store()->candidatesFromMeeting($this->meeting(), ['meeting_id' => '445', 'courses_id' => '8810']);
 
         $this->assertSame([
-            ['kind' => 'modul', 'source_url' => 'https://my.cic.ac.id/portal/files/modul/abc-3-mod.pdf', 'title' => 'Normalisasi Data', 'course_key' => '8810', 'meeting_id' => '445', 'meeting_number' => 3],
-            ['kind' => 'latihan', 'source_url' => 'https://my.cic.ac.id/portal/files/latihan/abc-3-lat.pdf', 'title' => 'Pertemuan 3', 'course_key' => '8810', 'meeting_id' => '445', 'meeting_number' => 3],
-            ['kind' => 'rps', 'source_url' => 'https://my.cic.ac.id/portal/files/sap/rps-basis-data.pdf', 'title' => 'RPS Basis Data', 'course_key' => '8810', 'meeting_id' => null, 'meeting_number' => null],
+            ['kind' => 'modul', 'source_url' => 'https://portal.invalid/portal/files/modul/abc-3-mod.pdf', 'title' => 'Normalisasi Data', 'course_key' => '8810', 'meeting_id' => '445', 'meeting_number' => 3],
+            ['kind' => 'latihan', 'source_url' => 'https://portal.invalid/portal/files/latihan/abc-3-lat.pdf', 'title' => 'Pertemuan 3', 'course_key' => '8810', 'meeting_id' => '445', 'meeting_number' => 3],
+            ['kind' => 'rps', 'source_url' => 'https://portal.invalid/portal/files/sap/rps-basis-data.pdf', 'title' => 'RPS Basis Data', 'course_key' => '8810', 'meeting_id' => null, 'meeting_number' => null],
         ], $items);
     }
 
@@ -101,14 +104,112 @@ class PortalArchivedFileStoreTest extends TestCase
     public function test_building_a_meeting_queues_only_the_files_not_archived_yet(): void
     {
         Queue::fake([ArchivePortalFilesJob::class]);
-        PortalArchivedFile::factory()->forOwner($this->ownerHash)->create(['source_url' => 'https://my.cic.ac.id/portal/files/sap/rps-basis-data.pdf']);
+        $rps = PortalArchivedFile::factory()->forOwner($this->ownerHash)->create(['source_url' => 'https://portal.invalid/portal/files/sap/rps-basis-data.pdf']);
+        Storage::disk('local')->put($rps->blobPath(), '%PDF rps');
         $this->instance(PortalDatasetBuilder::class, Mockery::mock(PortalDatasetBuilder::class, function (MockInterface $mock): void {
             $mock->shouldReceive('build')->andReturn($this->meeting());
         }));
+        // Only a course of the student's class list archives the files its meetings link to.
+        config(['notebook.course_notebooks.auto_add_opened_meetings' => false]);
+        app(PortalSnapshotStore::class)->put(self::TOKEN, 'lms_classes', ['classes' => [
+            ['course_info' => ['code' => 'UC01024011', 'name' => 'Basis Data'], 'join_link' => ['params' => ['id' => '2265', 'dosen_id' => '5240', 'course_id' => '8810']]],
+        ]]);
 
         app(PortalDatasetRepository::class)->sync(self::TOKEN, 'meeting_detail', ['meeting_id' => '445', 'courses_id' => '8810']);
 
         Queue::assertPushed(ArchivePortalFilesJob::class, 1);
+        Queue::assertPushed(ArchivePortalFilesJob::class, fn (ArchivePortalFilesJob $job): bool => $job->uniqueId() === md5(self::TOKEN.'|'.implode(',', [
+            'https://portal.invalid/portal/files/modul/abc-3-mod.pdf',
+            'https://portal.invalid/portal/files/latihan/abc-3-lat.pdf',
+        ])));
+    }
+
+    public function test_a_file_whose_copy_went_missing_counts_as_not_archived(): void
+    {
+        Queue::fake([ArchivePortalFilesJob::class]);
+        $rps = PortalArchivedFile::factory()->forOwner($this->ownerHash)->create(['source_url' => 'https://portal.invalid/portal/files/sap/rps-basis-data.pdf']);
+
+        $this->assertFalse($this->store()->isArchived($this->ownerHash, $rps->source_url));
+
+        Storage::disk('local')->put($rps->blobPath(), '%PDF rps');
+
+        $this->assertTrue($this->store()->isArchived($this->ownerHash, $rps->source_url));
+        $this->assertFalse($this->store()->isArchived('student_someone_else', $rps->source_url));
+    }
+
+    public function test_the_file_job_downloads_a_file_again_when_its_copy_went_missing(): void
+    {
+        $this->sessionIsUsable();
+        $this->portalServes('%PDF-1.4 modul normalisasi');
+        [$item] = $this->store()->candidatesFromMeeting($this->meeting(), ['meeting_id' => '445', 'courses_id' => '8810']);
+        $broken = PortalArchivedFile::factory()->forOwner($this->ownerHash)->create([
+            'source_url' => $item['source_url'],
+            'sha256' => hash('sha256', '%PDF-1.4 modul normalisasi'),
+        ]);
+
+        app()->call([new ArchivePortalFilesJob(self::TOKEN, [$item], 'Basis Data'), 'handle']);
+
+        $this->assertSame(1, PortalArchivedFile::query()->forOwner($this->ownerHash)->count());
+        Storage::disk('local')->assertExists($broken->blobPath());
+        $this->assertSame('%PDF-1.4 modul normalisasi', $this->store()->contents($broken->fresh()));
+    }
+
+    public function test_a_shared_copy_is_never_deleted_while_a_student_starts_using_it(): void
+    {
+        $this->portalServes('%PDF-1.4 modul normalisasi');
+        [$item] = $this->store()->candidatesFromMeeting($this->meeting(), ['meeting_id' => '445', 'courses_id' => '8810']);
+        $lockKey = 'portal_archive_blob_'.hash('sha256', '%PDF-1.4 modul normalisasi');
+        $lockedWhileStoring = null;
+        PortalArchivedFile::creating(function () use ($lockKey, &$lockedWhileStoring): void {
+            $probe = Cache::lock($lockKey, 1);
+            $lockedWhileStoring = ! $probe->get();
+            $probe->release();
+        });
+
+        $file = $this->store()->store(self::TOKEN, $item, 'Basis Data');
+
+        $this->assertTrue($lockedWhileStoring);
+        $this->assertTrue(Cache::lock($lockKey, 1)->get());
+        Storage::disk('local')->assertExists($file->blobPath());
+    }
+
+    public function test_the_course_job_leaves_a_notification_when_the_session_ended_before_it_ran(): void
+    {
+        $this->instance(PortalSessionManager::class, Mockery::mock(PortalSessionManager::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('isSessionUsable')->andReturnFalse();
+        }));
+        $this->instance(PortalBroadcastService::class, Mockery::mock(PortalBroadcastService::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('dataInvalidated')->once()->withArgs(fn (string $sessionId, string $token, array $cacheKeys, array $syncKeys, string $message): bool => str_starts_with($message, 'Materi kelas belum diarsipkan')
+                && in_array('/api/notifications', $cacheKeys, true));
+        }));
+        $job = new ArchiveCourseMaterialsJob('laravel-session', self::TOKEN, ['id' => '2265', 'dosen_id' => '5240', 'course_id' => '8810']);
+        // The student logged out meanwhile: the token no longer leads to them.
+        app(PortalDataOwner::class)->forget(self::TOKEN);
+
+        app()->call([$job, 'handle']);
+
+        $notification = PortalNotification::query()->sole();
+        $this->assertSame($this->ownerHash, $notification->owner_hash);
+        $this->assertSame('archive_class_not_run', $notification->type);
+        $this->assertSame('/archive', $notification->url);
+        $this->assertSame('warning', $notification->urgency);
+        $this->assertSame('class:2265', $notification->record_key);
+    }
+
+    public function test_the_course_job_leaves_a_notification_when_the_session_expires_while_it_runs(): void
+    {
+        $this->sessionIsUsable();
+        $classParams = ['id' => '2265', 'dosen_id' => '5240', 'course_id' => '8810'];
+        $this->instance(PortalDatasetRepository::class, Mockery::mock(PortalDatasetRepository::class, function (MockInterface $mock) use ($classParams): void {
+            $mock->shouldReceive('ensureFresh')->with(self::TOKEN, 'class_detail', $classParams)->andThrow(PortalAuthenticationException::sessionExpired());
+        }));
+        $this->instance(PortalBroadcastService::class, Mockery::mock(PortalBroadcastService::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('dataInvalidated')->once();
+        }));
+
+        app()->call([new ArchiveCourseMaterialsJob('laravel-session', self::TOKEN, $classParams), 'handle']);
+
+        $this->assertSame('archive_class_not_run', PortalNotification::query()->forOwner($this->ownerHash)->sole()->type);
     }
 
     public function test_the_file_job_downloads_each_missing_file_and_skips_failures(): void

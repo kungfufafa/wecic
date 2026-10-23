@@ -109,15 +109,19 @@
                 return `Diperbarui ${ago}`;
             };
 
-            const markRead = (id) => {
+            // A mark saved under the old wording-based id (before stable ids) moves to the stable id.
+            const markRead = (item) => {
                 const stored = storage.read(READ_KEY);
-                const ids = Array.isArray(stored?.ids) ? stored.ids : [];
+                const { ids, changed } = app.migrateAnnouncementReadIds(stored?.ids, [item]);
 
-                if (ids.includes(id)) {
+                if (ids.includes(item.id) && !changed) {
                     return;
                 }
 
-                ids.push(id);
+                if (!ids.includes(item.id)) {
+                    ids.push(item.id);
+                }
+
                 storage.write(READ_KEY, { ids: ids.slice(-400), seeded: stored?.seeded === true });
             };
 
@@ -242,9 +246,15 @@
                 `;
             };
 
-            const readSteps = (id) => {
-                const all = storage.read(STEPS_KEY);
-                const done = all && typeof all === 'object' && !Array.isArray(all) ? all[id] : null;
+            // Ticks saved under the old wording-based id (before stable ids) move to the stable id.
+            const readSteps = (item) => {
+                const { record, changed } = app.migrateAnnouncementRecord(storage.read(STEPS_KEY), item);
+
+                if (changed) {
+                    storage.write(STEPS_KEY, record);
+                }
+
+                const done = Object.hasOwn(record, item.id) ? record[item.id] : null;
 
                 return Array.isArray(done) ? done.map(Number) : [];
             };
@@ -269,7 +279,7 @@
                     return '';
                 }
 
-                const done = new Set(readSteps(item.id));
+                const done = new Set(readSteps(item));
 
                 return `
                     <section class="mycic-card" aria-labelledby="announcement-steps-title">
@@ -611,9 +621,23 @@
                 bindSteps(item);
                 renderSticky(item, links, deadlines);
                 document.title = `${item.title || 'Pengumuman'} · Pengumuman`;
-                markRead(item.id);
+                showCanonicalUrl(item);
+                markRead(item);
                 app.refreshOnlineRequiredState();
                 current = { item, deadlines };
+            };
+
+            // An old link carries the wording-based id; the address bar gets the id that survives edits.
+            const showCanonicalUrl = (item) => {
+                if (item.id === announcementId || !/^[0-9a-f]{40}$/.test(String(item.id))) {
+                    return;
+                }
+
+                try {
+                    window.history.replaceState(window.history.state, '', `/announcement/${item.id}${window.location.search}${window.location.hash}`);
+                } catch (error) {
+                    // The old address still opens this announcement.
+                }
             };
 
             const renderNotFound = (message) => {
@@ -623,7 +647,7 @@
                 host.innerHTML = `
                     <div class="mycic-empty" role="status">
                         <p class="mycic-empty-title">Pengumuman tidak ditemukan</p>
-                        <p class="mycic-empty-subtitle">${app.escapeHtml(String(message || '').replace(/^Pengumuman tidak ditemukan\.?\s*/i, '') || 'Mungkin sudah dihapus dari portal.')}</p>
+                        <p class="mycic-empty-subtitle">${app.escapeHtml(String(message || '').replace(/^Pengumuman tidak ditemukan\.?\s*/i, '') || 'Bisa jadi sudah diperbarui atau dihapus di portal.')}</p>
                         <a href="/announcement" class="${app.buttonClass('primary', { small: true })} mt-2">Lihat semua pengumuman</a>
                     </div>
                 `;
@@ -641,7 +665,8 @@
 
             const primeFromFeed = () => {
                 const cached = app.getCachedResponse('/api/announcement');
-                const item = (Array.isArray(cached?.payload?.data?.items) ? cached.payload.data.items : []).find((entry) => entry?.id === announcementId);
+                const items = Array.isArray(cached?.payload?.data?.items) ? cached.payload.data.items : [];
+                const item = items.find((entry) => entry?.id === announcementId) || items.find((entry) => entry?.legacy_id === announcementId);
 
                 if (item) {
                     renderDetail({ data: item, meta: cached.payload.meta });
@@ -662,9 +687,9 @@
                 return;
             }
 
-            const loadAnnouncement = async ({ force = false } = {}) => {
+            const loadAnnouncement = async ({ force = false, background = false } = {}) => {
                 try {
-                    const payload = await app.request(detailUrl, { fresh: force });
+                    const payload = await app.request(detailUrl, { fresh: force, background });
 
                     if (!payload) {
                         return;
@@ -674,14 +699,16 @@
                     app.markViewSynced('Pengumuman', payload, { force });
                 } catch (error) {
                     if (error?.status === 404) {
-                        try {
-                            app.clearCachedResponse(detailUrl);
-                        } catch (storageError) {
-                            // Nothing to clear when the device cache is blocked.
+                        // Not found on the pages MyCIC searched is not proof it is gone:
+                        // a copy already on screen stays, marked as unverified.
+                        if (rendered) {
+                            app.setSyncStatus('Pengumuman ini tidak ditemukan lagi di portal. Yang tampil adalah salinan tersimpan.', 'warning');
+
+                            return;
                         }
 
                         renderNotFound(app.describeError(error));
-                        app.setSyncStatus('Pengumuman ini sudah tidak ada di portal.', 'warning');
+                        app.setSyncStatus('Pengumuman tidak ditemukan di portal.', 'warning');
 
                         return;
                     }

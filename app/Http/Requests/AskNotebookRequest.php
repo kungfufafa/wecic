@@ -28,7 +28,7 @@ class AskNotebookRequest extends ApiFormRequest
              *
              * @example [11, 12]
              */
-            'source_ids' => ['sometimes', 'nullable', 'array', 'max:60'],
+            'source_ids' => ['sometimes', 'nullable', 'array', 'max:'.max(60, (int) config('notebook.limits.max_sources', 30), (int) config('notebook.limits.max_course_sources', 80))],
             'source_ids.*' => ['integer', 'min:1'],
         ];
     }

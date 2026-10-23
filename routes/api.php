@@ -33,7 +33,8 @@ Route::middleware($sessionMiddleware)->group(function () {
         Route::post('login', 'login')->middleware('throttle:portal-login');
         Route::get('session', 'checkSession');
         Route::post('session/refresh', 'refreshSession')->middleware('throttle:portal-action');
-        Route::post('logout', 'logout')->middleware('throttle:portal-action');
+        // Never throttled: a logout refused for spent action budget would leave the session open.
+        Route::post('logout', 'logout');
     });
 
     Route::middleware('portal.session')->group(function (): void {
@@ -48,11 +49,12 @@ Route::middleware($sessionMiddleware)->group(function () {
             Route::get('dashboard', 'dashboard');
             Route::get('profile', 'profile');
             Route::get('class', 'mergedClasses');
-            Route::get('class/{id}', 'classDetail');
-            Route::get('meeting/{meeting_id}', 'meetingDetail');
+            // Reads that make the portal build a page for any id (or ?fresh=1) are throttled.
+            Route::get('class/{id}', 'classDetail')->middleware('throttle:portal-read');
+            Route::get('meeting/{meeting_id}', 'meetingDetail')->middleware('throttle:portal-read');
             Route::prefix('lms')->group(function (): void {
                 Route::get('class', 'classes');
-                Route::get('flow', 'sipandaiFlow')->middleware('portal.online');
+                Route::get('flow', 'sipandaiFlow')->middleware(['portal.online', 'throttle:portal-read']);
             });
             Route::prefix('schedule')->group(function (): void {
                 Route::get('class', 'studentCourse');
@@ -115,8 +117,6 @@ Route::middleware($sessionMiddleware)->group(function () {
             Route::get('{id}', 'examDetail');
         });
 
-        Route::get('support/download', [PortalSupportController::class, 'downloadFile'])->middleware('portal.online');
-
         Route::prefix('archive')->controller(PortalArchiveController::class)->group(function (): void {
             Route::get('', 'index');
             Route::delete('', 'destroy')->middleware('throttle:portal-action');
@@ -139,14 +139,14 @@ Route::middleware($sessionMiddleware)->group(function () {
             Route::get('', 'index');
             Route::post('', 'store');
             Route::post('course', 'storeCourse');
-            Route::post('meetings', 'addMeeting');
+            Route::post('meetings', 'addMeeting')->middleware('throttle:notebook-sources');
             Route::get('{notebook}', 'show')->whereNumber('notebook');
             Route::get('{notebook}/meetings', 'meetings')->whereNumber('notebook');
             Route::post('{notebook}/meetings/sync', 'syncMeetings')->whereNumber('notebook')->middleware(['portal.online', 'throttle:portal-action']);
             Route::patch('{notebook}', 'update')->whereNumber('notebook');
             Route::delete('{notebook}', 'destroy')->whereNumber('notebook');
-            Route::post('{notebook}/sources', 'storeSource')->whereNumber('notebook');
-            Route::post('{notebook}/sources/{source}/retry', 'retrySource')->whereNumber(['notebook', 'source']);
+            Route::post('{notebook}/sources', 'storeSource')->whereNumber('notebook')->middleware('throttle:notebook-sources');
+            Route::post('{notebook}/sources/{source}/retry', 'retrySource')->whereNumber(['notebook', 'source'])->middleware('throttle:notebook-sources');
             Route::delete('{notebook}/sources/{source}', 'destroySource')->whereNumber(['notebook', 'source']);
             Route::post('{notebook}/messages', 'ask')->whereNumber('notebook')->middleware('throttle:notebook-ai');
             Route::post('{notebook}/studio', 'studio')->whereNumber('notebook')->middleware('throttle:notebook-ai');
@@ -154,6 +154,12 @@ Route::middleware($sessionMiddleware)->group(function () {
             Route::delete('{notebook}/messages/{message}', 'destroyMessage')->whereNumber(['notebook', 'message']);
         });
     });
+
+    // Opened as a page (a new tab), not fetched: without a session or in
+    // offline mode a navigation gets the login page or a short error page
+    // instead of JSON ('page' mode of both middleware).
+    Route::get('support/download', [PortalSupportController::class, 'downloadFile'])
+        ->middleware(['portal.session:page', 'portal.online:page']);
 
     Route::prefix('support')->controller(PortalSupportController::class)->group(function (): void {
         Route::get('parameter-help', 'parameterHelp');

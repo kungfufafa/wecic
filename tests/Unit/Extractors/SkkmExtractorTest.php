@@ -330,6 +330,40 @@ class SkkmExtractorTest extends TestCase
         $this->assertSame([], $data['entries']);
     }
 
+    #[DataProvider('statusLabelProvider')]
+    public function test_entry_status_reads_negated_wording_as_not_valid(string $label, string $expected): void
+    {
+        $html = str_replace('<td>Tidak Valid</td>', '<td>'.$label.'</td>', $this->fixture(self::FILLED_FIXTURE));
+
+        $entry = $this->extractHtml($html)['entries'][1];
+
+        $this->assertSame($expected, $entry['status']);
+        $this->assertSame($label, $entry['status_label']);
+    }
+
+    /**
+     * @return array<string, array{0: string, 1: string}>
+     */
+    public static function statusLabelProvider(): array
+    {
+        return [
+            'tidak valid' => ['Tidak Valid', 'invalid'],
+            'tidak divalidasi' => ['Tidak Divalidasi', 'invalid'],
+            'tidak disetujui' => ['Tidak Disetujui', 'invalid'],
+            'tidak diterima' => ['Tidak Diterima', 'invalid'],
+            'tidak lolos validasi' => ['Tidak Lolos Validasi', 'invalid'],
+            'bukan tervalidasi' => ['Bukan Tervalidasi', 'invalid'],
+            'tidak sah' => ['Tidak Sah', 'invalid'],
+            'ditolak' => ['Ditolak', 'invalid'],
+            'belum divalidasi' => ['Belum Divalidasi', 'pending'],
+            'menunggu persetujuan' => ['Menunggu Persetujuan', 'pending'],
+            'valid' => ['Valid', 'valid'],
+            'divalidasi' => ['Divalidasi', 'valid'],
+            'disetujui' => ['Disetujui', 'valid'],
+            'diterima' => ['Diterima', 'valid'],
+        ];
+    }
+
     public function test_unrecognised_status_is_kept_raw(): void
     {
         $html = str_replace('<td>Tidak Valid</td>', '<td>Revisi</td>', $this->fixture(self::FILLED_FIXTURE));

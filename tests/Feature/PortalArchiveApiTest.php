@@ -11,10 +11,12 @@ use App\Models\PortalOfflineAccount;
 use App\Services\PortalClassCatalog;
 use App\Services\PortalDataCache;
 use App\Services\PortalDataOwner;
+use App\Services\PortalOfflineAccess;
 use App\Services\PortalSessionManager;
 use App\Services\PortalSnapshotStore;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Mockery;
@@ -38,6 +40,7 @@ class PortalArchiveApiTest extends TestCase
         $this->instance(PortalSessionManager::class, Mockery::mock(PortalSessionManager::class, function (MockInterface $mock): void {
             $mock->shouldReceive('validateSession')->andReturnTrue();
             $mock->shouldReceive('isSessionUsable')->andReturnTrue();
+            $mock->shouldReceive('forgetStoredCredentialsForOwner')->andReturnTrue();
         }));
         app(PortalDataOwner::class)->remember(self::TOKEN, self::USERNAME, 3600);
         $this->ownerHash = app(PortalDataOwner::class)->keyForUsername(self::USERNAME);
@@ -106,6 +109,55 @@ class PortalArchiveApiTest extends TestCase
             ]);
     }
 
+    public function test_an_archived_page_never_hands_out_a_link_with_a_write_effect(): void
+    {
+        $params = ['id' => '91', 'dosen_id' => '7', 'course_id' => '8810'];
+        $deleteLink = 'https://my.cic.ac.id/portal/sipandai/?mod=sipandai&act=jobdel&id=30095&idx=29833&pertemuan=6';
+        $payload = fn (string $title, string $href): array => [
+            'course_info' => ['name' => 'Basis Data'],
+            'assignment_history' => ['assignments' => [[
+                'title' => $title,
+                'delete_info' => ['label' => 'Hapus', 'href' => $href],
+            ]]],
+        ];
+        $this->classVersion($params, 'Basis Data', now()->subDays(2))->forceFill(['payload' => $payload('Tugas 1', $deleteLink.'&old=1')])->save();
+        $suspect = PortalArchiveVersion::factory()->forOwner($this->ownerHash)->suspect()->create([
+            'dataset' => 'class_detail',
+            'params' => $params,
+            'params_hash' => PortalDataCache::paramsHash($params),
+            'payload' => $payload('Tugas 1 (revisi)', $deleteLink),
+        ]);
+
+        $response = $this->getAsStudent('/api/archive/versions/'.$suspect->id)
+            ->assertOk()
+            ->assertJsonPath('data.payload.assignment_history.assignments.0.delete_info.href', null)
+            ->assertJsonPath('data.payload.assignment_history.assignments.0.delete_info.label', 'Hapus')
+            ->assertJsonPath('data.diff_total', 1)
+            ->assertJsonPath('data.diff_truncated', false)
+            ->assertJsonPath('data.diff.0.old', 'Tugas 1')
+            ->assertJsonPath('data.diff.0.new', 'Tugas 1 (revisi)');
+        $this->assertStringNotContainsString('act=jobdel', (string) $response->getContent());
+
+        $export = $this->getAsStudent('/api/archive/versions/'.$suspect->id.'/export')->assertOk();
+        $export->assertJsonPath('payload.assignment_history.assignments.0.delete_info.href', null);
+        $this->assertStringNotContainsString('act=jobdel', (string) $export->getContent());
+    }
+
+    public function test_a_long_diff_says_how_much_was_left_out(): void
+    {
+        PortalArchiveVersion::factory()->forOwner($this->ownerHash)->withPayload(['found' => true, 'entries' => []])->create();
+        $suspect = PortalArchiveVersion::factory()->forOwner($this->ownerHash)->suspect()->withPayload([
+            'found' => true,
+            'entries' => array_map(static fn (int $number): array => ['name' => 'Kegiatan '.$number, 'status' => 'valid'], range(1, 150)),
+        ])->create();
+
+        $response = $this->getAsStudent('/api/archive/versions/'.$suspect->id)
+            ->assertOk()
+            ->assertJsonCount(200, 'data.diff')
+            ->assertJsonPath('data.diff_truncated', true);
+        $this->assertSame(300, $response->json('data.diff_total'));
+    }
+
     public function test_versions_of_other_students_are_not_found(): void
     {
         $foreign = PortalArchiveVersion::factory()->forOwner('student_someone_else')->suspect()->create();
@@ -170,6 +222,107 @@ class PortalArchiveApiTest extends TestCase
         $this->assertTrue($shared->exists());
         Storage::disk('local')->assertExists($file->blobPath());
         Storage::disk('local')->assertMissing($own->blobPath());
+    }
+
+    public function test_deleting_the_archive_keeps_the_choice_to_switch_background_sync_off(): void
+    {
+        PortalOfflineAccount::query()->create([
+            'owner_hash' => $this->ownerHash,
+            'password_hash' => Hash::make('rahasia-portal'),
+            'user_info' => ['name' => 'Mahasiswa Arsip'],
+            'background_sync_disabled_at' => now()->subDay(),
+            'last_online_login_at' => now()->subHour(),
+            'last_offline_login_at' => now()->subMinutes(30),
+            'last_background_sync_at' => now()->subDays(2),
+            'last_background_sync_status' => PortalOfflineAccount::SYNC_SYNCED,
+        ]);
+
+        $this->deleteAsStudent('/api/archive', ['confirm' => true])->assertOk();
+
+        $account = PortalOfflineAccount::query()->sole();
+        $this->assertNotNull($account->background_sync_disabled_at);
+        $this->assertSame('', $account->password_hash);
+        $this->assertNull($account->user_info);
+        $this->assertNull($account->credentials);
+        $this->assertNull($account->last_offline_login_at);
+        $this->assertNull($account->last_background_sync_at);
+        $this->assertNull($account->last_background_sync_status);
+        // Offline access itself is gone.
+        $this->assertNull(app(PortalOfflineAccess::class)->attempt(self::USERNAME, 'rahasia-portal'));
+        $this->getAsStudent('/api/archive')
+            ->assertOk()
+            ->assertJsonPath('data.background_sync.enabled', false)
+            ->assertJsonPath('data.background_sync.pending_login', false)
+            ->assertJsonPath('data.background_sync.last_synced_at', null);
+
+        // The next online login honours the choice.
+        app(PortalOfflineAccess::class)->remember(self::USERNAME, 'rahasia-portal', ['name' => 'Mahasiswa Arsip']);
+        $this->assertNull(PortalOfflineAccount::query()->sole()->credentials);
+    }
+
+    public function test_switching_background_sync_off_is_kept_even_when_mycic_holds_nothing_for_the_student(): void
+    {
+        $this->patchAsStudent('/api/archive/background-sync', ['enabled' => false])
+            ->assertOk()
+            ->assertJsonPath('data.enabled', false)
+            ->assertJsonPath('data.active', false)
+            ->assertJsonPath('data.pending_login', false);
+
+        $account = PortalOfflineAccount::query()->sole();
+        $this->assertNotNull($account->background_sync_disabled_at);
+        $this->assertSame('', $account->password_hash);
+        $this->assertNull(app(PortalOfflineAccess::class)->attempt(self::USERNAME, ''));
+
+        app(PortalOfflineAccess::class)->remember(self::USERNAME, 'rahasia-portal', null);
+        $this->assertNull(PortalOfflineAccount::query()->sole()->credentials);
+
+        $this->patchAsStudent('/api/archive/background-sync', ['enabled' => true])
+            ->assertOk()
+            ->assertJsonPath('data.enabled', true)
+            ->assertJsonPath('data.pending_login', true);
+    }
+
+    public function test_switching_background_sync_on_is_refused_when_the_deployment_has_it_off(): void
+    {
+        config(['portal.background_sync.enabled' => false]);
+
+        $this->patchAsStudent('/api/archive/background-sync', ['enabled' => true])
+            ->assertStatus(409)
+            ->assertJsonPath('message', 'Sinkronisasi background tidak tersedia di MyCIC ini.')
+            ->assertJsonPath('data.available', false)
+            ->assertJsonPath('data.enabled', false);
+    }
+
+    public function test_archived_files_that_could_run_script_are_only_ever_downloaded(): void
+    {
+        Storage::fake('local');
+        $svg = PortalArchivedFile::factory()->forOwner($this->ownerHash)->create(['filename' => 'diagram.svg', 'mime' => 'image/svg+xml']);
+        Storage::disk('local')->put($svg->blobPath(), '<svg xmlns="http://www.w3.org/2000/svg"><script>alert(document.cookie)</script></svg>');
+        $xhtml = PortalArchivedFile::factory()->forOwner($this->ownerHash)->create(['filename' => 'materi.xhtml', 'mime' => 'application/xhtml+xml; charset=utf-8']);
+        Storage::disk('local')->put($xhtml->blobPath(), '<html xmlns="http://www.w3.org/1999/xhtml"><script>alert(1)</script></html>');
+        $pdf = PortalArchivedFile::factory()->forOwner($this->ownerHash)->create(['filename' => 'modul.pdf', 'mime' => 'application/pdf']);
+        Storage::disk('local')->put($pdf->blobPath(), '%PDF-1.4 modul');
+        $png = PortalArchivedFile::factory()->forOwner($this->ownerHash)->create(['filename' => 'skema.png', 'mime' => 'image/png']);
+        Storage::disk('local')->put($png->blobPath(), 'png');
+
+        foreach ([$svg, $xhtml] as $active) {
+            $response = $this->getAsStudent('/api/archive/files/'.$active->id)->assertOk();
+            $this->assertSame('application/octet-stream', $response->headers->get('Content-Type'), $active->filename);
+            $this->assertStringStartsWith('attachment', (string) $response->headers->get('Content-Disposition'), $active->filename);
+            $this->assertSame('sandbox', $response->headers->get('Content-Security-Policy'), $active->filename);
+        }
+
+        $pdfResponse = $this->getAsStudent('/api/archive/files/'.$pdf->id)->assertOk();
+        $this->assertSame('application/pdf', $pdfResponse->headers->get('Content-Type'));
+        $this->assertStringStartsWith('inline', (string) $pdfResponse->headers->get('Content-Disposition'));
+        // Browser PDF viewers do not render inside a sandboxed document.
+        $this->assertNull($pdfResponse->headers->get('Content-Security-Policy'));
+
+        $pngResponse = $this->getAsStudent('/api/archive/files/'.$png->id)->assertOk();
+        $this->assertSame('image/png', $pngResponse->headers->get('Content-Type'));
+        $this->assertStringStartsWith('inline', (string) $pngResponse->headers->get('Content-Disposition'));
+        $this->assertSame('sandbox', $pngResponse->headers->get('Content-Security-Policy'));
+        $this->assertSame('nosniff', $pngResponse->headers->get('X-Content-Type-Options'));
     }
 
     public function test_archived_files_are_listed_per_course_and_served_to_their_owner_only(): void
@@ -252,6 +405,15 @@ class PortalArchiveApiTest extends TestCase
     {
         return $this->withSession(['_token' => 'known-csrf-token', 'campus_session_token' => self::TOKEN])
             ->postJson($uri, $payload, ['X-CSRF-TOKEN' => 'known-csrf-token']);
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function patchAsStudent(string $uri, array $payload): \Illuminate\Testing\TestResponse
+    {
+        return $this->withSession(['_token' => 'known-csrf-token', 'campus_session_token' => self::TOKEN])
+            ->patchJson($uri, $payload, ['X-CSRF-TOKEN' => 'known-csrf-token']);
     }
 
     /**

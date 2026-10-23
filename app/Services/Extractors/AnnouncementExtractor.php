@@ -22,6 +22,7 @@ use Symfony\Component\DomCrawler\Crawler;
  * @phpstan-type AnnouncementDeadline array{date: string, start: string|null, type: 'deadline'|'period'|'date', context: string, is_future: bool}
  * @phpstan-type Announcement array{
  *     id: string,
+ *     legacy_id: string,
  *     title: string,
  *     published_at: string|null,
  *     published_date: string|null,
@@ -172,6 +173,107 @@ class AnnouncementExtractor extends PortalScrapingService
     }
 
     /**
+     * Id from what names an announcement (title, publish day and unit), never
+     * from its wording: staff fixing a typo or a date in the body keep the id,
+     * so links, read marks and notifications still point to it. Case and
+     * spacing of the title and unit do not count.
+     */
+    public static function stableId(string $title, ?string $publishedDate, ?string $publisherUnit): string
+    {
+        $normalize = static fn (?string $value): string => mb_strtolower(trim((string) preg_replace('/\s+/u', ' ', (string) $value)));
+
+        return sha1(implode('|', [$normalize($title), $publishedDate ?? '', $normalize($publisherUnit)]));
+    }
+
+    /**
+     * The id announcements had before stable ids (its wording included):
+     * old notification links carry it, and it tells apart two announcements
+     * that share a stable id.
+     */
+    public static function legacyId(string $title, ?string $publishedDate, ?string $publisherUnit, string $bodyText): string
+    {
+        return sha1(implode('|', [$title, $publishedDate ?? '', $publisherUnit ?? '', $bodyText]));
+    }
+
+    /**
+     * Stable id of an announcement item; null for one without a title,
+     * which only its wording identifies.
+     *
+     * @param  array<string, mixed>  $item
+     */
+    public static function stableIdOf(array $item): ?string
+    {
+        $title = is_string($item['title'] ?? null) ? $item['title'] : '';
+
+        if (trim($title) === '') {
+            return null;
+        }
+
+        return self::stableId(
+            $title,
+            is_string($item['published_date'] ?? null) ? $item['published_date'] : null,
+            is_string($item['publisher_unit'] ?? null) ? $item['publisher_unit'] : null
+        );
+    }
+
+    /**
+     * Legacy id of an announcement item, worked out from what it shows (an
+     * item kept before stable ids has no `legacy_id`, its `id` was it);
+     * null for one without a title and wording to work it out from.
+     *
+     * @param  array<string, mixed>  $item
+     */
+    public static function legacyIdOf(array $item): ?string
+    {
+        if (! is_string($item['title'] ?? null) || ! is_string($item['body_text'] ?? null)) {
+            return null;
+        }
+
+        return self::legacyId(
+            $item['title'],
+            is_string($item['published_date'] ?? null) ? $item['published_date'] : null,
+            is_string($item['publisher_unit'] ?? null) ? $item['publisher_unit'] : null,
+            $item['body_text']
+        );
+    }
+
+    /**
+     * Give every announcement in a list its stable id, except where two with
+     * different wording share one (same title, day and unit) or there is no
+     * title: those use their legacy id, which tells them apart the same way
+     * on every read. Items read before stable ids existed (no `legacy_id`)
+     * keep the id they have.
+     *
+     * @template TItem of array<string, mixed>
+     *
+     * @param  list<TItem>  $items
+     * @return list<TItem>
+     */
+    public static function withStableIds(array $items): array
+    {
+        $wordings = [];
+
+        foreach ($items as $item) {
+            $stableId = self::stableIdOf($item);
+
+            if ($stableId !== null && is_string($item['legacy_id'] ?? null)) {
+                $wordings[$stableId][$item['legacy_id']] = true;
+            }
+        }
+
+        foreach ($items as $index => $item) {
+            if (! is_string($item['legacy_id'] ?? null)) {
+                continue;
+            }
+
+            $stableId = self::stableIdOf($item);
+            $items[$index]['id'] = $stableId === null || count($wordings[$stableId]) > 1 ? $item['legacy_id'] : $stableId;
+        }
+
+        return $items;
+    }
+
+    /**
      * @return array{items: list<Announcement>, paging: AnnouncementPaging, notice: array{text: string, dates: list<string>, is_future: bool, kind: string}|null, extracted_at: string}
      */
     private function parseAnnouncementPage(Crawler $crawler, int $page): array
@@ -194,6 +296,7 @@ class AnnouncementExtractor extends PortalScrapingService
             }
         }
 
+        $items = self::withStableIds($items);
         $paging = $this->buildPaging($pagingNode, $page, count($items));
 
         if ($paging['out_of_range']) {
@@ -317,7 +420,8 @@ class AnnouncementExtractor extends PortalScrapingService
         $category = $this->categorize($title, $bodyText);
 
         return [
-            'id' => sha1(implode('|', [$title, $publishedDate?->toDateString() ?? '', $publisherUnit ?? '', $bodyText])),
+            'id' => self::stableId($title, $publishedDate?->toDateString(), $publisherUnit),
+            'legacy_id' => self::legacyId($title, $publishedDate?->toDateString(), $publisherUnit, $bodyText),
             'title' => $title,
             'published_at' => $publishedDate?->toIso8601String(),
             'published_date' => $publishedDate?->toDateString(),

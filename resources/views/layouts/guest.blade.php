@@ -34,6 +34,9 @@
 </head>
 <body data-auth="guest" data-page="@yield('page_id', 'guest')">
     <div id="notice-host" class="mycic-toast-host"></div>
+    {{-- Live regions exist from page load so toasts are announced (app.announce). --}}
+    <div class="sr-only" role="status" aria-live="polite" aria-atomic="true" data-live-polite></div>
+    <div class="sr-only" aria-live="assertive" aria-atomic="true" data-live-assertive></div>
 
     <div class="mycic-guest-shell">
         @yield('content')

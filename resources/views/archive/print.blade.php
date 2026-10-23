@@ -61,9 +61,12 @@
         @if ($baseline)
             <section class="flex flex-col gap-2">
                 <h2 class="mycic-section-title">Perbedaan dengan versi {{ $formatMoment($baseline->first_seen_at) }}</h2>
-                @if ($diff === [])
+                @if ($diff['changes'] === [])
                     <p class="text-sm text-ink-subtle">Tidak ada perbedaan isi.</p>
                 @else
+                    @if ($diff['truncated'])
+                        <p class="text-sm text-ink-muted" data-diff-truncated>Menampilkan {{ count($diff['changes']) }} dari {{ $diff['total'] }} perubahan. Isi lengkap versi ini ada di bagian berikutnya dan di berkas JSON arsip.</p>
+                    @endif
                     <div class="mycic-table-wrap">
                         <table class="mycic-table">
                             <thead>
@@ -74,7 +77,7 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                @foreach ($diff as $row)
+                                @foreach ($diff['changes'] as $row)
                                     <tr>
                                         <td class="align-top">{{ $row['path'] }}</td>
                                         <td class="align-top">{{ $row['old'] ?? '–' }}</td>
@@ -93,7 +96,7 @@
             <div class="mycic-table-wrap">
                 <table class="mycic-table">
                     <tbody>
-                        @foreach ($entries as $entry)
+                        @foreach ($entries['changes'] as $entry)
                             <tr>
                                 <td class="w-1/2 align-top text-ink-subtle">{{ $entry['path'] }}</td>
                                 <td class="align-top break-words">{{ $entry['new'] }}</td>

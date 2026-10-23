@@ -24,9 +24,22 @@
         <env name="CACHE_STORE" value="array"/>
         <env name="DB_CONNECTION" value="sqlite"/>
         <env name="DB_DATABASE" value=":memory:"/>
+        <!-- The `null` log channel, so tests never write to storage/logs/laravel.log. Quoted: a bare null would make env() return null. -->
+        <env name="LOG_CHANNEL" value='"null"'/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
-        <env name="BROADCAST_CONNECTION" value="reverb"/>
+        <!-- Tests never reach the real portal: every portal URL .env sets points at a reserved, unroutable host (tests/TestCase.php refuses the rest), and no lookup goes through the DNS-over-HTTPS resolver. -->
+        <env name="CAMPUS_BASE_URL" value="https://portal.invalid" force="true"/>
+        <env name="CAMPUS_LOGIN_URL" value="https://portal.invalid/portal/mahasiswa/" force="true"/>
+        <env name="CAMPUS_LOGIN_ACTION" value="https://portal.invalid/portal/mahasiswa/?mod=loginact" force="true"/>
+        <env name="CAMPUS_DASHBOARD_URL" value="https://portal.invalid/portal/mahasiswa/?mod=student&amp;act=dashboard" force="true"/>
+        <env name="CAMPUS_SIPANDAI_ASSIGNMENT_URL" value="https://portal.invalid/portal/sipandai/?mod=sipandai&amp;act=send" force="true"/>
+        <env name="CAMPUS_SIPANDAI_ATTENDANCE_URL" value="https://portal.invalid/portal/sipandai/views/validasi/demo.php" force="true"/>
+        <env name="CAMPUS_SECURE_DNS_URL" value="" force="true"/>
+        <!-- No real Gemini key: a test that needs one sets services.gemini.key and fakes the HTTP calls. -->
+        <env name="GEMINI_API_KEY" value="" force="true"/>
+        <!-- Broadcasts go nowhere (quoted, like LOG_CHANNEL); PortalBroadcastingTest boots with the reverb broadcaster it tests. -->
+        <env name="BROADCAST_CONNECTION" value='"null"' force="true"/>
         <env name="REVERB_APP_ID" value="mycic-test"/>
         <env name="REVERB_APP_KEY" value="mycic-test-key"/>
         <env name="REVERB_APP_SECRET" value="mycic-test-secret"/>

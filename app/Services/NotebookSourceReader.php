@@ -51,6 +51,14 @@ class NotebookSourceReader
         };
     }
 
+    /**
+     * Whether reading this format needs the model (it has no local reader).
+     */
+    public function needsModel(string $mime, string $filename = ''): bool
+    {
+        return in_array($this->type($mime, $filename), ['pdf', 'image'], true);
+    }
+
     public function type(string $mime, string $filename = ''): ?string
     {
         $mime = strtolower(trim(explode(';', $mime)[0]));
@@ -96,12 +104,22 @@ class NotebookSourceReader
         $slides = [];
 
         try {
+            $entries = [];
+            $unzippedBytes = 0;
+
             for ($index = 0; $index < $zip->numFiles; $index++) {
                 $name = (string) $zip->getNameIndex($index);
 
                 if (preg_match('~^ppt/slides/slide(\d+)\.xml$~', $name, $matches) === 1) {
-                    $slides[(int) $matches[1]] = (string) $zip->getFromIndex($index);
+                    $entries[(int) $matches[1]] = $index;
+                    $unzippedBytes += $this->unzippedSize($zip->statIndex($index));
                 }
+            }
+
+            $this->guardUnzippedSize($unzippedBytes);
+
+            foreach ($entries as $number => $index) {
+                $slides[$number] = (string) $zip->getFromIndex($index);
             }
         } finally {
             $zip->close();
@@ -144,17 +162,31 @@ class NotebookSourceReader
             throw NotebookAiException::notConfigured();
         }
 
-        $result = $this->gemini->generate([[
-            'role' => 'user',
-            'parts' => [
-                ['inlineData' => ['mimeType' => $mime, 'data' => base64_encode($contents)]],
-                ['text' => self::TRANSCRIBE_PROMPT],
-            ],
-        ]], null, ['temperature' => 0, 'maxOutputTokens' => 65536], max(30, (int) config('services.gemini.ingest_budget', 240)));
+        $budget = max(30, (int) config('services.gemini.ingest_budget', 240));
+
+        try {
+            // One long generation may use the whole budget: a dense module
+            // takes well over the web request's per-attempt timeout.
+            $result = $this->gemini->generate([[
+                'role' => 'user',
+                'parts' => [
+                    ['inlineData' => ['mimeType' => $mime, 'data' => base64_encode($contents)]],
+                    ['text' => self::TRANSCRIBE_PROMPT],
+                ],
+            ]], null, ['temperature' => 0, 'maxOutputTokens' => 65536], $budget, $budget);
+        } catch (NotebookAiException $exception) {
+            throw match (true) {
+                // Out of time, or out of output before any text even at the largest limit.
+                $exception->is(NotebookAiException::REASON_TIMED_OUT), $exception->is(NotebookAiException::REASON_TOO_LONG) => new NotebookSourceException('Berkas ini terlalu panjang untuk dibaca sekaligus. Pecah PDF-nya menjadi beberapa bagian, lalu unggah lagi.'),
+                $exception->is(NotebookAiException::REASON_REJECTED) => new NotebookSourceException('Model AI tidak bisa membaca berkas ini. Pastikan berkasnya tidak rusak atau terkunci kata sandi.'),
+                default => $exception,
+            };
+        }
 
         return [
             'pages' => $this->splitPages($result['text']),
-            'truncated' => $result['finish_reason'] === 'MAX_TOKENS',
+            // Cut at the output limit, or stopped where the text repeats a published work.
+            'truncated' => $result['truncated'] || $result['finish_reason'] === 'RECITATION',
         ];
     }
 
@@ -187,6 +219,7 @@ class NotebookSourceReader
         $zip = $this->openZip($contents);
 
         try {
+            $this->guardUnzippedSize($this->unzippedSize($zip->statName($entry)));
             $xml = $zip->getFromName($entry);
         } finally {
             $zip->close();
@@ -197,6 +230,27 @@ class NotebookSourceReader
         }
 
         return $xml;
+    }
+
+    /**
+     * The uncompressed size the archive declares for an entry; reading the
+     * entry allocates that much at once.
+     *
+     * @param  array<string, mixed>|false  $stat
+     */
+    private function unzippedSize(array|false $stat): int
+    {
+        return is_array($stat) && is_int($stat['size'] ?? null) ? $stat['size'] : 0;
+    }
+
+    /**
+     * A small upload can unpack to gigabytes; refuse it before it does.
+     */
+    private function guardUnzippedSize(int $bytes): void
+    {
+        if ($bytes > max(1, (int) config('notebook.uploads.max_unzipped_bytes', 50 * 1024 * 1024))) {
+            throw new NotebookSourceException('Isi dokumen ini terlalu besar untuk dibaca Notebook. Pecah dokumennya menjadi beberapa berkas.');
+        }
     }
 
     private function openZip(string $contents): ZipArchive

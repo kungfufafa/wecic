@@ -150,6 +150,64 @@ class AcademicProgressCalculatorTest extends TestCase
         $this->assertSame(['MK1002', 'MK9001'], $credits['already_graded_codes']);
     }
 
+    public function test_graded_krs_courses_are_matched_against_the_latest_semester_only(): void
+    {
+        $krsCourses = [
+            ['code' => 'mk2001', 'name' => 'Mata Kuliah Lima', 'sks' => 3],
+            ['code' => 'MK2001', 'name' => 'Mata Kuliah Lima', 'sks' => 3],
+            ['code' => 'MK2002', 'name' => 'Mata Kuliah Enam : Pengantar', 'sks' => 3],
+            ['code' => 'MK2003', 'name' => 'Mata Kuliah Tujuh', 'sks' => 2],
+            ['code' => 'MK1003', 'name' => 'Mata Kuliah Tiga', 'sks' => 2],
+            ['code' => 'MK2005', 'name' => 'Mata Kuliah Tambahan', 'sks' => 2],
+            'not a course',
+        ];
+
+        // The latest KHS card (semester 3) is still empty: a new KRS, nothing graded yet.
+        $this->assertSame(['courses' => 0, 'sks' => 0], $this->calculator()->gradedKrsCourses($krsCourses, $this->studentSemesters()));
+
+        // Without that card the latest is semester 2, the semester of this KRS:
+        // each of its graded courses matches once; the one added late has no grade.
+        $graded = array_values(array_filter($this->studentSemesters(), static fn (array $semester): bool => $semester['semester'] !== 3));
+        $this->assertSame(['courses' => 4, 'sks' => 10], $this->calculator()->gradedKrsCourses($krsCourses, $graded));
+        $this->assertSame(['courses' => 0, 'sks' => 0], $this->calculator()->gradedKrsCourses([], $graded));
+    }
+
+    public function test_a_course_retaken_in_a_new_krs_is_not_graded_by_the_previous_card(): void
+    {
+        $previous = $this->semester(5, [
+            $this->course('IF501', 3, 'A', 4),
+            $this->course('IF502', 3, 'E', 0),
+            $this->course('IF503', 3, 'B', 3),
+        ]);
+        $newKrs = [
+            ['code' => 'IF601', 'name' => 'Mata Kuliah Baru Satu', 'sks' => 3],
+            ['code' => 'IF602', 'name' => 'Mata Kuliah Baru Dua', 'sks' => 3],
+            ['code' => 'IF502', 'name' => 'Mata Kuliah Contoh', 'sks' => 3],
+        ];
+
+        // The new card is not out yet: the latest card is still semester 5, but this KRS is another semester.
+        $this->assertSame(['courses' => 0, 'sks' => 0], $this->calculator()->gradedKrsCourses($newKrs, [$previous]));
+        $this->assertSame(['courses' => 0, 'sks' => 0], $this->calculator()->gradedKrsCourses([$newKrs[2]], [$previous]));
+
+        // Most of the previous card retaken at once is still a new semester.
+        $retakes = [
+            ['code' => 'IF501', 'sks' => 3],
+            ['code' => 'IF502', 'sks' => 3],
+            ['code' => 'IF503', 'sks' => 3],
+            ['code' => 'IF601', 'sks' => 3],
+            ['code' => 'IF602', 'sks' => 3],
+        ];
+        $this->assertSame(['courses' => 0, 'sks' => 0], $this->calculator()->gradedKrsCourses($retakes, [$previous]));
+
+        // The KRS of semester 5 itself still shown after its grades are out.
+        $sameKrs = [
+            ['code' => 'IF501', 'sks' => 3],
+            ['code' => 'IF502', 'sks' => 3],
+            ['code' => 'IF503', 'sks' => 3],
+        ];
+        $this->assertSame(['courses' => 3, 'sks' => 9], $this->calculator()->gradedKrsCourses($sameKrs, [$previous]));
+    }
+
     public function test_conversion_credits_without_courses_are_zero(): void
     {
         $this->assertSame(
@@ -177,7 +235,67 @@ class AcademicProgressCalculatorTest extends TestCase
             'previous_semester' => 1,
             'previous_ips' => 2.3,
             'delta' => 0.95,
+            'is_complete' => true,
         ], $summary['latest_ips']);
+    }
+
+    public function test_a_partly_graded_running_semester_is_not_counted_as_a_whole_semester(): void
+    {
+        $semesters = [];
+
+        foreach ([1, 2, 3, 4] as $number) {
+            $semesters[] = $this->semester($number, array_map(
+                fn (int $index): array => $this->course(sprintf('MK%d%02d', $number, $index), 3, 'B', 3),
+                range(1, 7)
+            ));
+        }
+
+        $running = array_map(fn (int $index): array => $this->course(sprintf('MK5%02d', $index), 3, null, null), range(1, 7));
+        $running[0] = $this->course('MK501', 3, 'A', 4);
+        $semesters[] = $this->semester(5, $running);
+
+        $summary = $this->calculator()->summarize($semesters);
+
+        $this->assertSame(87, $summary['sks_passed']);
+        $this->assertSame(5, $summary['graded_semester_count']);
+        $this->assertFalse($summary['ips_series'][4]['is_complete']);
+        // 84 SKS over the four whole semesters, not 87 over five.
+        $this->assertSame(21.0, $summary['average_sks_per_semester']);
+        $this->assertSame(3, $this->calculator()->progress(87, 144, $summary['average_sks_per_semester'])['projected_semesters_remaining']);
+        // The latest IPS is that of the last whole semester, not one course of the running one.
+        $this->assertSame([
+            'semester' => 4,
+            'ips' => 3.0,
+            'previous_semester' => 3,
+            'previous_ips' => 3.0,
+            'delta' => 0.0,
+            'is_complete' => true,
+        ], $summary['latest_ips']);
+    }
+
+    public function test_a_partly_graded_first_semester_is_still_reported_but_marked_incomplete(): void
+    {
+        $summary = $this->calculator()->summarize([
+            $this->semester(1, [$this->course('MK101', 3, 'A', 4), $this->course('MK102', 3, null, null)]),
+        ]);
+
+        $this->assertNull($summary['average_sks_per_semester']);
+        $this->assertSame(1, $summary['latest_ips']['semester']);
+        $this->assertSame(4.0, $summary['latest_ips']['ips']);
+        $this->assertFalse($summary['latest_ips']['is_complete']);
+        $this->assertNull($summary['latest_ips']['delta']);
+    }
+
+    public function test_an_incomplete_past_semester_still_counts_once_a_later_one_is_graded(): void
+    {
+        $summary = $this->calculator()->summarize([
+            $this->semester(1, [$this->course('MK101', 3, 'B', 3), $this->course('MK102', 3, null, null)]),
+            $this->semester(2, [$this->course('MK201', 3, 'A', 4), $this->course('MK202', 3, 'A', 4)]),
+        ]);
+
+        $this->assertSame(4.5, $summary['average_sks_per_semester']);
+        $this->assertSame(2, $summary['latest_ips']['semester']);
+        $this->assertSame(1, $summary['latest_ips']['previous_semester']);
     }
 
     public function test_rows_waiting_for_grades_are_ignored(): void
@@ -197,6 +315,21 @@ class AcademicProgressCalculatorTest extends TestCase
         $this->assertFalse($summary['ips_series'][0]['is_complete']);
         $this->assertSame(1, $summary['ips_series'][0]['graded_count']);
         $this->assertSame(3, $summary['ips_series'][0]['course_count']);
+    }
+
+    public function test_a_row_of_zero_sks_never_keeps_the_latest_semester_partial(): void
+    {
+        $summary = $this->calculator()->summarize([
+            $this->semester(1, [$this->course('MK101', 3, 'B', 3), $this->course('MK102', 3, 'B', 3)]),
+            $this->semester(2, [$this->course('MK201', 3, 'A', 4), $this->course('MK202', 3, 'A', 4), $this->course('MK299', 0, null, null, 'Kuliah Umum')]),
+        ]);
+
+        $this->assertTrue($summary['ips_series'][1]['is_complete']);
+        $this->assertSame(3, $summary['ips_series'][1]['course_count']);
+        $this->assertSame(6.0, $summary['average_sks_per_semester']);
+        $this->assertSame(2, $summary['latest_ips']['semester']);
+        $this->assertSame(4.0, $summary['latest_ips']['ips']);
+        $this->assertTrue($summary['latest_ips']['is_complete']);
     }
 
     public function test_no_grades_at_all_gives_nulls_instead_of_zeros(): void

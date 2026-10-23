@@ -97,7 +97,7 @@ class AcademicProgressCalculator
      *     low_grade_courses: list<TranscriptRow>,
      *     repeated_courses: list<TranscriptRow>,
      *     ips_series: list<IpsPoint>,
-     *     latest_ips: array{semester: int, ips: float, previous_semester: int|null, previous_ips: float|null, delta: float|null}|null,
+     *     latest_ips: array{semester: int, ips: float, previous_semester: int|null, previous_ips: float|null, delta: float|null, is_complete: bool}|null,
      *     graded_semester_count: int,
      *     average_sks_per_semester: float|null,
      *     excluded_semesters: list<string>,
@@ -108,9 +108,12 @@ class AcademicProgressCalculator
     {
         $transcript = $this->transcript($semesters);
         $series = $this->ipsSeries($semesters);
+        $settledSeries = $this->settledSeries($series);
+        $runningSemester = count($settledSeries) < count($series) ? $series[count($series) - 1]['semester'] : null;
 
         $sksTotal = 0;
         $sksPassed = 0;
+        $runningSksPassed = 0;
         $qualityPoints = 0.0;
         $letterCounts = ['A' => 0, 'B' => 0, 'C' => 0, 'D' => 0, 'E' => 0];
 
@@ -121,6 +124,10 @@ class AcademicProgressCalculator
 
             if (! $this->isFailing($row['letter'], $row['weight'])) {
                 $sksPassed += $row['sks'];
+
+                if ($row['semester'] === $runningSemester) {
+                    $runningSksPassed += $row['sks'];
+                }
             }
         }
 
@@ -130,6 +137,7 @@ class AcademicProgressCalculator
         }
 
         $gradedSemesterCount = count($series);
+        $settledSemesterCount = count($settledSeries);
         $ipk = $sksTotal > 0 ? round($qualityPoints / $sksTotal, 2) : null;
 
         return [
@@ -147,7 +155,7 @@ class AcademicProgressCalculator
             'ips_series' => $series,
             'latest_ips' => $this->latestIps($series),
             'graded_semester_count' => $gradedSemesterCount,
-            'average_sks_per_semester' => $gradedSemesterCount > 0 ? round($sksPassed / $gradedSemesterCount, 2) : null,
+            'average_sks_per_semester' => $settledSemesterCount > 0 ? round(($sksPassed - $runningSksPassed) / $settledSemesterCount, 2) : null,
             'excluded_semesters' => $this->excludedSemesters($semesters),
             'predicate_estimate' => $this->predicateEstimate($ipk),
         ];
@@ -207,6 +215,8 @@ class AcademicProgressCalculator
      * IPS of every regular semester that has at least one grade, oldest first
      *
      * Semesters without any grade are left out, so a chart has no false zero.
+     * `is_complete` says every row that can get a grade has one; a row of 0
+     * SKS never gets one, so it never keeps a semester partial.
      *
      * @param  list<array<string, mixed>>  $semesters
      * @return list<IpsPoint>
@@ -232,7 +242,9 @@ class AcademicProgressCalculator
 
             $computed = $sks > 0 ? round($qualityPoints / $sks, 2) : null;
             $portal = is_numeric($semester['ips'] ?? null) ? (float) $semester['ips'] : null;
-            $courseCount = count(is_array($semester['courses'] ?? null) ? $semester['courses'] : []);
+            $rows = is_array($semester['courses'] ?? null) ? $semester['courses'] : [];
+            $courseCount = count($rows);
+            $gradableCount = count(array_filter($rows, static fn (mixed $row): bool => is_array($row) && is_numeric($row['sks'] ?? null) && (int) $row['sks'] > 0));
 
             $series[] = [
                 'semester' => (int) $semester['semester'],
@@ -245,7 +257,7 @@ class AcademicProgressCalculator
                 'quality_points' => round($qualityPoints, 2),
                 'graded_count' => count($courses),
                 'course_count' => $courseCount,
-                'is_complete' => count($courses) === $courseCount,
+                'is_complete' => count($courses) >= $gradableCount,
             ];
         }
 
@@ -367,6 +379,59 @@ class AcademicProgressCalculator
     }
 
     /**
+     * Courses of the current KRS that already have a grade in the latest
+     * regular KHS semester
+     *
+     * The portal keeps showing a semester's KRS after its grades are out,
+     * until the next KRS opens; those courses are earned SKS by then and must
+     * not also count as the load still being taken. Only a KRS of that very
+     * semester is matched: the KRS and the latest KHS card list the same
+     * courses (at least 80% of the longer list is on both). A KRS of a new
+     * semester is not, even while the latest card is still the previous
+     * semester: a course retaken now that was graded (D or E) there is still
+     * being taken.
+     *
+     * @param  list<array<string, mixed>>  $krsCourses  course rows of KrsExtractor
+     * @param  list<array<string, mixed>>  $semesters  KHS semesters
+     * @return array{courses: int, sks: int}
+     */
+    public function gradedKrsCourses(array $krsCourses, array $semesters): array
+    {
+        $regular = $this->regularSemesters($semesters);
+        $latest = $regular === [] ? null : $regular[count($regular) - 1];
+        $krs = [];
+
+        foreach ($krsCourses as $course) {
+            if (! is_array($course)) {
+                continue;
+            }
+
+            $code = strtoupper(trim((string) ($course['code'] ?? '')));
+            $name = trim((string) ($course['name'] ?? ''));
+
+            if ($code !== '' || $name !== '') {
+                $krs[$this->courseKey($code, $name)] ??= is_numeric($course['sks'] ?? null) ? max(0, (int) $course['sks']) : 0;
+            }
+        }
+
+        if ($latest === null || ! $this->listsTheSameCourses(array_keys($krs), $this->courseKeys($latest))) {
+            return ['courses' => 0, 'sks' => 0];
+        }
+
+        $counted = [];
+
+        foreach ($this->gradedCourses($latest) as $course) {
+            $key = $this->courseKey($course['code'], $course['name']);
+
+            if (isset($krs[$key])) {
+                $counted[$key] = $krs[$key];
+            }
+        }
+
+        return ['courses' => count($counted), 'sks' => array_sum($counted)];
+    }
+
+    /**
      * Minimum average (IPS) over the next `additionalSks` SKS to reach `targetIpk`
      *
      * The required value is rounded up, so reaching it guarantees the target.
@@ -464,12 +529,37 @@ class AcademicProgressCalculator
     }
 
     /**
+     * The series without the running semester while its grades are still
+     * coming out: a trailing semester that is only partly graded is not a
+     * whole semester yet, so it neither lowers the average SKS per semester
+     * nor stands for the latest IPS on the strength of a single grade.
+     *
      * @param  list<IpsPoint>  $series
-     * @return array{semester: int, ips: float, previous_semester: int|null, previous_ips: float|null, delta: float|null}|null
+     * @return list<IpsPoint>
+     */
+    private function settledSeries(array $series): array
+    {
+        $count = count($series);
+
+        if ($count > 0 && ! $series[$count - 1]['is_complete']) {
+            array_pop($series);
+        }
+
+        return $series;
+    }
+
+    /**
+     * IPS of the latest fully graded semester; the running, partly graded
+     * one only when no other semester has a grade (`is_complete` false).
+     *
+     * @param  list<IpsPoint>  $series
+     * @return array{semester: int, ips: float, previous_semester: int|null, previous_ips: float|null, delta: float|null, is_complete: bool}|null
      */
     private function latestIps(array $series): ?array
     {
         $points = array_values(array_filter($series, static fn (array $point): bool => $point['ips'] !== null));
+        $settled = $this->settledSeries($points);
+        $points = $settled !== [] ? $settled : $points;
         $count = count($points);
 
         if ($count === 0) {
@@ -485,6 +575,7 @@ class AcademicProgressCalculator
             'previous_semester' => $previous['semester'] ?? null,
             'previous_ips' => $previous === null ? null : (float) $previous['ips'],
             'delta' => $previous === null ? null : round((float) $latest['ips'] - (float) $previous['ips'], 2),
+            'is_complete' => $latest['is_complete'],
         ];
     }
 
@@ -594,6 +685,47 @@ class AcademicProgressCalculator
     private function courseKey(string $code, string $name): string
     {
         return $code !== '' ? 'code:'.$code : 'name:'.mb_strtolower($name);
+    }
+
+    /**
+     * Keys of every course row of a KHS card, graded or not
+     *
+     * @param  array<string, mixed>  $semester
+     * @return list<string>
+     */
+    private function courseKeys(array $semester): array
+    {
+        $keys = [];
+
+        foreach (is_array($semester['courses'] ?? null) ? $semester['courses'] : [] as $course) {
+            if (! is_array($course)) {
+                continue;
+            }
+
+            $code = strtoupper(trim((string) ($course['code'] ?? '')));
+            $name = trim((string) ($course['name'] ?? ''));
+
+            if ($code !== '' || $name !== '') {
+                $keys[$this->courseKey($code, $name)] = true;
+            }
+        }
+
+        return array_keys($keys);
+    }
+
+    /**
+     * Whether two course lists stand for the same semester: at least 80% of
+     * the longer list is on both, so a course added or dropped late still
+     * matches while a handful of retakes in a new semester does not.
+     *
+     * @param  list<string>  $left
+     * @param  list<string>  $right
+     */
+    private function listsTheSameCourses(array $left, array $right): bool
+    {
+        $shared = count(array_intersect($left, $right));
+
+        return $shared > 0 && $shared * 5 >= max(count($left), count($right)) * 4;
     }
 
     private function baseLetter(string $letter): string

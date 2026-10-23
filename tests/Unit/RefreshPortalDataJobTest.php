@@ -42,6 +42,19 @@ class RefreshPortalDataJobTest extends TestCase
         $this->assertSame(['id' => '2265'], $this->jobProperty($restored, 'params'));
     }
 
+    public function test_the_job_stays_unique_for_as_long_as_it_may_run(): void
+    {
+        config(['portal.sync.lock_ttl' => 300]);
+
+        $warmUp = new RefreshPortalDataJob('laravel-session', 'campus-token', ['dashboard', 'assignments', 'krs', 'advising', 'payments', 'skkm', 'grades', 'exams']);
+        $single = new RefreshPortalDataJob('laravel-session', 'campus-token', ['krs']);
+
+        $this->assertSame(600, $warmUp->timeout);
+        $this->assertSame(600, $warmUp->uniqueFor());
+        $this->assertSame(120, $single->timeout);
+        $this->assertSame(300, $single->uniqueFor());
+    }
+
     public function test_refresh_job_rebuilds_datasets_from_upstream_and_broadcasts_their_keys(): void
     {
         Event::fake([PortalSyncStatusUpdated::class, PortalDataInvalidated::class]);
@@ -94,9 +107,145 @@ class RefreshPortalDataJobTest extends TestCase
         });
     }
 
+    public function test_the_crawl_of_every_class_and_meeting_runs_after_the_datasets_read_from_a_few_pages(): void
+    {
+        Event::fake([PortalSyncStatusUpdated::class, PortalDataInvalidated::class]);
+        $this->mockUsableSession(true);
+
+        $built = [];
+        $this->instance(
+            PortalDatasetBuilder::class,
+            Mockery::mock(PortalDatasetBuilder::class, function (MockInterface $mock) use (&$built): void {
+                $mock->shouldReceive('build')
+                    ->times(3)
+                    ->andReturnUsing(function (string $token, string $dataset) use (&$built): array {
+                        $built[] = $dataset;
+
+                        return ['dataset' => $dataset];
+                    });
+            })
+        );
+
+        app()->call([new RefreshPortalDataJob('laravel-session', 'campus-token', ['assignments', 'krs', 'dashboard']), 'handle']);
+
+        $this->assertSame(['krs', 'dashboard', 'assignments'], $built);
+    }
+
+    /**
+     * POST /api/refresh (the Sinkronkan button) can only name `dashboard`:
+     * its re-sync brings today's attendance along, straight after the
+     * schedule is stored and announced and ahead of the other datasets.
+     */
+    public function test_a_schedule_resync_brings_todays_attendance_along_right_after_the_schedule(): void
+    {
+        Event::fake([PortalSyncStatusUpdated::class, PortalDataInvalidated::class]);
+        $this->mockUsableSession(true);
+        $attendanceParams = PortalDatasetBuilder::DASHBOARD_ATTENDANCE_PARAMS;
+        // Built five minutes ago: still fresh, so no read would re-sync it.
+        app(PortalSnapshotStore::class)->put('campus-token', 'dashboard', ['date' => '2026-10-19', 'classes' => []], now()->subMinutes(5)->toISOString(), $attendanceParams);
+
+        $built = $this->mockBuilderRecording([
+            'dashboard' => ['classes_summary' => ['date' => '2026-10-19', 'today_classes' => [['course_code' => 'IF101']]]],
+        ]);
+
+        app()->call([new RefreshPortalDataJob('laravel-session', 'campus-token', ['dashboard', 'assignments', 'krs']), 'handle']);
+
+        $this->assertSame([
+            ['dashboard', []],
+            ['dashboard', $attendanceParams],
+            ['krs', []],
+            ['assignments', []],
+        ], $built->getArrayCopy());
+
+        $attendance = app(PortalSnapshotStore::class)->get('campus-token', 'dashboard', $attendanceParams);
+        $this->assertSame(['dataset' => 'dashboard', 'params' => $attendanceParams], $attendance['data']);
+        $this->assertSame('synced', $attendance['status']);
+
+        // The schedule is announced before its attendance is crawled, the attendance once it is stored.
+        $announced = Event::dispatched(PortalDataInvalidated::class)
+            ->map(fn (array $arguments): array => $arguments[0]->broadcastWith()['sync_keys'])
+            ->values()
+            ->all();
+        $this->assertCount(4, $announced);
+        $this->assertSame([['dashboard-overview'], ['dashboard-overview']], array_slice($announced, 0, 2));
+        Event::assertNotDispatched(PortalSyncStatusUpdated::class, fn (PortalSyncStatusUpdated $event): bool => ($event->broadcastWith()['status'] ?? null) === PortalOperationStage::Failed->value);
+    }
+
+    public function test_a_schedule_resync_leaves_the_attendance_alone_when_no_resync_of_it_is_due(): void
+    {
+        Event::fake([PortalSyncStatusUpdated::class, PortalDataInvalidated::class]);
+        $attendanceParams = PortalDatasetBuilder::DASHBOARD_ATTENDANCE_PARAMS;
+        $store = app(PortalSnapshotStore::class);
+        $withClasses = ['classes_summary' => ['date' => '2026-10-19', 'today_classes' => [['course_code' => 'IF101']]]];
+
+        // A day without classes has no attendance to check.
+        $this->mockUsableSession(true);
+        $store->put('campus-token', 'dashboard', ['date' => '2026-10-19', 'classes' => []], now()->subMinutes(5)->toISOString(), $attendanceParams);
+        $built = $this->mockBuilderRecording(['dashboard' => ['classes_summary' => ['date' => '2026-10-19', 'today_classes' => []]]]);
+        app()->call([new RefreshPortalDataJob('laravel-session', 'campus-token', ['dashboard']), 'handle']);
+        $this->assertSame([['dashboard', []]], $built->getArrayCopy());
+
+        // Synced moments ago (`force_cooldown`).
+        $this->mockUsableSession(true);
+        $store->put('campus-token', 'dashboard', ['date' => '2026-10-19', 'classes' => []], now()->subSeconds(10)->toISOString(), $attendanceParams);
+        $built = $this->mockBuilderRecording(['dashboard' => $withClasses]);
+        app()->call([new RefreshPortalDataJob('laravel-session', 'campus-token', ['dashboard']), 'handle']);
+        $this->assertSame([['dashboard', []]], $built->getArrayCopy());
+
+        // A job of its own is already queued for it.
+        $this->mockUsableSession(true);
+        $store->put('campus-token', 'dashboard', ['date' => '2026-10-19', 'classes' => []], now()->subMinutes(15)->toISOString(), $attendanceParams);
+        $store->markSyncing('campus-token', 'dashboard', $attendanceParams);
+        $built = $this->mockBuilderRecording(['dashboard' => $withClasses]);
+        app()->call([new RefreshPortalDataJob('laravel-session', 'campus-token', ['dashboard']), 'handle']);
+        $this->assertSame([['dashboard', []]], $built->getArrayCopy());
+
+        // That attendance job itself never follows anything up.
+        $this->mockUsableSession(true);
+        $built = $this->mockBuilderRecording(['dashboard' => $withClasses]);
+        app()->call([new RefreshPortalDataJob('laravel-session', 'campus-token', ['dashboard'], $attendanceParams), 'handle']);
+        $this->assertSame([['dashboard', $attendanceParams]], $built->getArrayCopy());
+    }
+
+    public function test_a_failed_attendance_resync_keeps_the_schedule_and_reports_a_partial_failure(): void
+    {
+        Event::fake([PortalSyncStatusUpdated::class, PortalDataInvalidated::class]);
+        $this->mockUsableSession(true);
+        $attendanceParams = PortalDatasetBuilder::DASHBOARD_ATTENDANCE_PARAMS;
+        app(PortalSnapshotStore::class)->put('campus-token', 'dashboard', ['date' => '2026-10-19', 'classes' => ['old']], now()->subMinutes(5)->toISOString(), $attendanceParams);
+
+        $this->instance(
+            PortalDatasetBuilder::class,
+            Mockery::mock(PortalDatasetBuilder::class, function (MockInterface $mock) use ($attendanceParams): void {
+                $mock->shouldReceive('build')
+                    ->with('campus-token', 'dashboard', [])
+                    ->once()
+                    ->andReturn(['classes_summary' => ['date' => '2026-10-19', 'today_classes' => [['course_code' => 'IF101']]]]);
+                $mock->shouldReceive('build')
+                    ->with('campus-token', 'dashboard', $attendanceParams)
+                    ->once()
+                    ->andThrow(PortalScrapingException::invalidResponse('https://my.cic.ac.id', 'Error page detected'));
+            })
+        );
+
+        app()->call([new RefreshPortalDataJob('laravel-session', 'campus-token', ['dashboard']), 'handle']);
+
+        $this->assertSame('IF101', app(PortalSnapshotStore::class)->get('campus-token', 'dashboard')['data']['classes_summary']['today_classes'][0]['course_code']);
+        $attendance = app(PortalSnapshotStore::class)->get('campus-token', 'dashboard', $attendanceParams);
+        $this->assertSame('failed', $attendance['status']);
+        $this->assertSame(['date' => '2026-10-19', 'classes' => ['old']], $attendance['data']);
+
+        Event::assertDispatchedTimes(PortalDataInvalidated::class, 1);
+        Event::assertDispatched(PortalSyncStatusUpdated::class, fn (PortalSyncStatusUpdated $event): bool => ($event->broadcastWith()['status'] ?? null) === PortalOperationStage::Completed->value);
+        Event::assertDispatched(PortalSyncStatusUpdated::class, fn (PortalSyncStatusUpdated $event): bool => ($event->broadcastWith()['status'] ?? null) === PortalOperationStage::Failed->value);
+    }
+
     public function test_refresh_job_timeout_grows_with_its_datasets(): void
     {
-        $this->assertSame(120, (new RefreshPortalDataJob('laravel-session', 'campus-token', ['dashboard']))->timeout);
+        $this->assertSame(120, (new RefreshPortalDataJob('laravel-session', 'campus-token', ['krs']))->timeout);
+        // A schedule re-sync also budgets for today's attendance that follows it; that re-sync itself does not.
+        $this->assertSame(150, (new RefreshPortalDataJob('laravel-session', 'campus-token', ['dashboard']))->timeout);
+        $this->assertSame(120, (new RefreshPortalDataJob('laravel-session', 'campus-token', ['dashboard'], PortalDatasetBuilder::DASHBOARD_ATTENDANCE_PARAMS))->timeout);
         $this->assertSame(600, (new RefreshPortalDataJob('laravel-session', 'campus-token', [
             'portal_context', 'krs', 'advising', 'payments', 'grades', 'skkm', 'announcements', 'exams',
         ]))->timeout);
@@ -177,6 +326,34 @@ class RefreshPortalDataJobTest extends TestCase
                 $mock->shouldNotReceive('validateSession');
             })
         );
+    }
+
+    /**
+     * A builder that records every build as [dataset, params] and returns
+     * `$payloads[$dataset]` for the schedule, a stub naming both otherwise.
+     *
+     * @param  array<string, array<string, mixed>>  $payloads
+     * @return \ArrayObject<int, array{0: string, 1: array<string, mixed>}>
+     */
+    private function mockBuilderRecording(array $payloads): \ArrayObject
+    {
+        $built = new \ArrayObject;
+
+        $this->instance(
+            PortalDatasetBuilder::class,
+            Mockery::mock(PortalDatasetBuilder::class, function (MockInterface $mock) use ($built, $payloads): void {
+                $mock->shouldReceive('build')
+                    ->andReturnUsing(function (string $token, string $dataset, array $params = []) use ($built, $payloads): array {
+                        $built[] = [$dataset, $params];
+
+                        return $params === [] && isset($payloads[$dataset])
+                            ? $payloads[$dataset]
+                            : ['dataset' => $dataset, 'params' => $params];
+                    });
+            })
+        );
+
+        return $built;
     }
 
     private function jobProperty(RefreshPortalDataJob $job, string $property): mixed

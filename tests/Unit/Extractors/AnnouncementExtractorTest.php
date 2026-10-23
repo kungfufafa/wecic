@@ -125,6 +125,56 @@ class AnnouncementExtractorTest extends TestCase
         $this->assertSame($items[0]['published_date'], $items[1]['published_date']);
         $this->assertNotSame($items[0]['id'], $items[1]['id']);
         $this->assertSame($items[0]['id'], $this->extractFixture(self::PAGE_TWO)['items'][0]['id']);
+        // Only the colliding pair falls back to its wording-based legacy id.
+        $this->assertSame([$items[0]['legacy_id'], $items[1]['legacy_id']], [$items[0]['id'], $items[1]['id']]);
+        $this->assertSame(
+            AnnouncementExtractor::stableId('Format Surat Keterangan Masih Kuliah', '2026-04-13', 'Biro Administrasi Akademik dan Kemahasiswaan'),
+            $items[2]['id']
+        );
+    }
+
+    public function test_an_edit_to_the_body_keeps_the_id(): void
+    {
+        $original = $this->extractHtml($this->pageWithRows($this->row('Pengisian KRS Ganjil', '<p>Batas pengisian KRS 19 Oktober 2026.</p>')))['items'][0];
+        $edited = $this->extractHtml($this->pageWithRows($this->row('Pengisian  krs ganjil', '<p>Batas pengisian KRS 21 Oktober 2026 (diperpanjang).</p>')))['items'][0];
+
+        $this->assertSame($original['id'], $edited['id']);
+        $this->assertSame(AnnouncementExtractor::stableId('Pengisian KRS Ganjil', '2026-10-05', 'Biro Administrasi Akademik dan Kemahasiswaan'), $original['id']);
+        $this->assertNotSame($original['legacy_id'], $edited['legacy_id']);
+        // The id announcements had before: old notification links still carry it.
+        $this->assertSame(
+            sha1('Pengisian KRS Ganjil|2026-10-05|Biro Administrasi Akademik dan Kemahasiswaan|Batas pengisian KRS 19 Oktober 2026.'),
+            $original['legacy_id']
+        );
+    }
+
+    public function test_a_different_title_day_or_unit_is_another_announcement(): void
+    {
+        $ids = array_column($this->extractHtml($this->pageWithRows(
+            $this->row('Pengisian KRS Ganjil', '<p>Isi</p>')
+            .$this->row('Pengisian KRS Genap', '<p>Isi</p>')
+            .$this->row('Pengisian KRS Ganjil', '<p>Isi</p>', 'Selasa, 06 Oktober 2026, Dipublish oleh : Staf BAAK (Biro Administrasi Akademik dan Kemahasiswaan)')
+            .$this->row('Pengisian KRS Ganjil', '<p>Isi</p>', 'Senin, 05 Oktober 2026, Dipublish oleh : Staf Keuangan (Bagian Keuangan)'),
+            '[ 1-1 of 4 ]'
+        ))['items'], 'id');
+
+        $this->assertCount(4, array_unique($ids));
+        $this->assertSame(AnnouncementExtractor::stableId('Pengisian KRS Ganjil', '2026-10-05', 'Bagian Keuangan'), $ids[3]);
+    }
+
+    public function test_an_announcement_without_a_title_is_identified_by_its_wording(): void
+    {
+        $item = $this->extractHtml($this->pageWithRows("<tr>\n<td align=\"justify\">\n<p>Kampus libur pada 28 Oktober 2026.</p>\n</td>\n</tr>\n"))['items'][0];
+
+        $this->assertSame('', $item['title']);
+        $this->assertSame($item['legacy_id'], $item['id']);
+    }
+
+    public function test_stable_ids_leave_items_read_before_them_alone(): void
+    {
+        $cached = ['id' => sha1('old-wording-based-id'), 'title' => 'Jadwal UTS', 'published_date' => '2026-10-05', 'publisher_unit' => 'BAAK'];
+
+        $this->assertSame([$cached], AnnouncementExtractor::withStableIds([$cached]));
     }
 
     public function test_it_decodes_cloudflare_emails_in_the_body(): void

@@ -12,9 +12,11 @@ namespace App\Services;
  * The dashboard never waits on the portal for these: a missing snapshot is
  * queued in the background and its tile reports `pending`. A value the
  * portal did not give stays null (`unavailable`), so the UI shows "–",
- * never a made-up 0 or "Rp 0" (Fase 0.7).
+ * never a made-up 0 or "Rp 0" (Fase 0.7). An IPK is `empty`, not
+ * `unavailable`, when the KHS was read and simply has no grade yet.
  *
  * @phpstan-type MetricStatus 'ready'|'pending'|'unavailable'|'failed'
+ * @phpstan-type IpkStatus 'ready'|'pending'|'unavailable'|'failed'|'empty'
  */
 class DashboardMetricsBuilder
 {
@@ -31,7 +33,7 @@ class DashboardMetricsBuilder
      *
      * @param  array<string, array{data: array<string, mixed>|null, meta: array<string, mixed>}>  $reads  results of PortalDatasetRepository::peekMany()
      * @return array{
-     *     ipk: array{value: float|null, source: 'official'|'computed'|null, predicate_estimate: string|null, status: MetricStatus},
+     *     ipk: array{value: float|null, source: 'official'|'computed'|null, predicate_estimate: string|null, status: IpkStatus},
      *     sks_passed: array{value: int|null, conversion_sks: int|null, target_sks: int|null, remaining_sks: int|null, progress_percent: float|null, status: MetricStatus},
      *     sks_current: array{value: int|null, courses: int|null, status: MetricStatus},
      *     bills: array{status: 'clear'|'outstanding'|'unknown'|'pending'|'failed', has_outstanding: bool|null, total_amount: int|null, total_amount_label: string|null, count: int|null},
@@ -74,6 +76,9 @@ class DashboardMetricsBuilder
     }
 
     /**
+     * `empty` when the KHS was read but has no grade yet (a first-semester
+     * student): a normal state, unlike `unavailable` (the IPK could not be read).
+     *
      * @param  array<string, mixed>|null  $grades
      * @return array{value: float|null, source: 'official'|'computed'|null, predicate_estimate: string|null, status: string}
      */
@@ -82,13 +87,31 @@ class DashboardMetricsBuilder
         $summary = is_array($grades['summary'] ?? null) ? $grades['summary'] : [];
         $ipk = is_int($summary['ipk'] ?? null) || is_float($summary['ipk'] ?? null) ? (float) $summary['ipk'] : null;
         $source = in_array($summary['source'] ?? null, ['official', 'computed'], true) ? $summary['source'] : null;
+        $status = $this->status($sourceStatus, $ipk !== null);
 
         return [
             'value' => $ipk,
             'source' => $ipk !== null ? $source : null,
             'predicate_estimate' => $ipk !== null && is_string($summary['predicate_estimate'] ?? null) ? $summary['predicate_estimate'] : null,
-            'status' => $this->status($sourceStatus, $ipk !== null),
+            'status' => $status === 'unavailable' && $grades !== null && $this->hasNoGradesYet($grades) ? 'empty' : $status,
         ];
+    }
+
+    /**
+     * The grades snapshot says there is nothing to average yet: no KHS at all,
+     * or KHS cards whose courses have no grade.
+     *
+     * @param  array<string, mixed>  $grades
+     */
+    private function hasNoGradesYet(array $grades): bool
+    {
+        if (($grades['found'] ?? null) === false) {
+            return true;
+        }
+
+        $computed = $grades['summary']['computed'] ?? null;
+
+        return is_array($computed) && ($computed['course_count'] ?? null) === 0;
     }
 
     /**

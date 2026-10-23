@@ -187,7 +187,7 @@ class PortalScrapingServiceHelpersTest extends TestCase
         $service = $this->service();
 
         $this->assertSame('files/skkm/Pedoman_SKKM_2024.pdf', $service->call('campusFilePath', '../files/skkm/Pedoman_SKKM_2024.pdf'));
-        $this->assertSame('files/Panduan_Contoh.pdf', $service->call('campusFilePath', 'https://my.cic.ac.id/portal/files/Panduan_Contoh.pdf'));
+        $this->assertSame('files/Panduan_Contoh.pdf', $service->call('campusFilePath', config('portal.base_url').'/portal/files/Panduan_Contoh.pdf'));
         $this->assertSame('files/fotostudent/foto contoh.jpg', $service->call('campusFilePath', '../files/fotostudent/foto%20contoh.jpg'));
         $this->assertNull($service->call('campusFilePath', '?mod=student&act=delskkm&id=1'));
         $this->assertNull($service->call('campusFilePath', '../files/../mahasiswa/index.php'));

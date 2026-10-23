@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Enums\PortalOperationStage;
 use App\Events\PortalUploadProgressed;
+use App\Exceptions\PortalOfflineException;
 use App\Http\Middleware\VerifyCsrfTokenMiddleware;
 use App\Jobs\ProcessPortalAssignmentUploadJob;
 use App\Jobs\ProcessPortalExamUploadJob;
@@ -49,6 +51,7 @@ class PortalActionControllerTest extends TestCase
     {
         parent::setUp();
 
+        Storage::fake();
         $this->withoutMiddleware(VerifyCsrfTokenMiddleware::class);
     }
 
@@ -96,11 +99,12 @@ class PortalActionControllerTest extends TestCase
         $response->assertStatus(202)
             ->assertJson([
                 'success' => true,
+                'status' => 'success',
                 'data' => [
                     'status' => 'queued',
                 ],
             ])
-            ->assertJsonStructure(['data' => ['operation_id']]);
+            ->assertJsonStructure(['data' => ['operation_id'], 'meta' => ['timestamp']]);
 
         // The upload starts right after the response instead of waiting for a queue worker.
         Bus::assertDispatchedAfterResponse(ProcessPortalAssignmentUploadJob::class);
@@ -407,6 +411,7 @@ class PortalActionControllerTest extends TestCase
                         'course_id' => 8810,
                     ])
                     ->andReturn([
+                        'attendance_target_reliable' => true,
                         'attendance_payload' => [
                             'courseid' => '8837',
                             'modulesid' => '29808',
@@ -435,6 +440,56 @@ class PortalActionControllerTest extends TestCase
                     'status' => 'marked',
                 ],
             ]);
+    }
+
+    public function test_mark_attendance_refuses_a_shortcut_target_without_todays_material(): void
+    {
+        $this->mockValidCampusSession('token-context');
+
+        $this->instance(
+            AttendanceShortcutService::class,
+            Mockery::mock(AttendanceShortcutService::class, function (MockInterface $mock): void {
+                $mock->shouldReceive('resolveAttendanceShortcutForClass')->once()->andReturn([
+                    'attendance_target_reliable' => false,
+                    'attendance_payload' => ['courseid' => '8837', 'modulesid' => '29001', 'pertemuan' => 1],
+                ]);
+            })
+        );
+        $this->instance(
+            SipandaiSubmissionService::class,
+            Mockery::mock(SipandaiSubmissionService::class, function (MockInterface $mock): void {
+                $mock->shouldNotReceive('submitAttendance');
+            })
+        );
+
+        $this->withSession(['campus_session_token' => 'token-context'])
+            ->postJson('/api/attendance', [
+                'kode' => '35533429',
+                'shortcut_context' => ['class_id' => 2265, 'dosen_id' => 5240, 'course_id' => 8810],
+            ])
+            ->assertStatus(422)
+            ->assertJsonPath('success', false);
+    }
+
+    public function test_mark_attendance_sends_a_typed_hex_code_like_a_scanned_one(): void
+    {
+        $this->mockValidCampusSession('token-typed-code');
+        $this->instance(PortalDatasetRepository::class, Mockery::mock(PortalDatasetRepository::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('invalidate')->once();
+        }));
+        $this->instance(
+            SipandaiSubmissionService::class,
+            Mockery::mock(SipandaiSubmissionService::class, function (MockInterface $mock): void {
+                $mock->shouldReceive('submitAttendance')
+                    ->once()
+                    ->withArgs(fn ($token, $courseId, $moduleId, $meetingNumber, $overrides): bool => $overrides['kode'] === '8a2b9c1d')
+                    ->andReturn(['success' => true, 'message' => 'Absensi berhasil dicatat.', 'data' => ['status' => 'marked']]);
+            })
+        );
+
+        $this->withSession(['campus_session_token' => 'token-typed-code'])
+            ->postJson('/api/attendance', ['courseid' => 8837, 'modulesid' => 29808, 'pertemuan' => 2, 'kode' => ' 8A2B9C1D '])
+            ->assertOk();
     }
 
     public function test_attendance_today_shortcuts_requires_session(): void
@@ -549,6 +604,134 @@ class PortalActionControllerTest extends TestCase
                 ],
             ])
             ->assertJsonPath('meta.data_origin', 'server_cache');
+    }
+
+    public function test_pending_assignments_explain_offline_mode_instead_of_failing(): void
+    {
+        $this->mockValidCampusSession('token-offline');
+        $this->instance(PortalDatasetRepository::class, Mockery::mock(PortalDatasetRepository::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('read')->once()->andThrow(PortalOfflineException::offlineSession());
+        }));
+
+        $this->withSession(['campus_session_token' => 'token-offline'])
+            ->getJson('/api/assignment/pending')
+            ->assertStatus(503)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('status', 'error')
+            ->assertJsonPath('meta.offline', true)
+            ->assertJsonStructure(['meta' => ['timestamp']]);
+    }
+
+    public function test_exam_list_explains_offline_mode_instead_of_failing(): void
+    {
+        $this->mockValidCampusSession('token-offline');
+        $this->instance(PortalDatasetRepository::class, Mockery::mock(PortalDatasetRepository::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('read')->once()->andThrow(PortalOfflineException::offlineSession());
+        }));
+
+        $this->withSession(['campus_session_token' => 'token-offline'])
+            ->getJson('/api/exam')
+            ->assertStatus(503)
+            ->assertJsonPath('meta.offline', true);
+    }
+
+    public function test_upload_assignment_refuses_a_second_upload_of_the_same_assignment_while_the_first_runs(): void
+    {
+        Bus::fake();
+        $this->mockValidCampusSession('token-123', 2);
+
+        $first = $this->withSession(['campus_session_token' => 'token-123'])
+            ->post('/api/assignment', [
+                'courses_id' => 9000,
+                'id' => 29833,
+                'pertemuan' => 2,
+                'attachment' => UploadedFile::fake()->create('task.pdf', 128, 'application/pdf'),
+            ], ['Accept' => 'application/json'])
+            ->assertStatus(202);
+
+        $this->withSession(['campus_session_token' => 'token-123'])
+            ->post('/api/assignment', [
+                'courses_id' => 9000,
+                'id' => 29833,
+                'pertemuan' => 2,
+                'attachment' => UploadedFile::fake()->create('task-lagi.pdf', 128, 'application/pdf'),
+            ], ['Accept' => 'application/json'])
+            ->assertStatus(409)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('status', 'error')
+            ->assertJsonPath('data.operation_id', $first->json('data.operation_id'));
+
+        Bus::assertDispatchedAfterResponseTimes(ProcessPortalAssignmentUploadJob::class, 1);
+    }
+
+    public function test_an_upload_file_is_named_after_its_operation_which_remembers_its_lock(): void
+    {
+        Bus::fake();
+        $this->mockValidCampusSession('token-123', 2);
+        $this->mockExamListSnapshot('token-123', $this->openExamRow());
+
+        $response = $this->withSession(['campus_session_token' => 'token-123'])
+            ->post('/api/assignment', [
+                'courses_id' => 9000,
+                'id' => 29833,
+                'pertemuan' => 2,
+                'attachment' => UploadedFile::fake()->create('task.pdf', 128, 'application/pdf'),
+            ], ['Accept' => 'application/json'])
+            ->assertStatus(202);
+
+        $operationId = (string) $response->json('data.operation_id');
+        $upload = app(PortalOperationTracker::class)->get($operationId)['upload'];
+
+        $this->assertSame('portal-uploads/'.$operationId.'.pdf', $upload['file']);
+        Storage::assertExists($upload['file']);
+        $this->assertStringEndsWith(':assignment:9000:29833:2', $upload['lock_key']);
+        $this->assertFalse(Cache::lock($upload['lock_key'], 600)->get());
+        $this->assertTrue(Cache::restoreLock($upload['lock_key'], $upload['lock_owner'])->release());
+        Bus::assertDispatchedAfterResponse(
+            ProcessPortalAssignmentUploadJob::class,
+            fn (ProcessPortalAssignmentUploadJob $job): bool => (fn (): string => $this->storedFilePath)->call($job) === $upload['file']
+        );
+
+        $exam = $this->withSession(['campus_session_token' => 'token-123'])
+            ->post('/api/exam', ['id' => 8833, 'attachment' => UploadedFile::fake()->create('uas.zip', 64, 'application/zip')], ['Accept' => 'application/json'])
+            ->assertStatus(202);
+
+        Storage::assertExists('portal-uploads/'.$exam->json('data.operation_id').'.zip');
+    }
+
+    public function test_an_upload_that_cannot_be_registered_leaves_no_file_and_frees_its_target(): void
+    {
+        Bus::fake();
+        $this->mockValidCampusSession('token-123', 2);
+        $tracker = Mockery::mock(PortalOperationTracker::class)->makePartial();
+        $tracker->shouldReceive('start')->once()->andThrow(new \RuntimeException('Cache store unavailable'));
+        $this->instance(PortalOperationTracker::class, $tracker);
+
+        $this->withSession(['campus_session_token' => 'token-123'])
+            ->post('/api/assignment', [
+                'courses_id' => 9000,
+                'id' => 29833,
+                'pertemuan' => 2,
+                'attachment' => UploadedFile::fake()->create('task.pdf', 128, 'application/pdf'),
+            ], ['Accept' => 'application/json'])
+            ->assertStatus(500)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('status', 'error')
+            ->assertJsonPath('message', 'Upload tugas gagal diproses.');
+
+        $this->assertSame([], Storage::allFiles());
+        Bus::assertNotDispatchedAfterResponse(ProcessPortalAssignmentUploadJob::class);
+
+        $tracker->shouldReceive('start')->passthru();
+
+        $this->withSession(['campus_session_token' => 'token-123'])
+            ->post('/api/assignment', [
+                'courses_id' => 9000,
+                'id' => 29833,
+                'pertemuan' => 2,
+                'attachment' => UploadedFile::fake()->create('task.pdf', 128, 'application/pdf'),
+            ], ['Accept' => 'application/json'])
+            ->assertStatus(202);
     }
 
     public function test_delete_assignment_requires_session(): void
@@ -910,6 +1093,7 @@ class PortalActionControllerTest extends TestCase
         $file = UploadedFile::fake()->create('uts.zip', 256, 'application/zip');
 
         $this->mockValidCampusSession('token-exam-upload');
+        $this->mockExamListSnapshot('token-exam-upload', $this->openExamRow());
 
         $response = $this->withSession(['campus_session_token' => 'token-exam-upload'])
             ->post('/api/exam', [
@@ -928,6 +1112,164 @@ class PortalActionControllerTest extends TestCase
             ->assertJsonStructure(['data' => ['operation_id']]);
 
         Bus::assertDispatchedAfterResponse(ProcessPortalExamUploadJob::class);
+    }
+
+    public function test_upload_exam_refuses_an_id_outside_the_exam_list(): void
+    {
+        Bus::fake();
+        $this->mockValidCampusSession('token-exam-upload');
+        $this->mockExamListSnapshot('token-exam-upload', $this->openExamRow());
+
+        $this->withSession(['campus_session_token' => 'token-exam-upload'])
+            ->post('/api/exam', [
+                'id' => 9524,
+                'attachment' => UploadedFile::fake()->create('uas.pdf', 64, 'application/pdf'),
+            ], ['Accept' => 'application/json'])
+            ->assertNotFound()
+            ->assertJsonPath('success', false);
+
+        Bus::assertNotDispatchedAfterResponse(ProcessPortalExamUploadJob::class);
+    }
+
+    public function test_upload_exam_refuses_an_exam_the_portal_has_not_opened(): void
+    {
+        Bus::fake();
+        $this->mockValidCampusSession('token-exam-upload');
+        $this->mockExamListSnapshot('token-exam-upload', [
+            'id' => 8833,
+            'source' => 'exam_list_with_class_id',
+            'upload_url' => null,
+            'can_upload' => false,
+        ]);
+
+        $this->withSession(['campus_session_token' => 'token-exam-upload'])
+            ->post('/api/exam', [
+                'id' => 8833,
+                'attachment' => UploadedFile::fake()->create('uas.pdf', 64, 'application/pdf'),
+            ], ['Accept' => 'application/json'])
+            ->assertStatus(422)
+            ->assertJsonPath('data.status', 'upload_unavailable');
+
+        Bus::assertNotDispatchedAfterResponse(ProcessPortalExamUploadJob::class);
+    }
+
+    public function test_upload_exam_still_reaches_the_portal_check_when_the_exam_list_cannot_be_read(): void
+    {
+        Bus::fake();
+        $this->mockValidCampusSession('token-exam-upload');
+        $this->instance(PortalDatasetRepository::class, Mockery::mock(PortalDatasetRepository::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('read')->once()->andThrow(new \RuntimeException('Exam page failed'));
+        }));
+
+        $this->withSession(['campus_session_token' => 'token-exam-upload'])
+            ->post('/api/exam', ['id' => 8833, 'attachment' => UploadedFile::fake()->create('uas.pdf', 64, 'application/pdf')], ['Accept' => 'application/json'])
+            ->assertStatus(202);
+
+        Bus::assertDispatchedAfterResponse(ProcessPortalExamUploadJob::class);
+    }
+
+    public function test_upload_exam_refuses_a_second_upload_while_the_first_runs(): void
+    {
+        Bus::fake();
+        $this->mockValidCampusSession('token-exam-upload', 2);
+        $this->mockExamListSnapshot('token-exam-upload', $this->openExamRow());
+
+        $first = $this->withSession(['campus_session_token' => 'token-exam-upload'])
+            ->post('/api/exam', ['id' => 8833, 'attachment' => UploadedFile::fake()->create('uas.pdf', 64, 'application/pdf')], ['Accept' => 'application/json'])
+            ->assertStatus(202);
+
+        $this->withSession(['campus_session_token' => 'token-exam-upload'])
+            ->post('/api/exam', ['id' => 8833, 'attachment' => UploadedFile::fake()->create('uas-revisi.pdf', 64, 'application/pdf')], ['Accept' => 'application/json'])
+            ->assertStatus(409)
+            ->assertJsonPath('data.operation_id', $first->json('data.operation_id'));
+    }
+
+    public function test_an_upload_that_stopped_reporting_no_longer_blocks_the_next_one(): void
+    {
+        Bus::fake();
+        $this->mockValidCampusSession('token-exam-upload', 3);
+        $this->mockExamListSnapshot('token-exam-upload', $this->openExamRow());
+
+        $first = $this->withSession(['campus_session_token' => 'token-exam-upload'])
+            ->post('/api/exam', ['id' => 8833, 'attachment' => UploadedFile::fake()->create('uas.pdf', 64, 'application/pdf')], ['Accept' => 'application/json'])
+            ->assertStatus(202);
+
+        $this->travel(2)->minutes();
+
+        $this->withSession(['campus_session_token' => 'token-exam-upload'])
+            ->post('/api/exam', ['id' => 8833, 'attachment' => UploadedFile::fake()->create('uas-lagi.pdf', 64, 'application/pdf')], ['Accept' => 'application/json'])
+            ->assertStatus(409)
+            ->assertJsonPath('data.operation_id', $first->json('data.operation_id'));
+
+        $this->travel(2)->minutes();
+
+        $retry = $this->withSession(['campus_session_token' => 'token-exam-upload'])
+            ->post('/api/exam', ['id' => 8833, 'attachment' => UploadedFile::fake()->create('uas-lagi.pdf', 64, 'application/pdf')], ['Accept' => 'application/json'])
+            ->assertStatus(202);
+
+        $this->assertNotSame($first->json('data.operation_id'), $retry->json('data.operation_id'));
+        Bus::assertDispatchedAfterResponseTimes(ProcessPortalExamUploadJob::class, 2);
+    }
+
+    public function test_a_finished_upload_whose_lock_was_never_released_does_not_block_the_next_one(): void
+    {
+        Bus::fake();
+        $this->mockValidCampusSession('token-123', 2);
+
+        $first = $this->withSession(['campus_session_token' => 'token-123'])
+            ->post('/api/assignment', [
+                'courses_id' => 9000,
+                'id' => 29833,
+                'pertemuan' => 2,
+                'attachment' => UploadedFile::fake()->create('task.pdf', 128, 'application/pdf'),
+            ], ['Accept' => 'application/json'])
+            ->assertStatus(202);
+
+        app(PortalOperationTracker::class)->progress((string) $first->json('data.operation_id'), PortalOperationStage::Unverified, 'Status upload tugas belum pasti.', 100);
+
+        $this->withSession(['campus_session_token' => 'token-123'])
+            ->post('/api/assignment', [
+                'courses_id' => 9000,
+                'id' => 29833,
+                'pertemuan' => 2,
+                'attachment' => UploadedFile::fake()->create('task-lagi.pdf', 128, 'application/pdf'),
+            ], ['Accept' => 'application/json'])
+            ->assertStatus(202);
+
+        Bus::assertDispatchedAfterResponseTimes(ProcessPortalAssignmentUploadJob::class, 2);
+    }
+
+    public function test_upload_exam_uses_the_open_row_when_a_class_row_shares_its_id(): void
+    {
+        Bus::fake();
+        $this->mockValidCampusSession('token-exam-upload');
+        $this->instance(PortalDatasetRepository::class, Mockery::mock(PortalDatasetRepository::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('read')->once()->andReturn([
+                'data' => ['exams' => [
+                    ['id' => 8833, 'course_name' => 'Algoritma', 'status' => 'UTS', 'source' => 'class_schedule_fallback', 'upload_url' => null, 'can_upload' => false],
+                    ['id' => 8833, 'course_name' => 'Algoritma', 'status' => 'UAS', ...$this->openExamRow()],
+                ]],
+                'meta' => [],
+            ]);
+        }));
+
+        $this->withSession(['campus_session_token' => 'token-exam-upload'])
+            ->post('/api/exam', ['id' => 8833, 'attachment' => UploadedFile::fake()->create('uas.pdf', 64, 'application/pdf')], ['Accept' => 'application/json'])
+            ->assertStatus(202);
+
+        Bus::assertDispatchedAfterResponse(ProcessPortalExamUploadJob::class);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function openExamRow(): array
+    {
+        return [
+            'id' => 8833,
+            'upload_url' => '?mod=sipandai&act=sendujian&id=8833',
+            'can_upload' => true,
+        ];
     }
 
     private function mockServiceExpectingSubmitAssignment(string $token, UploadedFile $expectedFile): void
@@ -1236,13 +1578,13 @@ class PortalActionControllerTest extends TestCase
         );
     }
 
-    private function mockValidCampusSession(string $token): void
+    private function mockValidCampusSession(string $token, int $requests = 1): void
     {
         $this->instance(
             PortalSessionManager::class,
-            Mockery::mock(PortalSessionManager::class, function (MockInterface $mock) use ($token): void {
+            Mockery::mock(PortalSessionManager::class, function (MockInterface $mock) use ($token, $requests): void {
                 $mock->shouldReceive('validateSession')
-                    ->once()
+                    ->times($requests)
                     ->with($token)
                     ->andReturnTrue();
             })

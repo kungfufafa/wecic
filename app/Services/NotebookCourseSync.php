@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Exceptions\NotebookSourceException;
 use App\Models\Notebook;
+use App\Models\NotebookDismissal;
 use App\Models\NotebookSource;
 use App\Models\PortalArchivedFile;
 use Illuminate\Support\Facades\Log;
@@ -19,8 +21,10 @@ use Illuminate\Support\Facades\Log;
  * meeting joins its course notebook as a note (topic, outline, schedule,
  * assignment and deadline) plus the course files of that meeting from the
  * archive, on its own whenever its page is read from the portal; files
- * archived later attach themselves. Nothing here contacts the portal:
- * callers pass the dataset they already read.
+ * archived later attach themselves. Files that join on their own are read
+ * when the student opens the notebook (NotebookLibrary::readWaitingSources),
+ * and what the student removed from the notebook stays out. Nothing here
+ * contacts the portal: callers pass the dataset they already read.
  *
  * @phpstan-type ClassParams array{id?: string, dosen_id?: string, course_id?: string}
  * @phpstan-type MeetingParams array{meeting_id: string, courses_id: string}
@@ -150,17 +154,44 @@ class NotebookCourseSync
     }
 
     /**
+     * Whether the student takes this course: it is in the stored class
+     * list, or it has its course notebook already (a course of an earlier
+     * semester). Files and notebooks are only made for such a course.
+     */
+    public function takesCourse(string $sessionToken, string $courseKey): bool
+    {
+        return $this->describeCourse($sessionToken, $courseKey) !== null
+            || $this->findCourseNotebook($this->owner->key($sessionToken), $courseKey) !== null;
+    }
+
+    /**
      * Add one meeting to its course notebook: the meeting note, the
      * meeting's archived files, and the course RPS. Files the archive does
-     * not have yet are queued; they attach themselves once archived.
+     * not have yet are queued; they attach themselves once archived. The
+     * files wait for the notebook to be opened before they are read, and
+     * files the student removed stay out.
+     *
+     * `$byStudent` marks the student adding this very meeting, which brings
+     * it back if it was removed before.
      *
      * @param  array<string, mixed>  $meetingDetail
      * @param  MeetingParams  $params
      * @return array{note: NotebookSource, files: list<NotebookSource>, meeting_number: int|null, queued_files: int}
+     *
+     * @throws NotebookSourceException When the notebook has no room for a new meeting.
      */
-    public function addMeeting(string $sessionToken, Notebook $notebook, array $meetingDetail, array $params): array
+    public function addMeeting(string $sessionToken, Notebook $notebook, array $meetingDetail, array $params, bool $byStudent = false): array
     {
         $meetingId = (string) $params['meeting_id'];
+
+        if (! $this->canAddMeeting($notebook, $meetingId)) {
+            throw new NotebookSourceException('Notebook mata kuliah ini sudah mencapai batas jumlah sumber. Hapus sumber yang tidak perlu dulu.');
+        }
+
+        if ($byStudent) {
+            $notebook->dismissals()->where('kind', NotebookDismissal::KIND_MEETING)->where('reference', $meetingId)->delete();
+        }
+
         $meetingNumber = $this->meetingNumber($meetingDetail);
         $note = $this->library->addMeetingNote(
             $notebook,
@@ -175,7 +206,9 @@ class NotebookCourseSync
             ->where('meeting_id', $meetingId)
             ->orderBy('kind')
             ->get()
-            ->map(fn (PortalArchivedFile $file): NotebookSource => $this->library->addArchivedFile($notebook, $file))
+            ->map(fn (PortalArchivedFile $file): ?NotebookSource => $this->library->addArchivedFile($notebook, $file, byStudent: false))
+            ->filter()
+            ->values()
             ->all();
         array_push($files, ...$this->attachCourseFiles($notebook));
 
@@ -194,10 +227,32 @@ class NotebookCourseSync
     }
 
     /**
+     * A meeting already in the notebook can always be refreshed; a new one
+     * needs room for its note.
+     */
+    public function canAddMeeting(Notebook $notebook, string $meetingId): bool
+    {
+        return $notebook->meetingSources()->where('meeting_id', $meetingId)->exists() || $notebook->sourceRoom() > 0;
+    }
+
+    /**
+     * Whether the student removed this meeting from the notebook; only
+     * adding it by hand brings it back.
+     */
+    public function isMeetingDismissed(Notebook $notebook, string $meetingId): bool
+    {
+        return ! $notebook->meetingSources()->where('meeting_id', $meetingId)->exists()
+            && $notebook->isDismissed(NotebookDismissal::KIND_MEETING, $meetingId);
+    }
+
+    /**
      * A meeting MyCIC just read from the portal joins its course notebook
      * on its own (`notebook.course_notebooks.auto_add_opened_meetings`),
-     * so opening a meeting page is all it takes. Never throws: the
-     * notebook must not fail the read that found the meeting.
+     * so opening a meeting page is all it takes. Only for a course in the
+     * student's stored class list, or one that has its notebook already: a
+     * meeting link of another class (shared by a classmate) creates no
+     * notebook and archives no files. Never throws: the notebook must not
+     * fail the read that found the meeting.
      *
      * @param  array<string, mixed>  $meetingDetail
      * @param  array<string, mixed>  $params  `meeting_id` and `courses_id`
@@ -215,14 +270,16 @@ class NotebookCourseSync
                 return null;
             }
 
-            $course = $this->describeCourse($sessionToken, $courseKey) ?? [
-                'course_name' => $this->courseNameFromMeeting($meetingDetail)
-                    ?? PortalArchivedFile::query()->forOwner($ownerHash)->where('course_key', $courseKey)->whereNotNull('course_name')->value('course_name'),
-            ];
-            $notebook = $this->courseNotebook($ownerHash, $courseKey, $course);
-            $tracked = $notebook->meetingSources()->where('meeting_id', $meetingId)->exists();
+            $course = $this->describeCourse($sessionToken, $courseKey);
+            $notebook = $course !== null
+                ? $this->courseNotebook($ownerHash, $courseKey, $course)
+                : $this->findCourseNotebook($ownerHash, $courseKey);
 
-            if (! $tracked && $notebook->sources()->count() >= (int) config('notebook.limits.max_sources', 30)) {
+            if ($notebook === null || $this->isMeetingDismissed($notebook, $meetingId)) {
+                return null;
+            }
+
+            if (! $this->canAddMeeting($notebook, $meetingId)) {
                 Log::info('Meeting not added to the course notebook: source limit reached', ['notebook_id' => $notebook->id]);
 
                 return null;
@@ -256,7 +313,8 @@ class NotebookCourseSync
 
             $tracked = $file->kind === 'rps' || ($file->meeting_id !== null && $notebook->meetingSources()->where('meeting_id', $file->meeting_id)->exists());
 
-            return $tracked ? $this->library->addArchivedFile($notebook, $file) : null;
+            // Archiving runs in background syncs too: the file is read once the notebook is opened.
+            return $tracked ? $this->library->addArchivedFile($notebook, $file, byStudent: false) : null;
         } catch (\Throwable $throwable) {
             Log::warning('Archived file could not be added to the course notebook', [
                 'file_id' => $file->id,
@@ -478,7 +536,9 @@ class NotebookCourseSync
             ->where('course_key', $notebook->course_key)
             ->where('kind', 'rps')
             ->get()
-            ->map(fn (PortalArchivedFile $file): NotebookSource => $this->library->addArchivedFile($notebook, $file))
+            ->map(fn (PortalArchivedFile $file): ?NotebookSource => $this->library->addArchivedFile($notebook, $file, byStudent: false))
+            ->filter()
+            ->values()
             ->all();
     }
 
@@ -517,11 +577,16 @@ class NotebookCourseSync
     }
 
     /**
+     * The stored class list. `classes` comes first: background sync keeps
+     * it fresh and archives it, while an `lms_classes` snapshot may be a
+     * week old and still carry the lecturer cell the old parser read whole
+     * (name, phone number and email).
+     *
      * @return list<array<string, mixed>>
      */
     private function classesFromSnapshot(string $sessionToken): array
     {
-        foreach (['lms_classes', 'classes'] as $dataset) {
+        foreach (['classes', 'lms_classes'] as $dataset) {
             $classes = $this->snapshots->get($sessionToken, $dataset)['data']['classes'] ?? null;
 
             if (is_array($classes) && $classes !== []) {

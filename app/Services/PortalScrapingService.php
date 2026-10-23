@@ -102,7 +102,7 @@ abstract class PortalScrapingService
                 'referer' => true,
                 'track_redirects' => true,
             ],
-        ], PortalHttpClientOptions::secureDns()));
+        ], PortalHttpClientOptions::shared()));
     }
 
     /**
@@ -919,6 +919,40 @@ abstract class PortalScrapingService
         });
 
         return array_values($emails);
+    }
+
+    /**
+     * Lecturer cell of the SIPANDAI class list:
+     * `<b>Nama<br/>Kontak Dosen : 08..<br/>Email Dosen : ..</b>`
+     *
+     * Only the first non-empty line is the name. Cloudflare replaces the
+     * e-mail with "[email protected]" and keeps the address in data-cfemail
+     * (K4); a "-" means the portal has no value.
+     *
+     * @return array{name: string, contact: string|null, email: string|null}
+     */
+    protected function parseLecturerCell(Crawler $cell): array
+    {
+        if ($cell->count() === 0) {
+            return ['name' => '', 'contact' => null, 'email' => null];
+        }
+
+        $nameSource = $cell->filter('b')->count() > 0 ? $cell->filter('b')->first() : $cell;
+        $lines = array_map(
+            fn (string $line): string => $this->normalizePortalText(strip_tags($line)),
+            preg_split('/<br\s*\/?>/i', $nameSource->html('')) ?: []
+        );
+        $firstLine = current(array_filter($lines, static fn (string $line): bool => $line !== '')) ?: '';
+        $name = (string) preg_replace('/\s*(?:Kontak|Email)\s+Dosen\s*:.*$/iu', '', $firstLine);
+        $text = $this->normalizePortalText($cell->text(''));
+
+        $contact = preg_match('/Kontak\s+Dosen\s*:\s*(\+?\d[\d\s-]*\d)/iu', $text, $contactMatches) === 1
+            ? trim($contactMatches[1])
+            : null;
+        $email = $this->extractCloudflareEmail($cell)
+            ?? (preg_match('/Email\s+Dosen\s*:\s*([^\s@]+@[^\s@]+\.[^\s@]+)/iu', $text, $emailMatches) === 1 ? $emailMatches[1] : null);
+
+        return ['name' => trim($name), 'contact' => $contact, 'email' => $email];
     }
 
     /**

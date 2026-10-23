@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Jobs;
 
 use App\Exceptions\PortalException;
-use App\Models\PortalArchivedFile;
 use App\Services\PortalArchivedFileStore;
 use App\Services\PortalClassCatalog;
 use App\Services\PortalDataArchive;
@@ -42,7 +41,7 @@ class ArchivePortalFilesJob implements ShouldBeUnique, ShouldQueue
         private readonly array $items,
         private readonly ?string $courseName = null
     ) {
-        $this->onQueue('campus-refresh');
+        $this->onQueue('campus-background');
     }
 
     public function uniqueId(): string
@@ -68,7 +67,7 @@ class ArchivePortalFilesJob implements ShouldBeUnique, ShouldQueue
         $courseNames = [];
 
         foreach ($this->items as $item) {
-            if (PortalArchivedFile::query()->forOwner($ownerHash)->where('source_url', $item['source_url'])->exists()) {
+            if ($files->isArchived($ownerHash, $item['source_url'])) {
                 continue;
             }
 

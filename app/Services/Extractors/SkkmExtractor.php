@@ -574,13 +574,18 @@ class SkkmExtractor extends PortalScrapingService
         return null;
     }
 
+    /**
+     * A negated approval ("Tidak Divalidasi", "Tidak Disetujui", "Tidak
+     * Diterima") is checked before the approving words it contains, the way
+     * KrsPageExtractor::negatesValidation() reads the KRS status.
+     */
     private function normalizeStatus(string $label): string
     {
         $normalized = mb_strtolower($this->normalizePortalText($label));
 
         return match (true) {
             $normalized === '' => self::STATUS_UNKNOWN,
-            preg_match('/tidak\s*valid|tidak\s+sah|ditolak|invalid|gagal/u', $normalized) === 1 => self::STATUS_INVALID,
+            preg_match('/\b(?:tidak|bukan)\s+(?:(?:sudah|telah|lolos)\s+)?(?:di|ter)?(?:valid(?:asi)?|setujui|terima|sah)\b|\btidak\s+lolos\b|tidak\s*valid|ditolak|invalid|gagal/u', $normalized) === 1 => self::STATUS_INVALID,
             preg_match('/belum|menunggu|proses|pending|diajukan/u', $normalized) === 1 => self::STATUS_PENDING,
             preg_match('/valid|diterima|disetujui|sah\b/u', $normalized) === 1 => self::STATUS_VALID,
             default => self::STATUS_UNKNOWN,

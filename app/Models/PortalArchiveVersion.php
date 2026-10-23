@@ -16,6 +16,10 @@ use Illuminate\Database\Eloquent\Model;
  * until the student accepts it (it becomes trusted) or rejects it, or until
  * the portal shows the trusted data again (`dismissed`).
  *
+ * One row per content and `sighting`: content MyCIC trusted earlier that
+ * comes back and breaks a guard is a new suspect row with the next
+ * `sighting`, so the earlier trusted row keeps its status and history.
+ *
  * @property int $id
  * @property string $owner_hash
  * @property string $dataset
@@ -23,6 +27,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property array<string, mixed>|null $params
  * @property string|null $subject
  * @property string $content_hash
+ * @property int $sighting
  * @property array<string, mixed> $payload
  * @property string $status
  * @property list<array{rule: string, label: string, message: string}>|null $findings
@@ -54,6 +59,7 @@ class PortalArchiveVersion extends Model
         'params',
         'subject',
         'content_hash',
+        'sighting',
         'payload',
         'status',
         'findings',
@@ -77,6 +83,7 @@ class PortalArchiveVersion extends Model
             'params' => 'array',
             'payload' => 'encrypted:array',
             'findings' => 'array',
+            'sighting' => 'integer',
             'first_seen_at' => 'datetime',
             'last_seen_at' => 'datetime',
             'seen_count' => 'integer',

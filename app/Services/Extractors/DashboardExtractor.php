@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Services\Extractors;
 
 use App\Exceptions\PortalScrapingException;
-use App\Services\AttendanceShortcutService;
 use App\Services\DashboardTodayClassesBuilder;
 use App\Services\PortalEndpointRegistry;
 use App\Services\PortalScrapingService;
@@ -23,14 +22,20 @@ class DashboardExtractor extends PortalScrapingService
         private readonly ClassesExtractor $classesExtractor,
         private readonly SipandaiClassesExtractor $sipandaiClassesExtractor,
         private readonly StudentCourseExtractor $studentCourseExtractor,
-        private readonly DashboardTodayClassesBuilder $dashboardTodayClassesBuilder,
-        private readonly AttendanceShortcutService $attendanceShortcutService
+        private readonly DashboardTodayClassesBuilder $dashboardTodayClassesBuilder
     ) {
         parent::__construct($sessionManager);
     }
 
     /**
      * Extract dashboard data from CIC portal
+     *
+     * Today's schedule only needs the list pages: profile, the SIPANDAI
+     * class list (also the overview page), the student schedule and, when
+     * neither states the SKS, the credit page. The attendance of each class
+     * needs its class and meeting page, so it is its own snapshot
+     * (PortalDatasetBuilder::DASHBOARD_ATTENDANCE_PARAMS) joined at read
+     * time; `today_classes` here carry no `attendance`.
      *
      * @param  string  $sessionToken  Active session token
      * @return array Dashboard data
@@ -50,12 +55,6 @@ class DashboardExtractor extends PortalScrapingService
             $sipandaiClassesSync = $this->takeSyncMeta($sipandaiClassesData);
             $studentCourseData = $this->studentCourseExtractor->extractStudentCourseData($sessionToken);
             $studentCourseSync = $this->takeSyncMeta($studentCourseData);
-            $attendanceShortcuts = $this->attendanceShortcutService->getTodayShortcutsSnapshot(
-                $sessionToken,
-                $reference,
-                $sipandaiClassesData['classes'] ?? []
-            );
-            $attendanceShortcutsSync = $this->takeSyncMeta($attendanceShortcuts);
 
             $dashboardUrl = PortalEndpointRegistry::url('sipandai_dashboard');
             $html = $this->get($dashboardUrl);
@@ -85,14 +84,13 @@ class DashboardExtractor extends PortalScrapingService
                 'user_info' => $resolvedUserInfo ?: ($profileData['user_info'] ?? []),
                 'dashboard_overview' => $dashboardOverview,
                 'recent_activity' => $recentActivity,
-                'classes_summary' => $this->createClassesSummary($sipandaiClassesData, $studentCourseData, $attendanceShortcuts['classes'] ?? [], $reference),
+                'classes_summary' => $this->createClassesSummary($sipandaiClassesData, $studentCourseData, $reference),
                 'status' => 'success',
                 'timestamp' => now()->toISOString(),
             ], $this->resolveDashboardDataOrigin([
                 $profileSync,
                 $sipandaiClassesSync,
                 $studentCourseSync,
-                $attendanceShortcutsSync,
                 $creditSync,
             ]));
 
@@ -183,11 +181,13 @@ class DashboardExtractor extends PortalScrapingService
 
     /**
      * Create classes summary from classes data
+     *
+     * `actionable_attendance_count` is filled in when the attendance is
+     * joined (DashboardTodayClassesBuilder::attachAttendance()).
      */
     private function createClassesSummary(
         array $sipandaiClassesData,
         array $studentCourseData,
-        array $attendanceShortcuts,
         CarbonImmutable $reference
     ): array {
         $classes = $sipandaiClassesData['classes'] ?? [];
@@ -196,114 +196,16 @@ class DashboardExtractor extends PortalScrapingService
             $studentCourseData['classes'] ?? [],
             $reference
         );
-        $todayClasses = $this->attachAttendanceActions($todaySchedule['classes'], $attendanceShortcuts);
 
         return [
             'total_classes' => count($classes),
             'active_semester' => $this->extractActiveSemester($sipandaiClassesData, $studentCourseData),
             'day' => $todaySchedule['day'],
             'date' => $todaySchedule['date'],
-            'today_classes_count' => count($todayClasses),
-            'actionable_attendance_count' => count(array_filter($todayClasses, static fn (array $class): bool => (bool) ($class['attendance']['actionable'] ?? false))),
-            'today_classes' => $todayClasses,
+            'today_classes_count' => count($todaySchedule['classes']),
+            'actionable_attendance_count' => 0,
+            'today_classes' => $todaySchedule['classes'],
         ];
-    }
-
-    /**
-     * @param  list<array<string, mixed>>  $todayClasses
-     * @param  list<array<string, mixed>>  $attendanceShortcuts
-     * @return list<array<string, mixed>>
-     */
-    private function attachAttendanceActions(array $todayClasses, array $attendanceShortcuts): array
-    {
-        $shortcutByClassId = [];
-        $shortcutByScheduleKey = [];
-
-        foreach ($attendanceShortcuts as $shortcut) {
-            $classId = trim((string) ($shortcut['class_id'] ?? ''));
-
-            if ($classId !== '') {
-                $shortcutByClassId[$classId] = $shortcut;
-            }
-
-            $shortcutByScheduleKey[$this->buildTodayClassKey([
-                'course_code' => $shortcut['course_code'] ?? null,
-                'schedule' => [
-                    'day' => $shortcut['schedule']['day'] ?? null,
-                    'start_time' => $shortcut['schedule']['start_time'] ?? null,
-                    'time' => $shortcut['schedule']['time'] ?? null,
-                ],
-            ])] = $shortcut;
-        }
-
-        return array_map(function (array $class) use ($shortcutByClassId, $shortcutByScheduleKey): array {
-            $shortcut = null;
-            $classId = trim((string) ($class['class_id'] ?? ''));
-
-            if ($classId !== '') {
-                $shortcut = $shortcutByClassId[$classId] ?? null;
-            }
-
-            if ($shortcut === null) {
-                $shortcut = $shortcutByScheduleKey[$this->buildTodayClassKey($class)] ?? null;
-            }
-
-            $attendanceStatus = $shortcut['attendance_status'] ?? [
-                'already_marked' => false,
-                'status' => null,
-                'label' => null,
-                'time' => null,
-            ];
-            $hasReliableAttendanceTarget = ($shortcut['attendance_target_reliable'] ?? true) === true;
-            $classContext = [
-                'class_id' => $class['class_id'] ?? null,
-                'dosen_id' => $class['dosen_id'] ?? null,
-                'course_id' => $class['course_id'] ?? null,
-            ];
-            $hasClassContext = ! empty($classContext['class_id'])
-                && ! empty($classContext['dosen_id'])
-                && ! empty($classContext['course_id']);
-
-            $meetingUrl = null;
-            if (! empty($shortcut['meeting_id']) && ! empty($shortcut['assignment_payload']['courses_id'])) {
-                $meetingUrl = sprintf('/meeting/%s?courses_id=%s', $shortcut['meeting_id'], $shortcut['assignment_payload']['courses_id']);
-            }
-
-            $classUrl = $hasClassContext
-                ? sprintf('/class/%s?dosen_id=%s&course_id=%s', $classContext['class_id'], $classContext['dosen_id'], $classContext['course_id'])
-                : null;
-
-            $class['attendance'] = [
-                'available' => $shortcut !== null,
-                'target_reliable' => $shortcut !== null && $hasReliableAttendanceTarget,
-                'class_url' => $classUrl,
-                'actionable' => $shortcut !== null
-                    && $hasReliableAttendanceTarget
-                    && ! ($attendanceStatus['already_marked'] ?? false)
-                    && (! empty($shortcut['attendance_payload']) || $hasClassContext),
-                'meeting_id' => $shortcut['meeting_id'] ?? null,
-                'meeting_number' => $shortcut['today_material']['meeting_number'] ?? ($shortcut['meeting_number'] ?? null),
-                'today_material' => $shortcut['today_material'] ?? null,
-                'status' => $attendanceStatus,
-                'payload' => $hasReliableAttendanceTarget ? ($shortcut['attendance_payload'] ?? null) : null,
-                'context' => $hasReliableAttendanceTarget && $hasClassContext ? $classContext : null,
-                'meeting_url' => $meetingUrl,
-            ];
-
-            return $class;
-        }, $todayClasses);
-    }
-
-    /**
-     * @param  array<string, mixed>  $class
-     */
-    private function buildTodayClassKey(array $class): string
-    {
-        $courseCode = strtolower(trim((string) ($class['course_code'] ?? '')));
-        $day = strtolower(trim((string) ($class['schedule']['day'] ?? '')));
-        $time = strtolower(trim((string) (($class['schedule']['start_time'] ?? '') ?: ($class['schedule']['time'] ?? ''))));
-
-        return implode('|', [$courseCode, $day, $time]);
     }
 
     /**

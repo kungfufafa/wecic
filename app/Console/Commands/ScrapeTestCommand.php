@@ -15,8 +15,7 @@ class ScrapeTestCommand extends Command
      */
     protected $signature = 'scrape:test
         {--analyze : Analyze URL structure and extract valid data}
-        {--username= : Portal username for live scraping test}
-        {--password= : Portal password for live scraping test}';
+        {--username= : Portal username for live scraping test (the password is asked for, never passed as an option)}';
 
     /**
      * The console command description.
@@ -26,16 +25,14 @@ class ScrapeTestCommand extends Command
     protected $description = 'Test scraping from sample URLs to extract valid data structure';
 
     /**
-     * Execute the console command.
+     * Execute the console command. The password is read from a hidden
+     * prompt so it never lands in shell history or the process list, and
+     * the portal session is logged out again however the run ends.
      */
-    public function handle(): int
+    public function handle(PortalSessionManager $sessionManager, ClassesExtractor $classesExtractor): int
     {
         $this->info('=== Testing URL Structure Analysis ===');
         $this->newLine();
-
-        // Initialize services
-        $sessionManager = app(PortalSessionManager::class);
-        $classesExtractor = new ClassesExtractor($sessionManager);
 
         // Test URLs from user
         $testUrls = [
@@ -60,16 +57,18 @@ class ScrapeTestCommand extends Command
         ];
 
         $username = (string) $this->option('username');
-        $password = (string) $this->option('password');
+        $password = $username !== '' ? (string) $this->secret('Portal password') : '';
 
         if ($username === '' || $password === '') {
-            $this->warn('Live login skipped. Pass --username and --password to run upstream scraping checks.');
+            $this->warn('Live login skipped. Pass --username and enter the password when asked to run upstream scraping checks.');
 
             return Command::SUCCESS;
         }
 
         // First, let's try to login
         $this->info('1. Testing Login...');
+        $sessionToken = null;
+
         try {
             $sessionResult = $sessionManager->createSession($username, $password);
             $sessionToken = $sessionResult['session_token'] ?? null;
@@ -113,6 +112,10 @@ class ScrapeTestCommand extends Command
 
         } catch (\Exception $e) {
             $this->error('❌ Error: '.$e->getMessage());
+        } finally {
+            if (is_string($sessionToken) && $sessionToken !== '') {
+                $sessionManager->destroySession($sessionToken);
+            }
         }
 
         $this->newLine();

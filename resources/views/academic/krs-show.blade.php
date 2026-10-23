@@ -14,17 +14,6 @@
 @section('content')
     <style>
         @media print {
-            html[data-theme='dark'] {
-                --color-canvas: #ffffff;
-                --color-panel: #ffffff;
-                --color-surface: #ebf2f9;
-                --color-ink: #0a233f;
-                --color-ink-muted: #3b5571;
-                --color-ink-subtle: #627c97;
-                --color-border: #d4e1ef;
-                --color-border-light: #e4edf7;
-            }
-
             [data-sync-alert],
             [data-pull-indicator],
             [data-operation-status] {
@@ -419,7 +408,7 @@
              * Grades and the current KRS status are optional extras: read them
              * once in the background when the device has no copy yet.
              */
-            const loadExtras = async () => {
+            const loadExtras = async ({ background = false } = {}) => {
                 if (state.extrasRequested || !state.detail || !navigator.onLine) {
                     return;
                 }
@@ -428,7 +417,7 @@
                 const jobs = [];
 
                 if (!state.grades && isRegular()) {
-                    jobs.push(app.request('/api/academic/grades', { redirectOnAuth: false, timeout: 20000 })
+                    jobs.push(app.request('/api/academic/grades', { redirectOnAuth: false, timeout: 20000, background })
                         .then((payload) => {
                             state.grades = payload?.data || null;
                         })
@@ -438,7 +427,7 @@
                 }
 
                 if (!state.currentKrs && state.detail.navigation?.is_latest) {
-                    jobs.push(app.request('/api/academic/krs', { redirectOnAuth: false, timeout: 20000 })
+                    jobs.push(app.request('/api/academic/krs', { redirectOnAuth: false, timeout: 20000, background })
                         .then((payload) => {
                             state.currentKrs = payload?.data || null;
                         })
@@ -451,6 +440,10 @@
                 }
             };
 
+            // Only "not in your history" is final; a 404 for a page the portal could not serve is a hiccup.
+            const isNotInHistory = (error) => error?.status === 404
+                && (error?.payload?.reason === 'not_in_history' || (!error?.payload?.reason && /riwayat/i.test(error?.payload?.message || '')));
+
             const renderLoadError = (error, retry) => {
                 const message = error?.payload?.message || app.describeError(error);
 
@@ -459,15 +452,13 @@
                 hosts.nav.innerHTML = '';
                 hosts.chips.innerHTML = '';
 
-                if (error?.status === 404) {
+                if (isNotInHistory(error)) {
                     try {
                         app.clearCachedResponse(endpoint);
                     } catch (storageError) {
                         // Nothing stored to forget.
                     }
-                }
 
-                if (error?.status === 404 && /riwayat/i.test(message)) {
                     hosts.title.textContent = 'KRS tidak ditemukan';
                     hosts.subtitle.textContent = 'KRS ini tidak ada di riwayat KRS kamu.';
                     hosts.courses.innerHTML = `
@@ -502,9 +493,9 @@
                 return;
             }
 
-            const loadDetail = async ({ force = false } = {}) => {
+            const loadDetail = async ({ force = false, background = false } = {}) => {
                 try {
-                    const payload = await app.request(endpoint, { fresh: force });
+                    const payload = await app.request(endpoint, { fresh: force, background });
 
                     if (!payload) {
                         return;
@@ -512,15 +503,15 @@
 
                     receive(payload);
                     app.markViewSynced('Detail KRS', payload, { force });
-                    void loadExtras();
+                    void loadExtras({ background });
                 } catch (error) {
                     app.setSyncStatus('Detail KRS gagal dimuat.', 'error');
 
-                    if (!state.detail || error?.status === 404) {
+                    if (!state.detail || isNotInHistory(error)) {
                         state.detail = null;
                         renderLoadError(error, () => loadDetail({ force }));
                     } else {
-                        app.showNotice(`Detail KRS gagal diperbarui. ${app.describeError(error)}`, 'warning');
+                        app.showNotice(`Detail KRS gagal diperbarui. ${error?.payload?.message || app.describeError(error)}`, 'warning');
                     }
                 }
             };

@@ -13,9 +13,12 @@ use App\Services\AttendanceShortcutService;
 use App\Services\PortalDataOwner;
 use App\Services\PortalDatasetRepository;
 use App\Services\PortalSessionManager;
+use App\Services\PortalSnapshotStore;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Queue;
 use Mockery;
 use Mockery\MockInterface;
 use Tests\TestCase;
@@ -173,9 +176,211 @@ class ScanPortalNotificationsJobTest extends TestCase
         $this->assertDatabaseCount('portal_notifications', 0);
     }
 
-    private function runJob(string $token = self::TOKEN): void
+    public function test_reminder_links_never_open_a_meeting_without_its_course(): void
     {
-        app()->call([new ScanPortalNotificationsJob('laravel-session', $token), 'handle']);
+        $this->mockDatasets(fn (MockInterface $mock) => $mock->shouldReceive('ensureFresh')->andReturn([]));
+        $this->mockActionCenter([$this->actionItem('assignment-5101', 'Tugas Basis Data', '2026-10-21', 'critical', '/meeting/5101', 'assignments')]);
+        $class = $this->attendanceClass('9001', 'Basis Data', activeNow: true, alreadyMarked: false);
+        $class['attendance_payload']['courseid'] = '';
+        $this->mockAttendance([$class]);
+
+        $this->runJob();
+
+        $this->assertSame(
+            ['deadline_reminder' => '/dashboard', 'attendance_open' => '/dashboard'],
+            PortalNotification::query()->orderBy('id')->pluck('url', 'type')->all()
+        );
+    }
+
+    public function test_scan_gives_a_slow_portal_more_than_the_default_worker_timeout(): void
+    {
+        $this->assertSame(300, (new ScanPortalNotificationsJob('laravel-session', self::TOKEN))->timeout);
+    }
+
+    public function test_scan_schedules_the_next_scan_while_the_session_lives(): void
+    {
+        Queue::fake();
+        $this->freezeTime();
+        $this->mockSessions(usable: true);
+        $this->mockDatasets(fn (MockInterface $mock) => $mock->shouldReceive('ensureFresh')->andReturn([]));
+        $this->mockActionCenter([], times: 2);
+        $this->mockAttendance([], times: 2);
+
+        $this->runJob();
+        $this->runJob();
+
+        // One follow-up per session, however many scans ran meanwhile.
+        Queue::assertPushed(ScanPortalNotificationsJob::class, 1);
+        Queue::assertPushed(ScanPortalNotificationsJob::class, fn (ScanPortalNotificationsJob $job): bool => $this->isFollowUp($job)
+            && $job->queue === 'campus-notifications'
+            && now()->addSeconds(600)->equalTo($job->delay));
+    }
+
+    public function test_next_scan_runs_when_todays_next_class_starts(): void
+    {
+        Queue::fake();
+        $this->travelTo(CarbonImmutable::create(2026, 10, 22, 9, 55, 0, config('app.timezone')));
+        $this->mockSessions(usable: true);
+        $this->mockDatasets(fn (MockInterface $mock) => $mock->shouldReceive('ensureFresh')->andReturn([]));
+        $this->mockActionCenter([]);
+        $this->mockAttendance([
+            $this->attendanceClass('9001', 'Basis Data', activeNow: false, alreadyMarked: false, startTime: '10:00'),
+            $this->attendanceClass('9000', 'Statistika', activeNow: false, alreadyMarked: false, startTime: '07:30'),
+        ]);
+
+        $this->runJob();
+
+        Queue::assertPushed(ScanPortalNotificationsJob::class, fn (ScanPortalNotificationsJob $job): bool => now()->addSeconds(330)->equalTo($job->delay));
+    }
+
+    public function test_class_opening_mid_session_is_reminded_by_the_follow_up_scan(): void
+    {
+        Queue::fake();
+        $this->mockSessions(usable: true, active: true);
+        $this->mockDatasets(fn (MockInterface $mock) => $mock->shouldReceive('ensureFresh')->andReturn([]));
+        $this->mockActionCenter([], times: 2);
+        $attendance = Mockery::mock(AttendanceShortcutService::class);
+        $attendance->shouldReceive('getTodayShortcuts')->twice()->andReturn(
+            ['classes' => [$this->attendanceClass('9001', 'Basis Data', activeNow: false, alreadyMarked: false)]],
+            ['classes' => [$this->attendanceClass('9001', 'Basis Data', activeNow: true, alreadyMarked: false)]],
+        );
+        $this->instance(AttendanceShortcutService::class, $attendance);
+
+        // Login at 07:30: the class has not started yet.
+        $this->runJob();
+        $this->assertDatabaseCount('portal_notifications', 0);
+
+        $followUp = null;
+        Queue::assertPushed(ScanPortalNotificationsJob::class, function (ScanPortalNotificationsJob $job) use (&$followUp): bool {
+            $followUp = $job;
+
+            return true;
+        });
+
+        app()->call([$followUp, 'handle']);
+
+        $this->assertSame('Absen Basis Data sekarang', PortalNotification::query()->sole()->title);
+        // The chain goes on: the follow-up queued its own successor.
+        Queue::assertPushed(ScanPortalNotificationsJob::class, 2);
+    }
+
+    public function test_follow_up_skips_the_scan_while_the_student_is_away_but_keeps_the_chain(): void
+    {
+        Queue::fake();
+        $this->mockSessions(usable: true, active: false);
+        $this->mockDatasets(fn (MockInterface $mock) => $mock->shouldNotReceive('ensureFresh'));
+        $this->instance(ActionCenterBuilder::class, Mockery::mock(ActionCenterBuilder::class, fn (MockInterface $mock) => $mock->shouldNotReceive('build')));
+
+        $this->runJob(followUp: true);
+
+        Queue::assertPushed(ScanPortalNotificationsJob::class, fn (ScanPortalNotificationsJob $job): bool => $this->isFollowUp($job));
+    }
+
+    public function test_follow_up_resyncs_only_snapshots_past_the_resync_age(): void
+    {
+        Queue::fake();
+        $this->travelTo(CarbonImmutable::create(2026, 10, 22, 9, 0, 0, config('app.timezone')));
+        $this->mockSessions(usable: true, active: true);
+        // Both are past `fresh_for`, which a login scan re-syncs; only assignments is past an hour.
+        app(PortalSnapshotStore::class)->put(self::TOKEN, 'assignments', ['assignments' => []], now()->subMinutes(61)->toISOString());
+        app(PortalSnapshotStore::class)->put(self::TOKEN, 'exams', ['exams' => []], now()->subMinutes(40)->toISOString());
+        $this->mockDatasets(function (MockInterface $mock): void {
+            $mock->shouldReceive('ensureFresh')->once()->with(self::TOKEN, 'assignments')->andReturn([]);
+            $mock->shouldReceive('ensureFresh')->never()->with(self::TOKEN, 'exams');
+        });
+        $this->mockActionCenter([$this->actionItem('assignment-5101', 'Tugas Basis Data', '2026-10-22', 'critical', '/meeting/5101?courses_id=77', 'assignments')]);
+        $this->mockAttendance([]);
+
+        $this->runJob(followUp: true);
+
+        $this->assertSame('Tugas Basis Data', PortalNotification::query()->sole()->title);
+    }
+
+    public function test_follow_up_builds_reminders_from_recent_snapshots_without_the_portal(): void
+    {
+        Queue::fake();
+        $this->mockSessions(usable: true, active: true);
+        app(PortalSnapshotStore::class)->put(self::TOKEN, 'assignments', ['assignments' => []], now()->subMinutes(15)->toISOString());
+        app(PortalSnapshotStore::class)->put(self::TOKEN, 'exams', ['exams' => []], now()->subMinutes(15)->toISOString());
+        $this->mockDatasets(fn (MockInterface $mock) => $mock->shouldNotReceive('ensureFresh'));
+        $this->mockActionCenter([$this->actionItem('assignment-5101', 'Tugas Basis Data', '2026-10-22', 'critical', '/meeting/5101?courses_id=77', 'assignments')]);
+        $this->mockAttendance([]);
+
+        $this->runJob(followUp: true);
+
+        $this->assertSame('Tugas Basis Data', PortalNotification::query()->sole()->title);
+        Queue::assertPushed(ScanPortalNotificationsJob::class, fn (ScanPortalNotificationsJob $job): bool => $this->isFollowUp($job));
+    }
+
+    public function test_scan_queued_before_follow_ups_existed_runs_as_a_first_scan(): void
+    {
+        $values = (new ScanPortalNotificationsJob('laravel-session', self::TOKEN))->__serialize();
+        unset($values["\0".ScanPortalNotificationsJob::class."\0followUp"]);
+        $job = (new \ReflectionClass(ScanPortalNotificationsJob::class))->newInstanceWithoutConstructor();
+        $job->__unserialize($values);
+        $this->mockDatasets(function (MockInterface $mock): void {
+            $mock->shouldReceive('ensureFresh')->once()->with(self::TOKEN, 'assignments')->andReturn([]);
+            $mock->shouldReceive('ensureFresh')->once()->with(self::TOKEN, 'exams')->andReturn([]);
+        });
+        $this->mockActionCenter([]);
+        $this->mockAttendance([]);
+
+        app()->call([$job, 'handle']);
+
+        $this->assertFalse($this->isFollowUp($job));
+    }
+
+    public function test_chain_ends_with_the_session(): void
+    {
+        Queue::fake();
+        $this->mockSessions(usable: false);
+        $this->mockDatasets(fn (MockInterface $mock) => $mock->shouldNotReceive('ensureFresh'));
+
+        $this->runJob(followUp: true);
+
+        $this->assertDatabaseCount('portal_notifications', 0);
+        Queue::assertNothingPushed();
+    }
+
+    public function test_expired_campus_session_schedules_no_follow_up(): void
+    {
+        Queue::fake();
+        $this->mockSessions(usable: true);
+        $this->mockDatasets(fn (MockInterface $mock) => $mock->shouldReceive('ensureFresh')->once()->andThrow(new PortalScrapingException('Session expired', 403)));
+
+        $this->runJob();
+
+        Queue::assertNothingPushed();
+    }
+
+    public function test_failed_scan_still_schedules_the_next_one(): void
+    {
+        Queue::fake();
+        $this->mockSessions(usable: true);
+
+        (new ScanPortalNotificationsJob('laravel-session', self::TOKEN))->failed(new \RuntimeException('Job timed out'));
+
+        Queue::assertPushed(ScanPortalNotificationsJob::class, fn (ScanPortalNotificationsJob $job): bool => $this->isFollowUp($job));
+    }
+
+    private function runJob(string $token = self::TOKEN, bool $followUp = false): void
+    {
+        app()->call([new ScanPortalNotificationsJob('laravel-session', $token, $followUp), 'handle']);
+    }
+
+    private function isFollowUp(ScanPortalNotificationsJob $job): bool
+    {
+        return (fn (): bool => $this->followUp)->call($job);
+    }
+
+    private function mockSessions(bool $usable, bool $active = true): void
+    {
+        $this->instance(PortalSessionManager::class, Mockery::mock(PortalSessionManager::class, function (MockInterface $mock) use ($usable, $active): void {
+            $mock->shouldReceive('laravelSessionId')->andReturn('laravel-session');
+            $mock->shouldReceive('isSessionUsable')->with(self::TOKEN)->andReturn($usable);
+            $mock->shouldReceive('isBackgroundSession')->with(self::TOKEN)->andReturnFalse();
+            $mock->shouldReceive('wasActiveWithin')->with(self::TOKEN, 1200)->andReturn($active);
+        }));
     }
 
     private function mockDatasets(callable $expectations): void
@@ -226,11 +431,12 @@ class ScanPortalNotificationsJobTest extends TestCase
     /**
      * @return array<string, mixed>
      */
-    private function attendanceClass(string $meetingId, string $courseName, bool $activeNow, bool $alreadyMarked): array
+    private function attendanceClass(string $meetingId, string $courseName, bool $activeNow, bool $alreadyMarked, string $startTime = '07:30'): array
     {
         return [
             'meeting_id' => $meetingId,
             'course_name' => $courseName,
+            'schedule' => ['start_time' => $startTime, 'end_time' => '09:10'],
             'active_now' => $activeNow,
             'attendance_status' => ['already_marked' => $alreadyMarked],
             'attendance_payload' => ['courseid' => '77', 'modulesid' => $meetingId, 'pertemuan' => 5],

@@ -114,8 +114,15 @@
 
     $hideStatusStrip = trim($__env->yieldContent('hide_status_strip')) === '1';
     $hideSyncRefresh = trim($__env->yieldContent('hide_sync_refresh')) === '1';
+
+    // Names the student whose copies this device may show (app.isolateDeviceCache):
+    // a one-way hash of the data owner, never the NIM itself.
+    $campusSessionToken = session('campus_session_token');
+    $deviceCacheOwner = is_string($campusSessionToken) && $campusSessionToken !== ''
+        ? substr(hash('sha256', 'device-cache|'.app(\App\Services\PortalDataOwner::class)->key($campusSessionToken)), 0, 32)
+        : '';
 @endphp
-<body data-auth="@yield('auth_mode', 'required')" data-page="@yield('page_id', 'app')" data-refreshable-datasets="{{ implode(',', $refreshableDatasets) }}" data-portal-offline="{{ $isPortalOffline ? '1' : '0' }}">
+<body data-auth="@yield('auth_mode', 'required')" data-page="@yield('page_id', 'app')" data-refreshable-datasets="{{ implode(',', $refreshableDatasets) }}" data-portal-offline="{{ $isPortalOffline ? '1' : '0' }}" data-portal-offline-reconnect="{{ session('campus_offline_reconnect') ?? '' }}" data-cache-owner="{{ $deviceCacheOwner }}">
     <div id="notice-host" class="mycic-toast-host"></div>
     {{-- Live regions exist from page load so toasts are announced (app.announce). --}}
     <div class="sr-only" role="status" aria-live="polite" aria-atomic="true" data-live-polite></div>
@@ -123,11 +130,11 @@
 
     <div class="mycic-modal hidden" tabindex="-1" aria-hidden="true" data-qr-scanner-modal>
         <div class="mycic-modal-backdrop" data-qr-scanner-backdrop></div>
-        <div class="mycic-modal-panel">
+        <div class="mycic-modal-panel" role="dialog" aria-modal="true" aria-labelledby="qr-scanner-title" tabindex="-1" data-qr-scanner-panel>
             <div class="mycic-modal-header">
                 <div>
                     <div class="text-caption uppercase tracking-wide text-ink-subtle">Absensi</div>
-                    <h2 class="text-subtitle font-bold text-ink">Scan kode QR</h2>
+                    <h2 class="text-subtitle font-bold text-ink" id="qr-scanner-title">Scan kode QR</h2>
                 </div>
                 <button type="button" class="mycic-modal-close" aria-label="Tutup" data-qr-scanner-close>
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -324,7 +331,7 @@
                     <div class="mycic-alert-warning mb-4 flex flex-wrap items-center justify-between gap-3 print:hidden" role="status" data-portal-offline-banner>
                         <span class="min-w-0">
                             <span class="block font-bold">Mode offline</span>
-                            <span class="block text-sm">Portal kampus tidak bisa diakses saat kamu masuk. Data diambil dari arsip MyCIC; absen, upload, dan sinkronisasi belum tersedia. MyCIC menyambung lagi otomatis begitu portal pulih.</span>
+                            <span class="block text-sm">Portal kampus tidak bisa diakses saat kamu masuk. Data diambil dari arsip MyCIC; absen, upload, dan sinkronisasi belum tersedia. <span data-portal-offline-reconnect-text>{{ \App\Http\Controllers\API\PortalAuthController::offlineReconnectMessage(session('campus_offline_reconnect')) }}</span></span>
                         </span>
                         <button type="button" class="mycic-btn-secondary-sm" data-logout>Masuk ulang</button>
                     </div>

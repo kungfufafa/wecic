@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Models\PortalOfflineAccount;
+use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
@@ -16,10 +17,14 @@ use Illuminate\Support\Facades\Log;
  *
  * A hash of that password is kept for the check. With background sync on
  * (PortalBackgroundSync), the credentials themselves are stored encrypted as
- * well, so MyCIC can keep the archive current while the student is away. A
- * session opened offline is marked as such, so the scraping layer and the
- * dataset repository never contact the portal with it, until
- * ResumeOfflineSessionJob logs it in again.
+ * well, so MyCIC can keep the archive current while the student is away;
+ * the account row is kept for that even when offline login is switched off
+ * (it then holds no password hash). A password the portal has since refused
+ * no longer opens MyCIC offline, and its stored credentials are dropped.
+ * Whatever is kept expires with the last online login
+ * (PortalOfflineAccount::prunable()). A session opened offline is marked as
+ * such, so the scraping layer and the dataset repository never contact the
+ * portal with it, until ResumeOfflineSessionJob logs it in again.
  */
 class PortalOfflineAccess
 {
@@ -39,23 +44,29 @@ class PortalOfflineAccess
     }
 
     /**
-     * Called after every successful portal login. Never throws: offline
-     * access must not fail the login it comes from.
+     * Called after every successful portal login, and after the student
+     * changed their password through MyCIC. Never throws: offline access
+     * must not fail the login it comes from.
      *
      * @param  array<string, mixed>|null  $userInfo
      */
     public function remember(string $username, string $password, ?array $userInfo): void
     {
-        if (! $this->enabled()) {
+        $offlineLogin = $this->enabled();
+        $backgroundSync = PortalBackgroundSync::configured();
+
+        if (! $offlineLogin && ! $backgroundSync) {
             return;
         }
 
         try {
             $account = PortalOfflineAccount::query()->firstOrNew(['owner_hash' => $this->owner->keyForUsername($username)]);
-            $storeCredentials = PortalBackgroundSync::configured() && $account->isBackgroundSyncEnabled();
+            // A row sealed with an earlier APP_KEY is overwritten, not left unusable.
+            $account->forgetUnreadableEncryptedAttributes();
+            $storeCredentials = $backgroundSync && $account->isBackgroundSyncEnabled();
 
             $account->forceFill([
-                'password_hash' => Hash::make($password),
+                'password_hash' => $offlineLogin ? Hash::make($password) : '',
                 'user_info' => $userInfo,
                 'credentials' => $storeCredentials ? ['username' => $username, 'password' => $password] : null,
                 'credentials_rejected_at' => null,
@@ -97,30 +108,73 @@ class PortalOfflineAccess
     }
 
     /**
+     * The portal refused the password an offline session was opened with
+     * (`$usedSince`, the session's login): its hash and the stored
+     * credentials (the same password, from the same login) are dropped, so
+     * it neither opens MyCIC offline nor is tried by background sync until
+     * the next online login stores a new one, whatever later happens to the
+     * rejection mark. An account an online login has updated since then
+     * already holds the new password and is left alone. Never throws.
+     */
+    public function markPasswordRejected(string $username, CarbonInterface $usedSince): void
+    {
+        try {
+            $account = PortalOfflineAccount::query()
+                ->where('owner_hash', $this->owner->keyForUsername($username))
+                ->first();
+
+            if ($account !== null && $account->last_online_login_at->lessThanOrEqualTo($usedSince)) {
+                $account->forceFill(['password_hash' => '', 'credentials' => null, 'credentials_rejected_at' => now()])->save();
+            }
+        } catch (\Throwable $throwable) {
+            Log::warning('Offline account could not be marked as rejected', [
+                'error' => $throwable->getMessage(),
+            ]);
+        }
+    }
+
+    /**
      * @return array<string, mixed>|null The user info of the last online login,
      *                                   or null when offline login is not possible.
      */
     public function attempt(string $username, string $password): ?array
     {
+        return $this->verify($username, $password)['user_info'];
+    }
+
+    /**
+     * attempt(), also telling whether a stored offline password was checked
+     * and did not match: a failed login, counted like one the portal refused
+     * (only an account that can log in offline is checked at all).
+     *
+     * @return array{user_info: array<string, mixed>|null, wrong_password: bool}
+     */
+    public function verify(string $username, string $password): array
+    {
+        $refused = ['user_info' => null, 'wrong_password' => false];
+
         if (! $this->enabled()) {
-            return null;
+            return $refused;
         }
 
         $account = PortalOfflineAccount::query()
             ->where('owner_hash', $this->owner->keyForUsername($username))
             ->first();
 
-        if ($account === null || $account->last_online_login_at->addDays($this->validDays())->isPast()) {
-            return null;
+        if ($account === null
+            || $account->password_hash === ''
+            || $account->credentials_rejected_at !== null
+            || $account->last_online_login_at->addDays($this->validDays())->isPast()) {
+            return $refused;
         }
 
         if (! Hash::check($password, $account->password_hash)) {
-            return null;
+            return ['user_info' => null, 'wrong_password' => true];
         }
 
         $account->forceFill(['last_offline_login_at' => now()])->save();
 
-        return $account->user_info ?? [];
+        return ['user_info' => $account->user_info ?? [], 'wrong_password' => false];
     }
 
     public function markOfflineSession(string $sessionToken, int $ttl): void
@@ -161,9 +215,50 @@ class PortalOfflineAccess
         return PortalOfflineAccount::query()->where('owner_hash', $ownerHash)->first();
     }
 
+    /**
+     * Remove everything MyCIC keeps to act for the student (password hash,
+     * stored credentials, user info, sync history). A student who switched
+     * background sync off keeps only that choice, so the next online login
+     * does not start storing their password again.
+     */
     public function forget(string $ownerHash): void
     {
-        PortalOfflineAccount::query()->where('owner_hash', $ownerHash)->delete();
+        $account = $this->findForOwner($ownerHash);
+
+        if ($account === null) {
+            return;
+        }
+
+        if ($account->isBackgroundSyncEnabled()) {
+            $account->delete();
+
+            return;
+        }
+
+        $account->forceFill(PortalOfflineAccount::forgottenAttributes())->save();
+    }
+
+    /**
+     * Record that the student switched background sync off, even when MyCIC
+     * keeps nothing else for them yet (their archive was deleted, or offline
+     * login is switched off for the deployment), so the next online login
+     * honours it instead of storing the password.
+     */
+    public function rememberBackgroundSyncOptOut(string $ownerHash): PortalOfflineAccount
+    {
+        $account = PortalOfflineAccount::query()->firstOrNew(['owner_hash' => $ownerHash]);
+
+        if (! $account->exists) {
+            $account->forceFill(['password_hash' => '', 'last_online_login_at' => now()]);
+        }
+
+        $account->forceFill([
+            'background_sync_disabled_at' => $account->background_sync_disabled_at ?? now(),
+            'credentials' => null,
+            'credentials_rejected_at' => null,
+        ])->save();
+
+        return $account;
     }
 
     /**
@@ -172,11 +267,16 @@ class PortalOfflineAccess
     private function updateAccount(string $username, array $attributes): void
     {
         try {
-            PortalOfflineAccount::query()
+            $account = PortalOfflineAccount::query()
                 ->where('owner_hash', $this->owner->keyForUsername($username))
-                ->first()
-                ?->forceFill($attributes)
-                ->save();
+                ->first();
+
+            if ($account === null) {
+                return;
+            }
+
+            $account->forgetUnreadableEncryptedAttributes();
+            $account->forceFill($attributes)->save();
         } catch (\Throwable $throwable) {
             Log::warning('Offline account could not be updated', [
                 'error' => $throwable->getMessage(),
@@ -186,7 +286,7 @@ class PortalOfflineAccess
 
     private function validDays(): int
     {
-        return max(1, (int) config('portal.archive.offline_login_days', 30));
+        return PortalOfflineAccount::offlineLoginDays();
     }
 
     private function sessionKey(string $sessionToken): string

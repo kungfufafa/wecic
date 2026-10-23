@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Extractors;
 
-use App\Services\Extractors\ClassesExtractor;
 use App\Services\Extractors\ProfileExtractor;
 use App\Services\Extractors\SipandaiClassesExtractor;
 use App\Services\Extractors\StudentCourseExtractor;
@@ -41,8 +40,6 @@ class ExtractorSectionFailureTest extends TestCase
             'sipandai student info' => [SipandaiClassesExtractor::class, 'extractSipandaiStudentInfo', [], 'Failed to extract student info from SIPANDAI dashboard'],
             'sipandai classes' => [SipandaiClassesExtractor::class, 'extractSipandaiClassesList', [], 'Failed to extract classes list from SIPANDAI dashboard'],
             'sipandai semester' => [SipandaiClassesExtractor::class, 'extractSipandaiSemesterInfo', [], 'Failed to extract semester info from SIPANDAI dashboard'],
-            'classes student info' => [ClassesExtractor::class, 'extractStudentInfo', [], 'Failed to extract student info from classes page'],
-            'classes list' => [ClassesExtractor::class, 'extractClassesList', [], 'Failed to extract classes list from SIPANDAI'],
         ];
     }
 
@@ -58,9 +55,6 @@ class ExtractorSectionFailureTest extends TestCase
 
         $crawler = Mockery::mock(Crawler::class);
         $crawler->shouldReceive('filter')->once()->andThrow(new \RuntimeException('Unexpected portal markup.'));
-        // ClassesExtractor::extractClassesList retries with a generic table scan.
-        $crawler->shouldReceive('filter')->andReturnSelf();
-        $crawler->shouldReceive('each')->andReturn([]);
 
         $extractor = new $extractorClass(Mockery::mock(PortalSessionManager::class));
         $reflectionMethod = new \ReflectionMethod($extractor, $method);

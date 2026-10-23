@@ -55,6 +55,36 @@ class DashboardMetricsBuilderTest extends TestCase
         $this->assertStringNotContainsString('Rp 0', (string) json_encode($metrics));
     }
 
+    public function test_a_student_without_any_grade_yet_has_an_empty_ipk_not_an_unread_one(): void
+    {
+        $noKhs = $this->builder()->fromSnapshots([
+            'grades' => $this->read(['found' => false, 'semesters' => [], 'summary' => ['ipk' => null, 'sks_passed' => 0, 'computed' => ['ipk' => null, 'course_count' => 0]]]),
+        ]);
+        $emptyCards = $this->builder()->fromSnapshots([
+            'grades' => $this->read(['found' => true, 'semesters' => [['semester' => 1, 'courses' => []]], 'summary' => ['ipk' => null, 'computed' => ['ipk' => null, 'course_count' => 0]]]),
+        ]);
+
+        $this->assertSame(['value' => null, 'source' => null, 'predicate_estimate' => null, 'status' => 'empty'], $noKhs['ipk']);
+        $this->assertSame('empty', $emptyCards['ipk']['status']);
+    }
+
+    public function test_an_ipk_missing_from_graded_courses_is_still_unavailable(): void
+    {
+        $graded = $this->builder()->fromSnapshots([
+            'grades' => $this->read(['found' => true, 'summary' => ['ipk' => null, 'computed' => ['ipk' => null, 'course_count' => 8]]]),
+        ]);
+        $legacy = $this->builder()->fromSnapshots([
+            'grades' => $this->read(['summary' => ['ipk' => null]]),
+        ]);
+        $failed = $this->builder()->fromSnapshots([
+            'grades' => ['data' => null, 'meta' => ['status' => 'failed', 'synced_at' => null]],
+        ]);
+
+        $this->assertSame('unavailable', $graded['ipk']['status']);
+        $this->assertSame('unavailable', $legacy['ipk']['status']);
+        $this->assertSame('failed', $failed['ipk']['status']);
+    }
+
     private function builder(): DashboardMetricsBuilder
     {
         return app(DashboardMetricsBuilder::class);

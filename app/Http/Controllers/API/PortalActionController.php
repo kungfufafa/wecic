@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\API;
 
+use App\Enums\PortalOperationStage;
+use App\Exceptions\PortalOfflineException;
 use App\Http\Requests\SipandaiAssignmentDeleteRequest;
 use App\Http\Requests\SipandaiAssignmentUploadRequest;
 use App\Http\Requests\SipandaiAttendanceRequest;
@@ -14,6 +16,7 @@ use App\Jobs\ProcessPortalExamUploadJob;
 use App\Services\AttendanceShortcutService;
 use App\Services\PortalActionProjector;
 use App\Services\PortalBroadcastService;
+use App\Services\PortalDataOwner;
 use App\Services\PortalDatasetRepository;
 use App\Services\PortalFetchPolicy;
 use App\Services\PortalOperationTracker;
@@ -22,21 +25,25 @@ use Dedoc\Scramble\Attributes\Group;
 use Dedoc\Scramble\Attributes\PathParameter;
 use Dedoc\Scramble\Attributes\Response;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 #[Group('SIPANDAI - Aksi', 'Endpoint untuk mengirim aksi langsung ke portal SIPANDAI seperti unggah tugas, absensi, dan unggah ujian.', 30)]
 class PortalActionController extends CampusApiController
 {
-    private const ACTION_RESULT_RESPONSE = 'array{success: bool, message: string, data: array<string, mixed>|null}';
+    private const ACTION_RESULT_RESPONSE = "array{success: bool, status: 'success'|'error', message: string, data: array<string, mixed>|null, meta: array{timestamp: string}}";
 
-    private const EXAM_LIST_RESPONSE = 'array{success: bool, message: string, data: array{exams: list<array<string, mixed>>}}';
+    private const EXAM_LIST_RESPONSE = "array{success: bool, status: 'success', message: string, data: array{exams: list<array<string, mixed>>}, meta: array{timestamp: string}}";
 
-    private const EXAM_DETAIL_RESPONSE = 'array{success: bool, message: string, data: array{exam_detail: array<string, mixed>}}';
+    private const EXAM_DETAIL_RESPONSE = "array{success: bool, status: 'success', message: string, data: array{exam_detail: array<string, mixed>}, meta: array{timestamp: string}}";
 
-    private const ATTENDANCE_SHORTCUT_RESPONSE = 'array{success: bool, message: string, data: array{date: string, day: string, current_time: string, classes: list<array<string, mixed>>}}';
+    private const ATTENDANCE_SHORTCUT_RESPONSE = "array{success: bool, status: 'success', message: string, data: array{date: string, day: string, current_time: string, classes: list<array<string, mixed>>}, meta: array{timestamp: string}}";
 
-    private const PENDING_ASSIGNMENTS_RESPONSE = 'array{success: bool, message: string, data: array{assignments: list<array<string, mixed>>}}';
+    private const PENDING_ASSIGNMENTS_RESPONSE = "array{success: bool, status: 'success', message: string, data: array{assignments: list<array<string, mixed>>}, meta: array{timestamp: string}}";
 
     /**
      * Datasets and resources whose content changes when an assignment is uploaded or deleted.
@@ -45,6 +52,14 @@ class PortalActionController extends CampusApiController
 
     private const ASSIGNMENT_RESOURCES = ['class_detail', 'meeting_detail'];
 
+    /**
+     * How long an upload keeps its target locked when its job never gets to
+     * release it: the job's own time limit with room to spare. A job that
+     * stopped reporting progress frees its target sooner (see
+     * uploadLockIsStale).
+     */
+    private const UPLOAD_LOCK_SECONDS = 600;
+
     public function __construct(
         private readonly SipandaiSubmissionService $submissionService,
         private readonly AttendanceShortcutService $attendanceShortcutService,
@@ -52,8 +67,182 @@ class PortalActionController extends CampusApiController
         private readonly PortalFetchPolicy $fetchPolicy,
         private readonly PortalActionProjector $projector,
         private readonly PortalOperationTracker $tracker,
-        private readonly PortalBroadcastService $broadcast
+        private readonly PortalBroadcastService $broadcast,
+        private readonly PortalDataOwner $owner
     ) {}
+
+    /**
+     * One upload per student and target at a time: a second form (another
+     * tab, a re-rendered page) would otherwise send the same file twice.
+     * The lock is released by the upload job when it finishes; a lock whose
+     * upload has stopped reporting is taken over instead of blocking the
+     * student until it expires.
+     *
+     * @return array{key: string, owner: string}|null null while another upload of the target runs
+     */
+    private function acquireUploadLock(string $sessionToken, string $target, string $operationId): ?array
+    {
+        $key = $this->uploadLockKey($sessionToken, $target);
+        $lock = Cache::lock($key, self::UPLOAD_LOCK_SECONDS);
+
+        if (! $lock->get()) {
+            if (! $this->uploadLockIsStale($key)) {
+                return null;
+            }
+
+            Log::warning('Releasing the upload lock of an upload that stopped reporting', [
+                'target' => $target,
+                'operation_id' => Cache::get($key.':operation'),
+            ]);
+            $lock->forceRelease();
+
+            if (! $lock->get()) {
+                return null;
+            }
+        }
+
+        Cache::put($key.':operation', $operationId, self::UPLOAD_LOCK_SECONDS);
+
+        return ['key' => $key, 'owner' => $lock->owner()];
+    }
+
+    private function uploadLockKey(string $sessionToken, string $target): string
+    {
+        return 'portal_upload:'.md5($this->owner->key($sessionToken)).':'.$target;
+    }
+
+    /**
+     * The upload holding the lock has finished, or has not reported progress
+     * for longer than an upload job may run: its process died (killed
+     * worker, out of memory) before the job could free the target. An
+     * upload whose state cannot be read keeps its lock until it expires.
+     */
+    private function uploadLockIsStale(string $key): bool
+    {
+        $operationId = Cache::get($key.':operation');
+        $operation = is_string($operationId) ? $this->tracker->get($operationId) : null;
+
+        if ($operation === null) {
+            return false;
+        }
+
+        if (PortalOperationStage::tryFrom((string) ($operation['stage'] ?? ''))?->isFinal() === true) {
+            return true;
+        }
+
+        try {
+            $lastProgressAt = Carbon::parse((string) ($operation['updated_at'] ?? ''));
+        } catch (\Throwable) {
+            return false;
+        }
+
+        return $lastProgressAt->lt(now()->subSeconds(max(60, (int) config('portal.actions.upload_time_limit', 180))));
+    }
+
+    /**
+     * @param  array{key: string, owner: string}|null  $uploadLock
+     */
+    private function releaseUploadLock(?array $uploadLock): void
+    {
+        if ($uploadLock !== null) {
+            Cache::restoreLock($uploadLock['key'], $uploadLock['owner'])->release();
+        }
+    }
+
+    /**
+     * Registers the upload before its file is written, with what
+     * `portal:recover-uploads` needs when the process dies before the job
+     * settles it (a killed PHP-FPM worker, a deploy): the file is named
+     * after the operation, and the operation remembers its target lock.
+     *
+     * @param  array{key: string, owner: string}  $uploadLock
+     * @return string the stored file's path
+     */
+    private function stageUpload(UploadedFile $attachment, string $operationId, string $type, string $message, array $uploadLock): string
+    {
+        $storedFilePath = $this->tracker->uploadFilePath($operationId, $attachment->extension());
+
+        $this->tracker->start($operationId, $type, (string) session()->getId(), $message, [
+            'file' => $storedFilePath,
+            'lock_key' => $uploadLock['key'],
+            'lock_owner' => $uploadLock['owner'],
+        ]);
+
+        try {
+            $stored = $attachment->storeAs(PortalOperationTracker::UPLOAD_DIRECTORY, basename($storedFilePath));
+        } catch (\Throwable $throwable) {
+            Storage::delete($storedFilePath);
+
+            throw $throwable;
+        }
+
+        if ($stored === false) {
+            Storage::delete($storedFilePath);
+
+            throw new \RuntimeException('The uploaded file could not be stored.');
+        }
+
+        return $storedFilePath;
+    }
+
+    /**
+     * Frees the target and drops the stored file of an upload that failed
+     * before its job could take them over.
+     *
+     * @param  array{key: string, owner: string}|null  $uploadLock
+     */
+    private function abandonUpload(?array $uploadLock, ?string $storedFilePath): void
+    {
+        $this->releaseUploadLock($uploadLock);
+
+        if ($storedFilePath !== null) {
+            Storage::delete($storedFilePath);
+        }
+    }
+
+    private function uploadInProgressResponse(string $sessionToken, string $target, string $message): JsonResponse
+    {
+        $runningOperationId = Cache::get($this->uploadLockKey($sessionToken, $target).':operation');
+
+        return $this->booleanResponse(false, $message, [
+            'operation_id' => is_string($runningOperationId) ? $runningOperationId : null,
+            'status' => 'in_progress',
+        ], 409);
+    }
+
+    /**
+     * An offline session reads the archive only; data that was never archived
+     * is explained instead of reported as a server error.
+     */
+    private function offlineResponse(): JsonResponse
+    {
+        return $this->booleanResponse(
+            false,
+            'Data ini belum tersimpan di arsip MyCIC, jadi belum bisa dibuka selama mode offline.',
+            null,
+            503,
+            meta: ['offline' => true]
+        );
+    }
+
+    /**
+     * The student's exam list, and the row of the given exam id in it.
+     *
+     * Exam ids are class-level and a course's class-fallback row carries the
+     * same id with `can_upload=false`, so a row the portal opened for upload
+     * wins over the others with that id.
+     *
+     * @return array{exams: list<mixed>, exam: array<string, mixed>|null}
+     */
+    private function listedExam(string $sessionToken, int $examId): array
+    {
+        $exams = $this->datasets->read($sessionToken, 'exams', broadcastSessionId: (string) session()->getId())['data']['exams'] ?? [];
+        $exams = is_array($exams) ? array_values($exams) : [];
+        $matches = collect($exams)->filter(fn (mixed $exam): bool => is_array($exam) && (string) ($exam['id'] ?? '') === (string) $examId);
+        $exam = $matches->first(fn (array $exam): bool => ($exam['can_upload'] ?? true) !== false) ?? $matches->first();
+
+        return ['exams' => $exams, 'exam' => $exam];
+    }
 
     /**
      * Other open tabs re-read the views an assignment or attendance action changed.
@@ -91,6 +280,7 @@ class PortalActionController extends CampusApiController
     #[Response(description: 'Unggah tugas berhasil diproses oleh SIPANDAI.', type: self::ACTION_RESULT_RESPONSE)]
     #[Response(401, description: 'Endpoint ini membutuhkan sesi kampus yang aktif.', type: CampusApiController::SCRAMBLE_SESSION_ERROR_RESPONSE)]
     #[Response(422, description: 'Payload unggah tugas tidak valid.', type: CampusApiController::SCRAMBLE_VALIDATION_ERROR_RESPONSE)]
+    #[Response(409, description: 'Unggah tugas yang sama masih diproses; `data.operation_id` menunjuk operasi yang berjalan.', type: self::ACTION_RESULT_RESPONSE)]
     #[Response(500, description: 'Unggah tugas gagal diproses.', type: CampusApiController::SCRAMBLE_BOOLEAN_RESPONSE)]
     public function uploadAssignment(SipandaiAssignmentUploadRequest $request): JsonResponse
     {
@@ -123,11 +313,19 @@ class PortalActionController extends CampusApiController
             }
 
             $operationId = (string) Str::uuid();
-            $storedFilePath = $attachment->store('portal-uploads');
-            $this->tracker->start($operationId, 'assignment_upload', (string) session()->getId(), 'Upload tugas diterima, menyiapkan pengiriman.');
+            $uploadTarget = sprintf('assignment:%d:%d:%d', $courseId, $discussionId, $meetingNumber);
+            $uploadLock = $this->acquireUploadLock($sessionToken, $uploadTarget, $operationId);
+
+            if ($uploadLock === null) {
+                return $this->uploadInProgressResponse($sessionToken, $uploadTarget, 'Upload tugas ini masih diproses. Tunggu sampai selesai sebelum mengirim lagi.');
+            }
+
+            $storedFilePath = $this->stageUpload($attachment, $operationId, 'assignment_upload', 'Upload tugas diterima, menyiapkan pengiriman.', $uploadLock);
 
             // Runs right after the response is sent, so the upload starts
             // immediately instead of waiting for the next queue worker run.
+            // A process that dies before the job settles the upload leaves
+            // it to portal:recover-uploads.
             ProcessPortalAssignmentUploadJob::dispatchAfterResponse(
                 $operationId,
                 (string) session()->getId(),
@@ -138,19 +336,19 @@ class PortalActionController extends CampusApiController
                 $storedFilePath,
                 $attachment->getClientOriginalName(),
                 $attachment->getMimeType() ?: 'application/pdf',
-                $request->formValues()
+                $request->formValues(),
+                $uploadLock['key'],
+                $uploadLock['owner']
             );
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Upload tugas diterima dan sedang diproses.',
-                'data' => [
-                    'operation_id' => $operationId,
-                    'status' => 'queued',
-                ],
+            return $this->booleanResponse(true, 'Upload tugas diterima dan sedang diproses.', [
+                'operation_id' => $operationId,
+                'status' => 'queued',
             ], 202);
 
         } catch (\Throwable $e) {
+            $this->abandonUpload($uploadLock ?? null, $storedFilePath ?? null);
+
             if ($this->isCampusSessionExpiredException($e)) {
                 return $this->expiredSessionBooleanResponse();
             }
@@ -243,6 +441,10 @@ class PortalActionController extends CampusApiController
      * - `modulesid` → nilai `modulesid` pada URL absensi (contoh `modulesid=30728`).
      * - `kode` → kode QR/unix untuk absensi (contoh `35533429`).
      * - `pertemuan` → opsional; nomor pertemuan untuk referensi.
+     *
+     * Tanpa `courseid` dan `modulesid`, target diambil dari `shortcut_context` dan hanya dipakai
+     * bila materi pertemuan hari ini sudah ada: tanpa itu targetnya pertemuan sebelumnya, dan kode
+     * yang dikirim ke sana ditolak portal saat kelas berlangsung.
      */
     #[Response(description: 'Absensi berhasil dikirim ke SIPANDAI.', type: self::ACTION_RESULT_RESPONSE)]
     #[Response(401, description: 'Endpoint ini membutuhkan sesi kampus yang aktif.', type: CampusApiController::SCRAMBLE_SESSION_ERROR_RESPONSE)]
@@ -273,6 +475,10 @@ class PortalActionController extends CampusApiController
 
                 if ($resolvedShortcut === null || empty($resolvedShortcut['attendance_payload'])) {
                     return $this->booleanResponse(false, 'Target absensi terbaru belum bisa ditentukan untuk kelas ini.', null, 422);
+                }
+
+                if (($resolvedShortcut['attendance_target_reliable'] ?? false) !== true) {
+                    return $this->booleanResponse(false, 'Materi pertemuan hari ini belum diunggah dosen, jadi absensi belum bisa dikirim dari sini. Buka pertemuannya dari halaman Kelas.', null, 422);
                 }
 
                 $resolvedPayload = $resolvedShortcut['attendance_payload'];
@@ -362,6 +568,7 @@ class PortalActionController extends CampusApiController
      */
     #[Response(description: 'Daftar tugas pending berhasil diambil.', type: self::PENDING_ASSIGNMENTS_RESPONSE)]
     #[Response(401, description: 'Endpoint ini membutuhkan sesi kampus yang aktif.', type: CampusApiController::SCRAMBLE_SESSION_ERROR_RESPONSE)]
+    #[Response(503, description: 'Sesi offline dan daftar tugas belum tersimpan di arsip.', type: CampusApiController::SCRAMBLE_BOOLEAN_RESPONSE)]
     #[Response(500, description: 'Daftar tugas pending gagal diambil.', type: CampusApiController::SCRAMBLE_BOOLEAN_RESPONSE)]
     public function pendingAssignments(): JsonResponse
     {
@@ -383,6 +590,10 @@ class PortalActionController extends CampusApiController
                 'assignments' => $pendingAssignments['data']['assignments'] ?? [],
             ], meta: $pendingAssignments['meta']);
         } catch (\Throwable $e) {
+            if ($e instanceof PortalOfflineException) {
+                return $this->offlineResponse();
+            }
+
             if ($this->isCampusSessionExpiredException($e)) {
                 return $this->expiredSessionBooleanResponse();
             }
@@ -400,6 +611,7 @@ class PortalActionController extends CampusApiController
      */
     #[Response(description: 'Daftar ujian SIPANDAI berhasil diambil.', type: self::EXAM_LIST_RESPONSE)]
     #[Response(401, description: 'Endpoint ini membutuhkan sesi kampus yang aktif.', type: CampusApiController::SCRAMBLE_SESSION_ERROR_RESPONSE)]
+    #[Response(503, description: 'Sesi offline dan daftar ujian belum tersimpan di arsip.', type: CampusApiController::SCRAMBLE_BOOLEAN_RESPONSE)]
     #[Response(500, description: 'Daftar ujian gagal diambil.', type: CampusApiController::SCRAMBLE_BOOLEAN_RESPONSE)]
     public function listExams(): JsonResponse
     {
@@ -425,6 +637,10 @@ class PortalActionController extends CampusApiController
                 'exams' => $exams['data']['exams'] ?? [],
             ], meta: $exams['meta']);
         } catch (\Throwable $e) {
+            if ($e instanceof PortalOfflineException) {
+                return $this->offlineResponse();
+            }
+
             if ($this->isCampusSessionExpiredException($e)) {
                 return $this->expiredSessionBooleanResponse();
             }
@@ -456,8 +672,7 @@ class PortalActionController extends CampusApiController
         try {
             // The upload page itself carries no course name; the exam list does,
             // and it also tells whether this id is one of the student's exams.
-            $exams = $this->datasets->read($sessionToken, 'exams', broadcastSessionId: (string) session()->getId())['data']['exams'] ?? [];
-            $course = collect($exams)->first(fn (mixed $exam): bool => is_array($exam) && (string) ($exam['id'] ?? '') === (string) $request->examId());
+            ['exams' => $exams, 'exam' => $course] = $this->listedExam($sessionToken, $request->examId());
 
             if ($course === null && $exams !== []) {
                 return $this->booleanResponse(false, 'Ujian tidak ditemukan di daftar ujian kamu.', null, 404);
@@ -482,6 +697,10 @@ class PortalActionController extends CampusApiController
                 'exam_detail' => $examDetail,
             ]);
         } catch (\Throwable $e) {
+            if ($e instanceof PortalOfflineException) {
+                return $this->offlineResponse();
+            }
+
             if ($this->isCampusSessionExpiredException($e)) {
                 return $this->expiredSessionBooleanResponse();
             }
@@ -501,10 +720,18 @@ class PortalActionController extends CampusApiController
      * - `id` → ambil dari parameter `id` pada URL upload ujian (`act=sendujian`).
      * - `attachment` → file ujian yang akan diunggah.
      * - `form_values` → optional, override field tambahan dari form upload ujian.
+     *   Field tersembunyi milik portal (`data[id]`, `data[tipe]`, `data[kelas]`) tidak bisa di-override.
+     *
+     * Hanya ujian yang ada di daftar ujian mahasiswa dan dibuka portal untuk upload yang diterima:
+     * id yang dipinjam dari daftar kelas hanya tebakan dan bisa menunjuk ujian mata kuliah lain.
+     * Daftar ujian yang tidak bisa dibaca tidak memblokir upload; halaman `sendujian` tetap menentukan.
+     * Jawaban tidak dikirim bila halaman `sendujian` tidak menampilkan form upload.
      */
     #[Response(description: 'Unggah ujian berhasil diproses oleh SIPANDAI.', type: self::ACTION_RESULT_RESPONSE)]
     #[Response(401, description: 'Endpoint ini membutuhkan sesi kampus yang aktif.', type: CampusApiController::SCRAMBLE_SESSION_ERROR_RESPONSE)]
-    #[Response(422, description: 'Payload unggah ujian tidak valid.', type: CampusApiController::SCRAMBLE_VALIDATION_ERROR_RESPONSE)]
+    #[Response(404, description: 'Ujian tidak ada di daftar ujian mahasiswa.', type: CampusApiController::SCRAMBLE_BOOLEAN_RESPONSE)]
+    #[Response(422, description: 'Payload unggah ujian tidak valid, atau portal belum membuka upload ujian ini.', type: CampusApiController::SCRAMBLE_VALIDATION_ERROR_RESPONSE)]
+    #[Response(409, description: 'Unggah ujian yang sama masih diproses; `data.operation_id` menunjuk operasi yang berjalan.', type: self::ACTION_RESULT_RESPONSE)]
     #[Response(500, description: 'Unggah ujian gagal diproses.', type: CampusApiController::SCRAMBLE_BOOLEAN_RESPONSE)]
     public function uploadExam(SipandaiExamUploadRequest $request): JsonResponse
     {
@@ -515,10 +742,38 @@ class PortalActionController extends CampusApiController
         }
 
         try {
+            try {
+                ['exams' => $exams, 'exam' => $exam] = $this->listedExam($sessionToken, $request->examId());
+            } catch (\Throwable $listError) {
+                if ($this->isCampusSessionExpiredException($listError)) {
+                    throw $listError;
+                }
+
+                Log::warning('Exam list unavailable while checking an exam upload', [
+                    'id' => $request->examId(),
+                    'error' => $listError->getMessage(),
+                ]);
+                [$exams, $exam] = [[], null];
+            }
+
+            if ($exam === null && $exams !== []) {
+                return $this->booleanResponse(false, 'Ujian tidak ditemukan di daftar ujian kamu.', null, 404);
+            }
+
+            if ($exam !== null && ($exam['can_upload'] ?? true) === false) {
+                return $this->booleanResponse(false, 'Portal belum membuka upload jawaban untuk ujian ini.', ['status' => 'upload_unavailable'], 422);
+            }
+
             $attachment = $request->attachment();
             $operationId = (string) Str::uuid();
-            $storedFilePath = $attachment->store('portal-uploads');
-            $this->tracker->start($operationId, 'exam_upload', (string) session()->getId(), 'Upload ujian diterima, menyiapkan pengiriman.');
+            $uploadTarget = 'exam:'.$request->examId();
+            $uploadLock = $this->acquireUploadLock($sessionToken, $uploadTarget, $operationId);
+
+            if ($uploadLock === null) {
+                return $this->uploadInProgressResponse($sessionToken, $uploadTarget, 'Upload jawaban ujian ini masih diproses. Tunggu sampai selesai sebelum mengirim lagi.');
+            }
+
+            $storedFilePath = $this->stageUpload($attachment, $operationId, 'exam_upload', 'Upload ujian diterima, menyiapkan pengiriman.', $uploadLock);
 
             ProcessPortalExamUploadJob::dispatchAfterResponse(
                 $operationId,
@@ -528,18 +783,22 @@ class PortalActionController extends CampusApiController
                 $storedFilePath,
                 $attachment->getClientOriginalName(),
                 $attachment->getMimeType() ?: 'application/octet-stream',
-                $request->formValues()
+                $request->formValues(),
+                $uploadLock['key'],
+                $uploadLock['owner']
             );
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Upload ujian diterima dan sedang diproses.',
-                'data' => [
-                    'operation_id' => $operationId,
-                    'status' => 'queued',
-                ],
+            return $this->booleanResponse(true, 'Upload ujian diterima dan sedang diproses.', [
+                'operation_id' => $operationId,
+                'status' => 'queued',
             ], 202);
         } catch (\Throwable $e) {
+            $this->abandonUpload($uploadLock ?? null, $storedFilePath ?? null);
+
+            if ($e instanceof PortalOfflineException) {
+                return $this->offlineResponse();
+            }
+
             if ($this->isCampusSessionExpiredException($e)) {
                 return $this->expiredSessionBooleanResponse();
             }

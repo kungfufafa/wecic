@@ -67,6 +67,36 @@ class PortalAnnouncementFeedTest extends TestCase
         $this->assertSame([null, null, null, null, $items[3]['id'], null], array_column($items, 'duplicate_of'));
     }
 
+    public function test_different_notices_under_the_same_generic_title_both_count(): void
+    {
+        $extractor = $this->extractorMock();
+        $extractor->shouldReceive('extractAnnouncementsData')->once()->with(self::TOKEN, 1)->andReturn($this->page(1, [
+            $this->item('payment', 'PENGUMUMAN', '2026-07-24', [['date' => '2026-08-20', 'start' => null, 'type' => 'deadline', 'context' => 'Bayar UKT']],
+                'Diberitahukan kepada seluruh mahasiswa bahwa pembayaran UKT tahap 2 paling lambat tanggal 20 Agustus 2026 melalui virtual account masing-masing.'),
+            $this->item('exam-card', 'PENGUMUMAN', '2026-07-21', [['date' => '2026-08-10', 'start' => null, 'type' => 'deadline', 'context' => 'Kartu UTS']],
+                'Diberitahukan kepada seluruh mahasiswa bahwa kartu UTS dapat diambil di ruang BAAK paling lambat tanggal 10 Agustus 2026 dengan membawa KTM.'),
+        ], 2));
+
+        $data = (new PortalAnnouncementFeed($extractor))->fetch(self::TOKEN, 1);
+
+        $this->assertSame([null, null], array_column($data['items'], 'duplicate_of'));
+        $this->assertSame(['2026-08-10', '2026-08-20'], array_column($data['upcoming_deadlines'], 'date'));
+    }
+
+    public function test_a_repost_with_a_corrected_date_is_still_a_duplicate(): void
+    {
+        $body = 'Diberitahukan kepada seluruh mahasiswa bahwa pembayaran UKT tahap 2 paling lambat tanggal %s Agustus 2026 melalui virtual account masing-masing.';
+        $extractor = $this->extractorMock();
+        $extractor->shouldReceive('extractAnnouncementsData')->once()->with(self::TOKEN, 1)->andReturn($this->page(1, [
+            $this->item('repost', 'Pembayaran UKT Tahap 2', '2026-07-24', [], sprintf($body, '22')),
+            $this->item('first', 'Pembayaran UKT Tahap 2', '2026-07-21', [], sprintf($body, '20')),
+        ], 2));
+
+        $data = (new PortalAnnouncementFeed($extractor))->fetch(self::TOKEN, 1);
+
+        $this->assertSame([null, 'repost'], array_column($data['items'], 'duplicate_of'));
+    }
+
     public function test_it_lists_upcoming_deadlines_with_countdowns(): void
     {
         $upcoming = (new PortalAnnouncementFeed($this->extractorForFixturePages()))->fetch(self::TOKEN, 2)['upcoming_deadlines'];
@@ -186,6 +216,70 @@ class PortalAnnouncementFeedTest extends TestCase
 
         $this->assertSame(['new', 'a', 'b', 'c', 'd'], array_column($data['items'], 'id'));
         $this->assertSame(1, $data['items'][2]['page']);
+    }
+
+    public function test_items_get_their_stable_id_across_pages(): void
+    {
+        $extractor = $this->extractorMock();
+        $extractor->shouldReceive('extractAnnouncementsData')->with(self::TOKEN, 1)
+            ->andReturn($this->page(1, [$this->worded('Jadwal UTS', '2026-07-10', 'Isi pertama.')], 6));
+        $extractor->shouldReceive('extractAnnouncementsData')->with(self::TOKEN, 2)
+            ->andReturn($this->page(2, [$this->worded('Libur Nasional', '2026-07-01', 'Isi kedua.')], 6));
+
+        $data = (new PortalAnnouncementFeed($extractor))->fetch(self::TOKEN, 2);
+
+        $this->assertSame([
+            AnnouncementExtractor::stableId('Jadwal UTS', '2026-07-10', 'BAAK'),
+            AnnouncementExtractor::stableId('Libur Nasional', '2026-07-01', 'BAAK'),
+        ], array_column($data['items'], 'id'));
+        $this->assertSame($data['items'][0]['id'], $data['upcoming_deadlines'][0]['announcement_id']);
+    }
+
+    public function test_two_announcements_sharing_a_stable_id_on_different_pages_stay_apart(): void
+    {
+        $extractor = $this->extractorMock();
+        $extractor->shouldReceive('extractAnnouncementsData')->with(self::TOKEN, 1)
+            ->andReturn($this->page(1, [$this->worded('Jadwal UTS', '2026-07-10', 'Isi pertama.'), $this->worded('Surat Magang', '2026-07-03', 'Pengantar magang untuk semester ganjil.')], 6));
+        $extractor->shouldReceive('extractAnnouncementsData')->with(self::TOKEN, 2)
+            ->andReturn($this->page(2, [$this->worded('Surat Magang', '2026-07-03', 'Format baru surat keterangan masih kuliah.')], 6));
+
+        $items = (new PortalAnnouncementFeed($extractor))->fetch(self::TOKEN, 2)['items'];
+
+        $this->assertCount(3, $items);
+        $this->assertSame(AnnouncementExtractor::stableId('Jadwal UTS', '2026-07-10', 'BAAK'), $items[0]['id']);
+        $this->assertSame([$items[1]['legacy_id'], $items[2]['legacy_id']], [$items[1]['id'], $items[2]['id']]);
+        $this->assertNotSame($items[1]['id'], $items[2]['id']);
+        $this->assertSame([null, null, null], array_column($items, 'duplicate_of'));
+    }
+
+    public function test_an_announcement_read_on_two_pages_under_different_ids_appears_once(): void
+    {
+        $original = $this->worded('Surat Magang', '2026-07-03', 'Pengantar magang untuk semester ganjil.');
+        $other = $this->worded('Surat Magang', '2026-07-03', 'Format baru surat keterangan masih kuliah.');
+        $extractor = $this->extractorMock();
+        // Page 1 saw the pair (legacy ids); after a new post page 2 holds the original alone (stable id).
+        $extractor->shouldReceive('extractAnnouncementsData')->with(self::TOKEN, 1)
+            ->andReturn($this->page(1, AnnouncementExtractor::withStableIds([$other, $original]), 6));
+        $extractor->shouldReceive('extractAnnouncementsData')->with(self::TOKEN, 2)
+            ->andReturn($this->page(2, AnnouncementExtractor::withStableIds([$original]), 6));
+
+        $items = (new PortalAnnouncementFeed($extractor))->fetch(self::TOKEN, 2)['items'];
+
+        $this->assertSame([$other['legacy_id'], $original['legacy_id']], array_column($items, 'id'));
+        $this->assertSame([1, 1], array_column($items, 'page'));
+    }
+
+    public function test_a_page_cached_before_stable_ids_does_not_repeat_its_announcements(): void
+    {
+        $fresh = $this->worded('Jadwal UTS', '2026-07-10', 'Isi pertama.');
+        $cached = $this->item($fresh['legacy_id'], 'Jadwal UTS', '2026-07-10', [], 'Isi pertama.');
+        $extractor = $this->extractorMock();
+        $extractor->shouldReceive('extractAnnouncementsData')->with(self::TOKEN, 1)->andReturn($this->page(1, [$fresh], 6));
+        $extractor->shouldReceive('extractAnnouncementsData')->with(self::TOKEN, 2)->andReturn($this->page(2, [$cached], 6));
+
+        $items = (new PortalAnnouncementFeed($extractor))->fetch(self::TOKEN, 2)['items'];
+
+        $this->assertSame([AnnouncementExtractor::stableId('Jadwal UTS', '2026-07-10', 'BAAK')], array_column($items, 'id'));
     }
 
     public function test_a_failing_later_page_keeps_the_pages_already_loaded(): void
@@ -325,10 +419,24 @@ class PortalAnnouncementFeedTest extends TestCase
     }
 
     /**
+     * An item as the extractor now reads it: a legacy id from its wording and,
+     * for now, its stable id (the feed decides the final one).
+     *
+     * @return array<string, mixed>
+     */
+    private function worded(string $title, string $publishedDate, string $body): array
+    {
+        return [
+            ...$this->item(AnnouncementExtractor::stableId($title, $publishedDate, 'BAAK'), $title, $publishedDate, [['date' => '2026-08-01', 'start' => null, 'type' => 'deadline', 'context' => $body]], $body),
+            'legacy_id' => AnnouncementExtractor::legacyId($title, $publishedDate, 'BAAK', $body),
+        ];
+    }
+
+    /**
      * @param  list<array<string, mixed>>  $deadlines
      * @return array<string, mixed>
      */
-    private function item(string $id, string $title, ?string $publishedDate, array $deadlines = []): array
+    private function item(string $id, string $title, ?string $publishedDate, array $deadlines = [], string $body = ''): array
     {
         return [
             'id' => $id,
@@ -341,8 +449,8 @@ class PortalAnnouncementFeedTest extends TestCase
             'publisher_unit_short' => 'BAAK',
             'category' => 'umum',
             'category_label' => 'Umum',
-            'excerpt' => '',
-            'body_text' => '',
+            'excerpt' => $body,
+            'body_text' => $body,
             'body_html' => '',
             'links' => [],
             'emails' => [],

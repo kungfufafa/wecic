@@ -9,6 +9,7 @@ use App\Models\Notebook;
 use App\Models\NotebookChunk;
 use App\Models\NotebookMessage;
 use App\Models\NotebookSource;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\RateLimiter;
 
@@ -16,14 +17,28 @@ use Illuminate\Support\Facades\RateLimiter;
  * Answers and study material grounded in a notebook's sources.
  *
  * The excerpts sent to the model are numbered; the model cites them as
- * `[n]`, and every citation is mapped back to its source and page. Small
- * notebooks send all their text; larger ones send the excerpts that match
- * the question best (keyword scoring, no embeddings), within
+ * `[n]`, and every citation is mapped back to its source and page (a
+ * bracketed number right after a word, like `arr[0]`, or inside code is not
+ * a citation). Small notebooks send all their text; larger ones send the
+ * excerpts that match the question best (keyword scoring, no embeddings), within
  * `notebook.limits.context_chars`. The student may narrow the context to
  * chosen sources; every answer records the context it was given.
  */
 class NotebookAssistant
 {
+    /**
+     * Whether the notebook's AI can answer, and why not (`aiStatus()`).
+     */
+    public const AI_OK = 'ok';
+
+    public const AI_DISABLED = 'disabled';
+
+    public const AI_MISSING_KEY = 'missing_key';
+
+    public const AI_INVALID_KEY = 'invalid_key';
+
+    public const AI_MODEL_MISCONFIGURED = 'model_misconfigured';
+
     public const STUDIO_KINDS = [
         'summary' => 'Ringkasan',
         'study_guide' => 'Panduan belajar',
@@ -38,21 +53,37 @@ class NotebookAssistant
     private const SYSTEM_INSTRUCTION = <<<'PROMPT'
         Kamu adalah asisten belajar MyCIC Notebook untuk mahasiswa Universitas Catur Insan Cendekia.
         Gunakan HANYA kutipan sumber yang diberikan. Setiap informasi dari sumber diberi rujukan nomor kutipannya dalam kurung siku, misalnya [3] atau [2][5], tepat setelah kalimatnya.
+        Tulis rujukan dengan satu spasi sebelum kurung siku ("… mengurangi redundansi [3].") atau sesudah titik ("… mengurangi redundansi.[3]"), jangan menempel pada kata atau angka ("redundansi[3]" tidak terbaca sebagai rujukan). Kurung siku berisi angka untuk hal lain, seperti indeks array, ditulis di dalam `kode`.
         Jangan pernah membuat nomor rujukan yang tidak ada. Jika sumber tidak membahas hal yang ditanyakan, katakan terus terang bahwa sumber belum membahasnya, lalu sarankan bagian materi atau kata kunci yang bisa dicari.
         Jawab dalam bahasa Indonesia yang jelas dan ramah (kecuali diminta bahasa lain), dengan Markdown sederhana: paragraf pendek, daftar berpoin, **tebal** untuk istilah penting, dan judul "## " bila perlu.
         Untuk soal tugas atau ujian yang dinilai, bantu memahami: jelaskan konsep, langkah, dan contoh lain, bukan jawaban siap salin.
         PROMPT;
 
     private const STUDIO_PROMPTS = [
-        'summary' => 'Buat ringkasan menyeluruh dari semua sumber: mulai dengan gambaran umum satu paragraf, lalu bagian "## " per topik utama berisi poin-poin penting. Beri rujukan [n].',
-        'study_guide' => 'Buat panduan belajar untuk persiapan ujian: "## Konsep kunci" (istilah dan penjelasan singkat), "## Penjelasan" per topik dengan contoh, "## Hal yang sering keliru", dan "## Pertanyaan latihan" (8 pertanyaan esai tanpa jawaban). Beri rujukan [n].',
+        'summary' => 'Buat ringkasan menyeluruh dari semua sumber: mulai dengan gambaran umum satu paragraf, lalu bagian "## " per topik utama berisi poin-poin penting. Beri rujukan [n] dengan spasi sebelum kurung siku.',
+        'study_guide' => 'Buat panduan belajar untuk persiapan ujian: "## Konsep kunci" (istilah dan penjelasan singkat), "## Penjelasan" per topik dengan contoh, "## Hal yang sering keliru", dan "## Pertanyaan latihan" (8 pertanyaan esai tanpa jawaban). Beri rujukan [n] dengan spasi sebelum kurung siku.',
         'assignment_plan' => 'Bantu mahasiswa menyusun tugasnya dengan rapi dan cepat, hanya berdasarkan sumber. Tulis: "## Pemahaman tugas" (apa yang diminta dan kriteria yang tersirat, 2–4 kalimat; bila instruksi tugas tidak ada di sumber, sebutkan asumsinya), "## Kerangka" (judul kerja, lalu bagian-bagian berurutan; tiap bagian berisi 2–4 poin yang harus dibahas, masing-masing dengan rujukan [n]), "## Konsep kunci dari materi" (5–10 konsep dengan penjelasan satu kalimat dan rujukan [n]), "## Langkah pengerjaan" (urutan kerja ringkas), "## Checklist sebelum dikumpulkan", dan "## Bagian yang belum tercakup sumber" (hal yang perlu dicari di luar sumber, jika ada). Jangan menulis isi tugas yang siap kumpul: berikan kerangka, poin, dan rujukan agar mahasiswa menulis sendiri.',
-        'faq' => 'Buat 8 sampai 12 pertanyaan yang paling mungkin ditanyakan mahasiswa tentang materi ini, masing-masing sebagai judul "## " diikuti jawabannya. Beri rujukan [n].',
+        'faq' => 'Buat 8 sampai 12 pertanyaan yang paling mungkin ditanyakan mahasiswa tentang materi ini, masing-masing sebagai judul "## " diikuti jawabannya. Beri rujukan [n] dengan spasi sebelum kurung siku.',
         'glossary' => 'Buat glosarium 10 sampai 25 istilah penting dari sumber, urut abjad. Definisi singkat dan tepat sesuai sumber.',
         'quiz' => 'Buat kuis 10 soal pilihan ganda dari sumber, masing-masing 4 pilihan dengan tepat satu jawaban benar, tingkat kesulitan beragam, dan penjelasan singkat mengapa jawabannya benar.',
         'flashcards' => 'Buat 15 flashcard: sisi depan berupa pertanyaan atau istilah singkat, sisi belakang jawaban ringkas.',
         'mind_map' => 'Buat peta konsep materi: satu topik utama, 3 sampai 7 cabang, tiap cabang punya 2 sampai 5 sub-topik singkat (maksimal 3 tingkat).',
     ];
+
+    /**
+     * A run of citations (`[3]`, `[2][5]`, `[2, 5]`) that does not follow a
+     * word character or another bracket: `arr[0]` and `matrix[2][5]` are code.
+     */
+    private const CITATION_RUN = '/(?<![\p{L}\p{N}_\]])(?:\[\d{1,4}(?:\s*[,;]\s*\d{1,4})*\])+/u';
+
+    /**
+     * Fenced blocks (closed or not) and inline code spans.
+     */
+    private const CODE = '/(```.*?(?:```|$)|`[^`\n]*`)/su';
+
+    private const TRUNCATED_ANSWER_NOTE = '*Jawaban terpotong karena terlalu panjang. Minta lanjutannya, atau persempit pertanyaanmu.*';
+
+    private const TRUNCATED_STUDIO_NOTE = '*Hasil ini terpotong karena terlalu panjang. Centang lebih sedikit sumber, lalu buat ulang.*';
 
     private const STOPWORDS = [
         'yang', 'dan', 'atau', 'di', 'ke', 'dari', 'ini', 'itu', 'untuk', 'dengan', 'pada', 'adalah', 'apa', 'apakah',
@@ -65,7 +96,27 @@ class NotebookAssistant
 
     public function isAvailable(): bool
     {
-        return (bool) config('notebook.enabled', true) && $this->gemini->isConfigured();
+        return $this->aiStatus() === self::AI_OK;
+    }
+
+    /**
+     * Whether the AI can answer: switched off (`notebook.enabled`), no key
+     * (`services.gemini.key`), a key or model settings the API rejected
+     * lately (GeminiClient::misconfiguration()), or ok.
+     *
+     * @return self::AI_*
+     */
+    public function aiStatus(): string
+    {
+        return match (true) {
+            ! (bool) config('notebook.enabled', true) => self::AI_DISABLED,
+            ! $this->gemini->isConfigured() => self::AI_MISSING_KEY,
+            default => match ($this->gemini->misconfiguration()) {
+                NotebookAiException::CAUSE_KEY => self::AI_INVALID_KEY,
+                NotebookAiException::CAUSE_MODEL => self::AI_MODEL_MISCONFIGURED,
+                default => self::AI_OK,
+            },
+        };
     }
 
     /**
@@ -74,7 +125,7 @@ class NotebookAssistant
      */
     public function ask(Notebook $notebook, string $question, array $sourceIds = []): array
     {
-        $this->guard($notebook, $sourceIds);
+        $budgetKey = $this->guard($notebook, $sourceIds);
         $excerpts = $this->excerpts($notebook, $question, $sourceIds);
         $context = $this->contextOf($notebook, $excerpts, $sourceIds, null);
         $history = $notebook->messages()
@@ -85,17 +136,24 @@ class NotebookAssistant
             ->reverse()
             ->values();
 
-        $contents = $history->map(static fn (NotebookMessage $message): array => [
+        // Earlier answers lose their [n]: those numbered other excerpts than this request's.
+        $contents = $history->map(fn (NotebookMessage $message): array => [
             'role' => $message->role === NotebookMessage::ROLE_USER ? 'user' : 'model',
-            'parts' => [['text' => $message->content]],
+            'parts' => [['text' => $message->role === NotebookMessage::ROLE_USER ? $message->content : $this->withoutCitations($message->content)]],
         ])->all();
         $contents[] = [
             'role' => 'user',
             'parts' => [['text' => $this->contextBlock($excerpts)."\n\n---\nPertanyaan: ".$question]],
         ];
 
-        $result = $this->gemini->generate($contents, self::SYSTEM_INSTRUCTION, ['temperature' => 0.3, 'maxOutputTokens' => 4096]);
+        // Cut even with the larger limit GeminiClient asks for once: kept, but marked as cut.
+        $result = $this->charged($budgetKey, fn (): array => $this->gemini->generate($contents, self::SYSTEM_INSTRUCTION, ['temperature' => 0.3, 'maxOutputTokens' => 8192]));
         [$text, $citations] = $this->citeText($result['text'], $excerpts);
+        $context['truncated'] = $result['truncated'];
+
+        if ($result['truncated']) {
+            $text .= "\n\n".self::TRUNCATED_ANSWER_NOTE;
+        }
 
         $userMessage = $notebook->messages()->create([
             'role' => NotebookMessage::ROLE_USER,
@@ -124,7 +182,7 @@ class NotebookAssistant
             throw new \InvalidArgumentException("Unknown studio output [{$kind}].");
         }
 
-        $this->guard($notebook, $sourceIds);
+        $budgetKey = $this->guard($notebook, $sourceIds);
         $excerpts = $this->excerpts($notebook, $focus, $sourceIds);
         $context = $this->contextOf($notebook, $excerpts, $sourceIds, $focus);
         $schema = $this->schema($kind);
@@ -134,35 +192,40 @@ class NotebookAssistant
             $task .= ($kind === 'assignment_plan' ? "\n\nInstruksi/fokus tugas dari mahasiswa: " : "\n\nFokus yang diminta mahasiswa: ").$focus;
         }
 
-        $result = $this->gemini->generate([[
-            'role' => 'user',
-            'parts' => [['text' => $this->contextBlock($excerpts)."\n\n---\nTugas: ".$task]],
-        ]], self::SYSTEM_INSTRUCTION, array_filter([
-            'temperature' => $kind === 'quiz' || $kind === 'flashcards' ? 0.5 : 0.3,
-            'maxOutputTokens' => 8192,
-            'responseMimeType' => $schema !== null ? 'application/json' : null,
-            'responseSchema' => $schema,
-        ], static fn (mixed $value): bool => $value !== null));
+        [$content, $citations, $truncated] = $this->charged($budgetKey, function () use ($excerpts, $task, $kind, $schema): array {
+            $result = $this->gemini->generate([[
+                'role' => 'user',
+                'parts' => [['text' => $this->contextBlock($excerpts)."\n\n---\nTugas: ".$task]],
+            ]], self::SYSTEM_INSTRUCTION, array_filter([
+                'temperature' => $kind === 'quiz' || $kind === 'flashcards' ? 0.5 : 0.3,
+                'maxOutputTokens' => 16384,
+                'responseMimeType' => $schema !== null ? 'application/json' : null,
+                'responseSchema' => $schema,
+            ], static fn (mixed $value): bool => $value !== null));
 
-        if ($schema !== null) {
+            $truncated = $result['truncated'];
+
+            if ($schema === null) {
+                [$content, $citations] = $this->citeText($result['text'], $excerpts);
+
+                return [$truncated ? $content."\n\n".self::TRUNCATED_STUDIO_NOTE : $content, $citations, $truncated];
+            }
+
             $data = json_decode($result['text'], true);
 
             if (! is_array($data)) {
-                throw NotebookAiException::emptyAnswer();
+                throw $truncated ? NotebookAiException::tooLong() : NotebookAiException::emptyAnswer();
             }
 
-            $content = (string) json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-            $citations = $this->citeNumbers($this->numbersIn($data), $excerpts);
-        } else {
-            [$content, $citations] = $this->citeText($result['text'], $excerpts);
-        }
+            return [(string) json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), $this->citeNumbers($this->numbersIn($data), $excerpts), $truncated];
+        });
 
         $message = $notebook->messages()->create([
             'role' => NotebookMessage::ROLE_ASSISTANT,
             'kind' => $kind,
             'content' => $content,
             'citations' => $citations,
-            'context' => $context,
+            'context' => [...$context, 'truncated' => $truncated],
             'pinned' => true,
         ]);
         $notebook->touch();
@@ -180,7 +243,7 @@ class NotebookAssistant
     {
         $sources = $notebook->sources()
             ->where('status', NotebookSource::STATUS_READY)
-            ->when($sourceIds !== [], static fn ($builder) => $builder->whereKey($sourceIds))
+            ->when($sourceIds !== [], static fn (Builder $builder): Builder => $builder->whereKey($sourceIds))
             ->orderBy('id')
             ->get()
             ->keyBy('id');
@@ -213,6 +276,8 @@ class NotebookAssistant
      *
      * @param  list<array{n: int, chunk: NotebookChunk, source: NotebookSource}>  $excerpts
      * @param  list<int>  $sourceIds
+     *                                `truncated` (whether the output was cut at its length limit) is added
+     *                                once the model has answered.
      * @return array{source_ids: list<int>, sources: list<array{id: int, title: string, meeting_number: int|null}>, total_sources: int, excerpts: int, chars: int, partial: bool, focus: string|null}
      */
     private function contextOf(Notebook $notebook, array $excerpts, array $sourceIds, ?string $focus): array
@@ -368,7 +433,8 @@ class NotebookAssistant
 
     /**
      * Normalise `[2, 5]` to `[2][5]`, drop numbers that are not excerpts, and
-     * list what is cited.
+     * list what is cited. Brackets in code, or right after a word, are kept
+     * as written.
      *
      * @param  list<array{n: int, chunk: NotebookChunk, source: NotebookSource}>  $excerpts
      * @return array{0: string, 1: list<array{n: int, source_id: int, source_title: string, page: int|null, excerpt: string}>}
@@ -378,17 +444,55 @@ class NotebookAssistant
         $valid = array_column($excerpts, 'n');
         $cited = [];
 
-        $text = (string) preg_replace_callback('/\[(\d{1,4}(?:\s*[,;]\s*\d{1,4})*)\]/', function (array $match) use ($valid, &$cited): string {
-            $numbers = array_filter(array_map('intval', preg_split('/\s*[,;]\s*/', $match[1]) ?: []), static fn (int $number): bool => in_array($number, $valid, true));
+        $text = $this->outsideCode($text, function (string $prose) use ($valid, &$cited): string {
+            return (string) preg_replace_callback(self::CITATION_RUN, function (array $match) use ($valid, &$cited): string {
+                preg_match_all('/\d{1,4}/', $match[0], $found);
+                $numbers = array_values(array_unique(array_filter(array_map('intval', $found[0]), static fn (int $number): bool => in_array($number, $valid, true))));
 
-            foreach ($numbers as $number) {
-                $cited[$number] = true;
-            }
+                foreach ($numbers as $number) {
+                    $cited[$number] = true;
+                }
 
-            return implode('', array_map(static fn (int $number): string => "[{$number}]", $numbers));
-        }, $text);
+                return implode('', array_map(static fn (int $number): string => "[{$number}]", $numbers));
+            }, $prose);
+        });
 
         return [trim($text), $this->citeNumbers(array_keys($cited), $excerpts)];
+    }
+
+    /**
+     * An earlier answer without its citation numbers.
+     */
+    private function withoutCitations(string $text): string
+    {
+        return trim($this->outsideCode($text, static fn (string $prose): string => (string) preg_replace(
+            '/[ \t]+(?=[.,;:!?])/u',
+            '',
+            (string) preg_replace(self::CITATION_RUN, '', $prose)
+        )));
+    }
+
+    /**
+     * Apply `$transform` to the prose of a Markdown text, leaving code
+     * spans and fenced blocks untouched.
+     *
+     * @param  callable(string): string  $transform
+     */
+    private function outsideCode(string $text, callable $transform): string
+    {
+        $parts = preg_split(self::CODE, $text, -1, PREG_SPLIT_DELIM_CAPTURE);
+
+        if ($parts === false) {
+            return $transform($text);
+        }
+
+        foreach ($parts as $index => $part) {
+            if ($index % 2 === 0) {
+                $parts[$index] = $transform($part);
+            }
+        }
+
+        return implode('', $parts);
     }
 
     /**
@@ -431,13 +535,59 @@ class NotebookAssistant
     }
 
     /**
+     * Run one model request against the student's daily budget. The request
+     * is spent before the model is called, so requests sent at the same
+     * time cannot all pass the check before any of them is charged; past
+     * the budget it is given back and refused. A model that never answered
+     * (busy, unreachable, timed out, misconfigured) gives it back too; an
+     * answer keeps it, and so does one that came back unusable (cut off,
+     * withheld, unreadable), since it was produced and paid for.
+     *
+     * @template TResult
+     *
+     * @param  callable(): TResult  $request
+     * @return TResult
+     */
+    private function charged(string $budgetKey, callable $request): mixed
+    {
+        if (RateLimiter::hit($budgetKey, 86400) > $this->dailyRequests()) {
+            RateLimiter::decrement($budgetKey, 86400);
+
+            throw NotebookAiException::dailyLimitReached();
+        }
+
+        try {
+            return $request();
+        } catch (\Throwable $throwable) {
+            if (! $throwable instanceof NotebookAiException || ! $throwable->modelAnswered()) {
+                RateLimiter::decrement($budgetKey, 86400);
+            }
+
+            throw $throwable;
+        }
+    }
+
+    private function dailyRequests(): int
+    {
+        return max(1, (int) config('notebook.limits.daily_requests', 60));
+    }
+
+    /**
+     * Check that the notebook can be asked, and return the key of the
+     * student's daily budget, which charged() spends. A spent budget is
+     * refused here already, before the context is gathered.
+     *
      * @param  list<int>  $sourceIds
      */
-    private function guard(Notebook $notebook, array $sourceIds = []): void
+    private function guard(Notebook $notebook, array $sourceIds = []): string
     {
-        if (! $this->isAvailable()) {
-            throw NotebookAiException::notConfigured();
-        }
+        match ($this->aiStatus()) {
+            self::AI_DISABLED => throw NotebookAiException::disabled(),
+            self::AI_MISSING_KEY => throw NotebookAiException::notConfigured(),
+            self::AI_INVALID_KEY => throw NotebookAiException::misconfigured(NotebookAiException::CAUSE_KEY),
+            self::AI_MODEL_MISCONFIGURED => throw NotebookAiException::misconfigured(NotebookAiException::CAUSE_MODEL),
+            default => null,
+        };
 
         if (! $notebook->sources()->where('status', NotebookSource::STATUS_READY)->exists()) {
             throw new NotebookAiException('Tambahkan minimal satu sumber yang sudah selesai dibaca dulu.', 422);
@@ -448,13 +598,12 @@ class NotebookAssistant
         }
 
         $key = 'notebook-ai:'.$notebook->owner_hash.':'.now()->format('Y-m-d');
-        $limit = max(1, (int) config('notebook.limits.daily_requests', 60));
 
-        if (RateLimiter::tooManyAttempts($key, $limit)) {
+        if (RateLimiter::tooManyAttempts($key, $this->dailyRequests())) {
             throw NotebookAiException::dailyLimitReached();
         }
 
-        RateLimiter::hit($key, 86400);
+        return $key;
     }
 
     /**

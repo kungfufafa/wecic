@@ -183,7 +183,7 @@
 </head>
 <body>
     <div class="card">
-        <div id="offline-status" class="status-strip">
+        <div id="offline-status" class="status-strip" role="status">
             <span class="status-dot" aria-hidden="true"></span>
             <span id="offline-status-label">Offline</span>
         </div>
@@ -193,43 +193,193 @@
             </svg>
         </div>
         <div class="brand"><span class="brand-my">my</span><span class="brand-cic">CIC</span></div>
-        <h1>Tidak ada koneksi</h1>
+        <h1 id="offline-title">Tidak ada koneksi</h1>
         <p id="offline-copy">Pastikan perangkat kamu terhubung ke internet, lalu coba lagi.</p>
         <p class="meta" id="offline-meta">Begitu koneksi kembali, aplikasi akan memuat ulang dan mengambil data terbaru.</p>
-        <button id="retry-button" onclick="window.location.reload()">Coba lagi</button>
+        <button type="button" id="retry-button">Coba lagi</button>
     </div>
     <script>
         const statusStrip = document.getElementById('offline-status');
         const statusLabel = document.getElementById('offline-status-label');
+        const offlineTitle = document.getElementById('offline-title');
         const offlineCopy = document.getElementById('offline-copy');
         const offlineMeta = document.getElementById('offline-meta');
         const retryButton = document.getElementById('retry-button');
+        // Laravel's health route: never cached by the service worker, open
+        // during maintenance, and it touches no session.
+        const probeUrl = '/up';
+        const probeTimeoutMs = 8000;
+        const firstRetryMs = 2000;
+        const maxRetryMs = 60000;
+        // The attempt count outlives the reload it leads to (the app removes
+        // it once a page loads), so a server that answers the probe but
+        // still fails the page cannot start a fast reload loop.
+        const attemptStorageKey = 'mycic-offline-retry';
+        let attempt = restoreAttempt();
+        let retryTimer = null;
+        let probeController = null;
+        let generation = 0;
 
-        function reflectConnectionState() {
-            const isOnline = navigator.onLine;
+        function restoreAttempt() {
+            try {
+                const stored = JSON.parse(window.sessionStorage.getItem(attemptStorageKey) || 'null');
+                const age = Date.now() - Number(stored?.at);
 
-            statusStrip.classList.toggle('is-online', isOnline);
-            statusLabel.textContent = isOnline ? 'Online lagi' : 'Offline';
-            offlineCopy.textContent = isOnline
-                ? 'Koneksi sudah kembali. myCIC sedang memuat ulang halaman.'
-                : 'Pastikan perangkat kamu terhubung ke internet, lalu coba lagi.';
-            offlineMeta.textContent = isOnline
-                ? 'Tunggu sebentar, data terbaru akan diambil dari server.'
-                : 'Begitu koneksi kembali, aplikasi akan memuat ulang dan mengambil data terbaru.';
-            retryButton.textContent = isOnline ? 'Memuat ulang...' : 'Coba lagi';
-            retryButton.disabled = isOnline;
+                if (Number.isInteger(stored?.attempt) && stored.attempt > 0 && age >= 0 && age < maxRetryMs * 2) {
+                    return stored.attempt;
+                }
+            } catch (error) {
+                // Storage blocked: the retries start again from the shortest wait.
+            }
 
-            if (isOnline) {
-                window.setTimeout(() => {
-                    window.location.reload();
-                }, 600);
+            return 0;
+        }
+
+        function rememberAttempt() {
+            try {
+                window.sessionStorage.setItem(attemptStorageKey, JSON.stringify({ attempt, at: Date.now() }));
+            } catch (error) {
+                // Storage blocked: the next copy of this page starts from the shortest wait.
             }
         }
 
-        window.addEventListener('online', reflectConnectionState);
-        window.addEventListener('offline', reflectConnectionState);
+        function retryDelay(count) {
+            return Math.min(firstRetryMs * (2 ** count), maxRetryMs);
+        }
 
-        reflectConnectionState();
+        function stopRetrying() {
+            generation += 1;
+            window.clearTimeout(retryTimer);
+            retryTimer = null;
+            probeController?.abort();
+            probeController = null;
+        }
+
+        function reloadPage() {
+            stopRetrying();
+            rememberAttempt();
+            window.location.reload();
+        }
+
+        function render({ online, label, title, copy, meta, button, busy }) {
+            statusStrip.classList.toggle('is-online', online);
+            statusLabel.textContent = label;
+            offlineTitle.textContent = title;
+            offlineCopy.textContent = copy;
+            offlineMeta.textContent = meta;
+            retryButton.textContent = button;
+            retryButton.disabled = busy;
+        }
+
+        function showDeviceOffline() {
+            stopRetrying();
+            render({
+                online: false,
+                label: 'Offline',
+                title: 'Tidak ada koneksi',
+                copy: 'Pastikan perangkat kamu terhubung ke internet, lalu coba lagi.',
+                meta: 'Begitu koneksi kembali, aplikasi akan memuat ulang dan mengambil data terbaru.',
+                button: 'Coba lagi',
+                busy: false,
+            });
+        }
+
+        function showReconnected() {
+            stopRetrying();
+            render({
+                online: true,
+                label: 'Online lagi',
+                title: 'Koneksi kembali',
+                copy: 'Koneksi sudah kembali. myCIC sedang memuat ulang halaman.',
+                meta: 'Tunggu sebentar, data terbaru akan diambil dari server.',
+                button: 'Memuat ulang...',
+                busy: true,
+            });
+            retryTimer = window.setTimeout(reloadPage, 600);
+        }
+
+        // The device reports a connection, yet the page could not load: the
+        // signal is weak or the server is down. The page reloads only once a
+        // probe gets an answer, waiting longer after each miss.
+        function showServerUnreachable() {
+            stopRetrying();
+            render({
+                online: false,
+                label: 'Mencoba menyambung lagi…',
+                title: 'myCIC belum bisa dihubungi',
+                copy: 'Perangkat terhubung ke internet, tetapi server myCIC belum menjawab.',
+                meta: '',
+                button: 'Coba lagi',
+                busy: false,
+            });
+            scheduleProbe();
+        }
+
+        function scheduleProbe() {
+            const delay = retryDelay(attempt);
+
+            attempt += 1;
+            offlineMeta.textContent = `Dicoba lagi otomatis dalam ${Math.round(delay / 1000)} detik.`;
+            retryTimer = window.setTimeout(probeServer, delay);
+        }
+
+        async function probeServer() {
+            retryTimer = null;
+
+            if (!navigator.onLine) {
+                showDeviceOffline();
+
+                return;
+            }
+
+            const current = generation;
+            const controller = typeof AbortController === 'function' ? new AbortController() : null;
+            const timeout = window.setTimeout(() => controller?.abort(), probeTimeoutMs);
+            let answered = false;
+
+            probeController = controller;
+            offlineMeta.textContent = 'Memeriksa server myCIC…';
+
+            try {
+                const response = await fetch(probeUrl, {
+                    cache: 'no-store',
+                    credentials: 'same-origin',
+                    signal: controller?.signal,
+                });
+
+                answered = response.ok;
+            } catch (error) {
+                answered = false;
+            } finally {
+                window.clearTimeout(timeout);
+            }
+
+            // Gone offline, or reloading, while the probe was out.
+            if (current !== generation) {
+                return;
+            }
+
+            probeController = null;
+
+            if (answered) {
+                offlineMeta.textContent = 'Server menjawab lagi. Memuat ulang halaman…';
+                reloadPage();
+
+                return;
+            }
+
+            scheduleProbe();
+        }
+
+        retryButton.addEventListener('click', reloadPage);
+        window.addEventListener('online', showReconnected);
+        window.addEventListener('offline', showDeviceOffline);
+
+        if (navigator.onLine) {
+            showServerUnreachable();
+        } else {
+            showDeviceOffline();
+        }
     </script>
 </body>
 </html>

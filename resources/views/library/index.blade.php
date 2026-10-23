@@ -272,9 +272,9 @@
                 return;
             }
 
-            const loadLibrary = async ({ force = false } = {}) => {
+            const loadLibrary = async ({ force = false, background = false } = {}) => {
                 try {
-                    const payload = await app.request('/api/library', { fresh: force });
+                    const payload = await app.request('/api/library', { fresh: force, background });
 
                     if (payload) {
                         renderLibrary(payload);

@@ -8,6 +8,7 @@ use App\Exceptions\PortalScrapingException;
 use App\Jobs\RefreshPortalDataJob;
 use App\Services\Extractors\ClassesExtractor;
 use App\Services\Extractors\DashboardExtractor;
+use App\Services\Extractors\SipandaiClassesExtractor;
 use App\Services\PortalSessionManager;
 use App\Services\PortalSnapshotStore;
 use App\Services\SipandaiSubmissionService;
@@ -65,6 +66,27 @@ class PortalDataControllerParameterTest extends TestCase
         $this->mockValidCampusSession('token-uploaded-meeting');
 
         $this->instance(
+            SipandaiClassesExtractor::class,
+            Mockery::mock(SipandaiClassesExtractor::class, function (MockInterface $mock): void {
+                $mock->shouldReceive('extractSipandaiClassesData')
+                    ->once()
+                    ->with('token-uploaded-meeting')
+                    ->andReturn([
+                        'classes' => [
+                            [
+                                'join_link' => [
+                                    'params' => [
+                                        'id' => '1688',
+                                        'dosen_id' => '2744',
+                                        'course_id' => '9198',
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ]);
+            })
+        );
+        $this->instance(
             ClassesExtractor::class,
             Mockery::mock(ClassesExtractor::class, function (MockInterface $mock): void {
                 $mock->shouldReceive('extractClassDetail')
@@ -85,23 +107,6 @@ class PortalDataControllerParameterTest extends TestCase
                             'assignment_topic' => 'Pertemuan 5',
                             'assignment_instructions' => 'Senin, 20 April 2026',
                             'assignment_material_iframe' => '../files/latihan/task.pdf',
-                        ],
-                    ]);
-
-                $mock->shouldReceive('extractClassesData')
-                    ->once()
-                    ->with('token-uploaded-meeting')
-                    ->andReturn([
-                        'classes' => [
-                            [
-                                'join_link' => [
-                                    'params' => [
-                                        'id' => '1688',
-                                        'dosen_id' => '2744',
-                                        'course_id' => '9198',
-                                    ],
-                                ],
-                            ],
                         ],
                     ]);
 
@@ -217,9 +222,9 @@ class PortalDataControllerParameterTest extends TestCase
         $this->mockValidCampusSession('token-456');
 
         $this->instance(
-            ClassesExtractor::class,
-            Mockery::mock(ClassesExtractor::class, function (MockInterface $mock): void {
-                $mock->shouldReceive('extractClassesData')
+            SipandaiClassesExtractor::class,
+            Mockery::mock(SipandaiClassesExtractor::class, function (MockInterface $mock): void {
+                $mock->shouldReceive('extractSipandaiClassesData')
                     ->once()
                     ->with('token-456')
                     ->andReturn([
@@ -235,7 +240,11 @@ class PortalDataControllerParameterTest extends TestCase
                             ],
                         ],
                     ]);
-
+            })
+        );
+        $this->instance(
+            ClassesExtractor::class,
+            Mockery::mock(ClassesExtractor::class, function (MockInterface $mock): void {
                 $mock->shouldReceive('extractClassDetail')
                     ->once()
                     ->with('token-456', [

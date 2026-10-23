@@ -168,6 +168,39 @@ class PortalEndpointRegistryTest extends TestCase
         }
     }
 
+    public function test_an_endpoint_with_required_params_is_described_with_a_url_template(): void
+    {
+        $description = PortalEndpointRegistry::describe('course_materials');
+
+        $this->assertSame(
+            config('portal.base_url').'/portal/sipandai/?mod=sipandai&act=download&id={id}&dosen_id={dosen_id}&course_id={course_id}',
+            $description['url']
+        );
+        $this->assertSame(['id', 'dosen_id', 'course_id'], $description['required_params']);
+        $this->assertSame('GET', $description['method']);
+    }
+
+    public function test_every_registered_endpoint_can_be_described(): void
+    {
+        foreach (PortalEndpointRegistry::keys() as $key) {
+            $description = PortalEndpointRegistry::describe($key);
+
+            foreach (PortalEndpointRegistry::requiredParams($key) as $param) {
+                $this->assertStringContainsString($param.'=', $description['url'], $key);
+            }
+
+            $this->assertStringNotContainsString('%7B', $description['url'], $key);
+        }
+    }
+
+    public function test_download_and_login_failure_limits_are_configurable(): void
+    {
+        $this->assertSame(120, config('portal.scraping.download_timeout'));
+        $this->assertSame(30, config('portal.scraping.download_read_timeout'));
+        $this->assertSame(50 * 1024 * 1024, config('portal.scraping.download_max_bytes'));
+        $this->assertSame(30, config('portal.security.login_failure_attempts_per_ip'));
+    }
+
     public function test_decision_feature_resources_have_cache_ttls(): void
     {
         foreach (['portal_context', 'announcements', 'krs', 'advising', 'krs_detail', 'khs', 'skkm'] as $resource) {

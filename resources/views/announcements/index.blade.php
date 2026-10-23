@@ -140,6 +140,8 @@
                 notice: null,
                 nextPage: null,
                 total: null,
+                // The portal total of the feed the loaded pages continue.
+                feedTotal: null,
                 feedComplete: false,
                 category: CATEGORY_ORDER.includes(requestedCategory) ? requestedCategory : 'semua',
                 query: params.get('q') || '',
@@ -179,15 +181,21 @@
                 return `Diperbarui ${ago}`;
             };
 
+            // The same wording is the same announcement, even under another id (a copy saved before stable ids).
+            const itemKey = (item) => item.legacy_id || item.id;
+
+            // Read marks saved before stable ids hold the old, wording-based id.
+            const isRead = (item) => app.isAnnouncementRead(state.readIds, item);
+
             const allItems = () => {
                 const seen = new Set();
 
                 return [...state.feedItems, ...state.extraItems].filter((item) => {
-                    if (!item || typeof item !== 'object' || !item.id || seen.has(item.id)) {
+                    if (!item || typeof item !== 'object' || !item.id || seen.has(itemKey(item))) {
                         return false;
                     }
 
-                    seen.add(item.id);
+                    seen.add(itemKey(item));
 
                     return true;
                 });
@@ -199,6 +207,7 @@
 
                 if (stored?.seeded) {
                     state.readIds = new Set(ids);
+                    migrateReadIds(items);
 
                     return;
                 }
@@ -209,11 +218,22 @@
                     .map((item) => item.id);
 
                 state.readIds = new Set([...ids, ...seeded]);
+                migrateReadIds(items);
                 saveReadIds();
             };
 
             const saveReadIds = () => {
                 storage.write(READ_KEY, { ids: Array.from(state.readIds).slice(-400), seeded: true });
+            };
+
+            // A mark saved under an old wording-based id moves to the stable id once its announcement is listed.
+            const migrateReadIds = (items) => {
+                const { ids, changed } = app.migrateAnnouncementReadIds(Array.from(state.readIds), items);
+
+                if (changed) {
+                    state.readIds = new Set(ids);
+                    saveReadIds();
+                }
             };
 
             const nextDeadline = (item) => (Array.isArray(item.deadlines) ? item.deadlines : [])
@@ -434,7 +454,7 @@
             };
 
             const renderCard = (item) => {
-                const unread = !state.readIds.has(item.id);
+                const unread = !isRead(item);
                 const deadline = nextDeadline(item);
                 const unit = item.publisher_unit_short || item.publisher_unit || item.publisher || '';
                 let deadlineBadge = '';
@@ -484,7 +504,7 @@
             const renderList = () => {
                 const items = allItems();
                 const filtered = filteredItems(items);
-                const unreadCount = items.filter((item) => !state.readIds.has(item.id)).length;
+                const unreadCount = items.filter((item) => !isRead(item)).length;
 
                 listHost.removeAttribute('aria-busy');
                 searchInput.disabled = false;
@@ -542,14 +562,19 @@
 
             const appendPage = (payload) => {
                 const data = payload?.data || {};
-                const known = new Set(allItems().map((item) => item.id));
+                const known = new Set(allItems().map(itemKey));
+                const knownIds = new Set(allItems().map((item) => item.id));
                 const added = [];
 
                 (Array.isArray(data.items) ? data.items : []).forEach((item) => {
-                    if (item?.id && !known.has(item.id)) {
-                        state.extraItems.push(item);
-                        known.add(item.id);
-                        added.push(item.id);
+                    if (item?.id && !known.has(itemKey(item))) {
+                        // Another announcement listed earlier already goes by this id (same title, day and unit): this one opens by its own wording.
+                        const entry = knownIds.has(item.id) && item.legacy_id ? { ...item, id: item.legacy_id } : item;
+
+                        state.extraItems.push(entry);
+                        known.add(itemKey(entry));
+                        knownIds.add(entry.id);
+                        added.push(entry.id);
                     }
                 });
 
@@ -565,17 +590,32 @@
                 return added;
             };
 
+            // A page is a window of the portal's newest-first list: a copy saved
+            // before new posts were made is shifted, so it would leave a gap.
+            const continuesFeed = (payload) => {
+                const total = payload?.data?.paging?.total;
+
+                return !Number.isInteger(state.feedTotal) || !Number.isInteger(total) || total === state.feedTotal;
+            };
+
             const hydrateCachedPages = () => {
                 for (let guard = 0; state.nextPage && guard < 20; guard += 1) {
+                    const pageUrl = `/api/announcement?page=${state.nextPage}`;
                     let cached = null;
 
                     try {
-                        cached = app.getCachedResponse(`/api/announcement?page=${state.nextPage}`);
+                        cached = app.getCachedResponse(pageUrl);
                     } catch (error) {
                         cached = null;
                     }
 
                     if (!cached?.payload?.data) {
+                        return;
+                    }
+
+                    if (!continuesFeed(cached.payload)) {
+                        app.clearCachedResponse(pageUrl);
+
                         return;
                     }
 
@@ -602,6 +642,10 @@
                     }
 
                     added = appendPage(payload);
+
+                    if (state.readLoaded) {
+                        migrateReadIds(allItems());
+                    }
 
                     if (auto) {
                         state.autoLoads += 1;
@@ -656,7 +700,14 @@
                 state.lastPayload = payload;
 
                 if (Number.isInteger(paging.total)) {
+                    if (state.extraItems.length && Number.isInteger(state.feedTotal) && paging.total !== state.feedTotal) {
+                        // New posts shifted every older page: load them again from this feed.
+                        state.extraItems = [];
+                        state.autoLoads = 0;
+                    }
+
                     state.total = paging.total;
+                    state.feedTotal = paging.total;
                 }
 
                 if (!state.extraItems.length) {
@@ -668,6 +719,8 @@
                 if (!state.readLoaded) {
                     loadReadIds(allItems());
                     state.readLoaded = true;
+                } else {
+                    migrateReadIds(allItems());
                 }
 
                 state.rendered = true;
@@ -762,9 +815,9 @@
                 return;
             }
 
-            const loadAnnouncements = async ({ force = false } = {}) => {
+            const loadAnnouncements = async ({ force = false, background = false } = {}) => {
                 try {
-                    const payload = await app.request('/api/announcement', { fresh: force });
+                    const payload = await app.request('/api/announcement', { fresh: force, background });
 
                     if (!payload) {
                         return;

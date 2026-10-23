@@ -8,6 +8,7 @@ use App\Jobs\RefreshPortalDataJob;
 use App\Services\ActionCenterBuilder;
 use App\Services\PortalDatasetRepository;
 use App\Services\PortalFinanceStatusResolver;
+use App\Services\PortalKrsResolver;
 use App\Services\PortalSnapshotStore;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Bus;
@@ -109,6 +110,30 @@ class ActionCenterBuilderTest extends TestCase
         ]);
 
         $this->assertNull($this->findItem($this->build(), 'krs-not-submitted'));
+    }
+
+    public function test_a_her_registrasi_announcement_behind_a_krs_item_is_not_listed_twice(): void
+    {
+        $herRegistrasi = ['announcement_id' => 'a1', 'title' => 'Pengisian Her-Registrasi dan KRS Ganjil', 'category' => 'krs', 'category_label' => 'KRS & Her-Registrasi',
+            'date' => '2026-10-21', 'start' => '2026-10-19', 'type' => 'period', 'context' => 'Pengisian 19 s/d 21 Oktober 2026', 'days_left' => 1, 'is_ongoing' => true];
+        $announcements = $this->announcements(
+            [$this->announcement('a1', 'Pengisian Her-Registrasi dan KRS Ganjil', [
+                ['date' => '2026-10-21', 'start' => '2026-10-19', 'type' => 'period', 'context' => 'Pengisian 19 s/d 21 Oktober 2026'],
+            ])],
+            [$herRegistrasi, $this->upcomingDeadline('a2', 'Batas unggah berkas wisuda', '2026-10-25', 5)]
+        );
+
+        $this->seedSnapshots(['krs' => $this->krs('not_submitted', []), 'announcements' => $announcements]);
+        $result = $this->build();
+
+        $this->assertSame('2026-10-21', $this->item($result, 'krs-not-submitted')['due_at']);
+        $this->assertNull($this->findItem($result, 'announcement-a1'));
+        $this->assertNotNull($this->findItem($result, 'announcement-a2'));
+
+        // Once the KRS is validated there is no KRS item, so the announcement is listed again.
+        $this->seedSnapshots(['krs' => $this->krs('validated', []), 'announcements' => $announcements]);
+
+        $this->assertSame('2026-10-21', $this->item($this->build(), 'announcement-a1')['due_at']);
     }
 
     public function test_validated_or_unreadable_krs_needs_no_action(): void
@@ -448,6 +473,34 @@ class ActionCenterBuilderTest extends TestCase
         $this->assertContains('payments', $result['meta']['failed_sources']);
         $this->assertNotNull($this->findItem($result, 'questionnaire-vmts-2026-2027'));
         $this->assertFalse($result['meta']['is_complete']);
+    }
+
+    public function test_a_failing_krs_resolver_never_takes_the_announcement_items_down(): void
+    {
+        $this->instance(
+            PortalKrsResolver::class,
+            Mockery::mock(PortalKrsResolver::class, function (MockInterface $mock): void {
+                $mock->shouldReceive('insights')->andThrow(new \RuntimeException('unexpected krs shape'));
+            })
+        );
+        $herRegistrasi = ['announcement_id' => 'a1', 'title' => 'Pengisian Her-Registrasi dan KRS Ganjil', 'category' => 'krs', 'category_label' => 'KRS & Her-Registrasi',
+            'date' => '2026-10-21', 'start' => '2026-10-19', 'type' => 'period', 'context' => 'Pengisian 19 s/d 21 Oktober 2026', 'days_left' => 1, 'is_ongoing' => true];
+        $this->seedSnapshots([
+            'krs' => $this->krs('not_submitted', []),
+            'announcements' => $this->announcements(
+                [$this->announcement('a1', 'Pengisian Her-Registrasi dan KRS Ganjil', [
+                    ['date' => '2026-10-21', 'start' => '2026-10-19', 'type' => 'period', 'context' => 'Pengisian 19 s/d 21 Oktober 2026'],
+                ])],
+                [$herRegistrasi, $this->upcomingDeadline('a2', 'Batas unggah berkas wisuda', '2026-10-25', 5)]
+            ),
+        ]);
+
+        $result = $this->build();
+
+        $this->assertSame(['krs'], $result['meta']['failed_sources']);
+        $this->assertNull($this->findItem($result, 'krs-not-submitted'));
+        $this->assertSame('2026-10-21', $this->item($result, 'announcement-a1')['due_at']);
+        $this->assertNotNull($this->findItem($result, 'announcement-a2'));
     }
 
     public function test_an_unreadable_source_is_reported_as_failed(): void

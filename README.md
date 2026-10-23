@@ -53,7 +53,7 @@ MyCIC memadukan tiga lapisan utama:
 1. PHP 8.4.* + Composer 2.7+.
 2. Node.js 20 LTS + npm 10 (Tailwind v4 & Vite memerlukan ESM).
 3. Database yang kompatibel (SQLite cukup untuk lokal).
-4. Eksekusi queue berbasis database (`php artisan queue:work`) agar job refresh sesi berjalan.
+4. Queue worker berumur panjang di bawah Supervisor, satu program per kelompok antrean (disarankan), plus cron `php artisan schedule:run` setiap menit. Cron menjalankan worker cadangan, sinkronisasi arsip di background, pemulihan unggahan, dan pembersihan data (lihat [Menjalankan di Server](#menjalankan-di-server-queue--scheduler)).
 5. Akses internet ke portal kampus untuk scraping (set `CAMPUS_*` sesuai lingkungan).
 
 ## Instalasi Cepat
@@ -76,9 +76,129 @@ npm run dev               # atau npm run build untuk production assets
 ## Menjalankan Lingkungan Pengembangan
 - `php artisan serve` – jalankan server aplikasi.
 - `npm run dev` – jalankan Vite + Tailwind watcher.
-- `php artisan queue:listen --queue=campus-sessions,default --tries=1` – refresh sesi kampus tepat waktu.
+- `php artisan queue:listen --tries=1 --timeout=0 --queue=campus-uploads,campus-sessions,campus-refresh,campus-notifications,default,campus-background` – jalankan semua antrean. `--timeout=0` mematikan batas waktu proses listener; tiap job tetap dihentikan worker sesuai `$timeout` miliknya (sinkronisasi arsip boleh sampai 30 menit).
+- `php artisan reverb:start` – server WebSocket untuk notifikasi realtime.
 - `php artisan pail --timeout=0` – pantau log secara real time.
-- Gunakan `composer run dev` untuk menjalankan server, queue listener, log streamer, dan Vite secara paralel (menggunakan `concurrently`).
+- Gunakan `composer run dev` untuk menjalankan server, queue listener, Reverb, log streamer, dan Vite secara paralel (menggunakan `concurrently`).
+- `php artisan schedule:work` (opsional) – menjalankan scheduler secara lokal. Perhatikan: sinkronisasi arsip di background ikut berjalan dan masuk ke portal kampus memakai password mahasiswa yang tersimpan.
+- `php artisan portal:capture-fixtures --session=<token sesi kampus> --meeting=<meeting_id>:<courses_id>[:<pertemuan>] --exam=<id ujian>` – simpan salinan halaman portal (pertemuan, form tugas, daftar & detail ujian) yang sudah disanitasi ke `tests/Fixtures/portal/real/` sebagai fixture tes. Hanya GET, tidak berjalan di production, dan berhenti bila sesi tidak memuat nama dan NIM mahasiswa. `PORTAL_RECORD_ACTION_RESPONSES=true` menyimpan jawaban portal atas absen, upload, dan hapus (tersanitasi) di `storage/app/portal-captures/`.
+
+## Menjalankan Tes
+- `php artisan test` – seluruh tes PHP. Host portal diarahkan ke `portal.invalid` dan setiap client portal dijaga handler tes, jadi tes tidak pernah menghubungi portal kampus.
+- `npm run test:js` – tes JavaScript (runner bawaan Node, tanpa dependency tambahan).
+- `npm run test:e2e` – tes browser Playwright memakai Google Chrome yang sudah terpasang. Server dijalankan dengan `APP_ENV=e2e`: semua `/api/*` di-mock dan route login palsu hanya ada di lingkungan itu.
+
+## Menjalankan di Server (Queue & Scheduler)
+Semua kerja ke portal kampus berjalan di queue `database`. Tanpa worker yang menjalankannya, dashboard tertahan di status "menyinkronkan", sesi portal kedaluwarsa, notifikasi tidak pernah dibuat, dan arsip materi tidak pernah selesai.
+
+Worker dibagi menjadi tiga kelompok antrean. Satu worker hanya menjalankan satu job pada satu waktu, jadi keep-alive sesi dan kerja yang sedang ditunggu mahasiswa tidak boleh berbagi worker dengan sinkronisasi arsip yang bisa berjalan 30 menit:
+
+| Kelompok | Antrean (urut prioritas) | `--timeout` | Isi |
+| --- | --- | --- | --- |
+| Sesi & unggahan | `campus-sessions,campus-uploads` | 300 | Keep-alive sesi, menyambungkan sesi offline, unggahan. Harus selalu cepat. |
+| Ditunggu mahasiswa | `campus-refresh,campus-notifications,default` | 600 | Refresh snapshot (`RefreshPortalDataJob` sampai 600 detik), pemindaian notifikasi, ingest notebook. |
+| Crawl background | `campus-background` | 1800 | Sinkronisasi arsip (`SyncPortalArchiveJob` sampai 1800 detik), arsip materi & berkas, sinkronisasi notebook mata kuliah. |
+
+### Disarankan: worker Supervisor
+Di production, jalankan worker berumur panjang di bawah Supervisor (atau systemd), satu program per kelompok. Contoh `/etc/supervisor/conf.d/mycic-queue.conf`:
+
+```ini
+[program:mycic-queue-sessions]
+process_name=%(program_name)s_%(process_num)02d
+command=php /path/ke/mycic/artisan queue:work database --queue=campus-sessions,campus-uploads --tries=1 --timeout=300 --sleep=1 --max-time=3600
+directory=/path/ke/mycic
+user=www-data
+numprocs=1
+autostart=true
+autorestart=true
+stopasgroup=true
+killasgroup=true
+stopwaitsecs=330
+redirect_stderr=true
+stdout_logfile=/path/ke/mycic/storage/logs/queue-sessions.log
+
+[program:mycic-queue-refresh]
+process_name=%(program_name)s_%(process_num)02d
+command=php /path/ke/mycic/artisan queue:work database --queue=campus-refresh,campus-notifications,default --tries=1 --timeout=600 --sleep=1 --max-time=3600
+directory=/path/ke/mycic
+user=www-data
+numprocs=1
+autostart=true
+autorestart=true
+stopasgroup=true
+killasgroup=true
+stopwaitsecs=630
+redirect_stderr=true
+stdout_logfile=/path/ke/mycic/storage/logs/queue-refresh.log
+
+[program:mycic-queue-background]
+process_name=%(program_name)s_%(process_num)02d
+command=php /path/ke/mycic/artisan queue:work database --queue=campus-background --tries=1 --timeout=1800 --sleep=3 --max-time=3600
+directory=/path/ke/mycic
+user=www-data
+numprocs=1
+autostart=true
+autorestart=true
+stopasgroup=true
+killasgroup=true
+stopwaitsecs=1830
+redirect_stderr=true
+stdout_logfile=/path/ke/mycic/storage/logs/queue-background.log
+```
+
+```bash
+sudo supervisorctl reread
+sudo supervisorctl update
+sudo supervisorctl start "mycic-queue-sessions:*" "mycic-queue-refresh:*" "mycic-queue-background:*"
+```
+
+- Crawl background punya antrean dan worker sendiri, jadi refresh snapshot saat login, pemindaian notifikasi, dan ingest notebook tidak menunggu sinkronisasi arsip yang bisa berjalan 30 menit. Setiap 15 menit `portal:sync-archives` mengantre sampai `PORTAL_BACKGROUND_SYNC_BATCH_SIZE` (default 10) `SyncPortalArchiveJob` di `campus-background`. Bila batch itu sering belum selesai saat batch berikutnya tiba, naikkan `numprocs` program `mycic-queue-background` (lihat syarat database di bawah) atau kecilkan `PORTAL_BACKGROUND_SYNC_BATCH_SIZE`.
+- Worker paralel butuh database yang mengunci baris dengan `SKIP LOCKED` (MySQL 8+, MariaDB 10.6+, PostgreSQL 9.5+). Di SQLite, worker paralel bisa sesekali mencatat galat `database is locked`.
+- `stopwaitsecs` lebih besar dari `--timeout`, jadi Supervisor menunggu job yang sedang berjalan selesai saat worker dihentikan.
+- `--max-time=3600` membuat worker berhenti sendiri setiap jam setelah job-nya selesai (memori kembali bersih), lalu Supervisor langsung menyalakannya lagi.
+- Batas waktu job (`--timeout` dan `$timeout` tiap job) hanya berlaku bila ekstensi PHP `pcntl` terpasang.
+- Setelah deploy, jalankan `php artisan queue:restart` agar worker memuat kode baru setelah job yang sedang berjalan selesai.
+- Jangan menjalankan `queue:work` tanpa `--queue`: perintah itu hanya memproses antrean `default`.
+
+### Cron scheduler (wajib, sekaligus worker cadangan)
+Cron tetap wajib, juga ketika Supervisor dipakai:
+
+```cron
+* * * * * cd /path/ke/mycic && php artisan schedule:run >> /dev/null 2>&1
+```
+
+Jadwal di `routes/console.php`:
+
+| Jadwal | Perintah | Fungsi |
+| --- | --- | --- |
+| Setiap menit (background) | `queue:work --queue=campus-sessions,campus-uploads --stop-when-empty --timeout=300 --tries=1 --max-time=60` | Worker cadangan kelompok sesi & unggahan. |
+| Setiap menit (background) | `queue:work --queue=campus-refresh,campus-notifications,default --stop-when-empty --timeout=600 --tries=1 --max-time=300` | Worker cadangan kelompok yang ditunggu mahasiswa. |
+| Setiap menit (background) | `queue:work --queue=campus-background --stop-when-empty --timeout=1800 --tries=1 --max-time=300` | Worker cadangan crawl background. |
+| Setiap 5 menit | `portal:recover-uploads` | Menutup unggahan yang terhenti di tengah jalan (mis. proses web mati) dan menghapus berkas sementaranya. |
+| Setiap 15 menit | `portal:sync-archives` | Mengantre sinkronisasi arsip di background untuk mahasiswa yang jadwalnya sudah tiba (`portal.background_sync`). |
+| Harian | `model:prune` | Menghapus notifikasi yang melewati masa simpan dan menghapus kredensial tersimpan akun offline yang login online terakhirnya melewati `portal.background_sync.credential_days` (default 30 hari). |
+
+Ketiga worker terjadwal berjalan di background (tidak menahan jadwal lain), berhenti saat antreannya kosong atau setelah `--max-time`, dan dikunci `withoutOverlapping` yang kedaluwarsa tepat setelah waktu jalan terlamanya: 7 menit untuk sesi & unggahan, 16 menit untuk kerja yang ditunggu mahasiswa, 36 menit untuk crawl background. Kalau server mati saat worker berjalan, worker berikutnya hanya tertahan selama itu, bukan 24 jam. Selama worker Supervisor hidup, worker terjadwal biasanya mendapati antrean kosong dan langsung berhenti; kalau worker Supervisor mati, worker terjadwal yang mengambil alih. Cron saja tanpa Supervisor tetap berfungsi, tetapi tiap kelompok hanya punya satu worker yang menjalankan job satu per satu. Keep-alive sesi, unggahan, refresh snapshot, pemindaian notifikasi, dan ingest notebook tidak menunggu sinkronisasi arsip.
+
+Antrean yang dipakai:
+
+| Antrean | Job |
+| --- | --- |
+| `campus-sessions` | `RefreshPortalSessionJob` (keep-alive sesi), `ResumeOfflineSessionJob` (menyambungkan sesi offline). |
+| `campus-uploads` | `ProcessPortalAssignmentUploadJob`, `ProcessPortalExamUploadJob` (biasanya langsung dijalankan proses web setelah respons dikirim). |
+| `campus-refresh` | `RefreshPortalDataJob`. |
+| `campus-background` | `SyncPortalArchiveJob` (sinkronisasi di background, sampai 30 menit), `ArchiveCourseMaterialsJob`, `ArchivePortalFilesJob`, `SyncCourseNotebookJob`. |
+| `campus-notifications` | `ScanPortalNotificationsJob`. |
+| `default` | `IngestNotebookSourceJob` dan job lain tanpa antrean khusus. |
+
+`--timeout` tiap worker menjaga job tanpa `$timeout` sendiri agar tidak dihentikan pada 60 detik, dan harus tetap di bawah `retry_after`. `DB_QUEUE_RETRY_AFTER` (default 1900 detik) harus lebih besar dari `$timeout` job terpanjang (`SyncPortalArchiveJob`: 1800 detik) dan dari `--timeout` setiap worker. Kalau lebih kecil, worker kedua mengambil job yang masih berjalan, job itu ditandai gagal, dan sinkronisasi yang sama berjalan dua kali. `tests/Unit/QueueJobConfigurationTest.php` dan `tests/Unit/ScheduledQueueWorkerTest.php` memeriksa batas ini, antrean setiap job, dan jadwal worker. Akibatnya, job yang tertinggal saat worker mati mendadak (kehabisan memori, `SIGKILL` saat deploy) baru dicoba lagi sekitar 32 menit kemudian, termasuk keep-alive sesi di `campus-sessions`; hentikan worker dengan `php artisan queue:restart` saat deploy agar job yang sedang berjalan selesai dulu.
+
+### Arsip & sinkronisasi di background
+- Setiap login online menyimpan hash password (login offline saat portal mati) dan, bila sinkronisasi di background aktif, kredensial terenkripsi dengan `APP_KEY`. Mahasiswa bisa mematikannya sendiri di halaman Arsip; password tersimpan langsung dihapus.
+- `PORTAL_BACKGROUND_SYNC_ENABLED`, `PORTAL_BACKGROUND_SYNC_INTERVAL` (menit), `PORTAL_BACKGROUND_SYNC_CREDENTIAL_DAYS`, `PORTAL_BACKGROUND_SYNC_BATCH_SIZE`, `PORTAL_BACKGROUND_SYNC_COURSES_ENABLED`, `PORTAL_BACKGROUND_SYNC_COURSES_INTERVAL` mengatur sinkronisasi; `PORTAL_ARCHIVE_ENABLED`, `PORTAL_ARCHIVE_OFFLINE_LOGIN`, `PORTAL_ARCHIVE_FILES_ENABLED` mengatur arsip, login offline, dan arsip berkas materi (lihat `config/portal.php`).
+- Mengganti `APP_KEY` tanpa `APP_PREVIOUS_KEYS` membuat kredensial tersimpan tidak bisa dibaca: MyCIC menghapusnya pada sinkronisasi berikutnya dan menyimpannya lagi saat mahasiswa login online.
+- Semua data per mahasiswa (versi arsip, berkas materi, akses offline, notifikasi, notebook) disimpan dengan kunci pemilik `student_…`, yaitu HMAC NIM dengan `PORTAL_OWNER_KEY` (kosong = `APP_KEY`, sama seperti sebelumnya). **Sebelum merotasi `APP_KEY`, isi `PORTAL_OWNER_KEY` dengan nilai `APP_KEY` yang sekarang**, supaya kunci pemilik tidak ikut berubah. Bila terlanjur berubah, data dengan kunci lama dipindahkan ke kunci baru saat mahasiswa itu login berikutnya (online, offline, atau sinkronisasi background), asalkan secret lamanya ada di `APP_PREVIOUS_KEYS` atau `PORTAL_PREVIOUS_OWNER_KEYS` (dipisah koma).
+- Status setiap sinkronisasi tercatat di akun (`last_background_sync_*`); sinkronisasi yang sedang berjalan bertanda `running` dan dibaca gagal bila melewati batas waktunya.
 
 ## Konfigurasi `.env` Penting
 | Key | Fungsi |
@@ -93,63 +213,25 @@ npm run dev               # atau npm run build untuk production assets
 | `CAMPUS_SESSION_IDLE_TIMEOUT` | Detik tanpa aktivitas sebelum sesi kampus diakhiri dan keep-alive berhenti (default 7200). |
 | `CAMPUS_CACHE_PROFILE_TTL`, `CAMPUS_CACHE_DYNAMIC_TTL`, `CAMPUS_CACHE_HTML_TTL` | TTL cache resource untuk profil, keuangan, dan halaman daftar kelas/jadwal. |
 
-## Daftar Endpoint Saat Ini
+## Daftar Endpoint
+Daftar lengkap dan selalu terbaru ada di dokumentasi Scramble (`/docs/api`, beserta skema request/response) dan di `php artisan route:list`. Gambaran singkatnya:
 
-### 1. API Publik (tanpa middleware)
-| Method | Endpoint | Controller | Catatan |
-| --- | --- | --- | --- |
-| `POST` | `/api/login` | `API\PortalAuthController@login` | Membuat sesi kampus baru dan menyimpan token di cache. |
-| `POST` | `/api/refresh-session` | `API\PortalAuthController@refreshSession` | Perpanjang sesi aktif atau trigger auto relogin. |
-| `GET` | `/api/check-session` | `API\PortalAuthController@checkSession` | Digunakan front-end untuk polling status sesi. |
-| `POST` | `/api/logout` | `API\PortalAuthController@logout` | Hapus sesi dari cache & logout portal. |
-
-### 2. API Terproteksi `portal.session`
-Semua route berikut berada di `routes/api.php` (prefiks `/api` + middleware session + `portal.session`):
-
-| Method | Endpoint | Controller@method | Data yang Dikembalikan |
-| --- | --- | --- | --- |
-| `GET` | `/api/dashboard` | `API\PortalDataController@dashboard` | Ringkasan dashboard + recent activity. |
-| `GET` | `/api/profile` | `API\PortalDataController@profile` | Profil mahasiswa + user info. |
-| `GET` | `/api/classes` | `API\PortalDataController@classes` | Daftar kelas SIPANDAI + summary. |
-| `GET` | `/api/class-detail` | `API\PortalDataController@classDetail` | Detail kelas / meeting (validasi `ClassDetailRequest`). |
-| `GET` | `/api/class-detail-by-id` | `API\PortalDataController@classDetailById` | Variasi pengambilan detail berdasarkan ID. |
-| `GET` | `/api/meeting-detail` | `API\PortalDataController@meetingDetail` | Detail pertemuan dari SIPANDAI. |
-| `GET` | `/api/meeting-detail-by-id?meeting_id={meeting_id}&course_id={course_id}` | `API\PortalDataController@meetingDetailById` | Detail meeting menggunakan identifier alternatif. |
-| `GET` | `/api/sipandai-classes` | `API\PortalDataController@sipandaiClasses` | Data kelas khusus SIPANDAI dashboard. |
-| `GET` | `/api/student-course` | `API\PortalDataController@studentCourse` | Data kelas dari endpoint student course (ruangan, jadwal). |
-| `GET` | `/api/merged-classes` | `API\PortalDataController@mergedClasses` | Gabungan SIPANDAI + student course untuk konsumsi UI. |
-| `POST` | `/api/assignments/upload` | `API\PortalActionController@uploadAssignment` | Upload tugas SIPANDAI dengan pengambilan form dinamis dan unggah file multipart. |
-| `POST` | `/api/attendance/mark` | `API\PortalActionController@markAttendance` | Tandai kehadiran pertemuan SIPANDAI mengikuti parameter dinamis (`course_id`, `id`, `pertemuan`). |
-
-### 3. API Support (middleware `web`)
-Endpoint pendukung integrasi berada di bawah prefix `/api/support` dan `/api/metadata`:
-
-| Endpoint | Deskripsi |
-| --- | --- |
-| `GET /api/support/session` | Mengecek status sesi kampus (preview token + user_info). |
-| `GET /api/support/parameter-help` | Dokumentasi mapping parameter `id`, `dosen_id`, `course_id`. |
-| `GET /api/support/validate-parameters` | Validasi cepat parameter sebelum memanggil extractor. |
-| `GET /api/metadata/endpoints` | Daftar endpoint yang dicatat di `PortalEndpointRegistry` (bisa `?key=profile`). |
-
-### 4. Halaman Web (middleware `portal.session` kecuali login)
-| Method | Endpoint | Deskripsi |
+| Kelompok | Endpoint | Catatan |
 | --- | --- | --- |
-| `GET` | `/login` | Halaman login Blade dengan toast & validasi client-side. |
-| `POST` | `/login` | Eksekusi login via `WebLoginController`. |
-| `POST` | `/logout` | Logout UI (hapus session token & redirect ke login). |
-| `GET` | `/dashboard` | Dashboard UI modern (mengonsumsi `/api/dashboard`). |
-| `GET` | `/profile` | Halaman profil yang memakai API internal. |
-| `GET` | `/classes` | Daftar kelas dengan status meeting. |
-| `GET` | `/classes/{classId}` | Detail kelas spesifik. |
-| `GET` | `/meetings/{meetingId}` | Detail pertemuan SIPANDAI. |
-| `GET` | `/test-toast/{type}` | Endpoint uji `ToastService` (success, error, warning, info). |
+| Auth | `POST /api/auth/login`, `GET /api/auth/session`, `POST /api/auth/session/refresh`, `POST /api/auth/logout` | Membuat, memeriksa, memperpanjang, dan mengakhiri sesi kampus. |
+| Data kampus | `GET /api/dashboard`, `/api/profile`, `/api/class`, `/api/class/{id}`, `/api/meeting/{meeting_id}`, `/api/finance/*`, `/api/academic/*`, `/api/skkm`, `/api/thesis`, `/api/library`, `/api/announcement` | Snapshot per mahasiswa; data basi dikirim sambil disinkronkan ulang di queue. |
+| Aksi | `POST /api/assignment`, `POST /api/attendance`, `POST /api/exam`, `GET /api/operations/{operation}` | Butuh portal online; hasilnya dilacak sebagai operasi. |
+| Notifikasi | `GET /api/notifications`, `GET /api/notifications/unread-count`, `POST /api/notifications/read` | Notifikasi tersimpan per mahasiswa. |
+| Arsip | `GET /api/archive`, `/api/archive/{dataset}`, `/api/archive/versions/{version}`, `/api/archive/files`, `POST /api/archive/files/sync`, `PATCH /api/archive/background-sync`, `DELETE /api/archive` | Riwayat versi, data janggal, berkas materi, dan sinkronisasi di background. |
+| Notebook | `/api/notebooks/*` | Notebook mata kuliah berbasis Gemini. |
+| Dukungan | `GET /api/support/parameter-help`, `GET /api/support/validate-parameters`, `GET /api/metadata/endpoints` | Bantuan parameter dan registri endpoint portal. |
 
-Daftar di atas mencakup seluruh route dari `routes/web.php` dan `routes/api.php`, jadi bisa dijadikan referensi cepat saat integrasi ataupun debugging.
+Halaman web (Blade) ada di `routes/web.php`: `/login`, `/dashboard`, `/class`, `/class/{id}`, `/meeting/{meeting_id}`, `/exam`, `/krs`, `/grades`, `/transcript`, `/finance`, `/announcement`, `/notifications`, `/archive`, `/notebook`, dan lainnya.
 
 ## Checklist Agar Aplikasi Tetap Bagus
 ### 1. Manajemen Session & Security
 - Selalu gunakan `PortalSessionManager` untuk membuat, menyegarkan, dan memvalidasi sesi; jangan menyimpan cookie mentah.
-- Pastikan queue worker untuk `campus-sessions` dan `campus-refresh` aktif: keep-alive sesi dan sinkronisasi snapshot berjalan di sana.
+- Pastikan worker menjalankan semua antrean (`campus-sessions`, `campus-uploads`, `campus-refresh`, `campus-notifications`, `default`, `campus-background`): keep-alive sesi, unggahan, sinkronisasi snapshot, notifikasi, dan sinkronisasi arsip berjalan di sana.
 - Simpan kredensial kampus menggunakan enkripsi bawaan Laravel (`encrypt()`), tidak pernah hardcode di kode atau config.
 - Aktifkan `auto_relogin` hanya di lingkungan aman dan audit log (`storage/logs/laravel.log`) untuk setiap relogin.
 - Terapkan rate limiting di layer API Gateway / middleware tambahan saat menuju produksi.
@@ -164,17 +246,18 @@ Daftar di atas mencakup seluruh route dari `routes/web.php` dan `routes/api.php`
 - Pertahankan struktur response `{ status, message, data, meta }` agar front-end dan klien eksternal konsisten.
 - Validasi parameter kompleks menggunakan Form Request (`ClassDetailRequest`) daripada inline validation.
 - Gunakan `PortalSessionMiddleware` di semua route yang butuh data kampus untuk mencegah request tanpa sesi.
-- Komunikasikan status sesi di UI dengan `ToastService::sessionExpired()` dan polling `/api/check-session`.
+- Komunikasikan status sesi di UI lewat `GET /api/auth/session` dan event realtime sesi (Reverb).
 
 ### 4. Performa & Observabilitas
 - TTL cache resource ada di `portal.cache.resources`, jendela segar snapshot di `portal.datasets.*.fresh_for`; gunakan `CACHE_STORE=database` atau Redis.
 - Simpan log penting melalui `Log::info/warning/error` (lihat `PortalAuthService`, `PortalSessionManager`) agar mudah dianalisis via Laravel Pail.
-- Jalankan `php artisan schedule:work` atau cron untuk job berkala (mis. warm-up cache) apabila ditambahkan.
+- Cron `php artisan schedule:run` wajib di server: scheduler menjalankan queue worker, sinkronisasi arsip, dan pembersihan notifikasi.
 - Aktifkan `CAMPUS_REQUEST_DELAY` minimal 1000 ms untuk menghormati server kampus (rate limiting).
 
 ### 5. Testing & QA
 - Tambahkan feature test untuk tiap endpoint API (`tests/Feature/*`) dengan memanfaatkan factory dan HTTP fakes.
 - Gunakan mocking HTTP (mis. `Http::fake()` atau `GuzzleHttp\Handler\MockHandler`) untuk menguji extractor tanpa memanggil server kampus.
+- Test tidak pernah menyentuh jaringan: `phpunit.xml` mengarahkan semua URL portal ke `https://portal.invalid` dan mengosongkan `GEMINI_API_KEY`, `tests/TestCase.php` menjawab setiap request klien portal sebagai portal yang tidak terjangkau (dan menggagalkan test yang menuju host asli), serta `Http::preventStrayRequests()` menolak panggilan `Http` yang tidak di-fake. Tulis URL portal di test sebagai `https://portal.invalid/...` atau `config('portal.base_url')`.
 - Jalankan `php artisan test --filter=<NamaTest>` pada area yang diubah dan tawarkan opsi menjalankan seluruh suite.
 - Pastikan style code mengikuti Laravel Pint: `vendor/bin/pint --dirty`.
 

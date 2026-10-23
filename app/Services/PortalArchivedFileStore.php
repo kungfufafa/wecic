@@ -6,7 +6,9 @@ namespace App\Services;
 
 use App\Jobs\ArchivePortalFilesJob;
 use App\Models\PortalArchivedFile;
+use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Contracts\Filesystem\Filesystem;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
@@ -92,12 +94,14 @@ class PortalArchivedFileStore
                 return;
             }
 
+            // A background sync stores the files itself (PortalCourseArchiver):
+            // its session is gone before a queued download would run.
+            if (app(PortalSessionManager::class)->isBackgroundSession($sessionToken)) {
+                return;
+            }
+
             $items = $this->candidatesFromMeeting($meetingDetail, $params);
-            $known = PortalArchivedFile::query()
-                ->forOwner($ownerHash)
-                ->whereIn('source_url', array_column($items, 'source_url'))
-                ->pluck('source_url')
-                ->all();
+            $known = $this->archivedSourceUrls($ownerHash, array_column($items, 'source_url'));
             $missing = array_values(array_filter($items, static fn (array $item): bool => ! in_array($item['source_url'], $known, true)));
 
             if ($missing !== []) {
@@ -112,6 +116,9 @@ class PortalArchivedFileStore
 
     /**
      * Download one file with the student's portal session and archive it.
+     * The blob check, the write and the row that starts using the blob run
+     * under the blob's lock, so deleteOwner() never removes a blob in
+     * between.
      *
      * @param  FileItem  $item
      */
@@ -131,28 +138,30 @@ class PortalArchivedFileStore
         }
 
         $sha256 = hash('sha256', $download['contents']);
-        $file = new PortalArchivedFile(['sha256' => $sha256]);
+        $blobPath = (new PortalArchivedFile(['sha256' => $sha256]))->blobPath();
 
-        if (! $this->disk()->exists($file->blobPath())) {
-            $this->disk()->put($file->blobPath(), $download['contents']);
-        }
+        $archived = $this->withBlobLock($sha256, function () use ($blobPath, $download, $ownerHash, $item, $courseName, $size, $sha256): PortalArchivedFile {
+            if (! $this->disk()->exists($blobPath)) {
+                $this->disk()->put($blobPath, $download['contents']);
+            }
 
-        $archived = PortalArchivedFile::query()->updateOrCreate(
-            ['owner_hash' => $ownerHash, 'source_url' => $item['source_url']],
-            [
-                'course_key' => $item['course_key'],
-                'course_name' => $courseName !== null ? mb_substr($courseName, 0, 255) : null,
-                'meeting_id' => $item['meeting_id'],
-                'meeting_number' => $item['meeting_number'],
-                'kind' => $item['kind'],
-                'title' => $item['title'],
-                'filename' => mb_substr($download['filename'], 0, 255),
-                'mime' => mb_substr($download['content_type'], 0, 127),
-                'size' => $size,
-                'sha256' => $sha256,
-                'archived_at' => now(),
-            ]
-        );
+            return PortalArchivedFile::query()->updateOrCreate(
+                ['owner_hash' => $ownerHash, 'source_url' => $item['source_url']],
+                [
+                    'course_key' => $item['course_key'],
+                    'course_name' => $courseName !== null ? mb_substr($courseName, 0, 255) : null,
+                    'meeting_id' => $item['meeting_id'],
+                    'meeting_number' => $item['meeting_number'],
+                    'kind' => $item['kind'],
+                    'title' => $item['title'],
+                    'filename' => mb_substr($download['filename'], 0, 255),
+                    'mime' => mb_substr($download['content_type'], 0, 127),
+                    'size' => $size,
+                    'sha256' => $sha256,
+                    'archived_at' => now(),
+                ]
+            );
+        });
 
         // The course notebook that tracks this meeting reads the file too.
         app(NotebookCourseSync::class)->attachArchivedFile($archived);
@@ -217,6 +226,35 @@ class PortalArchivedFileStore
     }
 
     /**
+     * The source URLs among `$sourceUrls` this student has a readable copy
+     * of. A row whose blob is missing does not count, so it is downloaded
+     * again instead of failing forever.
+     *
+     * @param  list<string>  $sourceUrls
+     * @return list<string>
+     */
+    public function archivedSourceUrls(string $ownerHash, array $sourceUrls): array
+    {
+        if ($sourceUrls === []) {
+            return [];
+        }
+
+        return PortalArchivedFile::query()
+            ->forOwner($ownerHash)
+            ->whereIn('source_url', $sourceUrls)
+            ->get(['id', 'source_url', 'sha256'])
+            ->filter(fn (PortalArchivedFile $file): bool => $this->disk()->exists($file->blobPath()))
+            ->pluck('source_url')
+            ->values()
+            ->all();
+    }
+
+    public function isArchived(string $ownerHash, string $sourceUrl): bool
+    {
+        return $this->archivedSourceUrls($ownerHash, [$sourceUrl]) !== [];
+    }
+
+    /**
      * Drop a student's files; blobs no other student uses are deleted too.
      */
     public function deleteOwner(string $ownerHash): int
@@ -225,8 +263,14 @@ class PortalArchivedFileStore
         $deleted = PortalArchivedFile::query()->whereKey($files->pluck('id')->all())->delete();
 
         foreach ($files->pluck('sha256')->unique() as $sha256) {
-            if (! PortalArchivedFile::query()->where('sha256', $sha256)->exists()) {
-                $this->disk()->delete((new PortalArchivedFile(['sha256' => $sha256]))->blobPath());
+            try {
+                $this->withBlobLock((string) $sha256, function () use ($sha256): void {
+                    if (! PortalArchivedFile::query()->where('sha256', $sha256)->exists()) {
+                        $this->disk()->delete((new PortalArchivedFile(['sha256' => $sha256]))->blobPath());
+                    }
+                });
+            } catch (LockTimeoutException) {
+                Log::warning('Archived file blob was busy and kept', ['sha256' => $sha256]);
             }
         }
 
@@ -245,6 +289,22 @@ class PortalArchivedFileStore
         }
 
         return null;
+    }
+
+    /**
+     * Blobs are shared between students: storing one and deleting an unused
+     * one take turns per content hash.
+     *
+     * @template TResult
+     *
+     * @param  callable(): TResult  $callback
+     * @return TResult
+     *
+     * @throws LockTimeoutException
+     */
+    private function withBlobLock(string $sha256, callable $callback): mixed
+    {
+        return Cache::lock('portal_archive_blob_'.$sha256, 60)->block(15, $callback);
     }
 
     private function disk(): Filesystem

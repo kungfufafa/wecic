@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\API;
 
+use App\Exceptions\PortalScrapingException;
 use App\Http\Requests\PortalFileDownloadRequest;
 use App\Http\Requests\PortalParameterValidationRequest;
 use App\Services\PortalEndpointRegistry;
@@ -12,10 +13,13 @@ use App\Services\SipandaiSubmissionService;
 use Dedoc\Scramble\Attributes\Group;
 use Dedoc\Scramble\Attributes\QueryParameter;
 use Dedoc\Scramble\Attributes\Response;
+use GuzzleHttp\Exception\RequestException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Psr\Http\Message\StreamInterface;
 use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 #[Group('Support & Metadata', 'Endpoint bantuan parameter, status sesi, dan metadata utilitas untuk integrasi portal.', 40)]
 class PortalSupportController extends CampusApiController
@@ -27,6 +31,11 @@ class PortalSupportController extends CampusApiController
     private const VALID_PARAMETER_RESPONSE = "array{status: 'success', message: string, validation_result: array{valid: true, validated_params: array<string, mixed>, suggested_api_url: string}, debug_info: array<string, mixed>}";
 
     private const INVALID_PARAMETER_RESPONSE = "array{status: 'error', message: 'Parameter validation failed', validation_result: array{valid: false, errors: array<string, list<string>>, provided_params: array{id: mixed, dosen_id: mixed, course_id: mixed}}, debug_info: array{suggestion: string, help_url: string, example_url: string}}";
+
+    /**
+     * Bytes copied to the browser per write while streaming a campus file
+     */
+    private const DOWNLOAD_CHUNK_BYTES = 8192;
 
     public function __construct(
         private readonly PortalSessionManager $sessionManager,
@@ -42,16 +51,14 @@ class PortalSupportController extends CampusApiController
         $grouped = $request->boolean('grouped', true);
 
         if ($key = $request->query('key')) {
-            try {
-                $endpoint = PortalEndpointRegistry::describe($key);
-            } catch (\Throwable $e) {
-                return $this->statusError($e->getMessage(), 404, meta: [
+            if (! is_string($key) || ! in_array($key, PortalEndpointRegistry::keys(), true)) {
+                return $this->statusError('Endpoint key tidak dikenal.', 404, meta: [
                     'available_keys' => PortalEndpointRegistry::keys(),
                 ]);
             }
 
             return $this->statusSuccess("Endpoint metadata for {$key}", [
-                'data' => $endpoint,
+                'data' => PortalEndpointRegistry::describe($key),
             ], meta: [
                 'grouped' => false,
             ]);
@@ -84,22 +91,22 @@ class PortalSupportController extends CampusApiController
                 'validation_rules' => [
                     'id' => [
                         'parameter_name' => 'id',
-                        'format' => '4-digit integer',
-                        'range' => '1000-9999',
+                        'format' => 'positive integer (at most 10 digits)',
+                        'range' => '1 or greater',
                         'description' => 'Class identifier from CIC portal',
                         'example' => 2265,
                     ],
                     'dosen_id' => [
                         'parameter_name' => 'dosen_id (lecturer_id)',
-                        'format' => '4-digit integer',
-                        'range' => '1000-9999',
+                        'format' => 'positive integer',
+                        'range' => '1 or greater',
                         'description' => 'Lecturer identifier from CIC portal',
                         'example' => 5240,
                     ],
                     'course_id' => [
                         'parameter_name' => 'course_id',
-                        'format' => '4-digit integer',
-                        'range' => '8000-9999',
+                        'format' => 'positive integer (at most 10 digits)',
+                        'range' => '1 or greater',
                         'description' => 'Course identifier from CIC portal',
                         'example' => 8810,
                     ],
@@ -135,11 +142,11 @@ class PortalSupportController extends CampusApiController
                         'explanation' => 'id parameter should use the same id value from the portal URL, not course_id',
                     ],
                     [
-                        'mistake' => 'Invalid course_id range',
-                        'wrong_url' => '?id=2265&dosen_id=5240&course_id=2265',
-                        'problem' => 'course_id=2265 is outside valid range (8000-9999)',
+                        'mistake' => 'Non-numeric identifier',
+                        'wrong_url' => '?id=SI-EN-1&dosen_id=5240&course_id=SIE053004',
+                        'problem' => 'Using the class name or course code instead of the numeric portal identifiers',
                         'correct_url' => '?id=2265&dosen_id=5240&course_id=8810',
-                        'explanation' => 'course_id must be between 8000-9999',
+                        'explanation' => 'id, dosen_id and course_id are the positive integers in the portal act=download URL',
                     ],
                 ],
                 'url_examples' => [
@@ -160,34 +167,127 @@ class PortalSupportController extends CampusApiController
         ]);
     }
 
-    public function downloadFile(PortalFileDownloadRequest $request): SymfonyResponse|JsonResponse
+    /**
+     * Stream a campus file (materi, soal, tugas, dokumen) to the browser.
+     *
+     * The file is copied in chunks as it arrives, so a large module is never
+     * held in memory. A failure answers JSON to a fetch, and a small HTML page
+     * (or the login page) to a link the student opened directly.
+     */
+    public function downloadFile(PortalFileDownloadRequest $request): SymfonyResponse
     {
         $sessionToken = $this->sessionToken();
 
         if (! $sessionToken) {
-            return $this->missingSessionStatusResponse();
+            return $request->expectsJson() ? $this->missingSessionStatusResponse() : redirect()->route('login');
         }
 
         try {
-            $download = $this->submissionService->downloadCampusFile(
+            $download = $this->submissionService->streamCampusFile(
                 $sessionToken,
                 $request->campusPath(),
                 $request->downloadName()
             );
-
-            return response($download['contents'], 200, [
-                'Content-Type' => $download['content_type'],
-                'Content-Disposition' => sprintf('attachment; filename="%s"', addslashes($download['filename'])),
-            ]);
         } catch (\Throwable $throwable) {
-            if ($this->isCampusSessionExpiredException($throwable)) {
-                return $this->statusError('Sesi kampus sudah berakhir. Silakan masuk lagi.', 401, campusSessionValid: false);
-            }
-
-            Log::warning('Campus file download failed', ['error' => $throwable->getMessage()]);
-
-            return $this->statusError('Unduhan gagal. Coba lagi beberapa saat.', 500, campusSessionValid: false);
+            return $this->downloadFailure($request, $throwable);
         }
+
+        return $this->streamDownload($download);
+    }
+
+    /**
+     * The file as it arrives, in DOWNLOAD_CHUNK_BYTES writes. A file whose
+     * size the portal did not announce stops at the download cap the
+     * service applies to announced sizes.
+     *
+     * @param  array{filename: string, content_type: string, size: int|null, stream: StreamInterface}  $download
+     */
+    private function streamDownload(array $download): StreamedResponse
+    {
+        $stream = $download['stream'];
+        $size = $download['size'];
+        $maxBytes = (int) config('portal.scraping.download_max_bytes', 50 * 1024 * 1024);
+        $limit = $size ?? ($maxBytes > 0 ? $maxBytes : null);
+        $headers = [
+            'Content-Type' => $download['content_type'],
+            'Content-Disposition' => sprintf('attachment; filename="%s"', addslashes($download['filename'])),
+            'Cache-Control' => 'private, no-store',
+            'X-Accel-Buffering' => 'no',
+        ];
+
+        if ($size !== null) {
+            $headers['Content-Length'] = (string) $size;
+        }
+
+        return response()->stream(static function () use ($stream, $size, $limit): void {
+            $sent = 0;
+
+            try {
+                while (! $stream->eof() && ($limit === null || $sent < $limit)) {
+                    $chunk = $stream->read($limit === null ? self::DOWNLOAD_CHUNK_BYTES : min(self::DOWNLOAD_CHUNK_BYTES, $limit - $sent));
+
+                    if ($chunk === '') {
+                        break;
+                    }
+
+                    echo $chunk;
+                    $sent += strlen($chunk);
+
+                    if (ob_get_level() > 0) {
+                        ob_flush();
+                    }
+
+                    flush();
+
+                    if (connection_aborted() === 1) {
+                        return;
+                    }
+                }
+
+                if ($size === null && $limit !== null && $sent >= $limit && ! $stream->eof()) {
+                    Log::warning('Campus file download stopped at the download limit', ['max_bytes' => $limit]);
+                }
+            } finally {
+                $stream->close();
+            }
+        }, 200, $headers);
+    }
+
+    /**
+     * The answer to a download that could not start
+     */
+    private function downloadFailure(PortalFileDownloadRequest $request, \Throwable $throwable): SymfonyResponse
+    {
+        if ($this->isCampusSessionExpiredException($throwable)) {
+            return $request->expectsJson()
+                ? $this->statusError('Sesi kampus sudah berakhir. Silakan masuk lagi.', 401, campusSessionValid: false)
+                : redirect()->route('login');
+        }
+
+        // A file the portal no longer serves fails the same way on every retry.
+        $upstreamStatus = $throwable instanceof RequestException ? $throwable->getResponse()?->getStatusCode() : null;
+
+        if (in_array($upstreamStatus, [403, 404, 410], true)) {
+            return $this->downloadError($request, 'File tidak ditemukan', 'File tidak ditemukan di portal kampus. Mungkin sudah dihapus atau dipindahkan dosen.', 404, campusSessionValid: true);
+        }
+
+        if ($throwable instanceof PortalScrapingException && str_contains($throwable->getMessage(), 'byte download limit')) {
+            return $this->downloadError($request, 'File terlalu besar', 'File terlalu besar untuk diunduh lewat MyCIC. Buka langsung di portal kampus.', 422, campusSessionValid: true);
+        }
+
+        Log::warning('Campus file download failed', ['error' => $throwable->getMessage()]);
+
+        return $this->downloadError($request, 'Unduhan gagal', 'Unduhan gagal. Coba lagi beberapa saat.', 500, campusSessionValid: false);
+    }
+
+    /**
+     * JSON for a fetch; a minimal page with a way back for a link opened in a tab
+     */
+    private function downloadError(PortalFileDownloadRequest $request, string $title, string $message, int $status, bool $campusSessionValid): SymfonyResponse
+    {
+        return $request->expectsJson()
+            ? $this->statusError($message, $status, campusSessionValid: $campusSessionValid)
+            : self::navigationErrorPage($title, $message, $status);
     }
 
     #[Response(description: 'Parameter portal valid dan siap digunakan.', type: self::VALID_PARAMETER_RESPONSE)]

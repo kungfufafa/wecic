@@ -45,7 +45,7 @@ class PortalBroadcastService
             'message' => $message,
             'cache_keys' => array_values($cacheKeys),
             'sync_keys' => array_values($syncKeys),
-            'urgency' => $stage === PortalOperationStage::Failed ? 'error' : 'info',
+            'urgency' => $this->urgencyFor($stage),
         ])));
     }
 
@@ -74,7 +74,7 @@ class PortalBroadcastService
             'percent' => $percent,
             'cache_keys' => array_values($cacheKeys),
             'sync_keys' => array_values($syncKeys),
-            'urgency' => $stage === PortalOperationStage::Failed ? 'error' : 'info',
+            'urgency' => $this->urgencyFor($stage),
         ])));
     }
 
@@ -93,6 +93,20 @@ class PortalBroadcastService
     public function notification(string $sessionId, string $campusSessionToken, array $data): void
     {
         $this->send(fn () => PortalNotificationSent::dispatch($sessionId, $this->payload($campusSessionToken, $data)));
+    }
+
+    /**
+     * How loudly the browser reports a stage: an upload the portal has not
+     * settled is a warning (check the page before uploading again), not an
+     * error and not a routine update.
+     */
+    private function urgencyFor(PortalOperationStage $stage): string
+    {
+        return match ($stage) {
+            PortalOperationStage::Failed => 'error',
+            PortalOperationStage::Unverified => 'warning',
+            default => 'info',
+        };
     }
 
     private function send(callable $dispatch): void

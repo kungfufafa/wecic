@@ -327,7 +327,7 @@ class AppShellPagesTest extends TestCase
             ->get('/more')
             ->assertOk()
             ->assertSee("app.primeCachedView('/api/portal/context', renderGuides, 'panduan')", false)
-            ->assertSee("app.request('/api/portal/context', { fresh: force })", false)
+            ->assertSee("app.request('/api/portal/context', { fresh: force, background })", false)
             ->assertSee("app.registerSyncHandler('more-index', loadMore, { aliases: ['portal-context'] });", false)
             ->assertSee('app.buildCampusDownloadUrl(link.path, link.filename)', false)
             ->assertSee('portal:action-items', false)
