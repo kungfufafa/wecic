@@ -374,11 +374,25 @@ class PortalOfflineLoginTest extends TestCase
     {
         $this->offlineSession();
 
-        $this->postJson('/api/attendance', ['kode' => 'ABCD1234'])
+        $this->deleteJson('/api/assignment', ['id' => 126663, 'idx' => 29833, 'pertemuan' => 2])
             ->assertStatus(503)
             ->assertJsonPath('meta.offline', true);
         $this->postJson('/api/refresh', ['domains' => ['krs']])->assertStatus(503);
         $this->postJson('/api/auth/session/refresh')->assertStatus(409);
+    }
+
+    /**
+     * Attendance and uploads are deadline-bound, so they wait in the outbox
+     * instead (PortalOutboxTest covers the queue itself).
+     */
+    public function test_attendance_is_queued_rather_than_refused_offline(): void
+    {
+        $this->offlineSession();
+
+        $this->postJson('/api/attendance', ['courseid' => 8837, 'modulesid' => 29808, 'kode' => 'ABCD1234'])
+            ->assertStatus(202)
+            ->assertJsonPath('data.status', 'queued_offline')
+            ->assertJsonPath('data.outbox_item.status_label', 'Belum terkirim ke portal');
     }
 
     public function test_the_scraping_layer_refuses_an_offline_session(): void

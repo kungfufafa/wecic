@@ -331,7 +331,7 @@
                     <div class="mycic-alert-warning mb-4 flex flex-wrap items-center justify-between gap-3 print:hidden" role="status" data-portal-offline-banner>
                         <span class="min-w-0">
                             <span class="block font-bold">Mode offline</span>
-                            <span class="block text-sm">Portal kampus tidak bisa diakses saat kamu masuk. Data diambil dari arsip MyCIC; absen, upload, dan sinkronisasi belum tersedia. <span data-portal-offline-reconnect-text>{{ \App\Http\Controllers\API\PortalAuthController::offlineReconnectMessage(session('campus_offline_reconnect')) }}</span></span>
+                            <span class="block text-sm">Portal kampus tidak bisa diakses saat kamu masuk. Data diambil dari arsip MyCIC. Absen dan upload yang kamu kirim disimpan dulu di antrean MyCIC (belum terkirim ke portal) dan dikirim otomatis begitu portal pulih, selama tenggatnya belum lewat; sinkronisasi menunggu. <span data-portal-offline-reconnect-text>{{ \App\Http\Controllers\API\PortalAuthController::offlineReconnectMessage(session('campus_offline_reconnect')) }}</span></span>
                         </span>
                         <button type="button" class="mycic-btn-secondary-sm" data-logout>Masuk ulang</button>
                     </div>

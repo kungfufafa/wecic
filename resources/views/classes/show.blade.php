@@ -8,6 +8,9 @@
         {!! '<div class="mycic-alert-neutral mb-4">Memuat...</div>' !!}
     </div>
 
+    {{-- Attendance or uploads queued for this class while offline: not at the portal yet. --}}
+    <div class="mb-4 hidden" data-outbox-list data-outbox-match="class:{{ e($id) }}{{ $courseId ? ' course:'.e($courseId) : '' }}" data-outbox-heading="Antrean offline kelas ini"></div>
+
     <div class="grid gap-4 lg:grid-cols-12">
         <div class="lg:col-span-8" id="class-materials">
             {!! '<div class="mycic-alert-neutral mb-0">Memuat...</div>' !!}

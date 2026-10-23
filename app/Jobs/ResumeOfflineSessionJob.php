@@ -7,6 +7,7 @@ namespace App\Jobs;
 use App\Services\PortalBroadcastService;
 use App\Services\PortalDatasetRepository;
 use App\Services\PortalOfflineAccess;
+use App\Services\PortalOutbox;
 use App\Services\PortalSessionManager;
 use Carbon\CarbonImmutable;
 use Illuminate\Bus\Queueable;
@@ -71,7 +72,8 @@ class ResumeOfflineSessionJob implements ShouldBeUniqueUntilProcessing, ShouldQu
         PortalSessionManager $sessionManager,
         PortalOfflineAccess $offlineAccess,
         PortalBroadcastService $broadcast,
-        PortalDatasetRepository $datasets
+        PortalDatasetRepository $datasets,
+        PortalOutbox $outbox
     ): void {
         $outcome = $sessionManager->resumeOfflineSession($this->sessionToken);
         $sessionId = $sessionManager->laravelSessionId($this->sessionToken);
@@ -116,6 +118,8 @@ class ResumeOfflineSessionJob implements ShouldBeUniqueUntilProcessing, ShouldQu
             $broadcast->sessionNotice($sessionId, $this->sessionToken, 'offline_session_resumed', 'Portal kampus kembali bisa diakses. Sesi tersambung lagi dan data sedang diperbarui.', 'success');
             $datasets->warmUp($this->sessionToken, $sessionId);
             ScanPortalNotificationsJob::dispatch($sessionId, $this->sessionToken);
+            // Attendance and uploads queued while offline go out now (FlushPortalOutboxJob).
+            $outbox->flushWhenQueued($this->sessionToken, $sessionId);
 
             return;
         }

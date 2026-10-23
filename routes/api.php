@@ -14,6 +14,7 @@ use App\Http\Controllers\API\PortalDeviceController;
 use App\Http\Controllers\API\PortalLibraryController;
 use App\Http\Controllers\API\PortalNotificationController;
 use App\Http\Controllers\API\PortalOperationController;
+use App\Http\Controllers\API\PortalOutboxController;
 use App\Http\Controllers\API\PortalSupportController;
 use App\Http\Controllers\API\PortalThesisController;
 use Illuminate\Support\Facades\Route;
@@ -122,21 +123,29 @@ Route::middleware($sessionMiddleware)->group(function () {
             Route::get('{id}', 'show')->where('id', '[0-9a-f]{40}');
         });
 
+        // Uploads and attendance are deadline-bound: an offline session queues
+        // them in the outbox instead of being refused (see PortalOutbox).
         Route::prefix('assignment')->controller(PortalActionController::class)->group(function (): void {
             Route::get('pending', 'pendingAssignments');
-            Route::post('', 'uploadAssignment')->middleware(['portal.online', 'throttle:portal-action']);
+            Route::post('', 'uploadAssignment')->middleware('throttle:portal-action');
             Route::delete('', 'deleteAssignment')->middleware(['portal.online', 'throttle:portal-action']);
         });
 
         Route::get('operations/{operation}', [PortalOperationController::class, 'show'])->whereUuid('operation');
 
         Route::get('attendance/today', [PortalActionController::class, 'todayAttendanceShortcuts']);
-        Route::post('attendance', [PortalActionController::class, 'markAttendance'])->middleware(['portal.online', 'throttle:portal-action']);
+        Route::post('attendance', [PortalActionController::class, 'markAttendance'])->middleware('throttle:portal-action');
 
         Route::prefix('exam')->controller(PortalActionController::class)->group(function (): void {
             Route::get('', 'listExams');
-            Route::post('', 'uploadExam')->middleware(['portal.online', 'throttle:portal-action']);
+            Route::post('', 'uploadExam')->middleware('throttle:portal-action');
             Route::get('{id}', 'examDetail');
+        });
+
+        // Local bookkeeping only: the queue is read from, and cancelled in, MyCIC.
+        Route::prefix('outbox')->controller(PortalOutboxController::class)->group(function (): void {
+            Route::get('', 'index');
+            Route::delete('{item}', 'destroy')->whereNumber('item');
         });
 
         Route::prefix('archive')->controller(PortalArchiveController::class)->group(function (): void {

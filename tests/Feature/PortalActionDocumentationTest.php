@@ -32,6 +32,7 @@ class PortalActionDocumentationTest extends TestCase
                 'pertemuan',
                 'attachment',
                 'form_values',
+                'deadline',
             ], $properties);
         } finally {
             @unlink($exportPath);

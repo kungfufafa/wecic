@@ -3,6 +3,7 @@
 use App\Models\PortalMobileSession;
 use App\Models\PortalNotification;
 use App\Models\PortalOfflineAccount;
+use App\Models\PortalOutboxItem;
 use App\Models\PortalPushToken;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
@@ -48,8 +49,9 @@ Schedule::command('queue:work --queue=campus-background --stop-when-empty --time
 // Notifications older than `portal.notifications.retention_days`, the
 // stored credentials of offline accounts (see PortalOfflineAccount::prunable()),
 // unused app tokens and push tokens of apps that stopped registering
-// (`portal.mobile`).
-Schedule::command('model:prune', ['--model' => [PortalNotification::class, PortalOfflineAccount::class, PortalMobileSession::class, PortalPushToken::class]])->daily();
+// (`portal.mobile`), and settled outbox items older than
+// `portal.outbox.retention_days`.
+Schedule::command('model:prune', ['--model' => [PortalNotification::class, PortalOfflineAccount::class, PortalMobileSession::class, PortalPushToken::class, PortalOutboxItem::class]])->daily();
 
 // Upload operations left unfinished by a web process that died mid-upload,
 // and their orphaned temporary files.

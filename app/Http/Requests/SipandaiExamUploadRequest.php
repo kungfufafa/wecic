@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Requests;
 
+use Carbon\CarbonImmutable;
 use Illuminate\Http\UploadedFile;
 
 class SipandaiExamUploadRequest extends ApiFormRequest
@@ -36,6 +37,13 @@ class SipandaiExamUploadRequest extends ApiFormRequest
              * @example {"catatan":"Upload via API"}
              */
             'form_values' => ['sometimes', 'array'],
+            /**
+             * Batas akhir ujian (ISO 8601) bila klien mengetahuinya. Saat sesi offline,
+             * jawaban yang masih di antrean setelah batas ini tidak dikirim.
+             *
+             * @example "2026-04-14T10:00:00+07:00"
+             */
+            'deadline' => ['sometimes', 'nullable', 'date'],
         ];
     }
 
@@ -49,6 +57,7 @@ class SipandaiExamUploadRequest extends ApiFormRequest
             'attachment.mimes' => 'File ujian harus berupa PDF, ZIP, atau RAR.',
             'attachment.max' => 'Ukuran file ujian maksimal 20 MB.',
             'form_values.array' => 'Parameter form_values harus berupa object/array.',
+            'deadline.date' => 'Parameter deadline harus berupa tanggal yang valid.',
         ];
     }
 
@@ -74,6 +83,13 @@ class SipandaiExamUploadRequest extends ApiFormRequest
         $values = $this->validated('form_values', []);
 
         return is_array($values) ? $values : [];
+    }
+
+    public function deadline(): ?CarbonImmutable
+    {
+        $deadline = $this->validated('deadline');
+
+        return is_string($deadline) && $deadline !== '' ? CarbonImmutable::parse($deadline, config('app.timezone')) : null;
     }
 
     public function attachment(): UploadedFile

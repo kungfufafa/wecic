@@ -1332,6 +1332,13 @@ return [
     |
     */
 
+    // Writes asked for while the session is offline wait here, validated and
+    // with their file, until the session is back online (PortalOutbox).
+    'outbox' => [
+        'enabled' => (bool) env('PORTAL_OUTBOX_ENABLED', true),
+        // Settled items (sent, failed, expired) are pruned after this many days.
+        'retention_days' => (int) env('PORTAL_OUTBOX_RETENTION_DAYS', 30),
+    ],
     'background_sync' => [
         'enabled' => (bool) env('PORTAL_BACKGROUND_SYNC_ENABLED', true),
         'interval' => (int) env('PORTAL_BACKGROUND_SYNC_INTERVAL', 180),
