@@ -8,13 +8,18 @@ use App\Exceptions\PortalAuthenticationException;
 use App\Exceptions\PortalConnectionException;
 use App\Exceptions\PortalScrapingException;
 use App\Http\Middleware\PortalSessionMiddleware;
+use App\Http\Middleware\StartPortalSession;
 use App\Http\Requests\PortalLoginRequest;
 use App\Http\Requests\PortalPasswordChangeRequest;
+use App\Http\Requests\PortalTokenLoginRequest;
 use App\Jobs\ScanPortalNotificationsJob;
+use App\Models\PortalMobileSession;
+use App\Models\PortalPushToken;
 use App\Services\PortalBroadcastService;
 use App\Services\PortalDataOwner;
 use App\Services\PortalDatasetRepository;
 use App\Services\PortalLogContext;
+use App\Services\PortalMobileSessions;
 use App\Services\PortalOfflineAccess;
 use App\Services\PortalPasswordService;
 use App\Services\PortalSessionManager;
@@ -31,7 +36,9 @@ class PortalAuthController extends CampusApiController
 
     private const CHECK_SESSION_RESPONSE = "array{status: 'success', message: string, data: array{user_info: mixed, offline: bool, offline_reconnect: 'automatic'|'notify'|'portal_back'|'manual'|null}, meta: array{timestamp: string, campus_session_valid: true}}";
 
-    private const REFRESH_SESSION_RESPONSE = "array{status: 'success', message: string, data: array{session_token: string, expires_at: string|null}, meta: array{timestamp: string, campus_session_valid: true}}";
+    private const TOKEN_LOGIN_RESPONSE = "array{status: 'success', message: string, data: array{user_info: mixed, expires_at: string|null, offline: bool, offline_reconnect: 'automatic'|'notify'|'portal_back'|'manual'|null, token: string, token_type: 'Bearer', channel: string}, meta: array{timestamp: string, campus_session_valid: true}}";
+
+    private const REFRESH_SESSION_RESPONSE = "array{status: 'success', message: string, data: array{expires_at: string|null}, meta: array{timestamp: string, campus_session_valid: true}}";
 
     private const LOGOUT_RESPONSE = "array{status: 'success', message: string, meta: array{timestamp: string, campus_session_valid: false}}";
 
@@ -48,7 +55,8 @@ class PortalAuthController extends CampusApiController
         private readonly PortalPasswordService $passwordService,
         private readonly PortalDatasetRepository $datasets,
         private readonly PortalOfflineAccess $offlineAccess,
-        private readonly PortalDataOwner $dataOwner
+        private readonly PortalDataOwner $dataOwner,
+        private readonly PortalMobileSessions $mobileSessions
     ) {}
 
     /**
@@ -92,6 +100,38 @@ class PortalAuthController extends CampusApiController
     #[Response(422, description: 'Payload login tidak valid.', type: CampusApiController::SCRAMBLE_VALIDATION_ERROR_RESPONSE)]
     public function login(PortalLoginRequest $request): JsonResponse
     {
+        return $this->authenticate($request);
+    }
+
+    /**
+     * Login untuk aplikasi mobile (token bearer).
+     *
+     * Alurnya sama dengan `POST /auth/login`, termasuk login offline, tetapi
+     * tanpa cookie dan tanpa CSRF: respons berisi `data.token`, yang dikirim
+     * aplikasi sebagai `Authorization: Bearer <token>` ke semua endpoint
+     * `/api/*` lain. Token itu menunjuk sesi di server yang menyimpan sesi
+     * kampus, jadi berlaku selama sesi kampus masih aktif (batas idle
+     * `portal.session_idle_timeout`); setelah itu endpoint menjawab 401 dan
+     * aplikasi login lagi. `data.channel` adalah channel privat Reverb sesi
+     * ini, diotorisasi lewat `POST /api/broadcasting/auth` dengan token yang
+     * sama. Login dengan token lama yang masih berlaku menggantinya.
+     */
+    #[Response(description: 'Login berhasil; token bearer dibuat untuk sesi kampus ini.', type: self::TOKEN_LOGIN_RESPONSE)]
+    #[Response(401, description: 'Kredensial portal tidak valid atau sesi gagal dibuat.', type: CampusApiController::SCRAMBLE_SESSION_ERROR_RESPONSE)]
+    #[Response(503, description: 'Portal kampus sedang tidak dapat diakses atau timeout.', type: CampusApiController::SCRAMBLE_STATUS_ERROR_RESPONSE)]
+    #[Response(422, description: 'Payload login tidak valid.', type: CampusApiController::SCRAMBLE_VALIDATION_ERROR_RESPONSE)]
+    public function issueToken(PortalTokenLoginRequest $request): JsonResponse
+    {
+        return $this->authenticate($request);
+    }
+
+    /**
+     * Both logins. A request authenticated by bearer token (or the token
+     * login) gets a new token for the new session, bound to it before the
+     * session is saved (StartPortalSession).
+     */
+    private function authenticate(PortalLoginRequest $request): JsonResponse
+    {
         $previousSessionToken = $this->sessionToken();
 
         try {
@@ -133,6 +173,7 @@ class PortalAuthController extends CampusApiController
                     'expires_at' => $sessionResult['expires_at'],
                     'offline' => false,
                     'offline_reconnect' => null,
+                    ...$this->issueMobileToken($request),
                 ],
             ], campusSessionValid: true);
         } catch (PortalAuthenticationException $exception) {
@@ -148,7 +189,7 @@ class PortalAuthController extends CampusApiController
                 'error' => $exception->getMessage(),
             ]);
 
-            $offlineLogin = $this->loginOffline((string) $request->validated('username'), (string) $request->validated('password'), $previousSessionToken);
+            $offlineLogin = $this->loginOffline($request, (string) $request->validated('username'), (string) $request->validated('password'), $previousSessionToken);
 
             if ($offlineLogin !== null) {
                 return $offlineLogin;
@@ -258,12 +299,19 @@ class PortalAuthController extends CampusApiController
 
     /**
      * Logout dari sistem kampus.
+     *
+     * Dengan token bearer, token itu dicabut dan perangkat yang didaftarkan
+     * lewat token itu berhenti menerima push. Aplikasi sebaiknya juga
+     * mengirim `push_token` (token Expo perangkat ini): token push itu
+     * dihapus walaupun sesinya sudah berakhir lebih dulu.
      */
-    #[Response(description: 'Sesi kampus dibersihkan dari browser saat ini.', type: self::LOGOUT_RESPONSE)]
-    public function logout(): JsonResponse
+    #[Response(description: 'Sesi kampus dibersihkan dari browser atau perangkat saat ini.', type: self::LOGOUT_RESPONSE)]
+    public function logout(Request $request): JsonResponse
     {
         $sessionToken = $this->sessionToken();
         $sessionId = (string) session()->getId();
+
+        $this->endMobileSession($request);
 
         try {
             if ($sessionToken) {
@@ -373,6 +421,64 @@ class PortalAuthController extends CampusApiController
     }
 
     /**
+     * The bearer token of a login in token mode, bound to the session the
+     * login just started; a token the request came with is replaced (its
+     * session was rotated away). A cookie login gets nothing.
+     *
+     * @return array{token?: string, token_type?: 'Bearer', channel?: string}
+     */
+    private function issueMobileToken(PortalLoginRequest $request): array
+    {
+        if (! StartPortalSession::isTokenRequest($request)) {
+            return [];
+        }
+
+        $previous = StartPortalSession::mobileSession($request);
+        $deviceName = $request->validated('device_name');
+
+        ['token' => $token, 'mobile_session' => $mobileSession] = $this->mobileSessions->issue(
+            (string) session()->getId(),
+            is_string($deviceName) ? $deviceName : null
+        );
+        StartPortalSession::bindMobileSession($mobileSession);
+
+        if ($previous instanceof PortalMobileSession) {
+            $this->mobileSessions->replace($previous, $mobileSession);
+        }
+
+        return [
+            'token' => $token,
+            'token_type' => 'Bearer',
+            'channel' => 'portal.session.'.session()->getId(),
+        ];
+    }
+
+    /**
+     * A logout revokes the bearer token it came with, and stops pushes to
+     * the app installs that token registered and to the one the app names
+     * (`push_token`). Best-effort, never failing the logout.
+     */
+    private function endMobileSession(Request $request): void
+    {
+        try {
+            $mobileSession = StartPortalSession::mobileSession($request);
+
+            if ($mobileSession !== null) {
+                $this->mobileSessions->revoke($mobileSession, withPushTokens: true);
+                StartPortalSession::bindMobileSession(null);
+            }
+
+            $pushToken = $request->input('push_token');
+
+            if (is_string($pushToken) && $pushToken !== '') {
+                PortalPushToken::query()->where('token', $pushToken)->delete();
+            }
+        } catch (\Throwable $throwable) {
+            Log::warning('The mobile token could not be revoked at logout', ['error' => $throwable->getMessage()]);
+        }
+    }
+
+    /**
      * The first scan of a login crawls every class and meeting page, so it
      * is delayed like the warm-up: today's schedule re-sync is not queued
      * behind it.
@@ -459,7 +565,7 @@ class PortalAuthController extends CampusApiController
      * Open a read-only session from the archive when the password matches the
      * last online login; null when offline login is not possible.
      */
-    private function loginOffline(string $username, string $password, ?string $previousSessionToken): ?JsonResponse
+    private function loginOffline(PortalLoginRequest $request, string $username, string $password, ?string $previousSessionToken): ?JsonResponse
     {
         try {
             ['user_info' => $userInfo, 'wrong_password' => $wrongPassword] = $this->offlineAccess->verify($username, $password);
@@ -494,6 +600,7 @@ class PortalAuthController extends CampusApiController
                     'expires_at' => $sessionResult['expires_at'],
                     'offline' => true,
                     'offline_reconnect' => $sessionResult['offline_reconnect'],
+                    ...$this->issueMobileToken($request),
                 ],
             ], campusSessionValid: true);
         } catch (\Throwable $throwable) {

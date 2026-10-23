@@ -10,6 +10,7 @@ use App\Http\Controllers\API\PortalAnnouncementController;
 use App\Http\Controllers\API\PortalArchiveController;
 use App\Http\Controllers\API\PortalAuthController;
 use App\Http\Controllers\API\PortalDataController;
+use App\Http\Controllers\API\PortalDeviceController;
 use App\Http\Controllers\API\PortalLibraryController;
 use App\Http\Controllers\API\PortalNotificationController;
 use App\Http\Controllers\API\PortalOperationController;
@@ -17,14 +18,25 @@ use App\Http\Controllers\API\PortalSupportController;
 use App\Http\Controllers\API\PortalThesisController;
 use Illuminate\Support\Facades\Route;
 
-// Session-aware middleware stack for campus API routes (cookie + session + CSRF).
+// Session-aware middleware stack for campus API routes: the web app's cookie
+// session (with CSRF), or the session a mobile app's bearer token names
+// (StartPortalSession, no cookie and no CSRF).
 $sessionMiddleware = [
     \Illuminate\Cookie\Middleware\EncryptCookies::class,
     \Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse::class,
-    \Illuminate\Session\Middleware\StartSession::class,
+    \App\Http\Middleware\StartPortalSession::class,
     \Illuminate\View\Middleware\ShareErrorsFromSession::class,
     \App\Http\Middleware\VerifyCsrfTokenMiddleware::class,
 ];
+
+// The mobile app's login: always in token mode, so a cookie the request
+// carries is never read or replaced.
+Route::post('auth/token', [PortalAuthController::class, 'issueToken'])
+    ->middleware([
+        \App\Http\Middleware\StartPortalSession::class.':token',
+        \App\Http\Middleware\VerifyCsrfTokenMiddleware::class,
+        'throttle:portal-login',
+    ]);
 
 // Proxied endpoints use the original upstream portal parameter names as primary input.
 // Compatibility aliases may still be accepted in request classes for older clients.
@@ -36,6 +48,10 @@ Route::middleware($sessionMiddleware)->group(function () {
         // Never throttled: a logout refused for spent action budget would leave the session open.
         Route::post('logout', 'logout');
     });
+
+    // Echo's authEndpoint for API clients: signs the session's own channel only (routes/channels.php).
+    Route::post('broadcasting/auth', [PortalDeviceController::class, 'authorizeChannel'])
+        ->middleware(\App\Http\Middleware\ResolvePortalBroadcastUser::class);
 
     Route::middleware('portal.session')->group(function (): void {
         // An offline session (portal unreachable at login) only reads the archive.
@@ -68,6 +84,12 @@ Route::middleware($sessionMiddleware)->group(function () {
         });
 
         Route::get('action-items', [PortalActionCenterController::class, 'index']);
+
+        // Local bookkeeping only: the app installs that get notifications as push.
+        Route::prefix('devices')->controller(PortalDeviceController::class)->group(function (): void {
+            Route::post('push-token', 'registerPushToken');
+            Route::delete('push-token', 'forgetPushToken');
+        });
 
         Route::prefix('notifications')->controller(PortalNotificationController::class)->group(function (): void {
             Route::get('', 'index');

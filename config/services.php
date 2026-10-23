@@ -50,4 +50,13 @@ return [
         'ingest_budget' => (int) (env('GEMINI_INGEST_BUDGET') ?: 240),
     ],
 
+    // Expo push service, for notifications to the mobile app
+    // (PortalPushNotifier). The access token is only needed when push
+    // security is switched on for the Expo project.
+    'expo' => [
+        'push_url' => env('EXPO_PUSH_URL', 'https://exp.host/--/api/v2/push/send'),
+        'access_token' => env('EXPO_ACCESS_TOKEN'),
+        'timeout' => (int) (env('EXPO_PUSH_TIMEOUT') ?: 15),
+    ],
+
 ];

@@ -1241,6 +1241,25 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Mobile App (Bearer Tokens and Push)
+    |--------------------------------------------------------------------------
+    |
+    | `POST /api/auth/token` gives the app a bearer token that names a
+    | server-side Laravel session (PortalMobileSession), so it ends with that
+    | session; the session driver must keep sessions on the server (not
+    | `cookie`). A token unused for `token_retention_days` is pruned. Push
+    | tokens the app has not registered again for
+    | `push_token_retention_days` are pruned too.
+    |
+    */
+
+    'mobile' => [
+        'token_retention_days' => (int) env('PORTAL_MOBILE_TOKEN_RETENTION_DAYS', 30),
+        'push_token_retention_days' => (int) env('PORTAL_PUSH_TOKEN_RETENTION_DAYS', 60),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Local Archive (Backup of Portal Data)
     |--------------------------------------------------------------------------
     |

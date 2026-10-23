@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace Tests\Unit;
 
 use App\Jobs\SyncPortalArchiveJob;
+use App\Models\PortalMobileSession;
 use App\Models\PortalNotification;
 use App\Models\PortalOfflineAccount;
+use App\Models\PortalPushToken;
 use Illuminate\Console\Scheduling\Event;
 use Tests\TestCase;
 use Tests\Traits\InspectsScheduledQueueWorkers;
@@ -91,13 +93,15 @@ class ScheduledQueueWorkerTest extends TestCase
         $this->assertLessThan(15, $event->expiresAt, 'A run killed mid-way would stop background syncs until the lock expires.');
     }
 
-    public function test_old_notifications_and_offline_accounts_are_pruned_daily(): void
+    public function test_old_notifications_offline_accounts_and_app_tokens_are_pruned_daily(): void
     {
         $event = $this->scheduledEvent('model:prune');
 
         $this->assertSame('0 0 * * *', $event->expression);
         $this->assertStringContainsString(PortalNotification::class, (string) $event->command);
         $this->assertStringContainsString(PortalOfflineAccount::class, (string) $event->command);
+        $this->assertStringContainsString(PortalMobileSession::class, (string) $event->command);
+        $this->assertStringContainsString(PortalPushToken::class, (string) $event->command);
     }
 
     public function test_stuck_uploads_are_recovered_every_five_minutes(): void

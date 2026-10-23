@@ -37,6 +37,7 @@ MyCIC memadukan tiga lapisan utama:
 | Database | SQLite (default) / MySQL / PostgreSQL | Wajib menjalankan migrasi untuk tabel users, cache, jobs, dan sessions. |
 | Cache, Queue, Session | Database drivers | Diatur lewat `.env`: `CACHE_STORE=database`, `QUEUE_CONNECTION=database`, `SESSION_DRIVER=database`. |
 | HTTP & Scraping | Guzzle 7 + Symfony DomCrawler 7 | Memberi cookies persistent, retry, validasi blank page, fallback selector. |
+| Token mobile | Laravel Sanctum 4 | Hanya personal access token untuk aplikasi mobile (`POST /api/auth/token`); route SPA `sanctum/csrf-cookie` dimatikan. |
 | Frontend | Vite 7, Tailwind CSS 4, Vanilla JS | `resources/css/app.css` mengimpor Tailwind v4. Gunakan `npm run dev`/`npm run build`. |
 | Observability | Laravel Pail, Dedoc Scramble | Pail untuk live log streaming, Scramble menyajikan dok API (`/docs/api`). |
 
@@ -197,7 +198,7 @@ Antrean yang dipakai:
 - Setiap login online menyimpan hash password (login offline saat portal mati) dan, bila sinkronisasi di background aktif, kredensial terenkripsi dengan `APP_KEY`. Mahasiswa bisa mematikannya sendiri di halaman Arsip; password tersimpan langsung dihapus.
 - `PORTAL_BACKGROUND_SYNC_ENABLED`, `PORTAL_BACKGROUND_SYNC_INTERVAL` (menit), `PORTAL_BACKGROUND_SYNC_CREDENTIAL_DAYS`, `PORTAL_BACKGROUND_SYNC_BATCH_SIZE`, `PORTAL_BACKGROUND_SYNC_COURSES_ENABLED`, `PORTAL_BACKGROUND_SYNC_COURSES_INTERVAL` mengatur sinkronisasi; `PORTAL_ARCHIVE_ENABLED`, `PORTAL_ARCHIVE_OFFLINE_LOGIN`, `PORTAL_ARCHIVE_FILES_ENABLED` mengatur arsip, login offline, dan arsip berkas materi (lihat `config/portal.php`).
 - Mengganti `APP_KEY` tanpa `APP_PREVIOUS_KEYS` membuat kredensial tersimpan tidak bisa dibaca: MyCIC menghapusnya pada sinkronisasi berikutnya dan menyimpannya lagi saat mahasiswa login online.
-- Semua data per mahasiswa (versi arsip, berkas materi, akses offline, notifikasi, notebook) disimpan dengan kunci pemilik `student_…`, yaitu HMAC NIM dengan `PORTAL_OWNER_KEY` (kosong = `APP_KEY`, sama seperti sebelumnya). **Sebelum merotasi `APP_KEY`, isi `PORTAL_OWNER_KEY` dengan nilai `APP_KEY` yang sekarang**, supaya kunci pemilik tidak ikut berubah. Bila terlanjur berubah, data dengan kunci lama dipindahkan ke kunci baru saat mahasiswa itu login berikutnya (online, offline, atau sinkronisasi background), asalkan secret lamanya ada di `APP_PREVIOUS_KEYS` atau `PORTAL_PREVIOUS_OWNER_KEYS` (dipisah koma).
+- Semua data per mahasiswa (versi arsip, berkas materi, akses offline, notifikasi, notebook, token push) disimpan dengan kunci pemilik `student_…`, yaitu HMAC NIM dengan `PORTAL_OWNER_KEY` (kosong = `APP_KEY`, sama seperti sebelumnya). **Sebelum merotasi `APP_KEY`, isi `PORTAL_OWNER_KEY` dengan nilai `APP_KEY` yang sekarang**, supaya kunci pemilik tidak ikut berubah. Bila terlanjur berubah, data dengan kunci lama dipindahkan ke kunci baru saat mahasiswa itu login berikutnya (online, offline, atau sinkronisasi background), asalkan secret lamanya ada di `APP_PREVIOUS_KEYS` atau `PORTAL_PREVIOUS_OWNER_KEYS` (dipisah koma).
 - Status setiap sinkronisasi tercatat di akun (`last_background_sync_*`); sinkronisasi yang sedang berjalan bertanda `running` dan dibaca gagal bila melewati batas waktunya.
 
 ## Konfigurasi `.env` Penting
@@ -218,7 +219,8 @@ Daftar lengkap dan selalu terbaru ada di dokumentasi Scramble (`/docs/api`, bese
 
 | Kelompok | Endpoint | Catatan |
 | --- | --- | --- |
-| Auth | `POST /api/auth/login`, `GET /api/auth/session`, `POST /api/auth/session/refresh`, `POST /api/auth/logout` | Membuat, memeriksa, memperpanjang, dan mengakhiri sesi kampus. |
+| Auth | `POST /api/auth/login`, `POST /api/auth/token`, `GET /api/auth/session`, `POST /api/auth/session/refresh`, `POST /api/auth/logout` | Membuat, memeriksa, memperpanjang, dan mengakhiri sesi kampus; `auth/token` untuk aplikasi mobile (lihat "Aplikasi Mobile"). |
+| Perangkat & realtime | `POST /api/devices/push-token`, `DELETE /api/devices/push-token`, `POST /api/broadcasting/auth` | Token push Expo dan otorisasi channel Reverb untuk klien API. |
 | Data kampus | `GET /api/dashboard`, `/api/profile`, `/api/class`, `/api/class/{id}`, `/api/meeting/{meeting_id}`, `/api/finance/*`, `/api/academic/*`, `/api/skkm`, `/api/thesis`, `/api/library`, `/api/announcement` | Snapshot per mahasiswa; data basi dikirim sambil disinkronkan ulang di queue. |
 | Aksi | `POST /api/assignment`, `POST /api/attendance`, `POST /api/exam`, `GET /api/operations/{operation}` | Butuh portal online; hasilnya dilacak sebagai operasi. |
 | Notifikasi | `GET /api/notifications`, `GET /api/notifications/unread-count`, `POST /api/notifications/read` | Notifikasi tersimpan per mahasiswa. |
@@ -227,6 +229,18 @@ Daftar lengkap dan selalu terbaru ada di dokumentasi Scramble (`/docs/api`, bese
 | Dukungan | `GET /api/support/parameter-help`, `GET /api/support/validate-parameters`, `GET /api/metadata/endpoints` | Bantuan parameter dan registri endpoint portal. |
 
 Halaman web (Blade) ada di `routes/web.php`: `/login`, `/dashboard`, `/class`, `/class/{id}`, `/meeting/{meeting_id}`, `/exam`, `/krs`, `/grades`, `/transcript`, `/finance`, `/announcement`, `/notifications`, `/archive`, `/notebook`, dan lainnya.
+
+## Aplikasi Mobile (Token Bearer & Push)
+Aplikasi native (Expo / React Native) memakai API yang sama dengan aplikasi web, tetapi tanpa cookie dan tanpa CSRF.
+
+1. **Login**: `POST /api/auth/token` dengan `username`, `password`, dan opsional `device_name`. Alurnya sama dengan `POST /api/auth/login`, termasuk login offline saat portal mati. Respons berisi `data.token` (personal access token Sanctum berbentuk `<id>|mycic_…`, hanya ditampilkan sekali; server hanya menyimpan hash-nya), `data.token_type: "Bearer"`, dan `data.channel` (channel realtime sesi ini). Simpan token di penyimpanan aman (mis. `expo-secure-store`).
+2. **Request lain**: kirim header `Authorization: Bearer <token>` (dan `Accept: application/json`) ke endpoint `/api/*` mana pun. Request dengan token tidak membaca atau membuat cookie sesi dan tidak butuh token CSRF; request dengan cookie (aplikasi web) tetap wajib CSRF seperti sebelumnya.
+3. **Masa berlaku**: token menunjuk sesi Laravel di server yang menyimpan sesi kampus, jadi berlaku selama sesi kampus aktif (batas idle `CAMPUS_SESSION_IDLE_TIMEOUT`, juga `SESSION_LIFETIME`). Setelah itu endpoint menjawab 401 dengan `meta.campus_session_valid: false` dan token otomatis dicabut; aplikasi cukup login lagi. `GET /api/auth/session` dan `POST /api/auth/session/refresh` bekerja dengan token. Login lagi dengan token lama yang masih berlaku menggantinya dengan token baru.
+4. **Realtime**: Laravel Echo / pusher-js ke Reverb dengan `authEndpoint: <APP_URL>/api/broadcasting/auth` dan header `Authorization: Bearer <token>`, lalu subscribe ke `private(data.channel)`. Hanya channel sesi token itu yang diizinkan; channel lain dijawab 403.
+5. **Push**: setelah login (dan setiap aplikasi dibuka), daftarkan token Expo perangkat: `POST /api/devices/push-token` dengan `token` (`ExponentPushToken[...]`) dan opsional `platform` (`ios`/`android`/`web`). Setiap notifikasi baru (tenggat, presensi dibuka, perubahan nilai/pengumuman) dikirim sebagai push lewat job antrean `campus-notifications` ke semua perangkat mahasiswa itu, juga saat aplikasi tertutup dan setelah sesinya berakhir. `data.url` pada push adalah tautan MyCIC notifikasi itu. Token yang ditolak Expo (`DeviceNotRegistered`) dihapus otomatis; yang tidak didaftarkan ulang selama `PORTAL_PUSH_TOKEN_RETENTION_DAYS` hari dipangkas `model:prune`.
+6. **Logout**: `POST /api/auth/logout` dengan token, sebaiknya dengan `push_token` perangkat: token bearer dicabut dan perangkat berhenti menerima push, walaupun sesinya sudah berakhir lebih dulu. `DELETE /api/devices/push-token` hanya mematikan push tanpa logout.
+
+Konfigurasi: `SANCTUM_TOKEN_PREFIX` (default `mycic_`; `sanctum.expiration` dibiarkan `null` karena masa berlaku token mengikuti sesi kampus), `EXPO_PUSH_URL`, `EXPO_ACCESS_TOKEN` (hanya bila push security Expo aktif), `EXPO_PUSH_TIMEOUT`, `PORTAL_MOBILE_TOKEN_RETENTION_DAYS`, `PORTAL_PUSH_TOKEN_RETENTION_DAYS`. `SESSION_DRIVER` harus menyimpan sesi di server (`database`, `redis`, `file`), bukan `cookie`. Klien native tidak terkena CORS, jadi tidak ada konfigurasi CORS tambahan; aplikasi berbasis web view atau Expo web yang memanggil API dari origin lain perlu `config/cors.php` sendiri.
 
 ## Checklist Agar Aplikasi Tetap Bagus
 ### 1. Manajemen Session & Security

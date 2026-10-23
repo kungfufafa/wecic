@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Jobs\SendPortalPushNotificationsJob;
 use App\Models\PortalNotification;
+use App\Models\PortalPushToken;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -17,6 +19,8 @@ use Illuminate\Support\Facades\Log;
  * comes from the announcement's id, which can change while the deadline
  * stays. Only the browser session that triggered the
  * work is told right away; every other session sees it on its next load.
+ * The student's app installs get every new one as a push message
+ * (SendPortalPushNotificationsJob), whichever session found it.
  * Notifications that link an announcement follow it to the id it goes by
  * now (PortalAnnouncementIds), so a link stored before stable ids keeps
  * opening it.
@@ -102,6 +106,7 @@ class PortalNotificationCenter
 
         if ($created !== []) {
             $this->announce($sessionToken, $ownerHash, $created, $broadcastSessionId);
+            $this->push($ownerHash, $created);
         }
 
         return $created;
@@ -225,6 +230,31 @@ class PortalNotificationCenter
                 'unread_count' => $unreadCount,
                 'cache_keys' => self::CACHE_KEYS,
                 'sync_keys' => self::SYNC_KEYS,
+            ]);
+        }
+    }
+
+    /**
+     * Queues push messages for the student's app installs, if they
+     * registered any. Like the realtime announcement, a failure is only
+     * logged: the notifications are stored either way.
+     *
+     * @param  list<PortalNotification>  $created
+     */
+    private function push(string $ownerHash, array $created): void
+    {
+        try {
+            if (! PortalPushToken::query()->forOwner($ownerHash)->exists()) {
+                return;
+            }
+
+            SendPortalPushNotificationsJob::dispatch(
+                $ownerHash,
+                array_map(static fn (PortalNotification $notification): int => $notification->id, $created)
+            );
+        } catch (\Throwable $throwable) {
+            Log::warning('Portal notification could not be queued as push', [
+                'error' => $throwable->getMessage(),
             ]);
         }
     }
