@@ -19,17 +19,6 @@
 @section('content')
     <style>
         @media print {
-            html[data-theme='dark'] {
-                --color-canvas: #ffffff;
-                --color-panel: #ffffff;
-                --color-surface: #ebf2f9;
-                --color-ink: #0a233f;
-                --color-ink-muted: #3b5571;
-                --color-ink-subtle: #627c97;
-                --color-border: #d4e1ef;
-                --color-border-light: #e4edf7;
-            }
-
             [data-sync-alert],
             [data-pull-indicator],
             [data-operation-status] {
@@ -1026,7 +1015,7 @@
              * Baru/Ulang only appears on the KRS detail page: read it once in
              * the background, after the page has rendered.
              */
-            const loadLatestDetail = async () => {
+            const loadLatestDetail = async ({ background = false } = {}) => {
                 const latestId = latestKrsId();
 
                 if (!latestId || state.detailRequested || (state.detail?.krs_id === latestId) || !state.krs?.courses?.length || !navigator.onLine) {
@@ -1036,7 +1025,7 @@
                 state.detailRequested = true;
 
                 try {
-                    const payload = await app.request(`/api/academic/krs/${latestId}`, { redirectOnAuth: false, timeout: 20000 });
+                    const payload = await app.request(`/api/academic/krs/${latestId}`, { redirectOnAuth: false, timeout: 20000, background });
 
                     if (payload?.data?.found) {
                         state.detail = payload.data;
@@ -1122,9 +1111,9 @@
                 return;
             }
 
-            const loadKrs = async ({ force = false } = {}) => {
+            const loadKrs = async ({ force = false, background = false } = {}) => {
                 try {
-                    const payload = await app.request('/api/academic/krs', { fresh: force });
+                    const payload = await app.request('/api/academic/krs', { fresh: force, background });
 
                     receiveKrs(payload);
 
@@ -1142,9 +1131,9 @@
                 }
             };
 
-            const loadAdvising = async ({ force = false } = {}) => {
+            const loadAdvising = async ({ force = false, background = false } = {}) => {
                 try {
-                    const payload = await app.request('/api/academic/advising', { fresh: force });
+                    const payload = await app.request('/api/academic/advising', { fresh: force, background });
 
                     receiveAdvising(payload);
 
@@ -1164,8 +1153,8 @@
                 }
             };
 
-            const loadPage = async ({ force = false } = {}) => {
-                const [krsResult] = await Promise.allSettled([loadKrs({ force }), loadAdvising({ force })]);
+            const loadPage = async ({ force = false, background = false } = {}) => {
+                const [krsResult] = await Promise.allSettled([loadKrs({ force, background }), loadAdvising({ force, background })]);
 
                 if (krsResult.status === 'fulfilled' && krsResult.value) {
                     app.markViewSynced('KRS', krsResult.value, { force });
@@ -1173,7 +1162,7 @@
                     app.setSyncStatus('KRS gagal dimuat.', 'error');
                 }
 
-                void loadLatestDetail();
+                void loadLatestDetail({ background });
             };
 
             app.registerSyncHandler('krs-index', loadPage, { aliases: ['advising-index', 'announcement-index'] });

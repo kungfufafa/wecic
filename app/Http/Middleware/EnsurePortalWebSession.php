@@ -19,6 +19,12 @@ class EnsurePortalWebSession
     ) {}
 
     /**
+     * Pages read from the app session whether the campus session is offline
+     * and how it reconnects (PortalSessionManager::offlineReconnectMode()):
+     * an offline session can go online in the background
+     * (ResumeOfflineSessionJob) or learn that the portal is back, so both
+     * are refreshed on every page.
+     *
      * @param  \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response)  $next
      */
     public function handle(Request $request, Closure $next): Response
@@ -34,9 +40,9 @@ class EnsurePortalWebSession
                 return $this->redirectToLogin($request);
             }
 
-            // An offline session can go online in the background
-            // (ResumeOfflineSessionJob); pages read the flag from the session.
-            $request->session()->put('campus_offline', $this->offlineAccess->isOfflineSession($sessionToken));
+            $isOffline = $this->offlineAccess->isOfflineSession($sessionToken);
+            $request->session()->put('campus_offline', $isOffline);
+            $request->session()->put('campus_offline_reconnect', $isOffline ? $this->sessionManager->offlineReconnectMode($sessionToken) : null);
         } catch (\Throwable) {
             return $this->redirectToLogin($request);
         }

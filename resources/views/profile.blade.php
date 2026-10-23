@@ -159,7 +159,10 @@
                 copyToClipboard(currentNim, 'NIM');
             });
 
+            let profileRendered = false;
+
             const renderProfile = (payload) => {
+                profileRendered = true;
                 const profile = payload.profile || {};
                 const personal = profile.personal_data || {};
                 const contact = profile.contact_data || {};
@@ -184,7 +187,7 @@
                 if (quickNim) quickNim.textContent = personal.nim || '-';
                 if (quickProdi) quickProdi.textContent = personal.program_studi || '-';
                 if (quickAngkatan) quickAngkatan.textContent = personal.angkatan || '-';
-                if (quickStatus) quickStatus.textContent = personal.status || 'Aktif';
+                if (quickStatus) quickStatus.textContent = personal.status || '-';
 
                 // Data Pribadi
                 document.getElementById('profile-personal').innerHTML = app.renderKeyValueList([
@@ -253,13 +256,31 @@
                 return;
             }
 
-            const loadProfile = async ({ force = false } = {}) => {
+            const loadProfile = async ({ force = false, background = false } = {}) => {
                 try {
-                    const payload = await app.request('/api/profile', { fresh: force });
+                    const payload = await app.request('/api/profile', { fresh: force, background });
                     renderProfile(payload);
                     app.markViewSynced('Profil', payload, { force });
                 } catch (error) {
-                    app.showNotice(error.payload?.message || error.message, 'error');
+                    app.setSyncStatus('Profil gagal dimuat.', 'error');
+
+                    if (profileRendered) {
+                        app.showNotice(error.payload?.message || error.message, 'error');
+
+                        return;
+                    }
+
+                    // Nothing on screen yet: replace the skeletons instead of leaving them spinning.
+                    document.getElementById('profile-name').textContent = 'Profil gagal dimuat';
+                    ['quick-nim', 'quick-prodi', 'quick-angkatan', 'quick-status'].forEach((id) => {
+                        document.getElementById(id).textContent = '-';
+                    });
+                    ['profile-contact', 'profile-education'].forEach((id) => {
+                        document.getElementById(id).innerHTML = app.renderEmptyState('Data belum termuat.', 'secondary');
+                    });
+                    app.mountErrorState(document.getElementById('profile-personal'), 'Profil gagal dimuat.', () => loadProfile({ force }), {
+                        subtitle: app.describeError(error),
+                    });
                 }
             };
 

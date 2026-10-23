@@ -17,7 +17,9 @@ use App\Support\PortalPayloadRecords;
  *   A trusted version followed by an unreadable payload is a finding.
  * - `count`: the number of `records` must not drop.
  * - `values`: a record's `field` whose old value matches `from` (default
- *   `@filled`) must not change; records are paired by `key`.
+ *   `@filled`) must not change, and that record must not disappear; records
+ *   are paired by `key`, so a record lost while another one appears (the
+ *   count stays the same) is still found.
  * - `field`: the value at `path` must not change once it matches `from`.
  *
  * `display` maps raw values to words for the messages
@@ -137,29 +139,52 @@ class PortalArchiveGuard
         $old = $this->valuesByKey($guard, $trusted);
         $new = $this->valuesByKey($guard, $candidate);
         $changes = [];
+        $lost = [];
 
         foreach ($old as $recordKey => $oldValue) {
-            if (! array_key_exists($recordKey, $new) || ! PortalPayloadRecords::matches($guard['from'] ?? '@filled', $oldValue)) {
+            if (! PortalPayloadRecords::matches($guard['from'] ?? '@filled', $oldValue)) {
                 continue;
             }
 
-            if ($new[$recordKey] !== $oldValue) {
+            if (! array_key_exists($recordKey, $new)) {
+                $lost[] = sprintf('%s (%s)', $recordKey, $this->display($guard, $oldValue));
+            } elseif ($new[$recordKey] !== $oldValue) {
                 $changes[] = sprintf('%s: %s → %s', $recordKey, $this->display($guard, $oldValue), $this->display($guard, $new[$recordKey]));
             }
         }
 
-        if ($changes === []) {
+        if ($changes === [] && $lost === []) {
             return null;
         }
 
-        $examples = implode('; ', array_slice($changes, 0, self::MAX_EXAMPLES));
-        $more = count($changes) > self::MAX_EXAMPLES ? sprintf(' (dan %d lainnya)', count($changes) - self::MAX_EXAMPLES) : '';
+        $sentences = array_filter([
+            $this->listed($guard['label'].' berubah', $changes),
+            $this->listed($guard['label'].' hilang', $lost),
+        ]);
 
         return [
             'rule' => 'values',
             'label' => $guard['label'],
-            'message' => sprintf('%s berubah pada %d data: %s%s.', $guard['label'], count($changes), $examples, $more),
+            'message' => implode(' ', $sentences),
         ];
+    }
+
+    /**
+     * One sentence naming the first few records, e.g. "Nilai huruf hilang
+     * pada 1 data: Ganjil 2025/2026|IF101 (A)."; null when none.
+     *
+     * @param  list<string>  $records
+     */
+    private function listed(string $subject, array $records): ?string
+    {
+        if ($records === []) {
+            return null;
+        }
+
+        $examples = implode('; ', array_slice($records, 0, self::MAX_EXAMPLES));
+        $more = count($records) > self::MAX_EXAMPLES ? sprintf(' (dan %d lainnya)', count($records) - self::MAX_EXAMPLES) : '';
+
+        return sprintf('%s pada %d data: %s%s.', $subject, count($records), $examples, $more);
     }
 
     /**

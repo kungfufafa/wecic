@@ -186,23 +186,23 @@ class AnalyzeUrlCommand extends Command
     {
         $this->line('   1. ID Parameter:');
         $this->line('      - Type: Integer');
-        $this->line('      - Range: 1000-9999 (observed from sample URLs)');
+        $this->line('      - Range: positive integer, up to 10 digits');
         $this->line('      - Required: Yes');
-        $this->line('      - Pattern: /^\d{4}$/');
+        $this->line('      - Pattern: /^[1-9]\d{0,9}$/');
         $this->newLine();
 
         $this->line('   2. Dosen ID Parameter:');
         $this->line('      - Type: Integer');
-        $this->line('      - Range: 1000-9999 (observed from sample URLs)');
+        $this->line('      - Range: positive integer');
         $this->line('      - Required: Yes');
-        $this->line('      - Pattern: /^\d{4}$/');
+        $this->line('      - Pattern: /^[1-9]\d*$/');
         $this->newLine();
 
         $this->line('   3. Course ID Parameter:');
         $this->line('      - Type: Integer');
-        $this->line('      - Range: 8000-9999 (observed from sample URLs)');
+        $this->line('      - Range: positive integer, up to 10 digits');
         $this->line('      - Required: Yes');
-        $this->line('      - Pattern: /^\d{4}$/');
+        $this->line('      - Pattern: /^[1-9]\d{0,9}$/');
         $this->newLine();
 
         $this->line('   4. Sample Valid URLs:');

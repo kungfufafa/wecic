@@ -300,7 +300,7 @@ password_submit POST (password lama, baru, konfirmasi + hidden)
 |---|---|---|
 | `RefreshPortalSessionJob` | tiap 20 menit per sesi | Keep-alive `GET dashboard`, relogin kalau diizinkan, akhiri sesi kalau idle |
 | `RefreshPortalDataJob` | snapshot basi / `POST /api/refresh` | Bangun ulang dataset (1 job per dataset per sesi, ada lock) |
-| `ScanPortalNotificationsJob` | setelah login / refresh sesi | Baca dataset tugas pending + ujian → kirim notifikasi deadline (≤24 jam urgent, ≤72 jam warning) |
+| `ScanPortalNotificationsJob` | setelah login / refresh sesi / resume offline, lalu berulang tiap `portal.realtime.notifications.scan_interval` (600 s) atau saat kelas hari ini mulai, selama sesi hidup (scan dilewati bila mahasiswa tidak aktif 20 menit; scan lanjutan memakai snapshot dan hanya me-resync tugas/ujian yang lebih tua dari `follow_up_resync_after`, 3600 s) | Baca dataset tugas pending + ujian → kirim notifikasi deadline (≤24 jam urgent, ≤72 jam warning) |
 | `ProcessPortalAssignmentUploadJob` | upload tugas | Lihat [upload tugas](#upload-tugas--post-apiassignment-async) |
 | `ProcessPortalExamUploadJob` | upload ujian | Lihat [upload ujian](#upload-ujian--post-apiexam-async) |
 

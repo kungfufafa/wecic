@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Services\PortalAnnouncementIds;
 use App\Services\PortalDataArchive;
 use App\Services\PortalDataOwner;
 use App\Services\PortalSessionManager;
@@ -82,7 +83,23 @@ Route::middleware('portal.web')->group(function (): void {
     Route::view('/transcript', 'academic.transcript')->name('transcript.index');
 
     Route::view('/announcement', 'announcements.index')->name('announcement.index');
-    Route::get('/announcement/{id}', function (string $id) {
+    /**
+     * One announcement. An old link (a wording-based id from before stable
+     * ids, kept in notifications) redirects to the id the announcement goes
+     * by now, known from the feed and the archive; the student's
+     * notifications with that link follow it.
+     */
+    Route::get('/announcement/{id}', function (Request $request, PortalAnnouncementIds $announcementIds, string $id) {
+        $sessionToken = (string) session('campus_session_token');
+        $currentId = $announcementIds->currentId($sessionToken, $id);
+
+        if ($currentId !== null) {
+            $announcementIds->follow($sessionToken, $id, $currentId);
+            $query = $request->getQueryString();
+
+            return redirect()->to(route('announcement.show', ['id' => $currentId]).($query !== null ? '?'.$query : ''));
+        }
+
         return view('announcements.show', ['id' => $id]);
     })->where('id', '[0-9a-f]{40}')->name('announcement.show');
 
@@ -110,13 +127,32 @@ Route::middleware('portal.web')->group(function (): void {
             'version' => $archived,
             'label' => $archive->label($archived->dataset),
             'baseline' => $baseline,
-            'diff' => $baseline !== null ? $archive->diff($baseline->payload, $archived->payload) : [],
-            'entries' => $archive->diff([], $archived->payload, 2000),
+            'diff' => $baseline !== null
+                ? $archive->compare($baseline->payload, $archived->payload, 2000, $archived->dataset)
+                : ['changes' => [], 'total' => 0, 'truncated' => false],
+            'entries' => $archive->compare([], $archived->payload, null),
         ]);
     })->whereNumber('version')->name('archive.print');
-    Route::get('/archive/{dataset}', function (PortalDataArchive $archive, string $dataset) {
+    /**
+     * The history of one dataset. A link to one version without its class,
+     * meeting or KRS (`params_hash`), such as an older notification, opens
+     * the one that version belongs to.
+     */
+    Route::get('/archive/{dataset}', function (Request $request, PortalDataArchive $archive, PortalDataOwner $owner, string $dataset) {
         abort_unless($archive->archives($dataset), 404);
 
-        return view('archive.show', ['dataset' => $dataset, 'label' => $archive->label($dataset)]);
+        $paramsHash = $request->query('params_hash');
+        $versionId = $request->query('version');
+
+        if (! is_string($paramsHash) && is_string($versionId) && ctype_digit($versionId)) {
+            $linked = $archive->findForOwner($owner->key((string) session('campus_session_token')), (int) $versionId);
+            $paramsHash = $linked?->dataset === $dataset ? $linked->params_hash : null;
+        }
+
+        return view('archive.show', [
+            'dataset' => $dataset,
+            'label' => $archive->label($dataset),
+            'paramsHash' => is_string($paramsHash) && preg_match('/^[0-9a-f]{32}$/', $paramsHash) === 1 ? $paramsHash : null,
+        ]);
     })->where('dataset', '[a-z_]+')->name('archive.show');
 });

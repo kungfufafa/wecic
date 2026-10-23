@@ -74,7 +74,9 @@ class PortalNotificationController extends CampusApiController
     /**
      * Tandai notifikasi sudah dibaca.
      *
-     * Kirim `ids` untuk notifikasi tertentu, atau `all: true` untuk semuanya. Id milik mahasiswa lain diabaikan.
+     * Kirim `ids` untuk notifikasi tertentu, atau `all: true` untuk semuanya. Dengan `all`, kirim juga `up_to`
+     * (id terbesar yang sudah tampil) agar notifikasi yang masuk sesudahnya tetap belum dibaca. Id milik
+     * mahasiswa lain diabaikan.
      */
     #[Response(description: 'Notifikasi ditandai sudah dibaca.', type: self::READ_RESPONSE)]
     #[Response(401, description: 'Endpoint ini membutuhkan sesi kampus yang aktif.', type: CampusApiController::SCRAMBLE_SESSION_ERROR_RESPONSE)]
@@ -83,7 +85,7 @@ class PortalNotificationController extends CampusApiController
     {
         return $this->withCampusSession('Notification mark-read failed', 'Gagal menandai notifikasi', function (string $sessionToken) use ($request): JsonResponse {
             $ownerHash = $this->owner->key($sessionToken);
-            $updated = $this->notifications->markRead($ownerHash, $request->ids());
+            $updated = $this->notifications->markRead($ownerHash, $request->ids(), $request->upTo());
 
             return $this->statusSuccess('Notifications marked as read', [
                 'data' => [

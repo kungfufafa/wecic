@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Exceptions\PortalException;
-use App\Models\PortalArchivedFile;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -106,7 +105,7 @@ class PortalCourseArchiver
         }
 
         foreach ($this->withoutDuplicates($items) as $item) {
-            if (PortalArchivedFile::query()->forOwner($ownerHash)->where('source_url', $item['source_url'])->exists()) {
+            if ($this->files->isArchived($ownerHash, $item['source_url'])) {
                 continue;
             }
 

@@ -11,6 +11,8 @@ use App\Services\PortalDataOwner;
 use App\Services\PortalDatasetBuilder;
 use App\Services\PortalDatasetRepository;
 use App\Services\PortalSnapshotStore;
+use Illuminate\Bus\UniqueLock;
+use Illuminate\Contracts\Bus\Dispatcher as BusDispatcher;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Queue;
@@ -151,6 +153,161 @@ class PortalDatasetRepositoryTest extends TestCase
         $this->repository()->read('token', 'exams');
 
         Queue::assertPushed(RefreshPortalDataJob::class, 1);
+    }
+
+    public function test_a_failed_sync_of_a_still_fresh_snapshot_is_retried_after_the_back_off(): void
+    {
+        // Synced a minute ago, so a forced read is past the cooldown.
+        Carbon::setTestNow(now()->subMinute());
+        $this->snapshots->put('token', 'exams', ['exams' => ['UTS']]);
+        Carbon::setTestNow(now()->addMinute());
+        $this->mockBuilder(function (MockInterface $mock): void {
+            $mock->shouldReceive('build')->once()->andThrow(PortalScrapingException::invalidResponse('https://my.cic.ac.id', 'Error page detected'));
+        });
+
+        $this->assertSame('failed', $this->repository()->read('token', 'exams', forceFresh: true)['meta']['status']);
+
+        // Within the back-off the failure is reported and nothing is queued.
+        $this->assertSame('failed', $this->repository()->read('token', 'exams')['meta']['status']);
+        Queue::assertNothingPushed();
+
+        // Ten minutes later the snapshot is still fresh, but the failure is
+        // retried in the background instead of being reported until it goes stale.
+        Carbon::setTestNow(now()->addMinutes(10));
+        $result = $this->repository()->read('token', 'exams');
+
+        $this->assertSame(['exams' => ['UTS']], $result['data']);
+        $this->assertSame('syncing', $result['meta']['status']);
+        $this->assertArrayNotHasKey('error', $result['meta']);
+        Queue::assertPushed(RefreshPortalDataJob::class, 1);
+
+        $reads = $this->repository()->peekMany('token', ['exams'], 'laravel-session');
+        $this->assertSame('syncing', $reads['exams']['meta']['status']);
+        Queue::assertPushed(RefreshPortalDataJob::class, 1);
+    }
+
+    public function test_peek_many_retries_a_failed_sync_of_a_fresh_snapshot_after_the_back_off(): void
+    {
+        $this->snapshots->put('token', 'portal_context', ['semester_number' => 5]);
+        $this->snapshots->markFailed('token', 'portal_context', 'Portal down');
+        $this->expectBuilds(0);
+
+        $failed = $this->repository()->peekMany('token', ['portal_context'])['portal_context']['meta'];
+        $this->assertSame('failed', $failed['status']);
+        $this->assertSame(PortalDatasetRepository::SYNC_FAILED_CODE, $failed['error']);
+        Queue::assertNothingPushed();
+
+        Carbon::setTestNow(now()->addSeconds(config('portal.sync.failure_backoff') + 1));
+
+        // Retried: it reads like any re-sync, without the error of the failed one.
+        $retried = $this->repository()->peekMany('token', ['portal_context'])['portal_context']['meta'];
+        $this->assertSame('syncing', $retried['status']);
+        $this->assertArrayNotHasKey('error', $retried);
+        Queue::assertPushed(RefreshPortalDataJob::class, 1);
+    }
+
+    public function test_a_caller_that_times_out_behind_a_concurrent_build_serves_the_snapshot_instead_of_crawling_again(): void
+    {
+        config(['portal.sync.lock_wait' => 0]);
+        $this->snapshots->put('token', 'assignments', ['assignments' => ['old']], now()->subHour()->toISOString());
+        $this->expectBuilds(0);
+
+        $lock = Cache::lock($this->lockKey('token', 'assignments'), 300);
+        $this->assertTrue($lock->get());
+
+        $result = $this->repository()->read('token', 'assignments', forceFresh: true);
+        $synced = $this->repository()->sync('token', 'assignments');
+
+        $this->assertSame(['assignments' => ['old']], $result['data']);
+        $this->assertSame('syncing', $result['meta']['status']);
+        $this->assertSame(['assignments' => ['old']], $synced);
+
+        $lock->release();
+    }
+
+    public function test_a_caller_with_no_snapshot_still_builds_after_waiting_on_a_concurrent_build(): void
+    {
+        config(['portal.sync.lock_wait' => 0]);
+        $this->expectBuilds(1, ['assignments' => ['new']]);
+
+        $lock = Cache::lock($this->lockKey('token', 'assignments'), 300);
+        $this->assertTrue($lock->get());
+
+        $result = $this->repository()->read('token', 'assignments');
+
+        $this->assertSame(['assignments' => ['new']], $result['data']);
+        $this->assertSame('synced', $result['meta']['status']);
+
+        $lock->release();
+    }
+
+    public function test_force_cooldown_runs_from_when_a_slow_sync_finished(): void
+    {
+        $this->mockBuilder(function (MockInterface $mock): void {
+            $mock->shouldReceive('build')->once()->andReturnUsing(function (): array {
+                // The crawl takes longer than the cooldown.
+                Carbon::setTestNow(now()->addSeconds(35));
+
+                return ['assignments' => ['fresh']];
+            });
+        });
+
+        $this->repository()->sync('token', 'assignments');
+        Carbon::setTestNow(now()->addSeconds(2));
+
+        $result = $this->repository()->read('token', 'assignments', forceFresh: true);
+
+        $this->assertSame(['assignments' => ['fresh']], $result['data']);
+        $this->assertSame('snapshot', $result['meta']['data_origin']);
+    }
+
+    public function test_forced_read_rebuilds_once_the_cooldown_after_a_finished_sync_is_over(): void
+    {
+        $this->snapshots->put('token', 'profile', ['nama' => 'Lama'], now()->subSeconds(40)->toISOString());
+        $this->expectBuilds(1, ['nama' => 'Baru']);
+
+        Carbon::setTestNow(now()->addSeconds(31));
+
+        $result = $this->repository()->read('token', 'profile', forceFresh: true);
+
+        $this->assertSame(['nama' => 'Baru'], $result['data']);
+        $this->assertSame('upstream', $result['meta']['data_origin']);
+    }
+
+    public function test_a_stale_snapshot_is_still_served_when_its_resync_cannot_be_queued(): void
+    {
+        $this->snapshots->put('token', 'grades', ['summary' => ['ipk' => 3.1]], now()->subHours(2)->toISOString());
+        $this->expectBuilds(0);
+        $this->mock(BusDispatcher::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('dispatch')->andThrow(new \RuntimeException('database is locked'));
+        });
+
+        $read = $this->repository()->read('token', 'grades');
+        $peek = $this->repository()->peek('token', 'grades');
+
+        $this->assertSame(['summary' => ['ipk' => 3.1]], $read['data']);
+        $this->assertSame('synced', $read['meta']['status']);
+        $this->assertSame(['summary' => ['ipk' => 3.1]], $peek['data']);
+        // Nothing was queued, so the snapshot is not left marked as syncing.
+        $this->assertSame('synced', $this->snapshots->get('token', 'grades')['status']);
+        $this->assertArrayNotHasKey('syncing_since', $this->snapshots->get('token', 'grades'));
+    }
+
+    public function test_a_stale_snapshot_is_marked_syncing_before_its_job_is_queued(): void
+    {
+        $this->snapshots->put('token', 'grades', ['summary' => ['ipk' => 3.1]], now()->subHours(2)->toISOString());
+        $this->expectBuilds(0);
+        $statusWhenQueued = null;
+        $this->mock(BusDispatcher::class, function (MockInterface $mock) use (&$statusWhenQueued): void {
+            $mock->shouldReceive('dispatch')->once()->andReturnUsing(function () use (&$statusWhenQueued): null {
+                $statusWhenQueued = app(PortalSnapshotStore::class)->get('token', 'grades')['status'];
+
+                return null;
+            });
+        });
+
+        $this->assertSame('syncing', $this->repository()->read('token', 'grades')['meta']['status']);
+        $this->assertSame('syncing', $statusWhenQueued);
     }
 
     public function test_expired_campus_session_is_never_hidden_behind_a_snapshot(): void
@@ -341,6 +498,83 @@ class PortalDatasetRepositoryTest extends TestCase
         $this->assertSame('synced', $this->repository()->peek('token', 'skkm')['meta']['status']);
     }
 
+    public function test_an_early_resync_queues_a_still_fresh_snapshot_once_its_last_sync_is_not_moments_old(): void
+    {
+        $params = PortalDatasetBuilder::DASHBOARD_ATTENDANCE_PARAMS;
+        $this->snapshots->put('token', 'dashboard', ['date' => '2026-10-19', 'classes' => []], now()->toISOString(), $params);
+        $this->expectBuilds(0);
+
+        // Moments after a sync nothing is queued again.
+        Carbon::setTestNow(now()->addSeconds(10));
+        $this->assertFalse($this->repository()->queueEarlyResync('token', 'dashboard', $params, 'laravel-session'));
+
+        // Still fresh two minutes later: queueSync() leaves it alone, an early re-sync does not.
+        Carbon::setTestNow(now()->addMinutes(2));
+        $this->assertSame([], $this->repository()->queueSync('token', ['dashboard'], $params));
+        $this->assertTrue($this->repository()->queueEarlyResync('token', 'dashboard', $params, 'laravel-session'));
+        $this->assertSame('syncing', $this->snapshots->get('token', 'dashboard', $params)['status']);
+
+        // While that job runs nothing more is queued.
+        $this->assertFalse($this->repository()->queueEarlyResync('token', 'dashboard', $params, 'laravel-session'));
+        Queue::assertPushed(RefreshPortalDataJob::class, 1);
+        Queue::assertPushed(RefreshPortalDataJob::class, fn (RefreshPortalDataJob $job): bool => (fn (): array => $this->params)->call($job) === $params
+            && (fn (): array => $this->domains)->call($job) === ['dashboard']);
+    }
+
+    public function test_an_inline_early_resync_syncs_a_still_fresh_snapshot_under_the_same_guards(): void
+    {
+        $params = PortalDatasetBuilder::DASHBOARD_ATTENDANCE_PARAMS;
+        $this->snapshots->put('token', 'dashboard', ['date' => '2026-10-19', 'classes' => []], now()->toISOString(), $params);
+        $this->mockBuilder(function (MockInterface $mock) use ($params): void {
+            $mock->shouldReceive('build')->with('token', 'dashboard', $params)->once()->andReturn(['date' => '2026-10-19', 'classes' => ['IF101']]);
+        });
+
+        // Moments after a sync nothing is synced again.
+        Carbon::setTestNow(now()->addSeconds(10));
+        $this->assertNull($this->repository()->resyncEarlyInline('token', 'dashboard', $params));
+
+        // Still fresh two minutes later: synced right here, no job queued.
+        Carbon::setTestNow(now()->addMinutes(2));
+        $this->assertSame(['date' => '2026-10-19', 'classes' => ['IF101']], $this->repository()->resyncEarlyInline('token', 'dashboard', $params));
+        $this->assertSame('synced', $this->snapshots->get('token', 'dashboard', $params)['status']);
+        Queue::assertNothingPushed();
+
+        // A sync of it queued (or running) elsewhere is left to finish.
+        Carbon::setTestNow(now()->addMinutes(2));
+        $this->snapshots->markSyncing('token', 'dashboard', $params);
+        $this->assertNull($this->repository()->resyncEarlyInline('token', 'dashboard', $params));
+    }
+
+    public function test_an_inline_early_resync_leaves_a_missing_snapshot_to_the_job_already_queued_for_it(): void
+    {
+        $params = PortalDatasetBuilder::DASHBOARD_ATTENDANCE_PARAMS;
+        $this->expectBuilds(0);
+
+        $this->assertSame('pending', $this->repository()->peek('token', 'dashboard', $params)['meta']['status']);
+        $this->assertNull($this->repository()->resyncEarlyInline('token', 'dashboard', $params));
+        Queue::assertPushed(RefreshPortalDataJob::class, 1);
+    }
+
+    public function test_an_inline_early_resync_cut_short_by_an_expired_session_lets_the_next_read_queue_it_again(): void
+    {
+        $params = PortalDatasetBuilder::DASHBOARD_ATTENDANCE_PARAMS;
+        $this->snapshots->put('token', 'dashboard', ['date' => '2026-10-19', 'classes' => []], now()->subMinutes(15)->toISOString(), $params);
+        $this->mockBuilder(function (MockInterface $mock): void {
+            $mock->shouldReceive('build')->once()->andThrow(PortalScrapingException::pageNotAccessible('https://my.cic.ac.id'));
+        });
+
+        try {
+            $this->repository()->resyncEarlyInline('token', 'dashboard', $params);
+            $this->fail('An expired campus session must propagate.');
+        } catch (PortalScrapingException) {
+            // Expected: the job asks the student to log in again.
+        }
+
+        $this->assertSame('synced', $this->snapshots->get('token', 'dashboard', $params)['status']);
+        $this->assertSame('syncing', $this->repository()->peek('token', 'dashboard', $params)['meta']['status']);
+        Queue::assertPushed(RefreshPortalDataJob::class, 1);
+    }
+
     public function test_queue_sync_skips_fresh_in_flight_and_unknown_datasets(): void
     {
         $this->snapshots->put('token', 'payments', ['outstanding_summary' => []]);
@@ -351,9 +585,96 @@ class PortalDatasetRepositoryTest extends TestCase
         Queue::assertNothingPushed();
     }
 
+    public function test_a_queued_sync_leaves_the_unique_job_lock_with_its_job(): void
+    {
+        $this->snapshots->put('token', 'grades', ['summary' => ['ipk' => 3.1]], now()->subHours(2)->toISOString());
+
+        $this->assertSame(['grades'], $this->repository()->queueSync('token', ['grades']));
+
+        Queue::assertPushed(RefreshPortalDataJob::class, 1);
+        $this->assertFalse(Cache::lock($this->uniqueJobLockKey(['grades']), 10)->get(), 'The queued job holds its unique lock until it ran.');
+        $this->assertSame('syncing', $this->snapshots->get('token', 'grades')['status']);
+    }
+
+    public function test_a_failed_push_gives_back_the_unique_job_lock_it_took(): void
+    {
+        $this->snapshots->put('token', 'grades', ['summary' => ['ipk' => 3.1]], now()->subHours(2)->toISOString());
+        $this->mock(BusDispatcher::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('dispatch')->once()->andThrow(new \RuntimeException('queue unavailable'));
+        });
+
+        try {
+            $this->repository()->queueSync('token', ['grades']);
+            $this->fail('A failed push is reported to the caller.');
+        } catch (\RuntimeException $exception) {
+            $this->assertSame('queue unavailable', $exception->getMessage());
+        }
+
+        $this->assertTrue(Cache::lock($this->uniqueJobLockKey(['grades']), 10)->get(), 'The next identical dispatch is not dropped.');
+        $this->assertSame('synced', $this->snapshots->get('token', 'grades')['status']);
+    }
+
+    public function test_a_unique_job_lock_held_by_an_identical_job_is_neither_released_nor_dispatched_again(): void
+    {
+        $this->snapshots->put('token', 'grades', ['summary' => ['ipk' => 3.1]], now()->subHours(2)->toISOString());
+        $identicalJobLock = Cache::lock($this->uniqueJobLockKey(['grades']), 300);
+        $this->assertTrue($identicalJobLock->get());
+        $this->mock(BusDispatcher::class, function (MockInterface $mock): void {
+            $mock->shouldNotReceive('dispatch');
+        });
+
+        // The identical job syncs the dataset, so it reads as syncing meanwhile.
+        $this->assertSame(['grades'], $this->repository()->queueSync('token', ['grades']));
+        $this->assertSame('syncing', $this->snapshots->get('token', 'grades')['status']);
+        $this->assertTrue($identicalJobLock->release(), 'The identical job still owns its lock.');
+    }
+
+    public function test_a_unique_job_lock_that_could_not_be_taken_is_never_released(): void
+    {
+        $this->snapshots->put('token', 'grades', ['summary' => ['ipk' => 3.1]], now()->subHours(2)->toISOString());
+        $lockKey = $this->uniqueJobLockKey(['grades']);
+        $identicalJobLock = Cache::lock($lockKey, 300);
+        $this->assertTrue($identicalJobLock->get());
+
+        $cache = Mockery::mock(app('cache'));
+        $cache->shouldReceive('lock')->with($lockKey, Mockery::any())->andThrow(new \RuntimeException('cache unavailable'));
+        Cache::swap($cache);
+        $this->mock(BusDispatcher::class, function (MockInterface $mock): void {
+            $mock->shouldNotReceive('dispatch');
+        });
+
+        try {
+            $this->repository()->queueSync('token', ['grades']);
+            $this->fail('A lock that could not be taken is reported to the caller.');
+        } catch (\RuntimeException $exception) {
+            $this->assertSame('cache unavailable', $exception->getMessage());
+        }
+
+        $this->assertSame('synced', $this->snapshots->get('token', 'grades')['status'], 'Nothing was queued, so the claim is given back.');
+        $this->assertTrue($identicalJobLock->release(), 'The identical job still owns its lock.');
+    }
+
     private function repository(): PortalDatasetRepository
     {
         return app(PortalDatasetRepository::class);
+    }
+
+    /**
+     * @param  array<string, mixed>  $params
+     */
+    private function lockKey(string $sessionToken, string $dataset, array $params = []): string
+    {
+        return (fn (): string => $this->lockKey($sessionToken, $dataset, $params))->call($this->repository());
+    }
+
+    /**
+     * The unique-job lock key of the background sync of `$datasets` for `token`
+     *
+     * @param  list<string>  $datasets
+     */
+    private function uniqueJobLockKey(array $datasets): string
+    {
+        return UniqueLock::getKey(new RefreshPortalDataJob('', 'token', $datasets));
     }
 
     /**

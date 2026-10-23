@@ -154,6 +154,40 @@ class ThesisRepositoryExtractorRawPageTest extends TestCase
         $this->assertSame('KOMPUTERISASI AKUNTANSI', $index['records'][4]['program']);
     }
 
+    public function test_without_a_readable_total_the_walk_follows_the_next_links(): void
+    {
+        $extractor = $this->makeExtractorWithRawFixtures(ThesisRepositoryExtractor::class, [
+            $this->url(1) => $this->pageWithoutTotal(1),
+            $this->url(2) => self::LAST_PAGE,
+        ], $requestedUrls);
+
+        $index = $extractor->extractRepositoryIndex('fake-session-token');
+
+        $this->assertSame([$this->url(1), $this->url(2)], $requestedUrls);
+        $this->assertNull($index['total']);
+        $this->assertSame(2, $index['pages_loaded']);
+        $this->assertSame(5, $index['record_count']);
+        $this->assertTrue($index['complete']);
+    }
+
+    public function test_a_walk_cut_off_at_the_page_limit_without_a_total_is_incomplete(): void
+    {
+        $fixtures = [];
+
+        for ($page = 1; $page <= 31; $page++) {
+            $fixtures[$this->url($page)] = $this->pageWithoutTotal($page);
+        }
+
+        $extractor = $this->makeExtractorWithRawFixtures(ThesisRepositoryExtractor::class, $fixtures, $requestedUrls);
+
+        $index = $extractor->extractRepositoryIndex('fake-session-token');
+
+        // Page 30 still links to page 31, which the walk never asks for.
+        $this->assertCount(30, $requestedUrls);
+        $this->assertSame(30, $index['pages_loaded']);
+        $this->assertFalse($index['complete']);
+    }
+
     public function test_an_unchanged_repository_reuses_the_previous_index_after_page_one(): void
     {
         $first = $this->pageOne();
@@ -289,6 +323,21 @@ class ThesisRepositoryExtractorRawPageTest extends TestCase
         $end = (int) strpos($html, '        <footer class="footer">');
 
         return $this->temporaryFixture(substr($html, 0, $start).'        <div class="content"><div class="container-fluid"></div></div>'."\n".substr($html, $end));
+    }
+
+    /**
+     * Page 1 as page `$page`, with a paging line MyCIC cannot read a total
+     * from and a Next link to the following page
+     */
+    private function pageWithoutTotal(int $page): string
+    {
+        $html = str_replace(
+            ['[ 1-100 of 212 ]', 'act=repositori&page=2">Next'],
+            ['Menampilkan 1-100 dari 212', 'act=repositori&page='.($page + 1).'">Next'],
+            (string) file_get_contents(base_path(self::PAGE_ONE))
+        );
+
+        return $this->temporaryFixture($html);
     }
 
     private function loginFixture(): string

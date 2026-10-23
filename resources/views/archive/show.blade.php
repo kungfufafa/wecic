@@ -61,10 +61,11 @@
                 dismissed: { label: 'Sempat janggal', tone: 'neutral' },
             };
             const KIND = { added: 'Ditambah', removed: 'Hilang', changed: 'Berubah' };
+            const DIFF_LIMIT = 200;
 
             const params = new URLSearchParams(window.location.search);
             const state = {
-                paramsHash: params.get('params_hash'),
+                paramsHash: @json($paramsHash ?? null),
                 selectedId: Number(params.get('version')) || null,
                 versions: [],
             };
@@ -110,12 +111,31 @@
                 `).join('');
             };
 
-            const renderDiff = (diff) => {
+            const describeTruncatedDiff = (data, shown) => {
+                const total = Number(data.diff_total);
+
+                if (data.diff_truncated === true && total > shown) {
+                    return `Menampilkan ${shown} dari ${total} perubahan. Cetak bukti untuk daftar yang lebih panjang, atau unduh JSON untuk isi lengkap versi ini.`;
+                }
+
+                if (data.diff_truncated === undefined && shown >= DIFF_LIMIT) {
+                    return `Menampilkan ${shown} perubahan pertama; mungkin masih ada yang lain. Cetak bukti untuk daftar yang lebih panjang, atau unduh JSON untuk isi lengkap versi ini.`;
+                }
+
+                return '';
+            };
+
+            const renderDiff = (data) => {
+                const diff = Array.isArray(data.diff) ? data.diff : [];
+
                 if (!diff.length) {
                     return '<p class="text-sm text-ink-subtle">Tidak ada perbedaan isi dengan versi pembanding.</p>';
                 }
 
+                const truncated = describeTruncatedDiff(data, diff.length);
+
                 return `
+                    ${truncated ? `<p class="mycic-alert-info mb-0 text-sm" data-diff-truncated>${app.escapeHtml(truncated)}</p>` : ''}
                     <div class="mycic-table-wrap">
                         <table class="mycic-table">
                             <caption class="sr-only">Perbedaan dengan versi pembanding</caption>
@@ -177,13 +197,13 @@
                         </div>
                         <section class="flex flex-col gap-2">
                             <h3 class="mycic-section-title">${data.baseline ? `Dibanding versi ${app.escapeHtml(formatMoment(data.baseline.first_seen_at))}` : 'Versi pertama'}</h3>
-                            ${data.baseline ? renderDiff(data.diff) : '<p class="text-sm text-ink-subtle">Ini versi pertama yang tersimpan, jadi belum ada pembanding.</p>'}
+                            ${data.baseline ? renderDiff(data) : '<p class="text-sm text-ink-subtle">Ini versi pertama yang tersimpan, jadi belum ada pembanding.</p>'}
                         </section>
                     </div>
                 `;
             };
 
-            const loadDetail = async (versionId, { focus = false } = {}) => {
+            const loadDetail = async (versionId, { focus = false, background = false } = {}) => {
                 state.selectedId = versionId;
                 renderVersions();
                 detailBody.innerHTML = '<div class="flex flex-col gap-2" aria-busy="true"><div class="mycic-skeleton h-4 w-1/2"></div><div class="mycic-skeleton h-4 w-2/3"></div></div>';
@@ -197,7 +217,7 @@
                 }
 
                 try {
-                    const payload = await app.request(`/api/archive/versions/${versionId}`);
+                    const payload = await app.request(`/api/archive/versions/${versionId}`, { background });
 
                     if (payload?.data) {
                         renderDetail(payload.data);
@@ -211,16 +231,16 @@
                 }
             };
 
-            const loadVersions = async () => {
+            const loadVersions = async ({ background = false } = {}) => {
                 const query = state.paramsHash ? `?params_hash=${encodeURIComponent(state.paramsHash)}` : '';
 
                 try {
-                    const payload = await app.request(`/api/archive/${encodeURIComponent(dataset)}${query}`);
+                    const payload = await app.request(`/api/archive/${encodeURIComponent(dataset)}${query}`, { background });
                     const data = payload?.data || {};
                     const groups = Array.isArray(data.groups) ? data.groups : [];
 
                     state.versions = Array.isArray(data.versions) ? data.versions : [];
-                    state.paramsHash ??= groups[0]?.params_hash || null;
+                    state.paramsHash ??= data.selected_params_hash || groups[0]?.params_hash || null;
                     renderGroups(groups);
 
                     if (!state.versions.some((version) => version.id === state.selectedId)) {
@@ -231,7 +251,7 @@
                     app.setSyncStatus('Riwayat dibaca dari arsip MyCIC.', 'info');
 
                     if (state.selectedId) {
-                        await loadDetail(state.selectedId);
+                        await loadDetail(state.selectedId, { background });
                     }
                 } catch (error) {
                     versionsHost.removeAttribute('aria-busy');

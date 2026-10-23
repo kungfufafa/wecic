@@ -31,7 +31,7 @@ class PortalPasswordServiceTest extends TestCase
 
         $data = $service->inspectPasswordForm('fake-session-token');
 
-        $this->assertSame('https://my.cic.ac.id/portal/mahasiswa/?mod=student&act=passwordact', $data['action_url']);
+        $this->assertSame('https://portal.invalid/portal/mahasiswa/?mod=student&act=passwordact', $data['action_url']);
         $this->assertSame('POST', $data['method']);
         $this->assertArrayHasKey('data[passwordold]', $data['fields']);
         $this->assertFalse($data['fields']['data[passwordold]']['has_value']);
@@ -71,8 +71,8 @@ class PortalPasswordServiceTest extends TestCase
             ->once()
             ->withArgs(function (string $method, string $url, array $payload, string $referer): bool {
                 $this->assertSame('POST', $method);
-                $this->assertSame('https://my.cic.ac.id/portal/mahasiswa/?mod=student&act=passwordact', $url);
-                $this->assertSame('https://my.cic.ac.id/portal/mahasiswa/?mod=student&act=password', $referer);
+                $this->assertSame('https://portal.invalid/portal/mahasiswa/?mod=student&act=passwordact', $url);
+                $this->assertSame('https://portal.invalid/portal/mahasiswa/?mod=student&act=password', $referer);
                 $this->assertSame('old-secret', $payload['data[passwordold]']);
                 $this->assertSame('new-secret', $payload['data[password]']);
                 $this->assertSame('new-secret', $payload['data[konfirm]']);

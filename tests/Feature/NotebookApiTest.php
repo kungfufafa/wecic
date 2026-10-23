@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Exceptions\NotebookAiException;
 use App\Models\Notebook;
 use App\Models\NotebookChunk;
 use App\Models\NotebookMessage;
@@ -12,10 +13,12 @@ use App\Models\PortalArchivedFile;
 use App\Services\NotebookAssistant;
 use App\Services\PortalDataOwner;
 use App\Services\PortalSessionManager;
+use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Storage;
@@ -46,6 +49,7 @@ class NotebookApiTest extends TestCase
             'services.gemini.model' => 'gemini-test-flash',
             'services.gemini.fallback_model' => null,
             'services.gemini.retry_delay_ms' => 0,
+            'notebook.thinking_budget' => null,
         ]);
         $this->instance(PortalSessionManager::class, Mockery::mock(PortalSessionManager::class, function (MockInterface $mock): void {
             $mock->shouldReceive('validateSession')->andReturnTrue();
@@ -182,9 +186,305 @@ class NotebookApiTest extends TestCase
 
         $this->sendAsStudent('POST', "/api/notebooks/{$notebook->id}/messages", ['question' => 'Boleh kosong?'])->assertCreated();
 
+        // The earlier [1] numbered other excerpts than this request's, so it is not sent back.
         Http::assertSent(fn (Request $request): bool => ($request['contents'][0]['role'] ?? null) === 'user'
             && ($request['contents'][1]['role'] ?? null) === 'model'
+            && ($request['contents'][1]['parts'][0]['text'] ?? null) === 'Kunci primer unik.'
             && count($request['contents']) === 3);
+    }
+
+    public function test_bracketed_numbers_in_code_are_not_citations(): void
+    {
+        $notebook = $this->notebookWithChunks([
+            ['page' => 1, 'content' => 'Array diakses lewat indeks.'],
+            ['page' => 2, 'content' => 'Indeks array dimulai dari nol.'],
+            ['page' => 3, 'content' => 'Matriks adalah array dua dimensi.'],
+        ]);
+        $answer = "Gunakan arr[0] untuk elemen pertama, lalu arr[1] dan matrix[2][5] [1][3].\nContoh: `x = data[2]` [2, 9].\n```\nprint(nilai[3])\n[1]\n```";
+        $this->geminiAnswers($answer);
+
+        $this->sendAsStudent('POST', "/api/notebooks/{$notebook->id}/messages", ['question' => 'Bagaimana mengakses elemen array?'])
+            ->assertCreated()
+            ->assertJsonPath('data.answer.content', str_replace('[2, 9]', '[2]', $answer))
+            ->assertJsonPath('data.answer.citations.*.n', [1, 2, 3]);
+    }
+
+    public function test_a_citation_glued_to_a_word_is_left_as_written_and_the_model_is_told_to_space_it(): void
+    {
+        $notebook = $this->notebookWithChunks([
+            ['page' => 1, 'content' => 'Normalisasi mengurangi redundansi data.'],
+            ['page' => 2, 'content' => 'Bentuk normal ketiga menghapus ketergantungan transitif.'],
+        ]);
+        $this->geminiAnswers('Normalisasi mengurangi redundansi[1]. 3NF menghapus ketergantungan transitif.[2]');
+
+        // Glued to a word it reads like arr[1], so it is not a citation; after a full stop it is.
+        $this->sendAsStudent('POST', "/api/notebooks/{$notebook->id}/messages", ['question' => 'Apa itu normalisasi?'])
+            ->assertCreated()
+            ->assertJsonPath('data.answer.content', 'Normalisasi mengurangi redundansi[1]. 3NF menghapus ketergantungan transitif.[2]')
+            ->assertJsonPath('data.answer.citations.*.n', [2]);
+        Http::assertSent(fn (Request $request): bool => str_contains((string) ($request['systemInstruction']['parts'][0]['text'] ?? ''), 'Tulis rujukan dengan satu spasi sebelum kurung siku'));
+
+        $this->sendAsStudent('POST', "/api/notebooks/{$notebook->id}/studio", ['kind' => 'summary'])->assertCreated();
+        Http::assertSent(fn (Request $request): bool => str_contains((string) ($request['contents'][0]['parts'][0]['text'] ?? ''), 'Beri rujukan [n] dengan spasi sebelum kurung siku.'));
+    }
+
+    public function test_a_failed_model_call_does_not_use_the_daily_budget(): void
+    {
+        config(['notebook.limits.daily_requests' => 1]);
+        $notebook = $this->notebookWithChunks([['page' => null, 'content' => 'Isi.']]);
+        Http::fake([self::GEMINI_URL => Http::sequence()
+            ->push(['error' => ['message' => 'overloaded']], 503)
+            ->push(['error' => ['message' => 'overloaded']], 503)
+            ->push(['candidates' => [['content' => ['parts' => [['text' => 'Jawaban [1].']]], 'finishReason' => 'STOP']]])]);
+
+        $this->sendAsStudent('POST', "/api/notebooks/{$notebook->id}/messages", ['question' => 'Pertama?'])->assertStatus(503);
+        $this->sendAsStudent('POST', "/api/notebooks/{$notebook->id}/messages", ['question' => 'Pertama?'])->assertCreated();
+        $this->sendAsStudent('POST', "/api/notebooks/{$notebook->id}/messages", ['question' => 'Kedua?'])->assertStatus(429);
+
+        RateLimiter::clear('notebook-ai:'.$this->ownerHash.':'.now()->format('Y-m-d'));
+    }
+
+    public function test_an_answer_cut_at_the_output_limit_says_so(): void
+    {
+        $budgetKey = 'notebook-ai:'.$this->ownerHash.':'.now()->format('Y-m-d');
+        $notebook = $this->notebookWithChunks([['page' => null, 'content' => 'Normalisasi mengurangi redundansi.']]);
+        Http::fake([self::GEMINI_URL => Http::response([
+            'candidates' => [['content' => ['parts' => [['text' => 'Normalisasi punya beberapa tahap [1]. Tahap pertama']]], 'finishReason' => 'MAX_TOKENS']],
+            'usageMetadata' => ['thoughtsTokenCount' => 3000, 'candidatesTokenCount' => 5192],
+        ])]);
+
+        $this->sendAsStudent('POST', "/api/notebooks/{$notebook->id}/messages", ['question' => 'Jelaskan normalisasi.'])
+            ->assertCreated()
+            ->assertJsonPath('data.answer.content', "Normalisasi punya beberapa tahap [1]. Tahap pertama\n\n*Jawaban terpotong karena terlalu panjang. Minta lanjutannya, atau persempit pertanyaanmu.*")
+            ->assertJsonPath('data.answer.context.truncated', true);
+
+        // Asked once more with room for the thinking and twice the answer, then kept as cut.
+        $this->assertSame([8192, 2 * 8192 + 3000], Http::recorded()->map(fn (array $pair): mixed => $pair[0]['generationConfig']['maxOutputTokens'] ?? null)->all());
+        $this->assertSame(1, RateLimiter::attempts($budgetKey));
+
+        RateLimiter::clear($budgetKey);
+    }
+
+    public function test_an_answer_cut_at_the_output_limit_is_completed_with_a_larger_limit(): void
+    {
+        $notebook = $this->notebookWithChunks([['page' => null, 'content' => 'Normalisasi mengurangi redundansi.']]);
+        Http::fake([self::GEMINI_URL => Http::sequence()
+            ->push(['candidates' => [['content' => ['parts' => [['text' => 'Normalisasi punya']]], 'finishReason' => 'MAX_TOKENS']], 'usageMetadata' => ['thoughtsTokenCount' => 8000]])
+            ->push(['candidates' => [['content' => ['parts' => [['text' => 'Normalisasi punya tiga tahap [1].']]], 'finishReason' => 'STOP']]])]);
+
+        $this->sendAsStudent('POST', "/api/notebooks/{$notebook->id}/messages", ['question' => 'Jelaskan normalisasi.'])
+            ->assertCreated()
+            ->assertJsonPath('data.answer.content', 'Normalisasi punya tiga tahap [1].')
+            ->assertJsonPath('data.answer.context.truncated', false);
+
+        RateLimiter::clear('notebook-ai:'.$this->ownerHash.':'.now()->format('Y-m-d'));
+    }
+
+    public function test_an_answer_whose_larger_retry_only_thought_keeps_the_cut_answer(): void
+    {
+        $budgetKey = 'notebook-ai:'.$this->ownerHash.':'.now()->format('Y-m-d');
+        $notebook = $this->notebookWithChunks([['page' => null, 'content' => 'Normalisasi mengurangi redundansi.']]);
+        Http::fake([self::GEMINI_URL => Http::sequence()
+            ->push(['candidates' => [['content' => ['parts' => [['text' => 'Normalisasi punya beberapa tahap [1]. Tahap pertama']]], 'finishReason' => 'MAX_TOKENS']], 'usageMetadata' => ['thoughtsTokenCount' => 3000]])
+            ->push(['candidates' => [['content' => ['parts' => [['text' => 'Menimbang ulang…', 'thought' => true]]], 'finishReason' => 'MAX_TOKENS']], 'usageMetadata' => ['thoughtsTokenCount' => 19384]])]);
+
+        $this->sendAsStudent('POST', "/api/notebooks/{$notebook->id}/messages", ['question' => 'Jelaskan normalisasi.'])
+            ->assertCreated()
+            ->assertJsonPath('data.answer.content', "Normalisasi punya beberapa tahap [1]. Tahap pertama\n\n*Jawaban terpotong karena terlalu panjang. Minta lanjutannya, atau persempit pertanyaanmu.*")
+            ->assertJsonPath('data.answer.context.truncated', true);
+        Http::assertSentCount(2);
+        $this->assertSame(1, RateLimiter::attempts($budgetKey));
+
+        RateLimiter::clear($budgetKey);
+    }
+
+    public function test_a_studio_output_cut_before_any_text_is_an_error_not_an_empty_note(): void
+    {
+        $budgetKey = 'notebook-ai:'.$this->ownerHash.':'.now()->format('Y-m-d');
+        $notebook = $this->notebookWithChunks([['page' => null, 'content' => 'Normalisasi mengurangi redundansi.']]);
+        Http::fake([self::GEMINI_URL => Http::response([
+            'candidates' => [['content' => ['parts' => [['text' => 'Menyusun ringkasan…', 'thought' => true]]], 'finishReason' => 'MAX_TOKENS']],
+            'usageMetadata' => ['thoughtsTokenCount' => 16384],
+        ])]);
+
+        $this->sendAsStudent('POST', "/api/notebooks/{$notebook->id}/studio", ['kind' => 'summary'])
+            ->assertStatus(502)
+            ->assertJsonPath('message', NotebookAiException::outputExhausted()->getMessage());
+
+        $this->assertSame(0, NotebookMessage::query()->count());
+        Http::assertSentCount(2);
+        // The model spent its whole output twice: that is charged like any answer.
+        $this->assertSame(1, RateLimiter::attempts($budgetKey));
+
+        RateLimiter::clear($budgetKey);
+    }
+
+    public function test_a_source_summary_cut_at_its_limit_says_so_and_one_without_text_is_left_out(): void
+    {
+        $responses = [];
+        Http::fake([self::GEMINI_URL => function () use (&$responses) {
+            return Http::response(array_shift($responses));
+        }]);
+        $notebook = $this->notebook();
+
+        $responses = array_fill(0, 2, ['candidates' => [['content' => ['parts' => [['text' => 'Sumber ini membahas normalisasi dan']]], 'finishReason' => 'MAX_TOKENS']]]);
+        $this->sendAsStudent('POST', "/api/notebooks/{$notebook->id}/sources", ['type' => 'text', 'title' => 'Catatan 1', 'content' => 'Normalisasi basis data.'])
+            ->assertCreated()
+            ->assertJsonPath('data.sources.0.status', 'ready')
+            ->assertJsonPath('data.sources.0.summary', "Sumber ini membahas normalisasi dan\n(Ringkasan terpotong karena terlalu panjang.)");
+
+        $responses = array_fill(0, 2, ['candidates' => [['content' => ['parts' => [['text' => 'Memikirkan…', 'thought' => true]]], 'finishReason' => 'MAX_TOKENS']]]);
+        $this->sendAsStudent('POST', "/api/notebooks/{$notebook->id}/sources", ['type' => 'text', 'title' => 'Catatan 2', 'content' => 'Denormalisasi basis data.'])
+            ->assertCreated()
+            ->assertJsonPath('data.sources.0.status', 'ready')
+            ->assertJsonPath('data.sources.0.summary', null);
+
+        Http::assertSentCount(4);
+        RateLimiter::clear('notebook-reads:'.$this->ownerHash.':'.now()->format('Y-m-d'));
+    }
+
+    public function test_the_ai_status_says_why_the_ai_cannot_answer(): void
+    {
+        $notebook = $this->notebookWithChunks([['page' => null, 'content' => 'Isi.']]);
+
+        $this->getAsStudent('/api/notebooks')->assertOk()->assertJsonPath('data.ai_status', 'ok')->assertJsonPath('data.ai_available', true);
+        $this->getAsStudent("/api/notebooks/{$notebook->id}")->assertOk()->assertJsonPath('data.ai_status', 'ok');
+
+        config(['services.gemini.key' => null]);
+        $this->getAsStudent('/api/notebooks')->assertOk()->assertJsonPath('data.ai_status', 'missing_key')->assertJsonPath('data.ai_available', false);
+        $this->sendAsStudent('POST', "/api/notebooks/{$notebook->id}/messages", ['question' => 'Apa isinya?'])
+            ->assertStatus(503)
+            ->assertJsonPath('message', NotebookAiException::notConfigured()->getMessage())
+            ->assertJsonPath('data.ai_status', 'missing_key');
+
+        config(['services.gemini.key' => 'test-gemini-key', 'notebook.enabled' => false]);
+        $this->getAsStudent("/api/notebooks/{$notebook->id}")->assertOk()->assertJsonPath('data.ai_status', 'disabled')->assertJsonPath('data.ai_available', false);
+        $this->sendAsStudent('POST', "/api/notebooks/{$notebook->id}/studio", ['kind' => 'summary'])
+            ->assertStatus(503)
+            ->assertJsonPath('message', NotebookAiException::disabled()->getMessage())
+            ->assertJsonPath('data.ai_status', 'disabled');
+
+        Http::assertNothingSent();
+    }
+
+    public function test_a_retired_model_is_reported_as_such_until_it_is_fixed(): void
+    {
+        $budgetKey = 'notebook-ai:'.$this->ownerHash.':'.now()->format('Y-m-d');
+        $notebook = $this->notebookWithChunks([['page' => null, 'content' => 'Isi.']]);
+        Http::fake([self::GEMINI_URL => Http::response(['error' => ['code' => 404, 'message' => 'models/gemini-test-flash is not found for API version v1beta, or is not supported for generateContent.', 'status' => 'NOT_FOUND']], 404)]);
+
+        // Not "busy" and not a missing key: the model setting is wrong.
+        $this->sendAsStudent('POST', "/api/notebooks/{$notebook->id}/messages", ['question' => 'Apa isinya?'])
+            ->assertStatus(503)
+            ->assertJsonPath('message', NotebookAiException::misconfigured(NotebookAiException::CAUSE_MODEL)->getMessage())
+            ->assertJsonPath('data.ai_status', 'model_misconfigured');
+        $this->getAsStudent('/api/notebooks')->assertOk()->assertJsonPath('data.ai_status', 'model_misconfigured')->assertJsonPath('data.ai_available', false);
+        $this->getAsStudent("/api/notebooks/{$notebook->id}")->assertOk()->assertJsonPath('data.ai_status', 'model_misconfigured');
+
+        // Remembered: the next question is answered at once, without calling the model again.
+        $this->sendAsStudent('POST', "/api/notebooks/{$notebook->id}/studio", ['kind' => 'summary'])
+            ->assertStatus(503)
+            ->assertJsonPath('data.ai_status', 'model_misconfigured');
+        Http::assertSentCount(1);
+        $this->assertSame(0, NotebookMessage::query()->count());
+        $this->assertSame(0, RateLimiter::attempts($budgetKey));
+
+        // A fixed model setting is used right away.
+        config(['services.gemini.model' => 'gemini-test-pro']);
+        $this->getAsStudent('/api/notebooks')->assertOk()->assertJsonPath('data.ai_status', 'ok');
+    }
+
+    public function test_a_rejected_key_is_reported_as_such(): void
+    {
+        $notebook = $this->notebookWithChunks([['page' => null, 'content' => 'Isi.']]);
+        Http::fake([self::GEMINI_URL => Http::response(['error' => [
+            'code' => 400,
+            'message' => 'API key not valid. Please pass a valid API key.',
+            'status' => 'INVALID_ARGUMENT',
+            'details' => [['@type' => 'type.googleapis.com/google.rpc.ErrorInfo', 'reason' => 'API_KEY_INVALID']],
+        ]], 400)]);
+
+        $this->sendAsStudent('POST', "/api/notebooks/{$notebook->id}/messages", ['question' => 'Apa isinya?'])
+            ->assertStatus(503)
+            ->assertJsonPath('message', NotebookAiException::misconfigured(NotebookAiException::CAUSE_KEY)->getMessage())
+            ->assertJsonPath('data.ai_status', 'invalid_key');
+        $this->getAsStudent("/api/notebooks/{$notebook->id}")->assertOk()->assertJsonPath('data.ai_status', 'invalid_key');
+
+        // A new key is tried right away.
+        config(['services.gemini.key' => 'another-test-key']);
+        $this->getAsStudent('/api/notebooks')->assertOk()->assertJsonPath('data.ai_status', 'ok');
+    }
+
+    public function test_a_busy_model_comes_without_an_ai_status(): void
+    {
+        $notebook = $this->notebookWithChunks([['page' => null, 'content' => 'Isi.']]);
+        Http::fake([self::GEMINI_URL => Http::response(['error' => ['message' => 'overloaded']], 503)]);
+
+        $this->sendAsStudent('POST', "/api/notebooks/{$notebook->id}/messages", ['question' => 'Apa isinya?'])
+            ->assertStatus(503)
+            ->assertJsonMissingPath('data.ai_status');
+        $this->getAsStudent('/api/notebooks')->assertOk()->assertJsonPath('data.ai_status', 'ok');
+    }
+
+    public function test_a_quiz_cut_at_the_output_limit_asks_for_fewer_sources_and_is_charged(): void
+    {
+        $budgetKey = 'notebook-ai:'.$this->ownerHash.':'.now()->format('Y-m-d');
+        $notebook = $this->notebookWithChunks([['page' => 4, 'content' => 'SQL JOIN menggabungkan tabel.']]);
+        Http::fake([self::GEMINI_URL => Http::response(['candidates' => [['content' => ['parts' => [['text' => '[{"question": "Fungsi JOIN?", "options": ["Meng']]], 'finishReason' => 'MAX_TOKENS']]])]);
+
+        $this->sendAsStudent('POST', "/api/notebooks/{$notebook->id}/studio", ['kind' => 'quiz'])
+            ->assertStatus(502)
+            ->assertJsonPath('message', 'Hasilnya terlalu panjang untuk dibuat sekaligus. Centang lebih sedikit sumber, lalu coba lagi.');
+
+        // The full output was produced (and paid for), so repeating it is not free.
+        $this->assertSame(1, RateLimiter::attempts($budgetKey));
+        $this->assertSame(0, NotebookMessage::query()->count());
+
+        RateLimiter::clear($budgetKey);
+    }
+
+    public function test_answers_the_model_withheld_or_garbled_are_charged(): void
+    {
+        $budgetKey = 'notebook-ai:'.$this->ownerHash.':'.now()->format('Y-m-d');
+        $notebook = $this->notebookWithChunks([['page' => 4, 'content' => 'SQL JOIN menggabungkan tabel.']]);
+        Http::fake([self::GEMINI_URL => Http::sequence()
+            ->push(['candidates' => [['content' => ['parts' => []], 'finishReason' => 'SAFETY']]])
+            ->push(['candidates' => [['content' => ['parts' => [['text' => 'bukan JSON']]], 'finishReason' => 'STOP']]])
+            ->push(['error' => ['message' => 'overloaded']], 503)
+            ->push(['error' => ['message' => 'overloaded']], 503)]);
+
+        $this->sendAsStudent('POST', "/api/notebooks/{$notebook->id}/messages", ['question' => 'Apa itu JOIN?'])
+            ->assertStatus(422)
+            ->assertJsonPath('message', NotebookAiException::blocked()->getMessage());
+        $this->sendAsStudent('POST', "/api/notebooks/{$notebook->id}/studio", ['kind' => 'flashcards'])
+            ->assertStatus(502)
+            ->assertJsonPath('message', NotebookAiException::emptyAnswer()->getMessage());
+        $this->assertSame(2, RateLimiter::attempts($budgetKey));
+
+        // A model that never answered costs nothing.
+        $this->sendAsStudent('POST', "/api/notebooks/{$notebook->id}/messages", ['question' => 'Apa itu JOIN?'])->assertStatus(503);
+        $this->assertSame(2, RateLimiter::attempts($budgetKey));
+
+        RateLimiter::clear($budgetKey);
+    }
+
+    public function test_saved_notes_older_than_the_latest_messages_are_still_listed(): void
+    {
+        $notebook = $this->notebook();
+        $quiz = NotebookMessage::factory()->create(['notebook_id' => $notebook->id, 'kind' => 'quiz', 'content' => '[]', 'pinned' => false]);
+        $pinned = NotebookMessage::factory()->create(['notebook_id' => $notebook->id, 'pinned' => true]);
+        $oldChat = NotebookMessage::factory()->create(['notebook_id' => $notebook->id]);
+        NotebookMessage::factory()->count(200)->create(['notebook_id' => $notebook->id]);
+
+        $data = $this->getAsStudent("/api/notebooks/{$notebook->id}")->assertOk()->json('data');
+        $messages = $data['messages'];
+
+        $this->assertCount(202, $messages);
+        $this->assertSame([$quiz->id, $pinned->id], array_slice(array_column($messages, 'id'), 0, 2));
+        $this->assertNotContains($oldChat->id, array_column($messages, 'id'));
+        // The chat starts after them: the old saved answer is only a note, not a reply without its question.
+        $this->assertSame($messages[2]['id'], $data['chat_from_id']);
+        $this->assertGreaterThan($pinned->id, $data['chat_from_id']);
     }
 
     public function test_a_quiz_is_generated_as_structured_data_and_saved_to_notes(): void
@@ -230,6 +530,68 @@ class NotebookApiTest extends TestCase
         $this->sendAsStudent('POST', "/api/notebooks/{$notebook->id}/messages", ['question' => 'Kedua?'])->assertStatus(429);
 
         RateLimiter::clear('notebook-ai:'.$this->ownerHash.':'.now()->format('Y-m-d'));
+    }
+
+    public function test_requests_sent_at_the_same_time_cannot_pass_the_daily_budget_together(): void
+    {
+        config(['notebook.limits.daily_requests' => 1]);
+        $budgetKey = 'notebook-ai:'.$this->ownerHash.':'.now()->format('Y-m-d');
+        $notebook = $this->notebookWithChunks([['page' => null, 'content' => 'Isi.']]);
+        $parallel = null;
+        $sent = false;
+        Http::fake([self::GEMINI_URL => function () use (&$parallel, &$sent, $notebook) {
+            // A second question from another tab while the model works on the first.
+            if (! $sent) {
+                $sent = true;
+
+                try {
+                    app(NotebookAssistant::class)->ask($notebook->fresh(), 'Kedua?');
+                    $parallel = 'answered';
+                } catch (NotebookAiException $exception) {
+                    $parallel = $exception;
+                }
+            }
+
+            return Http::response(['candidates' => [['content' => ['parts' => [['text' => 'Jawaban [1].']]], 'finishReason' => 'STOP']]]);
+        }]);
+
+        $this->sendAsStudent('POST', "/api/notebooks/{$notebook->id}/messages", ['question' => 'Pertama?'])->assertCreated();
+
+        $this->assertInstanceOf(NotebookAiException::class, $parallel);
+        $this->assertSame(NotebookAiException::dailyLimitReached()->getMessage(), $parallel->getMessage());
+        $this->assertSame(429, $parallel->getCode());
+        Http::assertSentCount(1);
+        $this->assertSame(1, RateLimiter::attempts($budgetKey));
+
+        RateLimiter::clear($budgetKey);
+    }
+
+    public function test_a_request_charged_after_the_budget_check_is_refused_before_the_model_is_called(): void
+    {
+        config(['notebook.limits.daily_requests' => 1]);
+        $budgetKey = 'notebook-ai:'.$this->ownerHash.':'.now()->format('Y-m-d');
+        $notebook = $this->notebookWithChunks([['page' => null, 'content' => 'Isi.']]);
+        $this->geminiAnswers('Jawaban [1].');
+        $charged = false;
+        // Another request spends the last one while this one gathers its excerpts.
+        DB::listen(function (QueryExecuted $query) use (&$charged, $budgetKey): void {
+            if (! $charged && str_contains($query->sql, 'notebook_chunks')) {
+                $charged = true;
+                RateLimiter::hit($budgetKey, 86400);
+            }
+        });
+
+        $this->sendAsStudent('POST', "/api/notebooks/{$notebook->id}/messages", ['question' => 'Pertama?'])
+            ->assertStatus(429)
+            ->assertJsonPath('message', NotebookAiException::dailyLimitReached()->getMessage());
+
+        $this->assertTrue($charged);
+        Http::assertNothingSent();
+        // The refused request gave its hit back: only the other one is spent.
+        $this->assertSame(1, RateLimiter::attempts($budgetKey));
+        $this->assertSame(0, NotebookMessage::query()->count());
+
+        RateLimiter::clear($budgetKey);
     }
 
     public function test_an_overloaded_model_is_reported_without_storing_the_question(): void
@@ -318,7 +680,66 @@ class NotebookApiTest extends TestCase
         $notebook = $this->notebook();
 
         $this->withSession(['campus_session_token' => self::TOKEN])->get('/notebook')->assertOk()->assertSee('Notebook baru');
-        $this->withSession(['campus_session_token' => self::TOKEN])->get('/notebook/'.$notebook->id)->assertOk()->assertSee('Studio');
+        $this->withSession(['campus_session_token' => self::TOKEN])->get('/notebook/'.$notebook->id)
+            ->assertOk()
+            ->assertSee('Studio')
+            // The conversation is redrawn whole, so only the new answer is announced.
+            ->assertDontSee('id="notebook-messages" aria-live', false)
+            ->assertSee('app.announce(`Jawaban: ', false)
+            // Each source checkbox is named after its source.
+            ->assertSee('aria-label="Pakai ${app.escapeHtml(source.title)} sebagai konteks"', false)
+            ->assertDontSee('aria-label="Pakai sebagai konteks"', false)
+            // No ticked source: asking is blocked instead of sending an empty selection.
+            ->assertSee('Centang minimal satu sumber untuk bertanya')
+            // Quiz feedback in words, and studio outputs that can only be deleted.
+            ->assertSee('Pilihanmu, salah')
+            ->assertSee("message.pinned || message.kind !== 'chat'", false)
+            // A lost reading can be started again, and polling stops.
+            ->assertSee('Terhenti')
+            ->assertSee('POLL_LIMIT_MS', false)
+            // A stalled source that cannot be read again says how to get it back.
+            ->assertSee('Hapus sumber ini, lalu tambahkan lagi.')
+            // A file waiting for tomorrow's reading budget may be read now.
+            ->assertSee('Baca sekarang')
+            // Saved answers older than the conversation stay in Catatan only.
+            ->assertSee('message.id >= state.chatFromId', false)
+            // Only a bare proxy 502/504 is "busy"; MyCIC's own 502 message ("Hasilnya terlalu panjang…") is shown.
+            ->assertSee('(error?.status === 504 || error?.status === 502) && !error?.payload?.message', false)
+            // A source waiting for a reading slot says so.
+            ->assertSee('Menunggu giliran dibaca.');
+    }
+
+    public function test_notebook_pages_show_the_banner_for_each_reason_the_ai_cannot_answer(): void
+    {
+        $notebook = $this->notebook();
+        $pages = [
+            $this->withSession(['campus_session_token' => self::TOKEN])->get('/notebook')->assertOk(),
+            $this->withSession(['campus_session_token' => self::TOKEN])->get('/notebook/'.$notebook->id)->assertOk(),
+        ];
+
+        foreach ($pages as $page) {
+            $page->assertSee('data-ai-status-banner="disabled"', false)
+                ->assertSee('Fitur AI Notebook dimatikan di server MyCIC.')
+                ->assertSee('data-ai-status-banner="missing_key"', false)
+                ->assertSee('(GEMINI_API_KEY kosong)')
+                ->assertSee('data-ai-status-banner="invalid_key"', false)
+                ->assertSee('kunci API Gemini di server MyCIC ditolak')
+                ->assertSee('data-ai-status-banner="model_misconfigured"', false)
+                ->assertSee('pengaturan model AI di server MyCIC ditolak (model tidak dikenali, sudah tidak tersedia, atau pengaturannya tidak cocok)')
+                // Not only the model id: a thinking budget the model does not take is rejected the same way.
+                ->assertSee('misalnya GEMINI_MODEL atau NOTEBOOK_THINKING_BUDGET')
+                ->assertDontSee('perlu memperbarui GEMINI_MODEL')
+                // The banner follows ai_status, not just ai_available.
+                ->assertSee("data?.ai_status || (data?.ai_available === false ? 'missing_key' : 'ok')", false)
+                ->assertSee('banner.dataset.aiStatusBanner !==', false)
+                ->assertDontSee('id="notebook-ai-off"', false);
+        }
+
+        // A question refused for the server's AI settings swaps the banner too.
+        $pages[1]->assertSee('noteAiStatus(error);', false)
+            ->assertSee('error?.payload?.data?.ai_status', false)
+            // A file waiting for the AI to work again offers no "Baca sekarang" that would only fail.
+            ->assertSee('source.waiting && Boolean(source.error) && state.aiAvailable', false);
     }
 
     private function notebook(): Notebook

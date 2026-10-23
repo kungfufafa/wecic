@@ -224,6 +224,7 @@ class PortalAcademicApiTest extends TestCase
             ->assertNotFound()
             ->assertJsonPath('status', 'error')
             ->assertJsonPath('message', 'KRS tidak ditemukan di riwayat KRS kamu.')
+            ->assertJsonPath('reason', 'not_in_history')
             ->assertJsonPath('meta.campus_session_valid', true);
 
         $this->assertNull($this->snapshots()->get(self::TOKEN, 'krs_detail', ['id' => 12345]));
@@ -256,7 +257,8 @@ class PortalAcademicApiTest extends TestCase
         $this->withSession(['campus_session_token' => self::TOKEN])
             ->getJson('/api/academic/krs/90003')
             ->assertNotFound()
-            ->assertJsonPath('message', 'KRS ini tidak terbaca di portal. Coba lagi beberapa saat.');
+            ->assertJsonPath('message', 'KRS ini tidak terbaca di portal. Coba lagi beberapa saat.')
+            ->assertJsonPath('reason', 'unreadable');
 
         $this->assertNull($this->snapshots()->get(self::TOKEN, 'krs_detail', ['id' => 90003]));
     }
@@ -298,7 +300,7 @@ class PortalAcademicApiTest extends TestCase
             ->assertJsonPath('data.remaining_sks', 58)
             ->assertJsonPath('data.progress.progress_percent', 59.7)
             ->assertJsonPath('data.conversion', ['status' => 'ok', 'sks' => 66, 'course_count' => 24, 'already_graded_codes' => []])
-            ->assertJsonPath('data.current_load.sks', 14)
+            ->assertJsonPath('data.current_load', ['sks' => 14, 'courses' => 6, 'graded_courses' => 0])
             ->assertJsonPath('data.low_grades.d_courses.0.code', 'MK1004')
             ->assertJsonPath('data.letter_counts.D', 1)
             ->assertJsonPath('data.simulation.target_ipk', 3.5)
@@ -311,6 +313,62 @@ class PortalAcademicApiTest extends TestCase
             ->getJson('/api/academic/transcript')
             ->assertOk()
             ->assertJsonPath('data.simulation', null);
+    }
+
+    public function test_transcript_does_not_count_a_graded_krs_again_as_current_load(): void
+    {
+        $this->mockValidCampusSession();
+        $grades = $this->gradesData();
+        $course = static fn (string $code, int $sks, ?string $letter, ?float $weight): array => [
+            'code' => $code, 'name' => "Mata Kuliah {$code}", 'sks' => $sks, 'components' => [], 'score' => null,
+            'letter' => $letter, 'weight' => $weight, 'quality_points' => $weight === null ? null : $sks * $weight, 'is_graded' => $letter !== null,
+        ];
+        $grades['semesters'] = [[
+            'label' => 'KHS Semester : 3', 'semester' => 3, 'is_regular' => true, 'status' => 'partial', 'columns' => [],
+            'courses' => [$course('MK3001', 3, 'A', 4.0), $course('MK3002', 3, 'B', 3.0), $course('MK3003', 2, null, null)],
+            'course_count' => 3, 'graded_count' => 2, 'total_sks' => 8, 'total_quality_points' => 21.0, 'ips' => null,
+        ]];
+        $krs = $this->krsData('validated');
+        $krs['courses'] = [
+            ['code' => 'MK3001', 'name' => 'Mata Kuliah MK3001', 'sks' => 3, 'semester' => 3],
+            ['code' => 'mk3002', 'name' => 'Mata Kuliah MK3002', 'sks' => 3, 'semester' => 3],
+            ['code' => 'MK3003', 'name' => 'Mata Kuliah MK3003', 'sks' => 2, 'semester' => 3],
+        ];
+        $krs['totals'] = ['courses' => 3, 'sks' => 8, 'source' => 'portal', 'consistent' => true];
+        $this->snapshots()->put(self::TOKEN, 'grades', $grades);
+        $this->snapshots()->put(self::TOKEN, 'krs', $krs);
+
+        // Two of the three KRS courses already have their grade: only the third is still being taken.
+        $this->withSession(['campus_session_token' => self::TOKEN])
+            ->getJson('/api/academic/transcript')
+            ->assertOk()
+            ->assertJsonPath('data.current_load', ['sks' => 2, 'courses' => 1, 'graded_courses' => 2]);
+
+        // Once every grade is out the KRS adds nothing on top of the earned SKS.
+        $grades['semesters'][0]['courses'][2] = $course('MK3003', 2, 'A', 4.0);
+        $this->snapshots()->put(self::TOKEN, 'grades', $grades);
+
+        $this->withSession(['campus_session_token' => self::TOKEN])
+            ->getJson('/api/academic/transcript')
+            ->assertOk()
+            ->assertJsonPath('data.current_load', ['sks' => 0, 'courses' => 0, 'graded_courses' => 3]);
+
+        // A new KRS that retakes a course failed in that semester, before its own card
+        // appears: the retake is still being taken.
+        $grades['semesters'][0]['courses'][1] = $course('MK3002', 3, 'E', 0.0);
+        $this->snapshots()->put(self::TOKEN, 'grades', $grades);
+        $krs['courses'] = [
+            ['code' => 'MK4001', 'name' => 'Mata Kuliah MK4001', 'sks' => 3, 'semester' => 4],
+            ['code' => 'MK4002', 'name' => 'Mata Kuliah MK4002', 'sks' => 3, 'semester' => 4],
+            ['code' => 'MK3002', 'name' => 'Mata Kuliah MK3002', 'sks' => 3, 'semester' => 3],
+        ];
+        $krs['totals'] = ['courses' => 3, 'sks' => 9, 'source' => 'portal', 'consistent' => true];
+        $this->snapshots()->put(self::TOKEN, 'krs', $krs);
+
+        $this->withSession(['campus_session_token' => self::TOKEN])
+            ->getJson('/api/academic/transcript')
+            ->assertOk()
+            ->assertJsonPath('data.current_load', ['sks' => 9, 'courses' => 3, 'graded_courses' => 0]);
     }
 
     public function test_transcript_validates_the_simulation_parameters(): void

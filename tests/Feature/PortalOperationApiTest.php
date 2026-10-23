@@ -47,6 +47,9 @@ class PortalOperationApiTest extends TestCase
             ->withCookie(config('session.cookie'), $sessionId)
             ->getJson('/api/operations/'.self::OPERATION_ID)
             ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('status', 'success')
+            ->assertJsonStructure(['meta' => ['timestamp']])
             ->assertJsonPath('data.status', 'completed')
             ->assertJsonPath('data.percent', 100)
             ->assertJsonPath('data.cache_keys', ['/api/assignment/pending'])
@@ -62,7 +65,32 @@ class PortalOperationApiTest extends TestCase
         $this->withSession(['campus_session_token' => 'token-op'])
             ->getJson('/api/operations/'.self::OPERATION_ID)
             ->assertNotFound()
-            ->assertJsonPath('success', false);
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('status', 'error')
+            ->assertJsonStructure(['meta' => ['timestamp']]);
+    }
+
+    public function test_the_stored_file_and_lock_of_an_upload_stay_on_the_server(): void
+    {
+        $this->mockValidCampusSession('token-op');
+
+        $sessionId = Str::random(40);
+
+        app(PortalOperationTracker::class)->start(self::OPERATION_ID, 'exam_upload', $sessionId, 'Upload ujian diterima.', [
+            'file' => 'portal-uploads/'.self::OPERATION_ID.'.pdf',
+            'lock_key' => 'portal_upload:owner-hash:exam:8833',
+            'lock_owner' => 'secret-lock-owner',
+        ]);
+
+        $this->withSession(['campus_session_token' => 'token-op'])
+            ->withCredentials()
+            ->withCookie(config('session.cookie'), $sessionId)
+            ->getJson('/api/operations/'.self::OPERATION_ID)
+            ->assertOk()
+            ->assertJsonPath('data.status', 'connecting')
+            ->assertJsonMissingPath('data.upload')
+            ->assertDontSee('secret-lock-owner')
+            ->assertDontSee('portal_upload:owner-hash');
     }
 
     private function mockValidCampusSession(string $token): void

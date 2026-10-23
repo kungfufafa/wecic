@@ -22,7 +22,7 @@
                 {!! '<div class="mycic-alert-neutral mb-0">Memuat...</div>' !!}
             </div>
 
-            <section class="mycic-card" aria-labelledby="class-study-title">
+            <section class="mycic-card" id="class-study" aria-labelledby="class-study-title">
                 <div class="mycic-card-header">
                     <h2 class="mycic-card-title" id="class-study-title">Arsip & belajar</h2>
                     <p class="mt-0.5 text-caption text-ink-subtle">Setiap mata kuliah punya notebook sendiri. Pertemuan yang kamu buka masuk otomatis; dari notebook kamu bisa belajar mandiri atau menyusun kerangka tugas dari materinya.</p>
@@ -72,6 +72,7 @@
                 const hero = document.getElementById('class-hero');
                 const attendanceMeetings = attendance.meetings || [];
                 const attendanceSummary = attendance.summary || {};
+                document.getElementById('class-study').classList.remove('hidden');
 
                 hero.innerHTML = `
                     <div class="mb-4">
@@ -209,7 +210,7 @@
                     document.getElementById('class-assignments').innerHTML = `
                         <div class="mycic-card">
                             <div class="mycic-card-header">
-                                <h3 class="mycic-card-title">Tugas</h3>
+                                <h3 class="mycic-card-title">Tugas terkumpul</h3>
                             </div>
                             <div class="mycic-card-body">
                                 ${(assignments.assignments || []).map((assignment) => {
@@ -246,7 +247,7 @@
                     document.getElementById('class-assignments').innerHTML = `
                         <div class="mycic-card">
                             <div class="mycic-card-body">
-                                ${app.renderEmptyState('Belum ada tugas.', 'secondary')}
+                                ${app.renderEmptyState('Belum ada tugas yang kamu kumpulkan.', 'secondary', 'Tugas yang belum dikumpulkan dan tenggatnya ada di halaman pertemuan.')}
                             </div>
                         </div>
                     `;
@@ -261,9 +262,9 @@
                 return;
             }
 
-            const loadClassDetail = async ({ force = false } = {}) => {
+            const loadClassDetail = async ({ force = false, background = false } = {}) => {
                 try {
-                    const payload = await app.request(endpoint(), { fresh: force });
+                    const payload = await app.request(endpoint(), { fresh: force, background });
                     render(payload);
                     app.markViewSynced('Detail kelas', payload, { force });
                 } catch (error) {
@@ -279,6 +280,8 @@
                     });
                     if (error.status === 404 || error.status === 422) {
                         document.getElementById('class-materials').innerHTML = `<a href="/class" class="${app.buttonClass('primary')}">Ke daftar kelas</a>`;
+                        // No notebook or archive for a class that is not in the student's list.
+                        document.getElementById('class-study').classList.add('hidden');
                     }
                 }
             };

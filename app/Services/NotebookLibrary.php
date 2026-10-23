@@ -9,17 +9,34 @@ use App\Exceptions\NotebookSourceException;
 use App\Jobs\IngestNotebookSourceJob;
 use App\Models\Notebook;
 use App\Models\NotebookChunk;
+use App\Models\NotebookDismissal;
 use App\Models\NotebookSource;
 use App\Models\PortalArchivedFile;
 use Illuminate\Contracts\Filesystem\Filesystem;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 /**
  * The sources of a notebook: adding them, reading their text once
  * (IngestNotebookSourceJob) and keeping it as citable chunks.
+ *
+ * A notebook keeps only a few readings queued at a time
+ * (`notebook.limits.queued_readings`). A source the student added takes the
+ * next free slot, and the rest of a bulk pick follow as readings finish. A
+ * course file that joined a course notebook on its own (a meeting read by a
+ * background sync, a file archived later) waits until the student opens
+ * the notebook, so nothing is sent to the model that nobody asked for, and
+ * is then read a few at a time while it is open (one that needs the model,
+ * only while the AI can be used). Reading with the model
+ * counts against a daily budget per student
+ * (`notebook.limits.daily_source_reads`), part of which is kept for the
+ * files the student adds; a course file another notebook has read already
+ * is reused instead.
  */
 class NotebookLibrary
 {
@@ -30,6 +47,23 @@ class NotebookLibrary
 
     private const SUMMARY_INPUT_CHARS = 12000;
 
+    private const SUMMARY_MAX_CHARS = 1000;
+
+    private const TRUNCATED_SUMMARY_NOTE = '(Ringkasan terpotong karena terlalu panjang.)';
+
+    /**
+     * Source kinds read from a file, which wait for a reading slot.
+     */
+    private const READ_KINDS = [NotebookSource::KIND_ARCHIVED_FILE, NotebookSource::KIND_UPLOAD];
+
+    private const WAITING_FOR_READS = 'Kuota baca AI untuk berkas yang masuk sendiri hari ini sudah terpakai. Berkas ini dibaca otomatis saat notebook dibuka lagi besok, atau ketuk "Baca sekarang".';
+
+    /**
+     * A file that joined on its own and needs the model while the AI cannot
+     * be used (no key, or a key or model setting the API rejected lately).
+     */
+    private const WAITING_FOR_AI = 'Berkas ini perlu dibaca AI, yang sedang tidak bisa dipakai. Berkas ini dibaca otomatis saat notebook dibuka setelah AI aktif lagi.';
+
     public function __construct(
         private readonly NotebookSourceReader $reader,
         private readonly PortalArchivedFileStore $archivedFiles,
@@ -37,14 +71,44 @@ class NotebookLibrary
     ) {}
 
     /**
-     * An archived course file becomes a source once per notebook.
+     * An archived course file becomes a source once per notebook; a source
+     * whose archive row was deleted and archived again is linked again.
+     *
+     * `$byStudent` is false on the course-notebook paths that add files on
+     * their own: those skip files the student removed from the notebook and
+     * leave the reading for when the notebook is opened. A file the student
+     * picked is queued when a reading slot is free and waits for one
+     * otherwise (queueRequestedReadings()). A file the student picks that
+     * is already in the notebook, waiting as one that joined on its own,
+     * becomes theirs: it no longer waits for that share. Returns null when
+     * the file is skipped or the notebook is full.
      */
-    public function addArchivedFile(Notebook $notebook, PortalArchivedFile $file): NotebookSource
+    public function addArchivedFile(Notebook $notebook, PortalArchivedFile $file, bool $byStudent = true): ?NotebookSource
     {
-        $existing = $notebook->sources()->where('portal_archived_file_id', $file->id)->first();
+        $existing = $notebook->sources()->where('portal_archived_file_id', $file->id)->first()
+            ?? $notebook->sources()->where('kind', NotebookSource::KIND_ARCHIVED_FILE)->where('archived_source_url', $file->source_url)->first();
+
+        if ($byStudent) {
+            $notebook->dismissals()->where('kind', NotebookDismissal::KIND_ARCHIVED_FILE)->where('reference', $file->source_url)->delete();
+        }
 
         if ($existing !== null) {
+            if ($existing->portal_archived_file_id !== $file->id || $existing->archived_source_url !== $file->source_url) {
+                $existing->forceFill(['portal_archived_file_id' => $file->id, 'archived_source_url' => $file->source_url])->save();
+            }
+
+            if ($byStudent && $existing->isWaiting()) {
+                $existing->forceFill(['requested_at' => $existing->requested_at ?? now(), 'error' => null])->save();
+                $this->queueRequestedReadings($notebook);
+
+                return $existing->refresh();
+            }
+
             return $existing;
+        }
+
+        if ((! $byStudent && $notebook->isDismissed(NotebookDismissal::KIND_ARCHIVED_FILE, $file->source_url)) || $notebook->sourceRoom() < 1) {
+            return null;
         }
 
         $title = trim(implode(' · ', array_filter([
@@ -52,17 +116,28 @@ class NotebookLibrary
             $file->title ?? $file->filename,
         ])));
 
-        return $this->queue($notebook->sources()->create([
+        $source = $notebook->sources()->create([
             'kind' => NotebookSource::KIND_ARCHIVED_FILE,
             'portal_archived_file_id' => $file->id,
+            'archived_source_url' => $file->source_url,
             'meeting_id' => $file->meeting_id,
             'meeting_number' => $file->meeting_number,
             'title' => mb_substr($title !== '' ? $title : $file->filename, 0, 255),
             'mime' => $file->mime,
             'status' => NotebookSource::STATUS_PENDING,
-        ]));
+            'requested_at' => $byStudent ? now() : null,
+        ]);
+
+        if ($byStudent) {
+            $this->queueRequestedReadings($notebook);
+        }
+
+        return $source->refresh();
     }
 
+    /**
+     * An uploaded file, queued for reading when a reading slot is free.
+     */
     public function addUpload(Notebook $notebook, UploadedFile $file): NotebookSource
     {
         $extension = strtolower($file->getClientOriginalExtension() ?: (string) $file->extension());
@@ -72,13 +147,17 @@ class NotebookLibrary
             throw new NotebookSourceException('Berkas gagal disimpan.');
         }
 
-        return $this->queue($notebook->sources()->create([
+        $source = $notebook->sources()->create([
             'kind' => NotebookSource::KIND_UPLOAD,
             'title' => mb_substr(pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME) ?: 'Berkas unggahan', 0, 255),
             'mime' => $file->getMimeType() ?: $file->getClientMimeType(),
             'disk_path' => $path,
             'status' => NotebookSource::STATUS_PENDING,
-        ]));
+            'requested_at' => now(),
+        ]);
+        $this->queueRequestedReadings($notebook);
+
+        return $source->refresh();
     }
 
     /**
@@ -91,9 +170,10 @@ class NotebookLibrary
             'title' => mb_substr(trim($title) !== '' ? trim($title) : 'Catatan', 0, 255),
             'mime' => 'text/plain',
             'status' => NotebookSource::STATUS_PROCESSING,
+            'requested_at' => now(),
         ]);
 
-        $this->index($source, [['page' => null, 'text' => $content]], false);
+        $this->index($source, [['page' => null, 'text' => $content]], false, summarize: $this->gemini->isUsable() && $this->spendRead($notebook->owner_hash));
 
         return $source->refresh();
     }
@@ -110,10 +190,23 @@ class NotebookLibrary
             ->where('kind', NotebookSource::KIND_MEETING)
             ->where('meeting_id', $meetingId)
             ->first() ?? $notebook->sources()->make(['kind' => NotebookSource::KIND_MEETING, 'meeting_id' => $meetingId]);
+        $title = mb_substr(trim($title) !== '' ? trim($title) : 'Pertemuan', 0, 255);
+
+        // Every re-read of the meeting lands here; an unchanged note keeps its chunks.
+        if ($source->exists && $source->status === NotebookSource::STATUS_READY
+            && $source->chunks()->orderBy('position')->pluck('content')->all() === $this->split($content, $this->chunkChars())) {
+            $source->fill(['meeting_number' => $meetingNumber, 'title' => $title]);
+
+            if ($source->isDirty()) {
+                $source->save();
+            }
+
+            return $source;
+        }
 
         $source->fill([
             'meeting_number' => $meetingNumber,
-            'title' => mb_substr(trim($title) !== '' ? trim($title) : 'Pertemuan', 0, 255),
+            'title' => $title,
             'mime' => 'text/plain',
             'status' => NotebookSource::STATUS_PROCESSING,
         ])->save();
@@ -126,17 +219,67 @@ class NotebookLibrary
     /**
      * Read the source's text and store it as chunks. A failure is kept on
      * the source with a message the student can act on.
+     *
+     * `$automatic` marks a course file that joined its notebook on its own:
+     * it leaves the reserved part of the daily budget alone, and when the
+     * rest is spent, or the AI cannot be used, it waits to be queued again
+     * instead of failing. A source the student asked for is never read that
+     * way. A reading the model never did because the AI settings were
+     * rejected gives its read back.
      */
-    public function ingest(NotebookSource $source): void
+    public function ingest(NotebookSource $source, bool $automatic = false): void
     {
+        $automatic = $automatic && ! $source->isRequested();
         $source->forceFill(['status' => NotebookSource::STATUS_PROCESSING, 'error' => null])->save();
+        $ownerHash = (string) $source->notebook?->owner_hash;
+        $spentRead = false;
 
         try {
-            [$contents, $filename] = $this->contents($source);
-            $read = $this->reader->read($contents, (string) $source->mime, $filename);
+            if ($this->reuseReading($source)) {
+                return;
+            }
 
-            $this->index($source, $read['pages'], $read['truncated']);
+            [$contents, $filename] = $this->contents($source);
+            $mime = (string) $source->mime;
+            $byModel = $this->reader->needsModel($mime, $filename);
+
+            if ($byModel && $automatic && ! $this->gemini->isUsable()) {
+                $this->waitForTurn($source, self::WAITING_FOR_AI);
+
+                return;
+            }
+
+            if ($byModel && $this->gemini->isUsable()) {
+                $spentRead = $this->spendRead($ownerHash, $automatic);
+
+                if (! $spentRead) {
+                    if (! $automatic) {
+                        throw new NotebookSourceException('Kuota baca berkas dengan AI hari ini sudah habis. Ketuk "Baca ulang" besok.');
+                    }
+
+                    $this->waitForTurn($source, self::WAITING_FOR_READS);
+
+                    return;
+                }
+            }
+
+            $read = $this->reader->read($contents, $mime, $filename);
+
+            // A transcribed file's summary is part of the reading it paid for.
+            $this->index($source, $read['pages'], $read['truncated'], summarize: $this->gemini->isUsable() && ($byModel || $this->spendRead($ownerHash, $automatic)));
         } catch (\Throwable $throwable) {
+            $unusable = $throwable instanceof NotebookAiException && $throwable->concernsConfiguration();
+
+            if ($spentRead && $unusable) {
+                RateLimiter::decrement($this->readsKey($ownerHash), 86400);
+            }
+
+            if ($automatic && $unusable) {
+                $this->waitForTurn($source, self::WAITING_FOR_AI);
+
+                return;
+            }
+
             Log::warning('Notebook source could not be read', [
                 'source_id' => $source->id,
                 'error' => $throwable->getMessage(),
@@ -149,13 +292,151 @@ class NotebookLibrary
         }
     }
 
+    /**
+     * Queue the next readings of the sources that wait for a reading slot:
+     * first the files the student asked for (queueRequestedReadings()),
+     * then the ones that joined on their own and wait for the notebook to
+     * be opened. Only a few are queued at a time
+     * (`notebook.limits.queued_readings`); the rest follow as those finish,
+     * whenever the notebook is loaded again (the open page refreshes itself
+     * while sources are being read). A file that joined on its own and
+     * needs the model is queued only while the AI can be used and the share
+     * of the daily budget for such files lasts (otherwise the file says why
+     * and waits: for the AI to work again, or for the next day); a file
+     * read locally or already read by another notebook costs nothing.
+     * Returns how many were queued.
+     */
+    public function readWaitingSources(Notebook $notebook): int
+    {
+        $requested = $this->queueRequestedReadings($notebook);
+        $slots = $this->readingSlots($notebook);
+
+        if ($slots <= 0) {
+            return $requested;
+        }
+
+        $waiting = $notebook->sources()
+            ->where('status', NotebookSource::STATUS_PENDING)
+            ->whereNull('queued_at')
+            ->whereNull('requested_at')
+            ->whereIn('kind', self::READ_KINDS)
+            ->with('archivedFile')
+            ->orderBy('id')
+            ->get();
+        $readElsewhere = $this->hashesReadElsewhere($waiting);
+        $usable = $this->gemini->isUsable();
+        $modelReads = $usable ? $this->automaticReadsLeft($notebook->owner_hash) : 0;
+        $queued = 0;
+
+        foreach ($waiting as $source) {
+            if ($queued >= $slots) {
+                break;
+            }
+
+            $file = $source->kind === NotebookSource::KIND_ARCHIVED_FILE ? $source->archivedFile : null;
+            $free = ($file !== null && isset($readElsewhere[$file->sha256]))
+                || ! $this->reader->needsModel((string) $source->mime, $file !== null ? $file->filename : (string) $source->disk_path);
+
+            if (! $free) {
+                if ($modelReads <= 0) {
+                    // Say why it waits; past the share the student can read it now with their own reads.
+                    $this->waitForTurn($source, $usable ? self::WAITING_FOR_READS : self::WAITING_FOR_AI);
+
+                    continue;
+                }
+
+                $modelReads--;
+            }
+
+            $this->queue($source, automatic: true);
+            $queued++;
+        }
+
+        return $requested + $queued;
+    }
+
+    /**
+     * Queue the sources the student asked for that wait for a reading slot,
+     * oldest first, into the slots the notebook's other readings leave free
+     * (`notebook.limits.queued_readings`). Runs whenever the student adds a
+     * source and whenever a reading finishes or is removed, so a bulk pick
+     * is read a few at a time to the end, whether the page stays open or
+     * not. Returns how many were queued.
+     */
+    public function queueRequestedReadings(Notebook $notebook): int
+    {
+        $queued = 0;
+
+        // One at a time: on a synchronous queue a reading (and the ones it queues) finishes before the next query.
+        while ($this->readingSlots($notebook) > 0) {
+            $next = $notebook->sources()
+                ->where('status', NotebookSource::STATUS_PENDING)
+                ->whereNull('queued_at')
+                ->whereNotNull('requested_at')
+                ->whereIn('kind', self::READ_KINDS)
+                ->orderBy('id')
+                ->first();
+
+            if ($next === null) {
+                break;
+            }
+
+            $this->queue($next);
+            $queued++;
+        }
+
+        return $queued;
+    }
+
+    /**
+     * Read a file source again: one that failed, one whose reading job was
+     * lost (the worker died), or one that waits to be queued, which the
+     * student then reads now with their own reading budget. Returns false
+     * when there is nothing to do.
+     */
+    public function retry(NotebookSource $source): bool
+    {
+        if ($source->kind === NotebookSource::KIND_TEXT || $source->kind === NotebookSource::KIND_MEETING) {
+            return false;
+        }
+
+        $stalled = $source->isStalled();
+
+        if ($source->status !== NotebookSource::STATUS_FAILED && ! $stalled && ! $source->isWaiting()) {
+            return false;
+        }
+
+        if ($stalled) {
+            IngestNotebookSourceJob::releaseUniqueLock($source->id);
+        }
+
+        // Asked for by the student now: read with the student's own reads, without waiting for a slot.
+        $source->forceFill(['status' => NotebookSource::STATUS_PENDING, 'error' => null, 'requested_at' => $source->requested_at ?? now()])->save();
+        $this->queue($source);
+
+        return true;
+    }
+
+    /**
+     * Remove a source. From a course notebook, the course file or meeting
+     * is remembered as removed, so the paths that fill the notebook on
+     * their own do not bring it back. A reading it held frees its slot for
+     * the next file the student asked for.
+     */
     public function delete(NotebookSource $source): void
     {
+        $notebook = $source->notebook;
+        $this->rememberDismissal($source);
+
         if ($source->disk_path !== null) {
             $this->disk()->delete($source->disk_path);
         }
 
         $source->delete();
+
+        if ($notebook !== null) {
+            $this->queueRequestedReadings($notebook);
+        }
     }
 
     public function deleteNotebook(Notebook $notebook): void
@@ -177,11 +458,181 @@ class NotebookLibrary
         $notebook->touch();
     }
 
-    private function queue(NotebookSource $source): NotebookSource
+    /**
+     * Reading slots the notebook has free: `notebook.limits.queued_readings`
+     * less the readings queued or running (a stalled one holds no slot).
+     */
+    private function readingSlots(Notebook $notebook): int
     {
-        IngestNotebookSourceJob::dispatch($source->id);
+        $inFlight = $notebook->sources()
+            ->where(static fn (Builder $query): Builder => $query
+                ->where('status', NotebookSource::STATUS_PROCESSING)
+                ->orWhere(static fn (Builder $queued): Builder => $queued->where('status', NotebookSource::STATUS_PENDING)->whereNotNull('queued_at')))
+            ->get(['id', 'status', 'queued_at', 'updated_at'])
+            ->reject(static fn (NotebookSource $source): bool => $source->isStalled())
+            ->count();
+
+        return max(1, (int) config('notebook.limits.queued_readings', 4)) - $inFlight;
+    }
+
+    /**
+     * Leave a file that joined on its own waiting to be queued (pending, no
+     * `queued_at`), with why it waits.
+     */
+    private function waitForTurn(NotebookSource $source, string $reason): void
+    {
+        $source->forceFill(['status' => NotebookSource::STATUS_PENDING, 'queued_at' => null, 'error' => $reason])->save();
+    }
+
+    private function queue(NotebookSource $source, bool $automatic = false): NotebookSource
+    {
+        $source->forceFill(['queued_at' => now(), 'error' => null])->save();
+        IngestNotebookSourceJob::dispatch($source->id, $automatic);
 
         return $source->refresh();
+    }
+
+    /**
+     * Content hashes of the waiting course files that another notebook has
+     * read already, so reading them again is free (reuseReading()).
+     *
+     * @param  Collection<int, NotebookSource>  $waiting
+     * @return array<string, int>
+     */
+    private function hashesReadElsewhere(Collection $waiting): array
+    {
+        $hashes = $waiting
+            ->map(static fn (NotebookSource $source): ?string => $source->kind === NotebookSource::KIND_ARCHIVED_FILE ? $source->archivedFile?->sha256 : null)
+            ->filter(static fn (?string $hash): bool => $hash !== null && $hash !== '')
+            ->unique()
+            ->values()
+            ->all();
+
+        if ($hashes === []) {
+            return [];
+        }
+
+        return PortalArchivedFile::query()
+            ->whereIn('sha256', $hashes)
+            ->whereIn('id', NotebookSource::query()
+                ->select('portal_archived_file_id')
+                ->where('kind', NotebookSource::KIND_ARCHIVED_FILE)
+                ->where('status', NotebookSource::STATUS_READY)
+                ->whereNotNull('portal_archived_file_id'))
+            ->pluck('sha256')
+            ->unique()
+            ->flip()
+            ->all();
+    }
+
+    /**
+     * A course file is the same file for every student who archived it: the
+     * text another notebook read from it (same content hash) is copied, so
+     * a file a whole class shares is sent to the model once.
+     */
+    private function reuseReading(NotebookSource $source): bool
+    {
+        $file = $source->kind === NotebookSource::KIND_ARCHIVED_FILE ? $source->archivedFile : null;
+
+        if ($file === null || $file->sha256 === '') {
+            return false;
+        }
+
+        $reader = NotebookSource::query()
+            ->where('kind', NotebookSource::KIND_ARCHIVED_FILE)
+            ->where('status', NotebookSource::STATUS_READY)
+            ->whereKeyNot($source->id)
+            ->whereIn('portal_archived_file_id', PortalArchivedFile::query()->select('id')->where('sha256', $file->sha256))
+            ->latest('id')
+            ->first();
+        $chunks = $reader?->chunks()->orderBy('position')->get(['position', 'page', 'content']);
+
+        if ($reader === null || $chunks === null || $chunks->isEmpty()) {
+            return false;
+        }
+
+        $source->chunks()->delete();
+        NotebookChunk::query()->insert($chunks->map(static fn (NotebookChunk $chunk): array => [
+            'notebook_source_id' => $source->id,
+            'notebook_id' => $source->notebook_id,
+            'position' => $chunk->position,
+            'page' => $chunk->page,
+            'content' => $chunk->content,
+        ])->all());
+
+        $source->forceFill([
+            'status' => NotebookSource::STATUS_READY,
+            'error' => null,
+            'char_count' => $reader->char_count,
+            'page_count' => $reader->page_count,
+            'truncated' => $reader->truncated,
+            'summary' => $reader->summary,
+        ])->save();
+
+        return true;
+    }
+
+    /**
+     * One reading with the model (a transcription and its summary, or a
+     * summary) from the student's daily budget; false when it is spent. An
+     * `$automatic` reading leaves the reserved reads alone.
+     */
+    private function spendRead(string $ownerHash, bool $automatic = false): bool
+    {
+        $allowed = $this->dailyReads() - ($automatic ? $this->reservedReads() : 0);
+
+        if ($allowed < 1 || RateLimiter::tooManyAttempts($this->readsKey($ownerHash), $allowed)) {
+            return false;
+        }
+
+        RateLimiter::hit($this->readsKey($ownerHash), 86400);
+
+        return true;
+    }
+
+    /**
+     * Model readings left today for files that joined on their own.
+     */
+    private function automaticReadsLeft(string $ownerHash): int
+    {
+        return max(0, $this->dailyReads() - $this->reservedReads() - RateLimiter::attempts($this->readsKey($ownerHash)));
+    }
+
+    private function readsKey(string $ownerHash): string
+    {
+        return 'notebook-reads:'.$ownerHash.':'.now()->format('Y-m-d');
+    }
+
+    private function dailyReads(): int
+    {
+        return max(1, (int) config('notebook.limits.daily_source_reads', 60));
+    }
+
+    /**
+     * Reads kept for the files the student adds: at most half the budget.
+     */
+    private function reservedReads(): int
+    {
+        return min(max(0, (int) config('notebook.limits.reserved_source_reads', 10)), intdiv($this->dailyReads(), 2));
+    }
+
+    private function rememberDismissal(NotebookSource $source): void
+    {
+        $notebook = $source->notebook;
+
+        if ($notebook === null || ! $notebook->isCourseNotebook()) {
+            return;
+        }
+
+        [$kind, $reference] = match ($source->kind) {
+            NotebookSource::KIND_ARCHIVED_FILE => [NotebookDismissal::KIND_ARCHIVED_FILE, $source->archived_source_url ?? $source->archivedFile?->source_url],
+            NotebookSource::KIND_MEETING => [NotebookDismissal::KIND_MEETING, $source->meeting_id],
+            default => [null, null],
+        };
+
+        if ($kind !== null && is_string($reference) && $reference !== '') {
+            $notebook->dismissals()->firstOrCreate(['kind' => $kind, 'reference' => mb_substr($reference, 0, 512)]);
+        }
     }
 
     /**
@@ -189,7 +640,7 @@ class NotebookLibrary
      */
     private function index(NotebookSource $source, array $pages, bool $truncated, bool $summarize = true): void
     {
-        $chunkChars = max(400, (int) config('notebook.limits.chunk_chars', 1800));
+        $chunkChars = $this->chunkChars();
         $budget = max(1000, (int) config('notebook.limits.max_text_chars', 200000));
         $chunks = [];
         $total = 0;
@@ -235,6 +686,11 @@ class NotebookLibrary
             'truncated' => $truncated,
             'summary' => $summarize ? $this->summarize(implode("\n\n", array_column($chunks, 'content'))) : null,
         ])->save();
+    }
+
+    private function chunkChars(): int
+    {
+        return max(400, (int) config('notebook.limits.chunk_chars', 1800));
     }
 
     /**
@@ -301,24 +757,34 @@ class NotebookLibrary
         return $pieces;
     }
 
+    /**
+     * A short summary of the source, or null when the model gave none: a
+     * summary cut at its output limit (even after GeminiClient's larger
+     * retry) says so, and one cut before any text is no summary at all.
+     */
     private function summarize(string $text): ?string
     {
-        if (! $this->gemini->isConfigured()) {
+        if (! $this->gemini->isUsable()) {
             return null;
         }
 
         try {
+            // The output limit leaves a thinking model room to reason before its 2–3 sentences.
             $result = $this->gemini->generate([[
                 'role' => 'user',
                 'parts' => [['text' => mb_substr($text, 0, self::SUMMARY_INPUT_CHARS)."\n\n---\n".self::SUMMARY_PROMPT]],
-            ]], null, ['temperature' => 0.2, 'maxOutputTokens' => 512]);
-
-            return mb_substr($result['text'], 0, 1000);
+            ]], null, ['temperature' => 0.2, 'maxOutputTokens' => 2048]);
         } catch (\Throwable $throwable) {
             Log::info('Notebook source summary skipped', ['error' => $throwable->getMessage()]);
 
             return null;
         }
+
+        $note = $result['truncated'] ? "\n".self::TRUNCATED_SUMMARY_NOTE : '';
+        $room = self::SUMMARY_MAX_CHARS - mb_strlen($note);
+        $summary = mb_strlen($result['text']) > $room ? rtrim(mb_substr($result['text'], 0, $room - 1)).'…' : $result['text'];
+
+        return $summary.$note;
     }
 
     /**

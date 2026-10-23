@@ -24,6 +24,16 @@ use Symfony\Component\DomCrawler\Crawler;
  */
 class PortalAuthService
 {
+    /**
+     * Wording a portal answer uses to turn down the username or password
+     * itself ("Username atau password salah", "NIM tidak terdaftar"). Bare
+     * "salah" is not enough: "kesalahan" (an error) and "salah satu" (one of)
+     * are common on error and maintenance pages.
+     */
+    private const CREDENTIAL_REFUSAL_PATTERN = '/\b(?:password|kata\s*sandi|username|nim)\b[^<>]{0,60}?\b(?:salah(?!\s+satu)|tidak\s+(?:valid|sesuai|cocok|terdaftar|ditemukan)|wrong|incorrect|invalid)\b|\b(?:invalid|wrong|incorrect)\s+(?:username|password|credentials?|login)\b/i';
+
+    private const UNCONFIRMED_CONTEXT_KEY = 'unconfirmed_refusal';
+
     private Client $client;
 
     public function __construct()
@@ -49,7 +59,7 @@ class PortalAuthService
                 'referer' => true,
                 'track_redirects' => true,
             ],
-        ], PortalHttpClientOptions::secureDns()));
+        ], PortalHttpClientOptions::shared()));
     }
 
     /**
@@ -223,7 +233,7 @@ class PortalAuthService
             $loginSuccess = $this->isLoginSuccessful($responseHtml, $redirectHistory, $cookieJar);
 
             if (! $loginSuccess) {
-                throw PortalAuthenticationException::invalidCredentials();
+                throw $this->loginFailure(PortalAuthenticationException::invalidCredentials(), $responseHtml);
             }
 
             // Get dashboard to confirm session
@@ -235,7 +245,7 @@ class PortalAuthService
             $dashboardHtml = (string) $dashboardResponse->getBody();
 
             if ($this->isSessionExpired($dashboardHtml) || ! $this->hasAuthenticatedPortalMarker($dashboardHtml)) {
-                throw PortalAuthenticationException::sessionExpired();
+                throw $this->loginFailure(PortalAuthenticationException::sessionExpired(), $dashboardHtml);
             }
 
             // Extract user info from dashboard
@@ -287,6 +297,56 @@ class PortalAuthService
             ]);
             throw PortalConnectionException::networkError($loginFormData['action'], $e->getMessage());
         }
+    }
+
+    /**
+     * Whether a failed login means the portal turned the password down, as
+     * opposed to answering with a page MyCIC could not read (blank,
+     * maintenance, a "session loading" page that never finished). Only a
+     * refusal may end an offline session or mark stored credentials as
+     * rejected; anything else is worth trying again later.
+     */
+    public static function refusedPassword(\Throwable $throwable): bool
+    {
+        return $throwable instanceof PortalAuthenticationException
+            && ($throwable->getContext()[self::UNCONFIRMED_CONTEXT_KEY] ?? false) !== true;
+    }
+
+    /**
+     * The same failed login, flagged as one the portal did not visibly
+     * refuse (see refusedPassword()). Still a PortalAuthenticationException,
+     * so an online login reports it like any failed login.
+     */
+    public static function unconfirmedRefusal(PortalAuthenticationException $exception): PortalAuthenticationException
+    {
+        return new PortalAuthenticationException(
+            $exception->getMessage(),
+            $exception->getCode(),
+            null,
+            [...($exception->getContext() ?? []), self::UNCONFIRMED_CONTEXT_KEY => true]
+        );
+    }
+
+    /**
+     * A login the portal did not let through. It counts as a refusal of the
+     * password only when the portal answered with its login form again or
+     * said the username or password is wrong.
+     */
+    private function loginFailure(PortalAuthenticationException $exception, string $html): PortalAuthenticationException
+    {
+        if (PortalScrapingService::isLoginPage($html) || preg_match(self::CREDENTIAL_REFUSAL_PATTERN, $html) === 1) {
+            return $exception;
+        }
+
+        Log::warning('Campus login answer did not confirm a refused password', [
+            'domain' => 'campus_auth',
+            'event' => 'login_refusal_unconfirmed',
+            'error' => $exception->getMessage(),
+            'html_length' => strlen($html),
+            'html_title' => Str::limit(PortalScrapingService::htmlTitle($html), 80),
+        ]);
+
+        return self::unconfirmedRefusal($exception);
     }
 
     /**

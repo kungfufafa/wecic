@@ -33,9 +33,21 @@ class PortalArchiveController extends CampusApiController
 
     private const SUMMARY_RESPONSE = "array{status: 'success', message: string, data: array{datasets: list<array{dataset: string, label: string, versions: int, groups: int, open_suspects: int, last_seen_at: string|null}>, files: array{count: int, bytes: int}, background_sync: ".self::BACKGROUND_SYNC_STATUS.'}, meta: array{timestamp: string, campus_session_valid: true}}';
 
-    private const VERSIONS_RESPONSE = "array{status: 'success', message: string, data: array{dataset: string, label: string, groups: list<array{params_hash: string, subject: string|null, params: array<string, mixed>, versions: int, open_suspects: int, last_seen_at: string|null}>, versions: list<array<string, mixed>>}, meta: array{timestamp: string, campus_session_valid: true}}";
+    private const VERSIONS_RESPONSE = "array{status: 'success', message: string, data: array{dataset: string, label: string, groups: list<array{params_hash: string, subject: string|null, params: array<string, mixed>, versions: int, open_suspects: int, last_seen_at: string|null}>, selected_params_hash: string|null, versions: list<array<string, mixed>>}, meta: array{timestamp: string, campus_session_valid: true}}";
 
-    private const VERSION_RESPONSE = "array{status: 'success', message: string, data: array{version: ".self::VERSION_ITEM.', label: string, is_current: bool, payload: array<string, mixed>, baseline: '.self::VERSION_ITEM."|null, diff: list<array{path: string, kind: 'added'|'removed'|'changed', old: string|null, new: string|null}>}, meta: array{timestamp: string, campus_session_valid: true}}";
+    private const VERSION_RESPONSE = "array{status: 'success', message: string, data: array{version: ".self::VERSION_ITEM.', label: string, is_current: bool, payload: array<string, mixed>, baseline: '.self::VERSION_ITEM."|null, diff: list<array{path: string, kind: 'added'|'removed'|'changed', old: string|null, new: string|null}>, diff_total: int, diff_truncated: bool}, meta: array{timestamp: string, campus_session_valid: true}}";
+
+    /**
+     * @var list<string>
+     */
+    private const INLINE_FILE_TYPES = [
+        'application/pdf',
+        'image/png',
+        'image/jpeg',
+        'image/gif',
+        'image/webp',
+        'text/plain',
+    ];
 
     public function __construct(
         private readonly PortalDataArchive $archive,
@@ -73,10 +85,13 @@ class PortalArchiveController extends CampusApiController
     /**
      * Nyalakan atau matikan sinkronisasi arsip di background.
      *
-     * Mematikannya langsung menghapus password yang tersimpan. Menyalakannya
-     * berlaku sejak login online berikutnya, karena password baru disimpan saat itu.
+     * Mematikannya langsung menghapus password yang tersimpan, dan pilihan itu
+     * tetap berlaku meski MyCIC belum menyimpan apa pun untuk mahasiswa ini
+     * (misalnya setelah arsipnya dihapus). Menyalakannya berlaku sejak login
+     * online berikutnya, karena password baru disimpan saat itu.
      */
     #[Response(description: 'Status sinkronisasi background setelah diubah.', type: "array{status: 'success', message: string, data: ".self::BACKGROUND_SYNC_STATUS.', meta: array{timestamp: string, campus_session_valid: true}}')]
+    #[Response(409, description: 'Pilihan tidak bisa diterapkan (mis. sinkronisasi background tidak tersedia); `data` berisi status yang berlaku.', type: "array{status: 'error', message: string, data: ".self::BACKGROUND_SYNC_STATUS.', meta: array{timestamp: string, campus_session_valid: true}}')]
     #[Response(422, description: 'Nilai `enabled` tidak valid.', type: CampusApiController::SCRAMBLE_VALIDATION_ERROR_RESPONSE)]
     #[Response(401, description: 'Endpoint ini membutuhkan sesi kampus yang aktif.', type: CampusApiController::SCRAMBLE_SESSION_ERROR_RESPONSE)]
     public function backgroundSync(PortalBackgroundSyncRequest $request): JsonResponse
@@ -85,13 +100,29 @@ class PortalArchiveController extends CampusApiController
             $ownerHash = $this->owner->key($sessionToken);
             $enabled = $request->boolean('enabled');
 
+            if (! $enabled && $this->offlineAccess->findForOwner($ownerHash) === null) {
+                $this->offlineAccess->rememberBackgroundSyncOptOut($ownerHash);
+            }
+
             $this->backgroundSync->setEnabled($ownerHash, $enabled);
+            $status = $this->backgroundSync->status($ownerHash);
+
+            if ($status['enabled'] !== $enabled) {
+                return $this->statusError(
+                    $status['available']
+                        ? 'Pengaturan sinkronisasi background belum tersimpan. Coba lagi beberapa saat.'
+                        : 'Sinkronisasi background tidak tersedia di MyCIC ini.',
+                    409,
+                    ['data' => $status],
+                    campusSessionValid: true
+                );
+            }
 
             return $this->statusSuccess(
                 $enabled
                     ? 'Sinkronisasi background dinyalakan. Berlaku sejak kamu masuk lagi saat portal online.'
                     : 'Sinkronisasi background dimatikan dan password tersimpan sudah dihapus.',
-                ['data' => $this->backgroundSync->status($ownerHash)],
+                ['data' => $status],
                 campusSessionValid: true
             );
         });
@@ -137,15 +168,23 @@ class PortalArchiveController extends CampusApiController
     {
         return $this->withVersion($version, 'Archive version failed', 'Gagal memuat versi arsip', function (string $sessionToken, PortalArchiveVersion $archived): JsonResponse {
             $baseline = $this->archive->baseline($archived);
+            // Archived pages still hold the portal's write-effect links (K13);
+            // they are dropped before comparing, so no diff value carries one.
+            $payload = $this->withoutWriteEffectLinks($archived->payload ?? []);
+            $comparison = $baseline !== null
+                ? $this->archive->compare($this->withoutWriteEffectLinks($baseline->payload ?? []), $payload, 200, $archived->dataset)
+                : ['changes' => [], 'total' => 0, 'truncated' => false];
 
             return $this->statusSuccess('Archive version retrieved', [
                 'data' => [
                     'version' => $archived->toApiArray(),
                     'label' => $this->archive->label($archived->dataset),
                     'is_current' => $this->archive->isCurrent($archived),
-                    'payload' => $archived->payload,
+                    'payload' => $payload,
                     'baseline' => $baseline?->toApiArray(),
-                    'diff' => $baseline !== null ? $this->archive->diff($baseline->payload, $archived->payload) : [],
+                    'diff' => $comparison['changes'],
+                    'diff_total' => $comparison['total'],
+                    'diff_truncated' => $comparison['truncated'],
                 ],
             ], campusSessionValid: true);
         });
@@ -211,7 +250,7 @@ class PortalArchiveController extends CampusApiController
                 'source' => 'MyCIC (arsip lokal dari portal kampus)',
                 'label' => $this->archive->label($archived->dataset),
                 'version' => $archived->toApiArray(),
-                'payload' => $archived->payload,
+                'payload' => $this->withoutWriteEffectLinks($archived->payload ?? []),
             ], 200, [
                 'Content-Disposition' => 'attachment; filename="'.$filename.'"',
             ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
@@ -241,6 +280,11 @@ class PortalArchiveController extends CampusApiController
 
     /**
      * Buka atau unduh satu berkas arsip (`download=1` untuk mengunduh).
+     *
+     * Hanya PDF, gambar biasa, dan teks polos yang dibuka langsung di browser.
+     * Jenis lain (SVG, HTML, XML, dokumen Office, dll.) selalu diunduh sebagai
+     * `application/octet-stream` dengan CSP `sandbox`, supaya isi berkas dari
+     * portal tidak bisa menjalankan skrip di MyCIC.
      */
     #[PathParameter('file', 'Id berkas arsip.', type: 'integer', example: 7)]
     #[Response(description: 'Isi berkas.', mediaType: 'application/octet-stream', type: 'string')]
@@ -260,15 +304,24 @@ class PortalArchiveController extends CampusApiController
             return $this->statusError('Berkas arsip tidak ditemukan.', 404, campusSessionValid: true);
         }
 
-        $response = response()->file($path, [
-            'Content-Type' => $archived->mime,
+        $type = $this->fileType($archived->mime);
+        $safeType = in_array($type, self::INLINE_FILE_TYPES, true);
+        $headers = [
+            'Content-Type' => $safeType ? $archived->mime : 'application/octet-stream',
             'X-Content-Type-Options' => 'nosniff',
             'Cache-Control' => 'private, max-age=3600',
-        ]);
+        ];
+
+        // Browser PDF viewers refuse to render inside a sandboxed document.
+        if ($type !== 'application/pdf') {
+            $headers['Content-Security-Policy'] = 'sandbox';
+        }
+
+        $response = response()->file($path, $headers);
         $fallbackName = (string) preg_replace('/[^A-Za-z0-9._-]+/', '-', Str::ascii($archived->filename));
 
         return $response->setContentDisposition(
-            $request->boolean('download') ? 'attachment' : 'inline',
+            $safeType && ! $request->boolean('download') ? 'inline' : 'attachment',
             $archived->filename,
             $fallbackName !== '' ? $fallbackName : 'berkas'
         );
@@ -319,6 +372,16 @@ class PortalArchiveController extends CampusApiController
 
             return $this->statusSuccess('Arsip MyCIC kamu sudah dihapus.', ['data' => $deleted], campusSessionValid: true);
         });
+    }
+
+    /**
+     * The media type of an archived file without its parameters. Archived
+     * files carry whatever type the portal sent; only INLINE_FILE_TYPES are
+     * ones a browser renders without running script on the MyCIC origin.
+     */
+    private function fileType(?string $mime): string
+    {
+        return strtolower(trim(explode(';', (string) $mime)[0]));
     }
 
     /**

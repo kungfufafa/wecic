@@ -93,6 +93,16 @@ class Notebook extends Model
     }
 
     /**
+     * Course files and meetings the student removed from this notebook.
+     *
+     * @return HasMany<NotebookDismissal, $this>
+     */
+    public function dismissals(): HasMany
+    {
+        return $this->hasMany(NotebookDismissal::class);
+    }
+
+    /**
      * @param  Builder<self>  $query
      * @return Builder<self>
      */
@@ -113,6 +123,32 @@ class Notebook extends Model
     public function isCourseNotebook(): bool
     {
         return $this->kind === self::KIND_COURSE;
+    }
+
+    /**
+     * How many sources the notebook may hold. A course notebook collects a
+     * whole semester (a note and the course files of every meeting), so it
+     * has its own, larger limit.
+     */
+    public function sourceLimit(): int
+    {
+        return $this->isCourseNotebook()
+            ? max(1, (int) config('notebook.limits.max_course_sources', 80))
+            : max(1, (int) config('notebook.limits.max_sources', 30));
+    }
+
+    /**
+     * Sources that can still be added before the limit.
+     */
+    public function sourceRoom(): int
+    {
+        return max(0, $this->sourceLimit() - $this->sources()->count());
+    }
+
+    public function isDismissed(string $kind, ?string $reference): bool
+    {
+        return $reference !== null && $reference !== ''
+            && $this->dismissals()->where('kind', $kind)->where('reference', $reference)->exists();
     }
 
     /**

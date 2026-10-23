@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Enums\MeetingAttendanceState;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Cache;
 
@@ -303,7 +304,7 @@ class PortalActionProjector
         if ($attendanceEntry !== null && ! $this->meetingAttendanceRecorded($data['attendance_info'] ?? [])) {
             $data['attendance_info'] = array_merge(
                 is_array($data['attendance_info'] ?? null) ? $data['attendance_info'] : [],
-                ['status' => 'Hadir', 'time' => $attendanceEntry['time'] ?? null]
+                ['status' => 'Hadir', 'time' => $attendanceEntry['time'] ?? null, 'state' => MeetingAttendanceState::Present->value]
             );
         }
 
@@ -338,22 +339,12 @@ class PortalActionProjector
     }
 
     /**
-     * Mirrors how the meeting page decides that attendance is recorded.
+     * Whether the meeting page already shows the attendance recorded, by
+     * the same reading the meeting page uses (MeetingAttendanceState).
      */
     private function meetingAttendanceRecorded(mixed $attendanceInfo): bool
     {
-        if (! is_array($attendanceInfo)) {
-            return false;
-        }
-
-        if (trim((string) ($attendanceInfo['time'] ?? '')) !== '') {
-            return true;
-        }
-
-        $status = strtolower(trim((string) ($attendanceInfo['status'] ?? '')));
-
-        return preg_match('/hadir|terlambat|izin|sakit/', $status) === 1
-            && preg_match('/belum|silakan|scan|qr/', $status) !== 1;
+        return is_array($attendanceInfo) && MeetingAttendanceState::fromAttendanceInfo($attendanceInfo)->isRecorded();
     }
 
     /**

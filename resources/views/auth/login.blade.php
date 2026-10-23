@@ -50,9 +50,12 @@
                 <header>
                     <h1 class="mycic-page-heading">Masuk ke myCIC</h1>
                     <p class="mycic-page-subheading">Gunakan NIM dan password portal kampus Anda.</p>
+                    {{-- Present from page load so a failed login is read out; stays on screen unlike a toast. --}}
+                    <div id="login-error" role="alert" data-login-error></div>
                 </header>
 
-                <form id="login-form" class="mycic-form mt-8" novalidate>
+                {{-- POST so a submit that beats the script never puts the password in the URL. --}}
+                <form id="login-form" class="mycic-form mt-8" method="post" novalidate>
                     <div class="mycic-field">
                         <label for="username" class="mycic-label">NIM atau username</label>
                         <div class="mycic-input-wrap">
@@ -71,6 +74,7 @@
                                 autocapitalize="off"
                                 spellcheck="false"
                                 inputmode="text"
+                                aria-describedby="login-error"
                                 required
                             >
                         </div>
@@ -91,6 +95,7 @@
                                 type="password"
                                 class="mycic-input mycic-input-with-icon mycic-input-with-toggle"
                                 autocomplete="current-password"
+                                aria-describedby="login-error"
                                 required
                             >
                             <button
@@ -124,12 +129,44 @@
 
 @push('scripts')
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const app = window.portalApp;
+        (() => {
             const form = document.getElementById('login-form');
             const submit = document.getElementById('login-submit');
+            const usernameInput = document.getElementById('username');
             const passwordInput = document.getElementById('password');
             const passwordToggle = document.getElementById('password-visibility-toggle');
+            const errorHost = document.getElementById('login-error');
+            const expiredRetryKey = 'mycic-login-expired-username';
+            // The bundle (app.js) is a module: window.portalApp exists from DOMContentLoaded.
+            const appReady = new Promise((resolve) => {
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', resolve, { once: true });
+                } else {
+                    resolve();
+                }
+            });
+            let submitting = false;
+
+            const showLoginError = (message, { tone = 'danger', invalid = false } = {}) => {
+                const notice = document.createElement('div');
+
+                notice.className = `${tone === 'warning' ? 'mycic-alert-warning' : 'mycic-alert-danger'} mt-4`;
+                notice.textContent = message;
+                errorHost.replaceChildren(notice);
+
+                [usernameInput, passwordInput].forEach((input) => {
+                    if (invalid) {
+                        input.setAttribute('aria-invalid', 'true');
+                    } else {
+                        input.removeAttribute('aria-invalid');
+                    }
+                });
+            };
+
+            const clearLoginError = () => {
+                errorHost.replaceChildren();
+                [usernameInput, passwordInput].forEach((input) => input.removeAttribute('aria-invalid'));
+            };
 
             const eyeOpen = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" /><path d="M21 12c-2.4 4 -5.4 6 -9 6c-3.6 0 -6.6 -2 -9 -6c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6" /></svg>';
             const eyeClosed = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M10.585 10.587a2 2 0 0 0 2.829 2.828" /><path d="M16.681 16.673a8.717 8.717 0 0 1 -4.681 1.327c-3.6 0 -6.6 -2 -9 -6c1.272 -2.12 2.712 -3.678 4.32 -4.674m2.86 -1.146a9.055 9.055 0 0 1 1.82 -.18c3.6 0 6.6 2 9 6c-.666 1.11 -1.379 2.067 -2.138 2.87" /><path d="M3 3l18 18" /></svg>';
@@ -148,32 +185,106 @@
                 passwordInput.focus({ preventScroll: true });
             });
 
+            // Bound as soon as the form exists: a submit before the bundle has
+            // loaded waits for it, and one it never reaches says so.
             form.addEventListener('submit', async (event) => {
                 event.preventDefault();
 
-                if (!app.requireOnlineAction('Login butuh koneksi internet.')) {
+                if (submitting) {
                     return;
                 }
 
-                await app.withSubmitLoading(submit, async () => {
-                    try {
-                        const payload = await app.request('/api/auth/login', {
-                            method: 'POST',
-                            json: {
-                                username: document.getElementById('username').value,
-                                password: document.getElementById('password').value,
-                            },
-                            redirectOnAuth: false,
-                        });
+                submitting = true;
 
-                        app.handleLoginSuccess(payload);
-                        app.storeNotice(payload?.message || 'Login berhasil.', 'success');
-                        window.location.href = '/dashboard';
-                    } catch (error) {
-                        app.showNotice(error.payload?.message || error.message, 'error');
+                try {
+                    await appReady;
+
+                    const app = window.portalApp;
+
+                    if (!app) {
+                        showLoginError('Aplikasi belum termuat sepenuhnya. Muat ulang halaman lalu coba lagi.');
+
+                        return;
                     }
-                });
+
+                    if (!app.requireOnlineAction('Login butuh koneksi internet.')) {
+                        return;
+                    }
+
+                    clearLoginError();
+
+                    await app.withSubmitLoading(submit, async () => {
+                        try {
+                            const payload = await app.request('/api/auth/login', {
+                                method: 'POST',
+                                json: {
+                                    username: usernameInput.value,
+                                    password: passwordInput.value,
+                                },
+                                redirectOnAuth: false,
+                            });
+
+                            app.handleLoginSuccess(payload);
+                            app.storeNotice(payload?.message || 'Login berhasil.', 'success');
+                            syncPasswordToggle(false);
+                            window.location.href = '/dashboard';
+                        } catch (error) {
+                            // The page outlived its app session (left open for hours, or
+                            // a logout in another tab): only a reload brings a valid token.
+                            if (error.status === 419) {
+                                try {
+                                    sessionStorage.setItem(expiredRetryKey, usernameInput.value);
+                                } catch (storageError) {
+                                    // The username is simply typed again.
+                                }
+
+                                showLoginError('Halaman sudah kedaluwarsa. Memuat ulang...', { tone: 'warning' });
+                                window.location.reload();
+
+                                return;
+                            }
+
+                            showLoginError(app.describeError(error, 'Login gagal. Coba lagi sebentar lagi.'), { invalid: error.status === 401 });
+
+                            if (error.status === 401) {
+                                passwordInput.focus();
+                                passwordInput.select();
+                            }
+                        }
+                    });
+                } finally {
+                    submitting = false;
+                }
             });
-        });
+
+            let expiredUsername = null;
+
+            try {
+                expiredUsername = sessionStorage.getItem(expiredRetryKey);
+                sessionStorage.removeItem(expiredRetryKey);
+            } catch (error) {
+                expiredUsername = null;
+            }
+
+            if (expiredUsername !== null) {
+                usernameInput.value = expiredUsername;
+                showLoginError('Halaman dimuat ulang karena sudah kedaluwarsa. Masukkan password lagi.', { tone: 'warning' });
+                passwordInput.focus();
+            }
+
+            // Back from the dashboard can restore this page as it was left
+            // (back/forward cache): on a shared device the password typed for
+            // the last login must not be there to reveal.
+            window.addEventListener('pageshow', (event) => {
+                if (event.persisted) {
+                    passwordInput.value = '';
+                    syncPasswordToggle(false);
+                    clearLoginError();
+                }
+            });
+
+            // The server shows this page only when no session is valid.
+            appReady.then(() => window.portalApp?.forgetEndedSession());
+        })();
     </script>
 @endpush

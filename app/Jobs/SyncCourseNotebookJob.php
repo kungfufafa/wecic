@@ -6,8 +6,8 @@ namespace App\Jobs;
 
 use App\Exceptions\PortalException;
 use App\Models\Notebook;
-use App\Models\PortalArchivedFile;
 use App\Services\NotebookCourseSync;
+use App\Services\NotebookLibrary;
 use App\Services\PortalArchivedFileStore;
 use App\Services\PortalBroadcastService;
 use App\Services\PortalDatasetRepository;
@@ -25,7 +25,9 @@ use Illuminate\Support\Facades\Log;
  * request: each meeting listed on the class page is read (through the
  * dataset repository, with the queue's politeness delay), noted in the
  * notebook, and its course files are archived; archived files attach
- * themselves to the notebook.
+ * themselves to the notebook and are read at the end of the run. Meetings
+ * the student removed from the notebook stay out, and the run stops at the
+ * notebook's source limit.
  */
 class SyncCourseNotebookJob implements ShouldBeUnique, ShouldQueue
 {
@@ -40,7 +42,7 @@ class SyncCourseNotebookJob implements ShouldBeUnique, ShouldQueue
         private readonly string $campusSessionToken,
         private readonly int $notebookId
     ) {
-        $this->onQueue('campus-refresh');
+        $this->onQueue('campus-background');
     }
 
     public function uniqueId(): string
@@ -58,7 +60,8 @@ class SyncCourseNotebookJob implements ShouldBeUnique, ShouldQueue
         PortalArchivedFileStore $files,
         NotebookCourseSync $courseSync,
         PortalSessionManager $sessionManager,
-        PortalBroadcastService $broadcast
+        PortalBroadcastService $broadcast,
+        NotebookLibrary $library
     ): void {
         $notebook = Notebook::query()->find($this->notebookId);
         $classParams = $notebook?->class_params;
@@ -89,13 +92,20 @@ class SyncCourseNotebookJob implements ShouldBeUnique, ShouldQueue
 
         $added = 0;
         $items = [];
+        $full = false;
         $limit = max(1, (int) config('notebook.course_notebooks.max_meetings_per_sync', 20));
 
         foreach (array_slice((array) ($classDetail['course_materials'] ?? []), 0, $limit) as $material) {
             $meetingParams = NotebookCourseSync::meetingParams($material);
 
-            if ($meetingParams === null) {
+            if ($meetingParams === null || $courseSync->isMeetingDismissed($notebook, $meetingParams['meeting_id'])) {
                 continue;
+            }
+
+            if (! $courseSync->canAddMeeting($notebook, $meetingParams['meeting_id'])) {
+                $full = true;
+
+                break;
             }
 
             try {
@@ -118,14 +128,18 @@ class SyncCourseNotebookJob implements ShouldBeUnique, ShouldQueue
         }
 
         $this->archiveMissing($files, $notebook, $items, $courseName);
-        $this->announce($broadcast, $notebook, $added > 0
+        $library->readWaitingSources($notebook);
+
+        $message = $added > 0
             ? "{$added} pertemuan masuk ke notebook \"{$notebook->title}\". Berkas materinya dibaca di background."
-            : 'Belum ada pertemuan yang bisa dimasukkan ke notebook ini.');
+            : 'Belum ada pertemuan yang bisa dimasukkan ke notebook ini.';
+        $this->announce($broadcast, $notebook, $full ? $message.' Batas jumlah sumber notebook tercapai; hapus sumber yang tidak perlu untuk menambah pertemuan lain.' : $message);
     }
 
     /**
-     * Course files the archive does not have yet are downloaded here (not
-     * queued per meeting), so the notebook gets them in this run.
+     * Course files the archive does not have yet, or whose stored copy is
+     * missing, are downloaded here (not queued per meeting), so the notebook
+     * gets them in this run.
      *
      * @param  list<array{kind: string, source_url: string, title: string|null, course_key: string|null, meeting_id: string|null, meeting_number: int|null}>  $items
      */
@@ -134,7 +148,7 @@ class SyncCourseNotebookJob implements ShouldBeUnique, ShouldQueue
         $seen = [];
 
         foreach ($items as $item) {
-            if (isset($seen[$item['source_url']]) || PortalArchivedFile::query()->forOwner($notebook->owner_hash)->where('source_url', $item['source_url'])->exists()) {
+            if (isset($seen[$item['source_url']]) || $files->isArchived($notebook->owner_hash, $item['source_url'])) {
                 continue;
             }
 

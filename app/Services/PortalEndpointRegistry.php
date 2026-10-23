@@ -80,19 +80,50 @@ class PortalEndpointRegistry
         return self::definition($key)['required_params'] ?? [];
     }
 
+    /**
+     * Registry metadata of an endpoint, its URL as a template (urlTemplate)
+     *
+     * @return array{method: string, url: string, description: string, category: string|null, priority: string|null, requires_session: bool, required_params: list<string>}
+     */
     public static function describe(string $key): array
     {
         $definition = self::definition($key);
 
         return [
             'method' => self::method($key),
-            'url' => self::url($key),
-            'description' => $definition['description'] ?? '',
+            'url' => self::urlTemplate($key),
+            'description' => (string) ($definition['description'] ?? ''),
             'category' => $definition['category'] ?? null,
             'priority' => $definition['priority'] ?? null,
-            'requires_session' => $definition['requires_session'] ?? true,
-            'required_params' => $definition['required_params'] ?? [],
+            'requires_session' => (bool) ($definition['requires_session'] ?? true),
+            'required_params' => array_values($definition['required_params'] ?? []),
         ];
+    }
+
+    /**
+     * The endpoint URL with `{name}` in place of every required parameter
+     * its default query does not supply, so an endpoint that needs ids
+     * (such as `course_materials`) can be described without them.
+     */
+    public static function urlTemplate(string $key): string
+    {
+        $definition = self::definition($key);
+        $defaultQuery = $definition['default_query'] ?? self::splitUrl((string) ($definition['url'] ?? ''))[1];
+        $placeholders = [];
+
+        foreach (self::requiredParams($key) as $param) {
+            if (in_array($defaultQuery[$param] ?? null, [null, ''], true)) {
+                $placeholders[$param] = '{'.$param.'}';
+            }
+        }
+
+        $url = self::url($key, $placeholders);
+
+        foreach ($placeholders as $placeholder) {
+            $url = str_replace(rawurlencode($placeholder), $placeholder, $url);
+        }
+
+        return $url;
     }
 
     /**

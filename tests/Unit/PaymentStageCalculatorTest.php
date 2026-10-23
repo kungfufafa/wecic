@@ -139,6 +139,46 @@ class PaymentStageCalculatorTest extends TestCase
         $this->assertSame('not_recorded', $stages[0]['reason']);
         $this->assertSame('no_deadline', $stages[2]['reason']);
         $this->assertSame('unknown', $result['stage1_paid_for_current_year']);
+        // Stage 1 was settled before the paid stage 2: the next one is stage 3.
+        $this->assertSame(['study_year' => 2, 'academic_year' => '2026/2027', 'stage' => 3, 'status' => 'unknown', 'reason' => 'no_deadline', 'deadline' => null], $result['next_stage']);
+    }
+
+    public function test_a_first_year_stage_one_paid_at_admission_is_never_the_next_stage(): void
+    {
+        $result = (new PaymentStageCalculator)->calculate(
+            [$this->payment(2, 1, '2026-12-05')],
+            [],
+            '2026/2027',
+            [],
+            CarbonImmutable::parse('2027-01-10 10:00:00', 'Asia/Jakarta')
+        );
+
+        $this->assertSame(1, $result['current_study_year']);
+        $this->assertSame(['unknown', 'paid', 'unknown', 'unknown'], array_column($result['years'][0]['stages'], 'status'));
+        $this->assertSame(3, $result['next_stage']['stage']);
+        $this->assertSame('no_deadline', $result['next_stage']['reason']);
+    }
+
+    public function test_a_billed_stage_below_a_paid_stage_is_still_the_next_one(): void
+    {
+        $result = $this->calculate(
+            [$this->payment(4, 1, '2026-05-14'), $this->payment(2, 2, '2026-12-05')],
+            [['installment_stage' => 1, 'study_year' => 2, 'amount' => 1250000]]
+        );
+
+        $this->assertSame(['unpaid', 'paid', 'unknown', 'unknown'], array_column($result['years'][1]['stages'], 'status'));
+        $this->assertSame(['stage' => 1, 'status' => 'unpaid', 'reason' => 'in_bills'], array_intersect_key($result['next_stage'], array_flip(['stage', 'status', 'reason'])));
+    }
+
+    public function test_only_unrecorded_stages_left_means_no_next_stage(): void
+    {
+        $result = $this->calculate([
+            $this->payment(4, 1, '2026-05-14'),
+            $this->payment(4, 2, '2027-05-14'),
+        ]);
+
+        $this->assertSame(['unknown', 'unknown', 'unknown', 'paid'], array_column($result['years'][1]['stages'], 'status'));
+        $this->assertNull($result['next_stage']);
     }
 
     public function test_late_and_early_payments_stay_in_their_own_academic_year(): void
@@ -188,6 +228,55 @@ class PaymentStageCalculatorTest extends TestCase
         $this->assertTrue($stage['is_partial']);
         $this->assertSame('2026-10-01', $stage['paid_at']);
         $this->assertSame('01 Oktober 2026', $stage['paid_at_label']);
+    }
+
+    public function test_a_partly_paid_stage_still_listed_in_the_bills_is_unpaid(): void
+    {
+        $result = $this->calculate(
+            [$this->payment(4, 1, '2026-05-14'), $this->payment(1, 2, '2026-09-08', amount: 500000)],
+            [['installment_stage' => 1, 'study_year' => 2, 'amount' => 750000]]
+        );
+
+        $stage = $result['years'][1]['stages'][0];
+
+        $this->assertSame('unpaid', $stage['status']);
+        $this->assertSame('in_bills', $stage['reason']);
+        $this->assertSame(500000, $stage['paid_amount']);
+        $this->assertSame(1250000, $stage['installment_amount']);
+        $this->assertTrue($stage['is_partial']);
+        $this->assertSame(750000, $stage['bill_amount']);
+        $this->assertSame('2026-09-08', $stage['paid_at']);
+        $this->assertSame([], $result['current_year_stages_paid']);
+        $this->assertFalse($result['stage1_paid_for_current_year']);
+        $this->assertSame(['stage' => 1, 'status' => 'unpaid'], array_intersect_key($result['next_stage'], array_flip(['stage', 'status'])));
+        $this->assertSame(1, $result['years'][1]['unpaid_count']);
+        $this->assertSame(0, $result['years'][1]['paid_count']);
+    }
+
+    public function test_a_bill_row_left_behind_after_the_whole_installment_was_paid_keeps_the_stage_paid(): void
+    {
+        $result = $this->calculate(
+            [$this->payment(4, 1, '2026-05-14'), $this->payment(1, 2, '2026-09-08')],
+            [['installment_stage' => 1, 'study_year' => 2, 'amount' => 1250000]]
+        );
+
+        $stage = $result['years'][1]['stages'][0];
+
+        $this->assertSame('paid', $stage['status']);
+        $this->assertSame('in_history', $stage['reason']);
+        $this->assertFalse($stage['is_partial']);
+        $this->assertSame(1250000, $stage['bill_amount']);
+        $this->assertSame([1], $result['current_year_stages_paid']);
+        $this->assertTrue($result['stage1_paid_for_current_year']);
+        $this->assertSame(2, $result['next_stage']['stage']);
+
+        // Without the installment amount the history cannot prove it whole: the bill wins.
+        $unknown = $this->payment(1, 2, '2026-09-08');
+        $unknown['installment_amount'] = null;
+        $result = $this->calculate([$this->payment(4, 1, '2026-05-14'), $unknown], [['installment_stage' => 1, 'study_year' => 2, 'amount' => 1250000]]);
+
+        $this->assertSame('unpaid', $result['years'][1]['stages'][0]['status']);
+        $this->assertFalse($result['stage1_paid_for_current_year']);
     }
 
     public function test_nothing_is_guessed_without_any_study_year(): void

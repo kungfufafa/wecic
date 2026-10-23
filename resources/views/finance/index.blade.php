@@ -792,10 +792,10 @@
                 }
             };
 
-            const loadFinance = async ({ force = false } = {}) => {
+            const loadFinance = async ({ force = false, background = false } = {}) => {
                 const [summaryResult, paymentsResult] = await Promise.allSettled([
-                    app.request('/api/finance/summary', { fresh: force }),
-                    app.request('/api/finance/payments', { fresh: force }),
+                    app.request('/api/finance/summary', { fresh: force, background }),
+                    app.request('/api/finance/payments', { fresh: force, background }),
                 ]);
 
                 if (summaryResult.status === 'fulfilled') {

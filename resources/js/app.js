@@ -1,6 +1,16 @@
 import { createPortalEcho } from './echo';
 import { csrfHeaders } from './csrf';
 import jsQR from 'jsqr';
+import * as actionItemRules from './lib/action-items.js';
+import * as announcementRules from './lib/announcements.js';
+import * as attendanceRules from './lib/attendance.js';
+import * as cacheRules from './lib/cache.js';
+import * as contactRules from './lib/contacts.js';
+import * as dateRules from './lib/dates.js';
+import * as formatRules from './lib/format.js';
+import * as httpRules from './lib/http.js';
+import * as offlineRules from './lib/offline.js';
+import * as urlRules from './lib/urls.js';
 
 class PortalApp {
     constructor() {
@@ -10,6 +20,10 @@ class PortalApp {
         this.isSyncing = false;
         this.cacheNamespace = 'mycic-cache-v3';
         this.authSnapshotKey = `${this.cacheNamespace}:auth`;
+        this.cacheOwnerKey = `${this.cacheNamespace}:owner`;
+        // Stored as the owner once a login dropped every earlier copy; an
+        // owner is a 32-character hex digest, so it never matches this.
+        this.clearedCacheOwner = 'cleared';
         this.themeStorageKey = 'mycic-theme';
         this.protectedPageCacheName = 'mycic-pages-v2';
         this.authRequest = null;
@@ -28,13 +42,22 @@ class PortalApp {
             busy: false,
             canvas: null,
             context: null,
+            opening: false,
+            openingSince: 0,
+            attempt: 0,
+            returnFocus: null,
         };
+        // A camera request the browser never settles (a permission prompt
+        // dismissed without an answer) stops blocking a new tap after this.
+        this.qrScannerOpeningLimitMs = 8000;
+        this.qrScannerOptions = new WeakMap();
         this.echo = null;
         this.echoChannel = null;
         this.realtimeConnected = false;
         this.isLoggingOut = false;
         this.quickQrTarget = null;
         this.quickQrEmptyMessage = null;
+        // Set by the meeting page once it opened the scanner for `?qr=1`.
         this.qrFromUrlHandled = false;
         this.backgroundRefreshTimer = null;
         this.activeOperations = new Map();
@@ -45,38 +68,12 @@ class PortalApp {
         this.operationPollLimitMs = 4 * 60 * 1000;
         this.realtimeRefreshTimers = new Map();
         this.actionItemsReloadTimer = null;
-        this.cachePolicies = [
-            { pattern: /^\/api\/dashboard$/, freshFor: 30 * 60 * 1000, retainFor: 7 * 24 * 60 * 60 * 1000, label: 'ringkasan dashboard' },
-            { pattern: /^\/api\/attendance\/today$/, freshFor: 15 * 60 * 1000, retainFor: 48 * 60 * 60 * 1000, label: 'shortcut hari ini' },
-            { pattern: /^\/api\/assignment\/pending$/, freshFor: 20 * 60 * 1000, retainFor: 48 * 60 * 60 * 1000, label: 'tugas belum dikumpulkan' },
-            { pattern: /^\/api\/profile$/, freshFor: 6 * 60 * 60 * 1000, retainFor: 14 * 24 * 60 * 60 * 1000, label: 'profil mahasiswa' },
-            { pattern: /^\/api\/class(?:\?.*)?$/, freshFor: 6 * 60 * 60 * 1000, retainFor: 14 * 24 * 60 * 60 * 1000, label: 'daftar kelas' },
-            { pattern: /^\/api\/lms\/class$/, freshFor: 6 * 60 * 60 * 1000, retainFor: 14 * 24 * 60 * 60 * 1000, label: 'kelas LMS' },
-            { pattern: /^\/api\/schedule\/class$/, freshFor: 6 * 60 * 60 * 1000, retainFor: 14 * 24 * 60 * 60 * 1000, label: 'jadwal kelas' },
-            { pattern: /^\/api\/class\/[^/?]+(?:\?.*)?$/, freshFor: 6 * 60 * 60 * 1000, retainFor: 14 * 24 * 60 * 60 * 1000, label: 'detail kelas' },
-            { pattern: /^\/api\/meeting\/[^/?]+(?:\?.*)?$/, freshFor: 6 * 60 * 60 * 1000, retainFor: 14 * 24 * 60 * 60 * 1000, label: 'detail meeting' },
-            { pattern: /^\/api\/exam$/, freshFor: 2 * 60 * 60 * 1000, retainFor: 7 * 24 * 60 * 60 * 1000, label: 'daftar ujian' },
-            { pattern: /^\/api\/exam\/[^/?]+$/, freshFor: 2 * 60 * 60 * 1000, retainFor: 7 * 24 * 60 * 60 * 1000, label: 'detail ujian' },
-            { pattern: /^\/api\/academic\/krs$/, freshFor: 15 * 60 * 1000, retainFor: 14 * 24 * 60 * 60 * 1000, label: 'KRS semester ini' },
-            { pattern: /^\/api\/academic\/krs\/\d+$/, freshFor: 6 * 60 * 60 * 1000, retainFor: 14 * 24 * 60 * 60 * 1000, label: 'detail KRS' },
-            { pattern: /^\/api\/academic\/advising$/, freshFor: 60 * 60 * 1000, retainFor: 14 * 24 * 60 * 60 * 1000, label: 'riwayat perwalian' },
-            { pattern: /^\/api\/academic\/grades$/, freshFor: 60 * 60 * 1000, retainFor: 14 * 24 * 60 * 60 * 1000, label: 'nilai semester' },
-            { pattern: /^\/api\/academic\/transcript$/, freshFor: 60 * 60 * 1000, retainFor: 14 * 24 * 60 * 60 * 1000, label: 'transkrip' },
-            { pattern: /^\/api\/announcement(?:\?.*)?$/, freshFor: 30 * 60 * 1000, retainFor: 7 * 24 * 60 * 60 * 1000, label: 'pengumuman' },
-            { pattern: /^\/api\/announcement\/[^/?]+$/, freshFor: 6 * 60 * 60 * 1000, retainFor: 7 * 24 * 60 * 60 * 1000, label: 'detail pengumuman' },
-            // Payment history is sensitive: kept on the device for at most 7 days.
-            { pattern: /^\/api\/finance\/summary$/, freshFor: 30 * 60 * 1000, retainFor: 7 * 24 * 60 * 60 * 1000, label: 'ringkasan keuangan' },
-            { pattern: /^\/api\/finance\/payments$/, freshFor: 30 * 60 * 1000, retainFor: 7 * 24 * 60 * 60 * 1000, label: 'riwayat pembayaran' },
-            { pattern: /^\/api\/skkm$/, freshFor: 30 * 60 * 1000, retainFor: 14 * 24 * 60 * 60 * 1000, label: 'poin SKKM' },
-            { pattern: /^\/api\/thesis$/, freshFor: 6 * 60 * 60 * 1000, retainFor: 14 * 24 * 60 * 60 * 1000, label: 'syarat & status skripsi' },
-            { pattern: /^\/api\/thesis\/readiness$/, freshFor: 60 * 60 * 1000, retainFor: 14 * 24 * 60 * 60 * 1000, label: 'kesiapan skripsi' },
-            { pattern: /^\/api\/library$/, freshFor: 24 * 60 * 60 * 1000, retainFor: 30 * 24 * 60 * 60 * 1000, label: 'perpustakaan digital' },
-            // Only the unfiltered first page is kept; searches and filters request with { cache: false }.
-            { pattern: /^\/api\/library\/theses$/, freshFor: 6 * 60 * 60 * 1000, retainFor: 14 * 24 * 60 * 60 * 1000, label: 'repositori skripsi' },
-            { pattern: /^\/api\/action-items$/, freshFor: 5 * 60 * 1000, retainFor: 2 * 24 * 60 * 60 * 1000, label: 'pusat tindakan' },
-            { pattern: /^\/api\/portal\/context$/, freshFor: 6 * 60 * 60 * 1000, retainFor: 14 * 24 * 60 * 60 * 1000, label: 'info periode & panduan' },
-            { pattern: /^\/api\/notifications$/, freshFor: 60 * 1000, retainFor: 7 * 24 * 60 * 60 * 1000, label: 'notifikasi' },
-        ];
+        // PortalSessionMiddleware::BACKGROUND_HEADER: a request the app makes on
+        // its own checks the session without counting as the student's activity.
+        this.backgroundRequestHeader = 'X-MyCIC-Background';
+        // Background work running its synchronous start; see runAsBackground().
+        this.backgroundWork = 0;
+        this.cachePolicies = cacheRules.CACHE_POLICIES;
         this.syncAliases = new Map();
         this.actionItems = null;
         this.actionItemsRequest = null;
@@ -88,9 +85,12 @@ class PortalApp {
         this.notificationUnreadCount = null;
         this.notificationToastBuffer = [];
         this.notificationToastTimer = null;
+        // public/offline.html counts its reload attempts here.
+        this.offlineRetryKey = 'mycic-offline-retry';
     }
 
     init() {
+        this.forgetOfflineRetries();
         this.restoreNotice();
         this.bindLogout();
         this.bindConnectionListeners();
@@ -103,8 +103,9 @@ class PortalApp {
         this.bindAccountMenu();
         this.bindThemeToggle();
         this.bindQuickQrAction();
-        this.bindRealtimeTestHook();
         this.bindContactSheetTriggers();
+        this.bindDownloadLinks();
+        this.bindHistoryRestore();
 
         if (document.body.dataset.auth !== 'guest') {
             const authSnapshot = this.getAuthSnapshot();
@@ -150,19 +151,54 @@ class PortalApp {
             return;
         }
 
+        const panel = modal.querySelector('[data-qr-scanner-panel]');
+
         this.qrScannerState.modal = {
+            // A dialog like the app sheet: focus moves in and stays there, the
+            // page behind stops scrolling, and focus returns on close.
             show: () => {
+                this.qrScannerState.returnFocus = document.activeElement instanceof HTMLElement && document.activeElement !== document.body
+                    ? document.activeElement
+                    : null;
                 modal.classList.remove('hidden');
                 modal.setAttribute('aria-hidden', 'false');
+                document.documentElement.classList.add('overflow-hidden');
+                (modal.querySelector('[data-qr-scanner-close]') || panel)?.focus();
             },
             hide: () => {
+                const returnFocus = this.qrScannerState.returnFocus;
+                const wasOpen = !modal.classList.contains('hidden');
+
+                this.qrScannerState.returnFocus = null;
                 modal.classList.add('hidden');
                 modal.setAttribute('aria-hidden', 'true');
+
+                if (!wasOpen) {
+                    return;
+                }
+
+                if (!this.sheetState.host || this.sheetState.host.classList.contains('hidden')) {
+                    document.documentElement.classList.remove('overflow-hidden');
+                }
+
+                if (returnFocus?.isConnected) {
+                    returnFocus.focus();
+                }
             },
         };
 
         modal.querySelector('[data-qr-scanner-close]')?.addEventListener('click', () => {
             void this.closeQrScanner();
+        });
+
+        modal.querySelector('[data-qr-scanner-backdrop]')?.addEventListener('click', () => {
+            void this.closeQrScanner();
+        });
+
+        modal.addEventListener('keydown', (event) => {
+            if (event.key === 'Tab') {
+                this.trapTabFocus(event, panel);
+            }
         });
 
         document.addEventListener('keydown', (event) => {
@@ -286,15 +322,8 @@ class PortalApp {
      */
     quickQrTargetFromCache() {
         const summary = this.getCachedResponse('/api/dashboard')?.payload?.data?.classes_summary;
-        const todayIso = new Date().toLocaleDateString('sv-SE');
 
-        if (!summary || !Array.isArray(summary.today_classes) || (summary.date && summary.date !== todayIso)) {
-            return undefined;
-        }
-
-        const scannable = summary.today_classes.find((klass) => klass.attendance?.actionable && klass.attendance?.meeting_url);
-
-        return scannable ? `${scannable.attendance.meeting_url}&qr=1` : null;
+        return attendanceRules.quickQrTargetFromSummary(summary, new Date().toLocaleDateString('sv-SE'));
     }
 
     /**
@@ -350,24 +379,6 @@ class PortalApp {
         }
 
         this.showNotice(this.quickQrEmptyMessage || 'Tidak ada absensi yang bisa diisi sekarang.', 'warning');
-    }
-
-    /**
-     * Open the QR scanner for an attendance input when the page was reached
-     * with `?qr=1` (the quick QR button), then drop the flag from the URL.
-     */
-    openQrScannerFromUrl(input) {
-        const url = new URL(window.location.href);
-
-        if (url.searchParams.get('qr') !== '1' || !input || this.qrFromUrlHandled) {
-            return;
-        }
-
-        this.qrFromUrlHandled = true;
-        url.searchParams.delete('qr');
-        window.history.replaceState({}, '', url.toString());
-        input.scrollIntoView({ block: 'center', behavior: 'smooth' });
-        void this.openQrScanner(input);
     }
 
     /**
@@ -589,7 +600,7 @@ class PortalApp {
             }
 
             this.initRealtime();
-            void this.runSyncHandlers();
+            void this.runSyncHandlers({ background: true });
 
             return;
         }
@@ -617,7 +628,12 @@ class PortalApp {
         aliases.filter(Boolean).forEach((alias) => this.syncAliases.set(alias, key));
     }
 
-    async runSyncHandlers({ force = false } = {}) {
+    /**
+     * `background`: the app re-reads on its own (a reconnect, a timer), not
+     * because the student asked. Each handler gets it and passes it on to the
+     * reads it makes; see runAsBackground().
+     */
+    async runSyncHandlers({ force = false, background = false } = {}) {
         if (this.isSyncing || !navigator.onLine || this.syncHandlers.size === 0) {
             return;
         }
@@ -630,7 +646,9 @@ class PortalApp {
 
         for (const handler of this.syncHandlers.values()) {
             try {
-                await handler({ force });
+                await (background
+                    ? this.runAsBackground(() => handler({ force, background }))
+                    : handler({ force }));
                 refreshedCount += 1;
             } catch (error) {
                 console.error('Sync handler failed', error);
@@ -645,13 +663,46 @@ class PortalApp {
         }
     }
 
-    async request(url, options = {}) {
+    /**
+     * Work the app starts on its own (a realtime event, a timer, a
+     * reconnect). Its reads carry the background header, so an open tab
+     * nobody touches never keeps the campus session from idling out.
+     *
+     * `task` gets `{ background: true }` to pass on to every read it makes
+     * (`request(url, { background })`). A read it starts before its first
+     * `await` is marked even without it. The scope deliberately ends there
+     * (`return`, not `return await`): JavaScript runs one piece of code at a
+     * time, so nothing the student does can start a read inside it, and a
+     * read the student starts while the task is still waiting stays the
+     * student's own.
+     */
+    async runAsBackground(task) {
+        this.backgroundWork += 1;
+
         try {
-            return await this.performRequest(url, options);
+            return task({ background: true });
+        } finally {
+            this.backgroundWork -= 1;
+        }
+    }
+
+    async request(url, options = {}) {
+        // Decided as the read starts: one begun by background work before it
+        // first waits is the app's own too (see runAsBackground()).
+        const requestOptions = this.backgroundWork > 0 ? { ...options, background: true } : options;
+
+        try {
+            return await this.performRequest(url, requestOptions);
         } finally {
             if (this.pendingQuickAttendance && new URL(url, window.location.origin).pathname === '/api/dashboard') {
                 // Runs after the page has rendered the dashboard it asked for.
-                window.setTimeout(() => this.resolvePendingQuickAttendance({ final: true }), 0);
+                // While today's attendance is still being checked the request
+                // stays open: a later dashboard read (or the 30 s timer) ends it.
+                window.setTimeout(() => {
+                    if (this.quickQrTargetFromCache() !== undefined) {
+                        this.resolvePendingQuickAttendance({ final: true });
+                    }
+                }, 0);
             }
         }
     }
@@ -677,12 +728,16 @@ class PortalApp {
             );
         }
 
+        // Only a read marked as the app's own carries the header; a POST is
+        // always the student's action and is never marked.
+        const background = method === 'GET' && options.background === true;
         const config = {
             method,
             credentials: 'same-origin',
             headers: {
                 Accept: 'application/json',
                 ...csrfHeaders(),
+                ...(background ? { [this.backgroundRequestHeader]: '1' } : {}),
                 ...(options.headers || {}),
             },
         };
@@ -696,10 +751,7 @@ class PortalApp {
             config.body = options.formData;
         }
 
-        // A slow campus portal must not leave the UI waiting forever.
-        const timeoutMs = options.timeout ?? (
-            method === 'GET' ? 30000 : (options.formData instanceof FormData ? 180000 : 60000)
-        );
+        const timeoutMs = httpRules.requestTimeoutMs(method, options);
         const controller = typeof AbortController === 'function' ? new AbortController() : null;
         let timedOut = false;
         const timeoutTimer = controller && timeoutMs > 0
@@ -715,34 +767,44 @@ class PortalApp {
 
         try {
             const response = await fetch(requestUrl.toString(), config);
+
+            // An answer arrived, so a "network error" earlier was a hiccup (an
+            // iOS app switch, a Wi-Fi handoff) the browser never reported as
+            // offline: the shell comes back online on its own.
+            if (this.onlineState === false && navigator.onLine) {
+                this.updateConnectionState(true, { announce: false });
+            }
+
             const contentType = response.headers.get('content-type') || '';
-            const payload = contentType.includes('application/json')
-                ? await response.json()
-                : null;
+            let payload = null;
+            let unreadable = false;
 
-            if (response.status === 401 && options.redirectOnAuth !== false && document.body.dataset.auth === 'required') {
-                this.clearAuthSnapshot();
-                this.storeNotice(payload?.message || 'Sesi kampus sudah berakhir.', 'error');
-                window.location.href = '/login';
+            if (contentType.includes('application/json')) {
+                try {
+                    payload = await response.json();
+                } catch (parseError) {
+                    if (!(parseError instanceof SyntaxError)) {
+                        throw parseError;
+                    }
+
+                    unreadable = true;
+                }
+            }
+
+            const outcome = httpRules.responseOutcome(response, payload, {
+                unreadable,
+                redirectOnAuth: options.redirectOnAuth,
+                authMode: document.body.dataset.auth,
+            });
+
+            if (outcome.action === 'login') {
+                this.sendToLogin(outcome.message, outcome.tone);
 
                 return null;
             }
 
-            // The app session (not the campus one) expired: the CSRF token no
-            // longer matches. "CSRF token mismatch" means nothing to a student.
-            if (response.status === 419 && options.redirectOnAuth !== false && document.body.dataset.auth === 'required') {
-                this.clearAuthSnapshot();
-                this.storeNotice('Sesi aplikasi sudah berakhir. Silakan masuk lagi.', 'warning');
-                window.location.href = '/login';
-
-                return null;
-            }
-
-            if (!response.ok) {
-                const error = new Error(payload?.message || `Request failed with status ${response.status}.`);
-                error.status = response.status;
-                error.payload = payload;
-                throw error;
+            if (outcome.action === 'fail') {
+                throw outcome.error;
             }
 
             if (cachePolicy && payload && typeof payload === 'object') {
@@ -787,12 +849,16 @@ class PortalApp {
         }
     }
 
-    async ensureAuthenticated({ force = false } = {}) {
+    /**
+     * `background`: the app checks on its own (a timer, a realtime event), so
+     * the check does not count as the student's activity.
+     */
+    async ensureAuthenticated({ force = false, background = false } = {}) {
         if (!force && this.authRequest) {
             return this.authRequest;
         }
 
-        this.authRequest = this.performAuthenticationCheck();
+        this.authRequest = this.performAuthenticationCheck({ background });
         const result = await this.authRequest;
 
         if (result || force) {
@@ -804,9 +870,9 @@ class PortalApp {
         return result;
     }
 
-    async performAuthenticationCheck() {
+    async performAuthenticationCheck({ background = false } = {}) {
         try {
-            const payload = await this.request('/api/auth/session');
+            const payload = await this.request('/api/auth/session', { background });
 
             if (!payload) {
                 return null;
@@ -815,20 +881,36 @@ class PortalApp {
             this.storeAuthSnapshot(payload);
             this.hydrateUser(payload);
 
-            return payload;
-        } catch (error) {
-            const authSnapshot = this.getAuthSnapshot();
-
-            if (error.isOffline && authSnapshot) {
-                this.hydrateUser(authSnapshot);
-                this.setSyncStatus('Offline. Identitas dan data terakhir tetap tersedia.', 'warning');
-
-                return authSnapshot;
+            if (payload?.data?.offline && payload.data.offline_reconnect) {
+                this.setPortalOfflineReconnect(payload.data.offline_reconnect);
             }
 
-            this.showNotice(error.payload?.message || error.message, error.isOffline ? 'warning' : 'error');
+            return payload;
+        } catch (error) {
+            if (error.status === 401 || error.status === 419) {
+                this.showNotice(error.payload?.message || error.message, 'error');
 
-            return null;
+                return null;
+            }
+
+            // The server checked this session when it served the page. A check
+            // that could not finish (offline, slow, a 5xx or a proxy error) must
+            // not leave the page unloaded: data requests still report their own
+            // errors and send an ended session to the login page.
+            const authSnapshot = this.getAuthSnapshot();
+
+            if (authSnapshot) {
+                this.hydrateUser(authSnapshot);
+            }
+
+            this.setSyncStatus(
+                error.isOffline
+                    ? 'Offline. Identitas dan data terakhir tetap tersedia.'
+                    : 'Sesi belum bisa diperiksa ulang. Data tetap dimuat bila server siap.',
+                'warning'
+            );
+
+            return authSnapshot || { status: 'unverified', data: null };
         }
     }
 
@@ -860,8 +942,109 @@ class PortalApp {
     }
 
     handleLoginSuccess(payload) {
+        // A login never inherits what an earlier session left on this device:
+        // the portal's user_info is often empty, so identities cannot be compared.
+        this.clearCachedResponses();
+        this.clearProtectedPageCache();
         this.storeAuthSnapshot(payload);
+        this.markDeviceCacheCleared();
         this.hydrateUser(payload);
+    }
+
+    /**
+     * The server shows the login page only when no session is valid, so the
+     * device copies of the session that ended (it may have idled out without
+     * Keluar) are dropped. A copy of this page opened offline keeps them.
+     */
+    forgetEndedSession() {
+        if (!navigator.onLine) {
+            return;
+        }
+
+        try {
+            this.clearOfflineData();
+            this.markDeviceCacheCleared();
+        } catch (error) {
+            // Storage blocked: nothing is kept on this device anyway.
+        }
+    }
+
+    /**
+     * Nothing from an earlier student is left on the device: the next
+     * signed-in page claims it without clearing, so it keeps the auth snapshot
+     * of the login and the copy of itself the service worker just stored.
+     */
+    markDeviceCacheCleared() {
+        try {
+            localStorage.setItem(this.cacheOwnerKey, this.clearedCacheOwner);
+        } catch (error) {
+            // Storage blocked: the next page does not see the mark and clears again.
+        }
+    }
+
+    /**
+     * Device copies belong to one student. The layout names the owner of the
+     * signed-in session, and copies left by anyone else (a shared lab PC where
+     * the previous student never pressed Keluar) are dropped before a page can
+     * render them. A device with no owner yet (copies kept before owners were
+     * recorded) counts as anyone else; one just cleared for a login does not.
+     * Runs when the bundle loads, ahead of the pages' scripts.
+     */
+    isolateDeviceCache() {
+        const owner = document.body?.dataset.cacheOwner || '';
+
+        if (owner === '') {
+            return;
+        }
+
+        try {
+            const claim = cacheRules.deviceCacheClaim(owner, localStorage.getItem(this.cacheOwnerKey), this.clearedCacheOwner);
+
+            if (claim.clear) {
+                this.clearOfflineData();
+            }
+
+            if (claim.store) {
+                localStorage.setItem(this.cacheOwnerKey, owner);
+            }
+        } catch (error) {
+            // Storage blocked: nothing from another student can be read either.
+        }
+    }
+
+    /**
+     * A page restored from the back/forward cache comes back as it was
+     * rendered, without asking the server. After Keluar, or once another
+     * student signed in, it is hidden and reloaded so the server decides.
+     */
+    bindHistoryRestore() {
+        window.addEventListener('pageshow', (event) => {
+            if (!event.persisted || document.body.dataset.auth !== 'required') {
+                return;
+            }
+
+            let sessionEnded = true;
+
+            try {
+                const owner = document.body.dataset.cacheOwner || '';
+
+                sessionEnded = !this.getAuthSnapshot()
+                    || (owner !== '' && localStorage.getItem(this.cacheOwnerKey) !== owner);
+            } catch (error) {
+                sessionEnded = true;
+            }
+
+            if (sessionEnded) {
+                document.body.hidden = true;
+                window.location.reload();
+
+                return;
+            }
+
+            if (navigator.onLine) {
+                void this.ensureAuthenticated({ force: true });
+            }
+        });
     }
 
     bindLogout() {
@@ -874,31 +1057,49 @@ class PortalApp {
                 this.isLoggingOut = true;
                 this.setSyncStatus('Keluar dari akun... portal kampus sedang menutup sesi.', 'info');
 
+                let loggedOut = false;
+
                 await this.withSubmitLoading(button, async () => {
                     try {
+                        // The server closes the portal session with up to two
+                        // 10 s calls; the wait covers them.
                         const payload = await this.request('/api/auth/logout', {
                             method: 'POST',
                             json: {},
                             redirectOnAuth: false,
-                            timeout: 20000,
+                            timeout: 45000,
                         });
 
                         this.storeNotice(payload?.message || 'Kamu sudah keluar dari akun.', 'success');
+                        loggedOut = true;
                     } catch (error) {
-                        this.storeNotice('Kamu sudah keluar dari perangkat ini.', 'warning');
+                        // 401/419: the app session is already gone (expired, or
+                        // ended in another tab), so nothing is left to close.
+                        if (error.status === 401 || error.status === 419) {
+                            this.storeNotice('Kamu sudah keluar dari akun.', 'success');
+                            loggedOut = true;
+
+                            return;
+                        }
+
+                        // Rate limit, server error, timeout or offline: the
+                        // session is still open, so the student must not be
+                        // told otherwise on a shared device.
+                        this.showNotice(`Belum berhasil keluar. ${this.describeError(error, 'Coba lagi sebentar lagi.')}`, 'error');
                     }
                 });
+
+                if (!loggedOut) {
+                    this.isLoggingOut = false;
+                    this.setSyncStatus('Belum berhasil keluar. Sesi masih aktif di perangkat ini.', 'warning');
+
+                    return;
+                }
 
                 this.disconnectRealtime();
                 this.clearOfflineData();
                 window.location.href = '/login';
             });
-        });
-    }
-
-    bindRealtimeTestHook() {
-        window.addEventListener('portal:test-session-notice', (event) => {
-            this.handleSessionNotice(event.detail || {});
         });
     }
 
@@ -940,8 +1141,85 @@ class PortalApp {
             })
             .error(() => {
                 this.realtimeConnected = false;
-                this.setRealtimeStatus('Pembaruan otomatis tidak tersedia. Data dicek berkala.', 'warning');
+                this.setRealtimeStatus('Pembaruan otomatis tidak tersedia.', 'warning');
             });
+        this.watchRealtimeConnection(this.echo);
+    }
+
+    /**
+     * The socket can drop without the browser going offline (a locked phone,
+     * a Reverb restart). The chip follows the connection, and after a
+     * reconnect whatever was broadcast meanwhile (and lost) is read again.
+     */
+    watchRealtimeConnection(echo) {
+        const connection = echo?.connector?.pusher?.connection;
+
+        if (!connection || typeof connection.bind !== 'function') {
+            return;
+        }
+
+        let dropped = false;
+
+        connection.bind('state_change', ({ previous, current } = {}) => {
+            // Ignore an instance this page already closed (offline, logout).
+            if (this.echo !== echo || current === 'disconnected') {
+                return;
+            }
+
+            if (current === 'connected') {
+                if (dropped) {
+                    dropped = false;
+                    void this.catchUpAfterRealtimeGap();
+                }
+
+                return;
+            }
+
+            if (previous === 'connected' || current === 'unavailable') {
+                dropped = true;
+            }
+
+            this.realtimeConnected = false;
+
+            if (current === 'unavailable' || current === 'failed') {
+                this.setRealtimeStatus('Pembaruan otomatis tidak tersedia.', 'warning');
+            } else if (current === 'connecting' && dropped) {
+                this.setRealtimeStatus('Menyambung ulang pembaruan otomatis...', 'warning');
+            }
+        });
+    }
+
+    /**
+     * Events broadcast while the socket was down are not replayed: the bell
+     * count is read again, and so is the page, unless the student is in the
+     * middle of filling a form a re-render would wipe.
+     */
+    async catchUpAfterRealtimeGap() {
+        void this.loadNotificationCount();
+
+        if (this.hasUnsentFormInput()) {
+            return;
+        }
+
+        await this.runSyncHandlers({ force: false, background: true });
+    }
+
+    /**
+     * Whether a form on the page holds input the student has not sent yet
+     * (a typed code, a chosen file).
+     */
+    hasUnsentFormInput() {
+        return Array.from(document.querySelectorAll('form input, form textarea')).some((field) => {
+            if (field.type === 'file') {
+                return (field.files?.length || 0) > 0;
+            }
+
+            if (['hidden', 'checkbox', 'radio', 'button', 'submit', 'reset'].includes(field.type)) {
+                return false;
+            }
+
+            return field.value !== field.defaultValue;
+        });
     }
 
     disconnectRealtime() {
@@ -961,6 +1239,12 @@ class PortalApp {
         // Detail pages show a single parameterized dataset: rebuilding it
         // inline is cheap and needs the page's own parameters.
         if (domains.length === 0) {
+            if (this.syncHandlers.size === 0) {
+                this.setSyncStatus('Halaman ini tidak punya data untuk disinkronkan.', 'info');
+
+                return;
+            }
+
             await this.runSyncHandlers({ force: true });
 
             return;
@@ -993,7 +1277,7 @@ class PortalApp {
         this.backgroundRefreshTimer = window.setTimeout(() => {
             this.finishBackgroundRefresh();
             // No realtime confirmation arrived: re-read the snapshots anyway.
-            void this.runSyncHandlers({ force: false });
+            void this.runSyncHandlers({ force: false, background: true });
         }, 90000);
     }
 
@@ -1031,9 +1315,18 @@ class PortalApp {
             'library-index': ['library', 'thesis_repository'],
             'library-theses': ['thesis_repository'],
             'more-index': ['portal_context', 'payments', 'announcements', 'skkm'],
+            // Pages over MyCIC's own data: the button re-reads them directly.
+            'notification-index': [],
+            'archive-index': [],
+            'archive-show': [],
+            'notebook-index': [],
+            'notebook-show': [],
+            password: [],
         };
 
-        return this.filterRefreshableDomains(pageDomains[page] ?? ['dashboard']);
+        // An unlisted page re-reads its own handlers rather than paying a
+        // portal scrape for a dataset (the dashboard) it never shows.
+        return this.filterRefreshableDomains(pageDomains[page] ?? []);
     }
 
     /**
@@ -1069,7 +1362,7 @@ class PortalApp {
             // reuse this request instead of asking again.
             window.clearTimeout(this.actionItemsReloadTimer);
             this.actionItemsReloadTimer = window.setTimeout(() => {
-                void this.loadActionItems({ force: true });
+                void this.loadActionItems({ force: true, background: true });
             }, 100);
         }
 
@@ -1087,9 +1380,10 @@ class PortalApp {
                 const handler = this.syncHandlers.get(syncKey);
 
                 // The server already re-synced the snapshot behind this
-                // view; re-reading it must not trigger another portal scrape.
+                // view; re-reading it must not trigger another portal scrape,
+                // nor count as the student's activity.
                 if (handler) {
-                    void handler({ force: false });
+                    void this.runAsBackground(() => handler({ force: false, background: true }));
                 }
             }, 250));
         });
@@ -1112,11 +1406,40 @@ class PortalApp {
             return;
         }
 
+        if (payload?.status === 'offline_resume_unavailable') {
+            this.setPortalOfflineReconnect('portal_back', payload?.message);
+
+            return;
+        }
+
         if (payload?.status === 'logged_out' || payload?.status === 'manual_relogin_required') {
             this.clearAuthSnapshot();
             this.disconnectRealtime();
             window.location.href = '/login';
         }
+    }
+
+    /**
+     * How the offline session reconnects (`data-portal-offline-reconnect`,
+     * kept current from session checks and notices), told to the student.
+     */
+    portalOfflineReconnectMessage() {
+        return offlineRules.offlineReconnectMessage(document.body?.dataset.portalOfflineReconnect);
+    }
+
+    /**
+     * Records a new reconnect mode and rewrites the offline banner's sentence,
+     * with the server's own wording when a notice carried one.
+     */
+    setPortalOfflineReconnect(mode, message = null) {
+        if (!document.body || !offlineRules.isOfflineReconnectMode(mode)) {
+            return;
+        }
+
+        document.body.dataset.portalOfflineReconnect = mode;
+        document.querySelectorAll('[data-portal-offline-reconnect-text]').forEach((element) => {
+            element.textContent = message || offlineRules.offlineReconnectMessage(mode);
+        });
     }
 
     /**
@@ -1190,9 +1513,13 @@ class PortalApp {
         }
     }
 
+    /**
+     * Read on its own (after the page loaded, after a reconnect), so it never
+     * counts as the student's activity.
+     */
     async loadNotificationCount() {
         try {
-            const payload = await this.request('/api/notifications/unread-count', { redirectOnAuth: false, timeout: 15000 });
+            const payload = await this.request('/api/notifications/unread-count', { redirectOnAuth: false, timeout: 15000, background: true });
 
             this.setNotificationUnreadCount(payload?.data?.unread_count);
         } catch (error) {
@@ -1221,7 +1548,7 @@ class PortalApp {
 
         const current = this.activeOperations.get(operationId);
         const percent = payload.percent || this.percentForStage(payload.status);
-        const isFinal = payload.status === 'completed' || payload.status === 'failed';
+        const isFinal = ['completed', 'failed', 'unverified'].includes(payload.status);
 
         if (!isFinal && current && percent < current.percent) {
             return;
@@ -1251,11 +1578,22 @@ class PortalApp {
             this.showNotice(failureMessage, 'error');
             this.finishOperation(operationId, 'failed');
         }
+
+        // The portal neither confirmed nor refused the file: the student
+        // checks the page (re-read below) before uploading again.
+        if (payload.status === 'unverified') {
+            const message = payload.message || 'Status upload belum pasti.';
+
+            this.showNotice(payload.next_step ? `${message} ${payload.next_step}` : message, 'warning');
+            this.handleRealtimePayload({ ...payload, urgency: payload.urgency || 'warning' });
+            this.finishOperation(operationId, 'unknown');
+        }
     }
 
     /**
      * Follow a background operation until it completes or fails. Resolves
-     * with 'completed', 'failed' or 'unknown' (status could not be read).
+     * with 'completed', 'failed' or 'unknown' (status could not be read, or
+     * the portal left the upload unverified).
      */
     trackOperation(operationId, label, { startedAt = Date.now(), announce = true } = {}) {
         // A realtime event can report the outcome before the upload request
@@ -1312,17 +1650,32 @@ class PortalApp {
         }
 
         try {
+            // A timer polls this, not the student: the upload itself counted.
             const payload = await this.request(`/api/operations/${encodeURIComponent(operationId)}`, {
                 timeout: 10000,
                 redirectOnAuth: false,
+                background: true,
             });
 
             if (payload?.data) {
                 this.handleUploadProgress({ ...payload.data, operation_id: operationId });
             }
         } catch (error) {
-            if (error.status === 404 || error.status === 401) {
+            const label = waiter.label.toLowerCase();
+
+            // The campus session ended (often the upload itself hit the
+            // portal's login page): the outcome can only be checked after
+            // signing in again.
+            if (error.status === 401) {
                 this.finishOperation(operationId, 'unknown');
+                this.sendToLogin(`Sesi kampus berakhir sebelum status ${label} terbaca. Masuk lagi lalu cek apakah file sudah terkirim.`, 'warning');
+
+                return;
+            }
+
+            if (error.status === 404) {
+                this.finishOperation(operationId, 'unknown');
+                this.showNotice(`Status ${label} tidak ditemukan lagi. Cek halaman tugas atau ujian untuk memastikan file sudah terkirim.`, 'warning');
 
                 return;
             }
@@ -1424,6 +1777,7 @@ class PortalApp {
             submission_saved: 100,
             completed: 100,
             failed: 100,
+            unverified: 100,
         }[stage] || 10;
     }
 
@@ -1435,8 +1789,10 @@ class PortalApp {
             return;
         }
 
+        const tone = { failed: 'danger', unverified: 'warning' }[operation.status] || 'info';
+
         host.innerHTML = `
-            <div class="mycic-alert-info">
+            <div class="${this.alertTone(tone)}">
                 <div class="flex items-center justify-between gap-3">
                     <span>${this.escapeHtml(operation.message)}</span>
                     <span>${operation.percent}%</span>
@@ -1506,6 +1862,15 @@ class PortalApp {
         localStorage.removeItem(this.authSnapshotKey);
         this.clearCachedResponses();
         this.clearProtectedPageCache();
+    }
+
+    /**
+     * The session ended: its device copies go, and the login page says why.
+     */
+    sendToLogin(message, tone = 'error') {
+        this.clearAuthSnapshot();
+        this.storeNotice(message, tone);
+        window.location.href = '/login';
     }
 
     clearCachedResponses() {
@@ -1602,38 +1967,15 @@ class PortalApp {
     }
 
     extractAttendanceCode(value) {
-        const normalizedValue = String(value || '').trim();
+        return attendanceRules.extractAttendanceCode(value);
+    }
 
-        if (normalizedValue === '') {
-            return null;
-        }
+    meetingAttendanceView(attendanceInfo, meetingDay, todayIso) {
+        return attendanceRules.meetingAttendanceView(attendanceInfo, meetingDay, todayIso);
+    }
 
-        const codeCandidates = Array.from(normalizedValue.matchAll(/[a-f\d]{8,64}/gi))
-            .map((match) => ({
-                value: match[0],
-                index: match.index ?? Number.MAX_SAFE_INTEGER,
-                hasHexLetters: /[a-f]/i.test(match[0]),
-                isHinted: /(?:kode|unix|qr|code)[^a-f\d]{0,20}$/i.test(normalizedValue.slice(Math.max(0, (match.index ?? 0) - 20), match.index ?? 0)),
-            }))
-            .sort((left, right) => {
-                if (left.isHinted !== right.isHinted) {
-                    return left.isHinted ? -1 : 1;
-                }
-
-                if (left.hasHexLetters !== right.hasHexLetters) {
-                    return left.hasHexLetters ? -1 : 1;
-                }
-
-                return left.index - right.index;
-            });
-
-        const code = codeCandidates[0]?.value;
-
-        if (!code) {
-            return null;
-        }
-
-        return code.slice(0, 8).toLowerCase();
+    todayAttendanceNote(status) {
+        return attendanceRules.todayAttendanceNote(status);
     }
 
     fillAttendanceCode(input, rawValue) {
@@ -1791,6 +2133,29 @@ class PortalApp {
             return;
         }
 
+        // One camera at a time: a second tap while the camera starts says so.
+        // A request the browser never settled (a permission prompt dismissed
+        // without an answer) is given up after a while, so a tap can retry;
+        // its stream, should it still arrive, is stopped as stale.
+        if (this.qrScannerState.stream) {
+            return;
+        }
+
+        if (this.qrScannerState.opening && Date.now() - this.qrScannerState.openingSince < this.qrScannerOpeningLimitMs) {
+            this.showNotice('Kamera sedang dibuka. Izinkan akses kamera bila diminta.', 'info');
+
+            return;
+        }
+
+        // Shortcuts (the Absen button, ?qr=1, ?absen=1) scan with what the
+        // page bound to this input, so a scan sends attendance from anywhere.
+        const scanOptions = { ...this.qrScannerOptionsFor(input), ...options };
+        const attempt = this.qrScannerState.attempt + 1;
+
+        this.qrScannerState.attempt = attempt;
+        this.qrScannerState.opening = true;
+        this.qrScannerState.openingSince = Date.now();
+
         try {
             const stream = await navigator.mediaDevices.getUserMedia({
                 video: {
@@ -1799,6 +2164,13 @@ class PortalApp {
                 audio: false,
             });
 
+            // Closed while the camera was starting: release it right away.
+            if (attempt !== this.qrScannerState.attempt) {
+                stream.getTracks().forEach((track) => track.stop());
+
+                return;
+            }
+
             this.qrScannerState.stream = stream;
             this.qrScannerState.input = input;
             this.qrScannerState.busy = false;
@@ -1806,11 +2178,15 @@ class PortalApp {
             video.srcObject = stream;
             await video.play();
 
+            if (attempt !== this.qrScannerState.attempt) {
+                return;
+            }
+
             this.qrScannerState.modal?.show();
             this.setQrScannerStatus('Arahkan kamera ke QR absensi untuk mengambil 8 karakter pertama kode.');
 
             const scanFrame = async () => {
-                if (!this.qrScannerState.stream) {
+                if (!this.qrScannerState.stream || attempt !== this.qrScannerState.attempt) {
                     return;
                 }
 
@@ -1833,7 +2209,7 @@ class PortalApp {
 
                         if (rawValue && this.fillAttendanceCode(input, rawValue)) {
                             await this.closeQrScanner();
-                            options.onDetected?.(input.value, {
+                            scanOptions.onDetected?.(input.value, {
                                 source: 'camera',
                                 input,
                             });
@@ -1854,14 +2230,36 @@ class PortalApp {
 
             await scanFrame();
         } catch (error) {
+            // Closed meanwhile (play() is aborted when the stream goes away).
+            if (attempt !== this.qrScannerState.attempt) {
+                return;
+            }
+
             this.showNotice('Kamera tidak bisa dibuka. Pastikan izin kamera diberikan.', 'error');
             await this.closeQrScanner();
+        } finally {
+            if (attempt === this.qrScannerState.attempt) {
+                this.qrScannerState.opening = false;
+            }
         }
+    }
+
+    /**
+     * What a scan into this input does, as the page bound it with
+     * bindAttendanceQrTools (the page's form handler sends the attendance).
+     * An input the page never bound is only filled in.
+     */
+    qrScannerOptionsFor(input) {
+        return (input && this.qrScannerOptions.get(input)) || {};
     }
 
     async closeQrScanner({ preserveHiddenState = false } = {}) {
         const modal = document.querySelector('[data-qr-scanner-modal]');
         const video = modal?.querySelector('[data-qr-scanner-video]');
+
+        // A camera still starting is released as soon as it arrives.
+        this.qrScannerState.attempt += 1;
+        this.qrScannerState.opening = false;
 
         if (this.qrScannerState.rafId) {
             window.cancelAnimationFrame(this.qrScannerState.rafId);
@@ -1902,6 +2300,10 @@ class PortalApp {
     bindAttendanceQrTools(container, input, options = {}) {
         const scanButton = container.querySelector('[data-qr-scan]');
         const fileInput = container.querySelector('[data-qr-file]');
+
+        if (input) {
+            this.qrScannerOptions.set(input, options);
+        }
 
         scanButton?.addEventListener('click', async () => {
             await this.openQrScanner(input, options);
@@ -2019,35 +2421,19 @@ class PortalApp {
     }
 
     resolveCachePolicy(requestUrl, method, options) {
-        if (options.cache === false || method !== 'GET' || requestUrl.origin !== window.location.origin) {
-            return null;
-        }
-
-        const key = `${requestUrl.pathname}${requestUrl.search}`;
-
-        return this.cachePolicies.find((policy) => policy.pattern.test(key) || policy.pattern.test(requestUrl.pathname)) || null;
+        return cacheRules.resolveCachePolicy(this.cachePolicies, requestUrl, method, options, window.location.origin);
     }
 
     buildRequestUrl(url, options = {}) {
-        const requestUrl = new URL(url, window.location.origin);
-
-        if (options.fresh === true) {
-            requestUrl.searchParams.set('fresh', '1');
-        }
-
-        return requestUrl;
+        return cacheRules.buildRequestUrl(url, options, window.location.origin);
     }
 
     normalizeCacheUrl(requestUrl) {
-        const normalizedUrl = new URL(requestUrl.toString());
-
-        normalizedUrl.searchParams.delete('fresh');
-
-        return normalizedUrl;
+        return cacheRules.normalizeCacheUrl(requestUrl);
     }
 
     buildCacheKey(requestUrl) {
-        return `${this.cacheNamespace}:response:${requestUrl.pathname}${requestUrl.search}`;
+        return cacheRules.buildCacheKey(this.cacheNamespace, requestUrl);
     }
 
     /**
@@ -2056,26 +2442,18 @@ class PortalApp {
      */
     writeCachedResponse(requestUrl, payload, policy) {
         try {
-            const now = Date.now();
-            const cacheKey = this.buildCacheKey(requestUrl);
-
-            localStorage.setItem(cacheKey, JSON.stringify({
-                payload,
-                cached_at: new Date(now).toISOString(),
-                fresh_until: new Date(now + policy.freshFor).toISOString(),
-                expires_at: new Date(now + policy.retainFor).toISOString(),
-                label: policy.label,
-            }));
+            localStorage.setItem(this.buildCacheKey(requestUrl), JSON.stringify(cacheRules.createCacheRecord(payload, policy)));
         } catch (error) {
             // Storage full or blocked: the copy is a convenience, skip it.
         }
     }
 
     readCachedResponse(requestUrl) {
+        const cacheKey = this.buildCacheKey(requestUrl);
         let rawRecord = null;
 
         try {
-            rawRecord = localStorage.getItem(this.buildCacheKey(requestUrl));
+            rawRecord = localStorage.getItem(cacheKey);
         } catch (error) {
             return null;
         }
@@ -2084,31 +2462,17 @@ class PortalApp {
             return null;
         }
 
-        try {
-            const record = JSON.parse(rawRecord);
-            const expiresAt = new Date(record.expires_at).getTime();
+        const record = cacheRules.readCacheRecord(rawRecord);
 
-            if (Number.isNaN(expiresAt) || Date.now() > expiresAt) {
-                localStorage.removeItem(this.buildCacheKey(requestUrl));
-
-                return null;
-            }
-
-            const freshUntil = new Date(record.fresh_until).getTime();
-
-            return {
-                ...record,
-                isStale: Number.isNaN(freshUntil) ? true : Date.now() > freshUntil,
-            };
-        } catch (error) {
+        if (!record) {
             try {
-                localStorage.removeItem(this.buildCacheKey(requestUrl));
-            } catch (removeError) {
+                localStorage.removeItem(cacheKey);
+            } catch (error) {
                 // Storage blocked: ignore.
             }
-
-            return null;
         }
+
+        return record;
     }
 
     pruneExpiredCacheEntries() {
@@ -2126,64 +2490,33 @@ class PortalApp {
             }
 
             try {
-                const record = JSON.parse(localStorage.getItem(key) || '{}');
-                const expiresAt = new Date(record.expires_at).getTime();
-
-                if (Number.isNaN(expiresAt) || Date.now() > expiresAt) {
+                if (!cacheRules.readCacheRecord(localStorage.getItem(key) || '{}')) {
                     localStorage.removeItem(key);
                 }
             } catch (error) {
-                try {
-                    localStorage.removeItem(key);
-                } catch (removeError) {
-                    // Storage blocked: ignore.
-                }
+                // Storage blocked: ignore.
             }
         });
     }
 
     decorateCachedPayload(record, mode) {
-        if (!record?.payload || typeof record.payload !== 'object' || Array.isArray(record.payload)) {
-            return record?.payload ?? null;
-        }
-
-        const payload = JSON.parse(JSON.stringify(record.payload));
-        const currentMeta = payload.meta && typeof payload.meta === 'object' ? payload.meta : {};
-
-        payload.meta = {
-            ...currentMeta,
-            offline_cache: true,
-            cache_mode: mode,
-            cached_at: record.cached_at,
-            cache_is_stale: record.isStale,
-            data_origin: 'device_cache',
-        };
-
-        return payload;
+        return cacheRules.decorateCachedPayload(record, mode);
     }
 
     isLikelyNetworkError(error) {
-        return error instanceof TypeError || error?.name === 'AbortError';
+        return httpRules.isLikelyNetworkError(error);
     }
 
     createTimeoutError(message) {
-        const error = new Error(message);
-        error.isTimeout = true;
-        error.status = 0;
-
-        return error;
+        return httpRules.createTimeoutError(message);
     }
 
     createOfflineError(message) {
-        const error = new Error(message);
-        error.isOffline = true;
-        error.status = 0;
-
-        return error;
+        return httpRules.createOfflineError(message);
     }
 
     buildOfflineCacheMessage(label, isStale) {
-        return `Menampilkan ${label} terakhir${isStale ? ' yang mungkin sudah lama' : ''}.`;
+        return cacheRules.buildOfflineCacheMessage(label, isStale);
     }
 
     /**
@@ -2245,33 +2578,12 @@ class PortalApp {
     }
 
     portalDataTime(payload) {
-        if (payload?.meta?.synced_at) {
-            const synced = new Date(payload.meta.synced_at);
-            if (!Number.isNaN(synced.getTime())) {
-                return synced;
-            }
-        }
-
-        const entries = payload?.data;
-
-        if (!entries || typeof entries !== 'object') {
-            return null;
-        }
-
-        for (const value of Object.values(entries)) {
-            if (value && typeof value === 'object' && value.extracted_at) {
-                const extracted = new Date(value.extracted_at);
-
-                return Number.isNaN(extracted.getTime()) ? null : extracted;
-            }
-        }
-
-        return null;
+        return dateRules.portalDataTime(payload);
     }
 
     requireOnlineAction(message = 'Fitur ini butuh koneksi internet.') {
         if (this.isPortalOfflineSession()) {
-            this.showNotice('Kamu sedang di mode offline. MyCIC menyambung lagi otomatis begitu portal kampus bisa diakses.', 'warning');
+            this.showNotice(`Kamu sedang di mode offline. ${this.portalOfflineReconnectMessage()}`, 'warning');
 
             return false;
         }
@@ -2312,11 +2624,7 @@ class PortalApp {
     }
 
     capitalize(value) {
-        if (!value) {
-            return '';
-        }
-
-        return String(value).charAt(0).toUpperCase() + String(value).slice(1);
+        return formatRules.capitalize(value);
     }
 
     alertTone(type = 'secondary') {
@@ -2498,16 +2806,8 @@ class PortalApp {
     /**
      * Message for a failed request, as a student should read it.
      */
-    describeError(error, fallback = 'Terjadi kesalahan saat memuat data.') {
-        if (error?.isOffline) {
-            return 'Kamu sedang offline. Sambungkan internet lalu coba lagi.';
-        }
-
-        if (error?.isTimeout) {
-            return 'Portal kampus lambat merespons. Coba lagi sebentar lagi.';
-        }
-
-        return error?.payload?.message || error?.message || fallback;
+    describeError(error, fallback) {
+        return httpRules.describeError(error, fallback);
     }
 
     renderEmptyState(message, type = 'secondary', subtitle = '') {
@@ -2529,6 +2829,18 @@ class PortalApp {
 
     storeNotice(message, type = 'info') {
         sessionStorage.setItem('portal-notice', JSON.stringify({ message, type }));
+    }
+
+    /**
+     * A page of the app loaded, so the server answers again: the offline
+     * page's next retries start from the shortest wait.
+     */
+    forgetOfflineRetries() {
+        try {
+            sessionStorage.removeItem(this.offlineRetryKey);
+        } catch (error) {
+            // Storage blocked: the offline page could not count either.
+        }
     }
 
     restoreNotice() {
@@ -2657,183 +2969,104 @@ class PortalApp {
     }
 
     absoluteCampusUrl(path) {
-        if (!path) {
-            return null;
-        }
-
-        const rawPath = String(path).trim();
-
-        if (rawPath === '') {
-            return null;
-        }
-
-        let normalizedPath = rawPath;
-
-        try {
-            const parsed = new URL(rawPath);
-
-            if (parsed.origin === this.campusBase && /^\/files\//i.test(parsed.pathname)) {
-                parsed.pathname = `/portal${parsed.pathname}`;
-
-                return parsed.toString();
-            }
-
-            return parsed.toString();
-        } catch (error) {
-            // Continue normalizing relative paths below.
-        }
-
-        if (/^(?:(?:\.\.\/)+|\.\/)?files\//i.test(normalizedPath)) {
-            normalizedPath = `/portal/${normalizedPath.replace(/^(?:(?:\.\.\/)+|\.\/)?/i, '')}`;
-        } else if (/^\/files\//i.test(normalizedPath)) {
-            normalizedPath = `/portal${normalizedPath}`;
-        }
-
-        try {
-            return new URL(normalizedPath, this.campusBase).toString();
-        } catch (error) {
-            return normalizedPath;
-        }
+        return urlRules.absoluteCampusUrl(path, this.campusBase);
     }
 
-    buildCampusDownloadUrl(path, filename = null, { disposition = null } = {}) {
-        if (!path) {
-            return null;
+    buildCampusDownloadUrl(path, filename, options) {
+        return urlRules.buildCampusDownloadUrl(path, filename, options);
+    }
+
+    /**
+     * Download links (buildCampusDownloadUrl) answer a failure with JSON, so
+     * opened in the app's own tab they would replace the page with it. They
+     * are held back when they cannot work, and otherwise open in a new tab:
+     * a file still downloads, an error no longer takes the app with it.
+     * The installed app keeps them in its own window: on iOS a new tab opens
+     * in a browser that does not share the app's cookies, so the download
+     * would arrive signed out.
+     */
+    bindDownloadLinks() {
+        document.addEventListener('click', (event) => {
+            const link = event.target instanceof Element ? event.target.closest('a[href]') : null;
+
+            if (!link) {
+                return;
+            }
+
+            let url;
+
+            try {
+                url = new URL(link.getAttribute('href'), window.location.origin);
+            } catch (error) {
+                return;
+            }
+
+            if (url.origin !== window.location.origin || url.pathname !== '/api/support/download') {
+                return;
+            }
+
+            if (this.isPortalOfflineSession() || !navigator.onLine) {
+                event.preventDefault();
+                this.showNotice(
+                    this.isPortalOfflineSession()
+                        ? `Unduhan belum tersedia di mode offline. ${this.portalOfflineReconnectMessage()}`
+                        : 'Unduhan butuh koneksi internet.',
+                    'warning'
+                );
+
+                return;
+            }
+
+            if (!link.target && !link.hasAttribute('download') && !this.isInstalledApp()) {
+                link.target = '_blank';
+                link.rel = 'noopener';
+            }
+        }, true);
+    }
+
+    /**
+     * Whether MyCIC runs as the installed (home-screen) app rather than in a
+     * browser tab.
+     */
+    isInstalledApp() {
+        try {
+            return window.navigator.standalone === true
+                || Boolean(window.matchMedia?.('(display-mode: standalone)').matches);
+        } catch (error) {
+            return false;
         }
-
-        const params = new URLSearchParams({
-            path: String(path),
-        });
-
-        if (filename) {
-            params.set('name', String(filename));
-        }
-
-        if (disposition === 'inline' || disposition === 'attachment') {
-            params.set('disposition', disposition);
-        }
-
-        return `/api/support/download?${params.toString()}`;
     }
 
     buildMeetingUrlFromHref(href) {
-        if (!href) {
-            return null;
-        }
-
-        const query = href.includes('?') ? href.split('?')[1] : href;
-        const parameters = new URLSearchParams(query);
-        const meetingId = parameters.get('id');
-        const coursesId = parameters.get('courses_id') || parameters.get('course_id');
-
-        if (!meetingId || !coursesId) {
-            return null;
-        }
-
-        return `/meeting/${meetingId}?courses_id=${coursesId}`;
+        return urlRules.buildMeetingUrlFromHref(href);
     }
 
     buildClassUrl(id, dosenId, courseId) {
-        if (!id) {
-            return null;
-        }
-
-        const query = new URLSearchParams();
-
-        if (dosenId) {
-            query.set('dosen_id', dosenId);
-        }
-
-        if (courseId) {
-            query.set('course_id', courseId);
-        }
-
-        const suffix = query.toString();
-
-        return `/class/${id}${suffix ? `?${suffix}` : ''}`;
+        return urlRules.buildClassUrl(id, dosenId, courseId);
     }
 
     parseQueryString(value) {
-        if (!value) {
-            return new URLSearchParams();
-        }
-
-        const trimmed = String(value).trim();
-
-        if (trimmed === '') {
-            return new URLSearchParams();
-        }
-
-        try {
-            const url = new URL(trimmed, this.campusBase);
-
-            return url.searchParams;
-        } catch (error) {
-            const query = trimmed.includes('?')
-                ? trimmed.split('?').slice(1).join('?')
-                : trimmed.replace(/^[?#&]/, '');
-
-            return new URLSearchParams(query);
-        }
+        return urlRules.parseQueryString(value, this.campusBase);
     }
 
     extractAssignmentShortcut(value) {
-        const params = this.parseQueryString(value);
-
-        return {
-            courses_id: params.get('courses_id') || '',
-            id: params.get('id') || '',
-            pertemuan: params.get('pertemuan') || '',
-        };
+        return urlRules.extractAssignmentShortcut(value, this.campusBase);
     }
 
     extractAttendanceShortcut(value) {
-        const params = this.parseQueryString(value);
-
-        return {
-            courseid: params.get('courseid') || params.get('course_id') || params.get('courses_id') || '',
-            modulesid: params.get('modulesid') || params.get('id') || '',
-            pertemuan: params.get('pertemuan') || '',
-        };
+        return urlRules.extractAttendanceShortcut(value, this.campusBase);
     }
 
     formatDate(value) {
-        if (!value) {
-            return '-';
-        }
-
-        const date = new Date(value);
-
-        if (Number.isNaN(date.getTime())) {
-            return value;
-        }
-
-        return new Intl.DateTimeFormat('id-ID', {
-            dateStyle: 'medium',
-            timeStyle: 'short',
-        }).format(date);
+        return dateRules.formatDate(value);
     }
 
     formatTimeOnly(value) {
-        const date = value instanceof Date ? value : new Date(value);
-
-        if (Number.isNaN(date.getTime())) {
-            return '-';
-        }
-
-        return new Intl.DateTimeFormat('id-ID', {
-            hour: '2-digit',
-            minute: '2-digit',
-        }).format(date);
+        return dateRules.formatTimeOnly(value);
     }
 
     escapeHtml(value) {
-        return String(value ?? '')
-            .replaceAll('&', '&amp;')
-            .replaceAll('<', '&lt;')
-            .replaceAll('>', '&gt;')
-            .replaceAll('"', '&quot;')
-            .replaceAll("'", '&#039;');
+        return formatRules.escapeHtml(value);
     }
 
     renderKeyValueList(entries = []) {
@@ -2857,131 +3090,39 @@ class PortalApp {
      * local calendar day (not UTC midnight), so it never shifts by a day.
      */
     toDate(value) {
-        if (value instanceof Date) {
-            return Number.isNaN(value.getTime()) ? null : value;
-        }
-
-        if (value === null || value === undefined || value === '') {
-            return null;
-        }
-
-        if (typeof value === 'number') {
-            const fromNumber = new Date(value);
-
-            return Number.isNaN(fromNumber.getTime()) ? null : fromNumber;
-        }
-
-        const text = String(value).trim();
-        const dateOnly = text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-        const date = dateOnly
-            ? new Date(Number(dateOnly[1]), Number(dateOnly[2]) - 1, Number(dateOnly[3]))
-            : new Date(text.replace(/^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2})/, '$1T$2'));
-
-        return Number.isNaN(date.getTime()) ? null : date;
+        return dateRules.toDate(value);
     }
 
     /**
      * "20 Oktober 2026"; `{ weekday: true }` gives "Selasa, 20 Oktober 2026",
      * `{ month: 'short', year: false }` gives "20 Okt". Empty input gives `fallback`.
      */
-    formatIndonesianDate(value, { weekday = false, month = 'long', year = true, time = false, fallback = '–' } = {}) {
-        const date = this.toDate(value);
-
-        if (!date) {
-            return fallback;
-        }
-
-        const options = { day: 'numeric', month };
-
-        if (year) {
-            options.year = 'numeric';
-        }
-
-        if (weekday) {
-            options.weekday = 'long';
-        }
-
-        if (time) {
-            options.hour = '2-digit';
-            options.minute = '2-digit';
-        }
-
-        return new Intl.DateTimeFormat('id-ID', options).format(date);
+    formatIndonesianDate(value, options) {
+        return dateRules.formatIndonesianDate(value, options);
     }
 
     /**
      * Whole calendar days from `now` to `value` (negative when it has passed),
      * or null when `value` is not a date.
      */
-    daysUntil(value, now = new Date()) {
-        const date = this.toDate(value);
-        const base = this.toDate(now);
-
-        if (!date || !base) {
-            return null;
-        }
-
-        const start = Date.UTC(base.getFullYear(), base.getMonth(), base.getDate());
-        const end = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
-
-        return Math.round((end - start) / 86400000);
+    daysUntil(value, now) {
+        return dateRules.daysUntil(value, now);
     }
 
     /**
      * "hari ini", "besok", "3 hari lagi", "kemarin", "lewat 2 hari".
      * `{ natural: false }` keeps "1 hari lagi" / "lewat 1 hari".
      */
-    formatRelativeDays(value, { now = new Date(), natural = true, fallback = '' } = {}) {
-        const days = this.daysUntil(value, now);
-
-        if (days === null) {
-            return fallback;
-        }
-
-        if (days === 0) {
-            return 'hari ini';
-        }
-
-        if (natural && days === 1) {
-            return 'besok';
-        }
-
-        if (natural && days === -1) {
-            return 'kemarin';
-        }
-
-        return days > 0 ? `${days} hari lagi` : `lewat ${Math.abs(days)} hari`;
+    formatRelativeDays(value, options) {
+        return dateRules.formatRelativeDays(value, options);
     }
 
     /**
      * "baru saja", "5 menit lalu", "2 jam lalu", "kemarin", "3 hari lalu":
      * for honest "Diperbarui …" labels.
      */
-    formatTimeAgo(value, { now = new Date() } = {}) {
-        const date = this.toDate(value);
-        const base = this.toDate(now);
-
-        if (!date || !base) {
-            return '';
-        }
-
-        const minutes = Math.floor((base.getTime() - date.getTime()) / 60000);
-
-        if (minutes < 1) {
-            return 'baru saja';
-        }
-
-        if (minutes < 60) {
-            return `${minutes} menit lalu`;
-        }
-
-        if (minutes < 24 * 60) {
-            return `${Math.floor(minutes / 60)} jam lalu`;
-        }
-
-        const days = Math.abs(this.daysUntil(date, base) ?? 0);
-
-        return days <= 1 ? 'kemarin' : `${days} hari lalu`;
+    formatTimeAgo(value, options) {
+        return dateRules.formatTimeAgo(value, options);
     }
 
     /**
@@ -2989,58 +3130,14 @@ class PortalApp {
      * null when there is no amount at all.
      */
     parseAmount(value) {
-        if (typeof value === 'number') {
-            return Number.isFinite(value) ? value : null;
-        }
-
-        if (value === null || value === undefined) {
-            return null;
-        }
-
-        let text = String(value).trim();
-        const negative = text.startsWith('-');
-
-        text = text.replace(/^-/, '').replace(/rp\.?/i, '').replace(/\s/g, '');
-
-        if (text === '' || text === '-' || text === '–') {
-            return null;
-        }
-
-        if (/^\d+\.\d{1,2}$/.test(text)) {
-            return (negative ? -1 : 1) * Number(text);
-        }
-
-        const digits = text.replace(/,\d{1,2}$/, '').replace(/\D/g, '');
-
-        if (digits === '') {
-            return null;
-        }
-
-        return (negative ? -1 : 1) * Number(digits);
+        return formatRules.parseAmount(value);
     }
 
     /**
      * "Rp 1.250.000". A missing amount gives `fallback` ("–"), never "Rp 0".
      */
-    formatRupiah(value, { fallback = '–', signed = false } = {}) {
-        const amount = this.parseAmount(value);
-
-        if (amount === null) {
-            return fallback;
-        }
-
-        const formatted = new Intl.NumberFormat('id-ID', {
-            style: 'currency',
-            currency: 'IDR',
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 0,
-        }).format(Math.abs(amount));
-
-        if (amount < 0) {
-            return `-${formatted}`;
-        }
-
-        return signed && amount > 0 ? `+${formatted}` : formatted;
+    formatRupiah(value, options) {
+        return formatRules.formatRupiah(value, options);
     }
 
     /**
@@ -3048,27 +3145,11 @@ class PortalApp {
      * mailto and tel. Anything else (javascript:, data:) gives null.
      */
     safeHref(url) {
-        if (!url) {
-            return null;
-        }
-
-        try {
-            const parsed = new URL(String(url), window.location.origin);
-
-            return ['http:', 'https:', 'mailto:', 'tel:'].includes(parsed.protocol) ? String(url) : null;
-        } catch (error) {
-            return null;
-        }
+        return urlRules.safeHref(url, window.location.origin);
     }
 
     isExternalHref(url) {
-        try {
-            const parsed = new URL(String(url), window.location.origin);
-
-            return ['http:', 'https:'].includes(parsed.protocol) && parsed.origin !== window.location.origin;
-        } catch (error) {
-            return false;
-        }
+        return urlRules.isExternalHref(url, window.location.origin);
     }
 
     /**
@@ -3076,31 +3157,11 @@ class PortalApp {
      * 'danger' | 'warning' | 'info' | 'success' | 'neutral'.
      */
     severityTone(severity) {
-        const value = String(severity ?? '').toLowerCase();
-
-        if (['critical', 'urgent', 'high', 'danger', 'error', 'overdue'].includes(value)) {
-            return 'danger';
-        }
-
-        if (['warning', 'medium', 'soon', 'attention'].includes(value)) {
-            return 'warning';
-        }
-
-        if (['success', 'done', 'ok', 'clear', 'resolved', 'paid'].includes(value)) {
-            return 'success';
-        }
-
-        if (['info', 'low', 'normal', 'notice'].includes(value)) {
-            return 'info';
-        }
-
-        return 'neutral';
+        return actionItemRules.severityTone(severity);
     }
 
     strongerTone(current, next) {
-        const rank = { danger: 3, warning: 2, info: 1, success: 0, neutral: 0 };
-
-        return (rank[next] ?? 0) > (rank[current] ?? -1) ? next : current;
+        return actionItemRules.strongerTone(current, next);
     }
 
     renderSeverityBadge(severity, label = null) {
@@ -3433,9 +3494,10 @@ class PortalApp {
      * Action items (`GET /api/action-items`), read once per page load: a fresh
      * device copy is used as is, a stale or missing one is fetched once.
      * Resolves to the item list ([] when unavailable) and fires
-     * `portal:action-items` on window with `{ items }`.
+     * `portal:action-items` on window with `{ items }`. `background`: read on
+     * the app's own initiative (nav badges, a realtime event).
      */
-    loadActionItems({ force = false } = {}) {
+    loadActionItems({ force = false, background = undefined } = {}) {
         if (document.body.dataset.auth !== 'required') {
             return Promise.resolve([]);
         }
@@ -3457,7 +3519,7 @@ class PortalApp {
 
         this.actionItemsRequest = (async () => {
             try {
-                const payload = await this.request('/api/action-items', { redirectOnAuth: false, timeout: 15000 });
+                const payload = await this.request('/api/action-items', { redirectOnAuth: false, timeout: 15000, background });
                 const items = this.extractActionItems(payload);
 
                 this.receiveActionItems(items);
@@ -3472,17 +3534,31 @@ class PortalApp {
     }
 
     extractActionItems(payload) {
-        const data = payload?.data;
+        return actionItemRules.extractActionItems(payload);
+    }
 
-        if (Array.isArray(data)) {
-            return data;
-        }
+    /**
+     * Whether this device marked an announcement read, under its id or the
+     * wording-based id (`legacy_id`) marks were saved with before stable ids.
+     */
+    isAnnouncementRead(readIds, item) {
+        return announcementRules.isAnnouncementRead(readIds, item);
+    }
 
-        if (Array.isArray(data?.items)) {
-            return data.items;
-        }
+    /**
+     * Announcement read marks with those saved under an old wording-based id
+     * moved to the id `items` carry now: `{ ids, changed }`.
+     */
+    migrateAnnouncementReadIds(ids, items) {
+        return announcementRules.migrateAnnouncementReadIds(ids, items);
+    }
 
-        return Array.isArray(data?.action_items) ? data.action_items : [];
+    /**
+     * A record keyed by announcement id (ticked steps) with the entry saved
+     * under `item`'s old wording-based id moved to its id: `{ record, changed }`.
+     */
+    migrateAnnouncementRecord(record, item) {
+        return announcementRules.migrateAnnouncementRecord(record, item);
     }
 
     receiveActionItems(items) {
@@ -3503,7 +3579,7 @@ class PortalApp {
         const cached = this.getCachedResponse('/api/action-items');
 
         if (cached && !cached.isStale) {
-            void this.loadActionItems();
+            void this.loadActionItems({ background: true });
 
             return;
         }
@@ -3517,7 +3593,7 @@ class PortalApp {
         }
 
         const run = () => {
-            void this.loadActionItems();
+            void this.loadActionItems({ background: true });
         };
 
         if (typeof window.requestIdleCallback === 'function') {
@@ -3533,44 +3609,7 @@ class PortalApp {
      * from `source`/`type`); null when it belongs nowhere in the nav.
      */
     actionItemBadgeKey(item) {
-        let path = '';
-
-        try {
-            const url = new URL(String(item?.cta_url || ''), window.location.origin);
-
-            path = url.origin === window.location.origin ? url.pathname : '';
-        } catch (error) {
-            path = '';
-        }
-
-        const byPath = [
-            [/^\/krs(?:\/|$)/, 'krs'],
-            [/^\/grades(?:\/|$)/, 'grades'],
-            [/^\/transcript(?:\/|$)/, 'transcript'],
-            [/^\/finance(?:\/|$)/, 'finance'],
-            [/^\/skkm(?:\/|$)/, 'skkm'],
-            [/^\/announcement(?:\/|$)/, 'announcement'],
-            [/^\/profile(?:\/|$)/, 'profile'],
-            [/^\/password(?:\/|$)/, 'password'],
-            [/^\/exam(?:\/|$)/, 'exam'],
-            [/^\/(?:class|meeting)(?:\/|$)/, 'class'],
-        ];
-        const bySource = [
-            [/krs|advising|perwalian/, 'krs'],
-            [/grade|khs|nilai/, 'grades'],
-            [/transcript|transkrip/, 'transcript'],
-            [/payment|finance|tagihan|ukt|bill/, 'finance'],
-            [/skkm/, 'skkm'],
-            [/announcement|pengumuman/, 'announcement'],
-            [/password/, 'password'],
-            [/exam|ujian/, 'exam'],
-            [/class|meeting|attendance|assignment/, 'class'],
-        ];
-        const source = `${item?.source ?? ''} ${item?.type ?? ''}`.toLowerCase();
-
-        return byPath.find(([pattern]) => pattern.test(path))?.[1]
-            || bySource.find(([pattern]) => pattern.test(source))?.[1]
-            || null;
+        return actionItemRules.actionItemBadgeKey(item, window.location.origin);
     }
 
     /**
@@ -3583,53 +3622,7 @@ class PortalApp {
      * action center. A value set with setNavBadge wins.
      */
     applyActionItemBadges(items = []) {
-        const counts = new Map();
-        const tones = new Map();
-        const bump = (key, tone) => {
-            counts.set(key, (counts.get(key) || 0) + 1);
-            tones.set(key, this.strongerTone(tones.get(key), tone));
-        };
-
-        (Array.isArray(items) ? items : []).forEach((item) => {
-            const key = this.actionItemBadgeKey(item);
-            const tone = this.severityTone(item?.severity);
-
-            if (!key || (tone !== 'danger' && tone !== 'warning')) {
-                return;
-            }
-
-            if (key === 'class') {
-                if (tone === 'danger') {
-                    bump('kuliah', tone);
-                    bump('class', tone);
-                }
-
-                return;
-            }
-
-            bump(key, tone);
-
-            if (key === 'exam') {
-                bump('kuliah', tone);
-            }
-
-            if (['krs', 'grades', 'transcript'].includes(key)) {
-                bump('akademik', tone);
-            }
-
-            if (key === 'finance') {
-                bump('keuangan', tone);
-            }
-
-            if (['finance', 'skkm', 'announcement', 'profile', 'password'].includes(key)) {
-                bump('lainnya', tone);
-            }
-
-            // The desktop "Lainnya" dropdown has no Keuangan entry (it is a top-level link).
-            if (['skkm', 'announcement', 'profile', 'password'].includes(key)) {
-                bump('lainnya-desktop', tone);
-            }
-        });
+        const { counts, tones } = actionItemRules.countActionItemBadges(items, window.location.origin);
 
         const keys = new Set([
             ...Array.from(document.querySelectorAll('[data-nav-badge]')).map((element) => element.dataset.navBadge),
@@ -3716,20 +3709,7 @@ class PortalApp {
      * no plausible number is left.
      */
     normalizeWhatsAppNumber(value) {
-        const first = String(value ?? '').split(/[/,;|]|\batau\b/i)[0] || '';
-        let digits = first.replace(/\D/g, '');
-
-        if (digits.startsWith('00')) {
-            digits = digits.slice(2);
-        }
-
-        if (digits.startsWith('0')) {
-            digits = `62${digits.slice(1)}`;
-        } else if (digits.startsWith('8')) {
-            digits = `62${digits}`;
-        }
-
-        return /^\d{9,15}$/.test(digits) ? digits : null;
+        return contactRules.normalizeWhatsAppNumber(value);
     }
 
     /**
@@ -3737,23 +3717,8 @@ class PortalApp {
      * WhatsApp uses `contact.whatsapp`, else `contact.phone` when it is a
      * mobile number (62 8…); `contact.message` pre-fills the chat.
      */
-    buildContactLinks(contact = {}) {
-        const phoneDigits = this.normalizeWhatsAppNumber(contact.phone) || this.normalizeWhatsAppNumber(contact.whatsapp);
-        const explicitWhatsApp = this.normalizeWhatsAppNumber(contact.whatsapp);
-        const whatsappDigits = explicitWhatsApp || (phoneDigits?.startsWith('628') ? phoneDigits : null);
-        const email = String(contact.email ?? '').trim();
-        const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : null;
-        const message = String(contact.message ?? '').trim();
-
-        return {
-            whatsapp: whatsappDigits ? `https://wa.me/${whatsappDigits}${message ? `?text=${encodeURIComponent(message)}` : ''}` : null,
-            tel: phoneDigits ? `tel:+${phoneDigits}` : null,
-            mailto: validEmail ? `mailto:${validEmail}` : null,
-            phoneLabel: phoneDigits ? String(contact.phone || contact.whatsapp || '').trim() || `+${phoneDigits}` : null,
-            phoneLocal: phoneDigits ? (phoneDigits.startsWith('62') ? `0${phoneDigits.slice(2)}` : phoneDigits) : null,
-            phoneDigits,
-            email: validEmail,
-        };
+    buildContactLinks(contact) {
+        return contactRules.buildContactLinks(contact);
     }
 
     /**
@@ -4026,7 +3991,13 @@ class PortalApp {
             return;
         }
 
-        const panel = this.sheetState.host?.querySelector('[data-app-sheet-panel]');
+        this.trapTabFocus(event, this.sheetState.host?.querySelector('[data-app-sheet-panel]'));
+    }
+
+    /**
+     * Keep Tab and Shift+Tab inside an open dialog panel.
+     */
+    trapTabFocus(event, panel) {
         const focusable = this.focusableElements(panel);
 
         if (!focusable.length) {
@@ -4050,6 +4021,8 @@ class PortalApp {
 }
 
 window.portalApp = new PortalApp();
+// Before any page script can prime a view from the device cache.
+window.portalApp.isolateDeviceCache();
 
 document.addEventListener('DOMContentLoaded', () => {
     window.portalApp.init();

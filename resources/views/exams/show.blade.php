@@ -42,10 +42,22 @@
                 unknown: ['Status belum diketahui', 'neutral'],
             };
             const statusBadge = (status) => STATUS_LABELS[String(status || '').toLowerCase()] || [status || 'Belum diketahui', 'neutral'];
+            // The server takes PDF, ZIP or RAR up to 20 MB.
+            const EXAM_FILE_TYPES = /\.(pdf|zip|rar)$/i;
+            const EXAM_FILE_MAX_BYTES = 20 * 1024 * 1024;
 
-            const buildOverrideInputs = (fields) => {
-                const entries = Object.entries(fields || {})
-                    .filter(([name]) => !/^(id|cmd|data\[id\])$/i.test(String(name)));
+            /**
+             * Only the fields a student fills in on the portal (a name or note);
+             * the hidden exam type, class and id are the portal's own.
+             */
+            const buildOverrideInputs = (form) => {
+                const fields = form.fields || {};
+                const editable = Array.isArray(form.editable_fields)
+                    ? form.editable_fields
+                    : Object.keys(fields).filter((name) => !/^(id|cmd|data\[(id|tipe|kelas)\])$/i.test(String(name)));
+                const entries = editable
+                    .filter((name) => Object.prototype.hasOwnProperty.call(fields, name))
+                    .map((name) => [name, fields[name]]);
 
                 if (!entries.length) {
                     return '';
@@ -213,9 +225,10 @@
                             <form id="exam-upload-form">
                                 <div class="mb-3">
                                     <label for="exam-file" class="mycic-label">Lampiran jawaban</label>
-                                    <input id="exam-file" type="file" class="mycic-input" required>
+                                    <input id="exam-file" type="file" class="mycic-input" accept=".pdf,.zip,.rar" aria-describedby="exam-file-hint" required>
+                                    <p id="exam-file-hint" class="mt-1 text-caption text-ink-subtle">PDF, ZIP, atau RAR, maks. 20 MB.</p>
                                 </div>
-                                ${buildOverrideInputs(form.fields)}
+                                ${buildOverrideInputs(form)}
                                 <div class="mycic-sticky-action">
                                     <button type="submit" class="${app.buttonClass('primary')} mycic-btn-block" data-online-required>Kirim jawaban</button>
                                 </div>
@@ -334,6 +347,19 @@
                             return;
                         }
 
+                        // Checked here so a wrong file is not uploaded in full before the server refuses it.
+                        if (!EXAM_FILE_TYPES.test(file.name)) {
+                            app.showNotice('File ujian harus berupa PDF, ZIP, atau RAR.', 'warning');
+
+                            return;
+                        }
+
+                        if (file.size > EXAM_FILE_MAX_BYTES) {
+                            app.showNotice('Ukuran file ujian maksimal 20 MB.', 'warning');
+
+                            return;
+                        }
+
                         const formData = new FormData();
                         formData.append('id', examId);
                         formData.append('attachment', file);
@@ -362,6 +388,15 @@
                                     app.showNotice(result?.message || 'Berkas ujian berhasil dikirim.', 'success');
                                 }
                             } catch (error) {
+                                // An upload of this exam is still running (another tab, a
+                                // reload): follow it instead of sending the answer again.
+                                if (error.status === 409 && error.payload?.data?.operation_id) {
+                                    app.showNotice(error.payload.message, 'warning');
+                                    await app.trackOperation(error.payload.data.operation_id, 'Upload ujian', { announce: false });
+
+                                    return;
+                                }
+
                                 app.showNotice(error.payload?.message || error.message, 'error');
                             }
                         }));
@@ -377,9 +412,9 @@
                 return;
             }
 
-            const loadExamDetail = async ({ force = false } = {}) => {
+            const loadExamDetail = async ({ force = false, background = false } = {}) => {
                 try {
-                    const payload = await app.request(`/api/exam/${examId}`, { fresh: force });
+                    const payload = await app.request(`/api/exam/${examId}`, { fresh: force, background });
                     render(payload);
                     app.markViewSynced('Detail ujian', payload, { force });
                 } catch (error) {

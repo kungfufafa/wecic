@@ -209,7 +209,11 @@ class ActionCenterBuilder
                 $snapshots['announcements']['notice'] ?? null,
             ], $today),
             'portal_context' => fn (array $snapshots, CarbonImmutable $today): array => $this->questionnaireItems($snapshots['portal_context']),
-            'announcements' => fn (array $snapshots, CarbonImmutable $today): array => $this->announcementItems($snapshots['announcements'], $today),
+            'announcements' => fn (array $snapshots, CarbonImmutable $today): array => $this->announcementItems(
+                $snapshots['announcements'],
+                $today,
+                $this->krsPeriodDeadlines($snapshots, $today)
+            ),
             'skkm' => fn (array $snapshots, CarbonImmutable $today): array => $this->skkmItems($snapshots['skkm'], $snapshots['grades'] ?? null),
             'grades' => fn (array $snapshots, CarbonImmutable $today): array => $this->gradeItems($snapshots['grades']),
         ];
@@ -273,6 +277,44 @@ class ActionCenterBuilder
         }
 
         return [];
+    }
+
+    /**
+     * The her-registrasi announcement deadline a KRS item already stands for
+     * (announcement id => period end), so the same obligation is not listed
+     * twice: once as "KRS belum diajukan" and once as the announcement.
+     * A KRS that cannot be read only costs that dedupe: the announcement
+     * items never fail with it.
+     *
+     * @param  array<string, array<string, mixed>>  $snapshots
+     * @return array<string, string>
+     */
+    private function krsPeriodDeadlines(array $snapshots, CarbonImmutable $today): array
+    {
+        $krs = $snapshots['krs'] ?? null;
+
+        if (! is_array($krs) || ($krs['found'] ?? false) !== true) {
+            return [];
+        }
+
+        try {
+            $insights = $this->krsResolver->insights($krs, $snapshots['advising'] ?? null, $snapshots['announcements'] ?? null, $today);
+        } catch (\Throwable $throwable) {
+            Log::warning('KRS period of the action center could not be read', [
+                'error' => $throwable->getMessage(),
+            ]);
+
+            return [];
+        }
+
+        $period = $insights['active_period'];
+        $announcementId = $period['announcement_id'] ?? null;
+
+        if (! in_array($insights['status']['code'], ['pending_dpa', 'not_submitted'], true) || ! is_string($announcementId) || ! is_string($period['end'] ?? null)) {
+            return [];
+        }
+
+        return [$announcementId => $period['end']];
     }
 
     /**
@@ -392,12 +434,14 @@ class ActionCenterBuilder
     }
 
     /**
-     * Announcement deadlines in the next 14 days (F03).
+     * Announcement deadlines in the next 14 days (F03), except those a KRS
+     * item already covers.
      *
      * @param  array<string, mixed>  $announcements
+     * @param  array<string, string>  $coveredDeadlines  announcement id => date, from krsPeriodDeadlines()
      * @return list<ActionItem>
      */
-    private function announcementItems(array $announcements, CarbonImmutable $today): array
+    private function announcementItems(array $announcements, CarbonImmutable $today, array $coveredDeadlines = []): array
     {
         $byAnnouncement = [];
 
@@ -405,7 +449,7 @@ class ActionCenterBuilder
             $announcementId = is_array($deadline) ? (string) ($deadline['announcement_id'] ?? '') : '';
             $date = is_array($deadline) ? $this->date($deadline['date'] ?? null) : null;
 
-            if ($announcementId === '' || $date === null) {
+            if ($announcementId === '' || $date === null || ($coveredDeadlines[$announcementId] ?? null) === $date->toDateString()) {
                 continue;
             }
 

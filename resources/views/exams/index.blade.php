@@ -75,7 +75,9 @@
             const renderExams = (payload) => {
                 const exams = payload.data?.exams || [];
                 const scheduledCount = exams.filter((exam) => Boolean(String(exam.schedule || '').trim() && exam.schedule !== '-')).length;
-                const submittedCount = exams.filter((exam) => /upload|terkirim|dikumpulkan|sudah|selesai/i.test(String(exam.status || ''))).length;
+                // "Belum Upload" or "Belum dikumpulkan" are not submissions.
+                const isSubmittedStatus = (status) => !/belum|tidak|not/i.test(status) && /sudah|terkirim|telah|selesai|uploaded/i.test(status);
+                const submittedCount = exams.filter((exam) => isSubmittedStatus(String(exam.status || ''))).length;
 
                 metricNodes[0].textContent = exams.length || '0';
                 metricNodes[1].textContent = String(scheduledCount);
@@ -98,9 +100,9 @@
                 return;
             }
 
-            const loadExams = async ({ force = false } = {}) => {
+            const loadExams = async ({ force = false, background = false } = {}) => {
                 try {
-                    const payload = await app.request('/api/exam', { fresh: force });
+                    const payload = await app.request('/api/exam', { fresh: force, background });
                     renderExams(payload);
                     app.markViewSynced('Daftar ujian', payload, { force });
                 } catch (error) {

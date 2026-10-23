@@ -2,6 +2,8 @@
 
 @section('title', 'Ubah Password')
 @section('page_id', 'password')
+{{-- Nothing on this page comes from a dataset, so there is nothing to sync. --}}
+@section('hide_sync_refresh', '1')
 
 @section('content')
     <div class="mx-auto max-w-lg">
@@ -12,7 +14,8 @@
 
         <div class="mycic-card">
             <div class="mycic-card-body">
-                <form id="form-change-password" class="mycic-form">
+                {{-- Submitted only by the script below: a native submit must never put the passwords in a URL. --}}
+                <form id="form-change-password" class="mycic-form" method="post" action="javascript:void(0)">
                     <div class="mycic-field">
                         <label class="mycic-label" for="current_password">Password Lama</label>
                         <div class="mycic-input-wrap">
@@ -43,7 +46,7 @@
                         </div>
                         <p class="mycic-field-error" id="new_password_confirmation-error" data-field-error="new_password_confirmation" hidden></p>
                     </div>
-                    <button type="submit" class="mycic-btn-primary mycic-btn-block mt-2 min-h-12" id="btn-submit">Simpan password</button>
+                    <button type="submit" class="mycic-btn-primary mycic-btn-block mt-2 min-h-12" id="btn-submit" disabled>Simpan password</button>
                 </form>
             </div>
         </div>
@@ -56,9 +59,7 @@
             const app = window.portalApp;
             const form = document.getElementById('form-change-password');
             const btnSubmit = document.getElementById('btn-submit');
-
-            const ready = await app.ensureAuthenticated();
-            if (!ready) return;
+            let ready = false;
 
             document.querySelectorAll('.password-toggle').forEach((toggle) => {
                 toggle.addEventListener('click', (e) => {
@@ -118,6 +119,11 @@
 
             form.addEventListener('submit', async (e) => {
                 e.preventDefault();
+
+                if (!ready) {
+                    return;
+                }
+
                 clearFieldErrors();
 
                 const formData = new FormData(form);
@@ -150,6 +156,9 @@
                     }
                 });
             });
+
+            ready = Boolean(await app.ensureAuthenticated());
+            btnSubmit.disabled = !ready;
         });
     </script>
 @endpush

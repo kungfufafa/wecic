@@ -68,6 +68,19 @@ class RefreshPortalSessionJobTest extends TestCase
         Bus::assertNotDispatched(RefreshPortalDataJob::class);
     }
 
+    public function test_offline_session_ends_the_chain_silently(): void
+    {
+        Event::fake([PortalSessionNoticeSent::class]);
+        Bus::fake([RefreshPortalDataJob::class]);
+        $this->mockKeepAlive('offline', expectReschedule: false);
+
+        app()->call([new RefreshPortalSessionJob('campus-token'), 'handle']);
+
+        // ResumeOfflineSessionJob owns an offline session: no login prompt, no scraping.
+        Event::assertNotDispatched(PortalSessionNoticeSent::class);
+        Bus::assertNotDispatched(RefreshPortalDataJob::class);
+    }
+
     public function test_only_one_keep_alive_chain_exists_per_session(): void
     {
         Queue::fake();
@@ -77,6 +90,15 @@ class RefreshPortalSessionJobTest extends TestCase
         RefreshPortalSessionJob::dispatch('other-token');
 
         Queue::assertPushed(RefreshPortalSessionJob::class, 2);
+    }
+
+    public function test_a_keep_alive_has_time_for_a_ping_and_a_full_relogin(): void
+    {
+        $job = new RefreshPortalSessionJob('campus-token');
+
+        // Ping (10 s) plus up to four login requests at the 30 s request timeout.
+        $this->assertSame(180, $job->timeout);
+        $this->assertGreaterThanOrEqual(10 + 4 * (int) config('portal.request_timeout'), $job->timeout);
     }
 
     public function test_alive_session_of_an_inactive_student_skips_the_warm_up(): void

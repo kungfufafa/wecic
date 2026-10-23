@@ -272,7 +272,9 @@ class SkripsiExtractor extends PortalScrapingService
         $lists = [];
 
         $content->filter('ul')->each(function (Crawler $list) use (&$lists): void {
-            if ($list->closest('.sidebar, .navbar, .dropdown-menu, .nav') !== null) {
+            // Requirement lists live in the page's cards; the footer's own
+            // `<nav><ul><li>Home</li></ul></nav>` must never become a step.
+            if ($list->closest('.card') === null || $list->closest('.sidebar, .navbar, .dropdown-menu, .nav, nav, header, footer, .footer') !== null) {
                 return;
             }
 

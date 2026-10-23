@@ -11,8 +11,18 @@
     </header>
 
     <div class="flex min-w-0 flex-col gap-6">
-        <div class="mycic-alert-warning mb-0 hidden" id="notebook-ai-off" role="status">
+        {{-- One banner per reason the AI cannot answer (`ai_status` of /api/notebooks). --}}
+        <div class="mycic-alert-warning mb-0 hidden" data-ai-status-banner="disabled" role="status">
+            Fitur AI Notebook dimatikan di server MyCIC. Kamu tetap bisa memasukkan pertemuan dan sumber teks, DOCX, dan PPTX; tanya jawab aktif lagi setelah AI dinyalakan.
+        </div>
+        <div class="mycic-alert-warning mb-0 hidden" data-ai-status-banner="missing_key" role="status">
             Fitur AI belum diaktifkan di server MyCIC (GEMINI_API_KEY kosong). Kamu tetap bisa memasukkan pertemuan dan sumber teks, DOCX, dan PPTX; tanya jawab aktif setelah AI dinyalakan.
+        </div>
+        <div class="mycic-alert-warning mb-0 hidden" data-ai-status-banner="invalid_key" role="status">
+            Fitur AI sedang tidak bisa dipakai karena kunci API Gemini di server MyCIC ditolak. Pengelola MyCIC perlu memperbarui GEMINI_API_KEY. Pertemuan dan sumber teks, DOCX, dan PPTX tetap bisa dimasukkan.
+        </div>
+        <div class="mycic-alert-warning mb-0 hidden" data-ai-status-banner="model_misconfigured" role="status">
+            Fitur AI sedang tidak bisa dipakai karena pengaturan model AI di server MyCIC ditolak (model tidak dikenali, sudah tidak tersedia, atau pengaturannya tidak cocok). Pengelola MyCIC perlu memeriksa pengaturan model AI, misalnya GEMINI_MODEL atau NOTEBOOK_THINKING_BUDGET. Pertemuan dan sumber teks, DOCX, dan PPTX tetap bisa dimasukkan.
         </div>
 
         <section aria-labelledby="notebook-courses-title">
@@ -69,7 +79,14 @@
             const form = document.getElementById('notebook-create-form');
             const titleInput = document.getElementById('notebook-title');
             const courseSelect = document.getElementById('notebook-course');
-            const aiOff = document.getElementById('notebook-ai-off');
+            // Older responses carry only ai_available.
+            const showAiStatus = (data) => {
+                const status = data?.ai_status || (data?.ai_available === false ? 'missing_key' : 'ok');
+
+                document.querySelectorAll('[data-ai-status-banner]').forEach((banner) => {
+                    banner.classList.toggle('hidden', banner.dataset.aiStatusBanner !== status);
+                });
+            };
 
             const card = (notebook) => {
                 const stats = [
@@ -146,7 +163,7 @@
                         return;
                     }
 
-                    aiOff.classList.toggle('hidden', payload?.data?.ai_available !== false);
+                    showAiStatus(payload?.data);
                     const notebooks = Array.isArray(payload?.data?.notebooks) ? payload.data.notebooks : [];
                     renderCourses(notebooks, payload?.data?.course_notebooks);
                     renderList(notebooks);

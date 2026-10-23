@@ -17,6 +17,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int $notebook_id
  * @property string $kind
  * @property int|null $portal_archived_file_id
+ * @property string|null $archived_source_url
  * @property string|null $meeting_id
  * @property int|null $meeting_number
  * @property string $title
@@ -28,6 +29,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int $char_count
  * @property int|null $page_count
  * @property bool $truncated
+ * @property \Illuminate\Support\Carbon|null $queued_at
+ * @property \Illuminate\Support\Carbon|null $requested_at
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  */
@@ -56,10 +59,27 @@ class NotebookSource extends Model
 
     public const STATUS_FAILED = 'failed';
 
+    /**
+     * A reading still processing after this long has lost its job (the
+     * worker died): the job itself times out after 300 s, so the student
+     * may start it again.
+     */
+    public const STALLED_AFTER_SECONDS = 900;
+
+    /**
+     * A queued reading that has not started after this long has lost its
+     * job (the queue was cleared). Far longer than a busy queue's backlog:
+     * a notebook only keeps a few readings queued at a time
+     * (`notebook.limits.queued_readings`), and the job's unique lock lasts
+     * as long (IngestNotebookSourceJob::uniqueFor()).
+     */
+    public const QUEUED_STALLED_AFTER_SECONDS = 3600;
+
     protected $fillable = [
         'notebook_id',
         'kind',
         'portal_archived_file_id',
+        'archived_source_url',
         'meeting_id',
         'meeting_number',
         'title',
@@ -71,6 +91,8 @@ class NotebookSource extends Model
         'char_count',
         'page_count',
         'truncated',
+        'queued_at',
+        'requested_at',
     ];
 
     /**
@@ -83,6 +105,8 @@ class NotebookSource extends Model
             'char_count' => 'integer',
             'page_count' => 'integer',
             'truncated' => 'boolean',
+            'queued_at' => 'datetime',
+            'requested_at' => 'datetime',
         ];
     }
 
@@ -111,7 +135,38 @@ class NotebookSource extends Model
     }
 
     /**
-     * @return array{id: int, kind: string, title: string, meeting_id: string|null, meeting_number: int|null, mime: string|null, status: string, error: string|null, summary: string|null, char_count: int, page_count: int|null, truncated: bool, archived_file_id: int|null, created_at: string|null}
+     * Queued or processing for so long that its reading job must be gone.
+     * A source waiting to be queued (no `queued_at`) is not stalled.
+     */
+    public function isStalled(): bool
+    {
+        return match ($this->status) {
+            self::STATUS_PROCESSING => $this->updated_at !== null && $this->updated_at->lessThan(now()->subSeconds(self::STALLED_AFTER_SECONDS)),
+            self::STATUS_PENDING => $this->queued_at !== null && $this->queued_at->lessThan(now()->subSeconds(self::QUEUED_STALLED_AFTER_SECONDS)),
+            default => false,
+        };
+    }
+
+    /**
+     * Waits for a reading slot (or, for a course file that joined on its
+     * own, the next day's reading budget) to be queued.
+     */
+    public function isWaiting(): bool
+    {
+        return $this->status === self::STATUS_PENDING && $this->queued_at === null;
+    }
+
+    /**
+     * The student asked for this source to be read (added it, or read it
+     * now), so it is read with the student's own reading budget.
+     */
+    public function isRequested(): bool
+    {
+        return $this->requested_at !== null;
+    }
+
+    /**
+     * @return array{id: int, kind: string, title: string, meeting_id: string|null, meeting_number: int|null, mime: string|null, status: string, error: string|null, summary: string|null, char_count: int, page_count: int|null, truncated: bool, stalled: bool, waiting: bool, archived_file_id: int|null, created_at: string|null}
      */
     public function toApiArray(): array
     {
@@ -128,6 +183,8 @@ class NotebookSource extends Model
             'char_count' => $this->char_count,
             'page_count' => $this->page_count,
             'truncated' => $this->truncated,
+            'stalled' => $this->isStalled(),
+            'waiting' => $this->isWaiting(),
             'archived_file_id' => $this->portal_archived_file_id,
             'created_at' => $this->created_at?->toISOString(),
         ];

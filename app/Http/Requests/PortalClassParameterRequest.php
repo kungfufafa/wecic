@@ -21,7 +21,7 @@ abstract class PortalClassParameterRequest extends ApiFormRequest
              *
              * @example 2265
              */
-            'id' => ['required', 'integer', 'regex:/^\d{4}$/', 'between:1000,9999'],
+            'id' => ['required', 'integer', 'min:1', 'digits_between:1,10'],
             /**
              * Identifier dosen dari URL portal `act=download`.
              *
@@ -33,7 +33,7 @@ abstract class PortalClassParameterRequest extends ApiFormRequest
              *
              * @example 8810
              */
-            'course_id' => ['required', 'integer', 'regex:/^\d{4}$/', 'between:8000,9999'],
+            'course_id' => ['required', 'integer', 'min:1', 'digits_between:1,10'],
         ];
     }
 
@@ -42,15 +42,15 @@ abstract class PortalClassParameterRequest extends ApiFormRequest
         return [
             'id.required' => 'Class ID (parameter "id") is required',
             'id.integer' => 'Class ID must be a number',
-            'id.regex' => 'Class ID must be a 4-digit number (1000-9999)',
-            'id.between' => 'Class ID must be between 1000 and 9999',
+            'id.min' => 'Class ID must be a valid positive number',
+            'id.digits_between' => 'Class ID must be a positive number of at most 10 digits',
             'dosen_id.required' => 'Lecturer ID (parameter "dosen_id") is required',
             'dosen_id.integer' => 'Lecturer ID must be a number',
             'dosen_id.min' => 'Lecturer ID must be a valid positive number',
             'course_id.required' => 'Course ID (parameter "course_id") is required',
             'course_id.integer' => 'Course ID must be a number',
-            'course_id.regex' => 'Course ID must be a 4-digit number (8000-9999)',
-            'course_id.between' => 'Course ID must be between 8000 and 9999. Example: course_id=8810 or course_id=8861',
+            'course_id.min' => 'Course ID must be a valid positive number. Example: course_id=8810 or course_id=8861',
+            'course_id.digits_between' => 'Course ID must be a positive number of at most 10 digits',
         ];
     }
 

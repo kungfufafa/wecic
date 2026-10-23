@@ -4,50 +4,15 @@ declare(strict_types=1);
 
 namespace App\Services\Extractors;
 
+use App\Enums\MeetingAttendanceState;
 use App\Exceptions\PortalScrapingException;
 use App\Services\PortalEndpointRegistry;
 use App\Services\PortalScrapingService;
-use Illuminate\Support\Facades\Log;
+use Carbon\CarbonImmutable;
 use Symfony\Component\DomCrawler\Crawler;
 
 class ClassesExtractor extends PortalScrapingService
 {
-    /**
-     * Extract student classes data
-     */
-    public function extractClassesData(string $sessionToken): array
-    {
-        try {
-            $this->setSession($sessionToken);
-            $this->logScraping('Extracting student classes data', ['session_token' => $sessionToken]);
-
-            return $this->rememberResource('lms_classes', [], function (): array {
-                $html = $this->get(PortalEndpointRegistry::url('sipandai_dashboard'));
-                $crawler = $this->createCrawler($html);
-
-                $classesData = [
-                    'student_info' => $this->extractStudentInfo($crawler),
-                    'classes' => $this->extractClassesList($crawler),
-                    'semester_info' => $this->extractSemesterInfo($crawler),
-                    'academic_summary' => $this->extractAcademicSummary($crawler),
-                    'extracted_at' => now()->toISOString(),
-                ];
-
-                $this->logScraping('Classes data extracted successfully', [
-                    'classes_count' => count($classesData['classes']),
-                ]);
-
-                return $classesData;
-            });
-
-        } catch (PortalScrapingException $e) {
-            throw $e;
-        } catch (\Exception $e) {
-            $this->logScrapingError('Extracting classes data', $e, ['session_token' => $sessionToken]);
-            throw PortalScrapingException::dataExtractionFailed('classes', $e->getMessage());
-        }
-    }
-
     /**
      * Extract class detail data
      */
@@ -89,6 +54,9 @@ class ClassesExtractor extends PortalScrapingService
                     'extracted_at' => now()->toISOString(),
                 ];
 
+                // An unknown or stale id still renders the page shell, just empty.
+                $classDetail['found'] = $this->classDetailHasContent($classDetail);
+
                 $this->logScraping('Class detail extracted successfully', [
                     'course_name' => $classDetail['course_info']['name'] ?? 'Unknown',
                     'content_type' => $classDetail['content_type'],
@@ -96,7 +64,8 @@ class ClassesExtractor extends PortalScrapingService
 
                 return $classDetail;
             },
-                static fn (array $classDetail): bool => ! in_array($classDetail['content_type'] ?? null, ['error_page', 'login_page'], true),
+                static fn (array $classDetail): bool => ! in_array($classDetail['content_type'] ?? null, ['error_page', 'login_page'], true)
+                    && ($classDetail['found'] ?? true) !== false,
                 ($params['fresh'] ?? false) === true
             );
 
@@ -177,481 +146,6 @@ class ClassesExtractor extends PortalScrapingService
             'meeting_id' => $params['meeting_id'] ?? null,
             'courses_id' => $params['courses_id'] ?? null,
         ];
-    }
-
-    /**
-     * Extract student information from SIPANDAI dashboard
-     */
-    private function extractStudentInfo(Crawler $crawler): array
-    {
-        $studentInfo = [];
-
-        try {
-            // Look for the first card that contains student information
-            $firstCard = $crawler->filter('.card')->first();
-            $studentTable = $firstCard->filter('.table')->first();
-
-            $studentTable->filter('tr')->each(function (Crawler $row) use (&$studentInfo) {
-                $cells = $row->filter('td');
-                if ($cells->count() >= 3) {
-                    $label = trim($cells->eq(0)->text());
-                    $value = trim($cells->eq(2)->text());
-
-                    // Clean up the value by removing HTML tags and extra whitespace
-                    $value = strip_tags($value);
-                    $value = preg_replace('/\s+/', ' ', $value);
-                    $value = trim($value);
-
-                    switch (strtolower($label)) {
-                        case 'program studi':
-                            $studentInfo['program_studi'] = $value;
-                            break;
-                        case 'n i m':
-                        case 'nim':
-                            $studentInfo['nim'] = $value;
-                            break;
-                        case 'nama':
-                            $studentInfo['nama'] = $value;
-                            break;
-                    }
-                }
-            });
-        } catch (\Exception $e) {
-            Log::warning('Failed to extract student info from classes page', ['error' => $e->getMessage()]);
-        }
-
-        return $studentInfo;
-    }
-
-    /**
-     * Extract classes list from SIPANDAI dashboard
-     */
-    private function extractClassesList(Crawler $crawler): array
-    {
-        $classes = [];
-
-        try {
-            // Look for the second card that contains the classes table
-            $cards = $crawler->filter('.card');
-            if ($cards->count() >= 2) {
-                $classesCard = $cards->eq(1); // Second card contains classes
-                $classesTable = $classesCard->filter('.table')->first();
-
-                // Extract all rows from the classes table, skipping header
-                $classRows = $classesTable->filter('tr')->slice(1);
-
-                $classRows->each(function (Crawler $row, $index) use (&$classes) {
-                    $cells = $row->filter('td');
-                    if ($cells->count() >= 5) {
-                        $class = [
-                            'no' => trim($cells->eq(0)->text()),
-                            'schedule' => $this->extractScheduleInfoFromCell($cells->eq(1)),
-                            'course_info' => $this->extractCourseInfoFromCell($cells->eq(2)),
-                            'lecturer_info' => $this->extractLecturerInfoFromCell($cells->eq(3)),
-                            'join_link' => $this->extractJoinLinkFromCell($cells->eq(4)),
-                        ];
-
-                        if (! empty($class['course_info']['name'])) {
-                            $classes[] = $class;
-                        }
-                    }
-                });
-            }
-        } catch (\Exception $e) {
-            Log::warning('Failed to extract classes list from SIPANDAI', ['error' => $e->getMessage()]);
-
-            // Fallback to generic extraction
-            $classes = $this->extractClassesFromTable($crawler);
-        }
-
-        return array_slice($classes, 0, 20); // Limit to 20 classes
-    }
-
-    /**
-     * Extract class data from a list item
-     */
-    private function extractClassFromItem(Crawler $item): ?array
-    {
-        $class = [];
-
-        // Extract course name
-        $courseNameSelectors = [
-            '.course-name',
-            '.mata-kuliah',
-            '.subject-name',
-            '.class-name',
-            'h3',
-            'h4',
-            '.title',
-        ];
-
-        $class['course_name'] = $this->extractText($item, $courseNameSelectors);
-
-        // Extract course code
-        $courseCodeSelectors = [
-            '.course-code',
-            '.kode-mata-kuliah',
-            '.subject-code',
-            '.class-code',
-        ];
-
-        $class['course_code'] = $this->extractText($item, $courseCodeSelectors);
-
-        // Extract class name
-        $classNameSelectors = [
-            '.class-group',
-            '.kelas',
-            '.section',
-            '.group-name',
-        ];
-
-        $class['class_name'] = $this->extractText($item, $classNameSelectors);
-
-        // Extract credits
-        $creditsSelectors = [
-            '.credits',
-            '.sks',
-            '.credit-hours',
-        ];
-
-        $credits = $this->extractText($item, $creditsSelectors);
-        if ($credits) {
-            preg_match('/\d+/', $credits, $matches);
-            $class['credits'] = (int) ($matches[0] ?? 0);
-        }
-
-        // Extract lecturer
-        $lecturerSelectors = [
-            '.lecturer',
-            '.dosen',
-            '.instructor',
-            '.teacher',
-        ];
-
-        $class['lecturer'] = $this->extractText($item, $lecturerSelectors);
-
-        // Extract schedule
-        $scheduleSelectors = [
-            '.schedule',
-            '.jadwal',
-            '.time',
-            '.class-time',
-        ];
-
-        $class['schedule'] = $this->extractText($item, $scheduleSelectors);
-
-        // Extract room
-        $roomSelectors = [
-            '.room',
-            '.ruangan',
-            '.classroom',
-            '.location',
-        ];
-
-        $class['room'] = $this->extractText($item, $roomSelectors);
-
-        // Extract IDs if available
-        $class['course_id'] = $item->attr('data-course-id') ?: null;
-        $class['class_id'] = $item->attr('data-class-id') ?: null;
-        $class['dosen_id'] = $item->attr('data-dosen-id') ?: null;
-
-        return $class['course_name'] ? $class : null;
-    }
-
-    /**
-     * Extract schedule information from schedule cell
-     */
-    private function extractScheduleInfoFromCell(Crawler $cell): array
-    {
-        $html = $cell->html();
-        $text = trim($cell->text());
-
-        // Extract day and time from text like "Senin 09:30:00-11:00:00"
-        if (preg_match('/(\w+)\s*(\d{2}:\d{2}:\d{2}-\d{2}:\d{2}:\d{2})/', $text, $matches)) {
-            return [
-                'day' => $matches[1],
-                'time' => $matches[2],
-                'raw' => $text,
-            ];
-        }
-
-        return ['raw' => $text];
-    }
-
-    /**
-     * Extract course information from course cell
-     */
-    private function extractCourseInfoFromCell(Crawler $cell): array
-    {
-        $text = trim($cell->text());
-
-        // Split by <br> to get course code and name
-        $html = $cell->html();
-        $parts = preg_split('/<br\s*\/?>/i', $html);
-
-        $courseInfo = [];
-
-        if (count($parts) >= 2) {
-            $courseInfo['code'] = trim(strip_tags($parts[0]));
-            $courseInfo['name'] = trim(strip_tags($parts[1]));
-        } else {
-            // Try to extract from text format
-            if (preg_match('/^([A-Z]{2,4}\d{3,})\s+(.+)$/', $text, $matches)) {
-                $courseInfo['code'] = $matches[1];
-                $courseInfo['name'] = $matches[2];
-            } else {
-                $courseInfo['name'] = $text;
-            }
-        }
-
-        return $courseInfo;
-    }
-
-    /**
-     * Extract lecturer information from lecturer cell
-     */
-    private function extractLecturerInfoFromCell(Crawler $cell): array
-    {
-        $html = $cell->html();
-        $text = trim($cell->text());
-
-        $lecturerInfo = [];
-
-        // Extract lecturer name (usually in <b> tag)
-        $boldText = $cell->filter('b')->first();
-        if ($boldText->count() > 0) {
-            $lecturerInfo['name'] = trim($boldText->text());
-        } else {
-            // Try to extract from first line
-            $lines = explode("\n", $text);
-            $lecturerInfo['name'] = trim($lines[0] ?? '');
-        }
-
-        // Extract contact information
-        if (preg_match('/Kontak Dosen\s*:\s*([\d\s-]+)/', $html, $matches)) {
-            $lecturerInfo['contact'] = trim($matches[1]);
-        }
-
-        // Extract email
-        if (preg_match('/Email Dosen\s*:\s*([^\s<]+)/', $html, $matches)) {
-            $lecturerInfo['email'] = trim($matches[1]);
-        }
-
-        return $lecturerInfo;
-    }
-
-    /**
-     * Extract join link from join cell
-     */
-    private function extractJoinLinkFromCell(Crawler $cell): array
-    {
-        $joinInfo = [];
-
-        // Look for the join link
-        $linkElement = $cell->filter('a')->first();
-        if ($linkElement->count() > 0) {
-            $href = $linkElement->attr('href') ?? '';
-
-            // Extract parameters from the link
-            $params = [];
-            if (preg_match('/id=(\d+)/', $href, $matches)) {
-                $params['id'] = $matches[1];
-            }
-            if (preg_match('/dosen_id=(\d+)/', $href, $matches)) {
-                $params['dosen_id'] = $matches[1];
-            }
-            if (preg_match('/course_id=(\d+)/', $href, $matches)) {
-                $params['course_id'] = $matches[1];
-            }
-
-            $joinInfo = [
-                'link' => $href,
-                'params' => $params,
-                'text' => trim($linkElement->text()),
-            ];
-        }
-
-        return $joinInfo;
-    }
-
-    /**
-     * Extract classes from table structure (fallback)
-     */
-    private function extractClassesFromTable(Crawler $crawler): array
-    {
-        $classes = [];
-
-        $crawler->filter('table')->each(function (Crawler $table) use (&$classes) {
-            $headers = [];
-
-            // Extract table headers
-            $table->filter('thead th, tr:first-child th, tr:first-child td')->each(function (Crawler $cell) use (&$headers) {
-                $headers[] = strtolower(trim($cell->text()));
-            });
-
-            // Extract table rows
-            $table->filter('tbody tr, tr')->each(function (Crawler $row) use (&$headers, &$classes) {
-                $cells = $row->filter('td, th');
-
-                if ($cells->count() === 0) {
-                    return;
-                }
-
-                $rowData = [];
-                $cells->each(function (Crawler $cell) use (&$rowData) {
-                    $rowData[] = trim($cell->text());
-                });
-
-                if (! empty($rowData)) {
-                    $class = $this->mapRowToClass($rowData, $headers);
-                    if ($class) {
-                        $classes[] = $class;
-                    }
-                }
-            });
-        });
-
-        return $classes;
-    }
-
-    /**
-     * Map table row data to class structure
-     */
-    private function mapRowToClass(array $rowData, array $headers): array
-    {
-        $class = [];
-
-        // Common header mappings
-        $headerMap = [
-            'kode' => 'course_code',
-            'mata kuliah' => 'course_name',
-            'matakuliah' => 'course_name',
-            'nama mata kuliah' => 'course_name',
-            'sks' => 'credits',
-            'dosen' => 'lecturer',
-            'pengajar' => 'lecturer',
-            'jadwal' => 'schedule',
-            'hari' => 'schedule',
-            'waktu' => 'schedule',
-            'ruang' => 'room',
-            'kelas' => 'class_name',
-        ];
-
-        // Map data based on headers or position
-        foreach ($rowData as $index => $value) {
-            if (empty(trim($value))) {
-                continue;
-            }
-
-            $header = $headers[$index] ?? '';
-            $normalizedHeader = strtolower($header);
-
-            // Try direct mapping
-            if (isset($headerMap[$normalizedHeader])) {
-                $field = $headerMap[$normalizedHeader];
-                $class[$field] = $value;
-
-                continue;
-            }
-
-            // Position-based mapping for common table structures
-            if (count($rowData) >= 4) {
-                switch ($index) {
-                    case 0:
-                        if (preg_match('/^[A-Z]{2,4}\d{3,}$/', $value)) {
-                            $class['course_code'] = $value;
-                        } else {
-                            $class['course_name'] = $value;
-                        }
-                        break;
-                    case 1:
-                        if (! isset($class['course_name'])) {
-                            $class['course_name'] = $value;
-                        } elseif (! isset($class['credits'])) {
-                            $class['credits'] = (int) $value;
-                        } else {
-                            $class['lecturer'] = $value;
-                        }
-                        break;
-                    case 2:
-                        if (! isset($class['lecturer'])) {
-                            $class['lecturer'] = $value;
-                        } elseif (! isset($class['schedule'])) {
-                            $class['schedule'] = $value;
-                        } else {
-                            $class['room'] = $value;
-                        }
-                        break;
-                    case 3:
-                        if (! isset($class['schedule'])) {
-                            $class['schedule'] = $value;
-                        } else {
-                            $class['room'] = $value;
-                        }
-                        break;
-                }
-            }
-        }
-
-        return $class;
-    }
-
-    /**
-     * Extract semester information
-     */
-    private function extractSemesterInfo(Crawler $crawler): array
-    {
-        $semesterInfo = [];
-
-        $semesterSelectors = [
-            '.semester-info',
-            '.current-semester',
-            '.academic-semester',
-            '.semester-aktif',
-        ];
-
-        foreach ($semesterSelectors as $selector) {
-            $element = $crawler->filter($selector);
-            if ($element->count() > 0) {
-                $text = $this->cleanText($element->text());
-                if (! empty($text)) {
-                    $semesterInfo['semester'] = $text;
-                    break;
-                }
-            }
-        }
-
-        return $semesterInfo;
-    }
-
-    /**
-     * Extract academic summary
-     */
-    private function extractAcademicSummary(Crawler $crawler): array
-    {
-        $summary = [];
-
-        // Look for summary cards or info sections
-        $summarySelectors = [
-            '.academic-summary',
-            '.summary-cards',
-            '.info-cards',
-            '.stats-cards',
-        ];
-
-        foreach ($summarySelectors as $selector) {
-            $crawler->filter($selector)->each(function (Crawler $card) use (&$summary) {
-                $label = $this->extractText($card, ['.label', '.title', 'h4', 'h5']);
-                $value = $this->extractText($card, ['.value', '.content', '.number']);
-
-                if ($label && $value) {
-                    $key = strtolower(str_replace([' ', '-'], '_', $label));
-                    $summary[$key] = $value;
-                }
-            });
-        }
-
-        return $summary;
     }
 
     /**
@@ -755,17 +249,20 @@ class ClassesExtractor extends PortalScrapingService
                     // Extract contact info (from <b> tag in the value cell)
                     if (strpos($label, 'nomor kontak dosen') !== false) {
                         $boldText = $valueCell->filter('b')->first();
-                        if ($boldText->count() > 0) {
-                            $contactText = trim($boldText->text());
-                            $lecturerInfo['contact_info'] = $contactText;
+                        $contactText = $this->normalizePortalText(($boldText->count() > 0 ? $boldText : $valueCell)->text(''));
 
-                            // Extract phone and email from contact text
-                            if (preg_match('/(\d[\d\s-]+)\s*\/\s*([^@\s]+@[^@\s]+)/', $contactText, $matches)) {
-                                $lecturerInfo['contact'] = trim($matches[1]);
-                                $lecturerInfo['email'] = trim($matches[2]);
-                            }
-                        } else {
-                            $lecturerInfo['contact_info'] = $value;
+                        // Cloudflare shows "[email protected]" and keeps the address in data-cfemail.
+                        $email = $this->extractCloudflareEmail($valueCell);
+                        if ($email !== null) {
+                            $contactText = (string) preg_replace('/\[\s*email\s+protected\s*\]/iu', $email, $contactText);
+                        }
+
+                        $lecturerInfo['contact_info'] = $contactText;
+
+                        // Extract phone and email from contact text
+                        if (preg_match('/(\d[\d\s-]+)\s*\/\s*([^@\s]+@[^@\s]+)/', $contactText, $matches)) {
+                            $lecturerInfo['contact'] = trim($matches[1]);
+                            $lecturerInfo['email'] = trim($matches[2]);
                         }
                     }
                 }
@@ -822,13 +319,11 @@ class ClassesExtractor extends PortalScrapingService
         // Content-bearing markers are checked first: valid class pages often
         // contain the words "error" or "password" inside their scripts. Login
         // detection uses structural form evidence, so it can safely precede
-        // the word-based class_info check; error detection stays last.
+        // the word-based class_info check; error detection follows it. Every
+        // SIPANDAI page has tables and links to act=dashboardmahasiswa, so
+        // "students_list" is only a last resort, never a reason to accept a page.
         if (str_starts_with($html, '%PDF-') || preg_match('/\.(pdf|doc|docx|xls|xlsx|ppt|pptx|zip|rar)(?:\?[^"\'<\s]*)?["\']?\s*$/i', $html)) {
             return 'file_download';
-        }
-
-        if (strpos($html, '<table') !== false && stripos($html, 'mahasiswa') !== false) {
-            return 'students_list';
         }
 
         if (preg_match('/<input[^>]+type=[\'"]password[\'"]/i', $html) && preg_match('/<input[^>]+name=[\'"](username|user|email|nim|login)[\'"]/i', $html)) {
@@ -841,6 +336,10 @@ class ClassesExtractor extends PortalScrapingService
 
         if (preg_match('/<title>[^<]*(error|not found|forbidden)[^<]*<\/title>/i', $html) || stripos($html, 'halaman tidak ditemukan') !== false) {
             return 'error_page';
+        }
+
+        if (strpos($html, '<table') !== false && stripos($html, 'mahasiswa') !== false) {
+            return 'students_list';
         }
 
         // Default
@@ -870,31 +369,6 @@ class ClassesExtractor extends PortalScrapingService
         }
 
         return $fileInfo;
-    }
-
-    /**
-     * Get classes overview without detailed extraction (faster)
-     */
-    public function getClassesOverview(string $sessionToken): array
-    {
-        try {
-            $this->setSession($sessionToken);
-
-            $classesUrl = PortalEndpointRegistry::url('sipandai_dashboard');
-            $html = $this->get($classesUrl);
-            $crawler = $this->createCrawler($html);
-
-            return [
-                'has_classes' => $crawler->filter('.class-item, .course-item, table tr')->count() > 1,
-                'classes_count' => $crawler->filter('.class-item, .course-item, table tbody tr')->count(),
-                'page_title' => $this->extractText($crawler, ['title', 'h1', '.page-title']),
-                'extracted_at' => now()->toISOString(),
-            ];
-
-        } catch (\Exception $e) {
-            $this->logScrapingError('Getting classes overview', $e, ['session_token' => $sessionToken]);
-            throw PortalScrapingException::dataExtractionFailed('classes overview', $e->getMessage());
-        }
     }
 
     /**
@@ -1191,14 +665,12 @@ class ClassesExtractor extends PortalScrapingService
                         }
                     });
 
-                    // Extract average score
+                    // Average row: `<td colspan="4">RATA-RATA NILAI TUGAS</td><td>0</td>`
                     $assignmentTable->filter('tr')->each(function (Crawler $row) use (&$assignmentHistory) {
                         $cells = $row->filter('td');
-                        if ($cells->count() >= 5) {
-                            $label = trim($cells->eq(3)->text());
-                            if (strpos($label, 'RATA-RATA NILAI TUGAS') !== false) {
-                                $assignmentHistory['average_score'] = trim($cells->eq(4)->text());
-                            }
+                        if ($cells->count() >= 2 && stripos($this->normalizePortalText($row->text('')), 'RATA-RATA NILAI TUGAS') !== false) {
+                            $average = $this->normalizePortalText($cells->last()->text(''));
+                            $assignmentHistory['average_score'] = $average !== '' ? $average : null;
                         }
                     });
                 }
@@ -1212,6 +684,12 @@ class ClassesExtractor extends PortalScrapingService
 
     /**
      * Extract course materials from join class page
+     *
+     * Only the parsed fields are kept: the cell's raw HTML (lecturer rich
+     * text, possibly with inline base64 images) is read by nobody and would
+     * otherwise travel with every cached, archived and served class page.
+     *
+     * @return list<array{title: string, meeting_number: int|null, date?: string, time?: string, description?: string, join_link?: array{href: string|null, text: string}}>
      */
     private function extractCourseMaterials(Crawler $crawler): array
     {
@@ -1233,7 +711,6 @@ class ClassesExtractor extends PortalScrapingService
                             if (preg_match('/<h6>(.+?)<\/h6>/', $content, $matches)) {
                                 $material = [
                                     'title' => $this->richTextToPlain($matches[1]),
-                                    'content' => $content,
                                     'meeting_number' => null,
                                 ];
 
@@ -1251,14 +728,14 @@ class ClassesExtractor extends PortalScrapingService
                                     $material['time'] = $matches[1];
                                 }
 
-                                // Extract description
-                                if (preg_match('/<h6>Uraian Pokok Pembahasan : <\/h6>(.+?)(?:<a\b|<hr>|$)/is', $content, $matches)) {
-                                    $material['description'] = trim(strip_tags($matches[1]));
+                                $joinLink = $this->meetingJoinAnchor($cell);
+
+                                // Extract description: lecturer rich text up to the join button
+                                if (preg_match('/<h6>\s*Uraian Pokok Pembahasan\s*:\s*<\/h6>(.+?)(?:<hr\b|$)/is', $this->contentBeforeAnchor($content, $joinLink), $matches)) {
+                                    $material['description'] = $this->richTextToPlain($matches[1]);
                                 }
 
-                                // Extract join link
-                                $joinLink = $cell->filter('a');
-                                if ($joinLink->count() > 0) {
+                                if ($joinLink !== null) {
                                     $material['join_link'] = [
                                         'href' => $joinLink->attr('href'),
                                         'text' => trim($joinLink->text()),
@@ -1283,13 +760,56 @@ class ClassesExtractor extends PortalScrapingService
     }
 
     /**
+     * The material's "Join Pertemuan N" link to its act=discuss page
+     *
+     * The description written above it is lecturer rich text that may hold
+     * links of its own (Meet, Zoom, s.id, Drive), so the cell's first anchor
+     * is not necessarily the meeting link. The join button comes last.
+     */
+    private function meetingJoinAnchor(Crawler $cell): ?Crawler
+    {
+        $discussLinks = $cell->filter('a[href*="act=discuss"]');
+
+        if ($discussLinks->count() > 0) {
+            return $discussLinks->last();
+        }
+
+        $joinLinks = $cell->filter('a')->reduce(
+            static fn (Crawler $anchor): bool => preg_match('/Join\s+Pertemuan/i', $anchor->text('')) === 1
+        );
+
+        return $joinLinks->count() > 0 ? $joinLinks->last() : null;
+    }
+
+    /**
+     * Serialized cell HTML up to the given anchor (all of it without one)
+     */
+    private function contentBeforeAnchor(string $content, ?Crawler $anchor): string
+    {
+        if ($anchor === null) {
+            return $content;
+        }
+
+        $position = strrpos($content, $anchor->outerHtml());
+
+        return $position === false ? $content : substr($content, 0, $position);
+    }
+
+    /**
      * Extract meeting information from meeting page
+     *
+     * `class_ref` holds the link parameters of the class page the breadcrumb
+     * leads back to (`Beranda > Kelas <nama_mk> > Pertemuan <n>`), or null
+     * when the breadcrumb has no class link.
+     *
+     * @return array{title: string, breadcrumb: string, class_ref: array{id: string, dosen_id: string, course_id: string}|null}
      */
     private function extractMeetingInfo(Crawler $crawler): array
     {
         $meetingInfo = [
             'title' => '',
             'breadcrumb' => '',
+            'class_ref' => null,
         ];
 
         try {
@@ -1297,6 +817,7 @@ class ClassesExtractor extends PortalScrapingService
             $titleElement = $crawler->filter('.header .title');
             if ($titleElement->count() > 0) {
                 $meetingInfo['breadcrumb'] = trim($titleElement->text());
+                $meetingInfo['class_ref'] = $this->breadcrumbClassRef($titleElement->first());
             }
 
             // Extract page title
@@ -1309,6 +830,39 @@ class ClassesExtractor extends PortalScrapingService
         }
 
         return $meetingInfo;
+    }
+
+    /**
+     * Link parameters of the breadcrumb's class page link (act=download)
+     *
+     * @return array{id: string, dosen_id: string, course_id: string}|null
+     */
+    private function breadcrumbClassRef(Crawler $breadcrumb): ?array
+    {
+        foreach ($breadcrumb->filter('a[href]') as $anchor) {
+            $href = html_entity_decode((string) $anchor->getAttribute('href'), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            parse_str((string) parse_url($href, PHP_URL_QUERY), $query);
+
+            if (($query['act'] ?? null) !== 'download') {
+                continue;
+            }
+
+            $classRef = [];
+
+            foreach (['id', 'dosen_id', 'course_id'] as $param) {
+                $value = $query[$param] ?? null;
+
+                if (! is_string($value) || ! ctype_digit($value)) {
+                    return null;
+                }
+
+                $classRef[$param] = $value;
+            }
+
+            return $classRef;
+        }
+
+        return null;
     }
 
     /**
@@ -1410,6 +964,12 @@ class ClassesExtractor extends PortalScrapingService
 
     /**
      * Extract meeting attendance information
+     *
+     * `status` and `time` are the portal's words; `state` is what they mean
+     * (MeetingAttendanceState): "Waktu Absensi Tidak Tersedia" is an
+     * unavailable window, never an absence.
+     *
+     * @return array{status: string, time: string, state: string}
      */
     private function extractMeetingAttendanceInfo(Crawler $crawler): array
     {
@@ -1440,6 +1000,8 @@ class ClassesExtractor extends PortalScrapingService
             // Ignore extraction errors
         }
 
+        $attendanceInfo['state'] = MeetingAttendanceState::fromMeetingPage($attendanceInfo['status'], $attendanceInfo['time'])->value;
+
         return $attendanceInfo;
     }
 
@@ -1452,6 +1014,7 @@ class ClassesExtractor extends PortalScrapingService
             'deadline' => '',
             'upload_link' => '',
             'upload_text' => '',
+            'status_text' => '',
         ];
 
         try {
@@ -1459,13 +1022,21 @@ class ClassesExtractor extends PortalScrapingService
                 $cells = $row->filter('td');
                 if ($cells->count() >= 3) {
                     $label = trim(strtolower($cells->eq(0)->text()));
-                    $value = trim($cells->eq(1)->text());
-                    $actionCell = trim($cells->eq(2)->text());
 
                     if (strpos($label, 'upload tugas') !== false) {
-                        $assignmentInfo['deadline'] = $value;
+                        $valueCell = $this->labelledValueCell($cells);
+                        $value = $this->normalizePortalText($valueCell->text(''));
+                        $linkElement = $valueCell->filter('a');
+                        $linkText = $linkElement->count() > 0 ? $this->normalizePortalText($linkElement->text('')) : '';
+                        $deadlineText = $linkText !== '' ? $this->normalizePortalText(str_replace($linkText, '', $value)) : $value;
 
-                        $linkElement = $cells->eq(2)->filter('a');
+                        // The value is "Batas waktu upload tugas ... Sd <date>" next to the
+                        // upload button, or "Tidak ada tugas perkuliahan ..."; it is a
+                        // deadline only when it names a date, and the button's label is not
+                        // part of it (the due date also has its own h4).
+                        $assignmentInfo['deadline'] = $this->parseIndonesianDate($deadlineText) !== null ? $deadlineText : '';
+                        $assignmentInfo['status_text'] = $value;
+
                         if ($linkElement->count() > 0) {
                             $assignmentInfo['upload_link'] = $linkElement->attr('href');
                             $assignmentInfo['upload_text'] = trim($linkElement->text());
@@ -1481,7 +1052,23 @@ class ClassesExtractor extends PortalScrapingService
     }
 
     /**
+     * Value cell of a "label | : | value" row; a row without the ":" cell
+     * keeps its value in the second cell
+     */
+    private function labelledValueCell(Crawler $cells): Crawler
+    {
+        $separator = $this->normalizePortalText($cells->eq(1)->text(''));
+
+        return $cells->count() >= 3 && ($separator === ':' || $separator === '') ? $cells->eq(2) : $cells->eq(1);
+    }
+
+    /**
      * Extract conformity information
+     *
+     * The buttons are the portal's `act=kesesuaian` links ("Perkuliahan Ada,
+     * Materi Sesuai" / "... Tidak Sesuai"). Other rows of the info table link
+     * the RPS or the upload form in the same cells, and a student who has not
+     * attended gets no buttons at all.
      */
     private function extractConformityInfo(Crawler $crawler): array
     {
@@ -1505,7 +1092,7 @@ class ClassesExtractor extends PortalScrapingService
                     $leftCell = $cells->eq(0);
                     $rightCell = $cells->eq(2);
 
-                    $leftLink = $leftCell->filter('a');
+                    $leftLink = $leftCell->filter('a[href*="act=kesesuaian"]');
                     if ($leftLink->count() > 0) {
                         $conformityInfo['yes_button'] = [
                             'href' => $leftLink->attr('href'),
@@ -1513,7 +1100,7 @@ class ClassesExtractor extends PortalScrapingService
                         ];
                     }
 
-                    $rightLink = $rightCell->filter('a');
+                    $rightLink = $rightCell->filter('a[href*="act=kesesuaian"]');
                     if ($rightLink->count() > 0) {
                         $conformityInfo['no_button'] = [
                             'href' => $rightLink->attr('href'),
@@ -1555,7 +1142,7 @@ class ClassesExtractor extends PortalScrapingService
                     }
 
                     // Extract main description
-                    if (preg_match('/<h5>Uraian Pokok Pembahasan : <\/h5>(.+?)<h4>/s', $content, $matches)) {
+                    if (preg_match('/<h5>\s*Uraian Pokok Pembahasan\s*:\s*<\/h5>(.+?)<h4\b/is', $content, $matches)) {
                         $materials['main_description'] = $this->richTextToPlain($matches[1]);
                     }
 
@@ -1565,7 +1152,7 @@ class ClassesExtractor extends PortalScrapingService
                     }
 
                     // Extract assignment topic
-                    if (preg_match('/<h4> Instruksi Tugas Perkuliahan ([^:]+) :<\/h4>/', $content, $matches)) {
+                    if (preg_match('/<h4>\s*Instruksi Tugas Perkuliahan\s+([^:<]+?)\s*:\s*<\/h4>/i', $content, $matches)) {
                         $topic = $this->richTextToPlain($matches[1]);
                         $materials['assignment_topic'] = str_starts_with(strtolower($topic), 'pertemuan')
                             ? $topic
@@ -1573,8 +1160,8 @@ class ClassesExtractor extends PortalScrapingService
                     }
 
                     // Extract assignment instructions and due date
-                    if (preg_match('/<h4>Due Date Tugas ([^<]+) <\/h4>/', $content, $matches)) {
-                        $materials['assignment_instructions'] = $matches[1];
+                    if (preg_match('/<h4>\s*Due Date Tugas\s+([^<]+?)\s*<\/h4>/i', $content, $matches)) {
+                        $materials['assignment_instructions'] = $this->normalizePortalText($matches[1]);
                     }
 
                     // Extract assignment material iframe
@@ -1588,6 +1175,37 @@ class ClassesExtractor extends PortalScrapingService
         }
 
         return $materials;
+    }
+
+    /**
+     * Whether the class page names a course or lists its materials or
+     * attendance; the page title and sidebar say nothing about the id
+     *
+     * @param  array<string, mixed>  $classDetail
+     */
+    private function classDetailHasContent(array $classDetail): bool
+    {
+        $courseInfo = is_array($classDetail['course_info'] ?? null) ? $classDetail['course_info'] : [];
+        $code = is_string($courseInfo['code'] ?? null) ? $courseInfo['code'] : '';
+        $name = is_string($courseInfo['name'] ?? null) ? $courseInfo['name'] : '';
+
+        if (preg_match('/[A-Z1-9]/i', $code) === 1 || $this->namesSomething($name)) {
+            return true;
+        }
+
+        return ($classDetail['course_materials'] ?? []) !== []
+            || ($classDetail['attendance_info']['meetings'] ?? []) !== [];
+    }
+
+    /**
+     * Whether a course name has words in it. The info row of an unknown id
+     * can still print its template, " -  -  SKS", with every value empty.
+     */
+    private function namesSomething(string $courseName): bool
+    {
+        $words = (string) preg_replace('/\bSKS\b/iu', '', $courseName);
+
+        return preg_match('/\p{L}/u', $words) === 1;
     }
 
     /**
@@ -1636,7 +1254,8 @@ class ClassesExtractor extends PortalScrapingService
     /**
      * The portal marks every meeting the student has not attended as absent,
      * including meetings that have not happened yet. A meeting without
-     * material and without an attendance record is still upcoming.
+     * material and without an attendance record is still upcoming, and so
+     * is one whose material a lecturer posted ahead of its date (WIB).
      *
      * @param  array<string, mixed>  $attendanceInfo
      * @param  list<array<string, mixed>>  $courseMaterials
@@ -1650,8 +1269,15 @@ class ClassesExtractor extends PortalScrapingService
             return $attendanceInfo;
         }
 
+        $today = CarbonImmutable::instance(now())->setTimezone(self::PORTAL_TIMEZONE)->startOfDay();
         $heldMeetings = 0;
         foreach ($courseMaterials as $index => $material) {
+            $materialDate = is_string($material['date'] ?? null) ? $this->parseIndonesianDate($material['date']) : null;
+
+            if ($materialDate !== null && $materialDate->greaterThan($today)) {
+                continue;
+            }
+
             $heldMeetings = max($heldMeetings, (int) ($material['meeting_number'] ?? ($index + 1)));
         }
         foreach ($meetings as $meeting) {
@@ -1662,6 +1288,7 @@ class ClassesExtractor extends PortalScrapingService
         }
 
         $upcoming = 0;
+        $upcomingFromAbsent = 0;
         foreach ($meetings as $index => $meeting) {
             $details = is_array($meeting['details'] ?? null) ? $meeting['details'] : [];
             $isUpcoming = (int) ($meeting['meeting_number'] ?? 0) > $heldMeetings
@@ -1669,6 +1296,11 @@ class ClassesExtractor extends PortalScrapingService
                 && ! isset($details['attendance_date']);
 
             if ($isUpcoming) {
+                // Only an absent meeting was counted in summary.absent; an unknown one never was.
+                if ($meeting['status'] === 'absent') {
+                    $upcomingFromAbsent++;
+                }
+
                 $meetings[$index]['status'] = 'upcoming';
                 $upcoming++;
             }
@@ -1682,7 +1314,7 @@ class ClassesExtractor extends PortalScrapingService
             $attended = (int) ($summary['present'] ?? 0);
             $summary['upcoming'] = $upcoming;
             $summary['held_meetings'] = $held;
-            $summary['absent'] = max(0, (int) ($summary['absent'] ?? 0) - $upcoming);
+            $summary['absent'] = max(0, (int) ($summary['absent'] ?? 0) - $upcomingFromAbsent);
             $summary['attendance_rate'] = $held > 0 ? round(($attended / $held) * 100, 1) : 0;
             $attendanceInfo['summary'] = $summary;
         }
@@ -1705,10 +1337,9 @@ class ClassesExtractor extends PortalScrapingService
                 $cells = $row->filter('td');
                 if ($cells->count() >= 2) {
                     $label = trim(strtolower($cells->eq(0)->text()));
-                    $value = trim($cells->eq(1)->text());
 
                     if (strpos($label, 'batas waktu upload') !== false) {
-                        $instructions['deadline_text'] = $value;
+                        $instructions['deadline_text'] = $this->normalizePortalText($this->labelledValueCell($cells)->text(''));
                     }
                 }
 

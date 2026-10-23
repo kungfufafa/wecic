@@ -17,7 +17,7 @@
                 <button type="button" class="inline-flex min-h-11 items-center rounded-lg border border-border/40 bg-panel px-3 text-sm font-bold text-brand shadow-xs focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand sm:min-h-10" aria-pressed="true" data-notification-filter="all">Semua</button>
                 <button type="button" class="inline-flex min-h-11 items-center rounded-lg border border-transparent px-3 text-sm font-semibold text-ink-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand sm:min-h-10" aria-pressed="false" data-notification-filter="unread">Belum dibaca</button>
             </div>
-            <button type="button" class="mycic-btn-ghost-sm hidden" id="notification-mark-all" data-online-required>Tandai semua sudah dibaca</button>
+            <button type="button" class="mycic-btn-ghost-sm hidden" id="notification-mark-all">Tandai semua sudah dibaca</button>
         </div>
 
         <p class="min-h-4 text-caption text-ink-subtle" id="notification-status" aria-live="polite"></p>
@@ -48,6 +48,7 @@
             const statusHost = document.getElementById('notification-status');
             const markAllButton = document.getElementById('notification-mark-all');
             const filterButtons = Array.from(document.querySelectorAll('[data-notification-filter]'));
+            const skeletonMarkup = listHost.innerHTML;
 
             const TYPE_LABELS = {
                 assignment_new: 'Tugas',
@@ -68,7 +69,9 @@
                 academic_period_changed: 'Portal',
                 questionnaire_opened: 'Portal',
                 portal_menu_added: 'Portal',
+                thesis_status_changed: 'Skripsi',
                 archive_suspect: 'Arsip',
+                archive_class_not_run: 'Arsip',
             };
             const URGENCY_BADGES = { critical: 'danger', warning: 'warning', info: 'brand' };
             const GROUPS = [
@@ -78,15 +81,81 @@
             ];
 
             const params = new URLSearchParams(window.location.search);
+            const unloadedPaging = () => ({ loaded: false, nextBefore: null, hasMore: false, top: 0 });
+            // `items` holds every notification received, from either filter; each
+            // filter pages on its own (`unread=1` asks the server for unread only)
+            // and knows the range it received without a gap: from its floor up to `top`.
             const state = {
                 items: [],
                 unreadOnly: params.get('filter') === 'unread',
                 unreadCount: 0,
-                nextBefore: null,
-                hasMore: false,
+                paging: { all: unloadedPaging(), unread: unloadedPaging() },
                 loadingMore: false,
                 rendered: false,
+                // The filter whose first load failed: its error state stays until it loads.
+                failedMode: null,
             };
+            // Set once the session is confirmed; earlier clicks only render what is loaded.
+            let loadNotifications = null;
+
+            const modeOf = (unreadOnly) => (unreadOnly ? 'unread' : 'all');
+
+            const listUrl = (mode, before = null) => {
+                const query = new URLSearchParams();
+
+                if (mode === 'unread') {
+                    query.set('unread', '1');
+                }
+
+                if (before) {
+                    query.set('before', String(before));
+                }
+
+                const search = query.toString();
+
+                return `/api/notifications${search ? `?${search}` : ''}`;
+            };
+
+            // Ids at or above the floor are all known; Infinity means nothing loaded yet, 0 everything.
+            const floorOf = (mode) => {
+                const paging = state.paging[mode];
+
+                if (!paging.loaded) {
+                    return Infinity;
+                }
+
+                return paging.hasMore && paging.nextBefore ? Number(paging.nextBefore) : 0;
+            };
+
+            const rangeOf = (mode) => (state.paging[mode].loaded ? { floor: floorOf(mode), top: state.paging[mode].top } : null);
+
+            /**
+             * The ids a view shows without a gap, from its newest one down. Every
+             * unread notification is also in the full list, so the unread view
+             * reaches as deep as both ranges together where they meet.
+             */
+            const viewRange = (unreadOnly) => {
+                const all = rangeOf('all');
+                const unread = unreadOnly ? rangeOf('unread') : null;
+
+                if (!all || !unread) {
+                    return unreadOnly ? (all || unread) : all;
+                }
+
+                const [upper, lower] = all.top >= unread.top ? [all, unread] : [unread, all];
+
+                return lower.top >= upper.floor ? { floor: Math.min(upper.floor, lower.floor), top: upper.top } : upper;
+            };
+
+            const coverageFloor = () => viewRange(state.unreadOnly)?.floor ?? Infinity;
+
+            const canLoadMore = () => {
+                const floor = coverageFloor();
+
+                return Number.isFinite(floor) && floor > 0;
+            };
+
+            const maxKnownId = () => state.items.reduce((max, item) => Math.max(max, item.id), 0);
 
             const segmentClass = (active) => `inline-flex min-h-11 items-center rounded-lg px-3 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand sm:min-h-10 ${active
                 ? 'border border-border/40 bg-panel font-bold text-brand shadow-xs'
@@ -110,7 +179,11 @@
                 return created >= new Date(today.getTime() - 6 * 24 * 60 * 60 * 1000) ? 'week' : 'older';
             };
 
-            const visibleItems = () => (state.unreadOnly ? state.items.filter((item) => !item.is_read) : state.items);
+            const visibleItems = () => {
+                const floor = coverageFloor();
+
+                return state.items.filter((item) => item.id >= floor && (!state.unreadOnly || !item.is_read));
+            };
 
             const renderItem = (item) => {
                 const unread = !item.is_read;
@@ -150,22 +223,39 @@
             };
 
             const renderMore = () => {
-                moreHost.innerHTML = state.hasMore && !state.unreadOnly
+                moreHost.innerHTML = canLoadMore()
                     ? `<button type="button" class="${app.buttonClass('secondary')} w-full sm:w-auto" data-load-more ${state.loadingMore ? 'disabled aria-busy="true"' : ''}>${state.loadingMore ? 'Memuat…' : 'Muat notifikasi lama'}</button>`
                     : '';
             };
 
             const renderList = () => {
+                renderFilters();
+
+                if (!Number.isFinite(coverageFloor())) {
+                    // This filter has nothing loaded yet: the skeleton, not the other filter's list, until it arrives.
+                    if (state.failedMode !== modeOf(state.unreadOnly)) {
+                        listHost.setAttribute('aria-busy', 'true');
+                        listHost.innerHTML = skeletonMarkup;
+                    }
+
+                    moreHost.innerHTML = '';
+
+                    return;
+                }
+
                 const items = visibleItems();
 
                 listHost.removeAttribute('aria-busy');
-                renderFilters();
                 renderMore();
 
                 if (items.length === 0) {
-                    listHost.innerHTML = state.unreadOnly
-                        ? app.renderEmptyState('Semua notifikasi sudah dibaca.', 'secondary', 'Notifikasi baru akan muncul di sini.')
-                        : app.renderEmptyState('Belum ada notifikasi.', 'secondary', 'MyCIC akan memberi tahu saat KRS divalidasi, nilai keluar, ada tagihan baru, pengumuman baru, atau tenggat mendekat.');
+                    if (state.unreadOnly && canLoadMore()) {
+                        listHost.innerHTML = app.renderEmptyState('Tidak ada yang belum dibaca di notifikasi terbaru.', 'secondary', 'Muat notifikasi lama untuk memeriksa yang lebih lama.');
+                    } else {
+                        listHost.innerHTML = state.unreadOnly
+                            ? app.renderEmptyState('Semua notifikasi sudah dibaca.', 'secondary', 'Notifikasi baru akan muncul di sini.')
+                            : app.renderEmptyState('Belum ada notifikasi.', 'secondary', 'MyCIC akan memberi tahu saat KRS divalidasi, nilai keluar, ada tagihan baru, pengumuman baru, atau tenggat mendekat.');
+                    }
 
                     return;
                 }
@@ -186,36 +276,102 @@
                 }).join('');
             };
 
-            const receivePage = (payload, { append = false } = {}) => {
-                const data = payload?.data || {};
-                const items = Array.isArray(data.items) ? data.items : [];
+            const mergeItems = (items) => {
+                const byId = new Map(state.items.map((item) => [item.id, item]));
 
-                state.items = append ? [...state.items, ...items.filter((item) => !state.items.some((known) => known.id === item.id))] : items;
+                items.forEach((item) => byId.set(item.id, item));
+                state.items = Array.from(byId.values()).sort((left, right) => right.id - left.id);
+            };
+
+            /**
+             * `append` continues the view's paging below its floor. Otherwise the
+             * newest page is merged into the range the view already covers (a
+             * realtime event or a sync must not drop the older pages the student
+             * opened), unless the page does not reach down to that range (more
+             * arrived than one page holds): then the filter's range starts over
+             * from that page and "Muat notifikasi lama" fills the rest.
+             */
+            const receivePage = (payload, { mode, append = false, before = null } = {}) => {
+                const data = payload?.data || {};
+                const items = (Array.isArray(data.items) ? data.items : []).filter((item) => Number.isInteger(item?.id));
+                const paging = { loaded: true, nextBefore: data.next_before ?? null, hasMore: data.has_more === true };
+                const lowestId = items.reduce((min, item) => Math.min(min, item.id), Infinity);
+                const highestId = items.reduce((max, item) => Math.max(max, item.id), 0);
+                const pageFloor = paging.hasMore && paging.nextBefore ? Number(paging.nextBefore) : 0;
+                const covered = viewRange(mode === 'unread');
+
+                if (append) {
+                    // A sync that moved the floor meanwhile leaves this older page outside the range.
+                    if (covered && covered.floor === before) {
+                        state.paging[mode] = { ...paging, top: Math.max(covered.top, highestId) };
+                    }
+                } else if (covered && (lowestId <= covered.top || !paging.hasMore)) {
+                    const floor = Math.min(covered.floor, pageFloor);
+
+                    state.paging[mode] = { loaded: true, nextBefore: floor > 0 ? floor : null, hasMore: floor > 0, top: Math.max(covered.top, highestId) };
+                } else {
+                    state.paging[mode] = { ...paging, top: highestId };
+                }
+
+                if (mode === 'unread' && !append) {
+                    // Unread ones this page no longer lists were read elsewhere (another device).
+                    const listed = new Set(items.map((item) => item.id));
+                    const floor = paging.hasMore ? lowestId : 0;
+
+                    state.items = state.items.map((item) => (!item.is_read && item.id >= floor && !listed.has(item.id) ? { ...item, is_read: true } : item));
+                }
+
+                mergeItems(items);
+
+                if (state.failedMode === mode) {
+                    state.failedMode = null;
+                }
+
                 state.unreadCount = Number(data.unread_count) || 0;
-                state.hasMore = data.has_more === true;
-                state.nextBefore = data.next_before ?? null;
                 state.rendered = true;
                 app.setNotificationUnreadCount(state.unreadCount);
                 renderList();
             };
 
-            const applyRead = (ids, unreadCount) => {
-                state.items = state.items.map((item) => (ids === null || ids.includes(item.id) ? { ...item, is_read: true } : item));
+            const applyRead = (ids, unreadCount, upTo = null) => {
+                const marks = (item) => (ids === null ? upTo === null || item.id <= upTo : ids.includes(item.id));
+
+                state.items = state.items.map((item) => (marks(item) ? { ...item, is_read: true } : item));
                 state.unreadCount = Number.isFinite(unreadCount) ? unreadCount : state.items.filter((item) => !item.is_read).length;
                 app.setNotificationUnreadCount(state.unreadCount);
-                app.clearCachedResponse('/api/notifications');
+                app.clearCachedResponse(listUrl('all'));
+                app.clearCachedResponse(listUrl('unread'));
             };
 
+            /**
+             * `ids` null marks everything up to the newest notification this page
+             * has shown: one stored meanwhile (another device, a background sync)
+             * stays unread until the student has seen it.
+             */
             const markRead = async (ids) => {
+                const upTo = ids === null ? maxKnownId() || null : null;
                 const payload = await app.request('/api/notifications/read', {
                     method: 'POST',
-                    json: ids === null ? { all: true } : { ids },
+                    json: ids === null ? { all: true, ...(upTo ? { up_to: upTo } : {}) } : { ids },
                     timeout: 4000,
                 });
 
-                applyRead(ids, payload?.data?.unread_count);
+                applyRead(ids, payload?.data?.unread_count, upTo);
 
                 return payload;
+            };
+
+            // Marking read is local bookkeeping: only a missing connection blocks it, not portal-offline mode.
+            const refreshMarkAllAvailability = () => {
+                markAllButton.disabled = !navigator.onLine;
+
+                if (navigator.onLine) {
+                    markAllButton.removeAttribute('aria-disabled');
+                    markAllButton.removeAttribute('title');
+                } else {
+                    markAllButton.setAttribute('aria-disabled', 'true');
+                    markAllButton.setAttribute('title', 'Butuh koneksi internet');
+                }
             };
 
             listHost.addEventListener('click', async (event) => {
@@ -247,18 +403,36 @@
                 }
             });
 
-            markAllButton.addEventListener('click', () => app.withSubmitLoading(markAllButton, async () => {
-                try {
-                    await markRead(null);
-                    renderList();
-                    app.showNotice('Semua notifikasi ditandai sudah dibaca.', 'success');
-                } catch (error) {
-                    app.showNotice(`Gagal menandai notifikasi. ${app.describeError(error)}`, 'error');
-                }
-            }));
+            markAllButton.addEventListener('click', async () => {
+                await app.withSubmitLoading(markAllButton, async () => {
+                    try {
+                        await markRead(null);
+                        renderList();
+
+                        if (state.unreadCount > 0) {
+                            app.showNotice('Notifikasi yang tampil ditandai sudah dibaca. Ada notifikasi baru yang belum kamu lihat.', 'info');
+
+                            if (loadNotifications) {
+                                void loadNotifications();
+                            }
+                        } else {
+                            app.showNotice('Semua notifikasi ditandai sudah dibaca.', 'success');
+                        }
+                    } catch (error) {
+                        app.showNotice(`Gagal menandai notifikasi. ${app.describeError(error)}`, 'error');
+                    }
+                });
+                refreshMarkAllAvailability();
+            });
+
+            window.addEventListener('online', refreshMarkAllAvailability);
+            window.addEventListener('offline', refreshMarkAllAvailability);
+            refreshMarkAllAvailability();
 
             filterButtons.forEach((button) => button.addEventListener('click', () => {
                 state.unreadOnly = button.dataset.notificationFilter === 'unread';
+                // The filter is read again below, so an earlier failure no longer stands.
+                state.failedMode = null;
 
                 try {
                     const url = new URL(window.location.href);
@@ -275,18 +449,30 @@
                 }
 
                 renderList();
+
+                // Each filter reads its own newest page (the unread one may reach further back).
+                if (loadNotifications) {
+                    void loadNotifications();
+                }
             }));
 
             moreHost.addEventListener('click', async (event) => {
-                if (!(event.target instanceof Element) || !event.target.closest('[data-load-more]') || state.loadingMore || !state.nextBefore) {
+                if (!(event.target instanceof Element) || !event.target.closest('[data-load-more]') || state.loadingMore || !canLoadMore()) {
                     return;
                 }
+
+                const mode = modeOf(state.unreadOnly);
+                const before = coverageFloor();
 
                 state.loadingMore = true;
                 renderMore();
 
                 try {
-                    receivePage(await app.request(`/api/notifications?before=${encodeURIComponent(state.nextBefore)}`, { cache: false }), { append: true });
+                    const payload = await app.request(listUrl(mode, before), { cache: false });
+
+                    if (payload) {
+                        receivePage(payload, { mode, append: true, before });
+                    }
                 } catch (error) {
                     app.showNotice(`Notifikasi lama gagal dimuat. ${app.describeError(error)}`, 'error');
                 } finally {
@@ -302,7 +488,9 @@
             });
 
             try {
-                app.primeCachedView('/api/notifications', receivePage, 'notifikasi');
+                const initialMode = modeOf(state.unreadOnly);
+
+                app.primeCachedView(listUrl(initialMode), (payload) => receivePage(payload, { mode: initialMode }), 'notifikasi');
             } catch (error) {
                 // A blocked device cache only means the page waits for the server.
             }
@@ -313,23 +501,27 @@
                 return;
             }
 
-            const loadNotifications = async () => {
+            loadNotifications = async ({ background = false } = {}) => {
+                const mode = modeOf(state.unreadOnly);
+
                 try {
-                    const payload = await app.request('/api/notifications');
+                    const payload = await app.request(listUrl(mode), { background });
 
                     if (!payload) {
                         return;
                     }
 
-                    receivePage(payload);
+                    receivePage(payload, { mode });
                     statusHost.textContent = '';
                 } catch (error) {
-                    if (state.rendered) {
+                    // The error state only replaces a view with nothing to show; the student may have switched filters meanwhile.
+                    if (mode !== modeOf(state.unreadOnly) || Number.isFinite(coverageFloor())) {
                         statusHost.textContent = `Notifikasi belum bisa diperbarui. ${app.describeError(error)}`;
 
                         return;
                     }
 
+                    state.failedMode = mode;
                     listHost.removeAttribute('aria-busy');
                     app.mountErrorState(listHost, 'Notifikasi gagal dimuat.', () => loadNotifications(), {
                         subtitle: app.describeError(error),

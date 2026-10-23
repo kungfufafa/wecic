@@ -43,7 +43,7 @@ class PortalEndpointsCommand extends Command
             return self::FAILURE;
         }
 
-        $this->title("Endpoint: {$key}");
+        $this->components->info("Endpoint: {$key}");
         $this->line(sprintf('  Method     : %s', $meta['method']));
         $this->line(sprintf('  URL        : %s', $meta['url']));
         $this->line(sprintf('  Category   : %s', $meta['category'] ?? '-'));

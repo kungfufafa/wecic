@@ -39,9 +39,16 @@ return [
             'connection' => env('DB_QUEUE_CONNECTION'),
             'table' => env('DB_QUEUE_TABLE', 'jobs'),
             'queue' => env('DB_QUEUE', 'default'),
-            // Above the longest job timeout (RefreshPortalDataJob: up to 600 s for a
-            // login warm-up), so a running job is never handed to a second worker.
-            'retry_after' => (int) env('DB_QUEUE_RETRY_AFTER', 660),
+            // Above the longest job timeout (SyncPortalArchiveJob: 1800 s for a
+            // background sync with the class crawl) and every worker's
+            // --timeout (routes/console.php, the README Supervisor programs),
+            // so a running job is never handed to a second worker.
+            // tests/Unit/QueueJobConfigurationTest checks every job and
+            // scheduled worker against it. The price: a job left reserved by a
+            // worker that crashed (OOM, SIGKILL on deploy) waits this long
+            // before it is retried, keep-alive jobs on campus-sessions too, so
+            // stop workers gracefully (queue:restart) when deploying.
+            'retry_after' => (int) env('DB_QUEUE_RETRY_AFTER', 1900),
             'after_commit' => false,
         ],
 

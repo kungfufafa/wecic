@@ -11,6 +11,7 @@ use App\Services\PortalBroadcastService;
 use App\Services\PortalDatasetRepository;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Log;
 
 abstract class CampusApiController extends Controller
@@ -21,7 +22,7 @@ abstract class CampusApiController extends Controller
 
     public const SCRAMBLE_VALIDATION_ERROR_RESPONSE = "array{status: 'error', message: string, errors: array<string, list<string>>}";
 
-    public const SCRAMBLE_BOOLEAN_RESPONSE = 'array{success: bool, message: string, data: mixed}';
+    public const SCRAMBLE_BOOLEAN_RESPONSE = "array{success: bool, status: 'success'|'error', message: string, data: mixed, meta: array{timestamp: string}}";
 
     public const SCRAMBLE_NOT_FOUND_RESPONSE = "array{status: 'error', message: string, meta: array{timestamp: string, campus_session_valid: true}}";
 
@@ -91,21 +92,47 @@ abstract class CampusApiController extends Controller
         ], $payload), $statusCode);
     }
 
+    /**
+     * A minimal error page for an API link the browser opened as a page (a
+     * download in a new tab), where a JSON body would be all the student
+     * sees. Self-contained: no layout, scripts or built assets.
+     */
+    public static function navigationErrorPage(string $heading, string $message, int $statusCode): Response
+    {
+        $html = '<!doctype html><html lang="id"><head><meta charset="utf-8">'
+            .'<meta name="viewport" content="width=device-width, initial-scale=1">'
+            .'<meta name="robots" content="noindex"><title>'.e($heading).' — myCIC</title>'
+            .'<style>body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:#f8fafc;color:#0f172a}'
+            .'main{max-width:28rem;margin:15vh auto;padding:0 16px}h1{font-size:1.25rem;margin:0 0 .5rem}'
+            .'p{line-height:1.5;color:#475569}a{color:#1d4ed8;font-weight:600}'
+            .'@media (prefers-color-scheme:dark){body{background:#0f172a;color:#f1f5f9}p{color:#cbd5e1}a{color:#93c5fd}}</style>'
+            .'</head><body><main><h1>'.e($heading).'</h1><p>'.e($message).'</p>'
+            .'<p><a href="'.e(url('/dashboard')).'">Kembali ke MyCIC</a></p></main></body></html>';
+
+        return response($html, $statusCode, [
+            'Content-Type' => 'text/html; charset=UTF-8',
+            'Cache-Control' => 'no-store',
+        ]);
+    }
+
+    /**
+     * The `{success, message, data}` envelope of the action endpoints. It
+     * also carries the `status` and `meta.timestamp` every other endpoint
+     * answers with, so a client can read either shape.
+     *
+     * @param  array<string, mixed>  $meta
+     */
     protected function booleanResponse(bool $success, string $message, mixed $data = null, int $statusCode = 200, array $meta = []): JsonResponse
     {
-        $payload = [
+        return response()->json([
             'success' => $success,
+            'status' => $success ? 'success' : 'error',
             'message' => $message,
             'data' => $data,
-        ];
-
-        if ($meta !== []) {
-            $payload['meta'] = array_merge([
+            'meta' => array_merge([
                 'timestamp' => now()->toISOString(),
-            ], $meta);
-        }
-
-        return response()->json($payload, $statusCode);
+            ], $meta),
+        ], $statusCode);
     }
 
     /**

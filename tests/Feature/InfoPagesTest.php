@@ -38,7 +38,7 @@ class InfoPagesTest extends TestCase
             'finance' => ['/finance', 'finance', "app.registerSyncHandler('finance', loadFinance, { aliases: ['portal-context', 'announcement-index'] });", "app.primeCachedView('/api/finance/summary', renderSummary, 'ringkasan keuangan');"],
             'thesis' => ['/thesis', 'thesis-index', "app.registerSyncHandler('thesis-index', loadThesis);", "app.primeCachedView('/api/thesis', renderThesis, 'syarat & status skripsi');"],
             'library' => ['/library', 'library-index', "app.registerSyncHandler('library-index', loadLibrary);", "app.primeCachedView('/api/library', renderLibrary, 'perpustakaan digital');"],
-            'library theses' => ['/library/theses', 'library-theses', "app.registerSyncHandler('library-theses', ({ force = false } = {}) => fetchResults({ force }));", "app.primeCachedView('/api/library/theses', (payload) => renderResults(payload), 'repositori skripsi');"],
+            'library theses' => ['/library/theses', 'library-theses', "app.registerSyncHandler('library-theses', ({ force = false, background = false } = {}) => fetchResults({ force, background }));", "app.primeCachedView('/api/library/theses', (payload) => renderResults(payload), 'repositori skripsi');"],
         ];
     }
 
@@ -51,7 +51,7 @@ class InfoPagesTest extends TestCase
             ->assertSee('data-page="'.$pageId.'"', false)
             ->assertSee($prime, false)
             ->assertSee('await app.ensureAuthenticated();', false)
-            ->assertSee('{ fresh: force }', false)
+            ->assertSee('{ fresh: force, background }', false)
             ->assertSee('app.markViewSynced(', false)
             ->assertSee($syncHandler, false)
             ->assertSee('app.mountErrorState(', false)
@@ -123,7 +123,7 @@ class InfoPagesTest extends TestCase
         $this->assertCount(3, $crawler->filter('#announcement-list .mycic-skeleton.w-4\\/5'));
 
         $response
-            ->assertSee("app.request('/api/announcement', { fresh: force })", false)
+            ->assertSee("app.request('/api/announcement', { fresh: force, background })", false)
             ->assertSee('app.request(`/api/announcement?page=${page}`)', false)
             ->assertSee('app.formatRelativeDays(deadline.date)', false)
             ->assertSee("const READ_KEY = 'mycic-announcement-read';", false)
@@ -190,7 +190,7 @@ class InfoPagesTest extends TestCase
         $this->assertSame('Validasi oleh DPA', trim($crawler->filter('#skkm-dpa-title')->text()));
 
         $response
-            ->assertSee("app.request('/api/skkm', { fresh: force })", false)
+            ->assertSee("app.request('/api/skkm', { fresh: force, background })", false)
             ->assertSee('summary.valid_points ?? stats.total_points?.valid ?? null', false)
             ->assertDontSee('stat_counts?.valid', false)
             ->assertSee('SIREKA tidak bisa diakses')
@@ -222,8 +222,8 @@ class InfoPagesTest extends TestCase
 
         $response
             ->assertSee('Terbayar')
-            ->assertSee("app.request('/api/finance/summary', { fresh: force })", false)
-            ->assertSee("app.request('/api/finance/payments', { fresh: force })", false)
+            ->assertSee("app.request('/api/finance/summary', { fresh: force, background })", false)
+            ->assertSee("app.request('/api/finance/payments', { fresh: force, background })", false)
             ->assertSee('Status tagihan tidak terbaca')
             ->assertSee('Tidak ada tagihan aktif')
             ->assertSee('Total tagihan aktif')

@@ -115,7 +115,8 @@
             };
             const ICON_BG = { success: 'bg-success-soft text-success', danger: 'bg-danger-soft text-danger', secondary: 'bg-surface text-ink-subtle' };
             const numberFormatter = new Intl.NumberFormat('id-ID', { maximumFractionDigits: 2 });
-            const ipkFormatter = new Intl.NumberFormat('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            // IPK is written with a dot decimal (3.45), as on Nilai, Transkrip and KRS.
+            const formatIpk = (value) => (Number.isFinite(Number(value)) ? Number(value).toFixed(2) : '–');
             let thesisData = null;
             let thesisPayload = null;
             let readinessData = null;
@@ -183,7 +184,7 @@
                 }
 
                 if (key === 'ipk') {
-                    return ipkFormatter.format(Number(value));
+                    return formatIpk(value);
                 }
 
                 return typeof value === 'number' ? numberFormatter.format(value) : String(value);
@@ -256,7 +257,7 @@
 
                 const summary = [
                     minSks ? `minimal ${numberFormatter.format(minSks)} SKS` : null,
-                    thresholds.min_ipk !== undefined ? `IPK ≥ ${ipkFormatter.format(Number(thresholds.min_ipk))}` : null,
+                    thresholds.min_ipk !== undefined ? `IPK ≥ ${formatIpk(thresholds.min_ipk)}` : null,
                     thresholds.max_d !== undefined ? `maks. ${thresholds.max_d} nilai D` : null,
                     thresholds.allow_e === false ? 'tanpa nilai E' : null,
                 ].filter(Boolean);
@@ -587,9 +588,9 @@
                 return;
             }
 
-            const loadReadiness = async () => {
+            const loadReadiness = async ({ background = false } = {}) => {
                 try {
-                    const payload = await app.request('/api/thesis/readiness');
+                    const payload = await app.request('/api/thesis/readiness', { background });
 
                     if (payload) {
                         renderReadiness(payload);
@@ -608,9 +609,9 @@
                 }
             };
 
-            const loadThesis = async ({ force = false } = {}) => {
+            const loadThesis = async ({ force = false, background = false } = {}) => {
                 try {
-                    const payload = await app.request('/api/thesis', { fresh: force });
+                    const payload = await app.request('/api/thesis', { fresh: force, background });
 
                     if (payload) {
                         renderThesis(payload);
@@ -632,7 +633,7 @@
                 }
 
                 // Readiness reads the snapshots the thesis request just refreshed.
-                await loadReadiness();
+                await loadReadiness({ background });
             };
 
             app.registerSyncHandler('thesis-index', loadThesis);

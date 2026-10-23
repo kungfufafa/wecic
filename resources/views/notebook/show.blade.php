@@ -18,8 +18,18 @@
         </div>
     </header>
 
-    <div class="mycic-alert-warning mb-4 hidden" id="notebook-ai-off" role="status">
+    {{-- One banner per reason the AI cannot answer (`ai_status` of the notebook, or of a failed question). --}}
+    <div class="mycic-alert-warning mb-4 hidden" data-ai-status-banner="disabled" role="status">
+        Fitur AI Notebook dimatikan di server MyCIC. Catatan pertemuan, teks, DOCX, dan PPTX tetap bisa ditambahkan; PDF, gambar, tanya jawab, dan studio aktif lagi setelah AI dinyalakan.
+    </div>
+    <div class="mycic-alert-warning mb-4 hidden" data-ai-status-banner="missing_key" role="status">
         Fitur AI belum diaktifkan di server MyCIC (GEMINI_API_KEY kosong). Catatan pertemuan, teks, DOCX, dan PPTX tetap bisa ditambahkan; PDF, gambar, tanya jawab, dan studio aktif setelah AI dinyalakan.
+    </div>
+    <div class="mycic-alert-warning mb-4 hidden" data-ai-status-banner="invalid_key" role="status">
+        Fitur AI sedang tidak bisa dipakai karena kunci API Gemini di server MyCIC ditolak. Pengelola MyCIC perlu memperbarui GEMINI_API_KEY. Catatan pertemuan, teks, DOCX, dan PPTX tetap bisa ditambahkan; PDF, gambar, tanya jawab, dan studio menunggu sampai kuncinya diperbaiki.
+    </div>
+    <div class="mycic-alert-warning mb-4 hidden" data-ai-status-banner="model_misconfigured" role="status">
+        Fitur AI sedang tidak bisa dipakai karena pengaturan model AI di server MyCIC ditolak (model tidak dikenali, sudah tidak tersedia, atau pengaturannya tidak cocok). Pengelola MyCIC perlu memeriksa pengaturan model AI, misalnya GEMINI_MODEL atau NOTEBOOK_THINKING_BUDGET. Catatan pertemuan, teks, DOCX, dan PPTX tetap bisa ditambahkan; PDF, gambar, tanya jawab, dan studio menunggu sampai pengaturannya diperbaiki.
     </div>
 
     <div class="mb-3 inline-flex items-center gap-1 rounded-xl border border-border/40 bg-surface p-1 lg:hidden" role="tablist" aria-label="Bagian notebook" id="notebook-tabs">
@@ -63,7 +73,7 @@
                 <p class="mt-0.5 text-caption text-ink-subtle">Jawaban hanya dari sumber yang dicentang. Ketuk nomor rujukan untuk melihat kutipannya.</p>
             </div>
             <div class="mycic-card-body flex min-h-0 flex-1 flex-col gap-3">
-                <ol class="flex max-h-[60vh] min-h-48 flex-1 flex-col gap-4 overflow-y-auto pe-1" id="notebook-messages" aria-live="polite"></ol>
+                <ol class="flex max-h-[60vh] min-h-48 flex-1 flex-col gap-4 overflow-y-auto pe-1" id="notebook-messages" aria-label="Percakapan"></ol>
                 <form class="flex flex-col gap-2" id="notebook-ask-form">
                     <label class="sr-only" for="notebook-question">Pertanyaan</label>
                     <textarea class="mycic-input min-h-20 resize-y" id="notebook-question" maxlength="2000" placeholder="Tanyakan sesuatu tentang sumbermu…" required></textarea>
@@ -110,7 +120,12 @@
                 processing: { label: 'Dibaca…', tone: 'info' },
                 ready: { label: 'Siap', tone: 'success' },
                 failed: { label: 'Gagal', tone: 'danger' },
+                stalled: { label: 'Terhenti', tone: 'warning' },
             };
+            // Reading a source takes minutes, but a busy queue may hold it longer: without progress the page
+            // asks less often, and stops after the hour in which the server marks a lost reading stalled.
+            const POLL_LIMIT_MS = 60 * 60 * 1000;
+            const POLL_SLOW_AFTER_MS = 2 * 60 * 1000;
             const SOURCE_KIND = { meeting: 'Catatan pertemuan', archived_file: 'Arsip materi', upload: 'Unggahan', text: 'Catatan' };
             const SUGGESTIONS = [
                 'Ringkas inti materi ini dalam 5 poin.',
@@ -123,39 +138,79 @@
                 notebook: null,
                 sources: [],
                 messages: [],
+                // Chat messages older than this are only in the payload as saved notes.
+                chatFromId: null,
                 meetings: null,
                 archivedCourses: [],
                 studioKinds: {},
+                sourceLimit: null,
                 aiAvailable: true,
+                // ok, disabled, missing_key, invalid_key or model_misconfigured (NotebookAssistant::aiStatus()).
+                aiStatus: 'ok',
                 busy: false,
                 pollTimer: null,
+                pollStartedAt: null,
+                pollReading: '',
                 tab: 'chat',
                 // Sources left out of the context (NotebookLM-style source ticks); empty = everything.
                 excluded: new Set(),
             };
 
-            // A bare 502/504 means the web server gave up before the model answered.
-            const describeAiError = (error, fallback) => (error?.status === 504 || error?.status === 502
+            // A bare 502/504 (no message from MyCIC) means the web server gave up before the model answered;
+            // MyCIC's own 502s ("Hasilnya terlalu panjang…") say what to do instead.
+            const describeAiError = (error, fallback) => ((error?.status === 504 || error?.status === 502) && !error?.payload?.message
                 ? 'Model AI tidak menjawab dalam batas waktu server (sedang sibuk). Tunggu sebentar lalu coba lagi.'
                 : app.describeError(error, fallback));
+
+            // Older responses carry only ai_available.
+            const setAiStatus = (data) => {
+                state.aiStatus = data?.ai_status || (data?.ai_available === false ? 'missing_key' : 'ok');
+                state.aiAvailable = state.aiStatus === 'ok';
+            };
+
+            const renderAiStatus = () => {
+                document.querySelectorAll('[data-ai-status-banner]').forEach((banner) => {
+                    banner.classList.toggle('hidden', banner.dataset.aiStatusBanner !== state.aiStatus);
+                });
+            };
+
+            // A question the server could not answer because of its AI settings says which, so the banner follows.
+            const noteAiStatus = (error) => {
+                if (!error?.payload?.data?.ai_status) {
+                    return;
+                }
+
+                setAiStatus(error.payload.data);
+                renderAiStatus();
+                renderStudioButtons();
+            };
 
             const formatChars = (chars) => (chars >= 1000 ? `${(chars / 1000).toFixed(chars >= 10000 ? 0 : 1).replace('.', ',')} rb` : String(chars)) + ' karakter';
 
             const readySources = () => state.sources.filter((source) => source.status === 'ready');
             const contextSources = () => readySources().filter((source) => !state.excluded.has(source.id));
             const contextSourceIds = () => (state.excluded.size ? contextSources().map((source) => source.id) : []);
+            // Every ready source unticked: an empty selection would make the server read them all.
+            const noContextChosen = () => state.excluded.size > 0 && contextSources().length === 0;
             const isCourseNotebook = () => state.notebook?.kind === 'course';
 
-            // Safe Markdown subset: everything is escaped first.
-            const inline = (text) => app.escapeHtml(text)
+            const citationButton = (number) => `<button type="button" class="mx-0.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-surface-tint px-1 align-text-top text-[11px] font-bold text-brand-pressed hover:bg-brand hover:text-white focus-visible:outline-2 focus-visible:outline-brand" data-cite="${number}" aria-label="Rujukan ${number}">${number}</button>`;
+
+            // A run of citations ([3], [2][5]) right after a word or a bracket is code such as arr[0], as on the server.
+            const formatProse = (text) => app.escapeHtml(text)
                 .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
                 .replace(/(^|[^*])\*(?!\s)(.+?)\*(?!\*)/g, '$1<em>$2</em>')
-                .replace(/`([^`]+)`/g, '<code class="rounded bg-surface px-1">$1</code>')
-                .replace(/\[(\d{1,4})\]/g, '<button type="button" class="mx-0.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-surface-tint px-1 align-text-top text-[11px] font-bold text-brand-pressed hover:bg-brand hover:text-white focus-visible:outline-2 focus-visible:outline-brand" data-cite="$1" aria-label="Rujukan $1">$1</button>');
+                .replace(/(^|[^\p{L}\p{N}_\]])((?:\[\d{1,4}\])+)/gu, (match, before, run) => before + run.replace(/\[(\d{1,4})\]/g, (citation, number) => citationButton(number)));
+
+            // Safe Markdown subset: everything is escaped first; code spans keep their text as written.
+            const inline = (text) => String(text ?? '').split(/(`[^`]+`)/).map((part, index) => (index % 2
+                ? `<code class="rounded bg-surface px-1">${app.escapeHtml(part.slice(1, -1))}</code>`
+                : formatProse(part))).join('');
 
             const renderMarkdown = (text) => {
                 const blocks = [];
                 let list = null;
+                let fence = null;
 
                 const flushList = () => {
                     if (list) {
@@ -164,7 +219,29 @@
                     }
                 };
 
+                const flushFence = () => {
+                    blocks.push(`<pre class="overflow-x-auto rounded-lg bg-surface p-2 text-caption"><code>${app.escapeHtml(fence.join('\n'))}</code></pre>`);
+                    fence = null;
+                };
+
                 String(text || '').split(/\n/).forEach((rawLine) => {
+                    if (/^\s*```/.test(rawLine)) {
+                        if (fence) {
+                            flushFence();
+                        } else {
+                            flushList();
+                            fence = [];
+                        }
+
+                        return;
+                    }
+
+                    if (fence) {
+                        fence.push(rawLine);
+
+                        return;
+                    }
+
                     const line = rawLine.trimEnd();
                     const bullet = line.match(/^\s*[-*•]\s+(.*)$/);
                     const numbered = line.match(/^\s*\d+[.)]\s+(.*)$/);
@@ -204,10 +281,20 @@
                     }
                 });
 
+                if (fence) {
+                    flushFence();
+                }
+
                 flushList();
 
                 return `<div class="flex flex-col gap-2 text-sm leading-relaxed text-ink">${blocks.join('')}</div>`;
             };
+
+            const plainText = (text) => String(text || '')
+                .replace(/(^|[^\p{L}\p{N}_\]])(?:\[\d{1,4}\])+/gu, '$1')
+                .replace(/[*#`]/g, '')
+                .replace(/\s+/g, ' ')
+                .trim();
 
             const citationPanel = (message) => `<div class="hidden rounded-lg border border-border/40 bg-surface p-3 text-caption text-ink-muted" data-cite-panel="${message.id}"></div>`;
 
@@ -248,7 +335,7 @@
             `;
 
             const renderMessages = () => {
-                const chat = state.messages.filter((message) => message.kind === 'chat');
+                const chat = state.messages.filter((message) => message.kind === 'chat' && (state.chatFromId === null || message.id >= state.chatFromId));
 
                 if (!chat.length) {
                     messagesHost.innerHTML = `
@@ -336,8 +423,9 @@
                 }
             };
 
+            // Studio outputs live only here, so they are listed even if unpinned elsewhere.
             const renderNotes = () => {
-                const notes = state.messages.filter((message) => message.pinned).slice().reverse();
+                const notes = state.messages.filter((message) => message.pinned || message.kind !== 'chat').slice().reverse();
 
                 if (!notes.length) {
                     notesHost.innerHTML = '<p class="text-sm text-ink-subtle">Hasil studio dan jawaban yang kamu simpan muncul di sini.</p>';
@@ -358,8 +446,9 @@
                             ${citationPanel(message)}
                             ${contextLine(message)}
                             <div class="flex flex-wrap gap-2">
-                                <button type="button" class="mycic-btn-ghost-sm" data-pin="${message.id}" aria-pressed="true">Lepas dari Catatan</button>
-                                ${message.kind !== 'chat' ? `<button type="button" class="mycic-btn-ghost-sm text-danger" data-delete-message="${message.id}">Hapus</button>` : ''}
+                                ${message.kind === 'chat'
+                                    ? `<button type="button" class="mycic-btn-ghost-sm" data-pin="${message.id}" aria-pressed="true">Lepas dari Catatan</button>`
+                                    : `<button type="button" class="mycic-btn-ghost-sm text-danger" data-delete-message="${message.id}">Hapus</button>`}
                             </div>
                         </div>
                     </details>
@@ -382,9 +471,17 @@
                 bar.classList.toggle('hidden', ready.length < 2);
                 bar.classList.toggle('flex', ready.length >= 2);
                 el('notebook-context-summary').textContent = `Konteks: ${chosen.length} dari ${ready.length} sumber siap`;
-                el('notebook-ask-context').textContent = ready.length >= 2 && chosen.length < ready.length
-                    ? `Hanya ${chosen.length} sumber yang dicentang dipakai`
-                    : 'Enter untuk kirim, Shift+Enter untuk baris baru';
+                el('notebook-ask-context').textContent = noContextChosen()
+                    ? 'Centang minimal satu sumber untuk bertanya'
+                    : (ready.length >= 2 && chosen.length < ready.length
+                        ? `Hanya ${chosen.length} sumber yang dicentang dipakai`
+                        : 'Enter untuk kirim, Shift+Enter untuk baris baru');
+
+                const submit = askForm.querySelector('button[type="submit"]');
+
+                if (!state.busy) {
+                    submit.disabled = noContextChosen();
+                }
             };
 
             const sourceGroup = (source) => (source.meeting_number ? `Pertemuan ${source.meeting_number}` : (source.meeting_id ? 'Pertemuan' : 'Sumber lain'));
@@ -407,19 +504,26 @@
                 const hasMeetings = state.sources.some((source) => source.meeting_id);
 
                 sourcesHost.innerHTML = state.sources.map((source) => {
-                    const status = SOURCE_STATUS[source.status] || SOURCE_STATUS.pending;
                     const details = [SOURCE_KIND[source.kind] || source.kind, source.page_count ? `${source.page_count} hlm.` : '', source.truncated ? 'sebagian' : ''].filter(Boolean).join(' · ');
                     const group = sourceGroup(source);
                     const header = hasMeetings && group !== lastGroup ? `<li class="mt-1 text-caption font-bold uppercase tracking-wide text-ink-subtle">${app.escapeHtml(group)}</li>` : '';
                     lastGroup = group;
                     const ready = source.status === 'ready';
                     const checked = ready && !state.excluded.has(source.id);
+                    const status = source.stalled ? SOURCE_STATUS.stalled : (SOURCE_STATUS[source.status] || SOURCE_STATUS.pending);
+                    const canRetry = (source.status === 'failed' || source.stalled) && source.kind !== 'text' && source.kind !== 'meeting';
+                    // Waiting for tomorrow's reading budget: the student may spend their own reads on it now,
+                    // unless it waits for the AI itself to work again.
+                    const canReadNow = source.waiting && Boolean(source.error) && state.aiAvailable;
+                    const stalledHint = canRetry
+                        ? 'Pembacaannya terhenti. Ketuk Baca ulang untuk mencoba lagi.'
+                        : 'Pembacaannya terhenti. Hapus sumber ini, lalu tambahkan lagi.';
 
                     return `${header}
                         <li class="rounded-xl border ${checked ? 'border-border/40' : 'border-dashed border-border/40 opacity-75'} p-3" data-source-id="${source.id}">
                             <div class="flex items-start justify-between gap-2">
                                 <label class="flex min-w-0 items-start gap-2">
-                                    <input type="checkbox" class="mt-1 shrink-0" data-source-select="${source.id}" ${checked ? 'checked' : ''} ${ready ? '' : 'disabled'} aria-label="Pakai sebagai konteks">
+                                    <input type="checkbox" class="mt-1 shrink-0" data-source-select="${source.id}" ${checked ? 'checked' : ''} ${ready ? '' : 'disabled'} aria-label="Pakai ${app.escapeHtml(source.title)} sebagai konteks">
                                     <span class="min-w-0">
                                         <span class="block break-words text-sm font-semibold text-ink">${app.escapeHtml(source.title)}</span>
                                         <span class="block text-caption text-ink-subtle">${app.escapeHtml(details)}</span>
@@ -427,10 +531,12 @@
                                 </label>
                                 ${app.renderBadge(status.label, status.tone)}
                             </div>
-                            ${source.error ? `<p class="mt-2 text-caption text-danger">${app.escapeHtml(source.error)}</p>` : ''}
+                            ${source.error ? `<p class="mt-2 text-caption ${source.status === 'failed' ? 'text-danger' : 'text-ink-muted'}">${app.escapeHtml(source.error)}</p>` : ''}
+                            ${source.stalled ? `<p class="mt-2 text-caption text-ink-muted">${stalledHint}</p>` : ''}
+                            ${source.waiting && !source.error ? '<p class="mt-2 text-caption text-ink-muted">Menunggu giliran dibaca. Beberapa berkas dibaca sekaligus; sisanya menyusul otomatis.</p>' : ''}
                             ${source.summary ? `<details class="mt-2"><summary class="cursor-pointer text-caption font-semibold text-brand-pressed">Ringkasan sumber</summary><p class="mt-1 whitespace-pre-line text-caption text-ink-muted">${app.escapeHtml(source.summary)}</p></details>` : ''}
                             <div class="mt-2 flex gap-2">
-                                ${source.status === 'failed' && source.kind !== 'text' && source.kind !== 'meeting' ? `<button type="button" class="mycic-btn-ghost-sm" data-retry-source="${source.id}">Baca ulang</button>` : ''}
+                                ${canRetry || canReadNow ? `<button type="button" class="mycic-btn-ghost-sm" data-retry-source="${source.id}">${canReadNow ? 'Baca sekarang' : 'Baca ulang'}</button>` : ''}
                                 <button type="button" class="mycic-btn-ghost-sm text-danger" data-delete-source="${source.id}">Hapus</button>
                             </div>
                         </li>
@@ -452,7 +558,7 @@
                     `${state.sources.length} sumber`,
                 ].filter(Boolean).join(' · ');
                 document.title = `${notebook.title || 'Notebook'} · Notebook`;
-                el('notebook-ai-off').classList.toggle('hidden', state.aiAvailable);
+                renderAiStatus();
                 el('notebook-delete').textContent = notebook.kind === 'course' ? 'Kosongkan' : 'Hapus';
 
                 const classLink = el('notebook-class-link');
@@ -471,8 +577,29 @@
             const schedulePoll = () => {
                 window.clearTimeout(state.pollTimer);
 
-                if (state.sources.some((source) => source.status === 'pending' || source.status === 'processing')) {
-                    state.pollTimer = window.setTimeout(() => load({ quiet: true }), 4000);
+                // A file waiting for tomorrow's reading budget makes no progress today.
+                const reading = state.sources
+                    .filter((source) => (source.status === 'pending' || source.status === 'processing') && !source.stalled && !(source.waiting && source.error))
+                    .map((source) => source.id)
+                    .join(',');
+
+                if (!reading) {
+                    state.pollReading = '';
+                    state.pollStartedAt = null;
+
+                    return;
+                }
+
+                // Any progress (a source added, read, or read again) starts a fresh polling window.
+                if (reading !== state.pollReading) {
+                    state.pollReading = reading;
+                    state.pollStartedAt = Date.now();
+                }
+
+                const idle = Date.now() - state.pollStartedAt;
+
+                if (idle < POLL_LIMIT_MS) {
+                    state.pollTimer = window.setTimeout(() => load({ quiet: true, background: true }), idle < POLL_SLOW_AFTER_MS ? 4000 : 20000);
                 }
             };
 
@@ -480,10 +607,12 @@
                 state.notebook = data.notebook;
                 state.sources = Array.isArray(data.sources) ? data.sources : [];
                 state.messages = Array.isArray(data.messages) ? data.messages : [];
+                state.chatFromId = Number.isInteger(data.chat_from_id) ? data.chat_from_id : null;
                 state.meetings = data.meetings && typeof data.meetings === 'object' ? data.meetings : null;
                 state.archivedCourses = Array.isArray(data.archived_courses) ? data.archived_courses : [];
                 state.studioKinds = data.studio_kinds || {};
-                state.aiAvailable = data.ai_available !== false;
+                state.sourceLimit = Number.isFinite(Number(data.source_limit)) ? Number(data.source_limit) : null;
+                setAiStatus(data);
 
                 const known = new Set(state.sources.map((source) => source.id));
                 state.excluded.forEach((id) => {
@@ -493,9 +622,9 @@
                 });
             };
 
-            const load = async ({ quiet = false } = {}) => {
+            const load = async ({ quiet = false, background = false } = {}) => {
                 try {
-                    const payload = await app.request(base);
+                    const payload = await app.request(base, { background });
 
                     if (!payload?.data) {
                         return;
@@ -573,6 +702,12 @@
                     return;
                 }
 
+                if (noContextChosen()) {
+                    app.showNotice('Centang minimal satu sumber dulu, atau ketuk "Semua".', 'warning');
+
+                    return;
+                }
+
                 state.busy = true;
                 const submit = askForm.querySelector('button[type="submit"]');
                 const pending = document.createElement('li');
@@ -596,10 +731,13 @@
 
                         state.messages.push(payload.data.question, payload.data.answer);
                         renderMessages();
+                        // The list is redrawn whole, so only the new answer is read out.
+                        app.announce(`Jawaban: ${plainText(payload.data.answer.content)}`);
                     } catch (error) {
                         pending.remove();
                         questionInput.value = question;
                         renderMessages();
+                        noteAiStatus(error);
                         app.showNotice(describeAiError(error, 'Pertanyaan belum bisa dijawab.'), 'error');
                     }
                 });
@@ -618,6 +756,7 @@
                         setTab('studio');
                         app.showNotice(payload.message || 'Hasil dibuat.', 'success');
                     } catch (error) {
+                        noteAiStatus(error);
                         app.showNotice(describeAiError(error, 'Hasil belum bisa dibuat.'), 'error');
                     }
                 });
@@ -865,7 +1004,12 @@
                 } else if (quizOption) {
                     const item = quizOption.closest('li');
                     const answer = Number(quizOption.dataset.quizAnswer);
+                    const correct = Number(quizOption.dataset.quizOption) === answer;
+                    const correctText = item.querySelector(`[data-quiz-option="${answer}"]`)?.textContent.trim() || '';
+                    const verdict = correct ? 'Benar.' : `Salah. Jawaban benar: ${correctText}.`;
+                    const explanation = item.querySelector('[data-quiz-explanation]');
 
+                    // Right and wrong are said in words too, not only by colour.
                     item.querySelectorAll('[data-quiz-option]').forEach((option) => {
                         const index = Number(option.dataset.quizOption);
 
@@ -873,8 +1017,21 @@
                         option.classList.toggle('border-success', index === answer);
                         option.classList.toggle('bg-success-soft', index === answer);
                         option.classList.toggle('border-danger', index !== answer && option === quizOption);
+
+                        if (index === answer || option === quizOption) {
+                            option.insertAdjacentHTML('beforeend', ` <span class="text-caption font-bold ${index === answer ? 'text-success' : 'text-danger'}">· ${index === answer ? 'Benar' : 'Pilihanmu, salah'}</span>`);
+                        }
                     });
-                    item.querySelector('[data-quiz-explanation]')?.classList.remove('hidden');
+
+                    if (explanation) {
+                        explanation.insertAdjacentHTML('afterbegin', `<span class="font-bold text-ink">${app.escapeHtml(verdict)}</span> `);
+                        explanation.classList.remove('hidden');
+                        // The chosen option is now disabled; keep the keyboard on the result.
+                        explanation.setAttribute('tabindex', '-1');
+                        explanation.focus();
+                    }
+
+                    app.announce(`${verdict} ${explanation?.textContent.replace(verdict, '').trim() || ''}`);
                 } else if (flashcard) {
                     const flipped = flashcard.getAttribute('aria-pressed') !== 'true';
 
@@ -939,9 +1096,11 @@
             el('source-add-archive').addEventListener('click', () => {
                 const used = new Set(state.sources.map((source) => source.archived_file_id).filter(Boolean));
                 const courses = state.archivedCourses;
+                const room = state.sourceLimit === null ? null : Math.max(0, state.sourceLimit - state.sources.length);
                 const body = courses.length
                     ? `
                         <form class="flex flex-col gap-4" data-archive-picker>
+                            ${room === null ? '' : `<p class="text-caption text-ink-subtle">Notebook ini bisa menambah ${room} sumber lagi (batas ${state.sourceLimit}).</p>`}
                             ${courses.map((course) => `
                                 <fieldset class="flex flex-col gap-1">
                                     <legend class="mb-1 text-sm font-bold text-ink">${app.escapeHtml(course.course_name || 'Mata kuliah')}</legend>
@@ -967,6 +1126,12 @@
 
                     if (!ids.length) {
                         app.showNotice('Pilih minimal satu berkas.', 'warning');
+
+                        return;
+                    }
+
+                    if (room !== null && ids.length > room) {
+                        app.showNotice(`Notebook ini hanya bisa menambah ${room} sumber lagi. Kurangi pilihanmu.`, 'warning');
 
                         return;
                     }
@@ -1076,8 +1241,8 @@
             });
 
             // The background meeting sync announces itself with this key.
-            app.registerSyncHandler('notebook-show', async () => {
-                await load({ quiet: true });
+            app.registerSyncHandler('notebook-show', async ({ background = false } = {}) => {
+                await load({ quiet: true, background });
                 renderMessages();
             });
 

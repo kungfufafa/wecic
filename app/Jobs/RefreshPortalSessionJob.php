@@ -21,7 +21,10 @@ use Illuminate\Support\Facades\Log;
  * Unique per session until it starts processing, so the chain can schedule
  * its own successor while extra dispatches (login, manual refresh) are
  * dropped instead of starting a parallel chain. The chain ends when the
- * session expires upstream, is logged out, or the student goes idle.
+ * session expires upstream, is logged out, or the student goes idle. An
+ * offline session ('offline') ends it silently: it has no portal session to
+ * keep alive, and ResumeOfflineSessionJob starts a new chain once it is
+ * online again.
  */
 class RefreshPortalSessionJob implements ShouldBeUniqueUntilProcessing, ShouldQueue
 {
@@ -38,6 +41,12 @@ class RefreshPortalSessionJob implements ShouldBeUniqueUntilProcessing, ShouldQu
      * @var list<int>
      */
     public array $backoff = [60, 120];
+
+    /**
+     * A keep-alive ping (10 s) and, when it fails with auto-relogin on, a
+     * login of up to four portal requests at `portal.request_timeout` (30 s).
+     */
+    public int $timeout = 180;
 
     public function __construct(
         private string $sessionToken,

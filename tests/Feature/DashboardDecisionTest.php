@@ -142,7 +142,7 @@ class DashboardDecisionTest extends TestCase
         $this->dashboardResponse()
             ->assertSee('Pusat tindakan')
             ->assertSee("app.primeCachedView('/api/action-items', renderActionCenter, 'pusat tindakan');", false)
-            ->assertSee("app.request('/api/action-items', { fresh: force, timeout: 15000 })", false)
+            ->assertSee("app.request('/api/action-items', { fresh: force, timeout: 15000, background })", false)
             ->assertSee('app.actionItemsRequest = ownActionItemsRequest;', false)
             ->assertSee('app.receiveActionItems(app.extractActionItems(payload));', false)
             ->assertSee("window.addEventListener('portal:action-items', renderActionCenterFromDevice);", false)
@@ -189,7 +189,7 @@ class DashboardDecisionTest extends TestCase
             ->assertSee("app.primeCachedView('/api/dashboard', renderDashboard, 'ringkasan beranda');", false)
             ->assertSee("app.primeCachedView('/api/assignment/pending', renderPendingAssignments, 'tugas belum dikumpulkan');", false)
             ->assertSee('const ready = await app.ensureAuthenticated();', false)
-            ->assertSee("app.request('/api/dashboard', { fresh: force })", false)
+            ->assertSee("app.request('/api/dashboard', { fresh: force, background })", false)
             ->assertSee("app.markViewSynced('Beranda', payload, { force });", false)
             ->assertSee("app.registerSyncHandler('dashboard-overview', loadDashboard, { aliases: ['portal-context'] });", false)
             ->assertSee("app.registerSyncHandler('dashboard-pending-assignments', loadPendingAssignments);", false)
@@ -201,13 +201,13 @@ class DashboardDecisionTest extends TestCase
     public function test_pull_to_refresh_rebuilds_only_stale_secondary_snapshots_in_the_background(): void
     {
         $this->dashboardResponse()
-            ->assertSee("const SECONDARY_DATASETS = ['portal_context', 'krs', 'advising', 'grades', 'payments', 'skkm', 'announcements', 'exams'];", false)
+            ->assertSee("const SECONDARY_DATASETS = ['portal_context', 'krs', 'advising', 'grades', 'payments', 'skkm', 'announcements', 'exams', 'assignments'];", false)
             ->assertSee("app.request('/api/refresh', {", false)
             ->assertSee('json: { domains },', false)
             ->assertSee('app.filterRefreshableDomains(SECONDARY_DATASETS.filter(', false)
             ->assertSee('const SECONDARY_REFRESH_COOLDOWN_MS = 60 * 1000;', false)
             ->assertSee('void queueSecondaryRefresh();', false)
-            ->assertSee("app.request('/api/announcement', { fresh: false })", false);
+            ->assertSee("app.request('/api/announcement', { fresh: false, background })", false);
     }
 
     public function test_latest_announcements_card_links_to_the_feed_and_details(): void
@@ -251,10 +251,62 @@ class DashboardDecisionTest extends TestCase
             ->assertSee("await app.trackOperation(operationId, 'Upload tugas');", false)
             ->assertSee('Jadwal hari ini sedang diambil dari portal kampus.', false)
             // Background syncs never re-render an unchanged schedule (a typed code survives).
-            ->assertSee("if (!hasChanged('today', { date: classesSummary.date, day: classesSummary.day, todayClasses })) {", false)
+            ->assertSee("if (!hasChanged('today', { date: classesSummary.date, day: classesSummary.day, todayClasses, snapshotIsToday })) {", false)
             ->assertSee('typedCodes.set(form.dataset.attendanceKey, typed);', false)
             ->assertSee('const ASSIGNMENT_PREVIEW_LIMIT = 3;', false)
             ->assertSee('data-assignment-toggle aria-controls="dashboard-assignment-list"', false);
+    }
+
+    public function test_attendance_read_after_the_schedule_is_shown_as_being_checked(): void
+    {
+        $this->dashboardResponse()
+            ->assertSee(": attendance.state === 'checking' ? `", false)
+            ->assertSee('Mengecek status absensi di portal kampus...', false)
+            ->assertSee(": attendance.state === 'unavailable' ? `", false)
+            ->assertSee('Status absensi belum bisa dibaca dari portal. Buka kelasnya untuk absen.', false)
+            ->assertSee('Status absensi kelas hari ini masih dicek di portal kampus. Coba lagi sebentar lagi.', false)
+            // Without realtime the schedule is re-read until the attendance is in.
+            ->assertSee("scheduleRecheck('dashboard', pendingSources.length > 0 || attendanceChecking, (options) => loadDashboard(options));", false);
+    }
+
+    public function test_re_reads_the_page_starts_on_its_own_never_count_as_activity(): void
+    {
+        $html = (string) $this->dashboardResponse()->getContent();
+
+        $this->assertSame(1, preg_match('/const scheduleRecheck = \(key, isPending, run\) => \{\n(.*?)\n {12}\};/s', $html, $recheck));
+        $this->assertMatchesRegularExpression('/recheckTimers\.set\(key, window\.setTimeout\(\(\) => \{.*?void run\(\{ background: true \}\);\s*\}, RECHECK_DELAY_MS \* attempt\)\);/s', $recheck[1]);
+        $this->assertStringNotContainsString('void run();', $recheck[1]);
+        $this->assertStringContainsString("scheduleRecheck('actions', Array.isArray(meta.pending_sources) && meta.pending_sources.length > 0, (options) => loadActionCenter(options));", $html);
+
+        $this->assertSame(1, preg_match('/const refreshForNewDay = \(\) => \{\n(.*?)\n {12}\};/s', $html, $newDay));
+        $this->assertStringContainsString('void Promise.allSettled([loadDashboard({ background: true }), loadPendingAssignments({ background: true }), loadActionCenter({ background: true })]);', $newDay[1]);
+        $this->assertStringContainsString('window.setInterval(refreshForNewDay, 60000);', $html);
+
+        $this->assertSame(1, preg_match("/document\.addEventListener\('visibilitychange', \(\) => \{\n(.*?)\n {12}\}\);/s", $html, $visible));
+        $this->assertStringContainsString('void loadActionCenter({ background: true });', $visible[1]);
+        $this->assertStringContainsString('void loadDashboard({ background: true });', $visible[1]);
+        $this->assertDoesNotMatchRegularExpression('/void load[A-Z]\w*\(\)/', $visible[1]);
+
+        // Each loader passes the flag on to its own read: no scope stays open
+        // that would also mark a read the student starts meanwhile.
+        foreach (['loadDashboard', 'loadPendingAssignments', 'loadActionCenter', 'loadAnnouncements'] as $loader) {
+            $this->assertStringContainsString("{$loader} = async ({ force = false, background = false } = {}) => {", $html);
+        }
+
+        $this->assertStringContainsString("app.request('/api/assignment/pending', { fresh: false, background })", $html);
+        $this->assertStringContainsString('void loadActionCenter({ background });', $html);
+        $this->assertStringNotContainsString('app.runAsBackground(', $html);
+
+        // Opening the page is the student's own request.
+        $this->assertStringContainsString('const dashboardLoaded = loadDashboard();', $html);
+        $this->assertStringContainsString('loadActionCenter(),', $html);
+    }
+
+    public function test_the_task_list_is_read_once_the_schedule_answered(): void
+    {
+        $this->dashboardResponse()
+            ->assertSee('const dashboardLoaded = loadDashboard();', false)
+            ->assertSee('dashboardLoaded.then(() => loadPendingAssignments()),', false);
     }
 
     public function test_beranda_redirects_to_login_without_a_session(): void

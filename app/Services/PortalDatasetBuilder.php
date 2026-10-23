@@ -26,9 +26,21 @@ use InvalidArgumentException;
  * API endpoints and background jobs both go through here, so a snapshot
  * written by a job is exactly what the endpoint would have returned.
  * Payloads may carry `_sync` metadata, which the repository strips.
+ *
+ * The `dashboard` dataset is two snapshots: today's schedule (no
+ * parameters), read from the few list pages it needs, and today's
+ * attendance (DASHBOARD_ATTENDANCE_PARAMS), which reads the class page and
+ * the meeting page of every class held today. GET /api/dashboard joins
+ * them, so the schedule never waits for that crawl.
  */
 class PortalDatasetBuilder
 {
+    /**
+     * Parameters of the `dashboard` snapshot holding today's attendance
+     * shortcuts (AttendanceShortcutService::getTodayShortcutsSnapshot()).
+     */
+    public const DASHBOARD_ATTENDANCE_PARAMS = ['section' => 'attendance'];
+
     public function __construct(
         private readonly DashboardExtractor $dashboardExtractor,
         private readonly AttendanceShortcutService $attendanceShortcutService,
@@ -60,10 +72,12 @@ class PortalDatasetBuilder
     public function build(string $sessionToken, string $dataset, array $params = []): array
     {
         return match ($dataset) {
-            'dashboard' => $this->dashboardExtractor->extractDashboardData($sessionToken),
+            'dashboard' => self::isDashboardAttendance($params)
+                ? $this->attendanceShortcutService->getTodayShortcutsSnapshot($sessionToken)
+                : $this->dashboardExtractor->extractDashboardData($sessionToken),
             'assignments' => $this->attendanceShortcutService->getPendingAssignmentsSnapshot($sessionToken),
             'profile' => $this->profileExtractor->extractProfileData($sessionToken),
-            'lms_classes' => $this->classesExtractor->extractClassesData($sessionToken),
+            'lms_classes' => $this->sipandaiClassesExtractor->extractSipandaiClassesData($sessionToken),
             'schedule' => $this->studentCourseExtractor->extractStudentCourseData($sessionToken),
             'classes' => $this->buildMergedClasses($sessionToken),
             'payments' => $this->financialHistoryExtractor->extractPaymentHistoryData($sessionToken),
@@ -91,6 +105,27 @@ class PortalDatasetBuilder
             ),
             default => throw new InvalidArgumentException("Unknown portal dataset [{$dataset}]."),
         };
+    }
+
+    /**
+     * A dataset built by crawling a page per class and per meeting, dozens
+     * of portal pages on a full schedule, instead of a few list pages.
+     * Background jobs run these last.
+     *
+     * @param  array<string, mixed>  $params
+     */
+    public static function isCrawl(string $dataset, array $params = []): bool
+    {
+        return $dataset === 'assignments'
+            || ($dataset === 'dashboard' && self::isDashboardAttendance($params));
+    }
+
+    /**
+     * @param  array<string, mixed>  $params
+     */
+    private static function isDashboardAttendance(array $params): bool
+    {
+        return ($params['section'] ?? null) === self::DASHBOARD_ATTENDANCE_PARAMS['section'];
     }
 
     /**

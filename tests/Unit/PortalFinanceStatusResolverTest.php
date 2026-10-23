@@ -134,6 +134,39 @@ class PortalFinanceStatusResolverTest extends TestCase
         $this->assertNull($resolver->noticeStagePaid(['text' => 'Pengisian absensi Tahap ke 1', 'kind' => 'attendance'], $this->payments('clear'), $this->today()));
     }
 
+    public function test_a_partly_paid_stage_still_billed_keeps_its_deadline_and_is_not_paid(): void
+    {
+        $payments = $this->payments('outstanding');
+        $payments['payment_history'][] = [
+            'no' => '2',
+            'paid_at' => '2026-10-10',
+            'paid_at_label' => '10 Oktober 2026',
+            'category' => 'Pembayaran UKT',
+            'amount' => 500000,
+            'installment_stage' => 2,
+            'study_year' => 1,
+            'installment_amount' => 1250000,
+        ];
+        $payments['outstanding_bills'][0]['amount'] = 750000;
+        $notice = [
+            'text' => 'Kewajiban Pembayaran Kuliah Tahap ke 2 paling lambat pada Hari Senin, 2 November 2026',
+            'dates' => ['2026-11-02'],
+            'is_future' => true,
+            'kind' => 'payment',
+        ];
+
+        $status = $this->resolver()->summarize($payments, [$notice], $this->today());
+
+        $this->assertSame([1], $status['current_year_stages_paid']);
+        $this->assertSame(2, $status['active_deadline']['stage']);
+        $this->assertSame('2026-11-02', $status['active_deadline']['date']);
+        $this->assertSame(['stage' => 2, 'status' => 'unpaid'], [
+            'stage' => $status['next_stage']['stage'],
+            'status' => $status['next_stage']['status'],
+        ]);
+        $this->assertFalse($this->resolver()->noticeStagePaid($notice, $payments, $this->today()));
+    }
+
     private function resolver(): PortalFinanceStatusResolver
     {
         return app(PortalFinanceStatusResolver::class);

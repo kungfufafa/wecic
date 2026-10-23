@@ -49,6 +49,26 @@ class ThesisRepositorySearchTest extends TestCase
         $this->assertSame(['r1', 'r3'], $this->keys($this->search(['pembimbing' => 'Dosen Contoh Alfa, M.T.'])));
     }
 
+    public function test_an_advisor_who_earned_a_prefix_title_stays_one_advisor(): void
+    {
+        $records = [
+            $this->record('a', 'Sistem Pakar Diagnosa', 'Sistem Informasi', '2020/2021', 'Ana Putri, M.Kom.'),
+            $this->record('b', 'Aplikasi Kasir', 'Sistem Informasi', '2024/2025', 'Dr. Ana Putri, M.Kom.'),
+            $this->record('c', 'Analisis Jaringan', 'Teknik Informatika', '2025/2026', 'Prof. Dr.Ir. Ana Putri, M.Kom.'),
+            $this->record('d', 'Sistem Absensi', 'Teknik Informatika', '2025/2026', 'Hj. Budi Santoso, M.T.'),
+        ];
+        $search = new ThesisRepositorySearch;
+
+        $filtered = $search->search($records, ['pembimbing' => 'Dr. Ana Putri, M.Kom.', 'sort' => 'judul']);
+        $facet = $search->search($records, [])['meta']['facets']['pembimbing'];
+
+        $this->assertSame(['c', 'b', 'a'], array_column($filtered['items'], 'record_key'));
+        $this->assertSame(['ana putri' => 3, 'budi santoso' => 1], array_column($facet, 'count', 'key'));
+        $this->assertSame('ana putri', ThesisRepositorySearch::advisorKey('Ana Putri, S.Kom., M.Kom.'));
+        // A name that is nothing but a title keeps it rather than becoming empty.
+        $this->assertSame('dr', ThesisRepositorySearch::advisorKey('Dr.'));
+    }
+
     public function test_facets_count_every_other_filter_but_not_their_own(): void
     {
         $result = $this->search(['prodi' => 'Sistem Informasi', 'ta' => '2023/2024']);
@@ -112,7 +132,7 @@ class ThesisRepositorySearchTest extends TestCase
 
         $this->assertSame([
             ['name' => 'Dosen Contoh Alfa, S.Kom., M.Kom.', 'key' => 'dosen contoh alfa'],
-            ['name' => 'Dr. Dosen Contoh Beta, M.T.', 'key' => 'dr dosen contoh beta'],
+            ['name' => 'Dr. Dosen Contoh Beta, M.T.', 'key' => 'dosen contoh beta'],
         ], $item['advisors']);
         $this->assertSame('sistem informasi', $item['program_key']);
         $this->assertSame('files/skripsi/kolokium/r1.pdf', $item['file_path']);

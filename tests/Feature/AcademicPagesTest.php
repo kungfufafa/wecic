@@ -65,7 +65,7 @@ class AcademicPagesTest extends TestCase
 
         $this->assertStringContainsString('app.primeCachedView(', $html);
         $this->assertStringContainsString('await app.ensureAuthenticated()', $html);
-        $this->assertStringContainsString('{ fresh: force }', $html);
+        $this->assertStringContainsString('{ fresh: force, background }', $html, 'The sync handler passes the background flag on to its read.');
         $this->assertStringContainsString('app.markViewSynced(', $html);
         $this->assertStringContainsString('app.mountErrorState(', $html);
         $this->assertStringContainsString("app.registerSyncHandler('".$pageId."'", $html);
@@ -143,8 +143,8 @@ class AcademicPagesTest extends TestCase
     {
         $html = $this->html('/krs');
 
-        $this->assertStringContainsString("app.request('/api/academic/krs', { fresh: force })", $html);
-        $this->assertStringContainsString("app.request('/api/academic/advising', { fresh: force })", $html);
+        $this->assertStringContainsString("app.request('/api/academic/krs', { fresh: force, background })", $html);
+        $this->assertStringContainsString("app.request('/api/academic/advising', { fresh: force, background })", $html);
         $this->assertStringContainsString("{ aliases: ['advising-index', 'announcement-index'] }", $html);
         $this->assertStringContainsString('app.renderContactSheet(', $html);
         $this->assertStringContainsString('app.renderContactActions(', $html);

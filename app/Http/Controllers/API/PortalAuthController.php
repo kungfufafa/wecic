@@ -7,10 +7,12 @@ namespace App\Http\Controllers\API;
 use App\Exceptions\PortalAuthenticationException;
 use App\Exceptions\PortalConnectionException;
 use App\Exceptions\PortalScrapingException;
+use App\Http\Middleware\PortalSessionMiddleware;
 use App\Http\Requests\PortalLoginRequest;
 use App\Http\Requests\PortalPasswordChangeRequest;
 use App\Jobs\ScanPortalNotificationsJob;
 use App\Services\PortalBroadcastService;
+use App\Services\PortalDataOwner;
 use App\Services\PortalDatasetRepository;
 use App\Services\PortalLogContext;
 use App\Services\PortalOfflineAccess;
@@ -19,27 +21,49 @@ use App\Services\PortalSessionManager;
 use Dedoc\Scramble\Attributes\Group;
 use Dedoc\Scramble\Attributes\Response;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
 #[Group('Autentikasi', 'Endpoint untuk membuat, memeriksa, memperbarui, dan mengakhiri sesi portal kampus.', 10)]
 class PortalAuthController extends CampusApiController
 {
-    private const LOGIN_RESPONSE = "array{status: 'success', message: string, data: array{user_info: mixed, expires_at: string|null, offline: bool}, meta: array{timestamp: string, campus_session_valid: true}}";
+    private const LOGIN_RESPONSE = "array{status: 'success', message: string, data: array{user_info: mixed, expires_at: string|null, offline: bool, offline_reconnect: 'automatic'|'notify'|'portal_back'|'manual'|null}, meta: array{timestamp: string, campus_session_valid: true}}";
 
-    private const CHECK_SESSION_RESPONSE = "array{status: 'success', message: string, data: array{user_info: mixed, offline: bool}, meta: array{timestamp: string, campus_session_valid: true}}";
+    private const CHECK_SESSION_RESPONSE = "array{status: 'success', message: string, data: array{user_info: mixed, offline: bool, offline_reconnect: 'automatic'|'notify'|'portal_back'|'manual'|null}, meta: array{timestamp: string, campus_session_valid: true}}";
 
     private const REFRESH_SESSION_RESPONSE = "array{status: 'success', message: string, data: array{session_token: string, expires_at: string|null}, meta: array{timestamp: string, campus_session_valid: true}}";
 
     private const LOGOUT_RESPONSE = "array{status: 'success', message: string, meta: array{timestamp: string, campus_session_valid: false}}";
 
-    private const OFFLINE_ACTION_MESSAGE = 'Kamu sedang di mode offline. MyCIC menyambung lagi otomatis begitu portal kampus bisa diakses.';
+    /**
+     * Request attribute set on a login whose password was checked and found
+     * wrong without the response saying so (the offline check while the
+     * portal is down answers 503). The per-address failed-login limit
+     * (AppServiceProvider) counts these like the portal's 401s.
+     */
+    public const FAILED_LOGIN_ATTRIBUTE = 'portal_login_failed';
 
     public function __construct(
         private readonly PortalSessionManager $sessionManager,
         private readonly PortalPasswordService $passwordService,
         private readonly PortalDatasetRepository $datasets,
-        private readonly PortalOfflineAccess $offlineAccess
+        private readonly PortalOfflineAccess $offlineAccess,
+        private readonly PortalDataOwner $dataOwner
     ) {}
+
+    /**
+     * What an offline student is told about getting back online, for the
+     * mode PortalSessionManager::offlineReconnectMode() reports.
+     */
+    public static function offlineReconnectMessage(?string $mode): string
+    {
+        return match ($mode) {
+            'notify' => 'Sesi ini tidak menyimpan password, jadi tidak tersambung otomatis. MyCIC memberi tahu begitu portal kampus bisa diakses; setelah itu keluar lalu masuk lagi.',
+            'portal_back' => 'Portal kampus sudah bisa diakses lagi. Keluar lalu masuk lagi untuk menyambungkan sesi.',
+            'manual' => 'Keluar lalu masuk lagi saat portal kampus sudah bisa diakses.',
+            default => 'MyCIC menyambung lagi otomatis begitu portal kampus bisa diakses.',
+        };
+    }
 
     /**
      * Login ke sistem kampus.
@@ -54,7 +78,13 @@ class PortalAuthController extends CampusApiController
      * `portal.archive.offline_login_days` hari terakhir dengan password yang sama
      * masuk ke mode offline (`data.offline: true`): hanya membaca arsip MyCIC,
      * tanpa aksi ke portal. Sesi itu mencoba login lagi di background dan
-     * tersambung otomatis begitu portal pulih (notice `offline_session_resumed`).
+     * tersambung otomatis begitu portal pulih (notice `offline_session_resumed`,
+     * `data.offline_reconnect: automatic`). Mahasiswa yang mematikan
+     * sinkronisasi latar belakang tidak disimpan password-nya, termasuk di sesi
+     * offline (`offline_reconnect: notify`): sesi itu tidak login sendiri, hanya
+     * memberi tahu begitu portal bisa diakses lagi (notice
+     * `offline_resume_unavailable`) supaya mahasiswa keluar lalu masuk lagi.
+     * Sesi offline yang sebelumnya terbuka di browser ini diakhiri.
      */
     #[Response(description: 'Login berhasil dan sesi kampus aktif.', type: self::LOGIN_RESPONSE)]
     #[Response(401, description: 'Kredensial portal tidak valid atau sesi gagal dibuat.', type: CampusApiController::SCRAMBLE_SESSION_ERROR_RESPONSE)]
@@ -62,18 +92,22 @@ class PortalAuthController extends CampusApiController
     #[Response(422, description: 'Payload login tidak valid.', type: CampusApiController::SCRAMBLE_VALIDATION_ERROR_RESPONSE)]
     public function login(PortalLoginRequest $request): JsonResponse
     {
+        $previousSessionToken = $this->sessionToken();
+
         try {
             $username = (string) $request->validated('username');
             $password = (string) $request->validated('password');
 
             $sessionResult = $this->sessionManager->createSession($username, $password);
             $this->offlineAccess->remember($username, $password, is_array($sessionResult['user_info']) ? $sessionResult['user_info'] : null);
+            $this->endReplacedOfflineSession($previousSessionToken, $sessionResult['session_token']);
 
             session()->regenerate();
             session([
                 'campus_session_token' => $sessionResult['session_token'],
                 'campus_user_info' => $sessionResult['user_info'],
                 'campus_offline' => false,
+                'campus_offline_reconnect' => null,
             ]);
 
             $this->sessionManager->rememberLaravelSessionId(
@@ -81,10 +115,7 @@ class PortalAuthController extends CampusApiController
                 (string) session()->getId()
             );
 
-            ScanPortalNotificationsJob::dispatch(
-                (string) session()->getId(),
-                $sessionResult['session_token']
-            );
+            $this->scheduleFirstNotificationScan($sessionResult['session_token']);
 
             // KRS, grades, bills, SKKM and announcements sync in the background
             // right away, so those pages and the action center open instantly.
@@ -101,22 +132,23 @@ class PortalAuthController extends CampusApiController
                     'user_info' => $sessionResult['user_info'],
                     'expires_at' => $sessionResult['expires_at'],
                     'offline' => false,
+                    'offline_reconnect' => null,
                 ],
             ], campusSessionValid: true);
         } catch (PortalAuthenticationException $exception) {
             Log::warning('Campus authentication rejected', [
-                'username' => $request->input('username'),
+                'username_fingerprint' => PortalLogContext::fingerprint((string) $request->input('username')),
                 'error' => $exception->getMessage(),
             ]);
 
             return $this->statusError('Login gagal. Periksa kembali username dan password Anda.', 401, campusSessionValid: false);
         } catch (PortalConnectionException|PortalScrapingException $exception) {
             Log::error('Campus portal is unreachable during login', [
-                'username' => $request->input('username'),
+                'username_fingerprint' => PortalLogContext::fingerprint((string) $request->input('username')),
                 'error' => $exception->getMessage(),
             ]);
 
-            $offlineLogin = $this->loginOffline((string) $request->validated('username'), (string) $request->validated('password'));
+            $offlineLogin = $this->loginOffline((string) $request->validated('username'), (string) $request->validated('password'), $previousSessionToken);
 
             if ($offlineLogin !== null) {
                 return $offlineLogin;
@@ -125,7 +157,7 @@ class PortalAuthController extends CampusApiController
             return $this->statusError('Portal kampus sedang tidak dapat diakses. Coba lagi beberapa saat.', 503, campusSessionValid: false);
         } catch (\Throwable $e) {
             Log::error('Login failed', [
-                'username' => $request->input('username'),
+                'username_fingerprint' => PortalLogContext::fingerprint((string) $request->input('username')),
                 'error' => $e->getMessage(),
             ]);
 
@@ -135,11 +167,15 @@ class PortalAuthController extends CampusApiController
 
     /**
      * Cek status sesi kampus yang sedang aktif.
+     *
+     * Dengan header `X-MyCIC-Background: 1` (pengecekan otomatis dari aplikasi,
+     * bukan aksi mahasiswa) sesi hanya diperiksa, tanpa dihitung sebagai
+     * aktivitas yang memperpanjang batas waktu idle.
      */
     #[Response(description: 'Sesi kampus masih aktif dan data sesi dapat digunakan.', type: self::CHECK_SESSION_RESPONSE)]
     #[Response(401, description: 'Tidak ada sesi aktif atau sesi kampus sudah kedaluwarsa.', type: CampusApiController::SCRAMBLE_SESSION_ERROR_RESPONSE)]
     #[Response(500, description: 'Validasi sesi kampus gagal diproses.', type: CampusApiController::SCRAMBLE_STATUS_ERROR_RESPONSE)]
-    public function checkSession(): JsonResponse
+    public function checkSession(Request $request): JsonResponse
     {
         $sessionToken = $this->sessionToken();
 
@@ -148,12 +184,15 @@ class PortalAuthController extends CampusApiController
         }
 
         try {
-            $isValid = $this->sessionManager->validateSession($sessionToken);
+            $isValid = $request->header(PortalSessionMiddleware::BACKGROUND_HEADER) === '1'
+                ? $this->sessionManager->isSessionUsable($sessionToken)
+                : $this->sessionManager->validateSession($sessionToken);
 
             $payload = [
                 'data' => $isValid ? [
                     'user_info' => $this->userInfo(),
                     'offline' => $this->offlineAccess->isOfflineSession($sessionToken),
+                    'offline_reconnect' => $this->sessionManager->offlineReconnectMode($sessionToken),
                 ] : null,
             ];
 
@@ -181,7 +220,7 @@ class PortalAuthController extends CampusApiController
         }
 
         if ($this->offlineAccess->isOfflineSession($sessionToken)) {
-            return $this->statusError(self::OFFLINE_ACTION_MESSAGE, 409, campusSessionValid: true);
+            return $this->statusError('Kamu sedang di mode offline. '.self::offlineReconnectMessage($this->sessionManager->offlineReconnectMode($sessionToken)), 409, campusSessionValid: true);
         }
 
         try {
@@ -310,7 +349,8 @@ class PortalAuthController extends CampusApiController
             );
 
             if (($result['success'] ?? false) === true) {
-                $this->sessionManager->forgetStoredCredentials($sessionToken);
+                $this->forgetOldPasswordCopies($sessionToken);
+                $this->rememberNewPassword($sessionToken, $request->newPassword());
             }
 
             return $this->booleanResponse(
@@ -333,13 +373,100 @@ class PortalAuthController extends CampusApiController
     }
 
     /**
+     * The first scan of a login crawls every class and meeting page, so it
+     * is delayed like the warm-up: today's schedule re-sync is not queued
+     * behind it.
+     */
+    private function scheduleFirstNotificationScan(string $sessionToken): void
+    {
+        ScanPortalNotificationsJob::dispatch((string) session()->getId(), $sessionToken)
+            ->delay(now()->addSeconds((int) config('portal.sync.warmup_delay', 5)));
+    }
+
+    /**
+     * The copies sessions keep of the old password are useless now (a
+     * relogin with one would only be refused by the portal): this session
+     * and every other session of the student drop theirs. Best-effort: the
+     * password did change, so a busy session lock never turns the answer
+     * into an error, and a copy left behind is refused at its session's next
+     * relogin, which ends that session.
+     */
+    private function forgetOldPasswordCopies(string $sessionToken): void
+    {
+        try {
+            $this->sessionManager->forgetStoredCredentials($sessionToken);
+        } catch (\Throwable $throwable) {
+            Log::warning('The password copy of the session could not be dropped after a password change', ['error' => $throwable->getMessage()]);
+        }
+
+        $username = $this->sessionManager->getSession($sessionToken)['username'] ?? null;
+
+        if (! is_string($username) || $username === '') {
+            return;
+        }
+
+        try {
+            if (! $this->sessionManager->forgetStoredCredentialsForOwner($this->dataOwner->keyForUsername($username))) {
+                Log::warning('Some password copies of the student could not be dropped after a password change');
+            }
+        } catch (\Throwable $throwable) {
+            Log::warning('The password copies of the student could not be dropped after a password change', ['error' => $throwable->getMessage()]);
+        }
+    }
+
+    /**
+     * The portal accepted the new password: the old one must stop opening
+     * MyCIC offline at once, and stored credentials follow the new one.
+     */
+    private function rememberNewPassword(string $sessionToken, string $newPassword): void
+    {
+        $session = $this->sessionManager->getSession($sessionToken) ?? [];
+        $username = $session['username'] ?? null;
+
+        if (! is_string($username) || $username === '') {
+            Log::warning('Offline access could not follow a password change: the session has no username');
+
+            return;
+        }
+
+        $this->offlineAccess->remember($username, $newPassword, is_array($session['user_info'] ?? null) ? $session['user_info'] : null);
+    }
+
+    /**
+     * A new login in this browser replaces its offline session, if it had
+     * one: that session, its stored password and its resume chain end here
+     * instead of lingering until the idle timeout (and logging in by
+     * themselves once the portal is back). An online session is left to its
+     * keep-alive, which logs it out of the portal when it idles out.
+     */
+    private function endReplacedOfflineSession(?string $previousSessionToken, string $sessionToken): void
+    {
+        if ($previousSessionToken === null || $previousSessionToken === '' || $previousSessionToken === $sessionToken) {
+            return;
+        }
+
+        try {
+            if ($this->sessionManager->offlineReconnectMode($previousSessionToken) !== null) {
+                $this->sessionManager->destroySession($previousSessionToken);
+                $this->offlineAccess->endOfflineSession($previousSessionToken);
+            }
+        } catch (\Throwable $throwable) {
+            Log::warning('The offline session a new login replaced could not be ended', ['error' => $throwable->getMessage()]);
+        }
+    }
+
+    /**
      * Open a read-only session from the archive when the password matches the
      * last online login; null when offline login is not possible.
      */
-    private function loginOffline(string $username, string $password): ?JsonResponse
+    private function loginOffline(string $username, string $password, ?string $previousSessionToken): ?JsonResponse
     {
         try {
-            $userInfo = $this->offlineAccess->attempt($username, $password);
+            ['user_info' => $userInfo, 'wrong_password' => $wrongPassword] = $this->offlineAccess->verify($username, $password);
+
+            if ($wrongPassword) {
+                request()->attributes->set(self::FAILED_LOGIN_ATTRIBUTE, true);
+            }
 
             if ($userInfo === null) {
                 return null;
@@ -347,23 +474,26 @@ class PortalAuthController extends CampusApiController
 
             $sessionResult = $this->sessionManager->createOfflineSession($username, $userInfo, $password);
             $this->offlineAccess->markOfflineSession($sessionResult['session_token'], $this->sessionManager->sessionTtl());
+            $this->endReplacedOfflineSession($previousSessionToken, $sessionResult['session_token']);
 
             session()->regenerate();
             session([
                 'campus_session_token' => $sessionResult['session_token'],
                 'campus_user_info' => $sessionResult['user_info'],
                 'campus_offline' => true,
+                'campus_offline_reconnect' => $sessionResult['offline_reconnect'],
             ]);
 
             $this->sessionManager->rememberLaravelSessionId($sessionResult['session_token'], (string) session()->getId());
 
             Log::info('User logged in offline from the archive', ['username_fingerprint' => PortalLogContext::fingerprint($username)]);
 
-            return $this->statusSuccess('Portal kampus sedang tidak bisa diakses. Kamu masuk dalam mode offline: data diambil dari arsip MyCIC dan aksi ke portal belum tersedia. MyCIC menyambung lagi otomatis begitu portal pulih.', [
+            return $this->statusSuccess('Portal kampus sedang tidak bisa diakses. Kamu masuk dalam mode offline: data diambil dari arsip MyCIC dan aksi ke portal belum tersedia. '.self::offlineReconnectMessage($sessionResult['offline_reconnect']), [
                 'data' => [
                     'user_info' => $sessionResult['user_info'],
                     'expires_at' => $sessionResult['expires_at'],
                     'offline' => true,
+                    'offline_reconnect' => $sessionResult['offline_reconnect'],
                 ],
             ], campusSessionValid: true);
         } catch (\Throwable $throwable) {

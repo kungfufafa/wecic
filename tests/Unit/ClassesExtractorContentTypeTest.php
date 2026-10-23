@@ -59,6 +59,26 @@ class ClassesExtractorContentTypeTest extends TestCase
         $this->assertSame('error_page', $this->detectContentType($html));
     }
 
+    public function test_the_dashboardmahasiswa_breadcrumb_does_not_make_a_class_page_a_students_list(): void
+    {
+        $html = (string) file_get_contents(base_path('tests/Fixtures/portal/sipandai_course_detail.html'));
+
+        $this->assertStringContainsString('act=dashboardmahasiswa', $html);
+        $this->assertSame('class_info', $this->detectContentType($html));
+    }
+
+    public function test_an_error_page_with_a_table_is_still_an_error_page(): void
+    {
+        $html = <<<'HTML'
+            <html><head><title>404 Not Found</title></head><body>
+            <a href="?mod=sipandai&act=dashboardmahasiswa">Beranda</a>
+            <table><tr><td>Halaman tidak ditemukan.</td></tr></table>
+            </body></html>
+        HTML;
+
+        $this->assertSame('error_page', $this->detectContentType($html));
+    }
+
     public function test_binary_pdf_payload_is_detected_as_file_download(): void
     {
         $this->assertSame('file_download', $this->detectContentType('%PDF-1.7 ...binary payload...'));

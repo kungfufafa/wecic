@@ -98,7 +98,7 @@
     </div>
 
     <!-- Interactive Class Detail Modal -->
-    <div class="mycic-modal hidden" tabindex="-1" aria-hidden="true" id="class-detail-modal" role="dialog" aria-modal="true">
+    <div class="mycic-modal hidden" tabindex="-1" aria-hidden="true" id="class-detail-modal" role="dialog" aria-modal="true" aria-labelledby="modal-class-title">
         <div class="mycic-modal-backdrop" id="class-modal-backdrop"></div>
         <div class="mycic-modal-panel max-w-lg">
             <div class="mycic-modal-header">
@@ -181,6 +181,17 @@
             const modalOpenBtn = document.getElementById('modal-btn-open-class');
             const modalMeetingBtn = document.getElementById('modal-btn-toggle-meeting');
             const modalMeetingPanel = document.getElementById('modal-meeting-panel');
+
+            // Grid blocks and day tiles are role="button" divs: Enter and Space act like a click.
+            const onActivate = (el, handler) => {
+                el.addEventListener('click', handler);
+                el.addEventListener('keydown', (event) => {
+                    if (event.target === el && (event.key === 'Enter' || event.key === ' ')) {
+                        event.preventDefault();
+                        handler();
+                    }
+                });
+            };
 
             const DAYS_LIST = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
             const INDO_DAYS = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
@@ -506,7 +517,7 @@
                         : '';
 
                     return `
-                        <div class="rounded-lg border p-3 transition-all duration-150 cursor-pointer ${
+                        <div role="button" tabindex="0" aria-pressed="${isSelected ? 'true' : 'false'}" class="rounded-lg border p-3 transition-all duration-150 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand ${
                             isSelected
                                 ? 'border-brand bg-brand/5 shadow-xs ring-2 ring-brand/20'
                                 : isToday
@@ -526,9 +537,11 @@
                 }).join('');
 
                 dayStripHost.querySelectorAll('[data-day-trigger]').forEach((el) => {
-                    el.addEventListener('click', () => {
+                    onActivate(el, () => {
                         const day = el.dataset.dayTrigger;
                         setDayFilter(selectedDayFilter === day ? 'all' : day);
+                        // The strip is re-rendered: keep focus on the same day.
+                        dayStripHost.querySelector(`[data-day-trigger="${day}"]`)?.focus();
                     });
                 });
             };
@@ -752,7 +765,7 @@
                                             );
 
                                             return `
-                                                <div class="absolute rounded-lg border ${p.border} ${p.accent} border-l-4 ${p.bg} p-2 cursor-pointer transition-all duration-150 hover:shadow-md hover:scale-[1.01] hover:z-20 flex flex-col justify-between overflow-hidden shadow-xs group ${
+                                                <div role="button" tabindex="0" aria-haspopup="dialog" aria-label="${app.escapeHtml(`${c.courseName}, ${c.day || ''} ${c.formattedTime}`)}" class="absolute rounded-lg border ${p.border} ${p.accent} border-l-4 ${p.bg} p-2 cursor-pointer transition-all duration-150 hover:shadow-md hover:scale-[1.01] hover:z-20 focus-visible:z-20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand flex flex-col justify-between overflow-hidden shadow-xs group ${
                                                     matchesSearch ? 'opacity-100 ring-1 ring-border/20' : 'opacity-30 hover:opacity-100'
                                                 }"
                                                      style="top: ${topPct}%; height: ${heightPct}%; left: calc(${leftPct}% + 4px); width: calc(${widthPct}% - 8px); min-height: 52px;"
@@ -1074,16 +1087,25 @@
                 });
             };
 
+            let modalReturnFocus = null;
+
             const openModal = () => {
+                modalReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
                 modalEl.classList.remove('hidden');
                 modalEl.setAttribute('aria-hidden', 'false');
                 document.body.classList.add('overflow-hidden');
+                modalCloseBtn?.focus();
             };
 
             const closeModal = () => {
+                const wasOpen = !modalEl.classList.contains('hidden');
                 modalEl.classList.add('hidden');
                 modalEl.setAttribute('aria-hidden', 'true');
                 document.body.classList.remove('overflow-hidden');
+                if (wasOpen && modalReturnFocus?.isConnected) {
+                    modalReturnFocus.focus();
+                }
+                modalReturnFocus = null;
                 if (modalMeetingPanel) {
                     modalMeetingPanel.classList.add('hidden');
                     modalMeetingPanel.innerHTML = '';
@@ -1095,7 +1117,7 @@
 
             const bindModalTriggers = () => {
                 document.querySelectorAll('[data-class-modal-trigger]').forEach((el) => {
-                    el.addEventListener('click', () => {
+                    onActivate(el, () => {
                         const classId = parseInt(el.dataset.classModalTrigger, 10);
                         const c = cachedClassesData[classId];
                         if (!c) return;
@@ -1148,8 +1170,34 @@
             if (modalBackdrop) modalBackdrop.addEventListener('click', closeModal);
 
             document.addEventListener('keydown', (e) => {
-                if (e.key === 'Escape' && !modalEl.classList.contains('hidden')) {
+                if (modalEl.classList.contains('hidden')) {
+                    return;
+                }
+
+                if (e.key === 'Escape') {
                     closeModal();
+
+                    return;
+                }
+
+                // Keep Tab inside the open dialog.
+                if (e.key === 'Tab') {
+                    const focusable = app.focusableElements(modalEl.querySelector('.mycic-modal-panel'));
+
+                    if (!focusable.length) {
+                        return;
+                    }
+
+                    const first = focusable[0];
+                    const last = focusable[focusable.length - 1];
+
+                    if (e.shiftKey && (document.activeElement === first || !modalEl.contains(document.activeElement))) {
+                        e.preventDefault();
+                        last.focus();
+                    } else if (!e.shiftKey && (document.activeElement === last || !modalEl.contains(document.activeElement))) {
+                        e.preventDefault();
+                        first.focus();
+                    }
                 }
             });
 
@@ -1266,7 +1314,7 @@
                 return;
             }
 
-            const loadSource = async ({ force = false } = {}) => {
+            const loadSource = async ({ force = false, background = false } = {}) => {
                 const usedCachedPayload = app.primeCachedView(endpoint, renderSource, 'daftar kelas utama');
 
                 if (!usedCachedPayload) {
@@ -1276,7 +1324,7 @@
                 }
 
                 try {
-                    const payload = await app.request(endpoint, { fresh: force });
+                    const payload = await app.request(endpoint, { fresh: force, background });
                     renderSource(payload);
                     app.markViewSynced('Daftar kelas utama', payload, { force });
                 } catch (error) {

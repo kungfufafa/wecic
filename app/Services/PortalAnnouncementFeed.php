@@ -28,6 +28,17 @@ class PortalAnnouncementFeed
      */
     private const DUPLICATE_WINDOW_DAYS = 7;
 
+    /**
+     * Two bodies say the same when the shorter one's word triples (phrasing)
+     * or, for a short body where one corrected date already breaks several
+     * triples, its words are nearly all in the other: a re-post, even trimmed
+     * or corrected, passes; two different notices under a generic title
+     * ("PENGUMUMAN") do not, even in the same office's boilerplate.
+     */
+    private const DUPLICATE_PHRASE_OVERLAP = 0.8;
+
+    private const DUPLICATE_WORD_OVERLAP = 0.9;
+
     private const PORTAL_TIMEZONE = 'Asia/Jakarta';
 
     public function __construct(private readonly AnnouncementExtractor $announcementExtractor) {}
@@ -111,6 +122,13 @@ class PortalAnnouncementFeed
     }
 
     /**
+     * An announcement read twice (shifted to the next page during the walk)
+     * is kept once, from the first page: the same wording (`legacy_id`, or
+     * the id of a page cached before stable ids, which is that same value)
+     * is the same announcement even when its page gave it another id. Ids
+     * are then given across all pages, so two announcements sharing a stable
+     * id on different pages are still told apart.
+     *
      * @param  array<int, array<string, mixed>>  $results
      * @return list<array<string, mixed>>
      */
@@ -121,8 +139,9 @@ class PortalAnnouncementFeed
         foreach ($results as $page => $result) {
             foreach ($result['items'] ?? [] as $item) {
                 $id = (string) ($item['id'] ?? '');
+                $identity = is_string($item['legacy_id'] ?? null) ? $item['legacy_id'] : $id;
 
-                if ($id === '' || isset($items[$id])) {
+                if ($id === '' || isset($items[$identity])) {
                     continue;
                 }
 
@@ -131,11 +150,11 @@ class PortalAnnouncementFeed
                     fn (array $deadline): array => array_merge($deadline, ['is_future' => $this->isOnOrAfter($deadline['date'] ?? null, $today)]),
                     $item['deadlines'] ?? []
                 );
-                $items[$id] = $item;
+                $items[$identity] = $item;
             }
         }
 
-        return array_values($items);
+        return AnnouncementExtractor::withStableIds(array_values($items));
     }
 
     /**
@@ -153,32 +172,85 @@ class PortalAnnouncementFeed
 
     /**
      * Set `duplicate_of` to the id of the newest announcement with the same
-     * title published within a week (portal staff often post one twice).
+     * title published within a week whose body says the same (portal staff
+     * often post one twice). Same-titled notices with different bodies stay
+     * separate, each with its own deadlines.
      *
      * @param  list<array<string, mixed>>  $items
      * @return list<array<string, mixed>>
      */
     private function markDuplicates(array $items): array
     {
-        $firstByTitle = [];
+        $originalsByTitle = [];
 
         foreach ($items as $index => $item) {
             $title = mb_strtolower(trim((string) preg_replace('/\s+/u', ' ', (string) ($item['title'] ?? ''))));
-            $original = $title === '' ? null : ($firstByTitle[$title] ?? null);
+            $body = $this->bodyFingerprint($item);
             $items[$index]['duplicate_of'] = null;
 
-            if ($original !== null && $this->publishedClose($original['published_date'], $item['published_date'] ?? null)) {
-                $items[$index]['duplicate_of'] = $original['id'];
-
+            if ($title === '') {
                 continue;
             }
 
-            if ($title !== '') {
-                $firstByTitle[$title] = ['id' => $item['id'], 'published_date' => $item['published_date'] ?? null];
+            foreach ($originalsByTitle[$title] ?? [] as $original) {
+                if ($this->publishedClose($original['published_date'], $item['published_date'] ?? null)
+                    && $this->sameBody($original['body'], $body)) {
+                    $items[$index]['duplicate_of'] = $original['id'];
+
+                    continue 2;
+                }
             }
+
+            $originalsByTitle[$title][] = ['id' => $item['id'], 'published_date' => $item['published_date'] ?? null, 'body' => $body];
         }
 
         return $items;
+    }
+
+    /**
+     * The body's distinct words and runs of three consecutive words.
+     *
+     * @param  array<string, mixed>  $item
+     * @return array{words: array<string, true>, phrases: array<string, true>}
+     */
+    private function bodyFingerprint(array $item): array
+    {
+        preg_match_all('/[\p{L}\p{N}]+/u', mb_strtolower((string) ($item['body_text'] ?? '')), $matches);
+        $words = $matches[0];
+        $phrases = [];
+
+        for ($index = 0; $index + 2 < count($words); $index++) {
+            $phrases[$words[$index].' '.$words[$index + 1].' '.$words[$index + 2]] = true;
+        }
+
+        return ['words' => array_fill_keys($words, true), 'phrases' => $phrases];
+    }
+
+    /**
+     * A body too short to compare (a title-only post) leaves the decision to the title.
+     *
+     * @param  array{words: array<string, true>, phrases: array<string, true>}  $left
+     * @param  array{words: array<string, true>, phrases: array<string, true>}  $right
+     */
+    private function sameBody(array $left, array $right): bool
+    {
+        if ($left['phrases'] === [] || $right['phrases'] === []) {
+            return true;
+        }
+
+        return $this->overlap($left['phrases'], $right['phrases']) >= self::DUPLICATE_PHRASE_OVERLAP
+            || $this->overlap($left['words'], $right['words']) >= self::DUPLICATE_WORD_OVERLAP;
+    }
+
+    /**
+     * Share of the smaller set that is also in the other one.
+     *
+     * @param  array<string, true>  $left
+     * @param  array<string, true>  $right
+     */
+    private function overlap(array $left, array $right): float
+    {
+        return count(array_intersect_key($left, $right)) / min(count($left), count($right));
     }
 
     private function publishedClose(?string $left, ?string $right): bool

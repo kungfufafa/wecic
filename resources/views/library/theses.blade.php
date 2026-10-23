@@ -268,11 +268,12 @@
                 </li>
             `;
 
-            // Mirrors ThesisRepositorySearch: an advisor matches without academic titles.
+            // Mirrors ThesisRepositorySearch::advisorKey: an advisor matches without academic titles.
             const facetKey = (key, value) => {
-                const source = key === 'pembimbing' ? String(value ?? '').split(',')[0].replace(/\./g, '') : String(value ?? '');
+                const source = key === 'pembimbing' ? String(value ?? '').split(',')[0].replace(/\./g, ' ') : String(value ?? '');
+                const normalized = source.normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 
-                return source.normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+                return key === 'pembimbing' ? (normalized.replace(/^(?:(?:dr|drs|dra|prof|ir|h|hj) )+/, '') || normalized) : normalized;
             };
 
             const fillSelect = (key, facet, emptyLabel) => {
@@ -361,7 +362,7 @@
                 app.refreshOnlineRequiredState();
             };
 
-            const fetchResults = async ({ force = false, append = false } = {}) => {
+            const fetchResults = async ({ force = false, append = false, background = false } = {}) => {
                 const requestId = ++state.requestId;
                 const page = append ? state.page + 1 : 1;
                 const query = queryString(page);
@@ -374,7 +375,7 @@
                 }
 
                 try {
-                    const payload = await app.request(url, cacheable ? { fresh: force } : { fresh: force, cache: false });
+                    const payload = await app.request(url, cacheable ? { fresh: force, background } : { fresh: force, cache: false, background });
 
                     if (requestId !== state.requestId || !payload) {
                         return;
@@ -620,8 +621,18 @@
                 state.loadingMore = true;
                 button.disabled = true;
                 button.textContent = 'Memuat…';
-                await fetchResults({ append: true });
-                state.loadingMore = false;
+
+                try {
+                    await fetchResults({ append: true });
+                } finally {
+                    state.loadingMore = false;
+
+                    // A loaded page re-renders the button; after a failed one it is still this one.
+                    if (button.isConnected) {
+                        button.disabled = false;
+                        button.textContent = 'Muat lagi';
+                    }
+                }
             });
 
             checkForm.addEventListener('submit', (event) => {
@@ -664,7 +675,7 @@
                 return;
             }
 
-            app.registerSyncHandler('library-theses', ({ force = false } = {}) => fetchResults({ force }));
+            app.registerSyncHandler('library-theses', ({ force = false, background = false } = {}) => fetchResults({ force, background }));
 
             await fetchResults();
         });

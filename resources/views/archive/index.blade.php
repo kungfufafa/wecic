@@ -62,8 +62,9 @@
             <div class="mycic-card-body flex flex-col gap-3 text-sm text-ink-muted">
                 <ul class="flex list-disc flex-col gap-1.5 ps-5">
                     <li>Data disimpan terenkripsi di server MyCIC dan hanya bisa dibuka lewat akunmu. Daftar teman sekelas tidak ikut diarsipkan.</li>
-                    <li>Saat portal mati, kamu tetap bisa masuk dengan password terakhir yang berhasil login (maks. {{ (int) config('portal.archive.offline_login_days', 30) }} hari), dan MyCIC menyambung lagi otomatis begitu portal pulih.</li>
+                    <li>Saat portal mati, kamu tetap bisa masuk dengan password terakhir yang berhasil login (maks. {{ \App\Models\PortalOfflineAccount::offlineLoginDays() }} hari), dan MyCIC menyambung lagi otomatis begitu portal pulih selama sinkronisasi background menyala. Jika dimatikan, password tidak disimpan: MyCIC hanya memberi tahu saat portal pulih dan kamu masuk lagi sendiri.</li>
                     <li>Dengan sinkronisasi di background aktif, password terakhirmu disimpan terenkripsi supaya MyCIC bisa masuk ke portal sendiri setiap {{ (int) config('portal.background_sync.interval', 180) }} menit dan memperbarui arsip saat kamu tidak membuka MyCIC, termasuk detail kelas, pertemuan, dan materi semua kelasmu. Matikan di bawah kalau tidak mau; yang tersisa hanya hash password.</li>
+                    <li>Semua itu tidak disimpan selamanya: {{ \App\Models\PortalOfflineAccount::credentialDays() }} hari setelah login online terakhirmu, password terenkripsi dihapus otomatis dan sinkronisasi di background berhenti; hash password dan data untuk masuk saat portal mati dihapus {{ \App\Models\PortalOfflineAccount::offlineLoginDays() }} hari sejak login itu. Password yang ditolak portal langsung dihapus. Arsipmu sendiri tetap tersimpan sampai kamu menghapusnya.</li>
                     <li>Kalau data dari portal terlihat janggal (nilai hilang, presensi berubah jadi absen, riwayat bayar berkurang), MyCIC tetap menampilkan versi terakhir yang dipercaya sampai kamu memeriksanya.</li>
                 </ul>
                 <div class="mycic-alert-info mb-0 flex flex-wrap items-center justify-between gap-3" id="archive-background-sync" hidden>
@@ -240,6 +241,10 @@
                     return 'Aktif sejak kamu masuk lagi saat portal online.';
                 }
 
+                if (status.last_status === 'running') {
+                    return `Sedang berjalan, mulai ${app.formatTimeAgo(status.last_synced_at)} · setiap ${describeInterval(status.interval_minutes)}, sampai ${status.credential_days} hari setelah login terakhirmu.${describeCourseSync(status)}`;
+                }
+
                 const lastSync = status.last_synced_at ? `Terakhir ${app.formatTimeAgo(status.last_synced_at)}` : 'Belum pernah berjalan';
                 const outcome = {
                     synced: 'berhasil',
@@ -281,18 +286,25 @@
                     renderBackgroundSync(payload?.data || null);
                     app.showNotice(payload?.message || 'Pengaturan sinkronisasi disimpan.', 'success');
                 } catch (error) {
-                    backgroundSyncToggle.checked = !enabled;
+                    const effectiveStatus = error?.payload?.data;
+
+                    if (effectiveStatus && typeof effectiveStatus === 'object') {
+                        renderBackgroundSync(effectiveStatus);
+                    } else {
+                        backgroundSyncToggle.checked = !enabled;
+                    }
+
                     app.showNotice(`Pengaturan belum tersimpan. ${app.describeError(error)}`, 'error');
                 } finally {
                     backgroundSyncToggle.disabled = false;
                 }
             });
 
-            const loadArchive = async () => {
+            const loadArchive = async ({ background = false } = {}) => {
                 try {
                     const [summary, files] = await Promise.all([
-                        app.request('/api/archive'),
-                        app.request('/api/archive/files'),
+                        app.request('/api/archive', { background }),
+                        app.request('/api/archive/files', { background }),
                     ]);
 
                     if (!summary || !files) {

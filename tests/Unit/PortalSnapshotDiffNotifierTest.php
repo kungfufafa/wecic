@@ -267,6 +267,218 @@ class PortalSnapshotDiffNotifierTest extends TestCase
         $this->assertSame('/announcement/'.$this->announcementId('a2'), $created[0]->url);
     }
 
+    public function test_announcement_reposted_on_a_later_sync_is_not_announced_again(): void
+    {
+        $first = $this->syncSequence(
+            'announcements',
+            $this->announcements([$this->announcement('a1', 'Jadwal UTS Ganjil')]),
+            $this->announcements([$this->announcement('a2', 'Pembayaran UKT Tahap 2'), $this->announcement('a1', 'Jadwal UTS Ganjil')]),
+        );
+        $this->travel(1)->days();
+        app(PortalDataOwner::class)->remember(self::TOKEN, self::USERNAME, 3600);
+
+        // Tuesday's re-post is now the newest copy, so it is the "original" with a new id.
+        $repost = $this->syncSequence('announcements', $this->announcements([
+            $this->announcement('a3', 'Pembayaran UKT Tahap 2'),
+            $this->announcement('a2', 'Pembayaran UKT Tahap 2', duplicateOf: 'a3'),
+            $this->announcement('a1', 'Jadwal UTS Ganjil'),
+        ]));
+
+        $this->assertCount(1, $first);
+        $this->assertSame([], $repost);
+    }
+
+    public function test_different_notices_under_one_generic_title_are_each_announced(): void
+    {
+        $created = $this->syncSequence(
+            'announcements',
+            $this->announcements([]),
+            $this->announcements([$this->announcement('a1', 'PENGUMUMAN', excerpt: 'Pembayaran UKT tahap 2 paling lambat 20 Oktober.')]),
+            $this->announcements([
+                $this->announcement('a2', 'PENGUMUMAN', excerpt: 'Kartu UTS diambil di BAAK paling lambat 25 Oktober.'),
+                $this->announcement('a1', 'PENGUMUMAN', excerpt: 'Pembayaran UKT tahap 2 paling lambat 20 Oktober.'),
+            ]),
+        );
+
+        $this->assertSame(['BAAK · Pembayaran UKT tahap 2 paling lambat 20 Oktober.', 'BAAK · Kartu UTS diambil di BAAK paling lambat 25 Oktober.'], array_map(
+            static fn (PortalNotification $notification): ?string => $notification->body,
+            $created
+        ));
+    }
+
+    public function test_announcements_found_under_their_old_id_are_not_new_once_ids_become_stable(): void
+    {
+        $created = $this->syncSequence(
+            'announcements',
+            // Before: ids built from the wording.
+            $this->announcements([
+                $this->announcement('wording-a1', 'Jadwal UTS Ganjil'),
+                $this->announcement('wording-a2', 'Pembayaran UKT Tahap 2'),
+            ]),
+            // After the deploy: stable ids, the old id kept as legacy_id.
+            $this->announcements([
+                [...$this->announcement('a1', 'Jadwal UTS Ganjil'), 'legacy_id' => $this->announcementId('wording-a1')],
+                [...$this->announcement('a2', 'Pembayaran UKT Tahap 2'), 'legacy_id' => $this->announcementId('wording-a2')],
+            ]),
+            // Staff correct a1's body: a new wording, the same stable id; a3 is really new.
+            $this->announcements([
+                [...$this->announcement('a3', 'Libur Nasional'), 'legacy_id' => $this->announcementId('wording-a3')],
+                [...$this->announcement('a1', 'Jadwal UTS Ganjil', excerpt: 'Ringkasan yang sudah dikoreksi.'), 'legacy_id' => $this->announcementId('wording-a1-edited')],
+                [...$this->announcement('a2', 'Pembayaran UKT Tahap 2'), 'legacy_id' => $this->announcementId('wording-a2')],
+            ]),
+            // A page still cached from before the deploy keys a2 the old way.
+            $this->announcements([
+                [...$this->announcement('a1', 'Jadwal UTS Ganjil'), 'legacy_id' => $this->announcementId('wording-a1-edited')],
+                $this->announcement('wording-a2', 'Pembayaran UKT Tahap 2'),
+            ]),
+        );
+
+        $this->assertSame(['Pengumuman: Libur Nasional'], array_map(static fn (PortalNotification $notification): string => $notification->title, $created));
+        $this->assertSame('/announcement/'.$this->announcementId('a3'), $created[0]->url);
+    }
+
+    public function test_notification_sent_before_stable_ids_follows_its_announcement_to_the_new_id(): void
+    {
+        $otherStudent = PortalNotification::query()->create([
+            'owner_hash' => 'another-student',
+            'type' => 'announcement_new',
+            'dataset' => 'announcements',
+            'record_key' => $this->announcementId('wording-a2'),
+            'dedupe_key' => 'another-student-a2',
+            'title' => 'Pengumuman: Pembayaran UKT Tahap 2',
+            'url' => '/announcement/'.$this->announcementId('wording-a2'),
+        ]);
+
+        $created = $this->syncSequence(
+            'announcements',
+            $this->announcements([$this->announcement('wording-a1', 'Jadwal UTS Ganjil')]),
+            // Announced before the deploy, under the wording-based id.
+            $this->announcements([
+                $this->announcement('wording-a2', 'Pembayaran UKT Tahap 2'),
+                $this->announcement('wording-a1', 'Jadwal UTS Ganjil'),
+            ]),
+            // After the deploy: stable ids, the old one kept as legacy_id.
+            $this->announcements([
+                [...$this->announcement('a2', 'Pembayaran UKT Tahap 2'), 'legacy_id' => $this->announcementId('wording-a2')],
+                [...$this->announcement('a1', 'Jadwal UTS Ganjil'), 'legacy_id' => $this->announcementId('wording-a1')],
+            ]),
+            // Staff then edit a2's body: its wording-based id changes, its stable id does not.
+            $this->announcements([
+                [...$this->announcement('a2', 'Pembayaran UKT Tahap 2', excerpt: 'Ringkasan yang sudah dikoreksi.'), 'legacy_id' => $this->announcementId('wording-a2-edited')],
+                [...$this->announcement('a1', 'Jadwal UTS Ganjil'), 'legacy_id' => $this->announcementId('wording-a1')],
+            ]),
+        );
+
+        $this->assertCount(1, $created);
+        $notification = $created[0]->fresh();
+        $this->assertSame($this->announcementId('a2'), $notification->record_key);
+        $this->assertSame('/announcement/'.$this->announcementId('a2'), $notification->url);
+        $this->assertSame($created[0]->dedupe_key, $notification->dedupe_key);
+        // Another student's notification is theirs to re-key.
+        $this->assertSame('/announcement/'.$this->announcementId('wording-a2'), $otherStudent->fresh()->url);
+    }
+
+    public function test_deadline_reminder_sent_before_stable_ids_follows_its_announcement_too(): void
+    {
+        $ownerHash = app(PortalDataOwner::class)->key(self::TOKEN);
+        $reminder = PortalNotification::query()->create([
+            'owner_hash' => $ownerHash,
+            'type' => 'deadline_reminder',
+            'dataset' => 'announcements',
+            'record_key' => 'announcement-'.$this->announcementId('wording-a2'),
+            'dedupe_key' => 'reminder-a2',
+            'title' => 'Pembayaran UKT Tahap 2',
+            'body' => 'Tenggat Senin, 26 Oktober 2026.',
+            'url' => '/announcement/'.$this->announcementId('wording-a2'),
+            'urgency' => 'warning',
+        ]);
+        $unrelated = PortalNotification::query()->create([
+            'owner_hash' => $ownerHash,
+            'type' => 'deadline_reminder',
+            'dataset' => 'announcements',
+            'record_key' => 'announcement-'.$this->announcementId('wording-a9'),
+            'dedupe_key' => 'reminder-a9',
+            'title' => 'Libur Nasional',
+            'url' => '/announcement/'.$this->announcementId('wording-a9'),
+        ]);
+
+        $created = $this->syncSequence(
+            'announcements',
+            // Before the deploy, under the wording-based id.
+            $this->announcements([$this->announcement('wording-a2', 'Pembayaran UKT Tahap 2')]),
+            // After the deploy: stable ids, the old one kept as legacy_id.
+            $this->announcements([[...$this->announcement('a2', 'Pembayaran UKT Tahap 2'), 'legacy_id' => $this->announcementId('wording-a2')]]),
+        );
+
+        $this->assertSame([], $created);
+        $this->assertSame(['announcement-'.$this->announcementId('a2'), '/announcement/'.$this->announcementId('a2')], [$reminder->fresh()->record_key, $reminder->fresh()->url]);
+        $this->assertSame('reminder-a2', $reminder->fresh()->dedupe_key);
+        $this->assertSame('/announcement/'.$this->announcementId('wording-a9'), $unrelated->fresh()->url);
+        $this->assertSame(2, PortalNotification::query()->count());
+    }
+
+    public function test_announcement_falling_back_to_its_wording_id_is_not_announced_again(): void
+    {
+        $created = $this->syncSequence(
+            'announcements',
+            $this->announcements([
+                [...$this->announcement('a1', 'Surat Pengantar Magang'), 'legacy_id' => $this->announcementId('wording-a1')],
+            ]),
+            // A second post with the same title, day and unit: both fall back to their wording-based ids.
+            $this->announcements([
+                [...$this->announcement('wording-a2', 'Surat Pengantar Magang', excerpt: 'Pengantar magang gelombang kedua.'), 'legacy_id' => $this->announcementId('wording-a2')],
+                [...$this->announcement('wording-a1', 'Surat Pengantar Magang'), 'legacy_id' => $this->announcementId('wording-a1')],
+            ]),
+            // The second one is taken down: the first goes back to its stable id.
+            $this->announcements([
+                [...$this->announcement('a1', 'Surat Pengantar Magang'), 'legacy_id' => $this->announcementId('wording-a1')],
+            ]),
+        );
+
+        $this->assertSame(['BAAK · Pengantar magang gelombang kedua.'], array_map(
+            static fn (PortalNotification $notification): ?string => $notification->body,
+            $created
+        ));
+        $this->assertSame('/announcement/'.$this->announcementId('wording-a2'), $created[0]->url);
+    }
+
+    public function test_repost_after_the_repeat_window_is_announced_again(): void
+    {
+        $this->syncSequence(
+            'announcements',
+            $this->announcements([]),
+            $this->announcements([$this->announcement('a1', 'Pembayaran UKT Tahap 2')]),
+        );
+        $this->travel(8)->days();
+        app(PortalDataOwner::class)->remember(self::TOKEN, self::USERNAME, 3600);
+
+        $created = $this->syncSequence('announcements', $this->announcements([
+            $this->announcement('a2', 'Pembayaran UKT Tahap 2'),
+            $this->announcement('a1', 'Pembayaran UKT Tahap 2'),
+        ]));
+
+        $this->assertSame(['announcement_new'], $this->types($created));
+    }
+
+    public function test_grades_beyond_the_per_sync_cap_are_summed_up(): void
+    {
+        $names = ['Basis Data', 'Jaringan Komputer', 'Statistika', 'Kalkulus', 'Etika Profesi', 'Kecerdasan Buatan', 'Sistem Operasi', 'Pemrograman Web'];
+        $semester = fn (?string $letter): array => $this->grades([$this->semester('Semester 5', array_map(
+            fn (string $name, int $index): array => $this->course('IF50'.$index, $name, $letter),
+            $names,
+            array_keys($names)
+        ))]);
+
+        $created = $this->syncSequence('grades', $semester(null), $semester('A'), $semester('A'));
+
+        $this->assertCount(6, $created);
+        $this->assertSame('Nilai Basis Data keluar: A', $created[0]->title);
+        $this->assertSame('3 nilai lain juga keluar', $created[5]->title);
+        $this->assertSame('Nilai Kecerdasan Buatan keluar: A · Nilai Sistem Operasi keluar: A · Nilai Pemrograman Web keluar: A', $created[5]->body);
+        $this->assertSame('/grades', $created[5]->url);
+        $this->assertSame('grade_released', $created[5]->type);
+    }
+
     public function test_announcements_beyond_the_per_sync_cap_are_absorbed(): void
     {
         $many = array_map(fn (int $index): array => $this->announcement("n{$index}", "Pengumuman {$index}"), range(1, 8));
@@ -398,6 +610,8 @@ class PortalSnapshotDiffNotifierTest extends TestCase
                 && $payload['unread_count'] === 2
                 && $payload['is_read'] === false
                 && in_array('/api/notifications', $payload['cache_keys'], true)
+                // The unread filter keeps its own device copy.
+                && in_array('/api/notifications?unread=1', $payload['cache_keys'], true)
                 && $payload['sync_keys'] === ['notification-index'];
         });
     }
@@ -568,13 +782,13 @@ class PortalSnapshotDiffNotifierTest extends TestCase
     /**
      * @return array<string, mixed>
      */
-    private function announcement(string $seed, string $title, ?string $duplicateOf = null): array
+    private function announcement(string $seed, string $title, ?string $duplicateOf = null, string $excerpt = 'Ringkasan pengumuman sintetis.'): array
     {
         return [
             'id' => $this->announcementId($seed),
             'title' => $title,
             'publisher_unit_short' => 'BAAK',
-            'excerpt' => 'Ringkasan pengumuman sintetis.',
+            'excerpt' => $excerpt,
             'duplicate_of' => $duplicateOf === null ? null : $this->announcementId($duplicateOf),
         ];
     }

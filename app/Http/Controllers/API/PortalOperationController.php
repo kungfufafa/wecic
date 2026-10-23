@@ -13,7 +13,7 @@ use Illuminate\Http\JsonResponse;
 #[Group('SIPANDAI - Aksi', 'Endpoint untuk mengirim aksi langsung ke portal SIPANDAI seperti unggah tugas, absensi, dan unggah ujian.', 30)]
 class PortalOperationController extends CampusApiController
 {
-    private const OPERATION_RESPONSE = 'array{success: bool, message: string, data: array{operation_id: string, type: string, status: string, percent: int, message: string, detail: string|null, next_step: string|null, cache_keys: list<string>, sync_keys: list<string>, updated_at: string}}';
+    private const OPERATION_RESPONSE = "array{success: bool, status: 'success', message: string, data: array{operation_id: string, type: string, status: string, percent: int, message: string, detail: string|null, next_step: string|null, cache_keys: list<string>, sync_keys: list<string>, updated_at: string}, meta: array{timestamp: string}}";
 
     public function __construct(private readonly PortalOperationTracker $tracker) {}
 
@@ -21,7 +21,8 @@ class PortalOperationController extends CampusApiController
      * Status operasi latar belakang (misalnya unggah tugas).
      *
      * Cadangan untuk event real-time: klien bisa memanggil endpoint ini secara berkala
-     * memakai `operation_id` dari respons unggah sampai status menjadi `completed` atau `failed`.
+     * memakai `operation_id` dari respons unggah sampai status menjadi `completed`, `failed`, atau
+     * `unverified` (hasil upload belum pasti: cek halaman tugas atau ujian sebelum mengunggah ulang).
      */
     #[PathParameter('operation', 'Identifier `operation_id` dari respons unggah tugas atau ujian.', type: 'string')]
     #[Response(description: 'Status operasi terakhir.', type: self::OPERATION_RESPONSE)]

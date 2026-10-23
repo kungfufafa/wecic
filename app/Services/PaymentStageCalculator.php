@@ -10,11 +10,12 @@ use Carbon\CarbonImmutable;
  * UKT stage status per study year (F35) and the KRS-relevant facts (F36)
  * that can be read from act=keuangan.
  *
- * Only the portal's own records decide a status: a stage is "paid" when the
- * payment history lists it and "unpaid" when the bill table lists it. The
- * history can miss stages (stage 1 of the first year is often paid at
- * admission), so every other stage is "unknown", or "upcoming" when a known
- * deadline is still ahead.
+ * Only the portal's own records decide a status: a stage is "unpaid" when the
+ * bill table lists it (even when the history already shows part of it paid,
+ * but not when the history shows the whole installment paid) and "paid"
+ * when the payment history lists it. The history can miss stages
+ * (stage 1 of the first year is often paid at admission), so every other
+ * stage is "unknown", or "upcoming" when a known deadline is still ahead.
  */
 class PaymentStageCalculator
 {
@@ -172,8 +173,8 @@ class PaymentStageCalculator
             $deadline = $deadlines[$stage] ?? null;
 
             [$status, $reason] = match (true) {
+                array_key_exists($stage, $billedStages) && ! $this->isFullyPaid($paid) => ['unpaid', 'in_bills'],
                 $paid !== null => ['paid', 'in_history'],
-                array_key_exists($stage, $billedStages) => ['unpaid', 'in_bills'],
                 $currentStudyYear !== null && $studyYear > $currentStudyYear => ['upcoming', 'future_year'],
                 ($currentStudyYear !== null && $studyYear < $currentStudyYear) || $stage < $latestPaidStage => ['unknown', 'not_recorded'],
                 $deadline !== null && $deadline->greaterThanOrEqualTo($today) => ['upcoming', 'deadline_ahead'],
@@ -216,6 +217,23 @@ class PaymentStageCalculator
     }
 
     /**
+     * A history row that covers the whole installment. A bill row the portal
+     * still lists for such a stage is one left behind after the payment, so
+     * the stage stays paid; one partly paid, or of an unknown installment,
+     * is still owed.
+     *
+     * @param  array{paid_at: string|null, paid_at_label: string|null, paid_amount: int|null, installment_amount: int|null}|null  $paid
+     */
+    private function isFullyPaid(?array $paid): bool
+    {
+        return $paid !== null
+            && $paid['paid_amount'] !== null
+            && $paid['installment_amount'] !== null
+            && $paid['installment_amount'] > 0
+            && $paid['paid_amount'] >= $paid['installment_amount'];
+    }
+
+    /**
      * @param  array{stages: list<array{stage: int, status: string}>}|null  $currentYear
      */
     private function stageOnePaid(?array $currentYear): bool|string
@@ -230,6 +248,10 @@ class PaymentStageCalculator
     }
 
     /**
+     * The first stage still to pay this year. A stage missing from the history
+     * below one that is paid (`not_recorded`, e.g. stage 1 paid at admission)
+     * was settled before it and is never the next one.
+     *
      * @param  array{study_year: int, academic_year: string|null, stages: list<array{stage: int, status: string, reason: string, deadline: string|null}>}|null  $currentYear
      * @return array{study_year: int, academic_year: string|null, stage: int, status: string, reason: string, deadline: string|null}|null
      */
@@ -240,7 +262,7 @@ class PaymentStageCalculator
         }
 
         foreach ($currentYear['stages'] as $stage) {
-            if ($stage['status'] !== 'paid') {
+            if ($stage['status'] !== 'paid' && $stage['reason'] !== 'not_recorded') {
                 return [
                     'study_year' => $currentYear['study_year'],
                     'academic_year' => $currentYear['academic_year'],

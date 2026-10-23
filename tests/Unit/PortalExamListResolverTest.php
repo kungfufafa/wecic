@@ -89,6 +89,72 @@ class PortalExamListResolverTest extends TestCase
         $this->assertNull($exam['upload_url']);
     }
 
+    public function test_exam_rows_get_the_class_id_of_their_own_course_when_codes_share_a_prefix(): void
+    {
+        $resolver = $this->makeResolver([
+            $this->examRowWithoutId('SI033017', 'Statistik Inferensial'),
+            $this->examRowWithoutId('SI033019', 'Analisis dan Implementasi Big Data Science'),
+            $this->examRowWithoutId('DS052001', 'Teknik Pengolahan Data'),
+            $this->examRowWithoutId('DS052002', 'Data Governance'),
+        ], [
+            $this->sipandaiClass('SI033017', 'Statistik Inferensial', '9501'),
+            $this->sipandaiClass('SI033019', 'Analisis dan Implementasi Big Data Science', '9524'),
+            $this->sipandaiClass('DS052001', 'Teknik Pengolahan Data', '9480'),
+            $this->sipandaiClass('DS052002', 'Data Governance', '9496'),
+        ]);
+
+        $ids = array_column($resolver->resolve('token-exam')['exams'], 'id', 'course_code');
+
+        $this->assertSame([
+            'SI033017' => 9501,
+            'SI033019' => 9524,
+            'DS052001' => 9480,
+            'DS052002' => 9496,
+        ], $ids);
+    }
+
+    public function test_exam_rows_matching_two_classes_by_name_keep_no_id(): void
+    {
+        $resolver = $this->makeResolver([
+            $this->examRowWithoutId('', 'Statistik Inferensial'),
+        ], [
+            $this->sipandaiClass('SI033017', 'Statistik Inferensial', '9501'),
+            $this->sipandaiClass('SI033018', 'Statistik Inferensial', '9502'),
+        ]);
+
+        $exam = $resolver->resolve('token-exam')['exams'][0];
+
+        $this->assertNull($exam['id']);
+        $this->assertFalse($exam['can_upload']);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function examRowWithoutId(string $code, string $name): array
+    {
+        return [
+            'id' => null,
+            'course_code' => $code,
+            'course_name' => $name,
+            'schedule' => 'Senin 09:30 - 11:00',
+            'status' => 'Terjadwal',
+            'upload_url' => null,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function sipandaiClass(string $code, string $name, string $courseId): array
+    {
+        return [
+            'schedule' => ['day' => 'Senin', 'formatted_time' => '09:30 - 11:00'],
+            'course_info' => ['code' => $code, 'name' => $name],
+            'join_link' => ['params' => ['id' => '1'.$courseId, 'dosen_id' => '5240', 'course_id' => $courseId]],
+        ];
+    }
+
     /**
      * @param  list<array<string, mixed>>  $examRows
      * @param  list<array<string, mixed>>|null  $classes

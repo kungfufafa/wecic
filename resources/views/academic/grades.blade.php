@@ -172,7 +172,7 @@
                         <div class="mycic-metric-label" title="IPS semester terakhir yang sudah dinilai">IPS</div>
                         <div class="mycic-metric-value">${esc(formatIp(latest?.ips ?? null))}</div>
                         <div class="mycic-metric-note">
-                            ${latest ? `Semester ${esc(latest.semester)}` : 'Belum ada'}
+                            ${latest ? `Semester ${esc(latest.semester)}${latest.is_complete === false ? ' · sebagian' : ''}` : 'Belum ada'}
                             ${deltaText ? `<span class="font-semibold ${deltaTone}" aria-hidden="true">${esc(deltaText)}</span>` : ''}
                             ${deltaLabel ? `<span class="sr-only">${esc(deltaLabel)}</span>` : ''}
                         </div>
@@ -544,9 +544,9 @@
                 return;
             }
 
-            const loadGrades = async ({ force = false } = {}) => {
+            const loadGrades = async ({ force = false, background = false } = {}) => {
                 try {
-                    const payload = await app.request(endpoint, { fresh: force });
+                    const payload = await app.request(endpoint, { fresh: force, background });
 
                     if (!payload) {
                         return;

@@ -9,7 +9,10 @@ use App\Exceptions\PortalConnectionException;
 use App\Exceptions\PortalException;
 use App\Jobs\SyncPortalArchiveJob;
 use App\Models\PortalOfflineAccount;
+use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -18,6 +21,9 @@ use Illuminate\Support\Facades\Log;
  * Every online login stores the credentials encrypted (PortalOfflineAccess);
  * the scheduler then picks the accounts whose last sync is older than
  * `portal.background_sync.interval` and runs one SyncPortalArchiveJob each.
+ * The credentials are dropped `credential_days` after the last online login
+ * (PortalOfflineAccount::prunable()) or as soon as the portal refuses them,
+ * which ends the syncs until the student logs in online again.
  * A sync reuses the student's active online session when there is one, and
  * otherwise logs in, re-syncs `portal.background_sync.datasets` and logs out
  * again. Dataset builds archive and notify exactly as they do for a logged-in
@@ -27,10 +33,33 @@ use Illuminate\Support\Facades\Log;
  * the student's classes (PortalCourseArchiver): the class detail, every
  * meeting and the files they link to are archived without the student
  * opening them. That is dozens of pages, hence its own, longer interval.
+ * Classes done are remembered for the round, so a crawl cut short (worker
+ * timeout, expired session) resumes where it stopped instead of starting
+ * over.
+ *
+ * A sync is stamped `running` when it starts, so a sync that never returns
+ * (killed worker, timeout) neither keeps its account at the head of the
+ * queue nor gets queued again before its interval; the stamp reads as
+ * failed once the job's timeout has passed.
+ *
+ * Logging in resolves the student's owner key (PortalDataOwner), which may
+ * move the account row to the current key or drop it in favour of the row
+ * that key already had, with that row's background sync opt-out. The
+ * account is therefore re-read after the login and before every later use
+ * of its owner key: a sync whose account is gone, or now switched off,
+ * stops there.
  */
 class PortalBackgroundSync
 {
+    public const SYNC_RUNNING = 'running';
+
     private const EXPIRED_SESSION_PREFIX = 'expired_session: ';
+
+    private const INTERRUPTED_MESSAGE = 'Sinkronisasi terhenti sebelum selesai (melewati batas waktu atau worker dihentikan).';
+
+    private const UNREADABLE_CREDENTIALS_MESSAGE = 'Password tersimpan tidak bisa dibaca lagi. Masuk lagi di MyCIC saat portal online untuk menyimpannya ulang.';
+
+    private const SWITCHED_OFF_MESSAGE = 'Sinkronisasi latar dimatikan sebelum sinkronisasi dimulai; tidak ada yang disinkronkan.';
 
     public function __construct(
         private readonly PortalSessionManager $sessionManager,
@@ -72,20 +101,21 @@ class PortalBackgroundSync
     {
         $account = $this->offlineAccess->findForOwner($ownerHash);
         $enabled = $this->enabled() && ($account === null || $account->isBackgroundSyncEnabled());
-        $active = $account !== null && $this->enabled() && $account->hasUsableCredentials($this->credentialDays());
+        $active = $account !== null && $this->enabled() && $this->hasUsableCredentials($account);
+        [$lastStatus, $lastError] = $this->lastOutcome($account);
 
         return [
             'available' => $this->enabled(),
             'enabled' => $enabled,
             'active' => $active,
             // Switched on, but the credentials only arrive with the next online login.
-            'pending_login' => $enabled && ! $active && ($account === null || ! is_array($account->credentials)) && $account?->credentials_rejected_at === null,
+            'pending_login' => $enabled && ! $active && ($account === null || $this->readableCredentials($account) === null) && $account?->credentials_rejected_at === null,
             'rejected' => $account?->credentials_rejected_at !== null,
             'interval_minutes' => $this->intervalMinutes(),
             'credential_days' => $this->credentialDays(),
             'last_synced_at' => $account?->last_background_sync_at?->toISOString(),
-            'last_status' => $account?->last_background_sync_status,
-            'last_error' => $account?->last_background_sync_error,
+            'last_status' => $lastStatus,
+            'last_error' => $lastError,
             'courses_enabled' => $this->crawlsCourses(),
             'courses_interval_minutes' => $this->coursesIntervalMinutes(),
             'last_course_sync_at' => $account?->last_course_sync_at?->toISOString(),
@@ -93,14 +123,22 @@ class PortalBackgroundSync
     }
 
     /**
-     * Switching off drops the stored credentials at once; switching on takes
-     * effect with the next online login, which stores them again.
+     * Switching off drops the stored credentials at once, and is remembered
+     * even when MyCIC keeps nothing else for the student yet; switching on
+     * takes effect with the next online login, which stores them again.
+     * Either way a class crawl cut short starts over: the archive may have
+     * been deleted meanwhile, files of the classes it had done included.
      */
     public function setEnabled(string $ownerHash, bool $enabled): void
     {
         $account = $this->offlineAccess->findForOwner($ownerHash);
 
         if ($account === null) {
+            if (! $enabled) {
+                $this->offlineAccess->rememberBackgroundSyncOptOut($ownerHash);
+                $this->sessionManager->forgetStoredCredentialsForOwner($ownerHash);
+            }
+
             return;
         }
 
@@ -108,6 +146,13 @@ class PortalBackgroundSync
             ? ['background_sync_disabled_at' => null]
             : ['background_sync_disabled_at' => now(), 'credentials' => null, 'credentials_rejected_at' => null]
         )->save();
+
+        if (! $enabled) {
+            // A busy session keeps its copy until its next keep-alive drops it.
+            $this->sessionManager->forgetStoredCredentialsForOwner($ownerHash);
+        }
+
+        Cache::forget($this->courseCrawlKey($account));
     }
 
     public function intervalMinutes(): int
@@ -122,7 +167,7 @@ class PortalBackgroundSync
 
     public function credentialDays(): int
     {
-        return max(1, (int) config('portal.background_sync.credential_days', 30));
+        return PortalOfflineAccount::credentialDays();
     }
 
     /**
@@ -193,19 +238,70 @@ class PortalBackgroundSync
 
     /**
      * Sync one student's archive now, and record the outcome on the account.
+     * Whatever goes wrong is recorded too: an account whose syncs keep
+     * failing must not stay at the head of the queue.
      *
      * @return PortalOfflineAccount::SYNC_*
      */
     public function syncAccount(PortalOfflineAccount $account): string
     {
-        if (! $this->enabled() || ! $account->hasUsableCredentials($this->credentialDays())) {
+        if (! $this->enabled()) {
             return PortalOfflineAccount::SYNC_FAILED;
         }
 
-        $credentials = $account->credentials ?? [];
-        $username = (string) ($credentials['username'] ?? '');
-        $password = (string) ($credentials['password'] ?? '');
+        try {
+            $credentials = $account->credentials ?? [];
+        } catch (DecryptException) {
+            $this->forgetUnreadableCredentials($account);
 
+            return $this->record($account, PortalOfflineAccount::SYNC_FAILED, self::UNREADABLE_CREDENTIALS_MESSAGE);
+        }
+
+        if (! $account->hasUsableCredentials($this->credentialDays())) {
+            return PortalOfflineAccount::SYNC_FAILED;
+        }
+
+        $account->forceFill([
+            'last_background_sync_at' => now(),
+            'last_background_sync_status' => self::SYNC_RUNNING,
+            'last_background_sync_error' => null,
+        ])->save();
+
+        try {
+            return $this->syncWith($account, (string) ($credentials['username'] ?? ''), (string) ($credentials['password'] ?? ''));
+        } catch (\Throwable $throwable) {
+            Log::warning('Background archive sync failed', [
+                'owner_hash' => $this->reload($account) ? $account->owner_hash : null,
+                'account_id' => $account->getKey(),
+                'error' => $throwable->getMessage(),
+            ]);
+
+            return $this->record($account, PortalOfflineAccount::SYNC_FAILED, $throwable->getMessage());
+        }
+    }
+
+    /**
+     * A sync that ended without returning (worker timeout, failed job):
+     * recorded as failed so the account waits for its next interval.
+     */
+    public function recordInterrupted(int $accountId, ?\Throwable $throwable = null): void
+    {
+        $account = PortalOfflineAccount::query()->find($accountId);
+
+        if ($account === null) {
+            return;
+        }
+
+        $this->record($account, PortalOfflineAccount::SYNC_FAILED, self::INTERRUPTED_MESSAGE, [
+            'error' => $throwable?->getMessage(),
+        ]);
+    }
+
+    /**
+     * @return PortalOfflineAccount::SYNC_*
+     */
+    private function syncWith(PortalOfflineAccount $account, string $username, string $password): string
+    {
         if ($username === '' || $password === '') {
             return $this->record($account, PortalOfflineAccount::SYNC_FAILED, 'Kredensial tersimpan tidak lengkap.');
         }
@@ -223,8 +319,14 @@ class PortalBackgroundSync
 
         try {
             $session = $this->sessionManager->createBackgroundSession($username, $password);
-        } catch (PortalAuthenticationException) {
-            $account->forceFill(['credentials_rejected_at' => now()])->save();
+        } catch (PortalAuthenticationException $exception) {
+            if (! PortalAuthService::refusedPassword($exception)) {
+                return $this->record($account, PortalOfflineAccount::SYNC_UNREACHABLE, 'Portal belum menjawab login dengan benar; dicoba lagi pada jadwal berikutnya.');
+            }
+
+            if (! $this->markCredentialsRejected($account)) {
+                return $this->record($account, PortalOfflineAccount::SYNC_FAILED, 'Password tersimpan berganti saat sinkronisasi berjalan; dicoba lagi pada jadwal berikutnya.');
+            }
 
             return $this->record($account, PortalOfflineAccount::SYNC_REJECTED, 'Portal menolak password tersimpan; masuk lagi di MyCIC untuk memperbaruinya.');
         } catch (PortalConnectionException $exception) {
@@ -235,6 +337,15 @@ class PortalBackgroundSync
 
         try {
             $this->offlineAccess->refreshUserInfo($username, $session['user_info']);
+
+            if (! $this->reload($account)) {
+                return $this->stopForMergedAccount($account);
+            }
+
+            if (! $account->isBackgroundSyncEnabled()) {
+                return $this->record($account, PortalOfflineAccount::SYNC_FAILED, self::SWITCHED_OFF_MESSAGE);
+            }
+
             [$status, $error] = $this->syncAll($session['session_token'], $account);
         } finally {
             $this->sessionManager->destroySession($session['session_token']);
@@ -309,12 +420,19 @@ class PortalBackgroundSync
      * Crawl every class in the student's class list (PortalCourseArchiver).
      * The crawl is stamped on the account unless no class could be archived
      * at all, so a portal outage is retried with the next dataset sync
-     * instead of waiting a whole course interval.
+     * instead of waiting a whole course interval. Until the round is
+     * stamped, the classes it archived are skipped by the next attempt.
+     * The account is re-read before it is stamped (see reload()): an
+     * account gone meanwhile is left to record().
      *
      * @return array{0: PortalOfflineAccount::SYNC_*, 1: string|null}
      */
     private function syncCourses(string $sessionToken, PortalOfflineAccount $account): array
     {
+        $progressKey = $this->courseCrawlKey($account);
+        $done = Cache::get($progressKey);
+        $done = is_array($done) ? $done : [];
+
         try {
             $classes = $this->courseArchiver->classParamsFrom($this->datasets->ensureFresh($sessionToken, 'classes'));
         } catch (\Throwable $throwable) {
@@ -331,9 +449,17 @@ class PortalBackgroundSync
         $errors = [];
 
         foreach ($classes as $classParams) {
+            if (in_array($classParams['id'], $done, true)) {
+                $archived++;
+
+                continue;
+            }
+
             try {
                 $result = $this->courseArchiver->archiveClass($sessionToken, $classParams);
                 $archived++;
+                $done[] = $classParams['id'];
+                Cache::put($progressKey, $done, $this->coursesIntervalMinutes() * 60);
                 $label = $result['course_name'] ?? "kelas {$classParams['id']}";
 
                 foreach ($result['errors'] as $error) {
@@ -358,8 +484,17 @@ class PortalBackgroundSync
             default => PortalOfflineAccount::SYNC_FAILED,
         };
 
+        $errorSummary = $errors === [] ? null : 'materi kelas: '.implode('; ', $errors);
+
+        if (! $this->reload($account)) {
+            Cache::forget($progressKey);
+
+            return [$status, $errorSummary];
+        }
+
         if ($status !== PortalOfflineAccount::SYNC_FAILED) {
             $account->forceFill(['last_course_sync_at' => now()])->save();
+            Cache::forget($progressKey);
         }
 
         Log::info('Background archive sync crawled the classes', [
@@ -371,7 +506,7 @@ class PortalBackgroundSync
             'archived' => $archived,
         ]);
 
-        return [$status, $errors === [] ? null : 'materi kelas: '.implode('; ', $errors)];
+        return [$status, $errorSummary];
     }
 
     /**
@@ -392,17 +527,76 @@ class PortalBackgroundSync
         return [$status, $errors === [] ? null : implode('; ', $errors)];
     }
 
+    /**
+     * Where the classes archived by a crawl round not yet stamped are kept.
+     */
+    private function courseCrawlKey(PortalOfflineAccount $account): string
+    {
+        return 'portal_background_course_crawl_'.$account->id;
+    }
+
     private function isExpiredSessionError(?string $error): bool
     {
         return is_string($error) && str_starts_with($error, self::EXPIRED_SESSION_PREFIX);
     }
 
     /**
+     * Re-read the account in place. Resolving the student's owner key
+     * (PortalDataOwner::keyForUsername(), on every login and session store)
+     * may have moved its row to the current key or dropped it in favour of
+     * the row that key already had.
+     *
+     * @return bool False when the row is gone.
+     */
+    private function reload(PortalOfflineAccount $account): bool
+    {
+        try {
+            $account->refresh();
+        } catch (ModelNotFoundException) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * The account was merged into the row of the student's current owner
+     * key while this sync ran: nothing is recorded on it, and that row is
+     * synced on its own schedule (or not at all, when it is switched off).
+     *
+     * @return PortalOfflineAccount::SYNC_FAILED
+     */
+    private function stopForMergedAccount(PortalOfflineAccount $account): string
+    {
+        Cache::forget($this->courseCrawlKey($account));
+
+        Log::info('Background archive sync stopped: the account moved to the current owner key', [
+            'domain' => 'campus_session',
+            'event' => 'background_sync_account_merged',
+            'component' => self::class,
+            'account_id' => $account->getKey(),
+        ]);
+
+        return PortalOfflineAccount::SYNC_FAILED;
+    }
+
+    /**
+     * Stamp the outcome on the account as it is now: a login during the
+     * sync may have moved it to the student's current owner key, or dropped
+     * it in favour of the row that key already had, which keeps its own.
+     *
      * @param  PortalOfflineAccount::SYNC_*  $status
+     * @param  array<string, mixed>  $context
      * @return PortalOfflineAccount::SYNC_*
      */
-    private function record(PortalOfflineAccount $account, string $status, ?string $error): string
+    private function record(PortalOfflineAccount $account, string $status, ?string $error, array $context = []): string
     {
+        if (! $this->reload($account)) {
+            $this->stopForMergedAccount($account);
+
+            return $status;
+        }
+
         $account->forceFill([
             'last_background_sync_at' => now(),
             'last_background_sync_status' => $status,
@@ -415,8 +609,91 @@ class PortalBackgroundSync
             'component' => self::class,
             'owner_hash' => $account->owner_hash,
             'error' => $error,
+            ...$context,
         ]);
 
         return $status;
+    }
+
+    /**
+     * The status and error to show: a `running` stamp older than the job's
+     * timeout belongs to a sync that died without recording its outcome.
+     *
+     * @return array{0: string|null, 1: string|null}
+     */
+    private function lastOutcome(?PortalOfflineAccount $account): array
+    {
+        $status = $account?->last_background_sync_status;
+        $startedAt = $account?->last_background_sync_at;
+
+        if ($status === self::SYNC_RUNNING && ($startedAt === null || $startedAt->copy()->addSeconds(SyncPortalArchiveJob::TIMEOUT)->isPast())) {
+            return [PortalOfflineAccount::SYNC_FAILED, self::INTERRUPTED_MESSAGE];
+        }
+
+        return [$status, $account?->last_background_sync_error];
+    }
+
+    private function hasUsableCredentials(PortalOfflineAccount $account): bool
+    {
+        try {
+            return $account->hasUsableCredentials($this->credentialDays());
+        } catch (DecryptException) {
+            return false;
+        }
+    }
+
+    /**
+     * @return array<string, mixed>|null Null when none are stored or they cannot be decrypted.
+     */
+    private function readableCredentials(PortalOfflineAccount $account): ?array
+    {
+        try {
+            $credentials = $account->credentials;
+        } catch (DecryptException) {
+            return null;
+        }
+
+        return is_array($credentials) ? $credentials : null;
+    }
+
+    /**
+     * Credentials encrypted with a key the app no longer has (APP_KEY
+     * rotated) can never be used: they are dropped, so the account leaves
+     * the queue and the next online login stores them again. Credentials
+     * stored meanwhile by a login are left alone.
+     *
+     * The account is re-read afterwards, so the warning names the owner key
+     * the row has now: a login since the job loaded it may have moved it to
+     * the student's current key (see reload()), or dropped it.
+     */
+    private function forgetUnreadableCredentials(PortalOfflineAccount $account): void
+    {
+        PortalOfflineAccount::query()
+            ->whereKey($account->getKey())
+            ->where('credentials', $account->getRawOriginal('credentials'))
+            ->update(['credentials' => null]);
+
+        $exists = $this->reload($account);
+
+        Log::warning('Stored background sync credentials could not be decrypted', [
+            'owner_hash' => $exists ? $account->owner_hash : null,
+            'account_id' => $account->getKey(),
+        ]);
+    }
+
+    /**
+     * Flag the credentials this sync logged in with as rejected and drop
+     * them, unless the student stored new ones (or switched background sync
+     * off) while the login was in flight: those were never tried. A refused
+     * password is not kept. The offline-login hash goes with it, since
+     * remember() writes both from the same password, so it no longer opens
+     * MyCIC offline either.
+     */
+    private function markCredentialsRejected(PortalOfflineAccount $account): bool
+    {
+        return PortalOfflineAccount::query()
+            ->whereKey($account->getKey())
+            ->where('credentials', $account->getRawOriginal('credentials'))
+            ->update(['credentials_rejected_at' => now(), 'credentials' => null, 'password_hash' => '']) === 1;
     }
 }

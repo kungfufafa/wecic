@@ -4,11 +4,15 @@ declare(strict_types=1);
 
 namespace Tests\Unit;
 
+use App\Services\AttendanceShortcutService;
 use App\Services\Extractors\AdvisingExtractor;
 use App\Services\Extractors\AnnouncementExtractor;
+use App\Services\Extractors\ClassesExtractor;
+use App\Services\Extractors\DashboardExtractor;
 use App\Services\Extractors\KrsDetailExtractor;
 use App\Services\Extractors\KrsExtractor;
 use App\Services\Extractors\LibraryExtractor;
+use App\Services\Extractors\SipandaiClassesExtractor;
 use App\Services\Extractors\SkkmExtractor;
 use App\Services\Extractors\SkripsiExtractor;
 use App\Services\Extractors\ThesisRepositoryExtractor;
@@ -72,6 +76,34 @@ class PortalDatasetBuilderTest extends TestCase
         $this->expectCall(ThesisRepositoryExtractor::class, 'extractRepositoryIndex', ['token', $previous], ['dataset' => 'thesis_repository']);
 
         $this->assertSame(['dataset' => 'thesis_repository'], app(PortalDatasetBuilder::class)->build('token', 'thesis_repository'));
+    }
+
+    public function test_the_lms_class_list_is_read_by_the_sipandai_class_list_parser_directly(): void
+    {
+        $this->expectCall(SipandaiClassesExtractor::class, 'extractSipandaiClassesData', ['token'], ['dataset' => 'lms_classes']);
+        $this->instance(ClassesExtractor::class, Mockery::mock(ClassesExtractor::class));
+
+        $this->assertSame(['dataset' => 'lms_classes'], app(PortalDatasetBuilder::class)->build('token', 'lms_classes'));
+    }
+
+    public function test_the_dashboard_schedule_and_todays_attendance_are_separate_builds(): void
+    {
+        $this->expectCall(DashboardExtractor::class, 'extractDashboardData', ['token'], ['dataset' => 'dashboard']);
+        $this->expectCall(AttendanceShortcutService::class, 'getTodayShortcutsSnapshot', ['token'], ['dataset' => 'dashboard_attendance']);
+
+        $builder = app(PortalDatasetBuilder::class);
+
+        $this->assertSame(['dataset' => 'dashboard'], $builder->build('token', 'dashboard'));
+        $this->assertSame(['dataset' => 'dashboard_attendance'], $builder->build('token', 'dashboard', PortalDatasetBuilder::DASHBOARD_ATTENDANCE_PARAMS));
+    }
+
+    public function test_only_the_per_class_and_per_meeting_crawls_count_as_crawls(): void
+    {
+        $this->assertTrue(PortalDatasetBuilder::isCrawl('assignments'));
+        $this->assertTrue(PortalDatasetBuilder::isCrawl('dashboard', PortalDatasetBuilder::DASHBOARD_ATTENDANCE_PARAMS));
+        $this->assertFalse(PortalDatasetBuilder::isCrawl('dashboard'));
+        $this->assertFalse(PortalDatasetBuilder::isCrawl('krs'));
+        $this->assertFalse(PortalDatasetBuilder::isCrawl('classes'));
     }
 
     public function test_every_configured_dataset_has_a_builder(): void
