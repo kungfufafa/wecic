@@ -92,6 +92,35 @@ class PortalPasswordServiceTest extends TestCase
         ], $result['data']['sent_fields']);
     }
 
+    public function test_a_password_form_opened_between_table_rows_keeps_its_fields(): void
+    {
+        $service = $this->mockPasswordService();
+
+        $service->shouldReceive('get')
+            ->once()
+            ->andReturn(<<<'HTML'
+            <!DOCTYPE html><html><body>
+                <form method="get" action="?mod=student&act=cari"><input type="text" name="q" /></form>
+                <table>
+                    <tr><td colspan="3"><b>Ganti Password</b></td></tr>
+                    <form method="post" action="?mod=student&act=passwordact">
+                    <input type="hidden" name="data[nim]" value="20990000001" />
+                    <tr><td>Password Lama</td><td>:</td><td><input type="password" name="data[passwordold]" required /></td></tr>
+                    <tr><td>Password Baru</td><td>:</td><td><input type="password" name="data[password]" /></td></tr>
+                    <tr><td>Konfirmasi</td><td>:</td><td><input type="password" name="data[konfirm]" /></td></tr>
+                    <tr><td colspan="3"><input type="submit" name="cmd" value="Simpan" /></td></tr>
+                    </form>
+                </table>
+            </body></html>
+            HTML);
+
+        $data = $service->inspectPasswordForm('fake-session-token');
+
+        $this->assertSame('https://portal.invalid/portal/mahasiswa/?mod=student&act=passwordact', $data['action_url']);
+        $this->assertSame(['data[nim]', 'data[passwordold]', 'data[password]', 'data[konfirm]'], array_keys($data['fields']));
+        $this->assertSame(['data[passwordold]', 'data[password]', 'data[konfirm]'], $data['password_fields']);
+    }
+
     private function mockPasswordService(): MockInterface&PortalPasswordService
     {
         $sessionManager = Mockery::mock(PortalSessionManager::class, function (MockInterface $mock): void {

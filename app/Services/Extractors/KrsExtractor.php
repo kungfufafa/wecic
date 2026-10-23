@@ -404,7 +404,7 @@ class KrsExtractor extends KrsPageExtractor
         $controlCount = 0;
 
         $content->filter('select, textarea, input, button')->each(function (Crawler $control) use (&$controlCount): void {
-            $form = $control->closest('form');
+            $form = self::formOf($control);
 
             if ($this->isChoiceOrSubmitControl($control) && ($form === null || ! $this->isIgnoredForm($form))) {
                 $controlCount++;
@@ -448,7 +448,9 @@ class KrsExtractor extends KrsPageExtractor
     {
         $fieldNames = [];
 
-        $form->filter('input[name], select[name], textarea[name], button[name]')->each(function (Crawler $field) use (&$fieldNames): void {
+        $controls = self::formScope($form);
+
+        $controls->filter('input[name], select[name], textarea[name], button[name]')->each(function (Crawler $field) use (&$fieldNames): void {
             $name = trim((string) $field->attr('name'));
 
             if ($name !== '' && ! in_array($name, $fieldNames, true)) {
@@ -456,7 +458,7 @@ class KrsExtractor extends KrsPageExtractor
             }
         });
 
-        $choices = $form->filter('input')->reduce(
+        $choices = $controls->filter('input')->reduce(
             static fn (Crawler $input): bool => in_array(strtolower((string) $input->attr('type')), ['checkbox', 'radio'], true)
         );
 
@@ -464,7 +466,7 @@ class KrsExtractor extends KrsPageExtractor
             'action' => $this->redactedFormAction((string) $form->attr('action')),
             'method' => strtoupper(trim((string) $form->attr('method'))) ?: 'GET',
             'field_names' => $fieldNames,
-            'option_count' => $form->filter('option')->count() + $choices->count(),
+            'option_count' => $controls->filter('option')->count() + $choices->count(),
         ];
     }
 

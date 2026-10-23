@@ -35,6 +35,8 @@ class AnnouncementExtractorRawPageTest extends TestCase
 
     private const LAST_LINE_OF_FIRST_BODY = "Terima kasih atas perhatiannya\u{1F64F}</p>";
 
+    private const LAST_LINE_OF_SECOND_BODY = 'https://forms.gle/ContohFormulirSP01&nbsp;</p>';
+
     /**
      * Tags the sanitized body may contain.
      *
@@ -315,6 +317,23 @@ class AnnouncementExtractorRawPageTest extends TestCase
         $this->assertSame(array_column($original['items'], 'id'), array_column($broken['items'], 'id'));
         $this->assertSame(array_column($original['items'], 'body_html'), array_column($broken['items'], 'body_html'));
         $this->assertSame($original['paging'], $broken['paging']);
+    }
+
+    public function test_a_body_table_after_a_stray_list_table_end_stays_in_its_announcement(): void
+    {
+        $html = str_replace(
+            self::LAST_LINE_OF_SECOND_BODY,
+            self::LAST_LINE_OF_SECOND_BODY.'<table><tr><td>Jadwal SP</td><td>20 Agustus 2026</td></tr></table>',
+            $this->fixtureHtml(self::PAGE_ONE)
+        );
+        $intact = $this->extractRawHtml($html);
+        $broken = $this->extractRawHtml(str_replace(self::LAST_LINE_OF_FIRST_BODY, self::LAST_LINE_OF_FIRST_BODY.'</table>', $html));
+
+        $this->assertCount(count($this->extractRaw(self::PAGE_ONE)['items']), $intact['items']);
+        $this->assertStringContainsString('<td>Jadwal SP</td>', $intact['items'][1]['body_html']);
+        $this->assertSame(array_column($intact['items'], 'id'), array_column($broken['items'], 'id'));
+        $this->assertSame(array_column($intact['items'], 'body_html'), array_column($broken['items'], 'body_html'));
+        $this->assertSame($intact['paging'], $broken['paging']);
     }
 
     /**

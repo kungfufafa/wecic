@@ -45,10 +45,10 @@ trait InteractsWithPortalFixtures
      * Extractor that receives a sanitized raw server page (`*_raw.html`)
      * exactly as the live portal sends it
      *
-     * The fixture must keep the page's leading doctype, so DomCrawler parses it
-     * with masterminds/html5 like a live response (no tbody insertion, no
-     * foster parenting). The stubbed `get()` validates the page the way the
-     * network `get()` does, then returns it; everything else is the real code.
+     * The fixture must keep the page's leading doctype, so DomCrawler's HTML5
+     * parser reads it in no-quirks mode like a live response. The stubbed
+     * `get()` validates the page the way the network `get()` does, then
+     * returns it; everything else is the real code.
      * Every requested URL is recorded in `$requestedUrls`. The fixture is a
      * path relative to the project root, or an absolute path.
      *
@@ -142,9 +142,9 @@ trait InteractsWithPortalFixtures
     }
 
     /**
-     * Fail unless DomCrawler would parse the fixture with its HTML5 parser,
-     * as it does every live portal page (doctype first, after optional
-     * whitespace or comments)
+     * Fail unless the fixture starts with its doctype (after optional
+     * whitespace or comments), as every live portal page does, so the HTML5
+     * parser reads it in no-quirks mode like a live response
      */
     protected function assertFixtureParsesLikeLivePortal(string $fixture): void
     {

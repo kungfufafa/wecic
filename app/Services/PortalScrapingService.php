@@ -352,6 +352,105 @@ abstract class PortalScrapingService
     }
 
     /**
+     * The form element and the content a browser counts as part of the form
+     *
+     * The SIPANDAI upload pages open the form between table rows
+     * (`<table><tr>..</tr><form><input type="hidden">..<tr>..</tr></form></table>`).
+     * The HTML5 parser closes such a form at once, so the element stays empty
+     * and its hidden inputs, rows and controls follow it in the table. Those
+     * still belong to the form, as they do in a browser. For an empty form
+     * directly in a table, tbody, thead, tfoot or tr, this adds the elements
+     * that follow it in its table, up to the next form. Any other form is
+     * returned as it is.
+     *
+     * Filter the result for the form's controls (`filter()` checks every
+     * node and its descendants) and join its text for the form's wording.
+     * Read action, method and enctype from the form itself.
+     */
+    public static function formScope(Crawler $form): Crawler
+    {
+        $node = $form->getNode(0);
+        $parent = $node?->parentNode;
+
+        if (! $node instanceof \DOMElement
+            || ! $parent instanceof \DOMElement
+            || ! in_array(strtolower($parent->nodeName), ['table', 'tbody', 'thead', 'tfoot', 'tr'], true)
+            || $node->firstElementChild !== null) {
+            return $form->first();
+        }
+
+        $nodes = [$node];
+
+        for ($current = $node; $current instanceof \DOMElement && strtolower($current->nodeName) !== 'table'; $current = $current->parentNode) {
+            for ($sibling = $current->nextElementSibling; $sibling !== null; $sibling = $sibling->nextElementSibling) {
+                if (self::collectFormContent($sibling, $nodes)) {
+                    break 2;
+                }
+            }
+        }
+
+        return new Crawler($nodes, $form->getUri(), $form->getBaseHref());
+    }
+
+    /**
+     * Add the element, or its part before the next form, to the form's
+     * content; true once that next form is reached
+     *
+     * @param  list<\DOMElement>  $nodes
+     */
+    private static function collectFormContent(\DOMElement $element, array &$nodes): bool
+    {
+        if (strtolower($element->nodeName) === 'form') {
+            return true;
+        }
+
+        if ($element->getElementsByTagName('form')->length === 0) {
+            $nodes[] = $element;
+
+            return false;
+        }
+
+        for ($child = $element->firstElementChild; $child !== null; $child = $child->nextElementSibling) {
+            if (self::collectFormContent($child, $nodes)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * The form a control belongs to: its form ancestor, or the form whose
+     * formScope() holds it; null when it belongs to none
+     */
+    public static function formOf(Crawler $control): ?Crawler
+    {
+        $node = $control->getNode(0);
+
+        if ($node === null) {
+            return null;
+        }
+
+        $form = $control->closest('form');
+
+        if ($form !== null || $node->ownerDocument === null) {
+            return $form;
+        }
+
+        foreach ($node->ownerDocument->getElementsByTagName('form') as $formNode) {
+            foreach (self::formScope(new Crawler($formNode)) as $scopeNode) {
+                for ($ancestor = $node; $ancestor !== null; $ancestor = $ancestor->parentNode) {
+                    if ($ancestor->isSameNode($scopeNode)) {
+                        return new Crawler($formNode, $control->getUri(), $control->getBaseHref());
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Reject the login form an expired session is answered with, so it is
      * never parsed (or cached) as an empty page
      *
@@ -519,12 +618,13 @@ abstract class PortalScrapingService
     /**
      * Rows of this table only, in document order
      *
-     * Live pages are parsed from raw server HTML, without a browser's table
-     * repair: rows sit directly under the table (no tbody) or inside a form
-     * or stray formatting tags, and the table is never restructured. Rows of
-     * nested tables are left out, so raw and browser-normalized HTML give the
-     * same rows. Pass the table element itself (a tbody, thead or tfoot also
-     * works); a scope that is not a table section yields no rows.
+     * The HTML5 parser repairs raw server HTML as a browser does: rows the
+     * portal writes straight under the table end up in a tbody, and forms or
+     * stray formatting tags between rows are moved out of the way. Rows
+     * under any other wrapper are found too. Rows of nested tables are left
+     * out, so raw and browser-normalized HTML give the same rows. Pass the
+     * table element itself (a tbody, thead or tfoot also works); a scope that
+     * is not a table section yields no rows.
      *
      * @return list<Crawler>
      */
@@ -536,10 +636,11 @@ abstract class PortalScrapingService
     /**
      * The row's own td/th cells, in document order
      *
-     * Includes cells the portal wraps in b, font, center, span, a, form or
-     * other tags (`<tr><b><td>..</td></b></tr>`), which `children('td, th')`
-     * misses on raw HTML. Cells of nested tables are left out. A colspan
-     * cell is returned once, as written.
+     * The HTML5 parser moves the b, font, center, span, a or form tags the
+     * portal wraps cells in (`<tr><b><td>..</td></b></tr>`) out of the
+     * table; cells still inside such a wrapper are included too. Cells of
+     * nested tables are left out. A colspan cell is returned once, as
+     * written.
      *
      * @return list<Crawler>
      */
@@ -667,6 +768,16 @@ abstract class PortalScrapingService
                 html_entity_decode($text, ENT_QUOTES, 'UTF-8')
             )
         );
+    }
+
+    /**
+     * Cleaned text of a form and of the content formScope() adds to it
+     */
+    protected function formText(Crawler $form): string
+    {
+        return $this->cleanText(implode(' ', self::formScope($form)->each(
+            static fn (Crawler $node): string => $node->text('')
+        )));
     }
 
     /**

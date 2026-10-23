@@ -310,9 +310,7 @@ class SipandaiSubmissionService extends PortalScrapingService
 
         if ($forms->count() > 0) {
             foreach ($forms as $node) {
-                $formCrawler = new Crawler($node);
-
-                if ($formCrawler->filter('input[type="file"]')->count() > 0) {
+                if (self::formScope(new Crawler($node))->filter('input[type="file"]')->count() > 0) {
                     return [
                         'status' => 'not_uploaded',
                         'delete_payload' => null,
@@ -729,7 +727,7 @@ class SipandaiSubmissionService extends PortalScrapingService
             $formCrawler = new Crawler($node);
             $formMeta = $this->extractFormMetadata($formCrawler);
 
-            if ($formCrawler->filter('input[type="file"]')->count() > 0) {
+            if (self::formScope($formCrawler)->filter('input[type="file"]')->count() > 0) {
                 $formMeta['has_upload_form'] = true;
 
                 return $formMeta;
@@ -1950,7 +1948,7 @@ class SipandaiSubmissionService extends PortalScrapingService
 
         foreach ($crawler->filter('form') as $node) {
             $formCrawler = new Crawler($node);
-            if ($formCrawler->filter('input[type="file"]')->count() > 0 && ! $this->isClosedAssignmentForm($formCrawler)) {
+            if (self::formScope($formCrawler)->filter('input[type="file"]')->count() > 0 && ! $this->isClosedAssignmentForm($formCrawler)) {
                 return $formCrawler;
             }
         }
@@ -1966,10 +1964,10 @@ class SipandaiSubmissionService extends PortalScrapingService
      */
     private function isClosedAssignmentForm(Crawler $form): bool
     {
-        $hasSubmitControl = $form->filter('input[type="submit"], input[type="image"], button[type="submit"], button:not([type])')->count() > 0;
+        $hasSubmitControl = self::formScope($form)->filter('input[type="submit"], input[type="image"], button[type="submit"], button:not([type])')->count() > 0;
 
         return ! $hasSubmitControl
-            && Str::contains(strtolower($this->cleanText($form->text(''))), ['sudah berakhir', 'telah berakhir', 'sudah ditutup', 'sudah lewat']);
+            && Str::contains(strtolower($this->formText($form)), ['sudah berakhir', 'telah berakhir', 'sudah ditutup', 'sudah lewat']);
     }
 
     /**
@@ -2025,7 +2023,7 @@ class SipandaiSubmissionService extends PortalScrapingService
         foreach ($forms as $node) {
             $formCrawler = new Crawler($node);
 
-            if ($formCrawler->filter('input[name="kode"], input[name="cmd"], button[name="cmd"]')->count() > 0) {
+            if (self::formScope($formCrawler)->filter('input[name="kode"], input[name="cmd"], button[name="cmd"]')->count() > 0) {
                 return $formCrawler;
             }
         }
@@ -2057,8 +2055,9 @@ class SipandaiSubmissionService extends PortalScrapingService
         $fieldValues = [];
         $hiddenFields = [];
         $fileField = null;
+        $controls = self::formScope($form);
 
-        $form->filter('input')->each(function (Crawler $input) use (&$fields, &$fieldValues, &$hiddenFields, &$fileField): void {
+        $controls->filter('input')->each(function (Crawler $input) use (&$fields, &$fieldValues, &$hiddenFields, &$fileField): void {
             $name = $input->attr('name');
             if (! $name) {
                 return;
@@ -2086,7 +2085,7 @@ class SipandaiSubmissionService extends PortalScrapingService
             $fieldValues[$name][] = $fields[$name];
         });
 
-        $form->filter('textarea')->each(function (Crawler $textarea) use (&$fields): void {
+        $controls->filter('textarea')->each(function (Crawler $textarea) use (&$fields): void {
             $name = $textarea->attr('name');
             if (! $name) {
                 return;
@@ -2095,7 +2094,7 @@ class SipandaiSubmissionService extends PortalScrapingService
             $fields[$name] = trim($textarea->text());
         });
 
-        $form->filter('select')->each(function (Crawler $select) use (&$fields): void {
+        $controls->filter('select')->each(function (Crawler $select) use (&$fields): void {
             $name = $select->attr('name');
             if (! $name) {
                 return;
@@ -2109,7 +2108,7 @@ class SipandaiSubmissionService extends PortalScrapingService
             $fields[$name] = $selected->count() > 0 ? ($selected->attr('value') ?? trim($selected->text())) : '';
         });
 
-        $form->filter('button[name]')->each(function (Crawler $button) use (&$fields): void {
+        $controls->filter('button[name]')->each(function (Crawler $button) use (&$fields): void {
             $name = $button->attr('name');
             if (! $name) {
                 return;

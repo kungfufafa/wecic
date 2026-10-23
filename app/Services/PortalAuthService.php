@@ -108,7 +108,7 @@ class PortalAuthService
             if (! $loginForm) {
                 foreach ($forms as $formElement) {
                     $formCrawler = new Crawler($formElement);
-                    if ($formCrawler->filter('input[type="password"]')->count() > 0) {
+                    if (PortalScrapingService::formScope($formCrawler)->filter('input[type="password"]')->count() > 0) {
                         $loginForm = $formCrawler;
                         break;
                     }
@@ -125,7 +125,7 @@ class PortalAuthService
 
             // Extract all input fields
             $formFields = [];
-            $loginForm->filter('input')->each(function (Crawler $input) use (&$formFields) {
+            PortalScrapingService::formScope($loginForm)->filter('input')->each(function (Crawler $input) use (&$formFields) {
                 $name = $input->attr('name');
                 $value = $input->attr('value') ?? '';
                 $type = strtolower($input->attr('type') ?? 'text');

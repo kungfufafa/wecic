@@ -411,7 +411,7 @@ class PortalGradesResolverTest extends TestCase
     /**
      * Live flow on the sanitized raw pages: advising gives its real return
      * shape (int `latest_krs_id` plus the history), the real KhsExtractor
-     * parses both raw pages through masterminds/html5, and the official
+     * parses both raw pages through DomCrawler's HTML5 parser, and the official
      * viewkrs summary equals MyCIC's own computation.
      */
     public function test_the_raw_pages_give_an_official_summary_equal_to_the_computed_one(): void

@@ -314,63 +314,105 @@ class AnnouncementExtractor extends PortalScrapingService
     }
 
     /**
-     * Announcement cells (one per announcement) in document order
+     * Announcements in document order, each as the child nodes of its cell
      *
-     * These are the td cells of the list table's own rows: the list table may
-     * have no tbody, and its rows may be wrapped in a form or a formatting tag.
-     * Cells of a table nested in an announcement body are never included.
-     * Live pages are parsed from raw HTML without a browser's error recovery.
-     * A stray </table> or </div> in an announcement body therefore closes the
-     * list table, and the rows after it stay as bare tr/td elements outside
-     * any table (a browser would ignore the </div>). Those cells are
-     * announcements too, so no announcement is dropped.
+     * An announcement is a td cell of the list table's own rows; cells of a
+     * table nested in an announcement body are never included. The HTML5
+     * parser repairs the list as a browser does: rows wrapped in a form or
+     * cells wrapped in a formatting tag keep their place, and a stray </div>
+     * in a body is ignored. A stray </table> in a body does close the list
+     * table, though: the parser then drops the tr and td tags that follow,
+     * and the remaining announcements become loose content of the list
+     * container. That content is split back into announcements, one at each
+     * title followed by a "Dipublish oleh" line, so no announcement is
+     * dropped or merged.
      *
-     * @return list<DOMElement>
+     * @return list<list<DOMNode>>
      */
     private function announcementCells(Crawler $content): array
     {
         $root = $content->getNode(0);
-        $cells = [];
+        $announcements = [];
 
         if ($root instanceof DOMElement) {
-            $this->collectAnnouncementCells($root, $this->isListContainer($root), $cells);
+            $this->collectAnnouncements($root, $this->isListContainer($root), $announcements);
         }
 
-        return $cells;
+        return $announcements;
     }
 
     /**
-     * @param  list<DOMElement>  $cells
+     * @param  list<list<DOMNode>>  $announcements
      */
-    private function collectAnnouncementCells(DOMElement $parent, bool $insideList, array &$cells): void
+    private function collectAnnouncements(DOMElement $parent, bool $insideList, array &$announcements): void
     {
+        $loose = null;
+
         foreach ($parent->childNodes as $child) {
+            if ($loose !== null && ! $this->startsLooseAnnouncement($child)) {
+                $loose[] = $child;
+
+                continue;
+            }
+
+            if ($loose !== null) {
+                $announcements[] = $loose;
+                $loose = null;
+            }
+
             if (! $child instanceof DOMElement) {
                 continue;
             }
 
-            $tag = strtolower($child->nodeName);
-
-            if ($tag === 'table') {
+            if (strtolower($child->nodeName) === 'table') {
                 if ($insideList) {
-                    array_push($cells, ...$this->listTableCells($child));
+                    array_push($announcements, ...$this->listTableCells($child));
                 }
 
                 continue;
             }
 
-            if ($tag === 'td') {
-                $cells[] = $child;
+            if ($insideList && $this->startsLooseAnnouncement($child)) {
+                $loose = [$child];
 
                 continue;
             }
 
-            $this->collectAnnouncementCells($child, $insideList || $this->isListContainer($child), $cells);
+            $this->collectAnnouncements($child, $insideList || $this->isListContainer($child), $announcements);
+        }
+
+        if ($loose !== null) {
+            $announcements[] = $loose;
         }
     }
 
     /**
-     * @return list<DOMElement>
+     * Whether a loose node is the title of an announcement whose cell markup
+     * was dropped: an element holding an h5, followed by a "Dipublish oleh"
+     * line before the next br or hr
+     */
+    private function startsLooseAnnouncement(DOMNode $node): bool
+    {
+        if (! $node instanceof DOMElement
+            || (strtolower($node->nodeName) !== 'h5' && $node->getElementsByTagName('h5')->length === 0)) {
+            return false;
+        }
+
+        $meta = '';
+
+        for ($sibling = $node->nextSibling; $sibling !== null; $sibling = $sibling->nextSibling) {
+            if ($sibling instanceof DOMElement && in_array(strtolower($sibling->nodeName), ['br', 'hr'], true)) {
+                break;
+            }
+
+            $meta .= $sibling->textContent;
+        }
+
+        return preg_match('/Dipublish\s+oleh/iu', $meta) === 1;
+    }
+
+    /**
+     * @return list<list<DOMNode>>
      */
     private function listTableCells(DOMElement $table): array
     {
@@ -381,7 +423,7 @@ class AnnouncementExtractor extends PortalScrapingService
                 $node = $cell->getNode(0);
 
                 if ($node instanceof DOMElement && strtolower($node->nodeName) === 'td') {
-                    $cells[] = $node;
+                    $cells[] = iterator_to_array($node->childNodes, false);
                 }
             }
         }
@@ -398,13 +440,14 @@ class AnnouncementExtractor extends PortalScrapingService
     /**
      * One announcement cell: "<b><h5>title</h5></b> <date>, Dipublish oleh : <name> (<unit>)<br><hr><body>"
      *
+     * @param  list<DOMNode>  $cell  The cell's child nodes
      * @return Announcement|null
      */
-    private function parseAnnouncementCell(DOMElement $cell): ?array
+    private function parseAnnouncementCell(array $cell): ?array
     {
         [$headerNodes, $bodyNodes] = $this->splitAnnouncementCell($cell);
 
-        $title = $this->announcementTitle($headerNodes === [] ? [$cell] : $headerNodes);
+        $title = $this->announcementTitle($headerNodes === [] ? $cell : $headerNodes);
         $meta = $this->announcementMeta($headerNodes, $title);
         $found = ['links' => [], 'emails' => []];
         $bodyHtml = $this->cleanSanitizedHtml($this->sanitizeNodes($bodyNodes, $found));
@@ -447,16 +490,11 @@ class AnnouncementExtractor extends PortalScrapingService
      * Without an <hr> the header ends at the first <br>; without either the
      * whole cell is body.
      *
+     * @param  list<DOMNode>  $children
      * @return array{0: list<DOMNode>, 1: list<DOMNode>}
      */
-    private function splitAnnouncementCell(DOMElement $cell): array
+    private function splitAnnouncementCell(array $children): array
     {
-        $children = [];
-
-        foreach ($cell->childNodes as $child) {
-            $children[] = $child;
-        }
-
         foreach (['hr', 'br'] as $separator) {
             foreach ($children as $index => $child) {
                 if ($child instanceof DOMElement && strtolower($child->nodeName) === $separator) {

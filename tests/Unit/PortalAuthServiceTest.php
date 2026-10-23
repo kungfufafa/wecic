@@ -20,6 +20,25 @@ class PortalAuthServiceTest extends TestCase
         .'<input type="text" name="txt_username"><input type="password" name="txt_password">'
         .'<button type="submit">Masuk</button></form></body></html>';
 
+    public function test_a_login_form_opened_between_table_rows_keeps_its_fields(): void
+    {
+        $service = new PortalAuthService;
+        (new \ReflectionProperty(PortalAuthService::class, 'client'))->setValue($service, new Client([
+            'handler' => HandlerStack::create(new MockHandler([new Response(200, [], '<!DOCTYPE html><html><head><title>Login</title></head><body>'
+                .'<form action="?mod=cari"><input type="text" name="q"></form>'
+                .'<table><tr><td>Login Mahasiswa</td></tr><form action="?mod=masuk" method="post"><input type="hidden" name="token" value="abc">'
+                .'<tr><td><input type="text" name="txt_username"></td></tr><tr><td><input type="password" name="txt_password" required></td></tr>'
+                .'</form></table></body></html>')])),
+        ]));
+
+        $form = $service->analyzeLoginForm();
+
+        $this->assertSame('https://portal.invalid/portal/mahasiswa/?mod=masuk', $form['action']);
+        $this->assertSame(['token', 'txt_username', 'txt_password'], array_keys($form['fields']));
+        $this->assertSame(['type' => 'hidden', 'value' => 'abc', 'required' => false], $form['fields']['token']);
+        $this->assertTrue($form['fields']['txt_password']['required']);
+    }
+
     public function test_unknown_login_response_is_not_successful(): void
     {
         $service = new PortalAuthService;

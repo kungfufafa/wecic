@@ -236,12 +236,12 @@ class PortalScrapingServiceHelpersTest extends TestCase
 
     public function test_it_lists_distinct_cloudflare_emails_in_document_order(): void
     {
-        $crawler = new Crawler('<td>'
+        $crawler = new Crawler('<table><tr><td>'
             .'<a href="/cdn-cgi/l/email-protection#'.self::BAAK_EMAIL_HEX.'">BAAK</a>'
             .'<a href="/cdn-cgi/l/email-protection#'.self::DOSEN_EMAIL_HEX_ALT.'"><span class="__cf_email__" data-cfemail="'.self::DOSEN_EMAIL_HEX.'">[email protected]</span></a>'
             .'<span data-cfemail="'.self::BAAK_EMAIL_HEX.'">[email protected]</span>'
             .'<span data-cfemail="zz">[email protected]</span>'
-            .'</td>');
+            .'</td></tr></table>');
 
         $this->assertSame(
             ['baak@example.test', 'dosen@example.test'],
@@ -257,6 +257,63 @@ class PortalScrapingServiceHelpersTest extends TestCase
         $this->assertNull($service->call('extractCloudflareEmail', $crawler->filter('div')));
         $this->assertSame([], $service->call('extractCloudflareEmails', $crawler->filter('div')));
         $this->assertNull($service->call('extractCloudflareEmail', $crawler->filter('section')));
+    }
+
+    public function test_a_form_opened_between_table_rows_keeps_the_content_that_follows_it_in_the_table(): void
+    {
+        $crawler = new Crawler('<!DOCTYPE html><html><body><table><tr><td colspan="3"><br></td></tr>'
+            .'<form method="post" action="?mod=sipandai&act=sent" enctype="multipart/form-data">'
+            .'<input type="hidden" name="data[id]" value="37082" />'
+            .'<tr><td>Pesan</td><td>:</td><td><input type="text" name="data[name]" /></td></tr>'
+            .'<tr><td>File Tugas</td><td>:</td><td><input type="file" name="data[tugas]" /></td></tr>'
+            .'<tr><td></td><td></td><td>Waktu upload tugas sudah berakhir</td></tr>'
+            .'</form></table><input type="text" name="cari" /></body></html>');
+        $service = $this->service();
+        $form = $crawler->filter('form');
+
+        $this->assertSame(0, $form->children()->count(), 'The HTML5 parser closes a form opened between rows at once.');
+        $this->assertSame(['data[id]', 'data[name]', 'data[tugas]'], $this->controlNames(PortalScrapingService::formScope($form)));
+        $this->assertSame('Pesan: File Tugas: Waktu upload tugas sudah berakhir', $service->call('formText', $form));
+        $this->assertSame('?mod=sipandai&act=sent', PortalScrapingService::formOf($crawler->filter('input[name="data[name]"]'))?->attr('action'));
+        $this->assertSame('?mod=sipandai&act=sent', PortalScrapingService::formOf($crawler->filter('input[name="data[id]"]'))?->attr('action'));
+        $this->assertNull(PortalScrapingService::formOf($crawler->filter('input[name="cari"]')));
+    }
+
+    public function test_a_form_opened_inside_a_row_keeps_the_cells_and_rows_after_it(): void
+    {
+        $crawler = new Crawler('<table><tr><form action="?mod=student&act=simpan"><td><input name="a1"></td></tr>'
+            .'<tr><td><select name="a2"><option value="x">X</option></select></td></tr></table>'
+            .'<p><input name="luar"></p>');
+
+        $this->assertSame(['a1', 'a2'], $this->controlNames(PortalScrapingService::formScope($crawler->filter('form'))));
+    }
+
+    public function test_the_content_of_a_form_opened_between_rows_ends_at_the_next_form(): void
+    {
+        $crawler = new Crawler('<table><form action="?first"><tr><td><input name="a1"></td></tr></form>'
+            .'<form action="?second"><tr><td><input name="b1"></td></tr></form><tr><td><input name="b2"></td></tr></table>');
+        $forms = $crawler->filter('form');
+
+        $this->assertSame(['a1'], $this->controlNames(PortalScrapingService::formScope($forms->eq(0))));
+        $this->assertSame(['b1', 'b2'], $this->controlNames(PortalScrapingService::formScope($forms->eq(1))));
+        $this->assertSame('?second', PortalScrapingService::formOf($crawler->filter('input[name="b2"]'))?->attr('action'));
+    }
+
+    public function test_a_form_that_holds_its_controls_is_its_own_scope(): void
+    {
+        $crawler = new Crawler('<div><form action="?mod=student&act=passwordact"><table><tr><td><input type="password" name="lama"></td></tr></table>'
+            .'<button type="submit" name="cmd">Simpan</button></form><input name="luar"></div>'
+            .'<table><tr><td><form action="?cell"><input name="c1"></form></td><td><input name="c2"></td></tr></table>');
+        $forms = $crawler->filter('form');
+
+        $this->assertCount(1, PortalScrapingService::formScope($forms->eq(0)));
+        $this->assertSame(['lama', 'cmd'], $this->controlNames(PortalScrapingService::formScope($forms->eq(0))));
+        $this->assertSame(['c1'], $this->controlNames(PortalScrapingService::formScope($forms->eq(1))));
+        $this->assertSame('?mod=student&act=passwordact', PortalScrapingService::formOf($crawler->filter('input[name="lama"]'))?->attr('action'));
+        $this->assertNull(PortalScrapingService::formOf($crawler->filter('input[name="luar"]')));
+        $this->assertNull(PortalScrapingService::formOf($crawler->filter('input[name="c2"]')));
+        $this->assertCount(0, PortalScrapingService::formScope(new Crawler));
+        $this->assertNull(PortalScrapingService::formOf(new Crawler));
     }
 
     public function test_main_content_excludes_the_portal_sidebar_and_navbar(): void
@@ -488,6 +545,14 @@ class PortalScrapingServiceHelpersTest extends TestCase
 </body>
 </html>
 HTML;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function controlNames(Crawler $scope): array
+    {
+        return $scope->filter('input, select, textarea, button')->each(static fn (Crawler $control): string => (string) $control->attr('name'));
     }
 
     private function service(): object

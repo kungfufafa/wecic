@@ -12,11 +12,11 @@ use Symfony\Component\DomCrawler\Crawler;
 use Tests\TestCase;
 
 /**
- * Live portal pages reach the extractors as raw server HTML: with a doctype
- * DomCrawler parses them with masterminds/html5, which (unlike a browser)
- * neither adds tbody nor foster-parents stray tags out of tables. Every case
- * runs on that parser, on libxml (pages without a doctype) and, where it
- * differs, on the browser-normalized markup the old fixtures were saved as.
+ * Live portal pages reach the extractors as raw server HTML, which
+ * DomCrawler parses with PHP's HTML5 parser: like a browser, it adds tbody
+ * and moves stray tags out of tables. Every case runs on a page with a
+ * doctype and on one without (quirks mode) and, where it differs, on the
+ * browser-normalized markup the old fixtures were saved as.
  */
 class PortalScrapingServiceTableHelpersTest extends TestCase
 {
@@ -47,8 +47,8 @@ class PortalScrapingServiceTableHelpersTest extends TestCase
     public static function parserProvider(): array
     {
         return [
-            'raw page with doctype (html5 parser)' => ['html5'],
-            'page without doctype (libxml)' => ['libxml'],
+            'raw page with doctype' => ['html5'],
+            'page without doctype (quirks mode)' => ['quirks'],
         ];
     }
 
@@ -58,10 +58,10 @@ class PortalScrapingServiceTableHelpersTest extends TestCase
     public static function perwalianHistoryProvider(): array
     {
         return [
-            'raw markup, html5 parser' => ['html5', self::PERWALIAN_HISTORY_RAW],
-            'raw markup, libxml' => ['libxml', self::PERWALIAN_HISTORY_RAW],
-            'browser-normalized markup, html5 parser' => ['html5', self::PERWALIAN_HISTORY_NORMALIZED],
-            'browser-normalized markup, libxml' => ['libxml', self::PERWALIAN_HISTORY_NORMALIZED],
+            'raw markup, with doctype' => ['html5', self::PERWALIAN_HISTORY_RAW],
+            'raw markup, quirks mode' => ['quirks', self::PERWALIAN_HISTORY_RAW],
+            'browser-normalized markup, with doctype' => ['html5', self::PERWALIAN_HISTORY_NORMALIZED],
+            'browser-normalized markup, quirks mode' => ['quirks', self::PERWALIAN_HISTORY_NORMALIZED],
         ];
     }
 
@@ -81,15 +81,16 @@ class PortalScrapingServiceTableHelpersTest extends TestCase
         $this->assertSame(1, $rows[1]->filter('a[href*="viewkrs"]')->count());
     }
 
-    public function test_the_raw_bold_wrapper_really_keeps_header_cells_out_of_the_row_on_the_html5_parser(): void
+    public function test_the_parser_moves_the_raw_bold_wrapper_out_of_the_table(): void
     {
         $service = $this->service();
-        $table = $this->page('html5', self::PERWALIAN_HISTORY_RAW)->filter('table');
-        $header = $service->call('tableRows', $table)[0];
+        $page = $this->page('html5', self::PERWALIAN_HISTORY_RAW);
+        $header = $service->call('tableRows', $page->filter('table'))[0];
 
-        $this->assertSame(0, $header->children('td, th')->count());
-        $this->assertSame('b', $service->call('rowCells', $header)[0]->getNode(0)->parentNode->nodeName);
+        $this->assertSame(4, $header->children('td, th')->count());
+        $this->assertSame('tr', $service->call('rowCells', $header)[0]->getNode(0)->parentNode->nodeName);
         $this->assertCount(4, $service->call('rowCells', $header));
+        $this->assertSame('b', $page->filter('body > *')->first()->nodeName());
     }
 
     #[DataProvider('parserProvider')]

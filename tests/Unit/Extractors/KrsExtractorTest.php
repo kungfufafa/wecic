@@ -303,6 +303,33 @@ class KrsExtractorTest extends TestCase
         }
     }
 
+    public function test_a_form_opened_between_table_rows_is_detected_with_its_fields(): void
+    {
+        $form = '<table class="table"><tr><td colspan="3">Pilih mata kuliah</td></tr>'
+            .'<form method="post" action="?mod=student&act=simpankrs"><input type="hidden" name="txt_creditid" value="90004">'
+            .'<tr><td><input type="checkbox" name="mk[]" value="MK7001-NILAI"></td><td>MK7001</td><td>3</td></tr>'
+            .'<tr><td><input type="checkbox" name="mk[]" value="MK7002-NILAI"></td><td>MK7002</td><td>2</td></tr>'
+            .'<tr><td colspan="3"><input type="submit" name="cmd" value="Simpan KRS"></td></tr></form></table>';
+        $html = $this->replaceOnce(
+            $this->fixtureHtml(),
+            '<h4 class="title">DAFTAR MATA KULIAH YANG DIRENCANAKAN (KRS)</h4>',
+            '<h4 class="title">DAFTAR MATA KULIAH YANG DIRENCANAKAN (KRS)</h4>'.$form
+        );
+
+        $krs = $this->makeExtractorWithHtml($html)->extractKrsData('fake-session-token');
+
+        $this->assertTrue($krs['registration_form_detected']);
+        $this->assertSame([
+            'forms' => [[
+                'action' => '?mod=student&act=simpankrs',
+                'method' => 'POST',
+                'field_names' => ['txt_creditid', 'mk[]', 'cmd'],
+                'option_count' => 2,
+            ]],
+            'control_count' => 3,
+        ], $krs['registration_form']);
+    }
+
     public function test_empty_portal_shell_is_not_found_and_not_cached(): void
     {
         $extractor = $this->makeExtractorWithHtml($this->shellHtml(), expectedCalls: 2);

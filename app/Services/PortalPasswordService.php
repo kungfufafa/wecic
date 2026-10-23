@@ -86,7 +86,7 @@ class PortalPasswordService extends PortalScrapingService
         foreach ($forms as $node) {
             $form = new Crawler($node);
             $action = strtolower((string) ($form->attr('action') ?? ''));
-            $text = strtolower($this->cleanText($form->text()));
+            $text = strtolower($this->formText($form));
 
             if (Str::contains($action, 'passwordact') || Str::contains($text, ['password', 'konfirm'])) {
                 return $form;
@@ -103,7 +103,7 @@ class PortalPasswordService extends PortalScrapingService
     {
         $fields = [];
 
-        $form->filter('input, textarea, select')->each(function (Crawler $field) use (&$fields): void {
+        self::formScope($form)->filter('input, textarea, select')->each(function (Crawler $field) use (&$fields): void {
             $name = $field->attr('name');
 
             if ($name === null || trim($name) === '') {

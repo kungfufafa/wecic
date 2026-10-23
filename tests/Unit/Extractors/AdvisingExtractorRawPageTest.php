@@ -15,7 +15,8 @@ use Tests\Traits\InteractsWithPortalFixtures;
 /**
  * The Perwalian page as the live portal sends it (K14 sanitized copy), parsed
  * by DomCrawler's HTML5 parser like a live response: the history table has no
- * tbody and its header cells sit inside a stray `<b>` (`<tr><b><td>..`).
+ * tbody and its header cells sit inside a stray `<b>` (`<tr><b><td>..`),
+ * which the parser repairs as a browser does.
  */
 class AdvisingExtractorRawPageTest extends TestCase
 {
@@ -51,14 +52,17 @@ class AdvisingExtractorRawPageTest extends TestCase
         parent::tearDown();
     }
 
-    public function test_the_raw_header_cells_are_not_children_of_their_row(): void
+    public function test_the_parser_moves_the_raw_bold_wrapper_out_of_the_history_table(): void
     {
-        $crawler = new Crawler($this->fixtureHtml(self::RAW_FIXTURE));
+        $html = $this->fixtureHtml(self::RAW_FIXTURE);
+        $crawler = new Crawler($html);
         $header = $crawler->filter('td')->reduce(static fn (Crawler $cell): bool => trim($cell->text('')) === 'T.A');
 
+        $this->assertMatchesRegularExpression('/<tr><b>\s*<td><b>T\.A<\/b><\/td>/', $html);
+        $this->assertStringNotContainsString('<tbody', $html);
         $this->assertCount(1, $header);
-        $this->assertSame('b', $header->getNode(0)?->parentNode?->nodeName);
-        $this->assertCount(0, $crawler->filter('tbody'));
+        $this->assertSame('tr', $header->getNode(0)?->parentNode?->nodeName);
+        $this->assertSame('tbody', $header->getNode(0)?->parentNode?->parentNode?->nodeName);
     }
 
     public function test_the_raw_page_gives_one_history_row_per_lihat_krs_link(): void
