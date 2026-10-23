@@ -1,0 +1,138 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A newer push to the same branch replaces the run still going: it tests
+# everything the older one would have.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: PHPUnit, Node tests and Pint
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: curl, mbstring, openssl, pdo_sqlite, sqlite3
+          coverage: none
+          tools: composer:v2
+
+      - name: Locate the Composer cache
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache@v6
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+
+      - name: Install Composer dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      # phpunit.xml overrides what the tests need (sqlite in memory, array
+      # cache and session, sync queue, null broadcaster) and points every
+      # portal URL at portal.invalid, so nothing reaches the real portal.
+      - name: Prepare the environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate --no-interaction
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      # The Blade page tests read the Vite manifest in public/build.
+      - name: Build the frontend
+        id: build
+        run: npm run build
+
+      # Each suite runs once the setup above succeeded, even when another
+      # suite failed, so one run reports all three.
+      - name: PHPUnit
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: php artisan test
+
+      - name: Node tests
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: npm run test:js
+
+      - name: Pint
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: vendor/bin/pint --test
+
+  e2e:
+    name: Browser tests (Playwright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: curl, mbstring, openssl, pdo_sqlite, sqlite3
+          coverage: none
+          tools: composer:v2
+
+      - name: Locate the Composer cache
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache@v6
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+
+      - name: Install Composer dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      # The build reads the VITE_REVERB_* settings from .env: without them
+      # the bundle has no Echo client for the multi-tab specs. The e2e server
+      # itself reads .env.e2e only.
+      - name: Prepare the environment
+        run: cp .env.example .env
+
+      # Builds public/build, then runs the specs in the runner's Google Chrome
+      # against `php artisan serve` with APP_ENV=e2e (.env.e2e): every /api/*
+      # request and Reverb are faked in the browser, and bootstrap/e2e.php
+      # refuses every portal request.
+      - name: Playwright
+        run: npm run test:e2e
+
+      - name: Keep the traces of failed specs
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-traces
+          path: storage/framework/testing/e2e
+          if-no-files-found: ignore
+          retention-days: 7
