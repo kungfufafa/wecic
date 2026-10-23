@@ -145,13 +145,16 @@ class PortalOfflineAccess
     /**
      * attempt(), also telling whether a stored offline password was checked
      * and did not match: a failed login, counted like one the portal refused
-     * (only an account that can log in offline is checked at all).
+     * (only an account that can log in offline is checked at all). A match
+     * also gives the hash it matched, which the offline session keeps: what
+     * it queues is only sent once the portal accepts that same password
+     * (PortalOutbox::confirmWithPassword).
      *
-     * @return array{user_info: array<string, mixed>|null, wrong_password: bool}
+     * @return array{user_info: array<string, mixed>|null, wrong_password: bool, password_hash: string|null}
      */
     public function verify(string $username, string $password): array
     {
-        $refused = ['user_info' => null, 'wrong_password' => false];
+        $refused = ['user_info' => null, 'wrong_password' => false, 'password_hash' => null];
 
         if (! $this->enabled()) {
             return $refused;
@@ -169,12 +172,12 @@ class PortalOfflineAccess
         }
 
         if (! Hash::check($password, $account->password_hash)) {
-            return ['user_info' => null, 'wrong_password' => true];
+            return ['user_info' => null, 'wrong_password' => true, 'password_hash' => null];
         }
 
         $account->forceFill(['last_offline_login_at' => now()])->save();
 
-        return ['user_info' => $account->user_info ?? [], 'wrong_password' => false];
+        return ['user_info' => $account->user_info ?? [], 'wrong_password' => false, 'password_hash' => $account->password_hash];
     }
 
     public function markOfflineSession(string $sessionToken, int $ttl): void

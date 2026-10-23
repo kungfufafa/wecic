@@ -9,6 +9,12 @@ use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
+/**
+ * Broadcast::auth() reads `$request->user()`: a session holding a campus
+ * session answers as its own actor. The actor stays out of the auth guard,
+ * whose id the database session handler would write into the integer
+ * `sessions.user_id` column, which MySQL and PostgreSQL refuse.
+ */
 class ResolvePortalBroadcastUser
 {
     public function handle(Request $request, Closure $next): Response
@@ -18,7 +24,6 @@ class ResolvePortalBroadcastUser
             $actor = new PortalBroadcastActor($sessionId);
 
             $request->setUserResolver(static fn (): PortalBroadcastActor => $actor);
-            auth()->setUser($actor);
         }
 
         return $next($request);

@@ -158,7 +158,7 @@ class PortalSessionMiddlewareTest extends TestCase
 
         $this->withSession(['campus_session_token' => self::TOKEN])
             ->getJson('/api/notifications/unread-count')
-            ->assertStatus(500);
+            ->assertStatus(503);
 
         Log::shouldHaveReceived('error')
             ->withArgs(fn (string $message, array $context = []): bool => $message === 'Campus session validation failed'
@@ -166,6 +166,57 @@ class PortalSessionMiddlewareTest extends TestCase
                 && ($context['session_token_fingerprint'] ?? null) === PortalLogContext::fingerprint(self::TOKEN)
                 && ! str_contains((string) json_encode($context), self::TOKEN))
             ->once();
+    }
+
+    /**
+     * A locked database or an unreadable cache says nothing about the
+     * session: the request is refused for now, the session stays.
+     */
+    public function test_a_failed_session_check_keeps_the_session_for_the_next_request(): void
+    {
+        $this->storeSession(lastActivity: now()->subMinutes(10));
+        $sessions = app(PortalSessionManager::class);
+        $this->failSessionChecks();
+
+        $this->withSession(['campus_session_token' => self::TOKEN])
+            ->getJson('/api/notifications/unread-count')
+            ->assertStatus(503)
+            ->assertHeader('Retry-After', '5')
+            ->assertJsonPath('status', 'error')
+            ->assertJsonPath('meta.campus_session_valid', true)
+            ->assertSessionHas('campus_session_token', self::TOKEN);
+
+        $this->instance(PortalSessionManager::class, $sessions);
+
+        $this->getJson('/api/notifications/unread-count')->assertOk();
+    }
+
+    public function test_a_failed_session_check_on_a_page_keeps_the_student_signed_in(): void
+    {
+        $this->failSessionChecks();
+
+        $this->withSession(['campus_session_token' => self::TOKEN])
+            ->get('/dashboard')
+            ->assertStatus(503)
+            ->assertSee('MyCIC sedang sibuk')
+            ->assertSessionHas('campus_session_token', self::TOKEN);
+
+        $this->get('/api/support/download?path=../files/modul/sample.pdf', ['Accept' => 'text/html'])
+            ->assertStatus(503)
+            ->assertSessionHas('campus_session_token', self::TOKEN);
+
+        // The login form stays usable, but does not wipe the device's offline copies.
+        $this->get('/login')->assertOk()
+            ->assertSessionHas('campus_session_token', self::TOKEN)
+            ->assertDontSee('forgetEndedSession', false);
+        $this->get('/')->assertRedirect('/dashboard')->assertSessionHas('campus_session_token', self::TOKEN);
+    }
+
+    private function failSessionChecks(): void
+    {
+        $this->instance(PortalSessionManager::class, Mockery::mock(PortalSessionManager::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('validateSession')->andThrow(new \RuntimeException('database is locked'));
+        }));
     }
 
     /**

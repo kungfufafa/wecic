@@ -1553,7 +1553,7 @@ class PortalApp {
             return '';
         }
 
-        const tones = { queued: 'warning', sent: 'success', failed: 'danger', expired: 'danger' };
+        const tones = { queued: 'warning', sending: 'info', sent: 'success', failed: 'danger', unverified: 'warning', expired: 'danger' };
         const title = heading || 'Antrean offline';
 
         return `
@@ -1584,8 +1584,11 @@ class PortalApp {
                                     </div>
                                     <div class="font-medium text-ink">${this.escapeHtml(item.subject || item.action_label || 'Aksi portal')}</div>
                                     ${meta ? `<div class="text-caption text-ink-subtle">${this.escapeHtml(meta)}</div>` : ''}
-                                    ${item.status === 'failed' || item.status === 'expired'
-                                        ? `<div class="mt-1 text-caption ${this.textToneClass('danger')}">${this.escapeHtml(item.last_error || statusLabel)}</div>`
+                                    ${item.status === 'failed' || item.status === 'expired' || item.status === 'unverified'
+                                        ? `<div class="mt-1 text-caption ${this.textToneClass(tone)}">${this.escapeHtml(item.last_error || statusLabel)}</div>`
+                                        : ''}
+                                    ${item.status === 'unverified'
+                                        ? '<div class="mt-1 text-caption text-ink-subtle">Cek halamannya di portal sebelum mengirim ulang, supaya file tidak terkirim dua kali.</div>'
                                         : ''}
                                     ${isQueued
                                         ? `<div class="mt-1 text-caption text-ink-subtle">Portal belum menerima ini. MyCIC mengirimnya otomatis begitu portal bisa diakses${item.deadline_at ? ', selama tenggatnya belum lewat' : ''}.</div>`

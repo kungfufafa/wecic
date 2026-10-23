@@ -397,7 +397,7 @@ class PortalAuthControllerTest extends TestCase
             $mock->shouldReceive('createSession')->andThrow(PortalConnectionException::networkError('https://my.cic.ac.id/portal/', 'Connection timed out'));
         }));
         $this->instance(PortalOfflineAccess::class, Mockery::mock(PortalOfflineAccess::class, function (MockInterface $mock): void {
-            $mock->shouldReceive('verify')->once()->andReturn(['user_info' => null, 'wrong_password' => false]);
+            $mock->shouldReceive('verify')->once()->andReturn(['user_info' => null, 'wrong_password' => false, 'password_hash' => null]);
         }));
 
         $this->loginAs('20990000009')->assertStatus(503);

@@ -55,7 +55,8 @@ Route::middleware($sessionMiddleware)->group(function () {
         ->middleware(\App\Http\Middleware\ResolvePortalBroadcastUser::class);
 
     Route::middleware('portal.session')->group(function (): void {
-        // An offline session (portal unreachable at login) only reads the archive.
+        // An offline session (portal unreachable at login) reads the archive
+        // and queues attendance and uploads in the outbox; these need the portal.
         Route::prefix('auth')->middleware('portal.online')->controller(PortalAuthController::class)->group(function (): void {
             Route::get('password/form', 'passwordForm');
             Route::post('password', 'changePassword')->middleware('throttle:portal-action');

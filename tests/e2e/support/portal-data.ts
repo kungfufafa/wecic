@@ -46,8 +46,8 @@ export function dashboard(todayClasses: TodayClass[]): Record<string, unknown> {
 
 /**
  * Everything the signed-in pages the specs open read on load (the layout's
- * badges, the dashboard, the class and exam lists). `todayClasses` is
- * today's schedule on the dashboard.
+ * badges, the dashboard, the class and exam lists, the offline outbox).
+ * `todayClasses` is today's schedule on the dashboard.
  */
 export function answerSignedInPages(api: ApiMock, { todayClasses = [] as TodayClass[] } = {}): ApiMock {
     return api
@@ -57,6 +57,7 @@ export function answerSignedInPages(api: ApiMock, { todayClasses = [] as TodayCl
         .answer('GET', '/api/announcement', { json: success({ data: { items: [] } }) })
         .answer('GET', '/api/assignment/pending', { json: success({ data: { assignments: [] } }) })
         .answer('GET', '/api/dashboard', { json: dashboard(todayClasses) })
+        .answer('GET', '/api/outbox', { json: success({ data: { items: [], queued_count: 0, offline: false, enabled: true } }) })
         .answer('GET', '/api/class', {
             json: success({
                 user_info: student,

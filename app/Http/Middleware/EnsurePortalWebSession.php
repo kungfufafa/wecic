@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Http\Middleware;
 
+use App\Services\PortalLogContext;
 use App\Services\PortalOfflineAccess;
 use App\Services\PortalSessionManager;
 use Closure;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
 
 class EnsurePortalWebSession
@@ -43,8 +45,14 @@ class EnsurePortalWebSession
             $isOffline = $this->offlineAccess->isOfflineSession($sessionToken);
             $request->session()->put('campus_offline', $isOffline);
             $request->session()->put('campus_offline_reconnect', $isOffline ? $this->sessionManager->offlineReconnectMode($sessionToken) : null);
-        } catch (\Throwable) {
-            return $this->redirectToLogin($request);
+        } catch (\Throwable $throwable) {
+            Log::error('Campus session validation failed', [
+                'session_token_fingerprint' => PortalLogContext::fingerprint($sessionToken),
+                'error' => $throwable->getMessage(),
+            ]);
+
+            // A failed check is not an ended session: the student stays signed in.
+            return PortalSessionMiddleware::checkFailedResponse(isPage: true);
         }
 
         return $next($request);

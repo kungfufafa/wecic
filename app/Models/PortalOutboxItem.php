@@ -24,6 +24,8 @@ use Illuminate\Support\Facades\Storage;
  * @property string|null $subject
  * @property \Illuminate\Support\Carbon|null $deadline_at
  * @property string $status
+ * @property string|null $credential_hash
+ * @property \Illuminate\Support\Carbon|null $confirmed_at
  * @property int $attempts
  * @property string|null $last_error
  * @property \Illuminate\Support\Carbon|null $sent_at
@@ -45,13 +47,29 @@ class PortalOutboxItem extends Model
 
     public const STATUS_QUEUED = 'queued';
 
+    /**
+     * Being sent by a flush right now. One found while no flush runs belongs
+     * to a flush that died mid-way (FlushPortalOutboxJob).
+     */
+    public const STATUS_SENDING = 'sending';
+
     public const STATUS_SENT = 'sent';
 
     public const STATUS_FAILED = 'failed';
 
+    /**
+     * The portal may or may not have it: the student checks before sending again.
+     */
+    public const STATUS_UNVERIFIED = 'unverified';
+
     public const STATUS_EXPIRED = 'expired';
 
-    public const STATUSES = [self::STATUS_QUEUED, self::STATUS_SENT, self::STATUS_FAILED, self::STATUS_EXPIRED];
+    public const STATUSES = [self::STATUS_QUEUED, self::STATUS_SENDING, self::STATUS_SENT, self::STATUS_FAILED, self::STATUS_UNVERIFIED, self::STATUS_EXPIRED];
+
+    /**
+     * Still waiting for the portal: shown as open, never pruned.
+     */
+    public const PENDING_STATUSES = [self::STATUS_QUEUED, self::STATUS_SENDING];
 
     private const ACTION_LABELS = [
         self::ACTION_ASSIGNMENT_UPLOAD => 'Upload tugas',
@@ -65,8 +83,10 @@ class PortalOutboxItem extends Model
      */
     private const STATUS_LABELS = [
         self::STATUS_QUEUED => 'Belum terkirim ke portal',
+        self::STATUS_SENDING => 'Sedang dikirim ke portal',
         self::STATUS_SENT => 'Terkirim ke portal',
         self::STATUS_FAILED => 'Gagal terkirim ke portal',
+        self::STATUS_UNVERIFIED => 'Belum pasti terkirim ke portal',
         self::STATUS_EXPIRED => 'Tenggat lewat, tidak terkirim',
     ];
 
@@ -78,9 +98,20 @@ class PortalOutboxItem extends Model
         'subject',
         'deadline_at',
         'status',
+        'credential_hash',
+        'confirmed_at',
         'attempts',
         'last_error',
         'sent_at',
+    ];
+
+    /**
+     * A password hash: it never leaves the server.
+     *
+     * @var list<string>
+     */
+    protected $hidden = [
+        'credential_hash',
     ];
 
     /**
@@ -91,6 +122,7 @@ class PortalOutboxItem extends Model
         return [
             'payload' => 'encrypted:array',
             'deadline_at' => 'datetime',
+            'confirmed_at' => 'datetime',
             'attempts' => 'integer',
             'sent_at' => 'datetime',
         ];
@@ -114,9 +146,23 @@ class PortalOutboxItem extends Model
         return $query->where('status', self::STATUS_QUEUED);
     }
 
+    /**
+     * @param  Builder<self>  $query
+     * @return Builder<self>
+     */
+    public function scopePending(Builder $query): Builder
+    {
+        return $query->whereIn('status', self::PENDING_STATUSES);
+    }
+
     public function isQueued(): bool
     {
         return $this->status === self::STATUS_QUEUED;
+    }
+
+    public function isConfirmed(): bool
+    {
+        return $this->confirmed_at !== null;
     }
 
     public function deadlinePassed(?CarbonInterface $now = null): bool
@@ -205,15 +251,16 @@ class PortalOutboxItem extends Model
     }
 
     /**
-     * Settled items older than `portal.outbox.retention_days`; a queued item
-     * is never pruned, whatever its age.
+     * Settled items older than `portal.outbox.retention_days`; a pending item
+     * is never pruned, it expires first (portal:send-outbox) and the student
+     * is told.
      *
      * @return Builder<self>
      */
     public function prunable(): Builder
     {
         return static::query()
-            ->where('status', '!=', self::STATUS_QUEUED)
+            ->whereNotIn('status', self::PENDING_STATUSES)
             ->where('updated_at', '<', now()->subDays((int) config('portal.outbox.retention_days', 30)));
     }
 

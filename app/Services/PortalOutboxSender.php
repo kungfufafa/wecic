@@ -19,21 +19,34 @@ use Illuminate\Support\Str;
  * through the same submission call and after-effects as
  * PortalActionController::markAttendance. Targets left unresolved while
  * offline (a meeting id without its upload ids, a class without today's
- * attendance link) are resolved now that the portal answers.
+ * attendance link) are resolved now that the portal answers, with the same
+ * checks as online.
+ *
+ * An upload takes the same per-target lock as the upload endpoints
+ * (PortalUploadLocks), and its job gets a copy of the queued file: the job
+ * deletes what it is given, while the queued file stays until the item is
+ * settled, so a flush the portal session cuts short loses nothing.
  */
 class PortalOutboxSender
 {
+    /**
+     * Another upload of the same target is running: the item waits for a later flush.
+     */
+    public const DEFERRED = 'deferred';
+
     public function __construct(
         private readonly SipandaiSubmissionService $submissions,
         private readonly AttendanceShortcutService $shortcuts,
         private readonly PortalOperationTracker $tracker,
         private readonly PortalDatasetRepository $datasets,
         private readonly PortalActionProjector $projector,
-        private readonly PortalBroadcastService $broadcast
+        private readonly PortalBroadcastService $broadcast,
+        private readonly PortalUploadLocks $uploadLocks
     ) {}
 
     /**
-     * @return array{0: bool, 1: string|null} Whether the portal took it, and the error otherwise.
+     * @return array{0: string, 1: string|null} The outcome (`PortalOutboxItem::STATUS_SENT`,
+     *                                          `STATUS_FAILED`, `STATUS_UNVERIFIED` or self::DEFERRED) and its message.
      *
      * @throws \Throwable An expired campus session: the flush must stop, not mark the item failed.
      */
@@ -44,19 +57,19 @@ class PortalOutboxSender
                 PortalOutboxItem::ACTION_ASSIGNMENT_UPLOAD => $this->sendAssignment($item, $sessionToken, (string) $sessionId),
                 PortalOutboxItem::ACTION_EXAM_UPLOAD => $this->sendExam($item, $sessionToken, (string) $sessionId),
                 PortalOutboxItem::ACTION_ATTENDANCE => $this->sendAttendance($item, $sessionToken, $sessionId),
-                default => [false, 'Jenis aksi tidak dikenal.'],
+                default => [PortalOutboxItem::STATUS_FAILED, 'Jenis aksi tidak dikenal.'],
             };
         } catch (\Throwable $throwable) {
             if (PortalException::indicatesExpiredSession($throwable)) {
                 throw $throwable;
             }
 
-            return [false, $throwable->getMessage()];
+            return [PortalOutboxItem::STATUS_FAILED, $throwable->getMessage()];
         }
     }
 
     /**
-     * @return array{0: bool, 1: string|null}
+     * @return array{0: string, 1: string|null}
      */
     private function sendAssignment(PortalOutboxItem $item, string $sessionToken, string $sessionId): array
     {
@@ -71,7 +84,7 @@ class PortalOutboxSender
                 : null;
 
             if ($resolved === null) {
-                return [false, 'Target upload tugas belum bisa ditentukan untuk meeting ini.'];
+                return [PortalOutboxItem::STATUS_FAILED, 'Target upload tugas belum bisa ditentukan untuk meeting ini.'];
             }
 
             $courseId = (int) $resolved['courses_id'];
@@ -80,11 +93,15 @@ class PortalOutboxSender
         }
 
         if ($item->file_path === null || ! Storage::exists($item->file_path)) {
-            return [false, 'File tugas tidak ditemukan lagi di MyCIC.'];
+            return [PortalOutboxItem::STATUS_FAILED, 'File tugas tidak ditemukan lagi di MyCIC.'];
         }
 
         $operationId = (string) Str::uuid();
-        $this->tracker->start($operationId, 'assignment_upload', $sessionId !== '' ? $sessionId : null, 'Mengirim tugas dari antrean offline.');
+        $upload = $this->stage($item, $sessionToken, $sessionId, $operationId, 'assignment_upload', 'Mengirim tugas dari antrean offline.', PortalUploadLocks::assignmentTarget($courseId, $discussionId, $meetingNumber));
+
+        if (! is_array($upload)) {
+            return $upload === self::DEFERRED ? [self::DEFERRED, null] : [PortalOutboxItem::STATUS_FAILED, 'File tugas tidak bisa disiapkan untuk dikirim.'];
+        }
 
         $this->runUpload(fn () => ProcessPortalAssignmentUploadJob::dispatchSync(
             $operationId,
@@ -93,41 +110,86 @@ class PortalOutboxSender
             $courseId,
             $discussionId,
             $meetingNumber,
-            $item->file_path,
+            $upload['file'],
             (string) ($payload['file_name'] ?? 'tugas.pdf'),
             (string) ($payload['mime_type'] ?? 'application/pdf'),
-            is_array($payload['form_values'] ?? null) ? $payload['form_values'] : []
+            is_array($payload['form_values'] ?? null) ? $payload['form_values'] : [],
+            $upload['lock_key'],
+            $upload['lock_owner']
         ));
 
         return $this->operationOutcome($operationId, 'Upload tugas gagal diproses portal.');
     }
 
     /**
-     * @return array{0: bool, 1: string|null}
+     * @return array{0: string, 1: string|null}
      */
     private function sendExam(PortalOutboxItem $item, string $sessionToken, string $sessionId): array
     {
         $payload = $item->payload;
+        $examId = (int) ($payload['id'] ?? 0);
 
         if ($item->file_path === null || ! Storage::exists($item->file_path)) {
-            return [false, 'File ujian tidak ditemukan lagi di MyCIC.'];
+            return [PortalOutboxItem::STATUS_FAILED, 'File ujian tidak ditemukan lagi di MyCIC.'];
         }
 
         $operationId = (string) Str::uuid();
-        $this->tracker->start($operationId, 'exam_upload', $sessionId !== '' ? $sessionId : null, 'Mengirim jawaban ujian dari antrean offline.');
+        $upload = $this->stage($item, $sessionToken, $sessionId, $operationId, 'exam_upload', 'Mengirim jawaban ujian dari antrean offline.', PortalUploadLocks::examTarget($examId));
+
+        if (! is_array($upload)) {
+            return $upload === self::DEFERRED ? [self::DEFERRED, null] : [PortalOutboxItem::STATUS_FAILED, 'File ujian tidak bisa disiapkan untuk dikirim.'];
+        }
 
         $this->runUpload(fn () => ProcessPortalExamUploadJob::dispatchSync(
             $operationId,
             $sessionId,
             $sessionToken,
-            (int) ($payload['id'] ?? 0),
-            $item->file_path,
+            $examId,
+            $upload['file'],
             (string) ($payload['file_name'] ?? 'ujian.pdf'),
             (string) ($payload['mime_type'] ?? 'application/octet-stream'),
-            is_array($payload['form_values'] ?? null) ? $payload['form_values'] : []
+            is_array($payload['form_values'] ?? null) ? $payload['form_values'] : [],
+            $upload['lock_key'],
+            $upload['lock_owner']
         ));
 
         return $this->operationOutcome($operationId, 'Upload ujian gagal diproses portal.');
+    }
+
+    /**
+     * Takes the target's upload lock and registers the upload with a copy
+     * of the queued file, as the upload endpoints do (stageUpload), so
+     * `portal:recover-uploads` settles it if the process dies mid-way.
+     *
+     * @return array{file: string, lock_key: string, lock_owner: string}|string The upload, self::DEFERRED, or 'failed'.
+     */
+    private function stage(PortalOutboxItem $item, string $sessionToken, string $sessionId, string $operationId, string $type, string $message, string $target): array|string
+    {
+        $lock = $this->uploadLocks->acquire($sessionToken, $target, $operationId);
+
+        if ($lock === null) {
+            return self::DEFERRED;
+        }
+
+        $copy = $this->tracker->uploadFilePath($operationId, pathinfo((string) $item->file_path, PATHINFO_EXTENSION) ?: null);
+        $upload = ['file' => $copy, 'lock_key' => $lock['key'], 'lock_owner' => $lock['owner']];
+        $this->tracker->start($operationId, $type, $sessionId !== '' ? $sessionId : null, $message, $upload);
+
+        try {
+            $copied = Storage::copy((string) $item->file_path, $copy);
+        } catch (\Throwable) {
+            $copied = false;
+        }
+
+        if (! $copied) {
+            Storage::delete($copy);
+            $this->uploadLocks->release($lock);
+            $this->tracker->progress($operationId, PortalOperationStage::Failed, 'File antrean tidak bisa disiapkan.', 100);
+
+            return 'failed';
+        }
+
+        return $upload;
     }
 
     /**
@@ -147,7 +209,7 @@ class PortalOutboxSender
     }
 
     /**
-     * @return array{0: bool, 1: string|null}
+     * @return array{0: string, 1: string|null}
      */
     private function sendAttendance(PortalOutboxItem $item, string $sessionToken, ?string $sessionId): array
     {
@@ -167,7 +229,13 @@ class PortalOutboxSender
                 : null;
 
             if ($resolved === null || empty($resolved['attendance_payload'])) {
-                return [false, 'Target absensi terbaru belum bisa ditentukan untuk kelas ini.'];
+                return [PortalOutboxItem::STATUS_FAILED, 'Target absensi terbaru belum bisa ditentukan untuk kelas ini.'];
+            }
+
+            // As online: without today's material the link points at an
+            // earlier meeting, which the portal would report as attended.
+            if (($resolved['attendance_target_reliable'] ?? false) !== true) {
+                return [PortalOutboxItem::STATUS_FAILED, 'Materi pertemuan hari ini belum diunggah dosen, jadi absensi belum bisa dikirim dari antrean. Buka pertemuannya dari halaman Kelas.'];
             }
 
             $courseId = (int) $resolved['attendance_payload']['courseid'];
@@ -183,7 +251,7 @@ class PortalOutboxSender
         $result = $this->submissions->submitAttendance($sessionToken, $courseId, $discussionId, $meetingNumber, $overrides);
 
         if (($result['success'] ?? false) !== true) {
-            return [false, (string) ($result['message'] ?? 'Absensi ditolak portal.')];
+            return [PortalOutboxItem::STATUS_FAILED, (string) ($result['message'] ?? 'Absensi ditolak portal.')];
         }
 
         $this->datasets->invalidate(
@@ -203,22 +271,25 @@ class PortalOutboxSender
             );
         }
 
-        return [true, null];
+        return [PortalOutboxItem::STATUS_SENT, null];
     }
 
     /**
      * The upload jobs report through the operation tracker; `completed`
-     * means the portal has the file (verified on its page for assignments).
-     * A failure keeps the job's wording, with its detail and next step.
+     * means the portal has the file (verified on its page for assignments),
+     * `unverified` that it may have it (sending again could store it twice).
+     * Anything else failed. Each keeps the job's wording, with its detail
+     * and next step.
      *
-     * @return array{0: bool, 1: string|null}
+     * @return array{0: string, 1: string|null}
      */
     private function operationOutcome(string $operationId, string $fallback): array
     {
         $operation = $this->tracker->get($operationId) ?? [];
+        $stage = $operation['stage'] ?? null;
 
-        if (($operation['stage'] ?? null) === PortalOperationStage::Completed->value) {
-            return [true, null];
+        if ($stage === PortalOperationStage::Completed->value) {
+            return [PortalOutboxItem::STATUS_SENT, null];
         }
 
         $message = trim((string) ($operation['message'] ?? ''));
@@ -227,6 +298,9 @@ class PortalOutboxSender
             trim((string) ($operation['next_step'] ?? '')),
         ], static fn (string $part): bool => $part !== ''));
 
-        return [false, trim(($message !== '' ? $message : $fallback).($followUp !== '' ? ' '.$followUp : ''))];
+        return [
+            $stage === PortalOperationStage::Unverified->value ? PortalOutboxItem::STATUS_UNVERIFIED : PortalOutboxItem::STATUS_FAILED,
+            trim(($message !== '' ? $message : $fallback).($followUp !== '' ? ' '.$followUp : '')),
+        ];
     }
 }

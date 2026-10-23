@@ -57,6 +57,12 @@ Schedule::command('model:prune', ['--model' => [PortalNotification::class, Porta
 // and their orphaned temporary files.
 Schedule::command('portal:recover-uploads')->everyFiveMinutes();
 
+// Outbox items no session will send (an offline session that idled out
+// before the portal came back): expired with a notification once they can no
+// longer go out, else sent with the student's online session or a
+// background login with the stored password (SendPortalOutboxJob).
+Schedule::command('portal:send-outbox')->everyFiveMinutes()->withoutOverlapping(expiresAt: 5);
+
 // Deadline and class reminders for students whose mobile app is closed,
 // built from stored snapshots only (PortalAwayReminders); each run only
 // queues one light job per student with a registered app install.

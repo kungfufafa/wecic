@@ -186,11 +186,13 @@ class PortalSessionManager
      * is back. A student who switched background sync off has no copy of
      * their password kept anywhere: their session never logs in by itself,
      * the resume only tells them once the portal answers again.
+     * `$credentialHash` is the offline-login hash the password matched; the
+     * outbox keeps it with what the session queues (PortalOutbox).
      *
      * @param  array<string, mixed>  $userInfo
      * @return array{success: true, session_token: string, user_info: array<string, mixed>, expires_at: string, offline: true, offline_reconnect: 'automatic'|'notify'|'manual'}
      */
-    public function createOfflineSession(string $username, array $userInfo, ?string $password = null): array
+    public function createOfflineSession(string $username, array $userInfo, ?string $password = null, ?string $credentialHash = null): array
     {
         $sessionToken = $this->generateSessionToken();
         $resumes = (bool) config('portal.archive.offline_resume', true);
@@ -206,6 +208,7 @@ class PortalSessionManager
             'upstream_checked_at' => null,
             'is_active' => true,
             'offline' => true,
+            'credential_hash' => $credentialHash,
             self::IDLE_EXPIRY_WATCHED => true,
             ...($canResume ? ['encrypted_credentials' => $this->encryptCredentials($username, $password)] : []),
         ];
@@ -362,6 +365,8 @@ class PortalSessionManager
                 $sessionData['expires_at'] = $stored['expires_at'] ?? $sessionData['expires_at'];
                 $sessionData['laravel_session_id'] = $stored['laravel_session_id'] ?? null;
                 $sessionData[self::IDLE_EXPIRY_WATCHED] = $stored[self::IDLE_EXPIRY_WATCHED] ?? null;
+                // What an action racing the resume queues still carries it (PortalOutbox).
+                $sessionData['credential_hash'] = $stored['credential_hash'] ?? null;
                 $sessionData['encrypted_credentials'] = $keepForAutoRelogin
                     ? $this->encryptCredentials($username, $password)
                     : null;

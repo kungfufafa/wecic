@@ -75,6 +75,9 @@ class ResumeOfflineSessionJob implements ShouldBeUniqueUntilProcessing, ShouldQu
         PortalDatasetRepository $datasets,
         PortalOutbox $outbox
     ): void {
+        // The offline-login hash the session was opened with; the resume
+        // rebuilds the stored session without it.
+        $credentialHash = $sessionManager->getSession($this->sessionToken)['credential_hash'] ?? null;
         $outcome = $sessionManager->resumeOfflineSession($this->sessionToken);
         $sessionId = $sessionManager->laravelSessionId($this->sessionToken);
 
@@ -100,6 +103,10 @@ class ResumeOfflineSessionJob implements ShouldBeUniqueUntilProcessing, ShouldQu
             if ($username !== null) {
                 $offlineAccess->markOnlineLogin($username, is_array($session['user_info'] ?? null) ? $session['user_info'] : null);
             }
+
+            // The portal took the password this session was opened with:
+            // what was queued with it may go out (sent below).
+            $outbox->confirmForCredential($outbox->ownerHash($this->sessionToken), is_string($credentialHash) ? $credentialHash : null);
         }
 
         if ($outcome === 'rejected') {

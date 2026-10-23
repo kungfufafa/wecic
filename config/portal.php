@@ -1336,8 +1336,13 @@ return [
     // with their file, until the session is back online (PortalOutbox).
     'outbox' => [
         'enabled' => (bool) env('PORTAL_OUTBOX_ENABLED', true),
-        // Settled items (sent, failed, expired) are pruned after this many days.
+        // Settled items (sent, failed, unverified, expired) are pruned after
+        // this many days; an item still waiting after it expires instead.
         'retention_days' => (int) env('PORTAL_OUTBOX_RETENTION_DAYS', 30),
+        // Seconds into a flush after which no further item starts; the rest
+        // go to a follow-up flush, so an upload never runs into the job's
+        // 600 s timeout (FlushPortalOutboxJob).
+        'flush_start_budget' => 240,
     ],
     'background_sync' => [
         'enabled' => (bool) env('PORTAL_BACKGROUND_SYNC_ENABLED', true),

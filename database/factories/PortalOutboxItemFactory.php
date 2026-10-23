@@ -6,6 +6,7 @@ namespace Database\Factories;
 
 use App\Models\PortalOutboxItem;
 use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 
 /**
@@ -98,6 +99,30 @@ class PortalOutboxItemFactory extends Factory
     public function dueAt(\DateTimeInterface $deadline): static
     {
         return $this->state(fn (): array => ['deadline_at' => $deadline]);
+    }
+
+    /**
+     * Queued by an offline session opened with this password (its offline-login hash).
+     */
+    public function queuedWithPassword(string $password): static
+    {
+        return $this->state(fn (): array => ['credential_hash' => Hash::make($password)]);
+    }
+
+    /**
+     * The portal accepted the password it was queued with: it may be sent.
+     */
+    public function confirmed(): static
+    {
+        return $this->state(fn (): array => ['confirmed_at' => now()]);
+    }
+
+    /**
+     * Left mid-way by a flush that died.
+     */
+    public function sending(): static
+    {
+        return $this->state(fn (): array => ['status' => PortalOutboxItem::STATUS_SENDING, 'confirmed_at' => now()]);
     }
 
     public function sent(): static

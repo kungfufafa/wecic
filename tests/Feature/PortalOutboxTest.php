@@ -10,6 +10,7 @@ use App\Events\PortalSessionNoticeSent;
 use App\Events\PortalUploadProgressed;
 use App\Exceptions\PortalAuthenticationException;
 use App\Exceptions\PortalConnectionException;
+use App\Jobs\ExpirePortalSessionJob;
 use App\Jobs\FlushPortalOutboxJob;
 use App\Jobs\ProcessPortalAssignmentUploadJob;
 use App\Jobs\ProcessPortalExamUploadJob;
@@ -17,14 +18,21 @@ use App\Jobs\RefreshPortalDataJob;
 use App\Jobs\RefreshPortalSessionJob;
 use App\Jobs\ResumeOfflineSessionJob;
 use App\Jobs\ScanPortalNotificationsJob;
+use App\Jobs\SendPortalOutboxJob;
 use App\Jobs\SyncPortalArchiveJob;
 use App\Models\PortalNotification;
 use App\Models\PortalOutboxItem;
+use App\Services\AttendanceShortcutService;
 use App\Services\PortalAuthService;
+use App\Services\PortalBackgroundSync;
 use App\Services\PortalDataOwner;
 use App\Services\PortalOfflineAccess;
+use App\Services\PortalOperationTracker;
+use App\Services\PortalOutbox;
+use App\Services\PortalOwnerRekeyer;
 use App\Services\PortalSessionManager;
 use App\Services\PortalSnapshotStore;
+use App\Services\PortalUploadLocks;
 use App\Services\SipandaiSubmissionService;
 use Carbon\CarbonImmutable;
 use Illuminate\Bus\UniqueLock;
@@ -33,6 +41,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Mockery;
 use Mockery\MockInterface;
@@ -447,6 +456,465 @@ class PortalOutboxTest extends TestCase
         $this->get('/dashboard')->assertOk()->assertSee('data-outbox-list', false);
     }
 
+    public function test_a_shortcut_attendance_without_todays_material_is_not_sent_to_an_earlier_meeting(): void
+    {
+        $item = PortalOutboxItem::factory()->forOwner($this->ownerHash)->confirmed()->state([
+            'action' => PortalOutboxItem::ACTION_ATTENDANCE,
+            'payload' => [
+                'courseid' => null,
+                'modulesid' => null,
+                'pertemuan' => null,
+                'shortcut_context' => ['class_id' => 771, 'dosen_id' => 12, 'course_id' => 8837],
+                'kode' => '35533429',
+                'form_values' => [],
+            ],
+            'deadline_at' => now()->addHours(2),
+        ])->create();
+        $this->instance(AttendanceShortcutService::class, Mockery::mock(AttendanceShortcutService::class, function (MockInterface $mock): void {
+            // Today's material is missing: the link points at the previous meeting.
+            $mock->shouldReceive('resolveAttendanceShortcutForClass')->once()->andReturn([
+                'attendance_payload' => ['courseid' => 8837, 'modulesid' => 29700, 'pertemuan' => 6],
+                'attendance_target_reliable' => false,
+            ]);
+        }));
+        $this->instance(SipandaiSubmissionService::class, Mockery::mock(SipandaiSubmissionService::class, function (MockInterface $mock): void {
+            $mock->shouldNotReceive('submitAttendance');
+        }));
+        $token = $this->onlineSession();
+
+        $this->runFlush($token);
+
+        $item->refresh();
+        $this->assertSame(PortalOutboxItem::STATUS_FAILED, $item->status);
+        $this->assertStringContainsString('Materi pertemuan hari ini belum diunggah dosen', (string) $item->last_error);
+        $this->assertSame(1, PortalNotification::query()->forOwner($this->ownerHash)->where('type', 'outbox_failed')->count());
+    }
+
+    public function test_items_queued_with_another_password_are_refused_at_the_next_online_login(): void
+    {
+        $otherPassword = PortalOutboxItem::factory()->forOwner($this->ownerHash)->attendance(moduleId: 29801)->queuedWithPassword('password-lama')->create();
+        $samePassword = PortalOutboxItem::factory()->forOwner($this->ownerHash)->attendance(moduleId: 29802)->queuedWithPassword(self::PASSWORD)->create();
+        $unknown = PortalOutboxItem::factory()->forOwner($this->ownerHash)->attendance(moduleId: 29803)->state(['credential_hash' => ''])->create();
+        $this->instance(SipandaiSubmissionService::class, Mockery::mock(SipandaiSubmissionService::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('submitAttendance')->once()->withArgs(fn (string $token, int $courseId, int $moduleId): bool => $moduleId === 29802)
+                ->andReturn(['success' => true, 'message' => 'Absensi tercatat.', 'data' => ['status' => 'marked']]);
+        }));
+
+        $token = $this->onlineSession();
+
+        foreach ([[$otherPassword, PortalOutbox::UNCONFIRMED_MESSAGE], [$unknown, PortalOutbox::UNCONFIRMABLE_MESSAGE]] as [$refused, $message]) {
+            $refused->refresh();
+            $this->assertSame(PortalOutboxItem::STATUS_FAILED, $refused->status);
+            $this->assertSame($message, $refused->last_error);
+        }
+        $this->assertNotNull($samePassword->refresh()->confirmed_at);
+        $this->assertSame(2, PortalNotification::query()->forOwner($this->ownerHash)->where('type', 'outbox_failed')->count());
+
+        $this->runFlush($token);
+
+        $this->assertSame(PortalOutboxItem::STATUS_SENT, $samePassword->refresh()->status);
+        $this->assertSame(PortalOutboxItem::STATUS_FAILED, $otherPassword->refresh()->status);
+    }
+
+    public function test_an_old_password_can_queue_offline_but_its_items_never_go_out_with_the_new_one(): void
+    {
+        $token = $this->offlineSession();
+        $this->postJson('/api/attendance', ['courseid' => 8837, 'modulesid' => 29808, 'kode' => '35533429', 'pertemuan' => 4])->assertStatus(202);
+        $item = PortalOutboxItem::query()->sole();
+        $this->assertNull($item->confirmed_at);
+        $this->assertTrue(Hash::check(self::PASSWORD, (string) $item->credential_hash));
+        $this->assertArrayNotHasKey('credential_hash', $this->getJson('/api/outbox')->json('data.items.0'));
+        $this->instance(SipandaiSubmissionService::class, Mockery::mock(SipandaiSubmissionService::class, function (MockInterface $mock): void {
+            $mock->shouldNotReceive('submitAttendance');
+        }));
+
+        // The password changed on the portal since; the student logs in with the new one.
+        $this->portal = 'up';
+        $this->login('password-baru')->assertOk()->assertJsonPath('data.offline', false);
+        $this->runFlush((string) session('campus_session_token'));
+
+        $item->refresh();
+        $this->assertSame(PortalOutboxItem::STATUS_FAILED, $item->status);
+        $this->assertSame(PortalOutbox::UNCONFIRMED_MESSAGE, $item->last_error);
+        $this->assertNotSame($token, session('campus_session_token'));
+    }
+
+    public function test_a_resume_sends_only_what_was_queued_with_its_own_password(): void
+    {
+        $token = $this->offlineSession();
+        $this->postJson('/api/attendance', ['courseid' => 8837, 'modulesid' => 29808, 'kode' => '35533429', 'pertemuan' => 4])->assertStatus(202);
+        $own = PortalOutboxItem::query()->sole();
+        $other = PortalOutboxItem::factory()->forOwner($this->ownerHash)->attendance(moduleId: 29809)->queuedWithPassword('password-lain')->create();
+
+        $this->portal = 'up';
+        $this->runResume($token);
+
+        $this->assertNotNull($own->refresh()->confirmed_at);
+        $this->assertNull($other->refresh()->confirmed_at);
+        $this->assertSame(PortalOutboxItem::STATUS_QUEUED, $other->status);
+    }
+
+    public function test_an_upload_cut_short_by_an_expired_session_keeps_its_queued_file(): void
+    {
+        $item = PortalOutboxItem::factory()->forOwner($this->ownerHash)->withFile()->confirmed()->create();
+        $queuedFile = $item->file_path;
+        $calls = 0;
+        $this->instance(SipandaiSubmissionService::class, Mockery::mock(SipandaiSubmissionService::class, function (MockInterface $mock) use (&$calls): void {
+            $mock->shouldReceive('submitAssignment')->twice()->andReturnUsing(function () use (&$calls): array {
+                if (++$calls === 1) {
+                    throw PortalAuthenticationException::sessionExpired();
+                }
+
+                return ['success' => true, 'message' => 'Uploaded', 'data' => ['status' => 'uploaded']];
+            });
+            $mock->shouldReceive('inspectAssignmentSubmissionState')->once()->andReturn(['status' => 'uploaded', 'file_info' => null, 'delete_payload' => null]);
+        }));
+        $token = $this->onlineSession();
+
+        $this->runFlush($token);
+
+        $item->refresh();
+        $this->assertSame(PortalOutboxItem::STATUS_QUEUED, $item->status);
+        $this->assertSame($queuedFile, $item->file_path);
+        Storage::assertExists($queuedFile);
+        $this->assertSame([], Storage::allFiles('portal-uploads'), 'The copy the job got is gone.');
+        $this->assertSame(0, PortalNotification::query()->count());
+
+        $this->runFlush($token);
+
+        $this->assertSame(PortalOutboxItem::STATUS_SENT, $item->refresh()->status);
+        Storage::assertMissing($queuedFile);
+    }
+
+    public function test_a_flush_that_died_mid_way_reports_its_upload_as_unverified_and_sends_its_attendance_again(): void
+    {
+        $upload = PortalOutboxItem::factory()->forOwner($this->ownerHash)->withFile()->sending()->create();
+        $attendance = PortalOutboxItem::factory()->forOwner($this->ownerHash)->attendance()->sending()->create();
+        $this->instance(SipandaiSubmissionService::class, Mockery::mock(SipandaiSubmissionService::class, function (MockInterface $mock): void {
+            $mock->shouldNotReceive('submitAssignment');
+            $mock->shouldReceive('submitAttendance')->once()->andReturn(['success' => true, 'message' => 'Absensi tercatat.', 'data' => ['status' => 'already_marked']]);
+        }));
+        $token = $this->onlineSession();
+        // Items left in sending are reason enough to flush.
+        Bus::assertDispatched(FlushPortalOutboxJob::class);
+
+        $this->runFlush($token);
+
+        $upload->refresh();
+        $this->assertSame(PortalOutboxItem::STATUS_UNVERIFIED, $upload->status);
+        $this->assertSame(PortalOutbox::ABANDONED_UPLOAD_MESSAGE, $upload->last_error);
+        $this->assertNull($upload->file_path);
+        $this->assertSame(PortalOutboxItem::STATUS_SENT, $attendance->refresh()->status);
+
+        $notification = PortalNotification::query()->forOwner($this->ownerHash)->where('type', 'outbox_unverified')->sole();
+        $this->assertSame('Upload tugas belum pasti terkirim ke portal', $notification->title);
+        $this->assertStringContainsString('Cek halamannya di portal sebelum mengirim ulang.', (string) $notification->body);
+        $this->getJson('/api/outbox')->assertOk()->assertJsonFragment(['status_label' => 'Belum pasti terkirim ke portal']);
+    }
+
+    public function test_an_upload_whose_outcome_the_portal_leaves_open_is_unverified_not_failed(): void
+    {
+        $item = PortalOutboxItem::factory()->forOwner($this->ownerHash)->withFile()->confirmed()->create();
+        $this->instance(SipandaiSubmissionService::class, Mockery::mock(SipandaiSubmissionService::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('submitAssignment')->once()->andReturn(['success' => false, 'message' => 'Timeout', 'data' => ['status' => 'unknown', 'transport_error' => true]]);
+            $mock->shouldReceive('inspectAssignmentSubmissionState')->once()->andReturn(['status' => 'not_uploaded']);
+        }));
+        $token = $this->onlineSession();
+
+        $this->runFlush($token);
+
+        $item->refresh();
+        $this->assertSame(PortalOutboxItem::STATUS_UNVERIFIED, $item->status);
+        $this->assertStringStartsWith('Status upload tugas belum pasti.', (string) $item->last_error);
+        $this->assertSame(1, PortalNotification::query()->where('type', 'outbox_unverified')->count());
+    }
+
+    public function test_an_upload_waits_while_the_same_target_is_being_uploaded_online(): void
+    {
+        $item = PortalOutboxItem::factory()->forOwner($this->ownerHash)->withFile()->confirmed()->create();
+        $this->instance(SipandaiSubmissionService::class, Mockery::mock(SipandaiSubmissionService::class, function (MockInterface $mock): void {
+            $mock->shouldNotReceive('submitAssignment');
+        }));
+        $token = $this->onlineSession();
+        app(PortalOperationTracker::class)->start('online-upload', 'assignment_upload', null, 'Mengirim.');
+        $lock = app(PortalUploadLocks::class)->acquire($token, PortalUploadLocks::assignmentTarget(9000, 29833, 2), 'online-upload');
+        $this->assertNotNull($lock);
+        Bus::fake([FlushPortalOutboxJob::class]);
+
+        $this->runFlush($token);
+
+        $item->refresh();
+        $this->assertSame(PortalOutboxItem::STATUS_QUEUED, $item->status);
+        Storage::assertExists((string) $item->file_path);
+        $this->assertSame(0, PortalNotification::query()->count());
+        Bus::assertDispatched(FlushPortalOutboxJob::class, fn (FlushPortalOutboxJob $job): bool => $job->uniqueId() === $token && $job->delay !== null);
+    }
+
+    public function test_an_online_upload_drops_the_older_copy_queued_offline(): void
+    {
+        $this->fakeBus([ProcessPortalAssignmentUploadJob::class, ProcessPortalExamUploadJob::class]);
+        $assignment = PortalOutboxItem::factory()->forOwner($this->ownerHash)->withFile()->confirmed()->create();
+        $otherMeeting = PortalOutboxItem::factory()->forOwner($this->ownerHash)->withFile()->confirmed()->state(['payload' => ['courses_id' => 9000, 'id' => 29834, 'pertemuan' => 3, 'meeting_id' => 29834, 'form_values' => []]])->create();
+        $exam = PortalOutboxItem::factory()->forOwner($this->ownerHash)->examUpload(8833)->withFile('uts.zip')->confirmed()->create();
+        $assignmentFile = $assignment->file_path;
+        $this->onlineSession();
+        app(PortalSnapshotStore::class)->put((string) session('campus_session_token'), 'exams', ['exams' => [['id' => '8833', 'course_name' => 'Basis Data', 'can_upload' => true]]]);
+
+        $this->post('/api/assignment', [
+            'courses_id' => 9000,
+            'id' => 29833,
+            'pertemuan' => 2,
+            'attachment' => UploadedFile::fake()->create('tugas-v2.pdf', 64, 'application/pdf'),
+        ], ['Accept' => 'application/json'])->assertStatus(202)->assertJsonPath('data.status', 'queued');
+        $this->post('/api/exam', [
+            'id' => 8833,
+            'attachment' => UploadedFile::fake()->create('uts-v2.zip', 64, 'application/zip'),
+        ], ['Accept' => 'application/json'])->assertStatus(202)->assertJsonPath('data.status', 'queued');
+
+        $this->assertNull(PortalOutboxItem::query()->find($assignment->id));
+        $this->assertNull(PortalOutboxItem::query()->find($exam->id));
+        Storage::assertMissing($assignmentFile);
+        $this->assertSame(PortalOutboxItem::STATUS_QUEUED, $otherMeeting->refresh()->status);
+    }
+
+    public function test_the_sweep_sends_what_an_offline_session_left_once_it_idled_out(): void
+    {
+        Bus::fake([RefreshPortalSessionJob::class, ResumeOfflineSessionJob::class, ScanPortalNotificationsJob::class, RefreshPortalDataJob::class, SyncPortalArchiveJob::class, ExpirePortalSessionJob::class, SendPortalOutboxJob::class]);
+        $token = $this->offlineSession();
+        $this->postJson('/api/attendance', ['courseid' => 8837, 'modulesid' => 29808, 'kode' => '35533429', 'pertemuan' => 4])->assertStatus(202);
+        $attendance = PortalOutboxItem::query()->sole();
+        $overdue = PortalOutboxItem::factory()->forOwner($this->ownerHash)->withFile()->dueAt(now()->subMinute())->create();
+        $stale = PortalOutboxItem::factory()->forOwner($this->ownerHash)->examUpload()->create(['created_at' => now()->subDays(31)]);
+        // The offline session idles out before the portal is back: no resume will send anything.
+        app(PortalSessionManager::class)->invalidateSession($token, 'idle');
+        $this->instance(SipandaiSubmissionService::class, Mockery::mock(SipandaiSubmissionService::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('submitAttendance')->once()->andReturn(['success' => true, 'message' => 'Absensi tercatat.', 'data' => ['status' => 'marked']]);
+        }));
+
+        $this->artisan('portal:send-outbox')->assertSuccessful();
+
+        $this->assertSame(PortalOutboxItem::STATUS_EXPIRED, $overdue->refresh()->status);
+        $this->assertSame(PortalOutboxItem::STATUS_EXPIRED, $stale->refresh()->status);
+        $this->assertSame('Belum bisa dikirim dalam 30 hari.', $stale->last_error);
+        $this->assertSame(2, PortalNotification::query()->forOwner($this->ownerHash)->where('type', 'outbox_expired')->count());
+        $accountId = (int) app(PortalOfflineAccess::class)->findForOwner($this->ownerHash)?->getKey();
+        Bus::assertDispatchedTimes(SendPortalOutboxJob::class, 1);
+
+        // Within the quarter hour the student is not logged in for again.
+        $this->artisan('portal:send-outbox')->assertSuccessful();
+        Bus::assertDispatchedTimes(SendPortalOutboxJob::class, 1);
+
+        $this->portal = 'up';
+        app()->call([new SendPortalOutboxJob($accountId), 'handle']);
+
+        $attendance->refresh();
+        $this->assertSame(PortalOutboxItem::STATUS_SENT, $attendance->status);
+        $this->assertNotNull($attendance->confirmed_at);
+        $this->assertSame(1, PortalNotification::query()->forOwner($this->ownerHash)->where('type', 'outbox_sent')->count());
+        $this->assertTrue(Cache::lock(FlushPortalOutboxJob::lockKey($this->ownerHash), 10)->get(), 'The flush lock is released.');
+    }
+
+    public function test_a_stored_password_the_portal_refuses_sends_nothing_and_is_dropped(): void
+    {
+        $item = PortalOutboxItem::factory()->forOwner($this->ownerHash)->attendance()->queuedWithPassword(self::PASSWORD)->create();
+        $this->instance(SipandaiSubmissionService::class, Mockery::mock(SipandaiSubmissionService::class, function (MockInterface $mock): void {
+            $mock->shouldNotReceive('submitAttendance');
+        }));
+        $account = app(PortalOfflineAccess::class)->findForOwner($this->ownerHash);
+        $this->portal = 'rejects';
+
+        $this->assertSame('rejected', app(PortalBackgroundSync::class)->sendOutbox($account));
+
+        $this->assertSame(PortalOutboxItem::STATUS_QUEUED, $item->refresh()->status);
+        $this->assertNull($account->refresh()->credentials);
+        $this->assertNotNull($account->credentials_rejected_at);
+    }
+
+    public function test_items_beyond_the_time_budget_go_to_a_follow_up_flush(): void
+    {
+        config(['portal.outbox.flush_start_budget' => 0]);
+        $first = PortalOutboxItem::factory()->forOwner($this->ownerHash)->attendance(moduleId: 29801)->confirmed()->dueAt(now()->addHour())->create();
+        $second = PortalOutboxItem::factory()->forOwner($this->ownerHash)->attendance(moduleId: 29802)->confirmed()->dueAt(now()->addHours(2))->create();
+        $this->instance(SipandaiSubmissionService::class, Mockery::mock(SipandaiSubmissionService::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('submitAttendance')->once()->andReturn(['success' => true, 'message' => 'Absensi tercatat.', 'data' => ['status' => 'marked']]);
+        }));
+        $token = $this->onlineSession();
+        Bus::fake([FlushPortalOutboxJob::class]);
+
+        $this->runFlush($token);
+
+        $this->assertSame(PortalOutboxItem::STATUS_SENT, $first->refresh()->status, 'One item always starts.');
+        $this->assertSame(PortalOutboxItem::STATUS_QUEUED, $second->refresh()->status);
+        Bus::assertDispatched(FlushPortalOutboxJob::class, fn (FlushPortalOutboxJob $job): bool => $job->uniqueId() === $token);
+    }
+
+    public function test_a_flush_that_dies_frees_its_lock_and_hands_over_a_bounded_number_of_times(): void
+    {
+        $token = $this->onlineSession();
+        Bus::fake([FlushPortalOutboxJob::class]);
+        $job = new FlushPortalOutboxJob($token);
+        $runId = (new \ReflectionProperty(FlushPortalOutboxJob::class, 'runId'))->getValue($job);
+        $this->assertTrue(Cache::lock(FlushPortalOutboxJob::lockKey($this->ownerHash), 660, $runId)->get());
+
+        $job->failed(new \RuntimeException('Job timed out'));
+
+        $this->assertTrue(Cache::lock(FlushPortalOutboxJob::lockKey($this->ownerHash), 10)->get(), 'The dead run\'s lock is freed.');
+        Bus::assertDispatchedTimes(FlushPortalOutboxJob::class, 1);
+
+        (new FlushPortalOutboxJob($token, null, 5))->failed(new \RuntimeException('Job timed out'));
+
+        Bus::assertDispatchedTimes(FlushPortalOutboxJob::class, 1);
+    }
+
+    public function test_an_item_cancelled_or_superseded_while_the_flush_runs_is_neither_sent_nor_reported(): void
+    {
+        $first = PortalOutboxItem::factory()->forOwner($this->ownerHash)->attendance(moduleId: 29801)->confirmed()->dueAt(now()->addHour())->create();
+        $cancelled = PortalOutboxItem::factory()->forOwner($this->ownerHash)->attendance(moduleId: 29802)->confirmed()->dueAt(now()->addHours(2))->create();
+        $superseded = PortalOutboxItem::factory()->forOwner($this->ownerHash)->attendance(moduleId: 29803)->confirmed()->dueAt(now()->addHours(3))->create();
+        $submitted = [];
+        $this->instance(SipandaiSubmissionService::class, Mockery::mock(SipandaiSubmissionService::class, function (MockInterface $mock) use (&$submitted, $cancelled, $superseded): void {
+            $mock->shouldReceive('submitAttendance')->andReturnUsing(function (string $token, int $courseId, int $moduleId) use (&$submitted, $cancelled, $superseded): array {
+                $submitted[] = $moduleId;
+
+                if ($moduleId === 29801) {
+                    // The student cancels the next code while the first goes out.
+                    app(PortalOutbox::class)->cancel($this->ownerHash, $cancelled->id);
+                }
+
+                if ($moduleId === 29803) {
+                    // An online action drops the item being sent.
+                    PortalOutboxItem::query()->whereKey($superseded->id)->delete();
+                }
+
+                return ['success' => true, 'message' => 'Absensi tercatat.', 'data' => ['status' => 'marked']];
+            });
+        }));
+        $token = $this->onlineSession();
+
+        $this->runFlush($token);
+
+        $this->assertSame([29801, 29803], $submitted);
+        $this->assertSame(PortalOutboxItem::STATUS_SENT, $first->refresh()->status);
+        $this->assertNull(PortalOutboxItem::query()->find($cancelled->id));
+        $this->assertNull(PortalOutboxItem::query()->find($superseded->id));
+        $this->assertSame(1, PortalNotification::query()->forOwner($this->ownerHash)->count());
+    }
+
+    public function test_an_online_upload_drops_a_queued_copy_a_flush_has_picked_but_not_started(): void
+    {
+        $this->fakeBus([ProcessPortalAssignmentUploadJob::class]);
+        $picked = PortalOutboxItem::factory()->forOwner($this->ownerHash)->withFile()->sending()->create();
+        $this->onlineSession();
+
+        $this->post('/api/assignment', [
+            'courses_id' => 9000,
+            'id' => 29833,
+            'pertemuan' => 2,
+            'attachment' => UploadedFile::fake()->create('tugas-v2.pdf', 64, 'application/pdf'),
+        ], ['Accept' => 'application/json'])->assertStatus(202);
+
+        $this->assertNull(PortalOutboxItem::query()->find($picked->id));
+    }
+
+    public function test_the_sweep_settles_what_a_dead_flush_left_when_no_session_comes_back(): void
+    {
+        $upload = PortalOutboxItem::factory()->forOwner($this->ownerHash)->withFile()->sending()->create();
+        $attendance = PortalOutboxItem::factory()->forOwner($this->ownerHash)->attendance()->sending()->dueAt(now()->subMinute())->create();
+        app(PortalOfflineAccess::class)->forget($this->ownerHash);
+
+        $this->artisan('portal:send-outbox')->assertSuccessful();
+
+        $this->assertSame(PortalOutboxItem::STATUS_UNVERIFIED, $upload->refresh()->status);
+        $this->assertNull($upload->file_path);
+        $this->assertSame(PortalOutboxItem::STATUS_EXPIRED, $attendance->refresh()->status);
+        $this->assertEqualsCanonicalizing(['outbox_unverified', 'outbox_expired'], PortalNotification::query()->forOwner($this->ownerHash)->pluck('type')->all());
+    }
+
+    public function test_items_queued_while_the_student_is_online_elsewhere_are_confirmed_with_the_stored_password(): void
+    {
+        Bus::fake([RefreshPortalSessionJob::class, ResumeOfflineSessionJob::class, ScanPortalNotificationsJob::class, RefreshPortalDataJob::class, SyncPortalArchiveJob::class, FlushPortalOutboxJob::class, SendPortalOutboxJob::class]);
+        $token = $this->onlineSession();
+        // Queued by an offline session on another device, after this login.
+        $item = PortalOutboxItem::factory()->forOwner($this->ownerHash)->attendance()->queuedWithPassword(self::PASSWORD)->create();
+        $stale = PortalOutboxItem::factory()->forOwner($this->ownerHash)->attendance(moduleId: 29809)->queuedWithPassword('password-lama')->create();
+
+        $this->artisan('portal:send-outbox')->assertSuccessful();
+
+        Bus::assertDispatchedTimes(SendPortalOutboxJob::class, 1);
+        $accountId = (int) app(PortalOfflineAccess::class)->findForOwner($this->ownerHash)?->getKey();
+        app()->call([new SendPortalOutboxJob($accountId), 'handle']);
+
+        $this->assertNotNull($item->refresh()->confirmed_at);
+        $this->assertSame(PortalOutboxItem::STATUS_FAILED, $stale->refresh()->status);
+        $this->assertNull($stale->credential_hash, 'A settled item keeps no password hash.');
+        Bus::assertDispatched(FlushPortalOutboxJob::class, fn (FlushPortalOutboxJob $job): bool => $job->uniqueId() === $token);
+    }
+
+    public function test_an_offline_session_from_before_sessions_kept_the_hash_still_gets_its_items_sent(): void
+    {
+        $token = $this->offlineSession();
+        $key = config('portal.session_prefix').$token;
+        $session = Cache::get($key);
+        unset($session['credential_hash']);
+        Cache::put($key, $session, 3600);
+
+        $this->postJson('/api/attendance', ['courseid' => 8837, 'modulesid' => 29808, 'kode' => '35533429', 'pertemuan' => 4])->assertStatus(202);
+        $item = PortalOutboxItem::query()->sole();
+        $this->assertNull($item->credential_hash);
+
+        $this->portal = 'up';
+        $this->runResume($token);
+
+        $this->assertNotNull($item->refresh()->confirmed_at);
+    }
+
+    public function test_a_background_send_leaves_what_it_could_not_send_to_the_next_sweep(): void
+    {
+        Bus::fake([RefreshPortalSessionJob::class, ResumeOfflineSessionJob::class, ScanPortalNotificationsJob::class, RefreshPortalDataJob::class, SyncPortalArchiveJob::class, ExpirePortalSessionJob::class, SendPortalOutboxJob::class]);
+        config(['portal.outbox.flush_start_budget' => 0]);
+        $first = PortalOutboxItem::factory()->forOwner($this->ownerHash)->attendance(moduleId: 29801)->queuedWithPassword(self::PASSWORD)->dueAt(now()->addHour())->create();
+        $second = PortalOutboxItem::factory()->forOwner($this->ownerHash)->attendance(moduleId: 29802)->queuedWithPassword(self::PASSWORD)->dueAt(now()->addHours(2))->create();
+        $this->instance(SipandaiSubmissionService::class, Mockery::mock(SipandaiSubmissionService::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('submitAttendance')->once()->andReturn(['success' => true, 'message' => 'Absensi tercatat.', 'data' => ['status' => 'marked']]);
+        }));
+        $account = app(PortalOfflineAccess::class)->findForOwner($this->ownerHash);
+        Cache::put(SendPortalOutboxJob::attemptKey((int) $account->getKey()), true, 900);
+        $this->portal = 'up';
+
+        $this->assertSame('flushed', app(PortalBackgroundSync::class)->sendOutbox($account));
+
+        $this->assertSame(PortalOutboxItem::STATUS_SENT, $first->refresh()->status);
+        // No follow-up for the background session it logged out: the sync queue would have run it.
+        $this->assertSame(PortalOutboxItem::STATUS_QUEUED, $second->refresh()->status);
+        $this->assertFalse(Cache::has(SendPortalOutboxJob::attemptKey((int) $account->getKey())));
+    }
+
+    public function test_the_outbox_follows_the_student_to_a_new_owner_key(): void
+    {
+        $item = PortalOutboxItem::factory()->forOwner('student_previous_key')->attendance()->create();
+
+        app(PortalOwnerRekeyer::class)->rekey('student_previous_key', $this->ownerHash);
+
+        $this->assertSame($this->ownerHash, $item->refresh()->owner_hash);
+    }
+
+    public function test_pending_items_are_never_pruned_but_settled_ones_are(): void
+    {
+        $this->travelTo(now()->subDays(40));
+        $queued = PortalOutboxItem::factory()->forOwner($this->ownerHash)->create();
+        $sending = PortalOutboxItem::factory()->forOwner($this->ownerHash)->sending()->create();
+        $unverified = PortalOutboxItem::factory()->forOwner($this->ownerHash)->withFile()->state(['status' => PortalOutboxItem::STATUS_UNVERIFIED])->create();
+        $unverifiedFile = $unverified->file_path;
+        $this->travelBack();
+
+        $this->artisan('model:prune', ['--model' => [PortalOutboxItem::class]])->assertSuccessful();
+
+        $this->assertNotNull(PortalOutboxItem::query()->find($queued->id));
+        $this->assertNotNull(PortalOutboxItem::query()->find($sending->id));
+        $this->assertNull(PortalOutboxItem::query()->find($unverified->id));
+        Storage::assertMissing($unverifiedFile);
+    }
+
     /**
      * @param  list<class-string>  $also
      */
@@ -482,9 +950,9 @@ class PortalOutboxTest extends TestCase
         return (string) session('campus_session_token');
     }
 
-    private function login(): \Illuminate\Testing\TestResponse
+    private function login(string $password = self::PASSWORD): \Illuminate\Testing\TestResponse
     {
-        return $this->postJson('/api/auth/login', ['username' => self::USERNAME, 'password' => self::PASSWORD]);
+        return $this->postJson('/api/auth/login', ['username' => self::USERNAME, 'password' => $password]);
     }
 
     /**

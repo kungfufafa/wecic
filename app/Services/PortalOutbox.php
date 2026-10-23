@@ -10,7 +10,9 @@ use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 /**
  * Deadline-bound writes asked for while the session is offline.
@@ -19,9 +21,15 @@ use Illuminate\Support\Facades\Log;
  * session cannot reach it. Instead of refusing an attendance code or an
  * upload (their windows close), the three endpoints store it here, validated
  * and with its file, and answer that it is NOT yet sent. FlushPortalOutboxJob
- * sends the queue once the session is back online (ResumeOfflineSessionJob)
- * or the student logs in online again; whatever passed its deadline by then
- * expires and is never sent. Every outcome becomes a notification.
+ * sends the queue once the session is back online (ResumeOfflineSessionJob),
+ * the student logs in online again, or portal:send-outbox logs in with the
+ * stored password; whatever passed its deadline by then expires and is never
+ * sent. Every outcome becomes a notification.
+ *
+ * An offline session only proves its password matched the student's last
+ * online login, so an item is sent only once the portal has accepted that
+ * same password (confirmWithPassword, confirmForCredential); one queued with
+ * a password the portal no longer takes is refused instead.
  *
  * Deadlines come from the request when the client knows one, else from the
  * snapshots MyCIC already holds: the pending-assignments list or the meeting
@@ -42,6 +50,12 @@ class PortalOutbox
      * Settled items stay in the student's queue view this long.
      */
     private const RECENT_DAYS = 7;
+
+    public const UNCONFIRMED_MESSAGE = 'Tidak dikirim: antrean ini dibuat dengan password yang berbeda dari password portal yang berlaku sekarang.';
+
+    public const UNCONFIRMABLE_MESSAGE = 'Tidak dikirim otomatis: MyCIC tidak bisa memastikan sesi yang membuat antrean ini.';
+
+    public const ABANDONED_UPLOAD_MESSAGE = 'Pengiriman terhenti sebelum portal menjawab, jadi belum pasti file ini sudah diterima.';
 
     private const MONTHS = [
         'januari' => 1, 'jan' => 1,
@@ -180,10 +194,10 @@ class PortalOutbox
         return PortalOutboxItem::query()
             ->forOwner($ownerHash)
             ->where(function ($query): void {
-                $query->where('status', PortalOutboxItem::STATUS_QUEUED)
+                $query->whereIn('status', PortalOutboxItem::PENDING_STATUSES)
                     ->orWhere('updated_at', '>=', now()->subDays(self::RECENT_DAYS));
             })
-            ->orderByRaw("case when status = 'queued' then 0 else 1 end")
+            ->orderByRaw("case when status in ('queued', 'sending') then 0 else 1 end")
             ->orderByDesc('id')
             ->limit(50)
             ->get();
@@ -205,9 +219,35 @@ class PortalOutbox
             ->get();
     }
 
+    /**
+     * Anything waiting, including what a dead flush left mid-way.
+     */
     public function hasQueued(string $ownerHash): bool
     {
-        return PortalOutboxItem::query()->forOwner($ownerHash)->queued()->exists();
+        return PortalOutboxItem::query()->forOwner($ownerHash)->pending()->exists();
+    }
+
+    /**
+     * Waiting items no password has confirmed yet (confirmWithPassword).
+     */
+    public function hasUnconfirmed(string $ownerHash): bool
+    {
+        return PortalOutboxItem::query()->forOwner($ownerHash)->queued()->whereNull('confirmed_at')->exists();
+    }
+
+    /**
+     * Whether a flush would send or settle anything: a confirmed item, or
+     * one a dead flush left in `sending`.
+     */
+    public function hasSendable(string $ownerHash): bool
+    {
+        return PortalOutboxItem::query()
+            ->forOwner($ownerHash)
+            ->where(function ($query): void {
+                $query->where('status', PortalOutboxItem::STATUS_SENDING)
+                    ->orWhere(fn ($queued) => $queued->where('status', PortalOutboxItem::STATUS_QUEUED)->whereNotNull('confirmed_at'));
+            })
+            ->exists();
     }
 
     /**
@@ -250,6 +290,205 @@ class PortalOutbox
         return true;
     }
 
+    /**
+     * The portal just accepted `$password` for this student (an online
+     * login, or a background login with the stored password): what an
+     * offline session opened with that same password queued may go out. Any
+     * other waiting item was queued with a password the portal no longer
+     * takes (changed since, or an old one someone else knew) and is refused,
+     * never sent. Never throws: the login it rides on must not fail.
+     *
+     * @return int Items refused.
+     */
+    public function confirmWithPassword(string $sessionToken, string $password, ?string $broadcastSessionId = null): int
+    {
+        try {
+            $verdicts = [];
+            $refused = [];
+
+            foreach (PortalOutboxItem::query()->forOwner($this->ownerHash($sessionToken))->queued()->whereNull('confirmed_at')->get() as $item) {
+                $hash = $item->credential_hash;
+
+                // Null: queued before the check existed.
+                if ($hash === null || ($verdicts[$hash] ??= $this->passwordMatches($password, $hash))) {
+                    $item->forceFill(['confirmed_at' => now()])->save();
+
+                    continue;
+                }
+
+                $this->markFailed($item, $hash === '' ? self::UNCONFIRMABLE_MESSAGE : self::UNCONFIRMED_MESSAGE);
+                $refused[] = $item;
+            }
+
+            $this->publish($sessionToken, $refused, $broadcastSessionId);
+
+            return count($refused);
+        } catch (\Throwable $throwable) {
+            Log::warning('Portal outbox could not be confirmed', [
+                'error' => $throwable->getMessage(),
+            ]);
+
+            return 0;
+        }
+    }
+
+    /**
+     * An offline session logged in again by itself, so the portal accepted
+     * the password it was opened with (`$credentialHash`): what it, or any
+     * other session opened with that password, queued may go out. Never
+     * throws.
+     *
+     * @return int Items confirmed.
+     */
+    public function confirmForCredential(string $ownerHash, ?string $credentialHash): int
+    {
+        try {
+            return PortalOutboxItem::query()
+                ->forOwner($ownerHash)
+                ->queued()
+                ->whereNull('confirmed_at')
+                ->where(function ($query) use ($credentialHash): void {
+                    $query->whereNull('credential_hash');
+
+                    if ($credentialHash !== null && $credentialHash !== '') {
+                        $query->orWhere('credential_hash', $credentialHash);
+                    }
+                })
+                ->update(['confirmed_at' => now()]);
+        } catch (\Throwable $throwable) {
+            Log::warning('Portal outbox could not be confirmed', [
+                'error' => $throwable->getMessage(),
+            ]);
+
+            return 0;
+        }
+    }
+
+    /**
+     * The student sends the same target straight to the portal: a copy still
+     * waiting in the queue is older, and sending it afterwards would replace
+     * or duplicate the new one, so it is dropped. Called holding the target's
+     * upload lock, so a copy a flush has picked (`sending`) has not started
+     * its upload and is dropped too: the flush finds it gone and settles
+     * nothing. Never throws: the upload it makes way for goes on regardless.
+     *
+     * @param  list<string>  $matchKeys  PortalOutboxItem::matchKeys() of the target, e.g. `meeting:29833`
+     * @return int Items dropped.
+     */
+    public function supersede(string $sessionToken, string $action, array $matchKeys, ?string $broadcastSessionId = null): int
+    {
+        $dropped = 0;
+
+        try {
+            foreach (PortalOutboxItem::query()->forOwner($this->ownerHash($sessionToken))->pending()->where('action', $action)->get() as $item) {
+                if (array_intersect($item->matchKeys(), $matchKeys) === []) {
+                    continue;
+                }
+
+                $item->deleteFile();
+                $item->delete();
+                $dropped++;
+            }
+        } catch (\Throwable $throwable) {
+            Log::warning('Portal outbox could not drop a superseded item', [
+                'error' => $throwable->getMessage(),
+            ]);
+        }
+
+        if ($dropped > 0 && $broadcastSessionId !== null && $broadcastSessionId !== '') {
+            $this->announce($broadcastSessionId, $sessionToken, 'Kiriman langsung menggantikan antrean offline untuk target yang sama.');
+        }
+
+        return $dropped;
+    }
+
+    /**
+     * Items a dead flush left in `sending`. FlushPortalOutboxJob calls this
+     * holding the student's flush lock, so no flush is sending them now. An
+     * attendance code goes back in the queue: sent twice, the portal answers
+     * that it is recorded already. An upload may or may not have reached the
+     * portal, and sending it again could store it twice: it is reported as
+     * unverified and the student checks before sending again.
+     *
+     * @return list<PortalOutboxItem> The items that were settled.
+     */
+    public function recoverAbandoned(string $ownerHash): array
+    {
+        $settled = [];
+
+        foreach (PortalOutboxItem::query()->forOwner($ownerHash)->where('status', PortalOutboxItem::STATUS_SENDING)->get() as $item) {
+            if ($item->action === PortalOutboxItem::ACTION_ATTENDANCE) {
+                $this->requeue($item);
+
+                continue;
+            }
+
+            $this->markUnverified($item, self::ABANDONED_UPLOAD_MESSAGE);
+            $settled[] = $item;
+        }
+
+        return $settled;
+    }
+
+    /**
+     * Waiting items nothing will send any more: past their deadline, or
+     * queued longer than `portal.outbox.retention_days`.
+     *
+     * @return list<PortalOutboxItem> The items that expired.
+     */
+    public function expireOverdue(string $ownerHash): array
+    {
+        $retentionDays = (int) config('portal.outbox.retention_days', 30);
+        $expired = [];
+
+        foreach (PortalOutboxItem::query()->forOwner($ownerHash)->queued()->get() as $item) {
+            if ($item->deadlinePassed()) {
+                $this->markExpired($item);
+                $expired[] = $item;
+            } elseif ($item->created_at !== null && $item->created_at->lessThan(now()->subDays($retentionDays))) {
+                $this->markExpired($item, "Belum bisa dikirim dalam {$retentionDays} hari.");
+                $expired[] = $item;
+            }
+        }
+
+        return $expired;
+    }
+
+    /**
+     * Takes a queued item for sending, unless it was cancelled, superseded
+     * or settled since the flush read the queue.
+     */
+    public function claim(PortalOutboxItem $item): bool
+    {
+        $claimed = PortalOutboxItem::query()
+            ->whereKey($item->getKey())
+            ->queued()
+            ->update(['status' => PortalOutboxItem::STATUS_SENDING, 'updated_at' => now()]) === 1;
+
+        if ($claimed) {
+            $item->refresh();
+        }
+
+        return $claimed;
+    }
+
+    /**
+     * Whether the item is still in the queue: an online upload of its target
+     * may have dropped it while it was being sent (supersede).
+     */
+    public function stillQueued(PortalOutboxItem $item): bool
+    {
+        return PortalOutboxItem::query()->whereKey($item->getKey())->exists();
+    }
+
+    /**
+     * Back in the queue, untouched: nothing was sent.
+     */
+    public function requeue(PortalOutboxItem $item): void
+    {
+        $item->forceFill(['status' => PortalOutboxItem::STATUS_QUEUED])->save();
+    }
+
     public function markSent(PortalOutboxItem $item): void
     {
         $this->settle($item, PortalOutboxItem::STATUS_SENT, null, now());
@@ -260,11 +499,57 @@ class PortalOutbox
         $this->settle($item, PortalOutboxItem::STATUS_FAILED, $error ?: 'Portal menolak kiriman.');
     }
 
-    public function markExpired(PortalOutboxItem $item): void
+    public function markUnverified(PortalOutboxItem $item, ?string $error): void
     {
-        $this->settle($item, PortalOutboxItem::STATUS_EXPIRED, $item->deadline_at !== null
+        $this->settle($item, PortalOutboxItem::STATUS_UNVERIFIED, $error ?: 'Portal tidak memberi jawaban yang pasti.');
+    }
+
+    public function markExpired(PortalOutboxItem $item, ?string $reason = null): void
+    {
+        $this->settle($item, PortalOutboxItem::STATUS_EXPIRED, $reason ?? ($item->deadline_at !== null
             ? 'Tenggat '.$this->formatDeadline($item->deadline_at).' sudah lewat sebelum portal kampus bisa diakses.'
-            : 'Tenggat sudah lewat sebelum portal kampus bisa diakses.');
+            : 'Tenggat sudah lewat sebelum portal kampus bisa diakses.'));
+    }
+
+    /**
+     * Notifications for settled items, published with a session of the
+     * student (also pushed to the app).
+     *
+     * @param  list<PortalOutboxItem>  $items
+     */
+    public function publish(string $sessionToken, array $items, ?string $broadcastSessionId = null): void
+    {
+        if ($items === []) {
+            return;
+        }
+
+        app(PortalNotificationCenter::class)->publish(
+            $sessionToken,
+            array_map(fn (PortalOutboxItem $item): array => $this->notificationFor($item), $items),
+            $broadcastSessionId
+        );
+    }
+
+    /**
+     * publish() for a student with no session at hand (portal:send-outbox):
+     * a short-lived token names the owner, as PortalAwayReminders does.
+     *
+     * @param  list<PortalOutboxItem>  $items
+     */
+    public function publishForOwner(string $ownerHash, array $items): void
+    {
+        if ($items === []) {
+            return;
+        }
+
+        $token = 'outbox_'.Str::random(40);
+        $this->owner->rememberKey($token, $ownerHash, 60);
+
+        try {
+            $this->publish($token, $items);
+        } finally {
+            $this->owner->forget($token);
+        }
     }
 
     /**
@@ -290,6 +575,12 @@ class PortalOutbox
                 "{$label} gagal terkirim ke portal",
                 $prefix.rtrim((string) $item->last_error, '.').'. Kirim ulang secara manual.',
                 'critical',
+            ],
+            PortalOutboxItem::STATUS_UNVERIFIED => [
+                'outbox_unverified',
+                "{$label} belum pasti terkirim ke portal",
+                $prefix.rtrim((string) $item->last_error, '.').'. Cek halamannya di portal sebelum mengirim ulang.',
+                'warning',
             ],
             PortalOutboxItem::STATUS_EXPIRED => [
                 'outbox_expired',
@@ -358,6 +649,7 @@ class PortalOutbox
             'subject' => $subject !== null ? mb_substr($subject, 0, 255) : null,
             'deadline_at' => $deadline,
             'status' => PortalOutboxItem::STATUS_QUEUED,
+            'credential_hash' => $this->queuingCredential($sessionToken),
         ]);
 
         Log::info('Portal outbox item queued', [
@@ -379,6 +671,8 @@ class PortalOutbox
             'attempts' => $item->attempts + 1,
             'last_error' => $error !== null ? mb_substr($error, 0, 500) : null,
             'sent_at' => $sentAt,
+            // Only needed while the item waits for a password.
+            'credential_hash' => null,
         ])->save();
         $item->deleteFile();
 
@@ -390,6 +684,44 @@ class PortalOutbox
             'outbox_item_id' => $item->id,
             'error' => $error,
         ]);
+    }
+
+    /**
+     * The offline-login hash the queuing session was opened with. Null for a
+     * session opened before sessions kept it (confirmed by any accepted
+     * login, as before); '' when the session cannot be read, so no password
+     * confirms the item.
+     */
+    private function queuingCredential(string $sessionToken): ?string
+    {
+        try {
+            $session = app(PortalSessionManager::class)->getSession($sessionToken);
+        } catch (\Throwable) {
+            return '';
+        }
+
+        if (! is_array($session)) {
+            return '';
+        }
+
+        if (! array_key_exists('credential_hash', $session)) {
+            return null;
+        }
+
+        return is_string($session['credential_hash']) ? $session['credential_hash'] : '';
+    }
+
+    private function passwordMatches(string $password, string $hash): bool
+    {
+        if ($hash === '') {
+            return false;
+        }
+
+        try {
+            return Hash::check($password, $hash);
+        } catch (\Throwable) {
+            return false;
+        }
     }
 
     /**

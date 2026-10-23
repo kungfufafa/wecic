@@ -9,6 +9,7 @@ use App\Models\PortalArchivedFile;
 use App\Models\PortalArchiveVersion;
 use App\Models\PortalNotification;
 use App\Models\PortalOfflineAccount;
+use App\Models\PortalOutboxItem;
 use App\Models\PortalPushToken;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
@@ -16,8 +17,8 @@ use Illuminate\Support\Facades\DB;
 /**
  * Moves everything MyCIC keeps for a student from an owner key made with an
  * earlier secret to the current one (see PortalDataOwner), so the archive,
- * archived files, offline access, notifications, notebooks and push tokens
- * survive a change of the owner secret instead of being orphaned.
+ * archived files, offline access, notifications, notebooks, push tokens and
+ * the outbox survive a change of the owner secret instead of being orphaned.
  *
  * A row the current key already has an equivalent of (the same unique key)
  * is dropped instead of moved: it was stored before the student logged in
@@ -41,7 +42,8 @@ class PortalOwnerRekeyer
             + $this->moveUnique(PortalArchivedFile::class, ['source_url'], $from, $to)
             + $this->moveUnique(PortalNotification::class, ['dedupe_key'], $from, $to)
             + Notebook::query()->where('owner_hash', $from)->toBase()->update(['owner_hash' => $to])
-            + PortalPushToken::query()->where('owner_hash', $from)->toBase()->update(['owner_hash' => $to]));
+            + PortalPushToken::query()->where('owner_hash', $from)->toBase()->update(['owner_hash' => $to])
+            + PortalOutboxItem::query()->where('owner_hash', $from)->toBase()->update(['owner_hash' => $to]));
     }
 
     private function moveOfflineAccount(string $from, string $to): int

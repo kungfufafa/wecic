@@ -7,6 +7,8 @@ namespace App\Services;
 use App\Exceptions\PortalAuthenticationException;
 use App\Exceptions\PortalConnectionException;
 use App\Exceptions\PortalException;
+use App\Jobs\FlushPortalOutboxJob;
+use App\Jobs\SendPortalOutboxJob;
 use App\Jobs\SyncPortalArchiveJob;
 use App\Models\PortalOfflineAccount;
 use Illuminate\Contracts\Encryption\DecryptException;
@@ -278,6 +280,92 @@ class PortalBackgroundSync
 
             return $this->record($account, PortalOfflineAccount::SYNC_FAILED, $throwable->getMessage());
         }
+    }
+
+    /**
+     * Sends the student's outbox while they are not online in MyCIC
+     * (portal:send-outbox, SendPortalOutboxJob): with their online session
+     * when one appeared meanwhile, else with a background login with the
+     * stored password, which also confirms what an offline session opened
+     * with that same password queued (PortalOutbox::confirmWithPassword).
+     * The background session is logged out once the flush is done. A
+     * password the portal refuses is dropped, as for a sync. Never throws.
+     *
+     * @return 'flushed'|'nothing'|'unavailable'|'unreachable'|'rejected'|'failed'
+     */
+    public function sendOutbox(PortalOfflineAccount $account): string
+    {
+        $outbox = app(PortalOutbox::class);
+
+        if (! $this->enabled() || ! $outbox->enabled() || ! $outbox->hasQueued($account->owner_hash)) {
+            return 'nothing';
+        }
+
+        try {
+            $credentials = $account->credentials ?? [];
+        } catch (DecryptException) {
+            $this->forgetUnreadableCredentials($account);
+            $credentials = [];
+        }
+
+        $username = (string) ($credentials['username'] ?? '');
+        $password = (string) ($credentials['password'] ?? '');
+        $usable = $username !== '' && $password !== '' && $account->hasUsableCredentials($this->credentialDays());
+        $activeToken = $this->sessionManager->activeOnlineSessionTokenForOwner($account->owner_hash);
+
+        if ($activeToken !== null) {
+            // The stored password is the one the portal accepted at the
+            // student's last online login: it confirms what an offline
+            // session opened with it queued meanwhile (another device).
+            if ($usable) {
+                $outbox->confirmWithPassword($activeToken, $password);
+            }
+
+            $outbox->flushWhenQueued($activeToken);
+
+            return 'flushed';
+        }
+
+        if (! $usable) {
+            return 'unavailable';
+        }
+
+        try {
+            $session = $this->sessionManager->createBackgroundSession($username, $password);
+        } catch (PortalAuthenticationException $exception) {
+            if (! PortalAuthService::refusedPassword($exception)) {
+                return 'unreachable';
+            }
+
+            $this->markCredentialsRejected($account);
+
+            return 'rejected';
+        } catch (PortalConnectionException) {
+            return 'unreachable';
+        } catch (\Throwable $throwable) {
+            Log::warning('Outbox send could not log in', ['account_id' => $account->getKey(), 'error' => $throwable->getMessage()]);
+
+            return 'failed';
+        }
+
+        try {
+            $outbox->confirmWithPassword($session['session_token'], $password);
+            FlushPortalOutboxJob::dispatchSync($session['session_token'], null, 1, false);
+
+            // Left over (a time budget, a target another upload holds): the
+            // next portal:send-outbox run sends it, without waiting out the throttle.
+            if ($outbox->hasSendable($account->owner_hash)) {
+                Cache::forget(SendPortalOutboxJob::attemptKey((int) $account->getKey()));
+            }
+        } catch (\Throwable $throwable) {
+            Log::warning('Outbox send failed', ['account_id' => $account->getKey(), 'error' => $throwable->getMessage()]);
+
+            return 'failed';
+        } finally {
+            $this->sessionManager->destroySession($session['session_token']);
+        }
+
+        return 'flushed';
     }
 
     /**

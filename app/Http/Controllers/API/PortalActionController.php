@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\API;
 
-use App\Enums\PortalOperationStage;
 use App\Exceptions\PortalOfflineException;
 use App\Http\Middleware\EnsurePortalOnline;
 use App\Http\Requests\SipandaiAssignmentDeleteRequest;
@@ -18,20 +17,18 @@ use App\Models\PortalOutboxItem;
 use App\Services\AttendanceShortcutService;
 use App\Services\PortalActionProjector;
 use App\Services\PortalBroadcastService;
-use App\Services\PortalDataOwner;
 use App\Services\PortalDatasetRepository;
 use App\Services\PortalFetchPolicy;
 use App\Services\PortalOfflineAccess;
 use App\Services\PortalOperationTracker;
 use App\Services\PortalOutbox;
+use App\Services\PortalUploadLocks;
 use App\Services\SipandaiSubmissionService;
 use Dedoc\Scramble\Attributes\Group;
 use Dedoc\Scramble\Attributes\PathParameter;
 use Dedoc\Scramble\Attributes\Response;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -56,14 +53,6 @@ class PortalActionController extends CampusApiController
 
     private const ASSIGNMENT_RESOURCES = ['class_detail', 'meeting_detail'];
 
-    /**
-     * How long an upload keeps its target locked when its job never gets to
-     * release it: the job's own time limit with room to spare. A job that
-     * stopped reporting progress frees its target sooner (see
-     * uploadLockIsStale).
-     */
-    private const UPLOAD_LOCK_SECONDS = 600;
-
     private const QUEUED_OFFLINE_RESPONSE = "array{success: true, status: 'success', message: string, data: array{status: 'queued_offline', outbox_item: array<string, mixed>}, meta: array{timestamp: string}}";
 
     public function __construct(
@@ -74,88 +63,10 @@ class PortalActionController extends CampusApiController
         private readonly PortalActionProjector $projector,
         private readonly PortalOperationTracker $tracker,
         private readonly PortalBroadcastService $broadcast,
-        private readonly PortalDataOwner $owner,
         private readonly PortalOfflineAccess $offlineAccess,
-        private readonly PortalOutbox $outbox
+        private readonly PortalOutbox $outbox,
+        private readonly PortalUploadLocks $uploadLocks
     ) {}
-
-    /**
-     * One upload per student and target at a time: a second form (another
-     * tab, a re-rendered page) would otherwise send the same file twice.
-     * The lock is released by the upload job when it finishes; a lock whose
-     * upload has stopped reporting is taken over instead of blocking the
-     * student until it expires.
-     *
-     * @return array{key: string, owner: string}|null null while another upload of the target runs
-     */
-    private function acquireUploadLock(string $sessionToken, string $target, string $operationId): ?array
-    {
-        $key = $this->uploadLockKey($sessionToken, $target);
-        $lock = Cache::lock($key, self::UPLOAD_LOCK_SECONDS);
-
-        if (! $lock->get()) {
-            if (! $this->uploadLockIsStale($key)) {
-                return null;
-            }
-
-            Log::warning('Releasing the upload lock of an upload that stopped reporting', [
-                'target' => $target,
-                'operation_id' => Cache::get($key.':operation'),
-            ]);
-            $lock->forceRelease();
-
-            if (! $lock->get()) {
-                return null;
-            }
-        }
-
-        Cache::put($key.':operation', $operationId, self::UPLOAD_LOCK_SECONDS);
-
-        return ['key' => $key, 'owner' => $lock->owner()];
-    }
-
-    private function uploadLockKey(string $sessionToken, string $target): string
-    {
-        return 'portal_upload:'.md5($this->owner->key($sessionToken)).':'.$target;
-    }
-
-    /**
-     * The upload holding the lock has finished, or has not reported progress
-     * for longer than an upload job may run: its process died (killed
-     * worker, out of memory) before the job could free the target. An
-     * upload whose state cannot be read keeps its lock until it expires.
-     */
-    private function uploadLockIsStale(string $key): bool
-    {
-        $operationId = Cache::get($key.':operation');
-        $operation = is_string($operationId) ? $this->tracker->get($operationId) : null;
-
-        if ($operation === null) {
-            return false;
-        }
-
-        if (PortalOperationStage::tryFrom((string) ($operation['stage'] ?? ''))?->isFinal() === true) {
-            return true;
-        }
-
-        try {
-            $lastProgressAt = Carbon::parse((string) ($operation['updated_at'] ?? ''));
-        } catch (\Throwable) {
-            return false;
-        }
-
-        return $lastProgressAt->lt(now()->subSeconds(max(60, (int) config('portal.actions.upload_time_limit', 180))));
-    }
-
-    /**
-     * @param  array{key: string, owner: string}|null  $uploadLock
-     */
-    private function releaseUploadLock(?array $uploadLock): void
-    {
-        if ($uploadLock !== null) {
-            Cache::restoreLock($uploadLock['key'], $uploadLock['owner'])->release();
-        }
-    }
 
     /**
      * Registers the upload before its file is written, with what
@@ -201,7 +112,7 @@ class PortalActionController extends CampusApiController
      */
     private function abandonUpload(?array $uploadLock, ?string $storedFilePath): void
     {
-        $this->releaseUploadLock($uploadLock);
+        $this->uploadLocks->release($uploadLock);
 
         if ($storedFilePath !== null) {
             Storage::delete($storedFilePath);
@@ -210,10 +121,8 @@ class PortalActionController extends CampusApiController
 
     private function uploadInProgressResponse(string $sessionToken, string $target, string $message): JsonResponse
     {
-        $runningOperationId = Cache::get($this->uploadLockKey($sessionToken, $target).':operation');
-
         return $this->booleanResponse(false, $message, [
-            'operation_id' => is_string($runningOperationId) ? $runningOperationId : null,
+            'operation_id' => $this->uploadLocks->runningOperationId($sessionToken, $target),
             'status' => 'in_progress',
         ], 409);
     }
@@ -361,12 +270,18 @@ class PortalActionController extends CampusApiController
             }
 
             $operationId = (string) Str::uuid();
-            $uploadTarget = sprintf('assignment:%d:%d:%d', $courseId, $discussionId, $meetingNumber);
-            $uploadLock = $this->acquireUploadLock($sessionToken, $uploadTarget, $operationId);
+            $uploadTarget = PortalUploadLocks::assignmentTarget($courseId, $discussionId, $meetingNumber);
+            $uploadLock = $this->uploadLocks->acquire($sessionToken, $uploadTarget, $operationId);
 
             if ($uploadLock === null) {
                 return $this->uploadInProgressResponse($sessionToken, $uploadTarget, 'Upload tugas ini masih diproses. Tunggu sampai selesai sebelum mengirim lagi.');
             }
+
+            // A copy queued while offline is older than this file.
+            $this->outbox->supersede($sessionToken, PortalOutboxItem::ACTION_ASSIGNMENT_UPLOAD, array_values(array_unique([
+                'meeting:'.$discussionId,
+                ...($request->hasMeetingContext() ? ['meeting:'.$request->meetingId()] : []),
+            ])), (string) session()->getId());
 
             $storedFilePath = $this->stageUpload($attachment, $operationId, 'assignment_upload', 'Upload tugas diterima, menyiapkan pengiriman.', $uploadLock);
 
@@ -849,12 +764,15 @@ class PortalActionController extends CampusApiController
 
             $attachment = $request->attachment();
             $operationId = (string) Str::uuid();
-            $uploadTarget = 'exam:'.$request->examId();
-            $uploadLock = $this->acquireUploadLock($sessionToken, $uploadTarget, $operationId);
+            $uploadTarget = PortalUploadLocks::examTarget($request->examId());
+            $uploadLock = $this->uploadLocks->acquire($sessionToken, $uploadTarget, $operationId);
 
             if ($uploadLock === null) {
                 return $this->uploadInProgressResponse($sessionToken, $uploadTarget, 'Upload jawaban ujian ini masih diproses. Tunggu sampai selesai sebelum mengirim lagi.');
             }
+
+            // A copy queued while offline is older than this file.
+            $this->outbox->supersede($sessionToken, PortalOutboxItem::ACTION_EXAM_UPLOAD, ['exam:'.$request->examId()], (string) session()->getId());
 
             $storedFilePath = $this->stageUpload($attachment, $operationId, 'exam_upload', 'Upload ujian diterima, menyiapkan pengiriman.', $uploadLock);
 

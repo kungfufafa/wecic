@@ -20,8 +20,10 @@ Route::get('/', function (PortalSessionManager $sessionManager) {
         if ($sessionManager->validateSession($sessionToken)) {
             return redirect('/dashboard');
         }
-    } catch (\Throwable $e) {
-        // Fall through to login and clear stale session state.
+    } catch (\Throwable) {
+        // A failed check is not an ended session: the dashboard answers it
+        // with a retry page (EnsurePortalWebSession).
+        return redirect('/dashboard');
     }
 
     session()->forget(['campus_session_token', 'campus_user_info']);
@@ -40,8 +42,10 @@ Route::get('/login', function (PortalSessionManager $sessionManager) {
         if ($sessionManager->validateSession($sessionToken)) {
             return redirect('/dashboard');
         }
-    } catch (\Throwable $e) {
-        // Render login below after clearing stale session state.
+    } catch (\Throwable) {
+        // A failed check is not an ended session: the form stays usable,
+        // but the device keeps its offline copies.
+        return view('auth.login', ['sessionUnchecked' => true]);
     }
 
     session()->forget(['campus_session_token', 'campus_user_info']);

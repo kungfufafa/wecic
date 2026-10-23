@@ -10,6 +10,7 @@ use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Bootstrap\LoadConfiguration;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class PortalBroadcastingTest extends TestCase
@@ -109,6 +110,35 @@ class PortalBroadcastingTest extends TestCase
         ])->assertForbidden();
     }
 
+    /**
+     * The database session handler stores the auth guard's user id in the
+     * integer `sessions.user_id` column; a session id there is refused by
+     * MySQL and PostgreSQL (SQLite would quietly keep the text).
+     */
+    public function test_a_token_channel_auth_on_database_sessions_leaves_the_user_id_empty(): void
+    {
+        $this->useDatabaseSessions();
+        [$token, $sessionId] = $this->tokenForCampusSession('campus-token-mobile');
+
+        $this->withToken($token)->postJson('/api/broadcasting/auth', [
+            'channel_name' => 'private-portal.session.'.$sessionId,
+            'socket_id' => '123.456',
+        ])->assertOk();
+
+        $this->assertTrue(DB::table('sessions')->where('id', $sessionId)->exists());
+        $this->assertSame(0, DB::table('sessions')->whereNotNull('user_id')->count());
+    }
+
+    public function test_a_cookie_channel_auth_on_database_sessions_leaves_the_user_id_empty(): void
+    {
+        $this->useDatabaseSessions();
+
+        $this->authorizeChannel('private-portal.session.'.self::SESSION_ID)->assertOk();
+
+        $this->assertTrue(DB::table('sessions')->where('id', self::SESSION_ID)->exists());
+        $this->assertSame(0, DB::table('sessions')->whereNotNull('user_id')->count());
+    }
+
     public function test_the_api_channel_endpoint_still_checks_csrf_for_the_cookie_session(): void
     {
         $this->withSession(['campus_session_token' => 'campus-token-broadcast', '_token' => 'known-csrf-token'])
@@ -116,6 +146,16 @@ class PortalBroadcastingTest extends TestCase
                 'channel_name' => 'private-portal.session.'.session()->getId(),
                 'socket_id' => '123.456',
             ])->assertStatus(419);
+    }
+
+    /**
+     * Production keeps sessions server-side (`database`); phpunit.xml uses `array`.
+     */
+    private function useDatabaseSessions(): void
+    {
+        config(['session.driver' => 'database']);
+        $this->app['session']->forgetDrivers();
+        $this->app->forgetInstance('session.store');
     }
 
     /**

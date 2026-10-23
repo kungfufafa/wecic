@@ -283,8 +283,11 @@
                 }
             });
 
-            // The server shows this page only when no session is valid.
-            appReady.then(() => window.portalApp?.forgetEndedSession());
+            // The server shows this page when no session is valid, or (flagged)
+            // when it could not check one: then the session may well be alive.
+            @if (! ($sessionUnchecked ?? false))
+                appReady.then(() => window.portalApp?.forgetEndedSession());
+            @endif
         })();
     </script>
 @endpush

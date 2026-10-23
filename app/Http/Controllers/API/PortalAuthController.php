@@ -6,6 +6,7 @@ namespace App\Http\Controllers\API;
 
 use App\Exceptions\PortalAuthenticationException;
 use App\Exceptions\PortalConnectionException;
+use App\Exceptions\PortalException;
 use App\Exceptions\PortalScrapingException;
 use App\Http\Middleware\PortalSessionMiddleware;
 use App\Http\Middleware\StartPortalSession;
@@ -169,7 +170,9 @@ class PortalAuthController extends CampusApiController
             );
 
             // Attendance and uploads queued during an offline session go out
-            // with this online session (FlushPortalOutboxJob).
+            // with this online session (FlushPortalOutboxJob), once they are
+            // known to come from this password.
+            $this->outbox->confirmWithPassword($sessionResult['session_token'], $password, (string) session()->getId());
             $this->outbox->flushWhenQueued($sessionResult['session_token'], (string) session()->getId());
 
             Log::info('User logged in successfully', ['username_fingerprint' => PortalLogContext::fingerprint($username)]);
@@ -222,7 +225,7 @@ class PortalAuthController extends CampusApiController
      */
     #[Response(description: 'Sesi kampus masih aktif dan data sesi dapat digunakan.', type: self::CHECK_SESSION_RESPONSE)]
     #[Response(401, description: 'Tidak ada sesi aktif atau sesi kampus sudah kedaluwarsa.', type: CampusApiController::SCRAMBLE_SESSION_ERROR_RESPONSE)]
-    #[Response(500, description: 'Validasi sesi kampus gagal diproses.', type: CampusApiController::SCRAMBLE_STATUS_ERROR_RESPONSE)]
+    #[Response(503, description: 'Sesi belum bisa diperiksa (gangguan sementara); sesi dan token tetap berlaku, coba lagi.', type: CampusApiController::SCRAMBLE_STATUS_ERROR_RESPONSE)]
     public function checkSession(Request $request): JsonResponse
     {
         $sessionToken = $this->sessionToken();
@@ -250,7 +253,7 @@ class PortalAuthController extends CampusApiController
         } catch (\Throwable $e) {
             Log::error('Session check failed', ['error' => $e->getMessage()]);
 
-            return $this->statusError('Gagal memeriksa sesi kampus.', 500, campusSessionValid: false);
+            return PortalSessionMiddleware::checkFailedResponse();
         }
     }
 
@@ -258,7 +261,8 @@ class PortalAuthController extends CampusApiController
      * Refresh sesi kampus supaya tidak kedaluwarsa.
      */
     #[Response(description: 'Sesi kampus berhasil diperbarui.', type: self::REFRESH_SESSION_RESPONSE)]
-    #[Response(401, description: 'Sesi tidak ditemukan atau refresh sesi gagal.', type: CampusApiController::SCRAMBLE_SESSION_ERROR_RESPONSE)]
+    #[Response(401, description: 'Sesi tidak ditemukan atau sudah berakhir di portal.', type: CampusApiController::SCRAMBLE_SESSION_ERROR_RESPONSE)]
+    #[Response(503, description: 'Portal atau server sedang terganggu; sesi dan token tetap berlaku, coba lagi.', type: CampusApiController::SCRAMBLE_STATUS_ERROR_RESPONSE)]
     public function refreshSession(): JsonResponse
     {
         $sessionToken = $this->sessionToken();
@@ -298,6 +302,14 @@ class PortalAuthController extends CampusApiController
             return $this->statusError('Portal kampus sedang tidak dapat diakses. Coba lagi beberapa saat.', 503, campusSessionValid: true);
         } catch (\Throwable $e) {
             Log::error('Session refresh failed', ['error' => $e->getMessage()]);
+
+            // Only an ended session ends the login; anything else (a locked
+            // database, a queue error) leaves the session and a mobile
+            // app's token in place.
+            if (! PortalException::indicatesExpiredSession($e)) {
+                return PortalSessionMiddleware::checkFailedResponse();
+            }
+
             session()->forget(['campus_session_token', 'campus_user_info']);
 
             return $this->statusError('Sesi gagal diperbarui. Silakan masuk lagi.', 401, campusSessionValid: false);
@@ -575,7 +587,7 @@ class PortalAuthController extends CampusApiController
     private function loginOffline(PortalLoginRequest $request, string $username, string $password, ?string $previousSessionToken): ?JsonResponse
     {
         try {
-            ['user_info' => $userInfo, 'wrong_password' => $wrongPassword] = $this->offlineAccess->verify($username, $password);
+            ['user_info' => $userInfo, 'wrong_password' => $wrongPassword, 'password_hash' => $passwordHash] = $this->offlineAccess->verify($username, $password);
 
             if ($wrongPassword) {
                 request()->attributes->set(self::FAILED_LOGIN_ATTRIBUTE, true);
@@ -585,7 +597,7 @@ class PortalAuthController extends CampusApiController
                 return null;
             }
 
-            $sessionResult = $this->sessionManager->createOfflineSession($username, $userInfo, $password);
+            $sessionResult = $this->sessionManager->createOfflineSession($username, $userInfo, $password, $passwordHash);
             $this->offlineAccess->markOfflineSession($sessionResult['session_token'], $this->sessionManager->sessionTtl());
             $this->endReplacedOfflineSession($previousSessionToken, $sessionResult['session_token']);
 

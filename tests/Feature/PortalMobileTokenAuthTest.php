@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Exceptions\PortalAuthenticationException;
 use App\Exceptions\PortalConnectionException;
 use App\Http\Middleware\PortalSessionMiddleware;
 use App\Jobs\ExpirePortalSessionJob;
@@ -279,6 +280,69 @@ class PortalMobileTokenAuthTest extends TestCase
 
         $pushToken = PortalPushToken::query()->sole();
         $this->assertNull($pushToken->portal_mobile_session_id, 'The install keeps getting the student\'s pushes until it logs out.');
+    }
+
+    public function test_a_failed_session_check_keeps_the_token(): void
+    {
+        $token = $this->loginForToken();
+        $sessions = app(PortalSessionManager::class);
+        $this->instance(PortalSessionManager::class, Mockery::mock(PortalSessionManager::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('validateSession')->andThrow(new \RuntimeException('database is locked'));
+        }));
+
+        $this->withToken($token)->getJson('/api/notifications/unread-count')
+            ->assertStatus(503)
+            ->assertJsonPath('meta.campus_session_valid', true);
+
+        $this->instance(PortalSessionManager::class, $sessions);
+
+        $this->withToken($token)->getJson('/api/notifications/unread-count')->assertOk();
+        $this->withToken($token)->getJson('/api/notifications/unread-count')->assertOk();
+        $this->assertSame(1, PortalMobileSession::query()->count());
+    }
+
+    public function test_a_failed_refresh_or_session_check_keeps_the_token(): void
+    {
+        $token = $this->loginForToken();
+        $sessions = app(PortalSessionManager::class);
+        $offlineAccess = app(PortalOfflineAccess::class);
+        $this->instance(PortalSessionManager::class, Mockery::mock(PortalSessionManager::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('refreshSession')->andThrow(new \RuntimeException('Campus session mutation timed out'));
+            $mock->shouldReceive('validateSession')->andThrow(new \RuntimeException('database is locked'));
+        }));
+        $this->instance(PortalOfflineAccess::class, Mockery::mock(PortalOfflineAccess::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('isOfflineSession')->andReturnFalse();
+        }));
+
+        $this->withToken($token)->postJson('/api/auth/session/refresh')
+            ->assertStatus(503)
+            ->assertJsonPath('meta.campus_session_valid', true);
+        $this->withToken($token)->getJson('/api/auth/session')
+            ->assertStatus(503)
+            ->assertJsonPath('meta.campus_session_valid', true);
+
+        // (The router keeps the controller it built with the failing manager.)
+        $this->instance(PortalSessionManager::class, $sessions);
+        $this->instance(PortalOfflineAccess::class, $offlineAccess);
+
+        $this->withToken($token)->getJson('/api/notifications/unread-count')->assertOk();
+        $this->assertSame(1, PortalMobileSession::query()->count());
+    }
+
+    public function test_a_refresh_the_portal_ends_still_ends_the_login(): void
+    {
+        $token = $this->loginForToken();
+        $this->instance(PortalSessionManager::class, Mockery::mock(PortalSessionManager::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('refreshSession')->andThrow(PortalAuthenticationException::sessionExpired());
+        }));
+        $this->instance(PortalOfflineAccess::class, Mockery::mock(PortalOfflineAccess::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('isOfflineSession')->andReturnFalse();
+        }));
+
+        $this->withToken($token)->postJson('/api/auth/session/refresh')
+            ->assertUnauthorized()
+            ->assertJsonPath('meta.campus_session_valid', false);
+        $this->assertSame('', $this->campusTokenOf($token), 'The ended campus session is dropped from the token\'s session.');
     }
 
     public function test_logging_in_again_with_a_valid_token_replaces_it(): void
