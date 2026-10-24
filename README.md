@@ -252,6 +252,21 @@ Aplikasi native (Expo / React Native) memakai API yang sama dengan aplikasi web,
 
 Konfigurasi: `SANCTUM_TOKEN_PREFIX` (default `mycic_`; `sanctum.expiration` dibiarkan `null` karena masa berlaku token mengikuti sesi kampus), `EXPO_PUSH_URL`, `EXPO_ACCESS_TOKEN` (hanya bila push security Expo aktif), `EXPO_PUSH_TIMEOUT`, `PORTAL_MOBILE_TOKEN_RETENTION_DAYS`, `PORTAL_PUSH_TOKEN_RETENTION_DAYS`, `PORTAL_AWAY_REMINDERS_ENABLED`, `PORTAL_AWAY_REMINDER_MAX_DATA_AGE`. `SESSION_DRIVER` harus menyimpan sesi di server (`database`, `redis`, `file`), bukan `cookie`. Klien native tidak terkena CORS, jadi tidak ada konfigurasi CORS tambahan; aplikasi berbasis web view atau Expo web yang memanggil API dari origin lain perlu `config/cors.php` sendiri.
 
+### Aplikasi Expo (`mobile/`)
+Klien native resmi ada di `mobile/` (Expo SDK 58, Expo Router, TypeScript). Isinya: login token dengan "Tetap masuk" (NIM dan kata sandi disimpan di Keychain/Keystore lewat `expo-secure-store`, lalu dipakai untuk login ulang otomatis saat sesi kampus berakhir setelah idle 2 jam), klien `/api/v1` (`src/api/client.ts`), pendaftaran push Expo, dan tab Beranda (jadwal dan status absensi hari ini), Kelas, Notifikasi, serta Lainnya (profil dan keluar).
+
+```bash
+cd mobile && cp .env.example .env.local && npm install
+npx expo start      # dev server; buka di development build atau Expo Go
+npm test            # unit test (jest-expo)
+npm run typecheck && npm run lint
+```
+
+- `EXPO_PUBLIC_API_URL` di `.env.local` adalah origin server MyCIC (tanpa `/api`). Simulator di Mac ini bisa memakai `http://mycic.test`; HP fisik butuh alamat yang bisa dijangkaunya.
+- Push butuh perangkat fisik dan proyek EAS (`npx eas-cli@latest init`, yang mengisi `extra.eas.projectId` di `app.json`), serta development build atau build EAS. Push remote tidak jalan di Expo Go Android.
+- `npx expo start --web` hanya untuk pratinjau tampilan: web tidak punya secure storage (login hilang saat tab ditutup) dan tidak menerima push.
+- Bundle identifier iOS/Android dan ikon aplikasi belum diatur; atur di `app.json` sebelum build pertama ke store.
+
 ## Checklist Agar Aplikasi Tetap Bagus
 ### 1. Manajemen Session & Security
 - Selalu gunakan `PortalSessionManager` untuk membuat, menyegarkan, dan memvalidasi sesi; jangan menyimpan cookie mentah.

@@ -1,0 +1,12 @@
+/**
+ * Where the MyCIC server is: `EXPO_PUBLIC_API_URL` (the site's origin, e.g.
+ * `https://mycic.example`), inlined at build time. The app talks to
+ * version 1 of the API under it.
+ */
+export function apiBaseUrl(origin: string | undefined = process.env.EXPO_PUBLIC_API_URL): string | null {
+  const trimmed = origin?.trim().replace(/\/+$/, '') ?? '';
+
+  return trimmed === '' ? null : `${trimmed}/api/v1`;
+}
+
+export const MISSING_API_URL_MESSAGE = 'Alamat server MyCIC belum diatur (EXPO_PUBLIC_API_URL).';
