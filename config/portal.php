@@ -1368,6 +1368,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Maintainers (Horizon and Log Viewer)
+    |--------------------------------------------------------------------------
+    |
+    | The NIMs of the students who may open /horizon and /log-viewer while
+    | signed in to MyCIC (PortalMaintainers), comma-separated in
+    | PORTAL_MAINTAINERS. The local environment lets everyone in; elsewhere
+    | an empty list lets no one in.
+    |
+    */
+
+    'maintainers' => array_values(array_filter(array_map('trim', explode(',', (string) env('PORTAL_MAINTAINERS', ''))))),
+
+    /*
+    |--------------------------------------------------------------------------
     | Debug: Recording the Portal's Answers to Write Actions
     |--------------------------------------------------------------------------
     |

@@ -18,8 +18,9 @@ use Tests\TestCase;
 
 /**
  * The dashboard warm-up and the first notification scan of a login share the
- * default queue, which a worker drains oldest first: the warm-up has to be
- * queued first, or the dashboard waits for a scan that crawls every class.
+ * default queue, which a worker drains in order of arrival, and delayed jobs
+ * in order of due time (redis): the warm-up has to come first on both counts,
+ * or the dashboard waits for a scan that crawls every class.
  */
 class PortalLoginQueueOrderTest extends TestCase
 {
@@ -58,16 +59,21 @@ class PortalLoginQueueOrderTest extends TestCase
         $this->assertSame('default', $queued[$scan]['queue']);
     }
 
-    public function test_the_first_scan_still_waits_for_the_warm_up_delay(): void
+    public function test_the_first_scan_comes_due_after_the_warm_up(): void
     {
         $this->mockLogin();
 
         $this->postJson('/api/auth/login', ['username' => '20990000001', 'password' => 'secret-password'])->assertOk();
 
-        $scan = collect($this->queuedJobs())->firstWhere('job', ScanPortalNotificationsJob::class);
+        $queued = collect($this->queuedJobs());
+        $warmUp = $queued->firstWhere('job', RefreshPortalDataJob::class);
+        $scan = $queued->firstWhere('job', ScanPortalNotificationsJob::class);
 
+        $this->assertNotNull($warmUp);
         $this->assertNotNull($scan);
-        $this->assertGreaterThan(now()->getTimestamp(), $scan['available_at']);
+        $this->assertGreaterThan(now()->getTimestamp(), $warmUp['available_at']);
+        // Jobs due at the same second leave the redis queue in any order.
+        $this->assertGreaterThan($warmUp['available_at'], $scan['available_at']);
     }
 
     /**

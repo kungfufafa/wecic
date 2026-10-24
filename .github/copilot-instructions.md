@@ -7,7 +7,7 @@
 
 ## Key Workflows
 - First run uses `composer run setup` (installs PHP deps, copies `.env`, runs migrations, installs NPM packages, builds assets).
-- Day-to-day development favours `composer run dev`, which pipes `php artisan serve`, `queue:listen`, `pail`, and `npm run dev` through `npx concurrently`; tweak individual processes only if you replicate the same combination manually.
+- Day-to-day development favours `composer run dev`, which pipes `php artisan serve`, `horizon:listen`, `reverb:start`, `pail`, and `npm run dev` through `npx concurrently`; tweak individual processes only if you replicate the same combination manually.
 - Testing relies on Laravel's suite: `composer run test` clears config cache then executes `php artisan test`; use this path so pre-test steps stay intact.
 
 ## Architectural Expectations
@@ -25,7 +25,7 @@
 ## Testing & Tooling Notes
 - Add unit tests under `tests/Unit` for service classes and feature tests under `tests/Feature` for API endpoints; fake campus responses with HTTP client fakes or Mockery stubs so the suite stays offline.
 - Use Laravel Pint (`./vendor/bin/pint`) for formatting and Pail for request logging when running the dev script.
-- Queue-related features should assume the `queue:listen` process from the dev script is active; surface failures through logs rather than silent retries.
+- Queue-related features should assume Horizon (`horizon:listen` in the dev script, Redis queues `sessions`, `default`, `background` from `config/horizon.php`) is active; surface failures through logs rather than silent retries.
 
 Please review these directions and let me know if any section needs clarification or more detail.
 

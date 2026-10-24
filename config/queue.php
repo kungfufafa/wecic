@@ -13,7 +13,7 @@ return [
     |
     */
 
-    'default' => env('QUEUE_CONNECTION', 'database'),
+    'default' => env('QUEUE_CONNECTION', 'redis'),
 
     /*
     |--------------------------------------------------------------------------
@@ -39,16 +39,7 @@ return [
             'connection' => env('DB_QUEUE_CONNECTION'),
             'table' => env('DB_QUEUE_TABLE', 'jobs'),
             'queue' => env('DB_QUEUE', 'default'),
-            // Above the longest job timeout (SyncPortalArchiveJob: 1800 s for a
-            // background sync with the class crawl) and every worker's
-            // --timeout (routes/console.php, the README Supervisor programs),
-            // so a running job is never handed to a second worker.
-            // tests/Unit/QueueJobConfigurationTest checks every job and
-            // scheduled worker against it. The price: a job left reserved by a
-            // worker that crashed (OOM, SIGKILL on deploy) waits this long
-            // before it is retried, keep-alive jobs on the sessions queue
-            // too, so stop workers gracefully (queue:restart) when deploying.
-            'retry_after' => (int) env('DB_QUEUE_RETRY_AFTER', 1900),
+            'retry_after' => (int) env('DB_QUEUE_RETRY_AFTER', 90),
             'after_commit' => false,
         ],
 
@@ -76,7 +67,15 @@ return [
             'driver' => 'redis',
             'connection' => env('REDIS_QUEUE_CONNECTION', 'default'),
             'queue' => env('REDIS_QUEUE', 'default'),
-            'retry_after' => (int) env('REDIS_QUEUE_RETRY_AFTER', 90),
+            // Above the longest job timeout (SyncPortalArchiveJob: 1800 s for a
+            // background sync with the class crawl) and every Horizon
+            // supervisor's timeout (config/horizon.php), so a running job is
+            // never handed to a second worker. tests/Unit/QueueJobConfigurationTest
+            // checks every job and supervisor against it. The price: a job
+            // left reserved by a worker that died (OOM, SIGKILL) waits this
+            // long before it is retried, keep-alive jobs on the sessions queue
+            // too, so stop Horizon gracefully (horizon:terminate) when deploying.
+            'retry_after' => (int) env('REDIS_QUEUE_RETRY_AFTER', 1900),
             'block_for' => null,
             'after_commit' => false,
         ],

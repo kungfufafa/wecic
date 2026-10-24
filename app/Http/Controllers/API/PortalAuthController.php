@@ -499,15 +499,17 @@ class PortalAuthController extends CampusApiController
     }
 
     /**
-     * The first scan of a login crawls every class and meeting page. The
-     * default queue runs oldest first, so the scan is queued after the
-     * warm-up and the outbox flush; its delay also lets a free worker take
-     * the dashboard's own re-sync, queued once the page loads, before it.
+     * The first scan of a login crawls every class and meeting page, so a
+     * worker should reach it after the warm-up and the outbox flush. It is
+     * queued after them and comes due a second after the warm-up: the redis
+     * queue releases delayed jobs in order of due time, and jobs due at the
+     * same second in any order. The delay also lets a free worker take the
+     * dashboard's own re-sync, queued once the page loads, before it.
      */
     private function scheduleFirstNotificationScan(string $sessionToken): void
     {
         ScanPortalNotificationsJob::dispatch((string) session()->getId(), $sessionToken)
-            ->delay(now()->addSeconds((int) config('portal.sync.warmup_delay', 5)));
+            ->delay(now()->addSeconds((int) config('portal.sync.warmup_delay', 5) + 1));
     }
 
     /**

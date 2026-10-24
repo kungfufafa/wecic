@@ -32,14 +32,15 @@ MyCIC memadukan tiga lapisan utama:
 ## Teknologi & Dependensi
 | Teknologi | Versi | Catatan |
 | --- | --- | --- |
-| PHP | 8.4.x | Pastikan extension curl, mbstring, openssl, sqlite, pdo diaktifkan. |
+| PHP | 8.4.x | Pastikan extension curl, mbstring, openssl, sqlite, pdo, redis (phpredis), pcntl, dan posix diaktifkan. |
 | Laravel Framework | 12.x | Struktur baru tanpa `app/Console/Kernel.php`, middleware diregistrasi di `bootstrap/app.php`. |
 | Database | SQLite (default) / MySQL / PostgreSQL | Wajib menjalankan migrasi untuk tabel users, cache, jobs, dan sessions. |
-| Cache, Queue, Session | Database drivers | Diatur lewat `.env`: `CACHE_STORE=database`, `QUEUE_CONNECTION=database`, `SESSION_DRIVER=database`. |
+| Cache, Session | Database drivers | Diatur lewat `.env`: `CACHE_STORE=database`, `SESSION_DRIVER=database`. |
+| Queue | Redis + Laravel Horizon 5 | `QUEUE_CONNECTION=redis`; Horizon menjalankan tiga antrean (`config/horizon.php`) dan menyediakan dasbor `/horizon`. |
 | HTTP & Scraping | Guzzle 7 + Symfony DomCrawler 7 | Memberi cookies persistent, retry, validasi blank page, fallback selector. |
 | Token mobile | Laravel Sanctum 4 | Hanya personal access token untuk aplikasi mobile (`POST /api/auth/token`); route SPA `sanctum/csrf-cookie` dimatikan. |
 | Frontend | Vite 7, Tailwind CSS 4, Vanilla JS | `resources/css/app.css` mengimpor Tailwind v4. Gunakan `npm run dev`/`npm run build`. |
-| Observability | Laravel Pail, Dedoc Scramble | Pail untuk live log streaming, Scramble menyajikan dok API (`/docs/api`). |
+| Observability | Laravel Pail, Log Viewer, Horizon, Dedoc Scramble | Pail untuk live log streaming, Log Viewer (`/log-viewer`) untuk membaca log dari browser, dasbor Horizon (`/horizon`) untuk antrean, Scramble menyajikan dok API (`/docs/api`). |
 
 ## Struktur Direktori Penting
 - `app/Services/*` – session manager, auth client, scraping base, extractor khusus, toast service.
@@ -48,13 +49,13 @@ MyCIC memadukan tiga lapisan utama:
 - `resources/views` – halaman login, dashboard, profile, kelas, class-detail, meeting-detail, layout + komponen toast.
 - `config/portal.php` – semua URL kampus, timeout, retry, TTL cache, security flag.
 - `routes/api.php` + `routes/web.php` – definisi endpoint API dan halaman web.
-- `database/migrations` – users + sessions + cache + jobs table (queue database driver).
+- `database/migrations` – users + sessions + cache + jobs table (bekas queue database; job yang tersisa dipindah ke Redis oleh `portal:move-old-queue-jobs`).
 
 ## Prasyarat
-1. PHP 8.4.* + Composer 2.7+.
+1. PHP 8.4.* + Composer 2.7+, dengan ekstensi `redis` (phpredis), `pcntl`, dan `posix` untuk Horizon.
 2. Node.js 20 LTS + npm 10 (Tailwind v4 & Vite memerlukan ESM).
 3. Database yang kompatibel (SQLite cukup untuk lokal).
-4. Queue worker berumur panjang di bawah Supervisor, satu program per antrean (disarankan), plus cron `php artisan schedule:run` setiap menit. Cron menjalankan worker cadangan, sinkronisasi arsip di background, pemulihan unggahan, dan pembersihan data (lihat [Menjalankan di Server](#menjalankan-di-server-queue--scheduler)).
+4. Redis untuk queue, dan Horizon berumur panjang di bawah Supervisor, plus cron `php artisan schedule:run` setiap menit. Cron menjalankan sinkronisasi arsip di background, pemulihan unggahan, metrik Horizon, dan pembersihan data (lihat [Menjalankan di Server](#menjalankan-di-server-queue--scheduler)).
 5. Akses internet ke portal kampus untuk scraping (set `CAMPUS_*` sesuai lingkungan).
 
 ## Instalasi Cepat
@@ -77,10 +78,10 @@ npm run dev               # atau npm run build untuk production assets
 ## Menjalankan Lingkungan Pengembangan
 - `php artisan serve` – jalankan server aplikasi.
 - `npm run dev` – jalankan Vite + Tailwind watcher.
-- `php artisan queue:listen --tries=1 --timeout=0 --queue=sessions,default,background` – jalankan ketiga antrean dalam satu proses (cukup untuk satu pengguna; production memakai satu worker per antrean, lihat [Menjalankan di Server](#menjalankan-di-server-queue--scheduler)). `--timeout=0` mematikan batas waktu proses listener; tiap job tetap dihentikan worker sesuai `$timeout` miliknya (sinkronisasi arsip boleh sampai 30 menit).
+- `php artisan horizon:listen` – jalankan Horizon (ketiga antrean) dan restart worker otomatis saat kode berubah. Butuh Redis lokal (`QUEUE_CONNECTION=redis`) dan Node dengan paket `chokidar` dari `devDependencies`. Dasbornya di `/horizon`, log di `/log-viewer`.
 - `php artisan reverb:start` – server WebSocket untuk notifikasi realtime.
 - `php artisan pail --timeout=0` – pantau log secara real time.
-- Gunakan `composer run dev` untuk menjalankan server, queue listener, Reverb, log streamer, dan Vite secara paralel (menggunakan `concurrently`).
+- Gunakan `composer run dev` untuk menjalankan server, Horizon, Reverb, log streamer, dan Vite secara paralel (menggunakan `concurrently`).
 - `php artisan schedule:work` (opsional) – menjalankan scheduler secara lokal. Perhatikan: sinkronisasi arsip di background ikut berjalan dan masuk ke portal kampus memakai password mahasiswa yang tersimpan.
 - `php artisan portal:capture-fixtures --session=<token sesi kampus> --meeting=<meeting_id>:<courses_id>[:<pertemuan>] --exam=<id ujian>` – simpan salinan halaman portal (pertemuan, form tugas, daftar & detail ujian) yang sudah disanitasi ke `tests/Fixtures/portal/real/` sebagai fixture tes. Hanya GET, tidak berjalan di production, dan berhenti bila sesi tidak memuat nama dan NIM mahasiswa. `PORTAL_RECORD_ACTION_RESPONSES=true` menyimpan jawaban portal atas absen, upload, dan hapus (tersanitasi) di `storage/app/portal-captures/`.
 
@@ -90,80 +91,62 @@ npm run dev               # atau npm run build untuk production assets
 - `npm run test:e2e` – tes browser Playwright memakai Google Chrome yang sudah terpasang. Server dijalankan dengan `APP_ENV=e2e`: semua `/api/*` di-mock dan route login palsu hanya ada di lingkungan itu.
 
 ## Menjalankan di Server (Queue & Scheduler)
-Kerja ke portal kampus yang berjalan di belakang layar memakai queue `database`. Tanpa worker yang menjalankannya, dashboard tertahan di status "menyinkronkan", sesi portal kedaluwarsa, notifikasi tidak pernah dibuat, dan arsip materi tidak pernah selesai.
+Kerja ke portal kampus yang berjalan di belakang layar memakai queue Redis yang dijalankan [Laravel Horizon](https://laravel.com/docs/horizon). Tanpa Horizon, dashboard tertahan di status "menyinkronkan", sesi portal kedaluwarsa, notifikasi tidak pernah dibuat, dan arsip materi tidak pernah selesai.
 
-Ada tiga antrean, masing-masing dengan worker sendiri. Satu worker hanya menjalankan satu job pada satu waktu dan tidak pernah menyelanya, jadi keep-alive sesi dan kerja yang sedang ditunggu mahasiswa tidak boleh berbagi worker dengan sinkronisasi arsip yang bisa berjalan 30 menit:
+Horizon menjalankan tiga antrean, masing-masing dengan supervisor sendiri (`config/horizon.php`). Satu worker hanya menjalankan satu job pada satu waktu dan tidak pernah menyelanya, jadi keep-alive sesi dan kerja yang sedang ditunggu mahasiswa tidak boleh berbagi worker dengan sinkronisasi arsip yang bisa berjalan 30 menit:
 
-| Antrean | `--timeout` | Isi |
-| --- | --- | --- |
-| `sessions` | 300 | Keep-alive sesi, menyambungkan sesi offline, mengakhiri sesi yang idle. Harus selalu cepat. |
-| `default` | 600 | Semua kerja lain yang ditunggu mahasiswa, dijalankan sesuai urutan masuk: refresh snapshot (`RefreshPortalDataJob` sampai 600 detik), pengiriman antrean offline, pemindaian notifikasi, pengingat, push, ingest notebook, dan job lain tanpa antrean khusus. |
-| `background` | 1800 | Sinkronisasi arsip (`SyncPortalArchiveJob` sampai 1800 detik), arsip materi & berkas, sinkronisasi notebook mata kuliah. |
+| Antrean | Timeout (detik) | Proses | Isi |
+| --- | --- | --- | --- |
+| `sessions` | 300 | 1 | Keep-alive sesi (`RefreshPortalSessionJob`), menyambungkan sesi offline (`ResumeOfflineSessionJob`), mengakhiri sesi yang idle (`ExpirePortalSessionJob`). Harus selalu cepat. |
+| `default` | 600 | 1; di production naik otomatis sampai 4 saat antre | Semua kerja lain yang ditunggu mahasiswa, sesuai urutan masuk: refresh snapshot (`RefreshPortalDataJob` sampai 600 detik), pengiriman antrean offline (`FlushPortalOutboxJob`, `SendPortalOutboxJob`), pemindaian notifikasi (`ScanPortalNotificationsJob`), pengingat (`SendAwayRemindersJob`), push (`SendPortalPushNotificationsJob`), ingest notebook (`IngestNotebookSourceJob`), dan job lain tanpa antrean khusus. |
+| `background` | 1800 | 1 | Sinkronisasi arsip (`SyncPortalArchiveJob` sampai 1800 detik), arsip materi & berkas (`ArchiveCourseMaterialsJob`, `ArchivePortalFilesJob`), sinkronisasi notebook mata kuliah (`SyncCourseNotebookJob`). |
 
-### Disarankan: worker Supervisor
-Di production, jalankan worker berumur panjang di bawah Supervisor (atau systemd), satu program per antrean. Contoh `/etc/supervisor/conf.d/mycic-queue.conf`:
+Unggahan tugas dan ujian (`ProcessPortalAssignmentUploadJob`, `ProcessPortalExamUploadJob`) tidak pernah masuk queue: proses web menjalankannya tepat setelah respons dikirim, dan pengiriman antrean offline menjalankannya langsung di dalam job-nya.
+
+### Horizon di bawah Supervisor
+Di production, jaga `php artisan horizon` tetap hidup dengan Supervisor (atau systemd). Contoh `/etc/supervisor/conf.d/mycic-horizon.conf`:
 
 ```ini
-[program:mycic-queue-sessions]
-process_name=%(program_name)s_%(process_num)02d
-command=php /path/ke/mycic/artisan queue:work database --queue=sessions --tries=1 --timeout=300 --sleep=1 --max-time=3600
+[program:mycic-horizon]
+process_name=%(program_name)s
+command=php /path/ke/mycic/artisan horizon
 directory=/path/ke/mycic
 user=www-data
-numprocs=1
-autostart=true
-autorestart=true
-stopasgroup=true
-killasgroup=true
-stopwaitsecs=330
-redirect_stderr=true
-stdout_logfile=/path/ke/mycic/storage/logs/queue-sessions.log
-
-[program:mycic-queue-default]
-process_name=%(program_name)s_%(process_num)02d
-command=php /path/ke/mycic/artisan queue:work database --queue=default --tries=1 --timeout=600 --sleep=1 --max-time=3600
-directory=/path/ke/mycic
-user=www-data
-numprocs=1
-autostart=true
-autorestart=true
-stopasgroup=true
-killasgroup=true
-stopwaitsecs=630
-redirect_stderr=true
-stdout_logfile=/path/ke/mycic/storage/logs/queue-default.log
-
-[program:mycic-queue-background]
-process_name=%(program_name)s_%(process_num)02d
-command=php /path/ke/mycic/artisan queue:work database --queue=background --tries=1 --timeout=1800 --sleep=3 --max-time=3600
-directory=/path/ke/mycic
-user=www-data
-numprocs=1
 autostart=true
 autorestart=true
 stopasgroup=true
 killasgroup=true
 stopwaitsecs=1830
 redirect_stderr=true
-stdout_logfile=/path/ke/mycic/storage/logs/queue-background.log
+stdout_logfile=/path/ke/mycic/storage/logs/horizon.log
 ```
 
 ```bash
 sudo supervisorctl reread
 sudo supervisorctl update
-sudo supervisorctl start "mycic-queue-sessions:*" "mycic-queue-default:*" "mycic-queue-background:*"
+sudo supervisorctl start mycic-horizon
 ```
 
-- Crawl background punya antrean dan worker sendiri, jadi refresh snapshot saat login, pemindaian notifikasi, dan ingest notebook tidak menunggu sinkronisasi arsip yang bisa berjalan 30 menit. Setiap 15 menit `portal:sync-archives` mengantre sampai `PORTAL_BACKGROUND_SYNC_BATCH_SIZE` (default 10) `SyncPortalArchiveJob` di `background`. Bila batch itu sering belum selesai saat batch berikutnya tiba, naikkan `numprocs` program `mycic-queue-background` (lihat syarat database di bawah) atau kecilkan `PORTAL_BACKGROUND_SYNC_BATCH_SIZE`.
-- Antrean `default` berjalan sesuai urutan masuk, jadi saat ramai refresh dashboard bisa menunggu pemindaian notifikasi atau ingest notebook yang masuk lebih dulu. Bila terasa lambat, naikkan `numprocs` program `mycic-queue-default` (lihat syarat database di bawah).
-- Worker paralel butuh database yang mengunci baris dengan `SKIP LOCKED` (MySQL 8+, MariaDB 10.6+, PostgreSQL 9.5+). Di SQLite, worker paralel bisa sesekali mencatat galat `database is locked`.
-- `stopwaitsecs` lebih besar dari `--timeout`, jadi Supervisor menunggu job yang sedang berjalan selesai saat worker dihentikan.
-- `--max-time=3600` membuat worker berhenti sendiri setiap jam setelah job-nya selesai (memori kembali bersih), lalu Supervisor langsung menyalakannya lagi.
-- Batas waktu job (`--timeout` dan `$timeout` tiap job) hanya berlaku bila ekstensi PHP `pcntl` terpasang.
-- Setelah deploy, jalankan `php artisan queue:restart` agar worker memuat kode baru setelah job yang sedang berjalan selesai.
-- Jangan menjalankan `queue:work` tanpa `--queue`: perintah itu hanya memproses antrean `default`.
-- Pindah dari nama antrean lama (`campus-sessions`, `campus-refresh`, `campus-notifications`, `campus-uploads`, `campus-background`): setelah deploy, jalankan `php artisan migrate --force` (memindahkan job yang masih menunggu dan job gagal ke nama baru) dan `php artisan queue:restart`, lalu ganti program Supervisor seperti contoh di atas dan jalankan `sudo supervisorctl reread && sudo supervisorctl update`. Proses yang masih menjalankan kode lama (worker yang sedang mengerjakan job terakhirnya, paling lama sekitar 35 menit untuk crawl background, dan PHP-FPM yang belum dimuat ulang) bisa menaruh beberapa job lagi di nama lama. Setelah PHP-FPM dimuat ulang dan `pgrep -af 'queue=[c]ampus-'` tidak menampilkan apa-apa, jalankan `php artisan portal:move-old-queue-jobs` sekali lagi untuk memindahkan job itu. Perintah ini aman dijalankan berulang kali.
+- Setelah deploy, jalankan `php artisan horizon:terminate`. Karena `fast_termination` aktif, Supervisor langsung menyalakan Horizon baru dengan kode baru, sementara worker lama menyelesaikan job yang sedang berjalan. Tanpa itu, Horizon lama menunggu worker paling lambat (crawl arsip, sampai 30 menit) dan selama itu tidak ada keep-alive sesi yang berjalan.
+- `sudo supervisorctl stop mycic-horizon` selesai dalam hitungan detik, tetapi worker yang sedang menjalankan job tetap jalan sampai job-nya selesai (sampai 30 menit untuk crawl arsip). Sebelum maintenance yang butuh semua job berhenti (mematikan Redis atau database, mematikan server), tunggu sampai `pgrep -af 'horizon:[w]ork'` tidak menampilkan apa-apa.
+- Antrean `default` berjalan sesuai urutan masuk, jadi saat ramai refresh dashboard bisa menunggu pemindaian notifikasi atau ingest notebook yang masuk lebih dulu. Karena itu di production Horizon menambah prosesnya sampai 4 (`maxProcesses` di `config/horizon.php`). Bila batch `portal:sync-archives` (sampai `PORTAL_BACKGROUND_SYNC_BATCH_SIZE`, default 10, tiap 15 menit) sering belum selesai saat batch berikutnya tiba, naikkan `maxProcesses` supervisor `background` atau kecilkan batch-nya.
+- Beberapa proses berarti beberapa job menulis ke database bersamaan. Di SQLite itu bisa sesekali memunculkan galat `database is locked`, jadi production sebaiknya memakai MySQL atau PostgreSQL. Di lokal tiap antrean tetap satu proses.
+- Horizon butuh ekstensi PHP `redis` (phpredis, sesuai `REDIS_CLIENT=phpredis`), `pcntl`, dan `posix`; batas waktu job juga hanya berlaku dengan `pcntl`.
+- Redis harus menyimpan datanya (RDB atau AOF) dan memakai `maxmemory-policy noeviction`. Job tertunda seperti keep-alive sesi, pemeriksaan sesi idle, dan percobaan menyambungkan sesi offline hanya ada di Redis; kalau Redis kehilangan data saat restart atau membuang key karena memori penuh, rantai itu berhenti dan mahasiswa harus login ulang.
+- `REDIS_QUEUE_RETRY_AFTER` (default 1900 detik) harus lebih besar dari `$timeout` job terpanjang (`SyncPortalArchiveJob`: 1800 detik) dan dari timeout setiap supervisor. Kalau lebih kecil, worker kedua mengambil job yang masih berjalan: job dengan `$tries = 1` (sebagian besar, termasuk `SyncPortalArchiveJob`) ditandai gagal padahal masih berjalan, dan job dengan `$tries` lebih besar berjalan dua kali. `tests/Unit/QueueJobConfigurationTest.php` memeriksa batas ini dan antrean setiap job. Akibatnya, job yang tertinggal saat worker mati mendadak (kehabisan memori, `SIGKILL`) baru diambil lagi sekitar 32 menit kemudian: keep-alive sesi (`$tries = 3`) dicoba lagi, job dengan `$tries = 1` ditandai gagal. Hentikan Horizon dengan `horizon:terminate`, bukan `kill -9`.
+- Pindah dari queue `database` (sekali, saat pertama memasang Horizon), urutannya:
+  1. Siapkan Redis, lalu isi `QUEUE_CONNECTION=redis`, `REDIS_*`, dan `PORTAL_MAINTAINERS` di `.env`.
+  2. Deploy kode baru dan muat ulang PHP-FPM. Mulai saat itu job baru masuk ke Redis.
+  3. Pasang dan jalankan program `mycic-horizon` di atas, supaya job baru langsung dikerjakan.
+  4. Hentikan worker database lama: `sudo supervisorctl stop "mycic-queue-sessions:*" "mycic-queue-default:*" "mycic-queue-background:*"`, hapus program itu dari konfigurasi Supervisor, lalu `sudo supervisorctl reread && sudo supervisorctl update`. Tunggu sampai `pgrep -af 'queue:[w]ork'` tidak menampilkan apa-apa: biasanya beberapa detik, sampai 30 menit bila ada crawl arsip yang sedang berjalan. Langkah ini harus selesai dulu, karena di SQLite worker lama bisa mengambil job yang sedang dipindahkan.
+  5. Jalankan `php artisan migrate --force`. Migrasinya menjalankan `php artisan portal:move-old-queue-jobs`, yang memindahkan job yang masih menunggu di tabel `jobs` (termasuk nama antrean lama `campus-*`, tetap dengan waktu jatuh temponya) ke Redis dan mengarahkan job gagal ke Redis supaya `queue:retry` tetap jalan. Perintah ini aman dijalankan lagi kapan saja; ia hanya memindahkan yang masih tersisa.
 
-### Cron scheduler (wajib, sekaligus worker cadangan)
+### Dasbor Horizon & Log Viewer
+- `/horizon` – job yang sedang berjalan, yang gagal (bisa di-retry dari sana), waktu tunggu tiap antrean, dan grafik throughput.
+- `/log-viewer` – membaca, mencari, mengunduh, dan menghapus log di `storage/logs` dari browser ([opcodesio/log-viewer](https://github.com/opcodesio/log-viewer)).
+- Di `APP_ENV=local` keduanya terbuka untuk siapa saja. Di environment lain hanya untuk mahasiswa yang sedang login online ke MyCIC (bukan login offline, dan sesinya belum berakhir) dengan NIM yang tercantum di `PORTAL_MAINTAINERS` (dipisah koma); bila kosong, tidak ada yang bisa masuk.
+
+### Cron scheduler (wajib)
 Cron tetap wajib, juga ketika Supervisor dipakai:
 
 ```cron
@@ -174,28 +157,12 @@ Jadwal di `routes/console.php`:
 
 | Jadwal | Perintah | Fungsi |
 | --- | --- | --- |
-| Setiap menit (background) | `queue:work --queue=sessions --stop-when-empty --timeout=300 --tries=1 --max-time=60` | Worker cadangan antrean `sessions`. |
-| Setiap menit (background) | `queue:work --queue=default --stop-when-empty --timeout=600 --tries=1 --max-time=300` | Worker cadangan antrean `default`. |
-| Setiap menit (background) | `queue:work --queue=background --stop-when-empty --timeout=1800 --tries=1 --max-time=300` | Worker cadangan antrean `background`. |
+| Setiap 5 menit | `horizon:snapshot` | Menyimpan metrik antrean untuk grafik di dasbor Horizon. |
 | Setiap 5 menit | `portal:recover-uploads` | Menutup unggahan yang terhenti di tengah jalan (mis. proses web mati) dan menghapus berkas sementaranya. |
 | Setiap 5 menit | `portal:send-outbox` | Antrean offline yang tidak dikirim sesi mana pun (mis. sesi offline sudah habis sebelum portal pulih): yang lewat tenggat atau `portal.outbox.retention_days` ditandai kedaluwarsa dan dinotifikasikan, sisanya dikirim dengan sesi online mahasiswa atau login latar dengan password tersimpan (paling sering tiap 15 menit per mahasiswa). |
 | Setiap 10 menit | `portal:remind-away` | Mengantre pengingat tenggat dan "kelas sudah dimulai" untuk mahasiswa yang aplikasinya tertutup, dari snapshot tersimpan saja (`portal.mobile.away_reminders`). |
 | Setiap 15 menit | `portal:sync-archives` | Mengantre sinkronisasi arsip di background untuk mahasiswa yang jadwalnya sudah tiba (`portal.background_sync`). |
 | Harian | `model:prune` | Menghapus notifikasi yang melewati masa simpan dan menghapus kredensial tersimpan akun offline yang login online terakhirnya melewati `portal.background_sync.credential_days` (default 30 hari). Juga memangkas token bearer aplikasi mobile yang lama tidak dipakai dan token push yang tidak didaftarkan ulang (`portal.mobile`). |
-
-Ketiga worker terjadwal berjalan di background (tidak menahan jadwal lain), berhenti saat antreannya kosong atau setelah `--max-time`, dan dikunci `withoutOverlapping` yang kedaluwarsa tepat setelah waktu jalan terlamanya: 7 menit untuk `sessions`, 16 menit untuk `default`, 36 menit untuk `background`. Kalau server mati saat worker berjalan, worker berikutnya hanya tertahan selama itu, bukan 24 jam. Selama worker Supervisor hidup, worker terjadwal biasanya mendapati antrean kosong dan langsung berhenti; kalau worker Supervisor mati, worker terjadwal yang mengambil alih. Cron saja tanpa Supervisor tetap berfungsi, tetapi tiap antrean hanya punya satu worker yang menjalankan job satu per satu. Keep-alive sesi, refresh snapshot, pemindaian notifikasi, dan ingest notebook tidak menunggu sinkronisasi arsip.
-
-Antrean yang dipakai:
-
-| Antrean | Job |
-| --- | --- |
-| `sessions` | `RefreshPortalSessionJob` (keep-alive sesi), `ResumeOfflineSessionJob` (menyambungkan sesi offline), `ExpirePortalSessionJob` (mengakhiri sesi yang idle). |
-| `default` | `RefreshPortalDataJob`, `FlushPortalOutboxJob` dan `SendPortalOutboxJob` (mengirim antrean offline), `ScanPortalNotificationsJob`, `SendAwayRemindersJob`, `SendPortalPushNotificationsJob`, `IngestNotebookSourceJob`, dan job lain tanpa antrean khusus. |
-| `background` | `SyncPortalArchiveJob` (sinkronisasi di background, sampai 30 menit), `ArchiveCourseMaterialsJob`, `ArchivePortalFilesJob`, `SyncCourseNotebookJob`. |
-
-Unggahan tugas dan ujian (`ProcessPortalAssignmentUploadJob`, `ProcessPortalExamUploadJob`) tidak pernah menjadi job di queue `database`: proses web menjalankannya tepat setelah respons dikirim, dan pengiriman antrean offline menjalankannya langsung di dalam job-nya.
-
-`--timeout` tiap worker menjaga job tanpa `$timeout` sendiri agar tidak dihentikan pada 60 detik, dan harus tetap di bawah `retry_after`. `DB_QUEUE_RETRY_AFTER` (default 1900 detik) harus lebih besar dari `$timeout` job terpanjang (`SyncPortalArchiveJob`: 1800 detik) dan dari `--timeout` setiap worker. Kalau lebih kecil, worker kedua mengambil job yang masih berjalan, job itu ditandai gagal, dan sinkronisasi yang sama berjalan dua kali. `tests/Unit/QueueJobConfigurationTest.php` dan `tests/Unit/ScheduledQueueWorkerTest.php` memeriksa batas ini, antrean setiap job, dan jadwal worker. Akibatnya, job yang tertinggal saat worker mati mendadak (kehabisan memori, `SIGKILL` saat deploy) baru dicoba lagi sekitar 32 menit kemudian, termasuk keep-alive sesi di `sessions`; hentikan worker dengan `php artisan queue:restart` saat deploy agar job yang sedang berjalan selesai dulu.
 
 ### Arsip & sinkronisasi di background
 - Setiap login online menyimpan hash password (login offline saat portal mati) dan, bila sinkronisasi di background aktif, kredensial terenkripsi dengan `APP_KEY`. Mahasiswa bisa mematikannya sendiri di halaman Arsip; password tersimpan langsung dihapus.
@@ -209,7 +176,9 @@ Unggahan tugas dan ujian (`ProcessPortalAssignmentUploadJob`, `ProcessPortalExam
 | --- | --- |
 | `APP_URL`, `APP_ENV`, `APP_DEBUG` | URL aplikasi & mode debug. Pastikan `APP_URL` sama dengan domain UI Anda agar cookie sesi valid. |
 | `DB_*` | Konfigurasi database utama (SQLite default). |
-| `CACHE_STORE`, `SESSION_DRIVER`, `QUEUE_CONNECTION` | Gunakan `database` agar sejalan dengan konfigurasi repo & migrasi bawaan. |
+| `CACHE_STORE`, `SESSION_DRIVER` | Gunakan `database` agar sejalan dengan konfigurasi repo & migrasi bawaan. |
+| `QUEUE_CONNECTION`, `REDIS_*`, `REDIS_QUEUE_RETRY_AFTER` | `redis`: Horizon menjalankan queue dari Redis. `REDIS_QUEUE_RETRY_AFTER` harus di atas 1800 detik (default 1900). |
+| `PORTAL_MAINTAINERS` | NIM (dipisah koma) yang boleh membuka `/horizon` dan `/log-viewer` di luar `APP_ENV=local`. |
 | `CAMPUS_BASE_URL`, `CAMPUS_LOGIN_URL`, `CAMPUS_LOGIN_ACTION`, `CAMPUS_DASHBOARD_URL`, `CAMPUS_PROFILE_URL`, `CAMPUS_CLASSES_URL`, `CAMPUS_CLASS_DETAIL_URL` | URL halaman kampus tempat scraping dilakukan. Sesuaikan jika portal berubah. |
 | `CAMPUS_SIPANDAI_ASSIGNMENT_URL`, `CAMPUS_SIPANDAI_ATTENDANCE_URL` | Base URL aksi SIPANDAI untuk upload tugas dan validasi kehadiran; tambahkan parameter dinamis (`courses_id`, `id`, `pertemuan`, `course_id`) saat runtime. |
 | `CAMPUS_REQUEST_TIMEOUT`, `CAMPUS_REQUEST_DELAY`, `CAMPUS_SESSION_REFRESH_INTERVAL` | Atur timeout HTTP, jeda antar request (ms), serta interval refresh sesi (detik). |
@@ -271,7 +240,7 @@ npm run typecheck && npm run lint
 ## Checklist Agar Aplikasi Tetap Bagus
 ### 1. Manajemen Session & Security
 - Selalu gunakan `PortalSessionManager` untuk membuat, menyegarkan, dan memvalidasi sesi; jangan menyimpan cookie mentah.
-- Pastikan worker menjalankan ketiga antrean (`sessions`, `default`, `background`): keep-alive sesi, sinkronisasi snapshot, antrean offline, notifikasi, dan sinkronisasi arsip berjalan di sana.
+- Pastikan Horizon berjalan (ketiga antrean `sessions`, `default`, `background`): keep-alive sesi, sinkronisasi snapshot, antrean offline, notifikasi, dan sinkronisasi arsip berjalan di sana.
 - Simpan kredensial kampus menggunakan enkripsi bawaan Laravel (`encrypt()`), tidak pernah hardcode di kode atau config.
 - Aktifkan `auto_relogin` hanya di lingkungan aman dan audit log (`storage/logs/laravel.log`) untuk setiap relogin.
 - Terapkan rate limiting di layer API Gateway / middleware tambahan saat menuju produksi.
@@ -291,7 +260,7 @@ npm run typecheck && npm run lint
 ### 4. Performa & Observabilitas
 - TTL cache resource ada di `portal.cache.resources`, jendela segar snapshot di `portal.datasets.*.fresh_for`; gunakan `CACHE_STORE=database` atau Redis.
 - Simpan log penting melalui `Log::info/warning/error` (lihat `PortalAuthService`, `PortalSessionManager`) agar mudah dianalisis via Laravel Pail.
-- Cron `php artisan schedule:run` wajib di server: scheduler menjalankan queue worker, sinkronisasi arsip, dan pembersihan notifikasi.
+- Cron `php artisan schedule:run` wajib di server: scheduler menjalankan sinkronisasi arsip, metrik Horizon, dan pembersihan notifikasi.
 - Aktifkan `CAMPUS_REQUEST_DELAY` minimal 1000 ms untuk menghormati server kampus (rate limiting).
 
 ### 5. Testing & QA
@@ -302,10 +271,10 @@ npm run typecheck && npm run lint
 - Pastikan style code mengikuti Laravel Pint: `vendor/bin/pint --dirty`.
 
 ## Observability & Debugging
-- `storage/logs/laravel.log` – log utama; gunakan `tail -f` atau `php artisan pail` untuk live streaming.
+- `storage/logs/laravel.log` – log utama; baca di `/log-viewer`, atau gunakan `tail -f` / `php artisan pail` untuk live streaming.
 - `php artisan tinker` – debugging session/cache secara langsung (`Cache::get('cic_session_<token>')`).
 - Endpoint `/api/support/*` membantu memeriksa struktur HTML terbaru tanpa membuka UI lama.
-- Gunakan `php artisan queue:failed` & `php artisan queue:retry` untuk menangani job refresh sesi yang gagal.
+- Job yang gagal terlihat dan bisa di-retry di `/horizon`; `php artisan queue:failed` & `php artisan queue:retry` juga tetap bisa dipakai.
 - Dokumentasi API otomatis tersedia melalui Dedoc Scramble (`/docs/api`) saat `APP_ENV=local` atau akses dibuka.
 
 ## Pengujian & Format Kode
@@ -322,7 +291,7 @@ Sebelum membuat PR, biasakan untuk:
 
 ## Langkah Berikutnya yang Direkomendasikan
 1. **Tambah Feature Test & Mock** – liputi `PortalDataController` dan `PortalSessionManager` agar regresi terdeteksi cepat.
-2. **Perkuat Observability** – kirim log krusial ke channel terpisah (Stackdriver/Logtail) dan tambahkan metrik queue.
+2. **Perkuat Observability** – kirim log krusial ke channel terpisah (Stackdriver/Logtail) dan aktifkan notifikasi Horizon (`LongWaitDetected`) ke email atau Slack.
 3. **Rate Limiting & Circuit Breaker** – tambahkan middleware untuk membatasi request eksternal ketika server kampus bermasalah.
 4. **Dokumentasi API** – publikasikan versi HTML/Markdown dari Scramble agar tim front-end bisa mengonsumsi API tanpa membaca kode.
 

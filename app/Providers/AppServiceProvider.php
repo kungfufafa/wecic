@@ -7,6 +7,7 @@ use App\Services\PortalAuthService;
 use App\Services\PortalBroadcastService;
 use App\Services\PortalDataOwner;
 use App\Services\PortalFetchPolicy;
+use App\Services\PortalMaintainers;
 use App\Services\PortalOperationTracker;
 use App\Services\PortalSessionContext;
 use App\Services\PortalSessionManager;
@@ -15,6 +16,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
+use Opcodes\LogViewer\Facades\LogViewer;
 use Symfony\Component\HttpFoundation\Response;
 
 class AppServiceProvider extends ServiceProvider
@@ -78,6 +80,9 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('notebook-sources', function (Request $request): Limit {
             return Limit::perMinute(20)->by((string) $request->session()->get('campus_session_token', $request->ip()));
         });
+
+        // Without a check Log Viewer is open to anyone outside production.
+        LogViewer::auth(fn (Request $request): bool => $this->app->make(PortalMaintainers::class)->allows($request));
     }
 
     /**

@@ -5,109 +5,118 @@ declare(strict_types=1);
 namespace Tests\Unit;
 
 use App\Jobs\SyncPortalArchiveJob;
-use Illuminate\Console\Scheduling\Event;
 use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Support\Str;
+use Laravel\Horizon\ProvisioningPlan;
+use Laravel\Horizon\SupervisorOptions;
 use ReflectionClass;
 use Tests\TestCase;
-use Tests\Traits\InspectsScheduledQueueWorkers;
 
 /**
- * Every queued job must fit the workers that run it: its queue is one
- * exactly one scheduled worker (routes/console.php) and the `composer dev`
- * listener run, that worker lets it finish, and it finishes before the
- * database queue hands it to a second worker (`retry_after`).
+ * Every queued job must fit the Horizon supervisor that runs it
+ * (config/horizon.php): in every environment its queue has exactly one
+ * supervisor, that supervisor lets it finish, and it finishes before the
+ * redis queue hands it to a second worker (`retry_after`).
  */
 class QueueJobConfigurationTest extends TestCase
 {
-    use InspectsScheduledQueueWorkers;
+    /**
+     * Environments Horizon must start the supervisors in; staging stands for
+     * any environment config/horizon.php does not name.
+     */
+    private const ENVIRONMENTS = ['production', 'local', 'staging'];
 
     /**
-     * Seconds `queue:work` gives a job without its own `$timeout` when the
-     * worker passes no `--timeout`.
+     * Seconds Horizon gives a job without its own `$timeout` when the
+     * supervisor sets none.
      */
-    private const QUEUE_WORK_DEFAULT_TIMEOUT = 60;
+    private const HORIZON_DEFAULT_TIMEOUT = 60;
 
-    /**
-     * How long a scheduled worker's overlap lock may outlive the worker's
-     * longest possible run: past it, a worker killed mid-run (reboot, out of
-     * memory) holds its queues back for nothing.
-     */
-    private const OVERLAP_LOCK_MARGIN = 300;
-
-    public function test_every_job_finishes_before_the_database_queue_retries_it(): void
+    public function test_horizon_runs_the_redis_queue_the_app_dispatches_to(): void
     {
-        $retryAfter = (int) config('queue.connections.database.retry_after');
+        $this->assertSame('redis', config('queue.connections.redis.driver'));
+        $this->assertStringContainsString("\nQUEUE_CONNECTION=redis\n", (string) file_get_contents(base_path('.env.example')));
+
+        foreach (self::ENVIRONMENTS as $environment) {
+            foreach ($this->supervisors($environment) as $name => $supervisor) {
+                $this->assertSame('redis', $supervisor->connection, "{$environment}.{$name} must work the redis queue.");
+            }
+        }
+    }
+
+    public function test_every_job_finishes_before_the_redis_queue_retries_it(): void
+    {
+        $retryAfter = (int) config('queue.connections.redis.retry_after');
 
         foreach ($this->jobs() as $class => $reflection) {
-            $this->assertLessThan($retryAfter, $this->longestTimeout($reflection), "{$class} can run longer than queue.connections.database.retry_after ({$retryAfter} s).");
+            $this->assertLessThan($retryAfter, $this->longestTimeout($reflection), "{$class} can run longer than queue.connections.redis.retry_after ({$retryAfter} s).");
         }
 
-        foreach ($this->scheduledQueueWorkers() as $worker) {
-            $this->assertLessThan($retryAfter, (int) $this->scheduledWorkerOption($worker, 'timeout'), "The scheduled worker lets a job run past retry_after: {$worker->command}");
+        foreach (self::ENVIRONMENTS as $environment) {
+            foreach ($this->supervisors($environment) as $name => $supervisor) {
+                $this->assertLessThan($retryAfter, $supervisor->timeout, "{$environment}.{$name} lets a job run past retry_after.");
+            }
         }
 
         $this->assertGreaterThan(SyncPortalArchiveJob::TIMEOUT, $retryAfter);
     }
 
-    public function test_every_job_queue_has_exactly_one_scheduled_worker_and_the_dev_listener(): void
+    public function test_every_job_queue_has_exactly_one_supervisor_in_every_environment(): void
     {
-        $development = $this->devWorkerQueues();
+        foreach (self::ENVIRONMENTS as $environment) {
+            foreach ($this->jobs() as $class => $reflection) {
+                $queue = $this->queueOf($reflection);
 
-        foreach ($this->jobs() as $class => $reflection) {
-            foreach ($this->queuesOf($reflection) as $queue) {
-                $this->assertCount(1, $this->scheduledWorkersRunning($queue), "{$class} is queued on '{$queue}', which needs exactly one scheduled worker in routes/console.php.");
-                $this->assertContains($queue, $development, "{$class} is queued on '{$queue}', which the composer dev worker does not run.");
+                $this->assertCount(1, $this->supervisorsRunning($environment, $queue), "{$class} is queued on '{$queue}', which needs exactly one supervisor in the {$environment} environment.");
             }
         }
     }
 
-    public function test_each_scheduled_worker_lets_the_jobs_on_its_queues_finish(): void
+    public function test_keep_alive_pings_and_archive_crawls_each_have_a_supervisor_of_their_own(): void
     {
-        foreach ($this->scheduledQueueWorkers() as $worker) {
-            $timeout = $this->scheduledWorkerOption($worker, 'timeout');
+        foreach (self::ENVIRONMENTS as $environment) {
+            $supervisors = $this->supervisors($environment);
 
-            $this->assertNotNull($timeout, "The scheduled worker needs an explicit --timeout: {$worker->command}");
+            $this->assertSame(['sessions', 'default', 'background'], array_keys($supervisors));
+            $this->assertSame(['sessions'], $this->queuesOf($supervisors['sessions']));
+            $this->assertSame(['default'], $this->queuesOf($supervisors['default']));
+            $this->assertSame(['background'], $this->queuesOf($supervisors['background']));
+            $this->assertSame('background', (new SyncPortalArchiveJob(1))->queue);
+        }
+    }
 
-            foreach ($this->jobsRunBy($worker) as $class => $reflection) {
-                $this->assertGreaterThanOrEqual($this->longestTimeout($reflection), $timeout, "{$class} may run longer than the --timeout of the worker that runs it: {$worker->command}");
+    public function test_each_supervisor_lets_the_jobs_on_its_queue_finish(): void
+    {
+        foreach (self::ENVIRONMENTS as $environment) {
+            foreach ($this->supervisors($environment) as $name => $supervisor) {
+                // A job without its own $timeout runs on the supervisor's.
+                $this->assertGreaterThanOrEqual(300, $supervisor->timeout, "{$environment}.{$name} would stop a job without its own \$timeout after {$supervisor->timeout} s.");
+                $this->assertSame(1, $supervisor->maxTries, "{$environment}.{$name}: a job retries only when it says so (\$tries).");
+
+                foreach ($this->jobs() as $class => $reflection) {
+                    if (in_array($this->queueOf($reflection), $this->queuesOf($supervisor), true)) {
+                        $this->assertGreaterThanOrEqual($this->longestTimeout($reflection), $supervisor->timeout, "{$class} may run longer than the timeout of {$environment}.{$name}.");
+                    }
+                }
             }
         }
     }
 
-    public function test_a_scheduled_worker_overlap_lock_expires_just_after_its_longest_run(): void
+    public function test_a_deploy_never_holds_keep_alive_pings_behind_an_archive_crawl(): void
     {
-        foreach ($this->scheduledQueueWorkers() as $worker) {
-            $maxTime = $this->scheduledWorkerOption($worker, 'max-time');
-
-            $this->assertNotNull($maxTime, "Without --max-time a busy scheduled worker never ends, so no overlap lock can cover its run: {$worker->command}");
-
-            $longestJob = max([0, ...array_map(
-                fn (ReflectionClass $reflection): int => $this->longestTimeout($reflection),
-                array_values($this->jobsRunBy($worker))
-            )]);
-            $longestRun = $maxTime + max((int) $this->scheduledWorkerOption($worker, 'timeout'), $longestJob);
-            $lock = $worker->expiresAt * 60;
-
-            $this->assertTrue($worker->withoutOverlapping, "The scheduled worker must not overlap itself: {$worker->command}");
-            $this->assertGreaterThan($longestRun, $lock, "The overlap lock ({$lock} s) can expire while the worker still runs ({$longestRun} s): {$worker->command}");
-            $this->assertLessThanOrEqual($longestRun + self::OVERLAP_LOCK_MARGIN, $lock, "A worker killed mid-run blocks the next one for {$lock} s, far past its longest run ({$longestRun} s): {$worker->command}");
-        }
+        // horizon:terminate otherwise keeps the old master, and every queue
+        // with it, waiting for the slowest worker to finish its job.
+        $this->assertTrue(config('horizon.fast_termination'));
     }
 
-    public function test_the_dev_listener_never_kills_a_job_before_its_own_timeout(): void
+    public function test_composer_dev_runs_horizon_and_no_other_worker(): void
     {
-        $script = $this->devScript();
+        $composer = json_decode((string) file_get_contents(base_path('composer.json')), true);
+        $script = implode("\n", (array) ($composer['scripts']['dev'] ?? []));
 
-        $this->assertMatchesRegularExpression('/queue:(listen|work)/', $script);
-
-        if (preg_match('/queue:listen[^"]*--timeout=(\d+)/', $script, $matches) !== 1) {
-            $this->fail('The composer dev listener needs an explicit --timeout: queue:listen kills a child after 60 s by default.');
-        }
-
-        $timeout = (int) $matches[1];
-        $longest = max(array_map(fn (ReflectionClass $reflection): int => $this->longestTimeout($reflection), $this->jobs()));
-
-        $this->assertTrue($timeout === 0 || $timeout >= $longest, "queue:listen --timeout={$timeout} stops jobs that may run {$longest} s, and the whole dev stack with them.");
+        $this->assertStringContainsString('php artisan horizon:listen', $script);
+        $this->assertStringNotContainsString('queue:listen', $script);
+        $this->assertStringNotContainsString('queue:work', $script);
     }
 
     /**
@@ -132,42 +141,68 @@ class QueueJobConfigurationTest extends TestCase
     }
 
     /**
-     * The jobs queued on any queue the given scheduled worker runs.
+     * The supervisors Horizon starts in the given environment, by name: the
+     * first environment key of config/horizon.php that matches, as
+     * ProvisioningPlan::deploy() picks it.
      *
-     * @return array<class-string, ReflectionClass<object>>
+     * @return array<string, SupervisorOptions>
      */
-    private function jobsRunBy(Event $worker): array
+    private function supervisors(string $environment): array
     {
-        $queues = $this->scheduledWorkerQueues($worker);
+        $plan = ProvisioningPlan::get('test')->parsed;
+        $match = collect($plan)->first(fn (mixed $supervisors, string $name): bool => Str::is($name, $environment));
 
-        return array_filter(
-            $this->jobs(),
-            fn (ReflectionClass $reflection): bool => array_intersect($this->queuesOf($reflection), $queues) !== []
-        );
+        $this->assertNotNull($match, "Horizon starts no supervisor in the {$environment} environment.");
+
+        return collect($match)->filter(fn (SupervisorOptions $supervisor): bool => $supervisor->maxProcesses > 0)->all();
     }
 
     /**
-     * @return list<Event>
+     * @return list<SupervisorOptions>
      */
-    private function scheduledWorkersRunning(string $queue): array
+    private function supervisorsRunning(string $environment, string $queue): array
     {
         return array_values(array_filter(
-            $this->scheduledQueueWorkers(),
-            fn (Event $worker): bool => in_array($queue, $this->scheduledWorkerQueues($worker), true)
+            $this->supervisors($environment),
+            fn (SupervisorOptions $supervisor): bool => in_array($queue, $this->queuesOf($supervisor), true)
         ));
     }
 
     /**
+     * @return list<string>
+     */
+    private function queuesOf(SupervisorOptions $supervisor): array
+    {
+        return explode(',', (string) $supervisor->queue);
+    }
+
+    /**
+     * The queue a job names with onQueue(), else the connection's default.
+     *
+     * @param  ReflectionClass<object>  $reflection
+     */
+    private function queueOf(ReflectionClass $reflection): string
+    {
+        $source = (string) file_get_contents((string) $reflection->getFileName());
+        preg_match_all("/onQueue\\('([^']+)'\\)/", $source, $matches);
+        $queues = array_values(array_unique($matches[1]));
+
+        $this->assertLessThanOrEqual(1, count($queues), "{$reflection->getName()} names more than one queue.");
+
+        return $queues[0] ?? (string) config('queue.connections.redis.queue');
+    }
+
+    /**
      * The `$timeout` a job declares, or the larger bound it may raise it to
-     * in its constructor (`MAX_TIMEOUT`); without one, the `--timeout` of the
-     * scheduled worker that runs its queue.
+     * in its constructor (`MAX_TIMEOUT`); without one, the timeout of the
+     * supervisors that run its queue.
      *
      * @param  ReflectionClass<object>  $reflection
      */
     private function longestTimeout(ReflectionClass $reflection): int
     {
         $timeout = $reflection->hasProperty('timeout') ? $reflection->getProperty('timeout')->getDefaultValue() : null;
-        $timeout = is_int($timeout) ? $timeout : $this->scheduledWorkerTimeoutFor($reflection);
+        $timeout = is_int($timeout) ? $timeout : $this->supervisorTimeoutFor($this->queueOf($reflection));
 
         if ($reflection->hasConstant('MAX_TIMEOUT')) {
             $timeout = max($timeout, (int) $reflection->getConstant('MAX_TIMEOUT'));
@@ -176,48 +211,16 @@ class QueueJobConfigurationTest extends TestCase
         return $timeout;
     }
 
-    /**
-     * @param  ReflectionClass<object>  $reflection
-     */
-    private function scheduledWorkerTimeoutFor(ReflectionClass $reflection): int
+    private function supervisorTimeoutFor(string $queue): int
     {
         $timeouts = [];
 
-        foreach ($this->queuesOf($reflection) as $queue) {
-            foreach ($this->scheduledWorkersRunning($queue) as $worker) {
-                $timeouts[] = $this->scheduledWorkerOption($worker, 'timeout') ?? self::QUEUE_WORK_DEFAULT_TIMEOUT;
+        foreach (self::ENVIRONMENTS as $environment) {
+            foreach ($this->supervisorsRunning($environment, $queue) as $supervisor) {
+                $timeouts[] = $supervisor->timeout ?: self::HORIZON_DEFAULT_TIMEOUT;
             }
         }
 
-        return $timeouts !== [] ? max($timeouts) : self::QUEUE_WORK_DEFAULT_TIMEOUT;
-    }
-
-    /**
-     * @param  ReflectionClass<object>  $reflection
-     * @return list<string>
-     */
-    private function queuesOf(ReflectionClass $reflection): array
-    {
-        $source = (string) file_get_contents((string) $reflection->getFileName());
-        preg_match_all("/onQueue\\('([^']+)'\\)/", $source, $matches);
-
-        return $matches[1] !== [] ? array_values(array_unique($matches[1])) : ['default'];
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function devWorkerQueues(): array
-    {
-        $this->assertSame(1, preg_match('/queue:(?:work|listen)[^"\']*--queue=([a-z0-9,_-]+)/', $this->devScript(), $matches), 'No composer dev queue worker with an explicit --queue list found.');
-
-        return explode(',', $matches[1]);
-    }
-
-    private function devScript(): string
-    {
-        $composer = json_decode((string) file_get_contents(base_path('composer.json')), true);
-
-        return implode("\n", (array) ($composer['scripts']['dev'] ?? []));
+        return $timeouts !== [] ? max($timeouts) : self::HORIZON_DEFAULT_TIMEOUT;
     }
 }
