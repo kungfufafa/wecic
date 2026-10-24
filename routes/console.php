@@ -5,13 +5,7 @@ use App\Models\PortalNotification;
 use App\Models\PortalOfflineAccount;
 use App\Models\PortalOutboxItem;
 use App\Models\PortalPushToken;
-use Illuminate\Foundation\Inspiring;
-use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
-
-Artisan::command('inspire', function () {
-    $this->comment(Inspiring::quote());
-})->purpose('Display an inspiring quote');
 
 // Horizon (config/horizon.php) runs the queues; its dashboard graphs come
 // from these snapshots.

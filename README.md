@@ -57,6 +57,7 @@ MyCIC memadukan tiga lapisan utama:
 3. Database yang kompatibel (SQLite cukup untuk lokal).
 4. Redis untuk queue, dan Horizon berumur panjang di bawah Supervisor, plus cron `php artisan schedule:run` setiap menit. Cron menjalankan sinkronisasi arsip di background, pemulihan unggahan, metrik Horizon, dan pembersihan data (lihat [Menjalankan di Server](#menjalankan-di-server-queue--scheduler)).
 5. Akses internet ke portal kampus untuk scraping (set `CAMPUS_*` sesuai lingkungan).
+6. Opsional: Reverb untuk pembaruan realtime di browser (lihat [Reverb](#reverb-realtime-di-browser-opsional)).
 
 ## Instalasi Cepat
 ```bash
@@ -79,7 +80,7 @@ npm run dev               # atau npm run build untuk production assets
 - `php artisan serve` – jalankan server aplikasi.
 - `npm run dev` – jalankan Vite + Tailwind watcher.
 - `php artisan horizon:listen` – jalankan Horizon (ketiga antrean) dan restart worker otomatis saat kode berubah. Butuh Redis lokal (`QUEUE_CONNECTION=redis`) dan Node dengan paket `chokidar` dari `devDependencies`. Dasbornya di `/horizon`, log di `/log-viewer`.
-- `php artisan reverb:start` – server WebSocket untuk notifikasi realtime.
+- `php artisan reverb:start` – server WebSocket untuk pembaruan realtime di browser (opsional; lihat [Reverb](#reverb-realtime-di-browser-opsional)). Tanpanya, aplikasi tetap jalan: browser memakai polling dan menampilkan "Pembaruan otomatis tidak tersedia".
 - `php artisan pail --timeout=0` – pantau log secara real time.
 - Gunakan `composer run dev` untuk menjalankan server, Horizon, Reverb, log streamer, dan Vite secara paralel (menggunakan `concurrently`).
 - `php artisan schedule:work` (opsional) – menjalankan scheduler secara lokal. Perhatikan: sinkronisasi arsip di background ikut berjalan dan masuk ke portal kampus memakai password mahasiswa yang tersimpan.
@@ -140,6 +141,30 @@ sudo supervisorctl start mycic-horizon
   3. Pasang dan jalankan program `mycic-horizon` di atas, supaya job baru langsung dikerjakan.
   4. Hentikan worker database lama: `sudo supervisorctl stop "mycic-queue-sessions:*" "mycic-queue-default:*" "mycic-queue-background:*"`, hapus program itu dari konfigurasi Supervisor, lalu `sudo supervisorctl reread && sudo supervisorctl update`. Tunggu sampai `pgrep -af 'queue:[w]ork'` tidak menampilkan apa-apa: biasanya beberapa detik, sampai 30 menit bila ada crawl arsip yang sedang berjalan. Langkah ini harus selesai dulu, karena di SQLite worker lama bisa mengambil job yang sedang dipindahkan.
   5. Jalankan `php artisan migrate --force`. Migrasinya menjalankan `php artisan portal:move-old-queue-jobs`, yang memindahkan job yang masih menunggu di tabel `jobs` (termasuk nama antrean lama `campus-*`, tetap dengan waktu jatuh temponya) ke Redis dan mengarahkan job gagal ke Redis supaya `queue:retry` tetap jalan. Perintah ini aman dijalankan lagi kapan saja; ia hanya memindahkan yang masih tersisa.
+
+### Reverb (realtime di browser, opsional)
+`BROADCAST_CONNECTION=reverb` di `.env.example` mengirim event sesi (status sinkronisasi, progres upload, notifikasi, pemberitahuan sesi) ke browser lewat WebSocket. Reverb **opsional**: `PortalBroadcastService` hanya mencatat warning bila broadcast gagal, browser tetap polling untuk operasi dan refresh, dan aplikasi mobile tidak memakainya (hanya push). Pilih salah satu di production:
+
+1. **Menjalankan Reverb.** Jaga `php artisan reverb:start` tetap hidup dengan program Supervisor kedua, misalnya `/etc/supervisor/conf.d/mycic-reverb.conf`:
+
+   ```ini
+   [program:mycic-reverb]
+   process_name=%(program_name)s
+   command=php /path/ke/mycic/artisan reverb:start
+   directory=/path/ke/mycic
+   user=www-data
+   autostart=true
+   autorestart=true
+   stopasgroup=true
+   killasgroup=true
+   redirect_stderr=true
+   stdout_logfile=/path/ke/mycic/storage/logs/reverb.log
+   ```
+
+   Server mendengarkan di `REVERB_SERVER_HOST:REVERB_SERVER_PORT` (default `0.0.0.0:8080`). Browser menghubungi `REVERB_HOST`, `REVERB_PORT`, dan `REVERB_SCHEME`, yang ikut terpanggang ke bundel Vite lewat `VITE_REVERB_*`, jadi letakkan Reverb di belakang nginx dengan TLS (lihat [dokumentasi Reverb](https://laravel.com/docs/reverb#production)), isi ketiganya dengan alamat publiknya (mis. `REVERB_HOST=mycic.example.ac.id`, `REVERB_PORT=443`, `REVERB_SCHEME=https`), lalu `npm run build`. Setelah deploy jalankan `php artisan reverb:restart` supaya Supervisor menyalakan Reverb dengan kode baru.
+2. **Tidak menjalankan Reverb.** Isi `BROADCAST_CONNECTION=null` supaya setiap event tidak mencoba menghubungi server yang tidak ada, kosongkan `REVERB_APP_KEY` (dengannya `VITE_REVERB_APP_KEY` ikut kosong dan browser tidak mencoba WebSocket sama sekali; chip menunjukkan "Pembaruan otomatis belum aktif"), lalu `npm run build`.
+
+Tanpa salah satunya, `BROADCAST_CONNECTION=reverb` dengan Reverb yang tidak berjalan membuat setiap event gagal (tercatat sebagai warning di log) dan browser terus mencoba menyambung.
 
 ### Dasbor Horizon & Log Viewer
 - `/horizon` – job yang sedang berjalan, yang gagal (bisa di-retry dari sana), waktu tunggu tiap antrean, dan grafik throughput.

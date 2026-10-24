@@ -19,7 +19,7 @@ class PortalEndpointsCommand extends Command
     /**
      * The console command description.
      */
-    protected $description = 'Melihat daftar endpoint portal yang tersinkron dengan test_all_endpoints.sh';
+    protected $description = 'Melihat katalog endpoint portal (config/portal.php, bagian endpoints)';
 
     /**
      * Execute the console command.
