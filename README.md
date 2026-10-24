@@ -56,7 +56,7 @@ Jalankan perintah berikut satu per satu.
    composer run dev
    ```
 
-   Port yang dipakai: 8000 untuk server aplikasi, 8080 untuk Reverb, 5173 untuk Vite. Baris `WARN Unable to respect the PHP_CLI_SERVER_WORKERS environment variable` dari `server` adalah peringatan `php artisan serve` yang boleh diabaikan.
+   Port yang dipakai: 8000 untuk server aplikasi, 8080 untuk Reverb, 5173 untuk Vite. Baris ``WARN  Unable to respect the `PHP_CLI_SERVER_WORKERS` environment variable without the `--no-reload` flag. Only creating a single server.`` dari `server` adalah peringatan `php artisan serve` yang boleh diabaikan.
 
 6. Buka http://127.0.0.1:8000 di browser, alamat yang dicetak `server`. Halaman login MyCIC tampil; `APP_URL` di `.env` boleh tetap `http://localhost`. Masuk dengan NIM dan password portal CIC.
 
@@ -84,7 +84,7 @@ Satu nama tes, class atau method:
 php artisan test --filter=test_an_unknown_endpoint_fails
 ```
 
-Nama yang tidak ada hanya mencetak `No tests found` dan tetap keluar dengan status 0.
+Nama yang tidak ada hanya mencetak `INFO  No tests found.` dan tetap keluar dengan status 0.
 
 Tes JavaScript:
 
@@ -112,7 +112,7 @@ vendor/bin/pint --test
 
 ## Cara berkontribusi
 
-1. Buat branch dari `main`. Pesan merge di `git log` memakai nama branch berawalan `feature/` dan `fix/`.
+1. Buat branch dari `main`. Sebagian besar pesan merge di `git log` memakai nama branch berawalan `feature/` dan `fix/`.
 
    ```bash
    git switch -c feature/nama-perubahan main
