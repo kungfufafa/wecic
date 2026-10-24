@@ -56,9 +56,7 @@ class ProcessPortalExamUploadJob implements ShouldQueue
         private readonly array $formValues = [],
         private readonly ?string $targetLockKey = null,
         private readonly ?string $targetLockOwner = null
-    ) {
-        $this->onQueue('campus-uploads');
-    }
+    ) {}
 
     public function handle(
         SipandaiSubmissionService $submissionService,

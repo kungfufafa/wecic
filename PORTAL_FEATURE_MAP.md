@@ -1761,7 +1761,7 @@ Ketiga fitur keuangan memakai satu `GET M act=keuangan` (endpoint `student_finan
   - Service `app/Services/StudentSkkmService.php`:
     - `inspectAddForm()`.
     - `submitSkkm(...)`: kirim dengan `Referer` = `act=addskkm`, `allowShortResponse:true`; baca `alert`/`strong#message`; lalu GET `act=skkm` dan cari baris baru (nama + jenis, status menunggu). Hasil: `uploaded` | `upload_failed` | `unknown`.
-  - Job `ProcessPortalSkkmUploadJob` (`ShouldQueue`, `tries=1`, queue `campus-uploads`).
+  - Job `ProcessPortalSkkmUploadJob` (`ShouldQueue`, `tries=1`), dijalankan dengan `dispatchAfterResponse` seperti `ProcessPortalAssignmentUploadJob` (tanpa antrean).
   - `POST /api/skkm` → 202 `{operation_id}`.
   - `PortalSkkmStoreRequest`:
     - `nama_kegiatan required|string|max:255`.

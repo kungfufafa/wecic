@@ -77,7 +77,7 @@ npm run dev               # atau npm run build untuk production assets
 ## Menjalankan Lingkungan Pengembangan
 - `php artisan serve` – jalankan server aplikasi.
 - `npm run dev` – jalankan Vite + Tailwind watcher.
-- `php artisan queue:listen --tries=1 --timeout=0 --queue=campus-uploads,campus-sessions,campus-refresh,campus-notifications,default,campus-background` – jalankan semua antrean. `--timeout=0` mematikan batas waktu proses listener; tiap job tetap dihentikan worker sesuai `$timeout` miliknya (sinkronisasi arsip boleh sampai 30 menit).
+- `php artisan queue:listen --tries=1 --timeout=0 --queue=campus-sessions,campus-refresh,campus-notifications,default,campus-background` – jalankan semua antrean dalam satu proses, urut prioritas (cukup untuk satu pengguna; production memisahkannya ke tiga worker, lihat [Menjalankan di Server](#menjalankan-di-server-queue--scheduler)). `--timeout=0` mematikan batas waktu proses listener; tiap job tetap dihentikan worker sesuai `$timeout` miliknya (sinkronisasi arsip boleh sampai 30 menit).
 - `php artisan reverb:start` – server WebSocket untuk notifikasi realtime.
 - `php artisan pail --timeout=0` – pantau log secara real time.
 - Gunakan `composer run dev` untuk menjalankan server, queue listener, Reverb, log streamer, dan Vite secara paralel (menggunakan `concurrently`).
@@ -90,14 +90,14 @@ npm run dev               # atau npm run build untuk production assets
 - `npm run test:e2e` – tes browser Playwright memakai Google Chrome yang sudah terpasang. Server dijalankan dengan `APP_ENV=e2e`: semua `/api/*` di-mock dan route login palsu hanya ada di lingkungan itu.
 
 ## Menjalankan di Server (Queue & Scheduler)
-Semua kerja ke portal kampus berjalan di queue `database`. Tanpa worker yang menjalankannya, dashboard tertahan di status "menyinkronkan", sesi portal kedaluwarsa, notifikasi tidak pernah dibuat, dan arsip materi tidak pernah selesai.
+Kerja ke portal kampus yang berjalan di belakang layar memakai queue `database`. Tanpa worker yang menjalankannya, dashboard tertahan di status "menyinkronkan", sesi portal kedaluwarsa, notifikasi tidak pernah dibuat, dan arsip materi tidak pernah selesai.
 
-Worker dibagi menjadi tiga kelompok antrean. Satu worker hanya menjalankan satu job pada satu waktu, jadi keep-alive sesi dan kerja yang sedang ditunggu mahasiswa tidak boleh berbagi worker dengan sinkronisasi arsip yang bisa berjalan 30 menit:
+Worker dibagi menjadi tiga kelompok antrean. Satu worker hanya menjalankan satu job pada satu waktu dan tidak pernah menyela job yang sedang berjalan demi antrean yang lebih prioritas, jadi keep-alive sesi dan kerja yang sedang ditunggu mahasiswa tidak boleh berbagi worker dengan sinkronisasi arsip yang bisa berjalan 30 menit. Di dalam satu kelompok, nama antrean hanya menentukan urutan: worker mengosongkan antrean pertama dulu, baru berikutnya.
 
 | Kelompok | Antrean (urut prioritas) | `--timeout` | Isi |
 | --- | --- | --- | --- |
-| Sesi & unggahan | `campus-sessions,campus-uploads` | 300 | Keep-alive sesi, menyambungkan sesi offline, unggahan. Harus selalu cepat. |
-| Ditunggu mahasiswa | `campus-refresh,campus-notifications,default` | 600 | Refresh snapshot (`RefreshPortalDataJob` sampai 600 detik), pemindaian notifikasi, ingest notebook. |
+| Sesi | `campus-sessions` | 300 | Keep-alive sesi, menyambungkan sesi offline, mengakhiri sesi yang idle. Harus selalu cepat. |
+| Ditunggu mahasiswa | `campus-refresh,campus-notifications,default` | 600 | Refresh snapshot (`RefreshPortalDataJob` sampai 600 detik) dan pengiriman antrean offline lebih dulu, lalu pemindaian notifikasi, pengingat, dan push, lalu ingest notebook. |
 | Crawl background | `campus-background` | 1800 | Sinkronisasi arsip (`SyncPortalArchiveJob` sampai 1800 detik), arsip materi & berkas, sinkronisasi notebook mata kuliah. |
 
 ### Disarankan: worker Supervisor
@@ -106,7 +106,7 @@ Di production, jalankan worker berumur panjang di bawah Supervisor (atau systemd
 ```ini
 [program:mycic-queue-sessions]
 process_name=%(program_name)s_%(process_num)02d
-command=php /path/ke/mycic/artisan queue:work database --queue=campus-sessions,campus-uploads --tries=1 --timeout=300 --sleep=1 --max-time=3600
+command=php /path/ke/mycic/artisan queue:work database --queue=campus-sessions --tries=1 --timeout=300 --sleep=1 --max-time=3600
 directory=/path/ke/mycic
 user=www-data
 numprocs=1
@@ -172,7 +172,7 @@ Jadwal di `routes/console.php`:
 
 | Jadwal | Perintah | Fungsi |
 | --- | --- | --- |
-| Setiap menit (background) | `queue:work --queue=campus-sessions,campus-uploads --stop-when-empty --timeout=300 --tries=1 --max-time=60` | Worker cadangan kelompok sesi & unggahan. |
+| Setiap menit (background) | `queue:work --queue=campus-sessions --stop-when-empty --timeout=300 --tries=1 --max-time=60` | Worker cadangan kelompok sesi. |
 | Setiap menit (background) | `queue:work --queue=campus-refresh,campus-notifications,default --stop-when-empty --timeout=600 --tries=1 --max-time=300` | Worker cadangan kelompok yang ditunggu mahasiswa. |
 | Setiap menit (background) | `queue:work --queue=campus-background --stop-when-empty --timeout=1800 --tries=1 --max-time=300` | Worker cadangan crawl background. |
 | Setiap 5 menit | `portal:recover-uploads` | Menutup unggahan yang terhenti di tengah jalan (mis. proses web mati) dan menghapus berkas sementaranya. |
@@ -181,18 +181,19 @@ Jadwal di `routes/console.php`:
 | Setiap 15 menit | `portal:sync-archives` | Mengantre sinkronisasi arsip di background untuk mahasiswa yang jadwalnya sudah tiba (`portal.background_sync`). |
 | Harian | `model:prune` | Menghapus notifikasi yang melewati masa simpan dan menghapus kredensial tersimpan akun offline yang login online terakhirnya melewati `portal.background_sync.credential_days` (default 30 hari). Juga memangkas token bearer aplikasi mobile yang lama tidak dipakai dan token push yang tidak didaftarkan ulang (`portal.mobile`). |
 
-Ketiga worker terjadwal berjalan di background (tidak menahan jadwal lain), berhenti saat antreannya kosong atau setelah `--max-time`, dan dikunci `withoutOverlapping` yang kedaluwarsa tepat setelah waktu jalan terlamanya: 7 menit untuk sesi & unggahan, 16 menit untuk kerja yang ditunggu mahasiswa, 36 menit untuk crawl background. Kalau server mati saat worker berjalan, worker berikutnya hanya tertahan selama itu, bukan 24 jam. Selama worker Supervisor hidup, worker terjadwal biasanya mendapati antrean kosong dan langsung berhenti; kalau worker Supervisor mati, worker terjadwal yang mengambil alih. Cron saja tanpa Supervisor tetap berfungsi, tetapi tiap kelompok hanya punya satu worker yang menjalankan job satu per satu. Keep-alive sesi, unggahan, refresh snapshot, pemindaian notifikasi, dan ingest notebook tidak menunggu sinkronisasi arsip.
+Ketiga worker terjadwal berjalan di background (tidak menahan jadwal lain), berhenti saat antreannya kosong atau setelah `--max-time`, dan dikunci `withoutOverlapping` yang kedaluwarsa tepat setelah waktu jalan terlamanya: 7 menit untuk sesi, 16 menit untuk kerja yang ditunggu mahasiswa, 36 menit untuk crawl background. Kalau server mati saat worker berjalan, worker berikutnya hanya tertahan selama itu, bukan 24 jam. Selama worker Supervisor hidup, worker terjadwal biasanya mendapati antrean kosong dan langsung berhenti; kalau worker Supervisor mati, worker terjadwal yang mengambil alih. Cron saja tanpa Supervisor tetap berfungsi, tetapi tiap kelompok hanya punya satu worker yang menjalankan job satu per satu. Keep-alive sesi, refresh snapshot, pemindaian notifikasi, dan ingest notebook tidak menunggu sinkronisasi arsip.
 
 Antrean yang dipakai:
 
 | Antrean | Job |
 | --- | --- |
-| `campus-sessions` | `RefreshPortalSessionJob` (keep-alive sesi), `ResumeOfflineSessionJob` (menyambungkan sesi offline). |
-| `campus-uploads` | `ProcessPortalAssignmentUploadJob`, `ProcessPortalExamUploadJob` (biasanya langsung dijalankan proses web setelah respons dikirim). |
-| `campus-refresh` | `RefreshPortalDataJob`. |
-| `campus-background` | `SyncPortalArchiveJob` (sinkronisasi di background, sampai 30 menit), `ArchiveCourseMaterialsJob`, `ArchivePortalFilesJob`, `SyncCourseNotebookJob`. |
-| `campus-notifications` | `ScanPortalNotificationsJob`. |
+| `campus-sessions` | `RefreshPortalSessionJob` (keep-alive sesi), `ResumeOfflineSessionJob` (menyambungkan sesi offline), `ExpirePortalSessionJob` (mengakhiri sesi yang idle). |
+| `campus-refresh` | `RefreshPortalDataJob`, `FlushPortalOutboxJob` dan `SendPortalOutboxJob` (mengirim antrean offline). |
+| `campus-notifications` | `ScanPortalNotificationsJob`, `SendAwayRemindersJob`, `SendPortalPushNotificationsJob`. |
 | `default` | `IngestNotebookSourceJob` dan job lain tanpa antrean khusus. |
+| `campus-background` | `SyncPortalArchiveJob` (sinkronisasi di background, sampai 30 menit), `ArchiveCourseMaterialsJob`, `ArchivePortalFilesJob`, `SyncCourseNotebookJob`. |
+
+Unggahan tugas dan ujian (`ProcessPortalAssignmentUploadJob`, `ProcessPortalExamUploadJob`) tidak pernah menjadi job di queue `database`: proses web menjalankannya tepat setelah respons dikirim, dan pengiriman antrean offline menjalankannya langsung di dalam job-nya.
 
 `--timeout` tiap worker menjaga job tanpa `$timeout` sendiri agar tidak dihentikan pada 60 detik, dan harus tetap di bawah `retry_after`. `DB_QUEUE_RETRY_AFTER` (default 1900 detik) harus lebih besar dari `$timeout` job terpanjang (`SyncPortalArchiveJob`: 1800 detik) dan dari `--timeout` setiap worker. Kalau lebih kecil, worker kedua mengambil job yang masih berjalan, job itu ditandai gagal, dan sinkronisasi yang sama berjalan dua kali. `tests/Unit/QueueJobConfigurationTest.php` dan `tests/Unit/ScheduledQueueWorkerTest.php` memeriksa batas ini, antrean setiap job, dan jadwal worker. Akibatnya, job yang tertinggal saat worker mati mendadak (kehabisan memori, `SIGKILL` saat deploy) baru dicoba lagi sekitar 32 menit kemudian, termasuk keep-alive sesi di `campus-sessions`; hentikan worker dengan `php artisan queue:restart` saat deploy agar job yang sedang berjalan selesai dulu.
 
@@ -270,7 +271,7 @@ npm run typecheck && npm run lint
 ## Checklist Agar Aplikasi Tetap Bagus
 ### 1. Manajemen Session & Security
 - Selalu gunakan `PortalSessionManager` untuk membuat, menyegarkan, dan memvalidasi sesi; jangan menyimpan cookie mentah.
-- Pastikan worker menjalankan semua antrean (`campus-sessions`, `campus-uploads`, `campus-refresh`, `campus-notifications`, `default`, `campus-background`): keep-alive sesi, unggahan, sinkronisasi snapshot, notifikasi, dan sinkronisasi arsip berjalan di sana.
+- Pastikan worker menjalankan semua antrean (`campus-sessions`, `campus-refresh`, `campus-notifications`, `default`, `campus-background`): keep-alive sesi, sinkronisasi snapshot, antrean offline, notifikasi, dan sinkronisasi arsip berjalan di sana.
 - Simpan kredensial kampus menggunakan enkripsi bawaan Laravel (`encrypt()`), tidak pernah hardcode di kode atau config.
 - Aktifkan `auto_relogin` hanya di lingkungan aman dan audit log (`storage/logs/laravel.log`) untuk setiap relogin.
 - Terapkan rate limiting di layer API Gateway / middleware tambahan saat menuju produksi.

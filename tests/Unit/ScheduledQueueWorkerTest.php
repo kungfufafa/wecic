@@ -22,10 +22,11 @@ class ScheduledQueueWorkerTest extends TestCase
     use InspectsScheduledQueueWorkers;
 
     /**
-     * Queues whose jobs must never wait behind a long archive crawl:
-     * keep-alive pings, session resumes and uploads.
+     * Queues whose jobs must never wait behind a long archive crawl or a
+     * snapshot refresh: keep-alive pings, session resumes and idle-session
+     * expiry.
      */
-    private const LATENCY_CRITICAL_QUEUES = ['campus-sessions', 'campus-uploads'];
+    private const LATENCY_CRITICAL_QUEUES = ['campus-sessions'];
 
     public function test_latency_critical_queues_have_a_worker_of_their_own(): void
     {

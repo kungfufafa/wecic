@@ -25,7 +25,8 @@ use Illuminate\Support\Facades\Storage;
  * Sends an assignment file to SIPANDAI. Dispatched to run right after the
  * HTTP response, so the upload starts immediately instead of waiting for a
  * queue worker; progress reaches the browser through realtime events and the
- * operation tracker (polled as a fallback).
+ * operation tracker (polled as a fallback). The offline outbox runs it with
+ * dispatchSync, so it never sits on a queue.
  *
  * Whenever the portal's reply leaves the outcome open, the assignment page
  * decides it, and a result that is still unclear is reported as such: asking
@@ -67,9 +68,7 @@ class ProcessPortalAssignmentUploadJob implements ShouldQueue
         private readonly array $formValues = [],
         private readonly ?string $targetLockKey = null,
         private readonly ?string $targetLockOwner = null
-    ) {
-        $this->onQueue('campus-uploads');
-    }
+    ) {}
 
     public function handle(
         SipandaiSubmissionService $submissionService,
