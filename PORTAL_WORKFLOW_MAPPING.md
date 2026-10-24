@@ -53,7 +53,7 @@ flowchart LR
 
 ## Endpoint Resmi Yang Sudah Dipetakan
 
-Sumber utama saat ini ada di `config/portal.php` bagian `endpoints` dan alur validasi manual ada di `test_all_endpoints.sh`.
+Sumber utama ada di `config/portal.php` bagian `endpoints` (`PortalEndpointRegistry`). `php artisan portal:endpoints` menampilkan katalognya (`--key=<nama>` untuk detail satu endpoint), dan `php artisan portal:capture-fixtures` menyimpan salinan halaman yang sudah disanitasi sebagai fixture tes di `tests/Fixtures/portal/real/`.
 
 | Key internal | Method | URL resmi | Query default | Required params | Fungsi |
 | --- | --- | --- | --- | --- | --- |

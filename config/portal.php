@@ -729,9 +729,11 @@ return [
     | Portal Endpoints Map
     |--------------------------------------------------------------------------
     |
-    | Each endpoint listed below is sourced from the verified cURL workflow in
-    | test_all_endpoints.sh. Having a single catalogue makes the integration
-    | easier to maintain and prevents URL drift across services.
+    | The one catalogue of portal pages every service reads from
+    | (PortalEndpointRegistry): `php artisan portal:endpoints` lists it, and
+    | `php artisan portal:capture-fixtures` saves sanitized copies of its
+    | pages as test fixtures. A single catalogue keeps the integration easy
+    | to maintain and prevents URL drift across services.
     |
     */
 

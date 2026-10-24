@@ -23,11 +23,6 @@ Homestead.json
 Homestead.yaml
 Thumbs.db
 
-# CIC Portal Testing - Response files contain sensitive data
-endpoint_responses/
-test_all_endpoints.sh
-up.pdf
-
 # ===== ↑ 以上同步自 .gitignore（「从 .gitignore 同步」只重写以上部分）=====
 .git/
 .hg/

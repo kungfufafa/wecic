@@ -54,7 +54,7 @@ class PortalDataController extends CampusApiController
 
     private const PAYMENT_HISTORY_RESPONSE = "array{status: 'success', message: string, data: array{student_info: array<string, string>, payment_history: list<array<string, mixed>>, summary: array{total_records: int, total_paid_amount: int, currency: 'IDR', latest_payment_label: string|null, history_available: bool, portal_total_amount: int|null, portal_total_amount_label: string|null, totals_match: bool|null, latest_payment: array<string, mixed>|null, by_study_year: list<array<string, mixed>>}, outstanding_bills: list<array<string, mixed>>, outstanding_summary: array{status: 'clear'|'outstanding'|'unknown', has_outstanding: bool|null, total_amount: int|null, total_amount_label: string|null, count: int, rows_sum_matches_total: bool|null}, outstanding_total: int|null, outstanding_total_label: string|null, has_outstanding: bool|null, payment_stages: list<array<string, mixed>>, payment_stage_summary: array<string, mixed>, extracted_at: string}, meta: array{timestamp: string, campus_session_valid: true}}";
 
-    private const FLOW_RESPONSE = "array{status: 'success', message: string, data: array{course_detail: array<string, mixed>, meeting_detail: array<string, mixed>|null, links: array<string, string>}, meta: array{timestamp: string, campus_session_valid: true, script_reference: list<int>}}";
+    private const FLOW_RESPONSE = "array{status: 'success', message: string, data: array{course_detail: array<string, mixed>, meeting_detail: array<string, mixed>|null, links: array<string, string>}, meta: array{timestamp: string, campus_session_valid: true}}";
 
     public function __construct(
         private readonly DashboardMetricsBuilder $dashboardMetrics,
@@ -554,9 +554,9 @@ class PortalDataController extends CampusApiController
     }
 
     /**
-     * Alur kerja LMS/SIPANDAI lengkap.
-     *
-     * Meniru Test 6-9 pada `test_all_endpoints.sh`.
+     * Alur kerja LMS/SIPANDAI lengkap: detail kelas, detail pertemuan (bila
+     * `meeting_id` diberikan), dan tautan aksinya dalam satu respons. Halaman
+     * portal yang dibaca ada di katalog endpoint (`php artisan portal:endpoints`).
      */
     #[Response(description: 'Alur kerja LMS/SIPANDAI berhasil dirangkai.', type: self::FLOW_RESPONSE)]
     #[Response(401, description: 'Endpoint ini membutuhkan sesi kampus yang aktif.', type: CampusApiController::SCRAMBLE_SESSION_ERROR_RESPONSE)]
@@ -594,8 +594,6 @@ class PortalDataController extends CampusApiController
                     'meeting_detail' => $meetingDetail === null ? null : $this->withoutWriteEffectLinks($meetingDetail),
                     'links' => $links,
                 ],
-            ], meta: [
-                'script_reference' => [6, 7, 8, 9],
             ], campusSessionValid: true);
         }, $request->boolean('fresh')), $params);
     }
