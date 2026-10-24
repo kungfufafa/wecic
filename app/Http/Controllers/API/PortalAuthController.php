@@ -113,11 +113,11 @@ class PortalAuthController extends CampusApiController
      * Alurnya sama dengan `POST /auth/login`, termasuk login offline, tetapi
      * tanpa cookie dan tanpa CSRF: respons berisi `data.token`, yang dikirim
      * aplikasi sebagai `Authorization: Bearer <token>` ke semua endpoint
-     * `/api/*` lain. Token itu menunjuk sesi di server yang menyimpan sesi
+     * `/api/v1/*` lain. Token itu menunjuk sesi di server yang menyimpan sesi
      * kampus, jadi berlaku selama sesi kampus masih aktif (batas idle
      * `portal.session_idle_timeout`); setelah itu endpoint menjawab 401 dan
      * aplikasi login lagi. `data.channel` adalah channel privat Reverb sesi
-     * ini, diotorisasi lewat `POST /api/broadcasting/auth` dengan token yang
+     * ini, diotorisasi lewat `POST /api/v1/broadcasting/auth` dengan token yang
      * sama. Login dengan token lama yang masih berlaku menggantinya.
      */
     #[Response(description: 'Login berhasil; token bearer dibuat untuk sesi kampus ini.', type: self::TOKEN_LOGIN_RESPONSE)]

@@ -6,8 +6,10 @@ return [
     /*
      * Your API path. By default, all routes starting with this path will be added to the docs.
      * If you need to change this behavior, you can add your custom routes resolver using `Scramble::routes()`.
+     *
+     * MyCIC documents version 1 (`/api/v1`); the unversioned `/api/*` serves the same routes for the web app.
      */
-    'api_path' => 'api',
+    'api_path' => 'api/v1',
 
     /*
      * Your API domain. By default, app domain is used. This is also a part of the default API routes

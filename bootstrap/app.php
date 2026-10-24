@@ -1,5 +1,6 @@
 <?php
 
+use App\Exceptions\ApiExceptionRenderer;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -12,8 +13,12 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         channels: __DIR__.'/../routes/channels.php',
         health: '/up',
-        // Browser-test helpers (fake sign-in), in the e2e environment only.
         then: function (Application $app): void {
+            // Version 1 of the API (the mobile app): the same routes as the
+            // unversioned /api/*, which the web app keeps using.
+            Route::middleware('api')->prefix('api/v1')->group(__DIR__.'/../routes/api.php');
+
+            // Browser-test helpers (fake sign-in), in the e2e environment only.
             if ($app->environment('e2e')) {
                 Route::middleware('web')->group(__DIR__.'/../routes/e2e.php');
             }
@@ -64,7 +69,9 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        // Every /api/* error is JSON in the API's envelope, whatever the client's Accept header.
+        $exceptions->shouldRenderJsonWhen(ApiExceptionRenderer::rendersJson(...));
+        $exceptions->respond(ApiExceptionRenderer::respond(...));
     })
     // Browser-test guards (no portal, no Vite dev server), in the e2e
     // environment only; set while booting, so a cached route list keeps them.

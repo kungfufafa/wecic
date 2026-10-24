@@ -24,6 +24,16 @@ class PortalSessionMiddleware
     public function __construct(private readonly PortalSessionManager $sessionManager) {}
 
     /**
+     * A navigation (no JSON asked for) to a route in 'page' mode: it gets
+     * pages and redirects, also for an error (ApiExceptionRenderer).
+     */
+    public static function isPageNavigation(Request $request): bool
+    {
+        return ! $request->expectsJson()
+            && in_array('portal.session:page', $request->route()?->gatherMiddleware() ?? [], true);
+    }
+
+    /**
      * Handle an incoming request.
      *
      * `$mode` 'page' is for a route the browser opens as a page (a download
