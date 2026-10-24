@@ -1,0 +1,31 @@
+# Aplikasi mobile MyCIC
+
+## Aplikasi Mobile (Token Bearer & Push)
+Aplikasi native (Expo / React Native) memakai API yang sama dengan aplikasi web, tetapi lewat versi `/api/v1` (base URL `<APP_URL>/api/v1`, lihat [Versi & Format Error](api.md#versi--format-error)), tanpa cookie dan tanpa CSRF.
+
+1. **Login**: `POST /api/v1/auth/token` dengan `username`, `password`, dan opsional `device_name`. Alurnya sama dengan `POST /api/v1/auth/login`, termasuk login offline saat portal mati. Respons berisi `data.token` (personal access token Sanctum berbentuk `<id>|mycic_…`, hanya ditampilkan sekali; server hanya menyimpan hash-nya), `data.token_type: "Bearer"`, dan `data.channel` (channel realtime sesi ini). Simpan token di penyimpanan aman (mis. `expo-secure-store`).
+2. **Request lain**: kirim header `Authorization: Bearer <token>` (dan sebaiknya `Accept: application/json`; error tetap JSON tanpanya) ke endpoint `/api/v1/*` mana pun. Request dengan token tidak membaca atau membuat cookie sesi dan tidak butuh token CSRF; request dengan cookie (aplikasi web) tetap wajib CSRF seperti sebelumnya.
+3. **Masa berlaku**: token menunjuk sesi Laravel di server yang menyimpan sesi kampus, jadi berlaku selama sesi kampus aktif (batas idle `CAMPUS_SESSION_IDLE_TIMEOUT`, juga `SESSION_LIFETIME`). Setelah itu endpoint menjawab 401 dengan `meta.campus_session_valid: false` dan token otomatis dicabut; aplikasi cukup login lagi. `GET /api/v1/auth/session` dan `POST /api/v1/auth/session/refresh` bekerja dengan token. Login lagi dengan token lama yang masih berlaku menggantinya dengan token baru.
+4. **Realtime**: Laravel Echo / pusher-js ke Reverb dengan `authEndpoint: <APP_URL>/api/v1/broadcasting/auth` dan header `Authorization: Bearer <token>`, lalu subscribe ke `private(data.channel)`. Hanya channel sesi token itu yang diizinkan; channel lain dijawab 403.
+5. **Push**: setelah login (dan setiap aplikasi dibuka), daftarkan token Expo perangkat: `POST /api/v1/devices/push-token` dengan `token` (`ExponentPushToken[...]`) dan opsional `platform` (`ios`/`android`/`web`). Setiap notifikasi baru dikirim sebagai push lewat job antrean `default` ke semua perangkat mahasiswa itu; `data.url` pada push adalah tautan MyCIC notifikasi itu. Token yang ditolak Expo (`DeviceNotRegistered`) dihapus otomatis; yang tidak didaftarkan ulang selama `PORTAL_PUSH_TOKEN_RETENTION_DAYS` hari dipangkas `model:prune`. Asal notifikasinya:
+   - **Saat aplikasi dipakai** (sesi dipakai dalam `CAMPUS_SESSION_REFRESH_INTERVAL` terakhir): pemindaian sesi itu mengirim pengingat tenggat dan "absen sekarang" untuk kelas yang absensinya terbuka dan belum tercatat (dibaca langsung dari portal), plus perubahan data (nilai, tugas, pengumuman, KRS, tagihan).
+   - **Saat aplikasi tertutup**: setiap 10 menit `portal:remind-away` mengirim pengingat tenggat yang mendekat (aturan dan kunci yang sama, jadi tidak terkirim dua kali) dan "kelas sudah dimulai" dari jadwal hari ini, hanya dari snapshot tersimpan, tanpa menghubungi portal. Tanpa portal, status absensi tidak diketahui, jadi pushnya hanya mengajak membuka MyCIC untuk mengecek dan mengirim absensi. Snapshot yang lebih tua dari `PORTAL_AWAY_REMINDER_MAX_DATA_AGE` detik (default 1 hari) tidak dipakai, supaya tenggat yang sudah dikerjakan tidak diingatkan.
+   - **Perubahan data saat aplikasi tertutup** hanya ditemukan oleh sinkronisasi di background (setiap `PORTAL_BACKGROUND_SYNC_INTERVAL` menit, default 180) dan hanya untuk mahasiswa yang mengaktifkannya; sinkronisasi itu juga yang menjaga snapshot pengingat di atas tetap baru. Mahasiswa yang mematikan sinkronisasi di background hanya mendapat pengingat selama snapshot terakhirnya masih dalam batas umur.
+6. **Logout**: `POST /api/v1/auth/logout` dengan token, sebaiknya dengan `push_token` perangkat: token bearer dicabut dan perangkat berhenti menerima push, walaupun sesinya sudah berakhir lebih dulu. `DELETE /api/v1/devices/push-token` hanya mematikan push tanpa logout.
+
+Konfigurasi: `SANCTUM_TOKEN_PREFIX` (default `mycic_`; `sanctum.expiration` dibiarkan `null` karena masa berlaku token mengikuti sesi kampus), `EXPO_PUSH_URL`, `EXPO_ACCESS_TOKEN` (hanya bila push security Expo aktif), `EXPO_PUSH_TIMEOUT`, `PORTAL_MOBILE_TOKEN_RETENTION_DAYS`, `PORTAL_PUSH_TOKEN_RETENTION_DAYS`, `PORTAL_AWAY_REMINDERS_ENABLED`, `PORTAL_AWAY_REMINDER_MAX_DATA_AGE`. `SESSION_DRIVER` harus menyimpan sesi di server (`database`, `redis`, `file`), bukan `cookie`. Klien native tidak terkena CORS, jadi tidak ada konfigurasi CORS tambahan; aplikasi berbasis web view atau Expo web yang memanggil API dari origin lain perlu `config/cors.php` sendiri.
+
+### Aplikasi Expo (`mobile/`)
+Klien native resmi ada di `mobile/` (Expo SDK 58, Expo Router, TypeScript). Isinya: login token dengan "Tetap masuk" (NIM dan kata sandi disimpan di Keychain/Keystore lewat `expo-secure-store`, lalu dipakai untuk login ulang otomatis saat sesi kampus berakhir setelah idle 2 jam), klien `/api/v1` (`src/api/client.ts`), pendaftaran push Expo, dan tab Beranda (jadwal dan status absensi hari ini), Kelas, Notifikasi, serta Lainnya (profil dan keluar).
+
+```bash
+cd mobile && cp .env.example .env.local && npm install
+npx expo start      # dev server; buka di development build atau Expo Go
+npm test            # unit test (jest-expo)
+npm run typecheck && npm run lint
+```
+
+- `EXPO_PUBLIC_API_URL` di `.env.local` adalah origin server MyCIC (tanpa `/api`). Simulator di Mac ini bisa memakai `http://mycic.test`; HP fisik butuh alamat yang bisa dijangkaunya.
+- Push butuh perangkat fisik dan proyek EAS (`npx eas-cli@latest init`, yang mengisi `extra.eas.projectId` di `app.json`), serta development build atau build EAS. Push remote tidak jalan di Expo Go Android.
+- `npx expo start --web` hanya untuk pratinjau tampilan: web tidak punya secure storage (login hilang saat tab ditutup) dan tidak menerima push.
+- Bundle identifier iOS/Android dan ikon aplikasi belum diatur; atur di `app.json` sebelum build pertama ke store.

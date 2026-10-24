@@ -24,7 +24,7 @@ use Illuminate\Support\Facades\Schema;
  * fails leaves the row where it was. A row reserved for longer than any job
  * may run belongs to a worker that died, and moves too. SQLite does not lock
  * a row a worker is about to reserve, so stop the database workers first
- * (README, "Pindah dari queue database").
+ * (docs/deployment.md, "Pindah dari queue database").
  *
  * The migration of 2026-10-24 runs it once; it can run again at any time and
  * only moves what is still there.

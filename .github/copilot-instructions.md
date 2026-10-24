@@ -1,8 +1,8 @@
 # Copilot Instructions
 
 ## Project Snapshot
-- Laravel 12 skeleton targeting a campus PHP app proxy; see `README.md` for the architectural contract (session manager, scraper, JSON API facade).
-- Current codebase is mostly vanilla Laravel; new work should introduce Services/Repositories/Middleware folders under `app/` that match the README blueprint rather than scattering logic in controllers.
+- Laravel 12 skeleton targeting a campus PHP app proxy; see `docs/architecture.md` for the architectural contract (session manager, scraper, JSON API facade).
+- Current codebase is mostly vanilla Laravel; new work should introduce Services/Repositories/Middleware folders under `app/` that match the `docs/architecture.md` blueprint rather than scattering logic in controllers.
 - Keep campus host URLs, credentials, and feature flags in `.env`; never hardcode inside source files.
 
 ## Key Workflows
@@ -11,15 +11,15 @@
 - Testing relies on Laravel's suite: `composer run test` clears config cache then executes `php artisan test`; use this path so pre-test steps stay intact.
 
 ## Architectural Expectations
-- Session handling should revolve around a dedicated `PortalSessionManager` service that encapsulates login, cookie persistence (Redis/file), and auto-relogin logic described in `README.md`.
+- Session handling should revolve around a dedicated `PortalSessionManager` service that encapsulates login, cookie persistence (Redis/file), and auto-relogin logic described in `docs/architecture.md`.
 - Scraping flows must lean on Guzzle + Symfony DomCrawler; isolate per-page parsing into extractor classes (e.g., `app/Services/Extractors/GradesExtractor.php`) that validate and normalize output before controllers expose it.
-- REST endpoints belong in `routes/api.php` with thin controllers delegating to services; response envelopes should follow the `status/message/data/meta` contract from the README.
-- Cache TTLs and background jobs (session refresh, prefetch) outlined in the README should be captured in queued jobs under `app/Jobs/` and scheduled via `app/Console/Kernel.php` when introduced.
+- REST endpoints belong in `routes/api.php` with thin controllers delegating to services; response envelopes should follow the `status/message/data/meta` contract from `docs/api.md`.
+- Cache TTLs and background jobs (session refresh, prefetch) outlined in `docs/architecture.md` should be captured in queued jobs under `app/Jobs/` and scheduled via `app/Console/Kernel.php` when introduced.
 
 ## Coding Conventions
 - Stick to PHP 8.2 features and PSR-12 formatting; use Laravel helpers sparingly when service abstractions keep scraper logic testable.
 - Centralize error handling: prefer custom exceptions (e.g., `SessionExpiredException`) caught by an HTTP middleware that maps them to the standardized API response + logging requirements.
-- When adding new config, mirror Laravel's published configs in `config/` and expose overrides via `.env`; document any nonstandard env keys in the README.
+- When adding new config, mirror Laravel's published configs in `config/` and expose overrides via `.env`; document any nonstandard env keys in `docs/deployment.md`.
 - Frontend assets live under `resources/js` and `resources/css`; if you add API clients or session status indicators, wire them through Vite (see `vite.config.js`).
 
 ## Testing & Tooling Notes
