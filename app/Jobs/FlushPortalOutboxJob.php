@@ -84,9 +84,6 @@ class FlushPortalOutboxJob implements ShouldBeUniqueUntilProcessing, ShouldQueue
         private readonly bool $followUps = true
     ) {
         $this->runId = (string) Str::uuid();
-        // Work the student is waiting on after coming back online, with
-        // uploads sent inline: the refresh worker's queue and its 600 s.
-        $this->onQueue('campus-refresh');
     }
 
     public function uniqueId(): string

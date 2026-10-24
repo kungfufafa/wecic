@@ -41,7 +41,7 @@ class ArchivePortalFilesJob implements ShouldBeUnique, ShouldQueue
         private readonly array $items,
         private readonly ?string $courseName = null
     ) {
-        $this->onQueue('campus-background');
+        $this->onQueue('background');
     }
 
     public function uniqueId(): string

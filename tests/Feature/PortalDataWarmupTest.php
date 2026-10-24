@@ -49,7 +49,7 @@ class PortalDataWarmupTest extends TestCase
                 && $this->jobProperty($job, 'campusSessionToken') === 'campus-token-warm'
                 && $this->jobProperty($job, 'sessionId') !== ''
                 && $job->delay !== null
-                && $job->queue === 'campus-refresh';
+                && $job->queue === null;
         });
         Queue::assertPushed(ScanPortalNotificationsJob::class, 1);
     }

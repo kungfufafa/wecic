@@ -46,8 +46,8 @@ return [
             // tests/Unit/QueueJobConfigurationTest checks every job and
             // scheduled worker against it. The price: a job left reserved by a
             // worker that crashed (OOM, SIGKILL on deploy) waits this long
-            // before it is retried, keep-alive jobs on campus-sessions too, so
-            // stop workers gracefully (queue:restart) when deploying.
+            // before it is retried, keep-alive jobs on the sessions queue
+            // too, so stop workers gracefully (queue:restart) when deploying.
             'retry_after' => (int) env('DB_QUEUE_RETRY_AFTER', 1900),
             'after_commit' => false,
         ],

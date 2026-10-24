@@ -104,7 +104,7 @@ class PortalBackgroundSyncTest extends TestCase
         Bus::assertDispatchedTimes(SyncPortalArchiveJob::class, 2);
 
         foreach ([$due, $overdue] as $account) {
-            Bus::assertDispatched(SyncPortalArchiveJob::class, fn (SyncPortalArchiveJob $job): bool => $job->uniqueId() === (string) $account->id && $job->queue === 'campus-background');
+            Bus::assertDispatched(SyncPortalArchiveJob::class, fn (SyncPortalArchiveJob $job): bool => $job->uniqueId() === (string) $account->id && $job->queue === 'background');
         }
     }
 

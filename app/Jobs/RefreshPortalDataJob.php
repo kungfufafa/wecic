@@ -72,7 +72,6 @@ class RefreshPortalDataJob implements ShouldBeUnique, ShouldQueue
         $this->params = $params;
         $syncedDatasets = count(array_unique($domains)) + ($this->followsScheduleWithAttendance() ? 1 : 0);
         $this->timeout = max(self::MIN_TIMEOUT, min(self::MAX_TIMEOUT, self::SECONDS_PER_DATASET * $syncedDatasets));
-        $this->onQueue('campus-refresh');
     }
 
     public function uniqueId(): string

@@ -34,11 +34,7 @@ class SendPortalOutboxJob implements ShouldBeUnique, ShouldQueue
      */
     public int $timeout = 600;
 
-    public function __construct(private readonly int $accountId)
-    {
-        // Work the student is waiting on, as the flush itself.
-        $this->onQueue('campus-refresh');
-    }
+    public function __construct(private readonly int $accountId) {}
 
     /**
      * Set by portal:send-outbox for each send it queues: at most one login

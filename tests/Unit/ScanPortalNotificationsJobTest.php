@@ -212,7 +212,7 @@ class ScanPortalNotificationsJobTest extends TestCase
         // One follow-up per session, however many scans ran meanwhile.
         Queue::assertPushed(ScanPortalNotificationsJob::class, 1);
         Queue::assertPushed(ScanPortalNotificationsJob::class, fn (ScanPortalNotificationsJob $job): bool => $this->isFollowUp($job)
-            && $job->queue === 'campus-notifications'
+            && $job->queue === null
             && now()->addSeconds(600)->equalTo($job->delay));
     }
 

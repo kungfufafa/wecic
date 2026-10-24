@@ -301,11 +301,11 @@ class PortalPushNotificationTest extends TestCase
         $this->assertSame(1, PortalPushToken::query()->count());
     }
 
-    public function test_the_job_is_queued_with_the_notification_workers_and_retries(): void
+    public function test_the_job_is_queued_on_the_default_queue_and_retries(): void
     {
         $job = new SendPortalPushNotificationsJob(self::OWNER, [1]);
 
-        $this->assertSame('campus-notifications', $job->queue);
+        $this->assertNull($job->queue);
         $this->assertSame(3, $job->tries);
     }
 

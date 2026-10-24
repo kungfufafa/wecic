@@ -171,7 +171,7 @@ class PortalAwayRemindersTest extends TestCase
         Bus::assertDispatchedTimes(SendAwayRemindersJob::class, 2);
         Bus::assertDispatched(SendAwayRemindersJob::class, fn (SendAwayRemindersJob $job): bool => $job->ownerHash === $this->ownerHash()
             && $job->uniqueId() === $this->ownerHash()
-            && $job->queue === 'campus-notifications');
+            && $job->queue === null);
     }
 
     public function test_the_job_reminds_its_student(): void

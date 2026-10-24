@@ -100,7 +100,7 @@ class PortalOfflineSessionResumeTest extends TestCase
         Bus::assertDispatched(ResumeOfflineSessionJob::class, fn (ResumeOfflineSessionJob $job): bool => $job->uniqueId() === $token
             && $this->jobProperty($job, 'attempt') === 1
             && $job->delay !== null
-            && $job->queue === 'campus-sessions');
+            && $job->queue === 'sessions');
         $stored = $this->storedSession($token);
         $this->assertTrue($stored['offline']);
         $this->assertStringNotContainsString(self::PASSWORD, $stored['encrypted_credentials']);

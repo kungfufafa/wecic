@@ -31,10 +31,7 @@ class SendAwayRemindersJob implements ShouldBeUnique, ShouldQueue
      */
     public int $uniqueFor = 600;
 
-    public function __construct(public readonly string $ownerHash)
-    {
-        $this->onQueue('campus-notifications');
-    }
+    public function __construct(public readonly string $ownerHash) {}
 
     public function uniqueId(): string
     {

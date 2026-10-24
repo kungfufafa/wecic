@@ -159,7 +159,12 @@ class PortalAuthController extends CampusApiController
                 (string) session()->getId()
             );
 
-            $this->scheduleFirstNotificationScan($sessionResult['session_token']);
+            // Attendance and uploads queued during an offline session go out
+            // with this online session (FlushPortalOutboxJob), once they are
+            // known to come from this password. They have deadlines, so they
+            // are queued first: the default queue runs oldest first.
+            $this->outbox->confirmWithPassword($sessionResult['session_token'], $password, (string) session()->getId());
+            $this->outbox->flushWhenQueued($sessionResult['session_token'], (string) session()->getId());
 
             // KRS, grades, bills, SKKM and announcements sync in the background
             // right away, so those pages and the action center open instantly.
@@ -169,11 +174,7 @@ class PortalAuthController extends CampusApiController
                 (int) config('portal.sync.warmup_delay', 5)
             );
 
-            // Attendance and uploads queued during an offline session go out
-            // with this online session (FlushPortalOutboxJob), once they are
-            // known to come from this password.
-            $this->outbox->confirmWithPassword($sessionResult['session_token'], $password, (string) session()->getId());
-            $this->outbox->flushWhenQueued($sessionResult['session_token'], (string) session()->getId());
+            $this->scheduleFirstNotificationScan($sessionResult['session_token']);
 
             Log::info('User logged in successfully', ['username_fingerprint' => PortalLogContext::fingerprint($username)]);
 
@@ -498,9 +499,10 @@ class PortalAuthController extends CampusApiController
     }
 
     /**
-     * The first scan of a login crawls every class and meeting page, so it
-     * is delayed like the warm-up: today's schedule re-sync is not queued
-     * behind it.
+     * The first scan of a login crawls every class and meeting page. The
+     * default queue runs oldest first, so the scan is queued after the
+     * warm-up and the outbox flush; its delay also lets a free worker take
+     * the dashboard's own re-sync, queued once the page loads, before it.
      */
     private function scheduleFirstNotificationScan(string $sessionToken): void
     {

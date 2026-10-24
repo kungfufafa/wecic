@@ -41,7 +41,7 @@ class SyncPortalArchiveJob implements ShouldBeUnique, ShouldQueue
 
     public function __construct(private readonly int $accountId)
     {
-        $this->onQueue('campus-background');
+        $this->onQueue('background');
     }
 
     public function uniqueId(): string

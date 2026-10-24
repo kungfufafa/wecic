@@ -52,7 +52,7 @@ class RefreshPortalSessionJob implements ShouldBeUniqueUntilProcessing, ShouldQu
         private string $sessionToken,
         private ?string $sessionId = null
     ) {
-        $this->onQueue('campus-sessions');
+        $this->onQueue('sessions');
     }
 
     public function uniqueId(): string

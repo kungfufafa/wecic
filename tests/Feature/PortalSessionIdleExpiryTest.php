@@ -110,7 +110,7 @@ class PortalSessionIdleExpiryTest extends TestCase
 
         foreach ([$online, $offline, $background] as $token) {
             Bus::assertDispatched(ExpirePortalSessionJob::class, fn (ExpirePortalSessionJob $job): bool => $job->sessionToken() === $token
-                && $job->queue === 'campus-sessions'
+                && $job->queue === 'sessions'
                 && now()->addSeconds(self::IDLE_TIMEOUT + 1)->equalTo($job->delay));
             $this->assertTrue($manager->getSession($token)['idle_expiry_watched']);
         }
@@ -292,7 +292,7 @@ class PortalSessionIdleExpiryTest extends TestCase
         $job = new ExpirePortalSessionJob('any-token');
 
         $this->assertSame(0, $job->tries);
-        $this->assertSame('campus-sessions', $job->queue);
+        $this->assertSame('sessions', $job->queue);
     }
 
     private function runIdleExpiry(string $token): ExpirePortalSessionJob

@@ -59,7 +59,7 @@ class ExpirePortalSessionJob implements ShouldQueue
 
     public function __construct(private readonly string $sessionToken)
     {
-        $this->onQueue('campus-sessions');
+        $this->onQueue('sessions');
     }
 
     public function sessionToken(): string

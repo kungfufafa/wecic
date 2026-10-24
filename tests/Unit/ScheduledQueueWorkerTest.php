@@ -26,7 +26,7 @@ class ScheduledQueueWorkerTest extends TestCase
      * snapshot refresh: keep-alive pings, session resumes and idle-session
      * expiry.
      */
-    private const LATENCY_CRITICAL_QUEUES = ['campus-sessions'];
+    private const LATENCY_CRITICAL_QUEUES = ['sessions'];
 
     public function test_latency_critical_queues_have_a_worker_of_their_own(): void
     {
@@ -48,9 +48,9 @@ class ScheduledQueueWorkerTest extends TestCase
     {
         $queues = array_map(fn (Event $worker): array => $this->scheduledWorkerQueues($worker), $this->scheduledQueueWorkers());
 
-        $this->assertContains(['campus-refresh', 'campus-notifications', 'default'], $queues);
-        $this->assertContains(['campus-background'], $queues);
-        $this->assertSame('campus-background', (new SyncPortalArchiveJob(1))->queue);
+        $this->assertContains(['default'], $queues);
+        $this->assertContains(['background'], $queues);
+        $this->assertSame('background', (new SyncPortalArchiveJob(1))->queue);
     }
 
     public function test_jobs_without_their_own_timeout_are_not_killed_at_the_worker_default(): void
@@ -123,7 +123,7 @@ class ScheduledQueueWorkerTest extends TestCase
     {
         $workers = array_values(array_filter(
             $this->scheduledQueueWorkers(),
-            fn (Event $worker): bool => in_array('campus-sessions', $this->scheduledWorkerQueues($worker), true)
+            fn (Event $worker): bool => in_array('sessions', $this->scheduledWorkerQueues($worker), true)
         ));
 
         $this->assertCount(1, $workers);

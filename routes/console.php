@@ -13,32 +13,30 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
-// Fallback queue workers, one per queue group, so keep-alive pings and the
-// work a student waits on never wait behind a 30-minute archive crawl (a
-// worker runs one job at a time; the queue names within a group only set
-// the order it drains them in). Production also runs long-lived Supervisor
-// workers for the same groups (README, "Menjalankan di Server"). All three
-// run in the background, so none delays the other events of the tick.
-// --max-time ends a busy worker after its current job, and the overlap lock
-// expires just after the longest run (max-time + timeout): a worker killed
-// mid-run (reboot, out of memory) holds its queues back for minutes instead
-// of the default 24 hours. tests/Unit/QueueJobConfigurationTest and
-// tests/Unit/ScheduledQueueWorkerTest check these numbers.
+// Fallback queue workers, one per queue, so keep-alive pings and the work a
+// student waits on never wait behind a 30-minute archive crawl: a worker
+// runs one job at a time and never interrupts it. Production also runs
+// long-lived Supervisor workers for the same queues (README, "Menjalankan
+// di Server"). All three run in the background, so none delays the other
+// events of the tick. --max-time ends a busy worker after its current job,
+// and the overlap lock expires just after the longest run (max-time +
+// timeout): a worker killed mid-run (reboot, out of memory) holds its queue
+// back for minutes instead of the default 24 hours.
+// tests/Unit/QueueJobConfigurationTest and tests/Unit/ScheduledQueueWorkerTest
+// check these numbers.
 
 // Keep-alive pings and session resumes (180 s) and idle-session expiry
-// (60 s): a run ends within 60 + 300 s. Uploads have no queue of their own:
-// they run in the web process right after the response, or inline in an
-// outbox job on the worker below.
-Schedule::command('queue:work --queue=campus-sessions --stop-when-empty --timeout=300 --tries=1 --max-time=60')
+// (60 s): a run ends within 60 + 300 s.
+Schedule::command('queue:work --queue=sessions --stop-when-empty --timeout=300 --tries=1 --max-time=60')
     ->everyMinute()
     ->withoutOverlapping(expiresAt: 7)
     ->runInBackground();
 
-// Work a student is waiting on, in this order: snapshot refreshes
-// (RefreshPortalDataJob: up to 600 s) and offline outbox sends, then
-// notification scans, reminders and pushes, then notebook ingestion and any
-// job without a queue of its own. A run ends within 300 + 600 s.
-Schedule::command('queue:work --queue=campus-refresh,campus-notifications,default --stop-when-empty --timeout=600 --tries=1 --max-time=300')
+// Everything else a student waits on, oldest first: snapshot refreshes
+// (RefreshPortalDataJob: up to 600 s), offline outbox sends with their
+// uploads, notification scans, reminders, pushes, notebook ingestion, and
+// any job without a queue of its own. A run ends within 300 + 600 s.
+Schedule::command('queue:work --queue=default --stop-when-empty --timeout=600 --tries=1 --max-time=300')
     ->everyMinute()
     ->withoutOverlapping(expiresAt: 16)
     ->runInBackground();
@@ -46,7 +44,7 @@ Schedule::command('queue:work --queue=campus-refresh,campus-notifications,defaul
 // Background archive and course crawls (SyncPortalArchiveJob: 1800 s), on
 // their own worker so the work above never waits behind them. A run ends
 // within 300 + 1800 s; --timeout stays below queue.connections.database.retry_after.
-Schedule::command('queue:work --queue=campus-background --stop-when-empty --timeout=1800 --tries=1 --max-time=300')
+Schedule::command('queue:work --queue=background --stop-when-empty --timeout=1800 --tries=1 --max-time=300')
     ->everyMinute()
     ->withoutOverlapping(expiresAt: 36)
     ->runInBackground();

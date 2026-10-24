@@ -47,9 +47,7 @@ class SendPortalPushNotificationsJob implements ShouldQueue
     public function __construct(
         public readonly string $ownerHash,
         public readonly array $notificationIds
-    ) {
-        $this->onQueue('campus-notifications');
-    }
+    ) {}
 
     public function handle(PortalPushNotifier $push): void
     {

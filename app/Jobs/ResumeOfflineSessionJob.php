@@ -55,7 +55,7 @@ class ResumeOfflineSessionJob implements ShouldBeUniqueUntilProcessing, ShouldQu
         private readonly string $sessionToken,
         private readonly int $attempt = 1
     ) {
-        $this->onQueue('campus-sessions');
+        $this->onQueue('sessions');
     }
 
     public function uniqueId(): string
@@ -123,10 +123,12 @@ class ResumeOfflineSessionJob implements ShouldBeUniqueUntilProcessing, ShouldQu
 
         if ($outcome === 'resumed') {
             $broadcast->sessionNotice($sessionId, $this->sessionToken, 'offline_session_resumed', 'Portal kampus kembali bisa diakses. Sesi tersambung lagi dan data sedang diperbarui.', 'success');
+            // Attendance and uploads queued while offline go out now
+            // (FlushPortalOutboxJob). They have deadlines, so they are queued
+            // first: the default queue runs oldest first.
+            $outbox->flushWhenQueued($this->sessionToken, $sessionId);
             $datasets->warmUp($this->sessionToken, $sessionId);
             ScanPortalNotificationsJob::dispatch($sessionId, $this->sessionToken);
-            // Attendance and uploads queued while offline go out now (FlushPortalOutboxJob).
-            $outbox->flushWhenQueued($this->sessionToken, $sessionId);
 
             return;
         }

@@ -59,7 +59,7 @@ class ArchiveCourseMaterialsJob implements ShouldBeUnique, ShouldQueue
         private readonly array $classParams
     ) {
         $this->ownerHash = app(PortalDataOwner::class)->key($campusSessionToken);
-        $this->onQueue('campus-background');
+        $this->onQueue('background');
     }
 
     public function uniqueId(): string

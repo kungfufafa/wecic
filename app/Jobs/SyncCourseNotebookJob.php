@@ -42,7 +42,7 @@ class SyncCourseNotebookJob implements ShouldBeUnique, ShouldQueue
         private readonly string $campusSessionToken,
         private readonly int $notebookId
     ) {
-        $this->onQueue('campus-background');
+        $this->onQueue('background');
     }
 
     public function uniqueId(): string

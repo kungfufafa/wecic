@@ -82,10 +82,6 @@ class ScanPortalNotificationsJob implements ShouldQueue
         bool $followUp = false
     ) {
         $this->followUp = $followUp;
-
-        // Lower priority than data refreshes: a slow scan must not delay the
-        // dashboard the student is waiting for after login.
-        $this->onQueue('campus-notifications');
     }
 
     public function handle(

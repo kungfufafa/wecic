@@ -40,6 +40,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
@@ -287,7 +288,7 @@ class PortalOutboxTest extends TestCase
         $this->portal = 'up';
         $this->runResume($token);
 
-        Bus::assertDispatched(FlushPortalOutboxJob::class, fn (FlushPortalOutboxJob $job): bool => $job->uniqueId() === $token && $job->queue === 'campus-refresh');
+        Bus::assertDispatched(FlushPortalOutboxJob::class, fn (FlushPortalOutboxJob $job): bool => $job->uniqueId() === $token && $job->queue === null);
         $this->assertFalse(app(PortalOfflineAccess::class)->isOfflineSession($token));
 
         $this->runFlush($token);
@@ -409,6 +410,31 @@ class PortalOutboxTest extends TestCase
         $this->login()->assertOk();
 
         Bus::assertDispatched(FlushPortalOutboxJob::class, fn (FlushPortalOutboxJob $job): bool => $job->uniqueId() === (string) session('campus_session_token'));
+    }
+
+    public function test_an_online_login_queues_the_flush_ahead_of_the_warm_up_and_the_first_scan(): void
+    {
+        PortalOutboxItem::factory()->forOwner($this->ownerHash)->attendance()->create();
+        $this->queueOnTheDatabase();
+
+        $this->portal = 'up';
+        $this->login()->assertOk();
+
+        $this->assertQueuedBefore(FlushPortalOutboxJob::class, RefreshPortalDataJob::class);
+        $this->assertQueuedBefore(FlushPortalOutboxJob::class, ScanPortalNotificationsJob::class);
+    }
+
+    public function test_a_resume_queues_the_flush_ahead_of_the_warm_up_and_the_scan(): void
+    {
+        $token = $this->offlineSession();
+        $this->postJson('/api/attendance', ['courseid' => 8837, 'modulesid' => 29808, 'kode' => '35533429', 'pertemuan' => 4])->assertStatus(202);
+        $this->queueOnTheDatabase();
+
+        $this->portal = 'up';
+        $this->runResume($token);
+
+        $this->assertQueuedBefore(FlushPortalOutboxJob::class, RefreshPortalDataJob::class);
+        $this->assertQueuedBefore(FlushPortalOutboxJob::class, ScanPortalNotificationsJob::class);
     }
 
     public function test_a_queued_item_can_be_cancelled_but_a_settled_one_and_another_students_cannot(): void
@@ -929,6 +955,34 @@ class PortalOutboxTest extends TestCase
             FlushPortalOutboxJob::class,
             ...$also,
         ]);
+    }
+
+    /**
+     * The jobs dispatched from here on go into the jobs table, as a worker
+     * finds them, instead of being faked.
+     */
+    private function queueOnTheDatabase(): void
+    {
+        config(['queue.default' => 'database']);
+        Bus::fake([SyncPortalArchiveJob::class]);
+    }
+
+    /**
+     * A worker draining the default queue, oldest first, reaches the first
+     * job before the second.
+     *
+     * @param  class-string  $first
+     * @param  class-string  $second
+     */
+    private function assertQueuedBefore(string $first, string $second): void
+    {
+        $queued = DB::table('jobs')->where('queue', 'default')->orderBy('id')->pluck('payload')
+            ->map(fn (string $payload): string => (string) (json_decode($payload, true)['displayName'] ?? ''))
+            ->all();
+
+        $this->assertContains($first, $queued);
+        $this->assertContains($second, $queued);
+        $this->assertLessThan(array_search($second, $queued, true), array_search($first, $queued, true), implode(', ', $queued));
     }
 
     private function offlineSession(): string
