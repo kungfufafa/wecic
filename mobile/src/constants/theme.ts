@@ -1,5 +1,5 @@
 /**
- * MyCIC colors (DESIGN.md at the repository root): CIC royal blue for
+ * MyCIC colors (docs/design.md): CIC royal blue for
  * actions and selection, academic gold for small highlights, cool neutrals
  * everywhere else. Light and dark mode.
  */

@@ -5,7 +5,7 @@ Dokumen ini memetakan semua fitur Portal Mahasiswa resmi (`https://my.cic.ac.id/
 - **Sumber**: crawl read-only pada **2026-10-20** dengan sesi satu mahasiswa aktif. Semua halaman dibuka lewat `GET`. Tidak ada form yang di-submit, dan tidak ada data yang diubah atau dihapus. Satu-satunya `POST` adalah endpoint AJAX katalog SKKM, yang hanya membaca data.
 - **Batasan**: state yang bergantung pada waktu atau kondisi akun belum teramati, misalnya periode pengisian KRS, kuesioner yang sudah diisi, SKKM yang sudah berisi, skripsi aktif, tagihan berjalan, dan ujian yang sedang dibuka. Daftar lengkap dan cara menangkapnya dengan aman ada di [§8](#8-state-yang-belum-teramati--cara-menangkapnya-dengan-aman).
 - **Privasi**: semua nilai di dokumen ini adalah placeholder (`<nim>`, `<nama_dosen>`, `<krs_id>`, `<kode_mk>`, `<nilai_huruf>`, ...). Dokumen ini tidak memuat data pribadi.
-- **Dokumen terkait**: [PORTAL_FLOW_MAP.md](PORTAL_FLOW_MAP.md) (alur backend yang sudah ada), [PORTAL_WORKFLOW_MAPPING.md](PORTAL_WORKFLOW_MAPPING.md), [DESIGN.md](DESIGN.md).
+- **Dokumen terkait**: [portal-flow-map.md](portal-flow-map.md) (alur backend yang sudah ada), [portal-workflow-mapping.md](portal-workflow-mapping.md), [design.md](design.md).
 
 Daftar isi:
 
@@ -951,7 +951,7 @@ Konvensi nama untuk fitur baru:
   - `target_sks = sks_terkumpul + sisa_sks`, ditulis `<target_sks>`. Jangan di-hardcode.
   - `computed`: IPK dan seri IPS dari `grades` (K8), dicocokkan dengan nilai resmi.
   - `transcript_rows[]` dari semua semester. `current_load_sks` diambil dari `krs`.
-- **Cakupan MyCIC**: belum ada. IPK di dashboard rusak (lihat F15); `UI_GENERATION_PROMPT.md:27` meminta IPK dan SKS tanpa sumber nyata.
+- **Cakupan MyCIC**: belum ada. IPK di dashboard rusak (lihat F15); `ui-generation-prompt.md:27` meminta IPK dan SKS tanpa sumber nyata.
 - **UX**: `/transcript`.
   - Hero IPK dengan progress bar SKS bersegmen: lulus (solid), sedang ditempuh (striped), dan sisa. Label "x dari `<target_sks>` SKS".
   - Sparkline IPS (chart penuh di md+), dengan titik semester tanpa nilai dihilangkan.
@@ -1645,7 +1645,7 @@ Ketiga fitur keuangan memakai satu `GET M act=keuangan` (endpoint `student_finan
 - **Data turunan**: `finance_status {outstanding_summary, current_study_year, current_year_stages_paid[], stage1_paid_for_current_year, next_stage, active_deadline?{stage, date, source, is_future}}`.
   - `stage1_paid_for_current_year` hanya dihitung untuk `tahun ke` berjalan (`current_study_year`) dan bernilai `true | false | 'unknown'`. Bila tahap 1 tahun berjalan tidak ada di histori dan tidak ada tagihan aktif (F34), nilainya `'unknown'`, bukan `false`, sehingga item checklist "UKT tahap 1 lunas" di F10 tampil "belum bisa dipastikan" alih-alih "belum lunas". Tahap tahun lampau yang tidak tercatat tidak memengaruhi nilai ini (lihat aturan `unknown` di F35).
 - **Cakupan MyCIC**:
-  - Bukti: `dashboard.blade.php:18-24` hanya menampilkan Matkul, IPK, SKS (`UI_GENERATION_PROMPT.md:27` meminta "tagihan").
+  - Bukti: `dashboard.blade.php:18-24` hanya menampilkan Matkul, IPK, SKS (`ui-generation-prompt.md:27` meminta "tagihan").
   - Gap: tidak ada penanganan state "akun diblokir", pengingat tenggat, maupun checklist syarat keuangan.
 - **UX**:
   - Metric "Tagihan" (K11).
@@ -2113,7 +2113,7 @@ Di lg, tata letak 8/4: kolom utama berisi hero, jadwal, tugas, dan pengumuman; a
 
 ### 4.3 Pencarian global / command palette
 
-- **Pemicu**: `/` atau Ctrl/⌘+K di desktop; ikon cari di header mobile membuka sheet layar penuh. Visual mengikuti `DESIGN.md` (bagian command palette).
+- **Pemicu**: `/` atau Ctrl/⌘+K di desktop; ikon cari di header mobile membuka sheet layar penuh. Visual mengikuti `design.md` (bagian command palette).
 - **Sumber**: indeks di klien dari snapshot cache. Repositori (F47) dicari di server begitu input ≥ 3 karakter.
   - Navigasi dan aksi statis: Absen, Ubah password, Cetak KRS, Tambah SKKM, Kartu ujian.
   - Kelas dan dosen (`/api/class`), materi pertemuan (`class_detail` yang sudah di-cache).

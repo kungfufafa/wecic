@@ -6,7 +6,7 @@ Dokumen ini menjelaskan bagaimana backend mengambil data dan menjalankan aksi di
   - **Mahasiswa** `/portal/mahasiswa/`: profil, jadwal, keuangan, SKS, password
   - **SIPANDAI (LMS)** `/portal/sipandai/`: kelas, materi, absen, tugas, ujian
 - Keduanya memakai **satu cookie `PHPSESSID`** dari login mahasiswa.
-- Semua URL didaftarkan di [config/portal.php](config/portal.php) (bagian `endpoints`) dan diakses lewat `PortalEndpointRegistry::url('<key>')`.
+- Semua URL didaftarkan di [config/portal.php](../config/portal.php) (bagian `endpoints`) dan diakses lewat `PortalEndpointRegistry::url('<key>')`.
 
 Daftar isi:
 
