@@ -644,8 +644,8 @@ class FrontendShellTest extends TestCase
     /**
      * The inline scripts' source of every page view, keyed by its path under
      * resources/views, with the partials it includes in place (the Beranda's
-     * script is split into resources/views/dashboard/scripts). Components
-     * hold no script and are left out.
+     * script is split into resources/views/dashboard/scripts, other pages'
+     * into <view>/scripts). Components hold no script and are left out.
      *
      * @return array<string, string>
      */
@@ -669,18 +669,21 @@ class FrontendShellTest extends TestCase
     }
 
     /**
-     * `$source` with every `@include('a.b')` replaced by that view's source,
-     * its Blade comments left out as Blade renders them.
+     * `$source` with every `@include('a.b')` replaced by that view's source
+     * the way Blade renders it: Blade comments left out, the included view's
+     * leading whitespace trimmed, and the line break right after the
+     * directive dropped. A split script then reads exactly as written before
+     * the split.
      */
     private function withIncludes(string $source): string
     {
         return (string) preg_replace_callback(
-            "/@include\('([\w.-]+)'\)/",
-            fn (array $include): string => $this->withIncludes((string) preg_replace(
-                '/\{\{--.*?--\}\}\n?/s',
+            "/@include\('([\w.-]+)'\)\n?/",
+            fn (array $include): string => ltrim($this->withIncludes((string) preg_replace(
+                '/\{\{--.*?--\}\}/s',
                 '',
                 (string) file_get_contents(resource_path('views/'.str_replace('.', '/', $include[1]).'.blade.php'))
-            )),
+            ))),
             $source
         );
     }
