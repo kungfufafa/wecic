@@ -45,7 +45,7 @@ class PortalDemoFixtures
     /**
      * How the refusal of a request without a fixture starts.
      */
-    public const NO_FIXTURE = 'The demo mode has no fixture for';
+    private const NO_FIXTURE = 'The demo mode has no fixture for';
 
     /**
      * Endpoints answered by one page whatever the query.
@@ -111,6 +111,20 @@ class PortalDemoFixtures
     }
 
     /**
+     * Where the login page's demo button posts to (routes/demo.php), or
+     * null when the demo is off or its route is missing (a route list
+     * cached while the flag was off).
+     */
+    public static function signInUrl(Application $app): ?string
+    {
+        if (! self::enabledIn($app) || ! $app->make('router')->has('demo.session.start')) {
+            return null;
+        }
+
+        return $app->make('url')->route('demo.session.start');
+    }
+
+    /**
      * The Guzzle handler: the fixture page of the request, or the refusal.
      *
      * @param  array<string, mixed>  $options
@@ -133,7 +147,7 @@ class PortalDemoFixtures
      * the request all carries, the most specific (most values) first. Null
      * when no endpoint matches.
      */
-    public function endpointKeyFor(RequestInterface $request): ?string
+    private function endpointKeyFor(RequestInterface $request): ?string
     {
         $method = strtoupper($request->getMethod()) === 'HEAD' ? 'GET' : strtoupper($request->getMethod());
         $target = $this->baseOf((string) $request->getUri());
@@ -177,7 +191,7 @@ class PortalDemoFixtures
      *
      * @param  array<string, string>  $query
      */
-    public function fixtureFor(string $endpoint, array $query = []): ?string
+    private function fixtureFor(string $endpoint, array $query = []): ?string
     {
         if (isset(self::FIXTURES[$endpoint])) {
             return $this->existing(self::FIXTURES[$endpoint]);

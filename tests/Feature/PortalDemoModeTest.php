@@ -77,7 +77,7 @@ class PortalDemoModeTest extends TestCase
         $app->booting(function (Application $app): void {
             $this->portalHandlerBeforeTheRoutes = [
                 'bound' => $app->bound(PortalHttpClientOptions::HANDLER_BINDING),
-                'routes_loaded' => $app->make('router')->getRoutes()->count() > 0,
+                'routes_loaded' => $app->make('router')->getRoutes()->getRoutes() !== [],
             ];
         });
         $app->make(Kernel::class)->bootstrap();
@@ -124,10 +124,12 @@ class PortalDemoModeTest extends TestCase
         $this->assertTrue(Route::has('demo.session.start'));
         $this->assertSame(['bound' => true, 'routes_loaded' => false], $this->portalHandlerBeforeTheRoutes);
 
+        $this->assertSame(route('demo.session.start'), PortalDemoFixtures::signInUrl($this->app));
+
         $this->withoutVite()->get('/login')
             ->assertOk()
             ->assertSee('Masuk sebagai mahasiswa demo')
-            ->assertSee(route('demo.session.start'));
+            ->assertSee('action="'.route('demo.session.start').'"', false);
     }
 
     public function test_the_login_page_offers_no_demo_sign_in_without_the_route(): void
@@ -241,7 +243,7 @@ class PortalDemoModeTest extends TestCase
             $fetcher->fetch(PortalEndpointRegistry::url('password_form'));
             $this->fail('A page without a fixture was answered.');
         } catch (PortalConnectionException $exception) {
-            $this->assertStringContainsString(PortalDemoFixtures::NO_FIXTURE, $exception->getMessage());
+            $this->assertStringContainsString('The demo mode has no fixture for', $exception->getMessage());
             $this->assertStringContainsString('[password_form]', $exception->getMessage());
         }
 

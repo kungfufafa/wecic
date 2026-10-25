@@ -66,13 +66,7 @@ Jalankan perintah berikut satu per satu.
 
 Developer tanpa akun mahasiswa CIC bisa masuk dan menjelajah MyCIC dengan data contoh. Mode demo menjawab setiap halaman portal dari salinan HTML portal yang sudah disanitasi di `tests/Fixtures/portal` (hasil `php artisan portal:capture-fixtures`), jadi portal kampus `https://my.cic.ac.id` tidak pernah dihubungi: tidak perlu akun, tidak perlu internet ke portal.
 
-1. Nyalakan flag-nya di `.env`.
-
-   ```bash
-   sed -i '' 's/^PORTAL_DEMO=.*/PORTAL_DEMO=true/' .env
-   ```
-
-   Kalau barisnya belum ada (`.env` lama), tambahkan `PORTAL_DEMO=true`.
+1. Di `.env`, ubah `PORTAL_DEMO=false` menjadi `PORTAL_DEMO=true`. Kalau barisnya belum ada (`.env` dibuat sebelum mode demo ada), tambahkan baris `PORTAL_DEMO=true`.
 
 2. Jalankan aplikasi seperti biasa.
 

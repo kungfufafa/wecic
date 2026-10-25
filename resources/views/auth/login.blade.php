@@ -119,9 +119,10 @@
                     </button>
                 </form>
 
-                @if (App\Services\PortalDemoFixtures::enabledIn(app()) && Route::has('demo.session.start'))
+                @php($demoSignInUrl = App\Services\PortalDemoFixtures::signInUrl(app()))
+                @if ($demoSignInUrl !== null)
                     {{-- Local demo mode (PORTAL_DEMO=true): a session on the fixture pages, without the portal. --}}
-                    <form id="demo-login-form" class="mt-4" method="post" action="{{ route('demo.session.start') }}">
+                    <form id="demo-login-form" class="mt-4" method="post" action="{{ $demoSignInUrl }}">
                         @csrf
                         <button id="demo-login-submit" type="submit" class="mycic-btn-secondary mycic-btn-block min-h-12">
                             Masuk sebagai mahasiswa demo
