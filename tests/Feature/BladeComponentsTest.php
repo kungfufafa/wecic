@@ -50,7 +50,7 @@ class BladeComponentsTest extends TestCase
     public function test_view_tab_buttons_carry_the_classes_the_class_page_switches_between(): void
     {
         $tabs = $this->render('<x-view-tabs as="div" role="tablist"><x-view-tab :active="true" id="a">A</x-view-tab><x-view-tab id="b">B</x-view-tab></x-view-tabs>');
-        $switchView = (string) file_get_contents(resource_path('views/classes/index.blade.php'));
+        $switchView = (string) file_get_contents(resource_path('views/classes/index/scripts/view-modes.blade.php'));
 
         $this->assertSame('tablist', $tabs->filter('div')->attr('role'));
         $this->assertStringStartsWith('inline-flex max-w-full items-center gap-1 overflow-x-auto', (string) $tabs->filter('div')->attr('class'));
