@@ -1,7 +1,7 @@
 import { afterEach, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { createPortalApp, json, settle } from './support/browser.mjs';
+import { viewSource } from './support/views.mjs';
 
 /**
  * The notebook page re-reads itself while a source is still being read (a
@@ -11,9 +11,10 @@ import { createPortalApp, json, settle } from './support/browser.mjs';
  * re-reads must carry the background header
  * (PortalSessionMiddleware::BACKGROUND_HEADER): a notebook tab left open
  * must not keep the campus session from idling out. Opening the page is the
- * student's own read.
+ * student's own read. The script is read with its parts
+ * (resources/views/notebook/show/scripts) included, as the page renders it.
  */
-const source = readFileSync(new URL('../../resources/views/notebook/show.blade.php', import.meta.url), 'utf8');
+const source = viewSource('notebook/show');
 const BACKGROUND_HEADER = 'X-MyCIC-Background';
 const BASE = '/api/notebooks/7';
 
