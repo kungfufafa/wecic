@@ -17,7 +17,7 @@ concurrency:
 
 jobs:
   tests:
-    name: PHPUnit, Node tests and Pint
+    name: PHPUnit, Node tests, Pint and Larastan
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -66,7 +66,7 @@ jobs:
         run: npm run build
 
       # Each suite runs once the setup above succeeded, even when another
-      # suite failed, so one run reports all three.
+      # suite failed, so one run reports all four.
       - name: PHPUnit
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: php artisan test
@@ -78,6 +78,10 @@ jobs:
       - name: Pint
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: vendor/bin/pint --test
+
+      - name: Larastan
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: composer run analyse
 
   e2e:
     name: Browser tests (Playwright)

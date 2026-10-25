@@ -1,0 +1,4015 @@
+parameters:
+	ignoreErrors:
+		-
+			message: '#^Public constant "App\\Console\\Commands\\CapturePortalFixturesCommand\:\:README_END" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Console/Commands/CapturePortalFixturesCommand.php
+
+		-
+			message: '#^Public constant "App\\Console\\Commands\\CapturePortalFixturesCommand\:\:README_START" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Console/Commands/CapturePortalFixturesCommand.php
+
+		-
+			message: '#^Public constant "App\\Console\\Commands\\RecoverPortalUploadsCommand\:\:MARGIN_SECONDS" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Console/Commands/RecoverPortalUploadsCommand.php
+
+		-
+			message: '#^Public method "App\\Events\\PortalDataInvalidated\:\:broadcastAs\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Events/PortalDataInvalidated.php
+
+		-
+			message: '#^Public method "App\\Events\\PortalDataInvalidated\:\:broadcastWith\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Events/PortalDataInvalidated.php
+
+		-
+			message: '#^Public property "App\\Events\\PortalDataInvalidated\:\:\$payload" is never used$#'
+			identifier: public.property.unused
+			count: 1
+			path: app/Events/PortalDataInvalidated.php
+
+		-
+			message: '#^Public property "App\\Events\\PortalDataInvalidated\:\:\$sessionId" is never used$#'
+			identifier: public.property.unused
+			count: 1
+			path: app/Events/PortalDataInvalidated.php
+
+		-
+			message: '#^Public method "App\\Events\\PortalNotificationSent\:\:broadcastAs\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Events/PortalNotificationSent.php
+
+		-
+			message: '#^Public method "App\\Events\\PortalNotificationSent\:\:broadcastWith\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Events/PortalNotificationSent.php
+
+		-
+			message: '#^Public property "App\\Events\\PortalNotificationSent\:\:\$payload" is never used$#'
+			identifier: public.property.unused
+			count: 1
+			path: app/Events/PortalNotificationSent.php
+
+		-
+			message: '#^Public property "App\\Events\\PortalNotificationSent\:\:\$sessionId" is never used$#'
+			identifier: public.property.unused
+			count: 1
+			path: app/Events/PortalNotificationSent.php
+
+		-
+			message: '#^Public method "App\\Events\\PortalSessionNoticeSent\:\:broadcastAs\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Events/PortalSessionNoticeSent.php
+
+		-
+			message: '#^Public method "App\\Events\\PortalSessionNoticeSent\:\:broadcastWith\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Events/PortalSessionNoticeSent.php
+
+		-
+			message: '#^Public property "App\\Events\\PortalSessionNoticeSent\:\:\$payload" is never used$#'
+			identifier: public.property.unused
+			count: 1
+			path: app/Events/PortalSessionNoticeSent.php
+
+		-
+			message: '#^Public property "App\\Events\\PortalSessionNoticeSent\:\:\$sessionId" is never used$#'
+			identifier: public.property.unused
+			count: 1
+			path: app/Events/PortalSessionNoticeSent.php
+
+		-
+			message: '#^Public method "App\\Events\\PortalSyncStatusUpdated\:\:broadcastAs\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Events/PortalSyncStatusUpdated.php
+
+		-
+			message: '#^Public method "App\\Events\\PortalSyncStatusUpdated\:\:broadcastWith\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Events/PortalSyncStatusUpdated.php
+
+		-
+			message: '#^Public property "App\\Events\\PortalSyncStatusUpdated\:\:\$payload" is never used$#'
+			identifier: public.property.unused
+			count: 1
+			path: app/Events/PortalSyncStatusUpdated.php
+
+		-
+			message: '#^Public property "App\\Events\\PortalSyncStatusUpdated\:\:\$sessionId" is never used$#'
+			identifier: public.property.unused
+			count: 1
+			path: app/Events/PortalSyncStatusUpdated.php
+
+		-
+			message: '#^Public method "App\\Events\\PortalUploadProgressed\:\:broadcastAs\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Events/PortalUploadProgressed.php
+
+		-
+			message: '#^Public method "App\\Events\\PortalUploadProgressed\:\:broadcastWith\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Events/PortalUploadProgressed.php
+
+		-
+			message: '#^Public property "App\\Events\\PortalUploadProgressed\:\:\$payload" is never used$#'
+			identifier: public.property.unused
+			count: 1
+			path: app/Events/PortalUploadProgressed.php
+
+		-
+			message: '#^Public property "App\\Events\\PortalUploadProgressed\:\:\$sessionId" is never used$#'
+			identifier: public.property.unused
+			count: 1
+			path: app/Events/PortalUploadProgressed.php
+
+		-
+			message: '#^Public method "App\\Exceptions\\ApiExceptionRenderer\:\:isApiRequest\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Exceptions/ApiExceptionRenderer.php
+
+		-
+			message: '#^Public constant "App\\Exceptions\\NotebookAiException\:\:REASON_DISABLED" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Exceptions/NotebookAiException.php
+
+		-
+			message: '#^Public constant "App\\Exceptions\\NotebookAiException\:\:REASON_EMPTY" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Exceptions/NotebookAiException.php
+
+		-
+			message: '#^Public constant "App\\Exceptions\\NotebookAiException\:\:REASON_MISCONFIGURED" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Exceptions/NotebookAiException.php
+
+		-
+			message: '#^Public constant "App\\Exceptions\\NotebookAiException\:\:REASON_NOT_CONFIGURED" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Exceptions/NotebookAiException.php
+
+		-
+			message: '#^Public method "App\\Exceptions\\PortalAuthenticationException\:\:csrfTokenMissing\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Exceptions/PortalAuthenticationException.php
+
+		-
+			message: '#^Public method "App\\Exceptions\\PortalAuthenticationException\:\:loginRequired\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Exceptions/PortalAuthenticationException.php
+
+		-
+			message: '#^Public method "App\\Exceptions\\PortalConnectionException\:\:connectionTimeout\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Exceptions/PortalConnectionException.php
+
+		-
+			message: '#^Public method "App\\Exceptions\\PortalConnectionException\:\:invalidResponse\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Exceptions/PortalConnectionException.php
+
+		-
+			message: '#^Offset ''status'' on array\{status\: ''not_uploaded''\|''unknown''\|''upload_unavailable''\|''uploaded'', delete_payload\: array\{id\: string, idx\: string, pertemuan\: string\}\|null, file_info\: array\{href\: string, text\: string\}\|null\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Http/Controllers/API/PortalActionController.php
+
+		-
+			message: '#^Call to function is_array\(\) with array\<string, mixed\> will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 2
+			path: app/Http/Controllers/API/PortalAnnouncementController.php
+
+		-
+			message: '#^Offset ''data'' on array\{data\: array\<string, mixed\>, meta\: array\<string, mixed\>\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Http/Controllers/API/PortalAnnouncementController.php
+
+		-
+			message: '#^Method App\\Http\\Controllers\\API\\PortalAuthController\:\:checkSession\(\) should return Illuminate\\Http\\JsonResponse but returns Symfony\\Component\\HttpFoundation\\Response\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Http/Controllers/API/PortalAuthController.php
+
+		-
+			message: '#^Method App\\Http\\Controllers\\API\\PortalAuthController\:\:refreshSession\(\) should return Illuminate\\Http\\JsonResponse but returns Symfony\\Component\\HttpFoundation\\Response\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Http/Controllers/API/PortalAuthController.php
+
+		-
+			message: '#^Offset ''data'' on array\{success\: bool, message\: string, data\: array\<string, mixed\>\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Http/Controllers/API/PortalAuthController.php
+
+		-
+			message: '#^Offset ''success'' on array\{success\: bool, message\: string, data\: array\<string, mixed\>\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Http/Controllers/API/PortalAuthController.php
+
+		-
+			message: '#^Public method "App\\Http\\Controllers\\API\\PortalAuthController\:\:changePassword\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Http/Controllers/API/PortalAuthController.php
+
+		-
+			message: '#^Public method "App\\Http\\Controllers\\API\\PortalAuthController\:\:passwordForm\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Http/Controllers/API/PortalAuthController.php
+
+		-
+			message: '#^Public method "App\\Http\\Controllers\\API\\PortalDataController\:\:refresh\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Http/Controllers/API/PortalDataController.php
+
+		-
+			message: '#^Property App\\Http\\Controllers\\API\\PortalSupportController\:\:\$sessionManager is never read, only written\.$#'
+			identifier: property.onlyWritten
+			count: 1
+			path: app/Http/Controllers/API/PortalSupportController.php
+
+		-
+			message: '#^Public method "App\\Http\\Controllers\\API\\PortalSupportController\:\:downloadFile\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Http/Controllers/API/PortalSupportController.php
+
+		-
+			message: '#^Public constant "App\\Http\\Middleware\\EnsurePortalOnline\:\:OFFLINE_MESSAGE" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Http/Middleware/EnsurePortalOnline.php
+
+		-
+			message: '#^Public method "App\\Http\\Middleware\\EnsurePortalOnline\:\:handle\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Http/Middleware/EnsurePortalOnline.php
+
+		-
+			message: '#^Public method "App\\Http\\Middleware\\EnsurePortalWebSession\:\:handle\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Http/Middleware/EnsurePortalWebSession.php
+
+		-
+			message: '#^Public method "App\\Http\\Middleware\\PortalSessionMiddleware\:\:handle\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Http/Middleware/PortalSessionMiddleware.php
+
+		-
+			message: '#^Public method "App\\Http\\Middleware\\ResolvePortalBroadcastUser\:\:handle\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Http/Middleware/ResolvePortalBroadcastUser.php
+
+		-
+			message: '#^Public constant "App\\Http\\Middleware\\StartPortalSession\:\:MOBILE_SESSION" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Http/Middleware/StartPortalSession.php
+
+		-
+			message: '#^Public constant "App\\Http\\Middleware\\StartPortalSession\:\:TOKEN_REQUEST" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Http/Middleware/StartPortalSession.php
+
+		-
+			message: '#^Instanceof between Illuminate\\Http\\Request and Illuminate\\Http\\Request will always evaluate to true\.$#'
+			identifier: instanceof.alwaysTrue
+			count: 1
+			path: app/Http/Requests/SipandaiAssignmentUploadRequest.php
+
+		-
+			message: '#^Public property "App\\Jobs\\ArchiveCourseMaterialsJob\:\:\$timeout" is never used$#'
+			identifier: public.property.unused
+			count: 1
+			path: app/Jobs/ArchiveCourseMaterialsJob.php
+
+		-
+			message: '#^Public property "App\\Jobs\\ArchiveCourseMaterialsJob\:\:\$tries" is never used$#'
+			identifier: public.property.unused
+			count: 1
+			path: app/Jobs/ArchiveCourseMaterialsJob.php
+
+		-
+			message: '#^Public property "App\\Jobs\\ArchivePortalFilesJob\:\:\$timeout" is never used$#'
+			identifier: public.property.unused
+			count: 1
+			path: app/Jobs/ArchivePortalFilesJob.php
+
+		-
+			message: '#^Public property "App\\Jobs\\ArchivePortalFilesJob\:\:\$tries" is never used$#'
+			identifier: public.property.unused
+			count: 1
+			path: app/Jobs/ArchivePortalFilesJob.php
+
+		-
+			message: '#^Public constant "App\\Jobs\\ExpirePortalSessionJob\:\:IDLE_MESSAGE" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Jobs/ExpirePortalSessionJob.php
+
+		-
+			message: '#^Public property "App\\Jobs\\ExpirePortalSessionJob\:\:\$backoff" is never used$#'
+			identifier: public.property.unused
+			count: 1
+			path: app/Jobs/ExpirePortalSessionJob.php
+
+		-
+			message: '#^Public property "App\\Jobs\\ExpirePortalSessionJob\:\:\$timeout" is never used$#'
+			identifier: public.property.unused
+			count: 1
+			path: app/Jobs/ExpirePortalSessionJob.php
+
+		-
+			message: '#^Public property "App\\Jobs\\ExpirePortalSessionJob\:\:\$tries" is never used$#'
+			identifier: public.property.unused
+			count: 1
+			path: app/Jobs/ExpirePortalSessionJob.php
+
+		-
+			message: '#^Public property "App\\Jobs\\FlushPortalOutboxJob\:\:\$timeout" is never used$#'
+			identifier: public.property.unused
+			count: 1
+			path: app/Jobs/FlushPortalOutboxJob.php
+
+		-
+			message: '#^Public property "App\\Jobs\\FlushPortalOutboxJob\:\:\$tries" is never used$#'
+			identifier: public.property.unused
+			count: 1
+			path: app/Jobs/FlushPortalOutboxJob.php
+
+		-
+			message: '#^Public property "App\\Jobs\\IngestNotebookSourceJob\:\:\$timeout" is never used$#'
+			identifier: public.property.unused
+			count: 1
+			path: app/Jobs/IngestNotebookSourceJob.php
+
+		-
+			message: '#^Public property "App\\Jobs\\IngestNotebookSourceJob\:\:\$tries" is never used$#'
+			identifier: public.property.unused
+			count: 1
+			path: app/Jobs/IngestNotebookSourceJob.php
+
+		-
+			message: '#^Public property "App\\Jobs\\ProcessPortalAssignmentUploadJob\:\:\$tries" is never used$#'
+			identifier: public.property.unused
+			count: 1
+			path: app/Jobs/ProcessPortalAssignmentUploadJob.php
+
+		-
+			message: '#^Public property "App\\Jobs\\ProcessPortalExamUploadJob\:\:\$tries" is never used$#'
+			identifier: public.property.unused
+			count: 1
+			path: app/Jobs/ProcessPortalExamUploadJob.php
+
+		-
+			message: '#^Public property "App\\Jobs\\RefreshPortalDataJob\:\:\$timeout" is never used$#'
+			identifier: public.property.unused
+			count: 1
+			path: app/Jobs/RefreshPortalDataJob.php
+
+		-
+			message: '#^Public property "App\\Jobs\\RefreshPortalDataJob\:\:\$tries" is never used$#'
+			identifier: public.property.unused
+			count: 1
+			path: app/Jobs/RefreshPortalDataJob.php
+
+		-
+			message: '#^Public property "App\\Jobs\\RefreshPortalSessionJob\:\:\$backoff" is never used$#'
+			identifier: public.property.unused
+			count: 1
+			path: app/Jobs/RefreshPortalSessionJob.php
+
+		-
+			message: '#^Public property "App\\Jobs\\RefreshPortalSessionJob\:\:\$timeout" is never used$#'
+			identifier: public.property.unused
+			count: 1
+			path: app/Jobs/RefreshPortalSessionJob.php
+
+		-
+			message: '#^Public property "App\\Jobs\\RefreshPortalSessionJob\:\:\$tries" is never used$#'
+			identifier: public.property.unused
+			count: 1
+			path: app/Jobs/RefreshPortalSessionJob.php
+
+		-
+			message: '#^Public constant "App\\Jobs\\ResumeOfflineSessionJob\:\:PORTAL_BACK_MESSAGE" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Jobs/ResumeOfflineSessionJob.php
+
+		-
+			message: '#^Public property "App\\Jobs\\ResumeOfflineSessionJob\:\:\$timeout" is never used$#'
+			identifier: public.property.unused
+			count: 1
+			path: app/Jobs/ResumeOfflineSessionJob.php
+
+		-
+			message: '#^Public property "App\\Jobs\\ResumeOfflineSessionJob\:\:\$tries" is never used$#'
+			identifier: public.property.unused
+			count: 1
+			path: app/Jobs/ResumeOfflineSessionJob.php
+
+		-
+			message: '#^Call to function is_array\(\) with list\<array\<string, mixed\>\> will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: app/Jobs/ScanPortalNotificationsJob.php
+
+		-
+			message: '#^Offset ''classes'' on array\{date\: string, day\: string, current_time\: string, classes\: list\<array\<string, mixed\>\>\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Jobs/ScanPortalNotificationsJob.php
+
+		-
+			message: '#^Parameter \#1 \$array \(list\<array\<string, mixed\>\>\) of array_values is already a list, call has no effect\.$#'
+			identifier: arrayValues.list
+			count: 1
+			path: app/Jobs/ScanPortalNotificationsJob.php
+
+		-
+			message: '#^Public property "App\\Jobs\\ScanPortalNotificationsJob\:\:\$timeout" is never used$#'
+			identifier: public.property.unused
+			count: 1
+			path: app/Jobs/ScanPortalNotificationsJob.php
+
+		-
+			message: '#^Public property "App\\Jobs\\SendAwayRemindersJob\:\:\$ownerHash" is never used$#'
+			identifier: public.property.unused
+			count: 1
+			path: app/Jobs/SendAwayRemindersJob.php
+
+		-
+			message: '#^Public property "App\\Jobs\\SendAwayRemindersJob\:\:\$timeout" is never used$#'
+			identifier: public.property.unused
+			count: 1
+			path: app/Jobs/SendAwayRemindersJob.php
+
+		-
+			message: '#^Public property "App\\Jobs\\SendAwayRemindersJob\:\:\$uniqueFor" is never used$#'
+			identifier: public.property.unused
+			count: 1
+			path: app/Jobs/SendAwayRemindersJob.php
+
+		-
+			message: '#^Public property "App\\Jobs\\SendPortalOutboxJob\:\:\$timeout" is never used$#'
+			identifier: public.property.unused
+			count: 1
+			path: app/Jobs/SendPortalOutboxJob.php
+
+		-
+			message: '#^Public property "App\\Jobs\\SendPortalOutboxJob\:\:\$tries" is never used$#'
+			identifier: public.property.unused
+			count: 1
+			path: app/Jobs/SendPortalOutboxJob.php
+
+		-
+			message: '#^Public property "App\\Jobs\\SendPortalPushNotificationsJob\:\:\$backoff" is never used$#'
+			identifier: public.property.unused
+			count: 1
+			path: app/Jobs/SendPortalPushNotificationsJob.php
+
+		-
+			message: '#^Public property "App\\Jobs\\SendPortalPushNotificationsJob\:\:\$notificationIds" is never used$#'
+			identifier: public.property.unused
+			count: 1
+			path: app/Jobs/SendPortalPushNotificationsJob.php
+
+		-
+			message: '#^Public property "App\\Jobs\\SendPortalPushNotificationsJob\:\:\$ownerHash" is never used$#'
+			identifier: public.property.unused
+			count: 1
+			path: app/Jobs/SendPortalPushNotificationsJob.php
+
+		-
+			message: '#^Public property "App\\Jobs\\SendPortalPushNotificationsJob\:\:\$timeout" is never used$#'
+			identifier: public.property.unused
+			count: 1
+			path: app/Jobs/SendPortalPushNotificationsJob.php
+
+		-
+			message: '#^Public property "App\\Jobs\\SendPortalPushNotificationsJob\:\:\$tries" is never used$#'
+			identifier: public.property.unused
+			count: 1
+			path: app/Jobs/SendPortalPushNotificationsJob.php
+
+		-
+			message: '#^Public property "App\\Jobs\\SyncCourseNotebookJob\:\:\$timeout" is never used$#'
+			identifier: public.property.unused
+			count: 1
+			path: app/Jobs/SyncCourseNotebookJob.php
+
+		-
+			message: '#^Public property "App\\Jobs\\SyncCourseNotebookJob\:\:\$tries" is never used$#'
+			identifier: public.property.unused
+			count: 1
+			path: app/Jobs/SyncCourseNotebookJob.php
+
+		-
+			message: '#^Public property "App\\Jobs\\SyncPortalArchiveJob\:\:\$timeout" is never used$#'
+			identifier: public.property.unused
+			count: 1
+			path: app/Jobs/SyncPortalArchiveJob.php
+
+		-
+			message: '#^Public property "App\\Jobs\\SyncPortalArchiveJob\:\:\$tries" is never used$#'
+			identifier: public.property.unused
+			count: 1
+			path: app/Jobs/SyncPortalArchiveJob.php
+
+		-
+			message: '#^Public method "App\\Models\\Notebook\:\:classUrl\(\)" is used only locally and should be turned protected/private$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Models/Notebook.php
+
+		-
+			message: '#^Public method "App\\Models\\Notebook\:\:scopeCourse\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Models/Notebook.php
+
+		-
+			message: '#^Public method "App\\Models\\Notebook\:\:scopeForOwner\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Models/Notebook.php
+
+		-
+			message: '#^Public method "App\\Models\\NotebookChunk\:\:source\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Models/NotebookChunk.php
+
+		-
+			message: '#^Public property "App\\Models\\NotebookChunk\:\:\$timestamps" is never used$#'
+			identifier: public.property.unused
+			count: 1
+			path: app/Models/NotebookChunk.php
+
+		-
+			message: '#^Public method "App\\Models\\NotebookDismissal\:\:notebook\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Models/NotebookDismissal.php
+
+		-
+			message: '#^Public constant "App\\Models\\NotebookMessage\:\:STRUCTURED_KINDS" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Models/NotebookMessage.php
+
+		-
+			message: '#^Public method "App\\Models\\NotebookMessage\:\:notebook\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Models/NotebookMessage.php
+
+		-
+			message: '#^Public constant "App\\Models\\NotebookSource\:\:STALLED_AFTER_SECONDS" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Models/NotebookSource.php
+
+		-
+			message: '#^Public method "App\\Models\\NotebookSource\:\:archivedFile\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Models/NotebookSource.php
+
+		-
+			message: '#^Public method "App\\Models\\NotebookSource\:\:notebook\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Models/NotebookSource.php
+
+		-
+			message: '#^Public method "App\\Models\\PortalArchiveVersion\:\:isSuspect\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Models/PortalArchiveVersion.php
+
+		-
+			message: '#^Public method "App\\Models\\PortalArchiveVersion\:\:scopeForDataset\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Models/PortalArchiveVersion.php
+
+		-
+			message: '#^Public method "App\\Models\\PortalArchiveVersion\:\:scopeForOwner\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Models/PortalArchiveVersion.php
+
+		-
+			message: '#^Public method "App\\Models\\PortalArchiveVersion\:\:scopeTrusted\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Models/PortalArchiveVersion.php
+
+		-
+			message: '#^Public method "App\\Models\\PortalArchivedFile\:\:scopeForOwner\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Models/PortalArchivedFile.php
+
+		-
+			message: '#^Using nullsafe method call on non\-nullable type Illuminate\\Support\\Carbon\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Models/PortalArchivedFile.php
+
+		-
+			message: '#^Method App\\Models\\PortalMobileSession\:\:prunable\(\) should return Illuminate\\Database\\Eloquent\\Builder\<App\\Models\\PortalMobileSession\> but returns Illuminate\\Database\\Eloquent\\Builder\<static\(App\\Models\\PortalMobileSession\)\>\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Models/PortalMobileSession.php
+
+		-
+			message: '#^Public method "App\\Models\\PortalMobileSession\:\:prunable\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Models/PortalMobileSession.php
+
+		-
+			message: '#^Public method "App\\Models\\PortalMobileSession\:\:pushTokens\(\)" is used only locally and should be turned protected/private$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Models/PortalMobileSession.php
+
+		-
+			message: '#^Method App\\Models\\PortalNotification\:\:prunable\(\) should return Illuminate\\Database\\Eloquent\\Builder\<App\\Models\\PortalNotification\> but returns Illuminate\\Database\\Eloquent\\Builder\<static\(App\\Models\\PortalNotification\)\>\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Models/PortalNotification.php
+
+		-
+			message: '#^Public constant "App\\Models\\PortalNotification\:\:UPDATED_AT" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Models/PortalNotification.php
+
+		-
+			message: '#^Public method "App\\Models\\PortalNotification\:\:prunable\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Models/PortalNotification.php
+
+		-
+			message: '#^Public method "App\\Models\\PortalNotification\:\:scopeForOwner\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Models/PortalNotification.php
+
+		-
+			message: '#^Public method "App\\Models\\PortalNotification\:\:scopeUnread\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Models/PortalNotification.php
+
+		-
+			message: '#^Public method "App\\Models\\PortalOfflineAccount\:\:prunable\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Models/PortalOfflineAccount.php
+
+		-
+			message: '#^Public method "App\\Models\\PortalOfflineAccount\:\:prune\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Models/PortalOfflineAccount.php
+
+		-
+			message: '#^Public method "App\\Models\\PortalOfflineAccount\:\:retentionDays\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Models/PortalOfflineAccount.php
+
+		-
+			message: '#^Public method "App\\Models\\PortalOfflineAccount\:\:scopeWithUsableCredentials\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Models/PortalOfflineAccount.php
+
+		-
+			message: '#^Method App\\Models\\PortalOutboxItem\:\:prunable\(\) should return Illuminate\\Database\\Eloquent\\Builder\<App\\Models\\PortalOutboxItem\> but returns Illuminate\\Database\\Eloquent\\Builder\<static\(App\\Models\\PortalOutboxItem\)\>\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Models/PortalOutboxItem.php
+
+		-
+			message: '#^Public constant "App\\Models\\PortalOutboxItem\:\:ACTIONS" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Models/PortalOutboxItem.php
+
+		-
+			message: '#^Public constant "App\\Models\\PortalOutboxItem\:\:STATUSES" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Models/PortalOutboxItem.php
+
+		-
+			message: '#^Public method "App\\Models\\PortalOutboxItem\:\:fileName\(\)" is used only locally and should be turned protected/private$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Models/PortalOutboxItem.php
+
+		-
+			message: '#^Public method "App\\Models\\PortalOutboxItem\:\:isQueued\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Models/PortalOutboxItem.php
+
+		-
+			message: '#^Public method "App\\Models\\PortalOutboxItem\:\:prunable\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Models/PortalOutboxItem.php
+
+		-
+			message: '#^Public method "App\\Models\\PortalOutboxItem\:\:scopeForOwner\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Models/PortalOutboxItem.php
+
+		-
+			message: '#^Public method "App\\Models\\PortalOutboxItem\:\:scopePending\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Models/PortalOutboxItem.php
+
+		-
+			message: '#^Public method "App\\Models\\PortalOutboxItem\:\:scopeQueued\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Models/PortalOutboxItem.php
+
+		-
+			message: '#^Public method "App\\Models\\PortalOutboxItem\:\:statusLabel\(\)" is used only locally and should be turned protected/private$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Models/PortalOutboxItem.php
+
+		-
+			message: '#^Method App\\Models\\PortalPushToken\:\:prunable\(\) should return Illuminate\\Database\\Eloquent\\Builder\<App\\Models\\PortalPushToken\> but returns Illuminate\\Database\\Eloquent\\Builder\<static\(App\\Models\\PortalPushToken\)\>\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Models/PortalPushToken.php
+
+		-
+			message: '#^Public method "App\\Models\\PortalPushToken\:\:mobileSession\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Models/PortalPushToken.php
+
+		-
+			message: '#^Public method "App\\Models\\PortalPushToken\:\:prunable\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Models/PortalPushToken.php
+
+		-
+			message: '#^Public method "App\\Models\\PortalPushToken\:\:scopeForOwner\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Models/PortalPushToken.php
+
+		-
+			message: '#^Call to function is_array\(\) with array\<string, mixed\> will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 2
+			path: app/Services/AcademicProgressCalculator.php
+
+		-
+			message: '#^Public constant "App\\Services\\AcademicProgressCalculator\:\:DEFAULT_TARGET_SKS" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Services/AcademicProgressCalculator.php
+
+		-
+			message: '#^Public constant "App\\Services\\AcademicProgressCalculator\:\:MAX_GRADE_WEIGHT" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Services/AcademicProgressCalculator.php
+
+		-
+			message: '#^Public method "App\\Services\\AcademicProgressCalculator\:\:ipsSeries\(\)" is used only locally and should be turned protected/private$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Services/AcademicProgressCalculator.php
+
+		-
+			message: '#^Public method "App\\Services\\AcademicProgressCalculator\:\:projectIpk\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Services/AcademicProgressCalculator.php
+
+		-
+			message: '#^Public method "App\\Services\\AcademicProgressCalculator\:\:semesterIps\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Services/AcademicProgressCalculator.php
+
+		-
+			message: '#^Offset ''critical''\|''info''\|''warning'' on array\{critical\: 0, warning\: 1, info\: 2\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 2
+			path: app/Services/ActionCenterBuilder.php
+
+		-
+			message: '#^Public constant "App\\Services\\ActionCenterBuilder\:\:COMPLETENESS_SOURCES" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Services/ActionCenterBuilder.php
+
+		-
+			message: '#^Public constant "App\\Services\\ActionCenterBuilder\:\:MAX_ITEMS" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Services/ActionCenterBuilder.php
+
+		-
+			message: '#^Public constant "App\\Services\\ActionCenterBuilder\:\:QUEUED_SOURCES" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Services/ActionCenterBuilder.php
+
+		-
+			message: '#^Public constant "App\\Services\\ActionCenterBuilder\:\:SOURCES" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Services/ActionCenterBuilder.php
+
+		-
+			message: '#^Public method "App\\Services\\AttendanceShortcutService\:\:getPendingAssignments\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Services/AttendanceShortcutService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>timestamp" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/AttendanceShortcutService.php
+
+		-
+			message: '#^Call to an undefined method DOMNode\:\:getAttribute\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Services/Extractors/AdvisingExtractor.php
+
+		-
+			message: '#^Instanceof between DOMElement and DOMElement will always evaluate to true\.$#'
+			identifier: instanceof.alwaysTrue
+			count: 1
+			path: app/Services/Extractors/AnnouncementExtractor.php
+
+		-
+			message: '#^Parameter &\$found by\-ref type of method App\\Services\\Extractors\\AnnouncementExtractor\:\:linkifyText\(\) expects array\{links\: array\<string, array\{label\: string, url\: string, is_file\: bool, is_campus_file\: bool, kind\: ''file''\|''form''\|''link''\}\>, emails\: array\<string, string\>\}, array\{links\: array\<string, array\{label\: string, url\: string, is_file\: bool, is_campus_file\: bool, kind\: ''file''\|''form''\|''link''\}\>, emails\: non\-empty\-array\<string, string\|null\>\} given\.$#'
+			identifier: parameterByRef.type
+			count: 1
+			path: app/Services/Extractors/AnnouncementExtractor.php
+
+		-
+			message: '#^Public constant "App\\Services\\Extractors\\AnnouncementExtractor\:\:CATEGORY_LABELS" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Services/Extractors/AnnouncementExtractor.php
+
+		-
+			message: '#^Public constant "App\\Services\\Extractors\\AnnouncementExtractor\:\:PER_PAGE" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Services/Extractors/AnnouncementExtractor.php
+
+		-
+			message: '#^Public method "App\\Services\\Extractors\\AnnouncementExtractor\:\:announcementPageUrl\(\)" is used only locally and should be turned protected/private$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Services/Extractors/AnnouncementExtractor.php
+
+		-
+			message: '#^Public method "App\\Services\\Extractors\\AnnouncementExtractor\:\:legacyId\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Services/Extractors/AnnouncementExtractor.php
+
+		-
+			message: '#^Public method "App\\Services\\Extractors\\AnnouncementExtractor\:\:stableId\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Services/Extractors/AnnouncementExtractor.php
+
+		-
+			message: '#^Call to an undefined method DOMNode\:\:getAttribute\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Services/Extractors/ClassesExtractor.php
+
+		-
+			message: '#^Comparison operation "\>" between int\<1, max\> and 0 is always true\.$#'
+			identifier: greater.alwaysTrue
+			count: 1
+			path: app/Services/Extractors/ClassesExtractor.php
+
+		-
+			message: '#^Negated boolean expression is always true\.$#'
+			identifier: booleanNot.alwaysTrue
+			count: 1
+			path: app/Services/Extractors/ClassesExtractor.php
+
+		-
+			message: '#^Variable \$hasHeaders might not be defined\.$#'
+			identifier: variable.undefined
+			count: 1
+			path: app/Services/Extractors/ClassesExtractor.php
+
+		-
+			message: '#^Variable \$headers might not be defined\.$#'
+			identifier: variable.undefined
+			count: 1
+			path: app/Services/Extractors/ClassesExtractor.php
+
+		-
+			message: '#^Offset ''value'' on array\{value\: int, score\: \-2\|0\|1\|2\|3\|4\|5\|6\|8\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Services/Extractors/DashboardExtractor.php
+
+		-
+			message: '#^Offset 1 on array\{list\<string\>, list\<numeric\-string\>\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 2
+			path: app/Services/Extractors/DashboardExtractor.php
+
+		-
+			message: '#^Property App\\Services\\Extractors\\DashboardExtractor\:\:\$classesExtractor is never read, only written\.$#'
+			identifier: property.onlyWritten
+			count: 1
+			path: app/Services/Extractors/DashboardExtractor.php
+
+		-
+			message: '#^Parameter \#1 \$array \(list\<Symfony\\Component\\DomCrawler\\Crawler\>\) of array_values is already a list, call has no effect\.$#'
+			identifier: arrayValues.list
+			count: 1
+			path: app/Services/Extractors/FinancialHistoryExtractor.php
+
+		-
+			message: '#^Public method "App\\Services\\Extractors\\KhsExtractor\:\:extractCumulativeSummary\(\)" is used only locally and should be turned protected/private$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Services/Extractors/KhsExtractor.php
+
+		-
+			message: '#^Public method "App\\Services\\Extractors\\KhsExtractor\:\:extractKhsSemesters\(\)" is used only locally and should be turned protected/private$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Services/Extractors/KhsExtractor.php
+
+		-
+			message: '#^Public method "App\\Services\\Extractors\\KhsExtractor\:\:parseKhsHtml\(\)" is used only locally and should be turned protected/private$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Services/Extractors/KhsExtractor.php
+
+		-
+			message: '#^Public method "App\\Services\\Extractors\\KrsDetailExtractor\:\:parseKrsDetailPage\(\)" is used only locally and should be turned protected/private$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Services/Extractors/KrsDetailExtractor.php
+
+		-
+			message: '#^Public constant "App\\Services\\Extractors\\LibraryExtractor\:\:REPOSITORY_ROUTE" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Services/Extractors/LibraryExtractor.php
+
+		-
+			message: '#^Public method "App\\Services\\Extractors\\LibraryExtractor\:\:fallbackLinks\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Services/Extractors/LibraryExtractor.php
+
+		-
+			message: '#^Public method "App\\Services\\Extractors\\LibraryExtractor\:\:parseLibraryPage\(\)" is used only locally and should be turned protected/private$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Services/Extractors/LibraryExtractor.php
+
+		-
+			message: '#^Public method "App\\Services\\Extractors\\PortalContextExtractor\:\:parsePortalContext\(\)" is used only locally and should be turned protected/private$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Services/Extractors/PortalContextExtractor.php
+
+		-
+			message: '#^Variable \$photoUrl in empty\(\) always exists and is not falsy\.$#'
+			identifier: empty.variable
+			count: 1
+			path: app/Services/Extractors/ProfileExtractor.php
+
+		-
+			message: '#^Public constant "App\\Services\\Extractors\\SkkmExtractor\:\:STATUS_INVALID" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Services/Extractors/SkkmExtractor.php
+
+		-
+			message: '#^Public constant "App\\Services\\Extractors\\SkkmExtractor\:\:STATUS_PENDING" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Services/Extractors/SkkmExtractor.php
+
+		-
+			message: '#^Public constant "App\\Services\\Extractors\\SkkmExtractor\:\:STATUS_UNKNOWN" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Services/Extractors/SkkmExtractor.php
+
+		-
+			message: '#^Public constant "App\\Services\\Extractors\\SkkmExtractor\:\:STATUS_VALID" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Services/Extractors/SkkmExtractor.php
+
+		-
+			message: '#^Public constant "App\\Services\\Extractors\\SkripsiExtractor\:\:STATE_ACTIVE_UNPARSED" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Services/Extractors/SkripsiExtractor.php
+
+		-
+			message: '#^Public constant "App\\Services\\Extractors\\SkripsiExtractor\:\:STATE_NOT_ENROLLED" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Services/Extractors/SkripsiExtractor.php
+
+		-
+			message: '#^Public constant "App\\Services\\Extractors\\SkripsiExtractor\:\:STATE_UNKNOWN" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Services/Extractors/SkripsiExtractor.php
+
+		-
+			message: '#^Public method "App\\Services\\Extractors\\SkripsiExtractor\:\:parseSimasitaPage\(\)" is used only locally and should be turned protected/private$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Services/Extractors/SkripsiExtractor.php
+
+		-
+			message: '#^Public method "App\\Services\\Extractors\\SkripsiExtractor\:\:parseSkripsiStatusPage\(\)" is used only locally and should be turned protected/private$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Services/Extractors/SkripsiExtractor.php
+
+		-
+			message: '#^Offset ''found'' on array\{found\: bool, records\: list\<array\{record_key\: string, no\: int, academic_year\: string\|null, program\: string\|null, nim\: string\|null, author\: string\|null, title\: string, advisor_1\: string\|null, \.\.\.\}\>, paging\: array\{page\: int, per_page\: int, total\: int\|null, last_page\: int\|null, has_next\: bool, next_page\: int\|null\}, extracted_at\: string, _sync\?\: array\<string, mixed\>\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 2
+			path: app/Services/Extractors/ThesisRepositoryExtractor.php
+
+		-
+			message: '#^Public constant "App\\Services\\Extractors\\ThesisRepositoryExtractor\:\:MAX_PAGES" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Services/Extractors/ThesisRepositoryExtractor.php
+
+		-
+			message: '#^Public constant "App\\Services\\Extractors\\ThesisRepositoryExtractor\:\:PER_PAGE" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Services/Extractors/ThesisRepositoryExtractor.php
+
+		-
+			message: '#^Public method "App\\Services\\Extractors\\ThesisRepositoryExtractor\:\:parseRepositoryPage\(\)" is used only locally and should be turned protected/private$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Services/Extractors/ThesisRepositoryExtractor.php
+
+		-
+			message: '#^Public method "App\\Services\\Extractors\\ThesisRepositoryExtractor\:\:recordKey\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Services/Extractors/ThesisRepositoryExtractor.php
+
+		-
+			message: '#^Public method "App\\Services\\Extractors\\ThesisRepositoryExtractor\:\:repositoryPageUrl\(\)" is used only locally and should be turned protected/private$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Services/Extractors/ThesisRepositoryExtractor.php
+
+		-
+			message: '#^Comparison operation "\<\=" between 1\|2 and 2 is always true\.$#'
+			identifier: smallerOrEqual.alwaysTrue
+			count: 1
+			path: app/Services/GeminiClient.php
+
+		-
+			message: '#^Parameter \#1 \$array \(list\<int\>\) of array_values is already a list, call has no effect\.$#'
+			identifier: arrayValues.list
+			count: 1
+			path: app/Services/NotebookAssistant.php
+
+		-
+			message: '#^Public constant "App\\Services\\NotebookAssistant\:\:AI_DISABLED" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Services/NotebookAssistant.php
+
+		-
+			message: '#^Public constant "App\\Services\\NotebookAssistant\:\:AI_INVALID_KEY" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Services/NotebookAssistant.php
+
+		-
+			message: '#^Public constant "App\\Services\\NotebookAssistant\:\:AI_MISSING_KEY" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Services/NotebookAssistant.php
+
+		-
+			message: '#^Public constant "App\\Services\\NotebookAssistant\:\:AI_MODEL_MISCONFIGURED" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Services/NotebookAssistant.php
+
+		-
+			message: '#^Public constant "App\\Services\\NotebookAssistant\:\:AI_OK" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Services/NotebookAssistant.php
+
+		-
+			message: '#^Public method "App\\Services\\NotebookAssistant\:\:excerpts\(\)" is used only locally and should be turned protected/private$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Services/NotebookAssistant.php
+
+		-
+			message: '#^Public method "App\\Services\\NotebookCourseSync\:\:meetingNumber\(\)" is used only locally and should be turned protected/private$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Services/NotebookCourseSync.php
+
+		-
+			message: '#^Public method "App\\Services\\NotebookSourceReader\:\:type\(\)" is used only locally and should be turned protected/private$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Services/NotebookSourceReader.php
+
+		-
+			message: '#^Public constant "App\\Services\\PaymentStageCalculator\:\:STAGES_PER_STUDY_YEAR" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Services/PaymentStageCalculator.php
+
+		-
+			message: '#^Call to function is_array\(\) with array\<string, mixed\> will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: app/Services/PortalActionProjector.php
+
+		-
+			message: '#^Offset ''data'' on array\{data\: array\<string, mixed\>, synced_at\: string, status\: string, source\: string, updated_at\?\: string, syncing_since\?\: string, failed_at\?\: string, error\?\: string\|null, \.\.\.\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Services/PortalActionProjector.php
+
+		-
+			message: '#^Public constant "App\\Services\\PortalActionProjector\:\:ASSIGNMENT_DELETED" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Services/PortalActionProjector.php
+
+		-
+			message: '#^Public constant "App\\Services\\PortalActionProjector\:\:ASSIGNMENT_UPLOADED" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Services/PortalActionProjector.php
+
+		-
+			message: '#^Public constant "App\\Services\\PortalActionProjector\:\:ATTENDANCE_MARKED" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Services/PortalActionProjector.php
+
+		-
+			message: '#^Offset ''dates'' on array\{text\: string, dates\: list\<string\>, is_future\: bool, kind\: string\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Services/PortalAnnouncementFeed.php
+
+		-
+			message: '#^Public constant "App\\Services\\PortalAnnouncementFeed\:\:DEFAULT_PAGES" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Services/PortalAnnouncementFeed.php
+
+		-
+			message: '#^Public constant "App\\Services\\PortalAnnouncementFeed\:\:MAX_PAGES" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Services/PortalAnnouncementFeed.php
+
+		-
+			message: '#^Call to function is_array\(\) with array\<string, mixed\> will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: app/Services/PortalAnnouncementIds.php
+
+		-
+			message: '#^Dead catch \- Illuminate\\Contracts\\Encryption\\DecryptException is never thrown in the try block\.$#'
+			identifier: catch.neverThrown
+			count: 1
+			path: app/Services/PortalAnnouncementIds.php
+
+		-
+			message: '#^Public constant "App\\Services\\PortalArchivedFileStore\:\:KINDS" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Services/PortalArchivedFileStore.php
+
+		-
+			message: '#^Public method "App\\Services\\PortalArchivedFileStore\:\:archivedSourceUrls\(\)" is used only locally and should be turned protected/private$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Services/PortalArchivedFileStore.php
+
+		-
+			message: '#^Parameter \#2 \$code of class App\\Exceptions\\PortalScrapingException constructor expects int, string given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/PortalAuthService.php
+
+		-
+			message: '#^Public method "App\\Services\\PortalAuthService\:\:isSessionExpired\(\)" is used only locally and should be turned protected/private$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Services/PortalAuthService.php
+
+		-
+			message: '#^Public method "App\\Services\\PortalAuthService\:\:unconfirmedRefusal\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Services/PortalAuthService.php
+
+		-
+			message: '#^Constant App\\Services\\PortalBackgroundSync\:\:UNREADABLE_CREDENTIALS_MESSAGE is unused\.$#'
+			identifier: classConstant.unused
+			count: 1
+			path: app/Services/PortalBackgroundSync.php
+
+		-
+			message: '#^Dead catch \- Illuminate\\Contracts\\Encryption\\DecryptException is never thrown in the try block\.$#'
+			identifier: catch.neverThrown
+			count: 3
+			path: app/Services/PortalBackgroundSync.php
+
+		-
+			message: '#^Method App\\Services\\PortalBackgroundSync\:\:forgetUnreadableCredentials\(\) is unused\.$#'
+			identifier: method.unused
+			count: 1
+			path: app/Services/PortalBackgroundSync.php
+
+		-
+			message: '#^Public constant "App\\Services\\PortalBackgroundSync\:\:SYNC_RUNNING" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Services/PortalBackgroundSync.php
+
+		-
+			message: '#^Public method "App\\Services\\PortalBackgroundSync\:\:coursesDue\(\)" is used only locally and should be turned protected/private$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Services/PortalBackgroundSync.php
+
+		-
+			message: '#^Public method "App\\Services\\PortalBackgroundSync\:\:coursesIntervalMinutes\(\)" is used only locally and should be turned protected/private$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Services/PortalBackgroundSync.php
+
+		-
+			message: '#^Public method "App\\Services\\PortalBackgroundSync\:\:crawlsCourses\(\)" is used only locally and should be turned protected/private$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Services/PortalBackgroundSync.php
+
+		-
+			message: '#^Public method "App\\Services\\PortalBackgroundSync\:\:datasets\(\)" is used only locally and should be turned protected/private$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Services/PortalBackgroundSync.php
+
+		-
+			message: '#^Public method "App\\Services\\PortalBackgroundSync\:\:dueAccounts\(\)" is used only locally and should be turned protected/private$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Services/PortalBackgroundSync.php
+
+		-
+			message: '#^Public method "App\\Services\\PortalBackgroundSync\:\:intervalMinutes\(\)" is used only locally and should be turned protected/private$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Services/PortalBackgroundSync.php
+
+		-
+			message: '#^Parameter \#1 \$array \(list\<string\>\) of array_values is already a list, call has no effect\.$#'
+			identifier: arrayValues.list
+			count: 6
+			path: app/Services/PortalBroadcastService.php
+
+		-
+			message: '#^Call to function is_string\(\) with string will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: app/Services/PortalContextResolver.php
+
+		-
+			message: '#^Offset ''data_origin'' on array\{data_origin\: string, requested_fresh\: bool, synced_at\: string\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Services/PortalContextResolver.php
+
+		-
+			message: '#^Offset ''text'' on array\{text\: string, dates\: list\<string\>, is_future\: bool, kind\: string\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Services/PortalContextResolver.php
+
+		-
+			message: '#^Public constant "App\\Services\\PortalContextResolver\:\:ESTIMATE_SOURCE" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Services/PortalContextResolver.php
+
+		-
+			message: '#^Public constant "App\\Services\\PortalContextResolver\:\:SEMESTER_SOURCES" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Services/PortalContextResolver.php
+
+		-
+			message: '#^Public method "App\\Services\\PortalContextResolver\:\:compose\(\)" is used only locally and should be turned protected/private$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Services/PortalContextResolver.php
+
+		-
+			message: '#^Public method "App\\Services\\PortalDataArchive\:\:datasets\(\)" is used only locally and should be turned protected/private$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Services/PortalDataArchive.php
+
+		-
+			message: '#^Public method "App\\Services\\PortalDataArchive\:\:diff\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Services/PortalDataArchive.php
+
+		-
+			message: '#^Public method "App\\Services\\PortalDataArchive\:\:integrity\(\)" is used only locally and should be turned protected/private$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Services/PortalDataArchive.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>params" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/PortalDataArchive.php
+
+		-
+			message: '#^Public method "App\\Services\\PortalDataCache\:\:forget\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Services/PortalDataCache.php
+
+		-
+			message: '#^Public constant "App\\Services\\PortalDatasetRepository\:\:SYNC_FAILED_CODE" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Services/PortalDatasetRepository.php
+
+		-
+			message: '#^Public constant "App\\Services\\PortalDatasetRepository\:\:UNRESOLVED_MEETING_FRESH_FOR" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Services/PortalDatasetRepository.php
+
+		-
+			message: '#^Public method "App\\Services\\PortalDatasetRepository\:\:queueSync\(\)" is used only locally and should be turned protected/private$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Services/PortalDatasetRepository.php
+
+		-
+			message: '#^Public method "App\\Services\\PortalEndpointRegistry\:\:definition\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Services/PortalEndpointRegistry.php
+
+		-
+			message: '#^Public method "App\\Services\\PortalEndpointRegistry\:\:ensureRequiredParams\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Services/PortalEndpointRegistry.php
+
+		-
+			message: '#^Public method "App\\Services\\PortalEndpointRegistry\:\:requiredParams\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Services/PortalEndpointRegistry.php
+
+		-
+			message: '#^Public method "App\\Services\\PortalEndpointRegistry\:\:urlTemplate\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Services/PortalEndpointRegistry.php
+
+		-
+			message: '#^Public method "App\\Services\\PortalFinanceStatusResolver\:\:paymentDeadline\(\)" is used only locally and should be turned protected/private$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Services/PortalFinanceStatusResolver.php
+
+		-
+			message: '#^Call to function is_array\(\) with list\<array\{code\: string, name\: string\|null, sks\: int\|null, semester\: int\|null, status\: string\|null, is_retake\: bool\}\> will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: app/Services/PortalGradesResolver.php
+
+		-
+			message: '#^Offset ''courses'' on array\{found\: bool, krs_id\: int, header\: array\{academic_year\: string\|null, semester\: int\|string\|null, semester_is_regular\: bool, semester_label\: string\|null, date\: string\|null, nim\: string\|null, name\: string\|null\}, counts_as_study_load\: bool, status\: array\{code\: ''not_submitted''\|''pending_dpa''\|''unknown''\|''validated'', label\: string, raw_text\: string\|null\}, courses\: list\<array\{code\: string, name\: string\|null, sks\: int\|null, semester\: int\|null, status\: string\|null, is_retake\: bool\}\>, totals\: array\{courses\: int, sks\: int, source\: ''computed''\|''portal'', consistent\: bool\}, print_available\: bool, \.\.\.\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Services/PortalGradesResolver.php
+
+		-
+			message: '#^Offset ''found'' on array\{source\: ''sipandai_score'', found\: bool, semesters\: list\<array\{label\: string, semester\: int\|string\|null, is_regular\: bool, status\: ''empty''\|''graded''\|''partial''\|''pending'', columns\: list\<string\>, courses\: list\<array\{code\: string, name\: string, sks\: int, components\: array\<string, float\|null\>, score\: float\|null, letter\: string\|null, weight\: float\|null, quality_points\: float\|null, \.\.\.\}\>, course_count\: int, graded_count\: int, \.\.\.\}\>, cumulative\: array\{ipk\: float\|null, sks_total\: int\|null, quality_points_total\: float\|null, sks_remaining\: int\|null, target_sks\: int\|null, letter_counts\: array\<string, int\>, fields\: array\<string, float\|int\>\}\|null, transcript_print_url\: string\|null, extracted_at\: string, _sync\?\: array\<string, mixed\>\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Services/PortalGradesResolver.php
+
+		-
+			message: '#^Offset ''found'' on array\{source\: ''student_krs_detail'', krs_id\: string, found\: bool, semesters\: list\<array\{label\: string, semester\: int\|string\|null, is_regular\: bool, status\: ''empty''\|''graded''\|''partial''\|''pending'', columns\: list\<string\>, courses\: list\<array\{code\: string, name\: string, sks\: int, components\: array\<string, float\|null\>, score\: float\|null, letter\: string\|null, weight\: float\|null, quality_points\: float\|null, \.\.\.\}\>, course_count\: int, graded_count\: int, \.\.\.\}\>, cumulative\: array\{ipk\: float\|null, sks_total\: int\|null, quality_points_total\: float\|null, sks_remaining\: int\|null, target_sks\: int\|null, letter_counts\: array\<string, int\>, fields\: array\<string, float\|int\>\}\|null, transcript_print_url\: string\|null, extracted_at\: string, _sync\?\: array\<string, mixed\>\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Services/PortalGradesResolver.php
+
+		-
+			message: '#^Parameter \#1 \$array \(list\<array\{code\: string, name\: string\|null, sks\: int\|null, semester\: int\|null, status\: string\|null, is_retake\: bool\}\>\) of array_values is already a list, call has no effect\.$#'
+			identifier: arrayValues.list
+			count: 1
+			path: app/Services/PortalGradesResolver.php
+
+		-
+			message: '#^Public method "App\\Services\\PortalHttpClientOptions\:\:boundHandler\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Services/PortalHttpClientOptions.php
+
+		-
+			message: '#^Public constant "App\\Services\\PortalKrsResolver\:\:PERIOD_LABELS" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Services/PortalKrsResolver.php
+
+		-
+			message: '#^Method App\\Services\\PortalNotificationCenter\:\:recentAnnouncementReminders\(\) should return array\<string, true\> but returns array\<string, bool\>\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Services/PortalNotificationCenter.php
+
+		-
+			message: '#^Public constant "App\\Services\\PortalNotificationCenter\:\:CACHE_KEYS" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Services/PortalNotificationCenter.php
+
+		-
+			message: '#^Public constant "App\\Services\\PortalNotificationCenter\:\:SYNC_KEYS" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Services/PortalNotificationCenter.php
+
+		-
+			message: '#^Public constant "App\\Services\\PortalNotificationCenter\:\:URGENCIES" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Services/PortalNotificationCenter.php
+
+		-
+			message: '#^Public method "App\\Services\\PortalOfflineAccess\:\:attempt\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Services/PortalOfflineAccess.php
+
+		-
+			message: '#^Public method "App\\Services\\PortalOfflineAccess\:\:enabled\(\)" is used only locally and should be turned protected/private$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Services/PortalOfflineAccess.php
+
+		-
+			message: '#^Parameter \#1 \$array \(list\<string\>\) of array_values is already a list, call has no effect\.$#'
+			identifier: arrayValues.list
+			count: 2
+			path: app/Services/PortalOperationTracker.php
+
+		-
+			message: '#^Public constant "App\\Services\\PortalOutbox\:\:ABANDONED_UPLOAD_MESSAGE" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Services/PortalOutbox.php
+
+		-
+			message: '#^Public constant "App\\Services\\PortalOutbox\:\:CACHE_KEYS" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Services/PortalOutbox.php
+
+		-
+			message: '#^Public constant "App\\Services\\PortalOutbox\:\:SYNC_KEYS" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Services/PortalOutbox.php
+
+		-
+			message: '#^Public constant "App\\Services\\PortalOutbox\:\:UNCONFIRMABLE_MESSAGE" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Services/PortalOutbox.php
+
+		-
+			message: '#^Public constant "App\\Services\\PortalOutbox\:\:UNCONFIRMED_MESSAGE" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Services/PortalOutbox.php
+
+		-
+			message: '#^Public method "App\\Services\\PortalOutbox\:\:publish\(\)" is used only locally and should be turned protected/private$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Services/PortalOutbox.php
+
+		-
+			message: '#^Public constant "App\\Services\\PortalPushDevices\:\:MAX_PER_STUDENT" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Services/PortalPushDevices.php
+
+		-
+			message: '#^PHPDoc tag @return has invalid value \(\(RequestInterface, array\<string, mixed\>\)\: PromiseInterface\)\: callable\(RequestInterface, array\<string, mixed\>\)\: PromiseInterface\)\: Unexpected token "\(", expected TOKEN_HORIZONTAL_WS at offset 179 on line 4$#'
+			identifier: phpDoc.parseError
+			count: 1
+			path: app/Services/PortalReadOnlyFetcher.php
+
+		-
+			message: '#^Public constant "App\\Services\\PortalReadOnlyFetcher\:\:GUARD_NAME" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Services/PortalReadOnlyFetcher.php
+
+		-
+			message: '#^Public method "App\\Services\\PortalReadOnlyFetcher\:\:assertReadOnly\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Services/PortalReadOnlyFetcher.php
+
+		-
+			message: '#^Public method "App\\Services\\PortalReadOnlyFetcher\:\:readOnlyMiddleware\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Services/PortalReadOnlyFetcher.php
+
+		-
+			message: '#^Call to an undefined method DOMNode\:\:getAttribute\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Services/PortalResponseRecorder.php
+
+		-
+			message: '#^Call to function is_string\(\) with string will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: app/Services/PortalResponseRecorder.php
+
+		-
+			message: '#^Public constant "App\\Services\\PortalResponseRecorder\:\:COOKIE_PLACEHOLDER" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Services/PortalResponseRecorder.php
+
+		-
+			message: '#^Public constant "App\\Services\\PortalResponseRecorder\:\:EMAIL_PLACEHOLDER" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Services/PortalResponseRecorder.php
+
+		-
+			message: '#^Public constant "App\\Services\\PortalResponseRecorder\:\:LECTURER_PLACEHOLDER" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Services/PortalResponseRecorder.php
+
+		-
+			message: '#^Public constant "App\\Services\\PortalResponseRecorder\:\:NAME_PLACEHOLDER" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Services/PortalResponseRecorder.php
+
+		-
+			message: '#^Public constant "App\\Services\\PortalResponseRecorder\:\:NIM_PLACEHOLDER" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Services/PortalResponseRecorder.php
+
+		-
+			message: '#^Public constant "App\\Services\\PortalResponseRecorder\:\:PHONE_PLACEHOLDER" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Services/PortalResponseRecorder.php
+
+		-
+			message: '#^Public constant "App\\Services\\PortalResponseRecorder\:\:STUDENT_EMAIL_PLACEHOLDER" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Services/PortalResponseRecorder.php
+
+		-
+			message: '#^Public constant "App\\Services\\PortalResponseRecorder\:\:TOKEN_PLACEHOLDER" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Services/PortalResponseRecorder.php
+
+		-
+			message: '#^Public constant "App\\Services\\PortalResponseRecorder\:\:UPLOADED_FILE_PLACEHOLDER" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Services/PortalResponseRecorder.php
+
+		-
+			message: '#^Public constant "App\\Services\\PortalResponseRecorder\:\:USER_INFO_PLACEHOLDER" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Services/PortalResponseRecorder.php
+
+		-
+			message: '#^Public method "App\\Services\\PortalScrapingService\:\:formOf\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Services/PortalScrapingService.php
+
+		-
+			message: '#^Public method "App\\Services\\PortalSessionContext\:\:forget\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Services/PortalSessionContext.php
+
+		-
+			message: '#^Call to function is_array\(\) with array will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: app/Services/PortalSessionManager.php
+
+		-
+			message: '#^Public method "App\\Services\\PortalSessionManager\:\:keepAliveDelay\(\)" is used only locally and should be turned protected/private$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Services/PortalSessionManager.php
+
+		-
+			message: '#^Public method "App\\Services\\PortalSessionManager\:\:offlineResumeDelay\(\)" is used only locally and should be turned protected/private$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Services/PortalSessionManager.php
+
+		-
+			message: '#^Public method "App\\Services\\PortalSessionManager\:\:scheduleIdleExpiry\(\)" is used only locally and should be turned protected/private$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Services/PortalSessionManager.php
+
+		-
+			message: '#^Call to function is_array\(\) with list\<list\<string\>\> will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: app/Services/PortalSnapshotDiffNotifier.php
+
+		-
+			message: '#^Call to function is_array\(\) with list\<string\> will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: app/Services/PortalSnapshotDiffNotifier.php
+
+		-
+			message: '#^Call to function is_string\(\) with string will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: app/Services/PortalSnapshotDiffNotifier.php
+
+		-
+			message: '#^Offset ''on'' on non\-empty\-array\<mixed\> on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Services/PortalSnapshotDiffNotifier.php
+
+		-
+			message: '#^Offset ''title'' on array\{title\: string, url\?\: string\|null\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Services/PortalSnapshotDiffNotifier.php
+
+		-
+			message: '#^Public method "App\\Services\\PortalSnapshotDiffNotifier\:\:rules\(\)" is used only locally and should be turned protected/private$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Services/PortalSnapshotDiffNotifier.php
+
+		-
+			message: '#^Offset ''status'' on array\{data\: array\<string, mixed\>, synced_at\: string, status\: string, source\: string, updated_at\?\: string, syncing_since\?\: string, failed_at\?\: string, error\?\: string\|null, \.\.\.\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Services/PortalSnapshotStore.php
+
+		-
+			message: '#^Public method "App\\Services\\PortalSnapshotStore\:\:has\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Services/PortalSnapshotStore.php
+
+		-
+			message: '#^Public method "App\\Services\\PortalUrlGuard\:\:assertAllowed\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Services/PortalUrlGuard.php
+
+		-
+			message: '#^Call to function is_string\(\) with string will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: app/Services/SipandaiSubmissionService.php
+
+		-
+			message: '#^Cannot call method __invoke\(\) on callable\.$#'
+			identifier: method.nonObject
+			count: 8
+			path: app/Services/SipandaiSubmissionService.php
+
+		-
+			message: '#^Cannot call method toISOString\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Services/SipandaiSubmissionService.php
+
+		-
+			message: '#^Left side of && is always true\.$#'
+			identifier: booleanAnd.leftAlwaysTrue
+			count: 1
+			path: app/Services/SipandaiSubmissionService.php
+
+		-
+			message: '#^Offset ''lecturer'' on array\{id\: int\|null, course_code\: string, course_name\: string, schedule\: string, status\: string, upload_url\: string\|null\} on left side of \?\? does not exist\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Services/SipandaiSubmissionService.php
+
+		-
+			message: '#^Parameter \#1 \$array \(list\<array\{text\: string, url\: string, type\: string, downloadable\: bool\}\>\) of array_values is already a list, call has no effect\.$#'
+			identifier: arrayValues.list
+			count: 1
+			path: app/Services/SipandaiSubmissionService.php
+
+		-
+			message: '#^Parameter \#1 \$array \(list\<non\-empty\-string\>\) of array_values is already a list, call has no effect\.$#'
+			identifier: arrayValues.list
+			count: 1
+			path: app/Services/SipandaiSubmissionService.php
+
+		-
+			message: '#^Parameter \#1 \$array \(list\<string\>\) of array_values is already a list, call has no effect\.$#'
+			identifier: arrayValues.list
+			count: 1
+			path: app/Services/SipandaiSubmissionService.php
+
+		-
+			message: '#^Public constant "App\\Services\\SkripsiReadinessEvaluator\:\:JENJANG_DEFAULT" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Services/SkripsiReadinessEvaluator.php
+
+		-
+			message: '#^Call to function is_array\(\) with array\<string, mixed\> will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 3
+			path: app/Services/ThesisRepositorySearch.php
+
+		-
+			message: '#^Parameter \#1 \$array \(list\<array\<string, mixed\>\>\) of array_values is already a list, call has no effect\.$#'
+			identifier: arrayValues.list
+			count: 2
+			path: app/Services/ThesisRepositorySearch.php
+
+		-
+			message: '#^Public constant "App\\Services\\ThesisRepositorySearch\:\:SIMILAR_LIMIT" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Services/ThesisRepositorySearch.php
+
+		-
+			message: '#^Public method "App\\Services\\ThesisRepositorySearch\:\:advisorKey\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Services/ThesisRepositorySearch.php
+
+		-
+			message: '#^Public method "App\\Services\\ThesisRepositorySearch\:\:normalize\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Services/ThesisRepositorySearch.php
+
+		-
+			message: '#^Public method "App\\Services\\ThesisRepositorySearch\:\:programKey\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Services/ThesisRepositorySearch.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between int\<1, max\> and 0 will always evaluate to false\.$#'
+			identifier: identical.alwaysFalse
+			count: 1
+			path: app/Services/ThesisRepositorySearch.php
+
+		-
+			message: '#^Public method "Database\\Factories\\NotebookDismissalFactory\:\:meeting\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/factories/NotebookDismissalFactory.php
+
+		-
+			message: '#^Public method "Database\\Factories\\NotebookFactory\:\:forOwner\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/factories/NotebookFactory.php
+
+		-
+			message: '#^Public method "Database\\Factories\\NotebookSourceFactory\:\:pending\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/factories/NotebookSourceFactory.php
+
+		-
+			message: '#^Public method "Database\\Factories\\PortalArchiveVersionFactory\:\:forOwner\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/factories/PortalArchiveVersionFactory.php
+
+		-
+			message: '#^Public method "Database\\Factories\\PortalArchiveVersionFactory\:\:suspect\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/factories/PortalArchiveVersionFactory.php
+
+		-
+			message: '#^Public method "Database\\Factories\\PortalArchiveVersionFactory\:\:withPayload\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/factories/PortalArchiveVersionFactory.php
+
+		-
+			message: '#^Public method "Database\\Factories\\PortalArchivedFileFactory\:\:forOwner\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/factories/PortalArchivedFileFactory.php
+
+		-
+			message: '#^Public method "Database\\Factories\\PortalMobileSessionFactory\:\:withTokenUsedAt\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/factories/PortalMobileSessionFactory.php
+
+		-
+			message: '#^Public method "Database\\Factories\\PortalNotificationFactory\:\:forOwner\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/factories/PortalNotificationFactory.php
+
+		-
+			message: '#^Public method "Database\\Factories\\PortalNotificationFactory\:\:read\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/factories/PortalNotificationFactory.php
+
+		-
+			message: '#^Public method "Database\\Factories\\PortalOutboxItemFactory\:\:attendance\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/factories/PortalOutboxItemFactory.php
+
+		-
+			message: '#^Public method "Database\\Factories\\PortalOutboxItemFactory\:\:confirmed\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/factories/PortalOutboxItemFactory.php
+
+		-
+			message: '#^Public method "Database\\Factories\\PortalOutboxItemFactory\:\:dueAt\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/factories/PortalOutboxItemFactory.php
+
+		-
+			message: '#^Public method "Database\\Factories\\PortalOutboxItemFactory\:\:examUpload\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/factories/PortalOutboxItemFactory.php
+
+		-
+			message: '#^Public method "Database\\Factories\\PortalOutboxItemFactory\:\:expired\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/factories/PortalOutboxItemFactory.php
+
+		-
+			message: '#^Public method "Database\\Factories\\PortalOutboxItemFactory\:\:failed\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/factories/PortalOutboxItemFactory.php
+
+		-
+			message: '#^Public method "Database\\Factories\\PortalOutboxItemFactory\:\:forOwner\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/factories/PortalOutboxItemFactory.php
+
+		-
+			message: '#^Public method "Database\\Factories\\PortalOutboxItemFactory\:\:queuedWithPassword\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/factories/PortalOutboxItemFactory.php
+
+		-
+			message: '#^Public method "Database\\Factories\\PortalOutboxItemFactory\:\:sending\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/factories/PortalOutboxItemFactory.php
+
+		-
+			message: '#^Public method "Database\\Factories\\PortalOutboxItemFactory\:\:sent\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/factories/PortalOutboxItemFactory.php
+
+		-
+			message: '#^Public method "Database\\Factories\\PortalOutboxItemFactory\:\:withFile\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/factories/PortalOutboxItemFactory.php
+
+		-
+			message: '#^Public method "Database\\Factories\\PortalPushTokenFactory\:\:forOwner\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/factories/PortalPushTokenFactory.php
+
+		-
+			message: '#^Public method "Database\\Factories\\UserFactory\:\:unverified\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/factories/UserFactory.php
+
+		-
+			message: '#^Public method "AnonymousClassb16c99c5f5ed769f4138ded6404b2b2e\:\:down\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/0001_01_01_000000_create_users_table.php
+
+		-
+			message: '#^Public method "AnonymousClassb16c99c5f5ed769f4138ded6404b2b2e\:\:up\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/0001_01_01_000000_create_users_table.php
+
+		-
+			message: '#^Public method "AnonymousClassbcf1536b023053c4dbe46c50659c51a7\:\:down\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/0001_01_01_000001_create_cache_table.php
+
+		-
+			message: '#^Public method "AnonymousClassbcf1536b023053c4dbe46c50659c51a7\:\:up\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/0001_01_01_000001_create_cache_table.php
+
+		-
+			message: '#^Public method "AnonymousClassa370ab54f4baaaa8600b6c600a8dde9b\:\:down\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/0001_01_01_000002_create_jobs_table.php
+
+		-
+			message: '#^Public method "AnonymousClassa370ab54f4baaaa8600b6c600a8dde9b\:\:up\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/0001_01_01_000002_create_jobs_table.php
+
+		-
+			message: '#^Public method "AnonymousClassdef2ca121f3b163103ed0c3cf16e9bc0\:\:down\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/2026_05_22_162516_create_exam_submission_records_table.php
+
+		-
+			message: '#^Public method "AnonymousClassdef2ca121f3b163103ed0c3cf16e9bc0\:\:up\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/2026_05_22_162516_create_exam_submission_records_table.php
+
+		-
+			message: '#^Public method "AnonymousClass7609798eb21c1763e9feaccfbeee7402\:\:down\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/2026_06_06_104933_add_record_key_to_exam_submission_records_table.php
+
+		-
+			message: '#^Public method "AnonymousClass7609798eb21c1763e9feaccfbeee7402\:\:up\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/2026_06_06_104933_add_record_key_to_exam_submission_records_table.php
+
+		-
+			message: '#^Public method "AnonymousClass9d02e855096025afec7faa6acf974d23\:\:down\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/2026_10_07_095243_create_notebooks_table.php
+
+		-
+			message: '#^Public method "AnonymousClass9d02e855096025afec7faa6acf974d23\:\:up\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/2026_10_07_095243_create_notebooks_table.php
+
+		-
+			message: '#^Public method "AnonymousClass529405bf1fb2230fbe671927387d0032\:\:down\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/2026_10_07_095247_create_notebook_messages_table.php
+
+		-
+			message: '#^Public method "AnonymousClass529405bf1fb2230fbe671927387d0032\:\:up\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/2026_10_07_095247_create_notebook_messages_table.php
+
+		-
+			message: '#^Public method "AnonymousClass172d98922e7efa3e16d7e45b7ec73cdb\:\:down\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/2026_10_09_051607_drop_notebook_tables.php
+
+		-
+			message: '#^Public method "AnonymousClass172d98922e7efa3e16d7e45b7ec73cdb\:\:up\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/2026_10_09_051607_drop_notebook_tables.php
+
+		-
+			message: '#^Public method "AnonymousClass9b1d683b42d57eb4130dc897d485cd0f\:\:down\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/2026_10_21_095224_create_portal_notifications_table.php
+
+		-
+			message: '#^Public method "AnonymousClass9b1d683b42d57eb4130dc897d485cd0f\:\:up\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/2026_10_21_095224_create_portal_notifications_table.php
+
+		-
+			message: '#^Public method "AnonymousClass209c9b70713e134d17d752f9510365b8\:\:down\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/2026_10_21_224542_create_portal_archive_versions_table.php
+
+		-
+			message: '#^Public method "AnonymousClass209c9b70713e134d17d752f9510365b8\:\:up\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/2026_10_21_224542_create_portal_archive_versions_table.php
+
+		-
+			message: '#^Public method "AnonymousClassdc572bd247515ea1125f05ea577b289c\:\:down\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/2026_10_21_225601_create_portal_offline_accounts_table.php
+
+		-
+			message: '#^Public method "AnonymousClassdc572bd247515ea1125f05ea577b289c\:\:up\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/2026_10_21_225601_create_portal_offline_accounts_table.php
+
+		-
+			message: '#^Public method "AnonymousClass7bb0e98e48b5e20e57137286b266a15a\:\:down\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/2026_10_21_225846_create_portal_archived_files_table.php
+
+		-
+			message: '#^Public method "AnonymousClass7bb0e98e48b5e20e57137286b266a15a\:\:up\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/2026_10_21_225846_create_portal_archived_files_table.php
+
+		-
+			message: '#^Public method "AnonymousClass087732a572b781c1acdf0d497e1e5066\:\:down\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/2026_10_21_230641_create_notebooks_table.php
+
+		-
+			message: '#^Public method "AnonymousClass087732a572b781c1acdf0d497e1e5066\:\:up\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/2026_10_21_230641_create_notebooks_table.php
+
+		-
+			message: '#^Public method "AnonymousClass394b8f8cdcd047ad8d2d91e0eb6c8e89\:\:down\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/2026_10_21_230642_create_notebook_sources_table.php
+
+		-
+			message: '#^Public method "AnonymousClass394b8f8cdcd047ad8d2d91e0eb6c8e89\:\:up\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/2026_10_21_230642_create_notebook_sources_table.php
+
+		-
+			message: '#^Public method "AnonymousClassd6c75b77b025feade10812613da2af30\:\:down\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/2026_10_21_230644_create_notebook_chunks_table.php
+
+		-
+			message: '#^Public method "AnonymousClassd6c75b77b025feade10812613da2af30\:\:up\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/2026_10_21_230644_create_notebook_chunks_table.php
+
+		-
+			message: '#^Public method "AnonymousClass852899bf615c85b0bfce8e97ffe18cd5\:\:down\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/2026_10_21_230645_create_notebook_messages_table.php
+
+		-
+			message: '#^Public method "AnonymousClass852899bf615c85b0bfce8e97ffe18cd5\:\:up\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/2026_10_21_230645_create_notebook_messages_table.php
+
+		-
+			message: '#^Public method "AnonymousClass9f1d4d101a735ad42fb5666ba16715aa\:\:down\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/2026_10_22_062808_add_course_sync_to_notebook_tables.php
+
+		-
+			message: '#^Public method "AnonymousClass9f1d4d101a735ad42fb5666ba16715aa\:\:up\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/2026_10_22_062808_add_course_sync_to_notebook_tables.php
+
+		-
+			message: '#^Public method "AnonymousClass21f9a31743cc70a7d9fe0ff0e19dd69b\:\:down\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/2026_10_22_083538_add_background_sync_to_portal_offline_accounts_table.php
+
+		-
+			message: '#^Public method "AnonymousClass21f9a31743cc70a7d9fe0ff0e19dd69b\:\:up\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/2026_10_22_083538_add_background_sync_to_portal_offline_accounts_table.php
+
+		-
+			message: '#^Public method "AnonymousClass354ecf1a37787f3e5b8305d2b3b419fc\:\:down\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/2026_10_22_090352_create_portal_outbox_items_table.php
+
+		-
+			message: '#^Public method "AnonymousClass354ecf1a37787f3e5b8305d2b3b419fc\:\:up\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/2026_10_22_090352_create_portal_outbox_items_table.php
+
+		-
+			message: '#^Public method "AnonymousClasse61d508990dc206ef9bfea129ac7de9e\:\:down\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/2026_10_22_090444_add_course_sync_to_portal_offline_accounts_table.php
+
+		-
+			message: '#^Public method "AnonymousClasse61d508990dc206ef9bfea129ac7de9e\:\:up\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/2026_10_22_090444_add_course_sync_to_portal_offline_accounts_table.php
+
+		-
+			message: '#^Public method "AnonymousClassd077a9721d28180d07deb28350d242ee\:\:down\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/2026_10_22_114017_harden_notebook_source_tracking.php
+
+		-
+			message: '#^Public method "AnonymousClassd077a9721d28180d07deb28350d242ee\:\:up\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/2026_10_22_114017_harden_notebook_source_tracking.php
+
+		-
+			message: '#^Public method "AnonymousClass6ee958e25ef16ea598277719b777f54e\:\:down\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/2026_10_22_163611_delete_ownerless_exam_submission_records.php
+
+		-
+			message: '#^Public method "AnonymousClass6ee958e25ef16ea598277719b777f54e\:\:up\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/2026_10_22_163611_delete_ownerless_exam_submission_records.php
+
+		-
+			message: '#^Public method "AnonymousClass1bf08b36ffd7e8fb6b21e443738c32a1\:\:down\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/2026_10_22_163738_add_sighting_to_portal_archive_versions_table.php
+
+		-
+			message: '#^Public method "AnonymousClass1bf08b36ffd7e8fb6b21e443738c32a1\:\:up\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/2026_10_22_163738_add_sighting_to_portal_archive_versions_table.php
+
+		-
+			message: '#^Public method "AnonymousClass621a55f76d61ce57659177d7fb438c37\:\:down\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/2026_10_22_164210_repair_portal_archive_version_seen_times.php
+
+		-
+			message: '#^Public method "AnonymousClass621a55f76d61ce57659177d7fb438c37\:\:up\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/2026_10_22_164210_repair_portal_archive_version_seen_times.php
+
+		-
+			message: '#^Public method "AnonymousClass4076665d51c4553d5bec11259cbfa1e1\:\:down\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/2026_10_22_165310_stop_auto_update_of_last_online_login_at_on_portal_offline_accounts_table.php
+
+		-
+			message: '#^Public method "AnonymousClass4076665d51c4553d5bec11259cbfa1e1\:\:up\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/2026_10_22_165310_stop_auto_update_of_last_online_login_at_on_portal_offline_accounts_table.php
+
+		-
+			message: '#^Public method "AnonymousClass4913f59e05a79f93cc0de1747d2f6a4c\:\:down\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/2026_10_22_165404_repair_notebook_lecturer_names.php
+
+		-
+			message: '#^Public method "AnonymousClass4913f59e05a79f93cc0de1747d2f6a4c\:\:up\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/2026_10_22_165404_repair_notebook_lecturer_names.php
+
+		-
+			message: '#^Public method "AnonymousClassf36a1f79cf9a0ee29d2cd3a6d5152575\:\:down\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/2026_10_22_191634_add_requested_at_to_notebook_sources_table.php
+
+		-
+			message: '#^Public method "AnonymousClassf36a1f79cf9a0ee29d2cd3a6d5152575\:\:up\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/2026_10_22_191634_add_requested_at_to_notebook_sources_table.php
+
+		-
+			message: '#^Public method "AnonymousClass26e844b7d865008db1f133b694e3fcde\:\:down\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/2026_10_22_191948_stop_implicit_auto_update_of_required_timestamps.php
+
+		-
+			message: '#^Public method "AnonymousClass26e844b7d865008db1f133b694e3fcde\:\:up\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/2026_10_22_191948_stop_implicit_auto_update_of_required_timestamps.php
+
+		-
+			message: '#^Public method "AnonymousClass7987103ccb1a62f8122487d97f1eafe2\:\:down\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/2026_10_22_192151_rekey_announcement_notifications.php
+
+		-
+			message: '#^Public method "AnonymousClass7987103ccb1a62f8122487d97f1eafe2\:\:up\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/2026_10_22_192151_rekey_announcement_notifications.php
+
+		-
+			message: '#^Public method "AnonymousClass0d214ac99e3839a1de983f5176812e90\:\:down\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/2026_10_23_134800_create_portal_mobile_sessions_table.php
+
+		-
+			message: '#^Public method "AnonymousClass0d214ac99e3839a1de983f5176812e90\:\:up\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/2026_10_23_134800_create_portal_mobile_sessions_table.php
+
+		-
+			message: '#^Public method "AnonymousClassa9a3ddb01de3f59e2d79a37d37ecaefa\:\:down\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/2026_10_23_134801_create_portal_push_tokens_table.php
+
+		-
+			message: '#^Public method "AnonymousClassa9a3ddb01de3f59e2d79a37d37ecaefa\:\:up\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/2026_10_23_134801_create_portal_push_tokens_table.php
+
+		-
+			message: '#^Public method "AnonymousClass1d3a2b6121ecfa16ddc96d538e404074\:\:down\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/2026_10_23_140318_create_personal_access_tokens_table.php
+
+		-
+			message: '#^Public method "AnonymousClass1d3a2b6121ecfa16ddc96d538e404074\:\:up\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/2026_10_23_140318_create_personal_access_tokens_table.php
+
+		-
+			message: '#^Public method "AnonymousClass33185b989299c2e3426964160dfb3799\:\:down\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/2026_10_23_163402_add_confirmation_to_portal_outbox_items_table.php
+
+		-
+			message: '#^Public method "AnonymousClass33185b989299c2e3426964160dfb3799\:\:up\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/2026_10_23_163402_add_confirmation_to_portal_outbox_items_table.php
+
+		-
+			message: '#^Public method "AnonymousClassae8616ea2e624a833e9e340531fef9f4\:\:down\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/2026_10_24_214812_move_waiting_database_jobs_to_redis.php
+
+		-
+			message: '#^Public method "AnonymousClassae8616ea2e624a833e9e340531fef9f4\:\:up\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/2026_10_24_214812_move_waiting_database_jobs_to_redis.php
+
+		-
+			message: '#^Public property "AnonymousClassae8616ea2e624a833e9e340531fef9f4\:\:\$withinTransaction" is never used$#'
+			identifier: public.property.unused
+			count: 1
+			path: database/migrations/2026_10_24_214812_move_waiting_database_jobs_to_redis.php
+
+		-
+			message: '#^Public method "Database\\Seeders\\DatabaseSeeder\:\:run\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/seeders/DatabaseSeeder.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Migrations\\Migration\:\:up\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: tests/Feature/AnnouncementNotificationRekeyTest.php
+
+		-
+			message: '#^Call to an undefined static method Illuminate\\Support\\Facades\\Log\:\:shouldHaveReceived\(\)\.$#'
+			identifier: staticMethod.notFound
+			count: 2
+			path: tests/Feature/AnnouncementNotificationRekeyTest.php
+
+		-
+			message: '#^Call to an undefined static method Illuminate\\Support\\Facades\\Log\:\:shouldNotHaveReceived\(\)\.$#'
+			identifier: staticMethod.notFound
+			count: 1
+			path: tests/Feature/AnnouncementNotificationRekeyTest.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Migrations\\Migration\:\:up\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: tests/Feature/DeleteOwnerlessExamSubmissionRecordsMigrationTest.php
+
+		-
+			message: '#^Call to method PHPUnit\\Framework\\Assert\:\:assertSame\(\) with array\{int\<0, max\>\} and array\{int\<0, max\>\} will always evaluate to true\.$#'
+			identifier: method.alreadyNarrowedType
+			count: 1
+			path: tests/Feature/DeleteOwnerlessExamSubmissionRecordsMigrationTest.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Routing\\RouteCollectionInterface\:\:count\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: tests/Feature/E2eRouteGuardTest.php
+
+		-
+			message: '#^Call to method PHPUnit\\Framework\\Assert\:\:assertSame\(\) with 2 and 2 will always evaluate to true\.$#'
+			identifier: method.alreadyNarrowedType
+			count: 1
+			path: tests/Feature/NotebookApiTest.php
+
+		-
+			message: '#^Method Tests\\Feature\\PortalActionControllerTest\:\:mockServiceExpectingSubmitAssignment\(\) is unused\.$#'
+			identifier: method.unused
+			count: 1
+			path: tests/Feature/PortalActionControllerTest.php
+
+		-
+			message: '#^Method Tests\\Feature\\PortalActionControllerTest\:\:mockServiceExpectingSubmitExam\(\) is unused\.$#'
+			identifier: method.unused
+			count: 1
+			path: tests/Feature/PortalActionControllerTest.php
+
+		-
+			message: '#^Call to an undefined method Symfony\\Component\\HttpFoundation\\Response\:\:getFile\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: tests/Feature/PortalArchiveApiTest.php
+
+		-
+			message: '#^Call to an undefined static method Illuminate\\Support\\Facades\\Log\:\:shouldHaveReceived\(\)\.$#'
+			identifier: staticMethod.notFound
+			count: 1
+			path: tests/Feature/PortalAuthControllerTest.php
+
+		-
+			message: '#^Offset ''password'' does not exist on null\.$#'
+			identifier: offsetAccess.notFound
+			count: 1
+			path: tests/Feature/PortalBackgroundSyncTest.php
+
+		-
+			message: '#^Call to method PHPUnit\\Framework\\Assert\:\:assertSame\(\) with string and string will always evaluate to true\.$#'
+			identifier: method.alreadyNarrowedType
+			count: 1
+			path: tests/Feature/PortalDataOwnerTest.php
+
+		-
+			message: '#^Call to an undefined method Mockery\\MockInterface\:\:validateResponse\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: tests/Feature/PortalLmsClassListTest.php
+
+		-
+			message: '#^Method Tests\\Feature\\PortalLmsClassListTest\:\:makeExtractorWithFixture\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Feature/PortalLmsClassListTest.php
+
+		-
+			message: '#^Method Tests\\Feature\\PortalLmsClassListTest\:\:makeExtractorWithRawFixture\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Feature/PortalLmsClassListTest.php
+
+		-
+			message: '#^Method Tests\\Feature\\PortalLmsClassListTest\:\:makeExtractorWithRawFixtures\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Feature/PortalLmsClassListTest.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between ''down'' and ''rejects'' will always evaluate to false\.$#'
+			identifier: identical.alwaysFalse
+			count: 1
+			path: tests/Feature/PortalOfflineLoginTest.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between ''up'' and ''down'' will always evaluate to false\.$#'
+			identifier: identical.alwaysFalse
+			count: 1
+			path: tests/Feature/PortalOfflineLoginTest.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Contracts\\Cache\\Store\:\:all\(\)\.$#'
+			identifier: method.notFound
+			count: 3
+			path: tests/Feature/PortalOfflineSessionResumeTest.php
+
+		-
+			message: '#^Using nullsafe property access on non\-nullable type App\\Models\\PortalNotification\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: tests/Feature/PortalOutboxTest.php
+
+		-
+			message: '#^Call to an undefined static method Illuminate\\Support\\Facades\\Log\:\:shouldHaveReceived\(\)\.$#'
+			identifier: staticMethod.notFound
+			count: 1
+			path: tests/Feature/PortalPushNotificationTest.php
+
+		-
+			message: '#^Call to method PHPUnit\\Framework\\Assert\:\:assertSame\(\) with ''alive'' and ''alive'' will always evaluate to true\.$#'
+			identifier: method.alreadyNarrowedType
+			count: 1
+			path: tests/Feature/PortalSessionIdleExpiryTest.php
+
+		-
+			message: '#^Call to an undefined static method Illuminate\\Support\\Facades\\Log\:\:shouldHaveReceived\(\)\.$#'
+			identifier: staticMethod.notFound
+			count: 1
+			path: tests/Feature/PortalSessionMiddlewareTest.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Contracts\\Cache\\Store\:\:all\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: tests/Feature/PortalSessionPasswordCopyTest.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Migrations\\Migration\:\:up\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: tests/Feature/RepairNotebookLecturerNamesMigrationTest.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Migrations\\Migration\:\:up\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: tests/Feature/RepairPortalArchiveSeenTimesMigrationTest.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Migrations\\Migration\:\:down\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: tests/Feature/StopImplicitTimestampAutoUpdateMigrationTest.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Migrations\\Migration\:\:up\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: tests/Feature/StopImplicitTimestampAutoUpdateMigrationTest.php
+
+		-
+			message: '#^Parameter \#1 \$courses of method App\\Services\\AcademicProgressCalculator\:\:conversionCredits\(\) expects list\<array\<string, mixed\>\>, array\{array\{code\: ''KV001'', name\: ''Konversi Satu'', sks\: 3, semester\: 1\}, array\{code\: '' kv001'', name\: ''Konversi Satu'', sks\: 3, semester\: 1\}, array\{code\: ''mk1002'', name\: ''Mata Kuliah Dua'', sks\: 3, semester\: null\}, array\{code\: ''MK9001'', name\: ''Dinilai di kartu T'', sks\: 4, semester\: null\}, array\{code\: ''MK2003'', name\: ''Sedang diulang'', sks\: 2, semester\: null\}, array\{code\: '''', name\: ''Tanpa Kode'', sks\: 2, semester\: null\}, array\{code\: ''KV002'', name\: '''', sks\: 3, semester\: null\}, array\{code\: ''KV003'', name\: ''Tanpa SKS'', sks\: null, semester\: null\}, \.\.\.\} given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/Unit/AcademicProgressCalculatorTest.php
+
+		-
+			message: '#^Parameter \#1 \$krsCourses of method App\\Services\\AcademicProgressCalculator\:\:gradedKrsCourses\(\) expects list\<array\<string, mixed\>\>, array\{array\{code\: ''mk2001'', name\: ''Mata Kuliah Lima'', sks\: 3\}, array\{code\: ''MK2001'', name\: ''Mata Kuliah Lima'', sks\: 3\}, array\{code\: ''MK2002'', name\: ''Mata Kuliah Enam \:…'', sks\: 3\}, array\{code\: ''MK2003'', name\: ''Mata Kuliah Tujuh'', sks\: 2\}, array\{code\: ''MK1003'', name\: ''Mata Kuliah Tiga'', sks\: 2\}, array\{code\: ''MK2005'', name\: ''Mata Kuliah Tambahan'', sks\: 2\}, ''not a course''\} given\.$#'
+			identifier: argument.type
+			count: 2
+			path: tests/Unit/AcademicProgressCalculatorTest.php
+
+		-
+			message: '#^Parameter \#1 \$sessionManager of class App\\Services\\Extractors\\KhsExtractor constructor expects App\\Services\\PortalSessionManager, Mockery\\MockInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/Unit/AcademicProgressCalculatorTest.php
+
+		-
+			message: '#^Parameter \#1 \$classesExtractor of class App\\Services\\AttendanceShortcutService constructor expects App\\Services\\Extractors\\ClassesExtractor, Mockery\\MockInterface given\.$#'
+			identifier: argument.type
+			count: 11
+			path: tests/Unit/AttendanceShortcutServiceTest.php
+
+		-
+			message: '#^Parameter \#2 \$sipandaiClassesExtractor of class App\\Services\\AttendanceShortcutService constructor expects App\\Services\\Extractors\\SipandaiClassesExtractor, Mockery\\MockInterface given\.$#'
+			identifier: argument.type
+			count: 11
+			path: tests/Unit/AttendanceShortcutServiceTest.php
+
+		-
+			message: '#^Public method "AnonymousClass5c6b7ac6edfded4ca381c71c32f46c2c\:\:respond\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: tests/Unit/BooleanResponseEnvelopeDocsTest.php
+
+		-
+			message: '#^Parameter \#1 \$sessionManager of class App\\Services\\Extractors\\ClassesExtractor constructor expects App\\Services\\PortalSessionManager, Mockery\\MockInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/Unit/ClassesExtractorContentTypeTest.php
+
+		-
+			message: '#^Call to an undefined method Mockery\\MockInterface\:\:extractClassDetail\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: tests/Unit/ClassesExtractorCourseInfoParsingTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\DashboardExtractorTest\:\:makeExtractor\(\) should return App\\Services\\Extractors\\DashboardExtractor but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/DashboardExtractorTest.php
+
+		-
+			message: '#^Call to an undefined method Mockery\\MockInterface\:\:validateResponse\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: tests/Unit/Extractors/AdvisingExtractorRawPageTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\AdvisingExtractorRawPageTest\:\:makeExtractorWithFixture\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/AdvisingExtractorRawPageTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\AdvisingExtractorRawPageTest\:\:makeExtractorWithRawFixture\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/AdvisingExtractorRawPageTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\AdvisingExtractorRawPageTest\:\:makeExtractorWithRawFixtures\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/AdvisingExtractorRawPageTest.php
+
+		-
+			message: '#^Using nullsafe property access on non\-nullable type DOMNode\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 2
+			path: tests/Unit/Extractors/AdvisingExtractorRawPageTest.php
+
+		-
+			message: '#^Call to an undefined method Mockery\\MockInterface\:\:validateResponse\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: tests/Unit/Extractors/AdvisingExtractorTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\AdvisingExtractorTest\:\:makeExtractorWithFixture\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/AdvisingExtractorTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\AdvisingExtractorTest\:\:makeExtractorWithRawFixture\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/AdvisingExtractorTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\AdvisingExtractorTest\:\:makeExtractorWithRawFixtures\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/AdvisingExtractorTest.php
+
+		-
+			message: '#^Call to an undefined method Mockery\\MockInterface\:\:validateResponse\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: tests/Unit/Extractors/AnnouncementExtractorRawPageTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\AnnouncementExtractorRawPageTest\:\:makeExtractorWithFixture\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/AnnouncementExtractorRawPageTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\AnnouncementExtractorRawPageTest\:\:makeExtractorWithRawFixture\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/AnnouncementExtractorRawPageTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\AnnouncementExtractorRawPageTest\:\:makeExtractorWithRawFixtures\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/AnnouncementExtractorRawPageTest.php
+
+		-
+			message: '#^Call to an undefined method Mockery\\MockInterface\:\:validateResponse\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: tests/Unit/Extractors/AnnouncementExtractorTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\AnnouncementExtractorTest\:\:extractorForPages\(\) should return App\\Services\\Extractors\\AnnouncementExtractor but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/AnnouncementExtractorTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\AnnouncementExtractorTest\:\:makeExtractorWithFixture\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/AnnouncementExtractorTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\AnnouncementExtractorTest\:\:makeExtractorWithRawFixture\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/AnnouncementExtractorTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\AnnouncementExtractorTest\:\:makeExtractorWithRawFixtures\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/AnnouncementExtractorTest.php
+
+		-
+			message: '#^Parameter \#1 \$sessionManager of class App\\Services\\Extractors\\ClassesExtractor constructor expects App\\Services\\PortalSessionManager, Mockery\\MockInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/Unit/Extractors/ClassesExtractorAttendanceTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\ClassesExtractorClassDetailTest\:\:extractor\(\) should return App\\Services\\Extractors\\ClassesExtractor but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/ClassesExtractorClassDetailTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\ClassesExtractorClassListTest\:\:extractorReturning\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/ClassesExtractorClassListTest.php
+
+		-
+			message: '#^Call to an undefined method Mockery\\MockInterface\:\:validateResponse\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: tests/Unit/Extractors/ClassesExtractorCourseMaterialsTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\ClassesExtractorCourseMaterialsTest\:\:makeExtractorWithFixture\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/ClassesExtractorCourseMaterialsTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\ClassesExtractorCourseMaterialsTest\:\:makeExtractorWithRawFixture\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/ClassesExtractorCourseMaterialsTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\ClassesExtractorCourseMaterialsTest\:\:makeExtractorWithRawFixtures\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/ClassesExtractorCourseMaterialsTest.php
+
+		-
+			message: '#^Parameter \#1 \$sessionManager of class App\\Services\\Extractors\\ClassesExtractor constructor expects App\\Services\\PortalSessionManager, Mockery\\MockInterface given\.$#'
+			identifier: argument.type
+			count: 2
+			path: tests/Unit/Extractors/ClassesExtractorCourseMaterialsTest.php
+
+		-
+			message: '#^Call to an undefined method Mockery\\MockInterface\:\:extractMeetingDetail\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: tests/Unit/Extractors/ClassesExtractorMeetingDetailTest.php
+
+		-
+			message: '#^Call to an undefined method Mockery\\MockInterface\:\:validateResponse\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: tests/Unit/Extractors/ClassesExtractorMeetingDetailTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\ClassesExtractorMeetingDetailTest\:\:makeExtractorWithFixture\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/ClassesExtractorMeetingDetailTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\ClassesExtractorMeetingDetailTest\:\:makeExtractorWithRawFixture\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/ClassesExtractorMeetingDetailTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\ClassesExtractorMeetingDetailTest\:\:makeExtractorWithRawFixtures\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/ClassesExtractorMeetingDetailTest.php
+
+		-
+			message: '#^Call to an undefined method Mockery\\MockInterface\:\:extractMeetingDetail\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: tests/Unit/Extractors/ClassesExtractorRealMeetingPagesTest.php
+
+		-
+			message: '#^Call to an undefined method Mockery\\MockInterface\:\:validateResponse\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: tests/Unit/Extractors/ClassesExtractorRealMeetingPagesTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\ClassesExtractorRealMeetingPagesTest\:\:makeExtractorWithFixture\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/ClassesExtractorRealMeetingPagesTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\ClassesExtractorRealMeetingPagesTest\:\:makeExtractorWithRawFixture\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/ClassesExtractorRealMeetingPagesTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\ClassesExtractorRealMeetingPagesTest\:\:makeExtractorWithRawFixtures\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/ClassesExtractorRealMeetingPagesTest.php
+
+		-
+			message: '#^Call to an undefined method Mockery\\MockInterface\:\:extractPaymentHistoryData\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: tests/Unit/Extractors/FinancialHistoryExtractorBillsTest.php
+
+		-
+			message: '#^Call to an undefined method Mockery\\MockInterface\:\:validateResponse\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: tests/Unit/Extractors/FinancialHistoryExtractorBillsTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\FinancialHistoryExtractorBillsTest\:\:makeExtractorWithFixture\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/FinancialHistoryExtractorBillsTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\FinancialHistoryExtractorBillsTest\:\:makeExtractorWithRawFixture\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/FinancialHistoryExtractorBillsTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\FinancialHistoryExtractorBillsTest\:\:makeExtractorWithRawFixtures\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/FinancialHistoryExtractorBillsTest.php
+
+		-
+			message: '#^Parameter \#1 \$sessionManager of class App\\Services\\Extractors\\FinancialHistoryExtractor constructor expects App\\Services\\PortalSessionManager, Mockery\\MockInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/Unit/Extractors/FinancialHistoryExtractorBillsTest.php
+
+		-
+			message: '#^Call to an undefined method Mockery\\MockInterface\:\:validateResponse\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: tests/Unit/Extractors/FinancialHistoryExtractorRawPageTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\FinancialHistoryExtractorRawPageTest\:\:makeExtractorWithFixture\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/FinancialHistoryExtractorRawPageTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\FinancialHistoryExtractorRawPageTest\:\:makeExtractorWithRawFixture\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/FinancialHistoryExtractorRawPageTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\FinancialHistoryExtractorRawPageTest\:\:makeExtractorWithRawFixtures\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/FinancialHistoryExtractorRawPageTest.php
+
+		-
+			message: '#^Parameter \#1 \$sessionManager of class App\\Services\\Extractors\\FinancialHistoryExtractor constructor expects App\\Services\\PortalSessionManager, Mockery\\MockInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/Unit/Extractors/FinancialHistoryExtractorRowTest.php
+
+		-
+			message: '#^Call to an undefined method Mockery\\MockInterface\:\:validateResponse\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: tests/Unit/Extractors/KhsExtractorTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\KhsExtractorTest\:\:makeExtractorWithFixture\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/KhsExtractorTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\KhsExtractorTest\:\:makeExtractorWithRawFixture\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/KhsExtractorTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\KhsExtractorTest\:\:makeExtractorWithRawFixtures\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/KhsExtractorTest.php
+
+		-
+			message: '#^Parameter \#1 \$sessionManager of class App\\Services\\Extractors\\KhsExtractor constructor expects App\\Services\\PortalSessionManager, Mockery\\MockInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/Unit/Extractors/KhsExtractorTest.php
+
+		-
+			message: '#^Call to an undefined method Mockery\\MockInterface\:\:validateResponse\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: tests/Unit/Extractors/KrsDetailExtractorRawPageTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\KrsDetailExtractorRawPageTest\:\:makeExtractorWithFixture\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/KrsDetailExtractorRawPageTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\KrsDetailExtractorRawPageTest\:\:makeExtractorWithRawFixture\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/KrsDetailExtractorRawPageTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\KrsDetailExtractorRawPageTest\:\:makeExtractorWithRawFixtures\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/KrsDetailExtractorRawPageTest.php
+
+		-
+			message: '#^Call to an undefined method Mockery\\MockInterface\:\:validateResponse\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: tests/Unit/Extractors/KrsDetailExtractorTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\KrsDetailExtractorTest\:\:makeExtractorWithFixture\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/KrsDetailExtractorTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\KrsDetailExtractorTest\:\:makeExtractorWithRawFixture\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/KrsDetailExtractorTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\KrsDetailExtractorTest\:\:makeExtractorWithRawFixtures\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/KrsDetailExtractorTest.php
+
+		-
+			message: '#^Parameter \#1 \$sessionManager of class App\\Services\\Extractors\\KrsDetailExtractor constructor expects App\\Services\\PortalSessionManager, Mockery\\MockInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/Unit/Extractors/KrsDetailExtractorTest.php
+
+		-
+			message: '#^Call to an undefined method Mockery\\MockInterface\:\:validateResponse\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: tests/Unit/Extractors/KrsExtractorRawPageTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\KrsExtractorRawPageTest\:\:makeExtractorWithFixture\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/KrsExtractorRawPageTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\KrsExtractorRawPageTest\:\:makeExtractorWithRawFixture\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/KrsExtractorRawPageTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\KrsExtractorRawPageTest\:\:makeExtractorWithRawFixtures\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/KrsExtractorRawPageTest.php
+
+		-
+			message: '#^Call to an undefined method Mockery\\MockInterface\:\:validateResponse\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: tests/Unit/Extractors/KrsExtractorTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\KrsExtractorTest\:\:makeExtractorWithFixture\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/KrsExtractorTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\KrsExtractorTest\:\:makeExtractorWithRawFixture\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/KrsExtractorTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\KrsExtractorTest\:\:makeExtractorWithRawFixtures\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/KrsExtractorTest.php
+
+		-
+			message: '#^Call to an undefined method Mockery\\MockInterface\:\:validateResponse\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: tests/Unit/Extractors/LibraryExtractorRawPageTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\LibraryExtractorRawPageTest\:\:makeExtractorWithFixture\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/LibraryExtractorRawPageTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\LibraryExtractorRawPageTest\:\:makeExtractorWithRawFixture\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/LibraryExtractorRawPageTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\LibraryExtractorRawPageTest\:\:makeExtractorWithRawFixtures\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/LibraryExtractorRawPageTest.php
+
+		-
+			message: '#^Call to an undefined method Mockery\\MockInterface\:\:validateResponse\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: tests/Unit/Extractors/PortalContextExtractorRawPageTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\PortalContextExtractorRawPageTest\:\:makeExtractorWithFixture\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/PortalContextExtractorRawPageTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\PortalContextExtractorRawPageTest\:\:makeExtractorWithRawFixture\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/PortalContextExtractorRawPageTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\PortalContextExtractorRawPageTest\:\:makeExtractorWithRawFixtures\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/PortalContextExtractorRawPageTest.php
+
+		-
+			message: '#^Call to an undefined method Mockery\\MockInterface\:\:validateResponse\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: tests/Unit/Extractors/PortalContextExtractorTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\PortalContextExtractorTest\:\:makeExtractorWithFixture\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/PortalContextExtractorTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\PortalContextExtractorTest\:\:makeExtractorWithHtml\(\) should return App\\Services\\Extractors\\PortalContextExtractor but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/PortalContextExtractorTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\PortalContextExtractorTest\:\:makeExtractorWithRawFixture\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/PortalContextExtractorTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\PortalContextExtractorTest\:\:makeExtractorWithRawFixtures\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/PortalContextExtractorTest.php
+
+		-
+			message: '#^Parameter \#1 \$sessionManager of class App\\Services\\Extractors\\ProfileExtractor constructor expects App\\Services\\PortalSessionManager, Mockery\\MockInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/Unit/Extractors/ProfileExtractorEmailTest.php
+
+		-
+			message: '#^Call to an undefined method Mockery\\MockInterface\:\:validateResponse\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: tests/Unit/Extractors/ProfileExtractorTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\ProfileExtractorTest\:\:makeExtractorWithFixture\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/ProfileExtractorTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\ProfileExtractorTest\:\:makeExtractorWithRawFixture\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/ProfileExtractorTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\ProfileExtractorTest\:\:makeExtractorWithRawFixtures\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/ProfileExtractorTest.php
+
+		-
+			message: '#^Call to an undefined method Mockery\\MockInterface\:\:validateResponse\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: tests/Unit/Extractors/SipandaiClassesExtractorTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\SipandaiClassesExtractorTest\:\:makeExtractorWithFixture\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/SipandaiClassesExtractorTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\SipandaiClassesExtractorTest\:\:makeExtractorWithRawFixture\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/SipandaiClassesExtractorTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\SipandaiClassesExtractorTest\:\:makeExtractorWithRawFixtures\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/SipandaiClassesExtractorTest.php
+
+		-
+			message: '#^Call to an undefined method Mockery\\MockInterface\:\:validateResponse\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: tests/Unit/Extractors/SkkmExtractorRawPageTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\SkkmExtractorRawPageTest\:\:makeExtractorWithFixture\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/SkkmExtractorRawPageTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\SkkmExtractorRawPageTest\:\:makeExtractorWithRawFixture\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/SkkmExtractorRawPageTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\SkkmExtractorRawPageTest\:\:makeExtractorWithRawFixtures\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/SkkmExtractorRawPageTest.php
+
+		-
+			message: '#^Call to an undefined method Mockery\\MockInterface\:\:validateResponse\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: tests/Unit/Extractors/SkkmExtractorTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\SkkmExtractorTest\:\:makeExtractorWithFixture\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/SkkmExtractorTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\SkkmExtractorTest\:\:makeExtractorWithRawFixture\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/SkkmExtractorTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\SkkmExtractorTest\:\:makeExtractorWithRawFixtures\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/SkkmExtractorTest.php
+
+		-
+			message: '#^Call to an undefined method Mockery\\MockInterface\:\:validateResponse\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: tests/Unit/Extractors/SkripsiExtractorRawPageTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\SkripsiExtractorRawPageTest\:\:makeExtractorWithFixture\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/SkripsiExtractorRawPageTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\SkripsiExtractorRawPageTest\:\:makeExtractorWithRawFixture\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/SkripsiExtractorRawPageTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\SkripsiExtractorRawPageTest\:\:makeExtractorWithRawFixtures\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/SkripsiExtractorRawPageTest.php
+
+		-
+			message: '#^Call to an undefined method Mockery\\MockInterface\:\:validateResponse\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: tests/Unit/Extractors/StudentCourseExtractorRawPageTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\StudentCourseExtractorRawPageTest\:\:makeExtractorWithFixture\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/StudentCourseExtractorRawPageTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\StudentCourseExtractorRawPageTest\:\:makeExtractorWithRawFixture\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/StudentCourseExtractorRawPageTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\StudentCourseExtractorRawPageTest\:\:makeExtractorWithRawFixtures\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/StudentCourseExtractorRawPageTest.php
+
+		-
+			message: '#^Call to an undefined method Mockery\\MockInterface\:\:validateResponse\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: tests/Unit/Extractors/StudentCourseExtractorTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\StudentCourseExtractorTest\:\:makeExtractorWithFixture\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/StudentCourseExtractorTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\StudentCourseExtractorTest\:\:makeExtractorWithRawFixture\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/StudentCourseExtractorTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\StudentCourseExtractorTest\:\:makeExtractorWithRawFixtures\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/StudentCourseExtractorTest.php
+
+		-
+			message: '#^Call to an undefined method Mockery\\MockInterface\:\:validateResponse\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: tests/Unit/Extractors/ThesisRepositoryExtractorRawPageTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\ThesisRepositoryExtractorRawPageTest\:\:makeExtractorWithFixture\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/ThesisRepositoryExtractorRawPageTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\ThesisRepositoryExtractorRawPageTest\:\:makeExtractorWithRawFixture\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/ThesisRepositoryExtractorRawPageTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\Extractors\\ThesisRepositoryExtractorRawPageTest\:\:makeExtractorWithRawFixtures\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/Extractors/ThesisRepositoryExtractorRawPageTest.php
+
+		-
+			message: '#^Call to an undefined method Mockery\\MockInterface\:\:extractPaymentHistoryData\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: tests/Unit/FinancialHistoryExtractorTest.php
+
+		-
+			message: '#^Call to an undefined static method Illuminate\\Support\\Facades\\Log\:\:shouldHaveReceived\(\)\.$#'
+			identifier: staticMethod.notFound
+			count: 1
+			path: tests/Unit/GeminiClientTest.php
+
+		-
+			message: '#^Call to an undefined method Mockery\\MockInterface\:\:validateResponse\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: tests/Unit/InteractsWithPortalFixturesTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\InteractsWithPortalFixturesTest\:\:makeExtractorWithFixture\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/InteractsWithPortalFixturesTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\InteractsWithPortalFixturesTest\:\:makeExtractorWithRawFixture\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/InteractsWithPortalFixturesTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\InteractsWithPortalFixturesTest\:\:makeExtractorWithRawFixtures\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/InteractsWithPortalFixturesTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\PortalAnnouncementFeedTest\:\:extractorForFixturePages\(\) should return App\\Services\\Extractors\\AnnouncementExtractor but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/PortalAnnouncementFeedTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\PortalAnnouncementFeedTest\:\:extractorMock\(\) should return App\\Services\\Extractors\\AnnouncementExtractor&Mockery\\MockInterface but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/PortalAnnouncementFeedTest.php
+
+		-
+			message: '#^Call to an undefined static method Illuminate\\Support\\Facades\\Log\:\:shouldHaveReceived\(\)\.$#'
+			identifier: staticMethod.notFound
+			count: 1
+			path: tests/Unit/PortalAnnouncementIdsTest.php
+
+		-
+			message: '#^Call to an undefined static method Illuminate\\Support\\Facades\\Log\:\:shouldNotHaveReceived\(\)\.$#'
+			identifier: staticMethod.notFound
+			count: 1
+			path: tests/Unit/PortalAnnouncementIdsTest.php
+
+		-
+			message: '#^Call to an undefined method Mockery\\MockInterface\:\:validateResponse\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: tests/Unit/PortalClassCatalogTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\PortalClassCatalogTest\:\:makeExtractorWithFixture\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/PortalClassCatalogTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\PortalClassCatalogTest\:\:makeExtractorWithRawFixture\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/PortalClassCatalogTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\PortalClassCatalogTest\:\:makeExtractorWithRawFixtures\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/PortalClassCatalogTest.php
+
+		-
+			message: '#^Call to an undefined method Mockery\\MockInterface\:\:validateResponse\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: tests/Unit/PortalContextResolverTest.php
+
+		-
+			message: '#^Call to an undefined static method Illuminate\\Support\\Facades\\Log\:\:shouldHaveReceived\(\)\.$#'
+			identifier: staticMethod.notFound
+			count: 1
+			path: tests/Unit/PortalContextResolverTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\PortalContextResolverTest\:\:makeExtractorWithFixture\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/PortalContextResolverTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\PortalContextResolverTest\:\:makeExtractorWithRawFixture\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/PortalContextResolverTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\PortalContextResolverTest\:\:makeExtractorWithRawFixtures\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/PortalContextResolverTest.php
+
+		-
+			message: '#^Parameter \#1 \$portalContextExtractor of class App\\Services\\PortalContextResolver constructor expects App\\Services\\Extractors\\PortalContextExtractor, Mockery\\MockInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/Unit/PortalContextResolverTest.php
+
+		-
+			message: '#^Parameter \#2 \$studentCourseExtractor of class App\\Services\\PortalContextResolver constructor expects App\\Services\\Extractors\\StudentCourseExtractor, Mockery\\MockInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/Unit/PortalContextResolverTest.php
+
+		-
+			message: '#^Parameter \#3 \$fallbackNotice of method App\\Services\\PortalContextResolver\:\:compose\(\) expects array\{text\: string, dates\: list\<string\>, is_future\: bool, kind\: string\}\|null, array\{dates\: array\{\}\} given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/Unit/PortalContextResolverTest.php
+
+		-
+			message: '#^Parameter \#3 \$sipandaiClassesExtractor of class App\\Services\\PortalContextResolver constructor expects App\\Services\\Extractors\\SipandaiClassesExtractor, Mockery\\MockInterface given\.$#'
+			identifier: argument.type
+			count: 2
+			path: tests/Unit/PortalContextResolverTest.php
+
+		-
+			message: '#^Parameter \#4 \$profileExtractor of class App\\Services\\PortalContextResolver constructor expects App\\Services\\Extractors\\ProfileExtractor, Mockery\\MockInterface given\.$#'
+			identifier: argument.type
+			count: 2
+			path: tests/Unit/PortalContextResolverTest.php
+
+		-
+			message: '#^Parameter \#1 \$sessionManager of class App\\Services\\PortalScrapingService@anonymous/tests/Unit/PortalDataCacheTest\.php\:121 constructor expects App\\Services\\PortalSessionManager, Mockery\\MockInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/Unit/PortalDataCacheTest.php
+
+		-
+			message: '#^Public method "AnonymousClass658074d6e22d359b1f36f41c10a92180\:\:read\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: tests/Unit/PortalDataCacheTest.php
+
+		-
+			message: '#^Public property "AnonymousClass658074d6e22d359b1f36f41c10a92180\:\:\$fetches" is never used$#'
+			identifier: public.property.unused
+			count: 1
+			path: tests/Unit/PortalDataCacheTest.php
+
+		-
+			message: '#^Parameter \#1 \$submissionService of class App\\Services\\PortalExamListResolver constructor expects App\\Services\\SipandaiSubmissionService, Mockery\\MockInterface given\.$#'
+			identifier: argument.type
+			count: 2
+			path: tests/Unit/PortalExamListResolverTest.php
+
+		-
+			message: '#^Parameter \#2 \$sipandaiClassesExtractor of class App\\Services\\PortalExamListResolver constructor expects App\\Services\\Extractors\\SipandaiClassesExtractor, Mockery\\MockInterface given\.$#'
+			identifier: argument.type
+			count: 2
+			path: tests/Unit/PortalExamListResolverTest.php
+
+		-
+			message: '#^Call to an undefined method Mockery\\MockInterface\:\:validateResponse\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: tests/Unit/PortalGradesResolverTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\PortalGradesResolverTest\:\:makeExtractorWithFixture\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/PortalGradesResolverTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\PortalGradesResolverTest\:\:makeExtractorWithRawFixture\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/PortalGradesResolverTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\PortalGradesResolverTest\:\:makeExtractorWithRawFixtures\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/PortalGradesResolverTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\PortalGradesResolverTest\:\:rawKhsExtractor\(\) never assigns null to &\$requestedUrls so it can be removed from the by\-ref type\.$#'
+			identifier: parameterByRef.unusedType
+			count: 1
+			path: tests/Unit/PortalGradesResolverTest.php
+
+		-
+			message: '#^Offset ''predicate_estimate'' does not exist on array\{official\: non\-empty\-array\<string, mixed\>, computed\: array\<string, mixed\>, mismatch\: false, mismatch_fields\: array\{\}, ipk\: 3\.21, sks_passed\: 108, conversion_sks\: 66, quality_points_total\: float, \.\.\.\}\.$#'
+			identifier: offsetAccess.notFound
+			count: 1
+			path: tests/Unit/PortalGradesResolverTest.php
+
+		-
+			message: '#^Offset ''predicate_estimate'' does not exist on array\{official\: non\-empty\-array\<string, mixed\>, computed\: non\-empty\-array\<string, mixed\>, mismatch\: false, mismatch_fields\: array\{\}, ipk\: 3\.1, sks_passed\: 20, conversion_sks\: int, quality_points_total\: 62\.0, \.\.\.\}\.$#'
+			identifier: offsetAccess.notFound
+			count: 1
+			path: tests/Unit/PortalGradesResolverTest.php
+
+		-
+			message: '#^Parameter \#1 \$sessionManager of class App\\Services\\Extractors\\KhsExtractor constructor expects App\\Services\\PortalSessionManager, Mockery\\MockInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/Unit/PortalGradesResolverTest.php
+
+		-
+			message: '#^Property Tests\\Unit\\PortalGradesResolverTest\:\:\$advisingExtractor \(App\\Services\\Extractors\\AdvisingExtractor&Mockery\\MockInterface\) does not accept Mockery\\MockInterface\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: tests/Unit/PortalGradesResolverTest.php
+
+		-
+			message: '#^Property Tests\\Unit\\PortalGradesResolverTest\:\:\$khsExtractor \(App\\Services\\Extractors\\KhsExtractor&Mockery\\MockInterface\) does not accept Mockery\\MockInterface\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: tests/Unit/PortalGradesResolverTest.php
+
+		-
+			message: '#^Property Tests\\Unit\\PortalGradesResolverTest\:\:\$krsDetailExtractor \(App\\Services\\Extractors\\KrsDetailExtractor&Mockery\\MockInterface\) does not accept Mockery\\MockInterface\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: tests/Unit/PortalGradesResolverTest.php
+
+		-
+			message: '#^Call to an undefined method Mockery\\MockInterface\:\:validateResponse\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: tests/Unit/PortalMeetingDetailResolverTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\PortalMeetingDetailResolverTest\:\:extractorReturning\(\) should return App\\Services\\Extractors\\ClassesExtractor but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/PortalMeetingDetailResolverTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\PortalMeetingDetailResolverTest\:\:makeExtractorWithFixture\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/PortalMeetingDetailResolverTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\PortalMeetingDetailResolverTest\:\:makeExtractorWithRawFixture\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/PortalMeetingDetailResolverTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\PortalMeetingDetailResolverTest\:\:makeExtractorWithRawFixtures\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/PortalMeetingDetailResolverTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\PortalMeetingDetailResolverTest\:\:meetingExtractor\(\) should return App\\Services\\Extractors\\ClassesExtractor but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/PortalMeetingDetailResolverTest.php
+
+		-
+			message: '#^Parameter \#2 \$catalog of method Tests\\Unit\\PortalMeetingDetailResolverTest\:\:resolver\(\) expects App\\Services\\PortalClassCatalog, Mockery\\MockInterface given\.$#'
+			identifier: argument.type
+			count: 11
+			path: tests/Unit/PortalMeetingDetailResolverTest.php
+
+		-
+			message: '#^Parameter \#3 \$submissionService of method Tests\\Unit\\PortalMeetingDetailResolverTest\:\:resolver\(\) expects App\\Services\\SipandaiSubmissionService\|null, Mockery\\MockInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/Unit/PortalMeetingDetailResolverTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\PortalPasswordServiceTest\:\:mockPasswordService\(\) should return App\\Services\\PortalPasswordService&Mockery\\MockInterface but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/PortalPasswordServiceTest.php
+
+		-
+			message: '#^Call to an undefined static method Illuminate\\Support\\Facades\\Log\:\:shouldHaveReceived\(\)\.$#'
+			identifier: staticMethod.notFound
+			count: 3
+			path: tests/Unit/PortalResponseRecorderTest.php
+
+		-
+			message: '#^Parameter \#1 \$sessionManager of class App\\Services\\PortalScrapingService@anonymous/tests/Unit/PortalScrapingServiceHelpersTest\.php\:560 constructor expects App\\Services\\PortalSessionManager, Mockery\\MockInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/Unit/PortalScrapingServiceHelpersTest.php
+
+		-
+			message: '#^Public method "AnonymousClassf8d5a8eac6c720c574348cbe3c0e8a8f\:\:call\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: tests/Unit/PortalScrapingServiceHelpersTest.php
+
+		-
+			message: '#^Parameter \#1 \$sessionManager of method Tests\\Unit\\PortalScrapingServiceRequestTest\:\:makeScraper\(\) expects App\\Services\\PortalSessionManager, Mockery\\MockInterface given\.$#'
+			identifier: argument.type
+			count: 4
+			path: tests/Unit/PortalScrapingServiceRequestTest.php
+
+		-
+			message: '#^Public method "AnonymousClassbbf07c8c0d850517f9478b63956c9d33\:\:fetch\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: tests/Unit/PortalScrapingServiceRequestTest.php
+
+		-
+			message: '#^Public method "AnonymousClassbbf07c8c0d850517f9478b63956c9d33\:\:submit\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: tests/Unit/PortalScrapingServiceRequestTest.php
+
+		-
+			message: '#^Public method "AnonymousClassbbf07c8c0d850517f9478b63956c9d33\:\:useClient\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: tests/Unit/PortalScrapingServiceRequestTest.php
+
+		-
+			message: '#^Parameter \#1 \$sessionManager of class App\\Services\\PortalScrapingService@anonymous/tests/Unit/PortalScrapingServiceTableHelpersTest\.php\:273 constructor expects App\\Services\\PortalSessionManager, Mockery\\MockInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/Unit/PortalScrapingServiceTableHelpersTest.php
+
+		-
+			message: '#^Public method "AnonymousClass64ba8904c92650cf5b444709789c355d\:\:call\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: tests/Unit/PortalScrapingServiceTableHelpersTest.php
+
+		-
+			message: '#^Call to method PHPUnit\\Framework\\Assert\:\:assertTrue\(\) with true will always evaluate to true\.$#'
+			identifier: method.alreadyNarrowedType
+			count: 1
+			path: tests/Unit/PortalScrapingServiceValidationTest.php
+
+		-
+			message: '#^Parameter \#1 \$sessionManager of class App\\Services\\PortalScrapingService@anonymous/tests/Unit/PortalScrapingServiceValidationTest\.php\:132 constructor expects App\\Services\\PortalSessionManager, Mockery\\MockInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/Unit/PortalScrapingServiceValidationTest.php
+
+		-
+			message: '#^Parameter \#1 \$sessionManager of class App\\Services\\PortalScrapingService@anonymous/tests/Unit/PortalScrapingServiceValidationTest\.php\:66 constructor expects App\\Services\\PortalSessionManager, Mockery\\MockInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/Unit/PortalScrapingServiceValidationTest.php
+
+		-
+			message: '#^Parameter \#1 \$sessionManager of class App\\Services\\PortalScrapingService@anonymous/tests/Unit/PortalScrapingServiceValidationTest\.php\:98 constructor expects App\\Services\\PortalSessionManager, Mockery\\MockInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/Unit/PortalScrapingServiceValidationTest.php
+
+		-
+			message: '#^Public method "AnonymousClass2d5ada034364bace24dd7dd8df289d04\:\:adopt\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: tests/Unit/PortalScrapingServiceValidationTest.php
+
+		-
+			message: '#^Public method "AnonymousClass2d5ada034364bace24dd7dd8df289d04\:\:validate\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: tests/Unit/PortalScrapingServiceValidationTest.php
+
+		-
+			message: '#^Public method "AnonymousClass55c139011ef75f098728d95434ec4845\:\:validate\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: tests/Unit/PortalScrapingServiceValidationTest.php
+
+		-
+			message: '#^Public method "AnonymousClassd68a30893fbc6185fe5ddc61c7110986\:\:adopt\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: tests/Unit/PortalScrapingServiceValidationTest.php
+
+		-
+			message: '#^Public method "AnonymousClassd68a30893fbc6185fe5ddc61c7110986\:\:validate\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: tests/Unit/PortalScrapingServiceValidationTest.php
+
+		-
+			message: '#^Call to an undefined static method Illuminate\\Support\\Facades\\Log\:\:shouldHaveReceived\(\)\.$#'
+			identifier: staticMethod.notFound
+			count: 8
+			path: tests/Unit/PortalSessionManagerTest.php
+
+		-
+			message: '#^Parameter \#1 \$authService of class App\\Services\\PortalSessionManager constructor expects App\\Services\\PortalAuthService, Mockery\\MockInterface given\.$#'
+			identifier: argument.type
+			count: 29
+			path: tests/Unit/PortalSessionManagerTest.php
+
+		-
+			message: '#^Parameter \#2 \$encrypter of class App\\Services\\PortalSessionManager constructor expects Illuminate\\Contracts\\Encryption\\Encrypter, Mockery\\MockInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/Unit/PortalSessionManagerTest.php
+
+		-
+			message: '#^Parameter \#3 \$dataOwner of class App\\Services\\PortalSessionManager constructor expects App\\Services\\PortalDataOwner\|null, Mockery\\MockInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/Unit/PortalSessionManagerTest.php
+
+		-
+			message: '#^Result of method App\\Services\\PortalSessionManager\:\:invalidateSession\(\) \(void\) is used\.$#'
+			identifier: method.void
+			count: 1
+			path: tests/Unit/PortalSessionManagerTest.php
+
+		-
+			message: '#^Call to an undefined static method Illuminate\\Support\\Facades\\Log\:\:shouldHaveReceived\(\)\.$#'
+			identifier: staticMethod.notFound
+			count: 1
+			path: tests/Unit/PortalSnapshotDiffNotifierTest.php
+
+		-
+			message: '#^Parameter \#1 \$center of class App\\Services\\PortalSnapshotDiffNotifier constructor expects App\\Services\\PortalNotificationCenter, Mockery\\MockInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/Unit/PortalSnapshotDiffNotifierTest.php
+
+		-
+			message: '#^Cannot call method __invoke\(\) on callable\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: tests/Unit/ProcessPortalAssignmentUploadJobTest.php
+
+		-
+			message: '#^Parameter \#1 \$submissionService of method App\\Jobs\\ProcessPortalAssignmentUploadJob\:\:handle\(\) expects App\\Services\\SipandaiSubmissionService, Mockery\\MockInterface given\.$#'
+			identifier: argument.type
+			count: 10
+			path: tests/Unit/ProcessPortalAssignmentUploadJobTest.php
+
+		-
+			message: '#^Parameter \#4 \$datasets of method App\\Jobs\\ProcessPortalAssignmentUploadJob\:\:handle\(\) expects App\\Services\\PortalDatasetRepository, Mockery\\MockInterface given\.$#'
+			identifier: argument.type
+			count: 10
+			path: tests/Unit/ProcessPortalAssignmentUploadJobTest.php
+
+		-
+			message: '#^Parameter \#5 \$projector of method App\\Jobs\\ProcessPortalAssignmentUploadJob\:\:handle\(\) expects App\\Services\\PortalActionProjector, Mockery\\MockInterface given\.$#'
+			identifier: argument.type
+			count: 10
+			path: tests/Unit/ProcessPortalAssignmentUploadJobTest.php
+
+		-
+			message: '#^Cannot call method __invoke\(\) on callable\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: tests/Unit/ProcessPortalExamUploadJobTest.php
+
+		-
+			message: '#^Parameter \#1 \$submissionService of method App\\Jobs\\ProcessPortalExamUploadJob\:\:handle\(\) expects App\\Services\\SipandaiSubmissionService, Mockery\\MockInterface given\.$#'
+			identifier: argument.type
+			count: 3
+			path: tests/Unit/ProcessPortalExamUploadJobTest.php
+
+		-
+			message: '#^Parameter \#4 \$datasets of method App\\Jobs\\ProcessPortalExamUploadJob\:\:handle\(\) expects App\\Services\\PortalDatasetRepository, Mockery\\MockInterface given\.$#'
+			identifier: argument.type
+			count: 4
+			path: tests/Unit/ProcessPortalExamUploadJobTest.php
+
+		-
+			message: '#^Call to an undefined method Mockery\\MockInterface\:\:validateResponse\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: tests/Unit/RealPortalAssignmentPagesTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\RealPortalAssignmentPagesTest\:\:makeExtractorWithFixture\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/RealPortalAssignmentPagesTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\RealPortalAssignmentPagesTest\:\:makeExtractorWithRawFixture\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/RealPortalAssignmentPagesTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\RealPortalAssignmentPagesTest\:\:makeExtractorWithRawFixtures\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/RealPortalAssignmentPagesTest.php
+
+		-
+			message: '#^Parameter \#4 \$datasets of method App\\Jobs\\ProcessPortalAssignmentUploadJob\:\:handle\(\) expects App\\Services\\PortalDatasetRepository, Mockery\\MockInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/Unit/RealPortalAssignmentPagesTest.php
+
+		-
+			message: '#^Parameter \#5 \$projector of method App\\Jobs\\ProcessPortalAssignmentUploadJob\:\:handle\(\) expects App\\Services\\PortalActionProjector, Mockery\\MockInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/Unit/RealPortalAssignmentPagesTest.php
+
+		-
+			message: '#^Parameter &\$history by\-ref type of method Tests\\Unit\\RealPortalAssignmentPagesTest\:\:serviceAnswering\(\) expects array\<int, mixed\>, array\|ArrayAccess\<int, array\> given\.$#'
+			identifier: parameterByRef.type
+			count: 1
+			path: tests/Unit/RealPortalAssignmentPagesTest.php
+
+		-
+			message: '#^Call to an undefined method Mockery\\MockInterface\:\:validateResponse\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: tests/Unit/RealPortalExamPagesTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\RealPortalExamPagesTest\:\:makeExtractorWithFixture\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/RealPortalExamPagesTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\RealPortalExamPagesTest\:\:makeExtractorWithRawFixture\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/RealPortalExamPagesTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\RealPortalExamPagesTest\:\:makeExtractorWithRawFixtures\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/RealPortalExamPagesTest.php
+
+		-
+			message: '#^Parameter \#2 \$sipandaiClassesExtractor of class App\\Services\\PortalExamListResolver constructor expects App\\Services\\Extractors\\SipandaiClassesExtractor, Mockery\\MockInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/Unit/RealPortalExamPagesTest.php
+
+		-
+			message: '#^Parameter &\$history by\-ref type of method Tests\\Unit\\RealPortalExamPagesTest\:\:serviceAnswering\(\) expects array\<int, mixed\>, array\|ArrayAccess\<int, array\> given\.$#'
+			identifier: parameterByRef.type
+			count: 1
+			path: tests/Unit/RealPortalExamPagesTest.php
+
+		-
+			message: '#^Call to an undefined method Mockery\\MockInterface\:\:validateResponse\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: tests/Unit/RealPortalMeetingDecisionsTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\RealPortalMeetingDecisionsTest\:\:makeExtractorWithFixture\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/RealPortalMeetingDecisionsTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\RealPortalMeetingDecisionsTest\:\:makeExtractorWithRawFixture\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/RealPortalMeetingDecisionsTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\RealPortalMeetingDecisionsTest\:\:makeExtractorWithRawFixtures\(\) should return T of App\\Services\\PortalScrapingService but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/RealPortalMeetingDecisionsTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\RealPortalMeetingDecisionsTest\:\:meetingExtractorAnswering\(\) should return App\\Services\\Extractors\\ClassesExtractor&Mockery\\MockInterface but returns Mockery\\MockInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Unit/RealPortalMeetingDecisionsTest.php
+
+		-
+			message: '#^Parameter \#2 \$classCatalog of class App\\Services\\PortalMeetingDetailResolver constructor expects App\\Services\\PortalClassCatalog, Mockery\\MockInterface given\.$#'
+			identifier: argument.type
+			count: 3
+			path: tests/Unit/RealPortalMeetingDecisionsTest.php
+
+		-
+			message: '#^Parameter \#2 \$sipandaiClassesExtractor of class App\\Services\\AttendanceShortcutService constructor expects App\\Services\\Extractors\\SipandaiClassesExtractor, Mockery\\MockInterface given\.$#'
+			identifier: argument.type
+			count: 2
+			path: tests/Unit/RealPortalMeetingDecisionsTest.php
+
+		-
+			message: '#^Parameter \#3 \$submissionService of class App\\Services\\PortalMeetingDetailResolver constructor expects App\\Services\\SipandaiSubmissionService, Mockery\\MockInterface given\.$#'
+			identifier: argument.type
+			count: 2
+			path: tests/Unit/RealPortalMeetingDecisionsTest.php
+
+		-
+			message: '#^Parameter &\$history by\-ref type of method Tests\\Unit\\RealPortalMeetingDecisionsTest\:\:submissionServiceAnswering\(\) expects array\<int, mixed\>, array\|ArrayAccess\<int, array\> given\.$#'
+			identifier: parameterByRef.type
+			count: 1
+			path: tests/Unit/RealPortalMeetingDecisionsTest.php
+
+		-
+			message: '#^ArrayObject\<\*NEVER\*, \*NEVER\*\> does not accept array\<int, array\|string\>\.$#'
+			identifier: offsetAssign.valueType
+			count: 1
+			path: tests/Unit/RefreshPortalDataJobTest.php
+
+		-
+			message: '#^Call to an undefined static method Illuminate\\Support\\Facades\\Log\:\:shouldHaveReceived\(\)\.$#'
+			identifier: staticMethod.notFound
+			count: 2
+			path: tests/Unit/SipandaiSubmissionRecordingTest.php
+
+		-
+			message: '#^Call to an undefined static method Illuminate\\Support\\Facades\\Log\:\:shouldHaveReceived\(\)\.$#'
+			identifier: staticMethod.notFound
+			count: 1
+			path: tests/Unit/SipandaiSubmissionServiceTest.php
+
+		-
+			message: '#^Parameter &\$history by\-ref type of method Tests\\Unit\\SipandaiSubmissionServiceTest\:\:fakePortal\(\) expects array\<int, mixed\>, array\|ArrayAccess\<int, array\> given\.$#'
+			identifier: parameterByRef.type
+			count: 1
+			path: tests/Unit/SipandaiSubmissionServiceTest.php
+
+		-
+			message: '#^Public method "AnonymousClass0934cd8358614b4d686919b023de1c6a\:\:writeLog\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: tests/Unit/SipandaiSubmissionServiceTest.php
+
+		-
+			message: '#^Call to an undefined method Psr\\Log\\LoggerInterface\:\:getLogger\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: tests/Unit/TestEnvironmentTest.php
+
+		-
+			message: '#^Property Illuminate\\Foundation\\Testing\\TestCase\:\:\$callbackException \(Throwable\) does not accept null\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: tests/Unit/TestEnvironmentTest.php

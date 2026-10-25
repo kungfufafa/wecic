@@ -1,12 +1,12 @@
 {
     "$schema": "https://getcomposer.org/schema.json",
-    "name": "laravel/laravel",
+    "name": "apriansyahrs/mycic",
     "type": "project",
-    "description": "The skeleton application for the Laravel framework.",
-    "keywords": ["laravel", "framework"],
+    "description": "MyCIC: a Laravel application in front of the CIC student portal, served as a JSON API and a web dashboard.",
+    "keywords": ["laravel", "cic", "campus-portal", "scraping"],
     "license": "MIT",
     "require": {
-        "php": "^8.2",
+        "php": "^8.4",
         "dedoc/scramble": "^0.12.35",
         "guzzlehttp/guzzle": "^7.10",
         "laravel/framework": "^12.0",
@@ -60,6 +60,15 @@
             "@php artisan config:clear --ansi",
             "@php artisan test"
         ],
+        "analyse": "vendor/bin/phpstan analyse --no-progress --memory-limit=2G",
+        "analyse:baseline": "vendor/bin/phpstan analyse --no-progress --memory-limit=2G --generate-baseline phpstan-baseline.neon",
+        "check": [
+            "Composer\\Config::disableProcessTimeout",
+            "vendor/bin/pint --test",
+            "npm run test:js",
+            "@analyse",
+            "@test"
+        ],
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
             "@php artisan package:discover --ansi"
@@ -80,6 +89,14 @@
             "Illuminate\\Foundation\\ComposerScripts::prePackageUninstall"
         ]
     },
+    "scripts-descriptions": {
+        "setup": "First run: install PHP and npm dependencies, create .env and APP_KEY, migrate, build the frontend.",
+        "dev": "Run the app server, Horizon, Reverb, Pail and Vite together.",
+        "test": "Run the PHP test suite after clearing the config cache.",
+        "analyse": "Run Larastan; only errors missing from phpstan-baseline.neon are reported.",
+        "analyse:baseline": "Regenerate phpstan-baseline.neon from the errors Larastan reports now.",
+        "check": "Everything CI checks, fastest first: Pint, Node tests, Larastan, PHP tests. Stops at the first failure."
+    },
     "extra": {
         "laravel": {
             "dont-discover": []
@@ -90,7 +107,6 @@
         "preferred-install": "dist",
         "sort-packages": true,
         "allow-plugins": {
-            "pestphp/pest-plugin": true,
             "php-http/discovery": true
         }
     },
