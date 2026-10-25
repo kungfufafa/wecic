@@ -69,7 +69,7 @@ class FrontendShellTest extends TestCase
 
     public function test_first_page_after_a_login_keeps_its_offline_copy_while_unknown_owners_are_still_cleared(): void
     {
-        $script = (string) file_get_contents(resource_path('js/app.js'));
+        $script = $this->appScript();
 
         $this->assertSame(1, preg_match("/this\.clearedCacheOwner = '([^']+)';/", $script, $sentinel));
         $this->assertDoesNotMatchRegularExpression('/^[0-9a-f]{32}$/', $sentinel[1], 'A real owner digest must never read as a cleared device.');
@@ -765,9 +765,15 @@ class FrontendShellTest extends TestCase
         return (string) (new Crawler((string) $response->getContent()))->filter('body')->attr('data-cache-owner');
     }
 
+    /**
+     * The app's own script: the entry (resources/js/app.js) and the feature
+     * modules it mixes into PortalApp (resources/js/app/*.js).
+     */
     private function appScript(): string
     {
-        return (string) file_get_contents(resource_path('js/app.js'));
+        $files = [resource_path('js/app.js'), ...glob(resource_path('js/app/*.js')) ?: []];
+
+        return implode("\n", array_map(static fn (string $file): string => (string) file_get_contents($file), $files));
     }
 
     /**
