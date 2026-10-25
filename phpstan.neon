@@ -1,0 +1,22 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+    - vendor/tomasvotruba/unused-public/config/extension.neon
+
+parameters:
+    paths:
+        - app
+        - bootstrap
+        - config
+        - database
+        - routes
+        - tests
+    excludePaths:
+        - bootstrap/cache
+    level: 5
+    unused_public:
+        methods: true
+        local_methods: true
+        properties: true
+        constants: true
+        template_paths:
+            - resources/views
