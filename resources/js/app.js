@@ -21,13 +21,15 @@ import { SessionFeature } from './app/session.js';
 import { SheetFeature } from './app/sheet.js';
 import { ToastFeature } from './app/toasts.js';
 import * as cacheRules from './lib/cache.js';
+import { mixFeatures } from './lib/mixin.js';
 
 /**
  * The app every page runs: one PortalApp on `window.portalApp`, whose
  * methods the pages' own scripts call (`app.request()`, `app.showNotice()`,
  * `app.renderBadge()`…). The constructor holds all of its state; the
  * methods live in resources/js/app/*.js, one feature per file, and are mixed
- * in below. Pure rules the features delegate to are in resources/js/lib/.
+ * in below (lib/mixin.js: a name defined twice throws). Pure rules the
+ * features delegate to are in resources/js/lib/.
  */
 class PortalApp {
     constructor() {
@@ -142,26 +144,7 @@ class PortalApp {
     }
 }
 
-/**
- * Copy the methods of each feature class onto PortalApp's prototype. A
- * feature holds no state of its own, and no two features may define the
- * same method: a silent override would change what a page gets.
- */
-function mixin(target, ...features) {
-    features.forEach((feature) => {
-        Object.getOwnPropertyNames(feature.prototype)
-            .filter((name) => name !== 'constructor')
-            .forEach((name) => {
-                if (Object.hasOwn(target.prototype, name)) {
-                    throw new Error(`PortalApp already defines ${name}().`);
-                }
-
-                Object.defineProperty(target.prototype, name, Object.getOwnPropertyDescriptor(feature.prototype, name));
-            });
-    });
-}
-
-mixin(
+mixFeatures(
     PortalApp,
     ActionItemFeature,
     AnnouncementFeature,
