@@ -1,7 +1,7 @@
 import { afterEach, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { createPortalApp } from './support/browser.mjs';
+import { viewSource } from './support/views.mjs';
 
 /**
  * The read marks and ticked steps code inside the announcement pages and
@@ -9,7 +9,7 @@ import { createPortalApp } from './support/browser.mjs';
  * written against a real PortalApp and the fake browser's storage. Marks
  * saved before stable ids hold the old wording-based id (`legacy_id`).
  */
-const view = (name) => readFileSync(new URL(`../../resources/views/${name}.blade.php`, import.meta.url), 'utf8');
+const view = (name) => viewSource(name);
 
 /**
  * The source from the line holding `from` up to (not including) the line

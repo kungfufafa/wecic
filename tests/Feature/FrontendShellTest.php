@@ -643,7 +643,9 @@ class FrontendShellTest extends TestCase
 
     /**
      * The inline scripts' source of every page view, keyed by its path under
-     * resources/views.
+     * resources/views, with the partials it includes in place (the Beranda's
+     * script is split into resources/views/dashboard/scripts). Components
+     * hold no script and are left out.
      *
      * @return array<string, string>
      */
@@ -652,13 +654,35 @@ class FrontendShellTest extends TestCase
         $views = [];
 
         foreach ([...(glob(resource_path('views/*.blade.php')) ?: []), ...(glob(resource_path('views/*/*.blade.php')) ?: [])] as $path) {
-            $views[str_replace(resource_path('views/'), '', $path)] = (string) file_get_contents($path);
+            $view = str_replace(resource_path('views/'), '', $path);
+
+            if (! str_starts_with($view, 'components/')) {
+                $views[$view] = $this->withIncludes((string) file_get_contents($path));
+            }
         }
 
         $this->assertArrayHasKey('dashboard.blade.php', $views);
         $this->assertArrayHasKey('notebook/show.blade.php', $views);
+        $this->assertStringContainsString("app.registerSyncHandler('dashboard-overview'", $views['dashboard.blade.php'], 'The Beranda is checked with its script parts.');
 
         return $views;
+    }
+
+    /**
+     * `$source` with every `@include('a.b')` replaced by that view's source,
+     * its Blade comments left out as Blade renders them.
+     */
+    private function withIncludes(string $source): string
+    {
+        return (string) preg_replace_callback(
+            "/@include\('([\w.-]+)'\)/",
+            fn (array $include): string => $this->withIncludes((string) preg_replace(
+                '/\{\{--.*?--\}\}\n?/s',
+                '',
+                (string) file_get_contents(resource_path('views/'.str_replace('.', '/', $include[1]).'.blade.php'))
+            )),
+            $source
+        );
     }
 
     /**

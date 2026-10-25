@@ -1,7 +1,7 @@
 import { afterEach, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { createPortalApp, json, settle } from './support/browser.mjs';
+import { viewSource } from './support/views.mjs';
 
 /**
  * The Beranda re-reads it starts on its own (a snapshot still being built, a
@@ -11,8 +11,10 @@ import { createPortalApp, json, settle } from './support/browser.mjs';
  * (PortalSessionMiddleware::BACKGROUND_HEADER), so an open tab nobody touches
  * still idles out; the page's first load and anything the student starts
  * (pull-to-refresh, Coba lagi) do not, even while a re-read is still waiting.
+ * The script is read with its parts (resources/views/dashboard/scripts)
+ * included, as the page renders it.
  */
-const source = readFileSync(new URL('../../resources/views/dashboard.blade.php', import.meta.url), 'utf8');
+const source = viewSource('dashboard');
 const BACKGROUND_HEADER = 'X-MyCIC-Background';
 
 /**
