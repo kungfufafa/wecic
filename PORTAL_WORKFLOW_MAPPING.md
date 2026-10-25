@@ -125,7 +125,7 @@ Ada banyak nama berbeda yang sebenarnya menunjuk ke data yang sama, tetapi **tid
 | Input ke MyCIC | Dinormalisasi menjadi | Dipakai untuk | Sumber kode |
 | --- | --- | --- | --- |
 | route `/api/class/{id}` atau input `id` | `id` | `course_materials.id` | `ClassDetailRequest` |
-| `course_id` pada meeting request | `courses_id` | `discussion.courses_id` | `SipandaiMeetingDetailRequest`, `PortalMeetingDetailByIdRequest` |
+| `course_id` pada meeting request | `courses_id` | `discussion.courses_id` | `SipandaiMeetingDetailRequest` |
 | `courseid` pada flow request | `course_id` dan fallback `courses_id` | build course/material/attendance links | `SipandaiFlowRequest` |
 | `discussion_id` pada flow/assignment | `id` | `assignment_form.id`, `discussion.id` | `SipandaiFlowRequest`, `SipandaiAssignmentUploadRequest` |
 | `meeting_number` | `pertemuan` | assignment/attendance context | `SipandaiFlowRequest`, `SipandaiAssignmentUploadRequest`, `SipandaiAttendanceRequest`, `SipandaiAssignmentDeleteRequest` |
