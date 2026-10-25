@@ -28,6 +28,11 @@ class PortalActionProjector
 
     public const ASSIGNMENT_DELETED = 'assignment_deleted';
 
+    /**
+     * Class page attendance statuses that already count as a recorded attendance.
+     */
+    private const RECORDED_CLASS_ATTENDANCE = ['present', 'late', 'permit', 'sick'];
+
     public function __construct(
         private readonly PortalSnapshotStore $snapshots,
         private readonly PortalDataOwner $owner
@@ -143,6 +148,7 @@ class PortalActionProjector
             'dashboard' => $this->applyToDashboard($data, $entries),
             'assignments' => $this->applyToAssignments($data, $entries),
             'meeting_detail' => $this->applyToMeetingDetail($data, $params, $entries),
+            'class_detail' => $this->applyToClassDetail($data, $params, $entries),
             default => $data,
         };
     }
@@ -150,6 +156,11 @@ class PortalActionProjector
     /**
      * Patch the snapshots that exist right now, keeping their sync state so
      * the pending invalidation still schedules a confirming re-sync.
+     *
+     * Class pages are not patched here: their snapshots are keyed by the
+     * class's own ids (id, dosen_id, course_id), which an action on one of
+     * its meetings does not carry. PortalDatasetRepository::read() overlays
+     * the recorded actions on a class page as it is served instead.
      */
     private function project(string $sessionToken, ?string $courseId, string $moduleId): void
     {
@@ -336,6 +347,210 @@ class PortalActionProjector
         }
 
         return $data;
+    }
+
+    /**
+     * The class page's attendance table and upload history. Their rows carry
+     * meeting numbers only; the class's materials link each meeting's
+     * discussion id, which is what an action records. An action on a meeting
+     * the materials do not link counts when it names this class's course.
+     *
+     * @param  array<string, mixed>  $data
+     * @param  array<string, mixed>  $params
+     * @param  array<string, array<string, mixed>>  $entries
+     * @return array<string, mixed>
+     */
+    private function applyToClassDetail(array $data, array $params, array $entries): array
+    {
+        $linkedMeetings = $this->classMeetingNumbers($data);
+        $courseId = (string) ($params['course_id'] ?? '');
+
+        foreach ($entries as $entry) {
+            $meetingNumber = $linkedMeetings[(string) ($entry['module_id'] ?? '')] ?? null;
+
+            if ($meetingNumber === null && $courseId !== '' && (string) ($entry['course_id'] ?? '') === $courseId && (int) ($entry['meeting_number'] ?? 0) > 0) {
+                $meetingNumber = (int) $entry['meeting_number'];
+            }
+
+            if ($meetingNumber === null) {
+                continue;
+            }
+
+            $data = match ($entry['type'] ?? null) {
+                self::ATTENDANCE_MARKED => $this->markClassMeetingAttended($data, $meetingNumber, $entry),
+                self::ASSIGNMENT_UPLOADED => $this->addClassUpload($data, $meetingNumber, $entry),
+                self::ASSIGNMENT_DELETED => $this->removeClassUpload($data, $meetingNumber),
+                default => $data,
+            };
+        }
+
+        return $data;
+    }
+
+    /**
+     * The meeting number of every discussion the class's materials link to.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, int> Discussion id => meeting number.
+     */
+    private function classMeetingNumbers(array $data): array
+    {
+        $materials = is_array($data['course_materials'] ?? null) ? $data['course_materials'] : [];
+        $numbers = [];
+
+        foreach ($materials as $material) {
+            $href = is_array($material) ? ($material['join_link']['href'] ?? null) : null;
+            $meetingNumber = is_array($material) ? (int) ($material['meeting_number'] ?? 0) : 0;
+
+            if (! is_string($href) || $meetingNumber < 1) {
+                continue;
+            }
+
+            parse_str((string) parse_url($href, PHP_URL_QUERY), $query);
+            $discussionId = $query['id'] ?? null;
+
+            if (is_string($discussionId) && $discussionId !== '') {
+                $numbers[$discussionId] = $meetingNumber;
+            }
+        }
+
+        return $numbers;
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @param  array<string, mixed>  $entry
+     * @return array<string, mixed>
+     */
+    private function markClassMeetingAttended(array $data, int $meetingNumber, array $entry): array
+    {
+        $meetings = $data['attendance_info']['meetings'] ?? null;
+
+        if (! is_array($meetings)) {
+            return $data;
+        }
+
+        foreach ($meetings as $index => $meeting) {
+            if (! is_array($meeting) || (int) ($meeting['meeting_number'] ?? 0) !== $meetingNumber) {
+                continue;
+            }
+
+            if (in_array($meeting['status'] ?? null, self::RECORDED_CLASS_ATTENDANCE, true)) {
+                return $data;
+            }
+
+            $recordedAt = CarbonImmutable::parse((string) $entry['recorded_at'])->setTimezone((string) config('app.timezone'));
+            $meetings[$index]['status'] = 'present';
+            $meetings[$index]['details'] = [
+                ...(is_array($meeting['details'] ?? null) ? $meeting['details'] : []),
+                'attendance_date' => $recordedAt->locale('id')->translatedFormat('d F Y'),
+                'attendance_time' => (string) ($entry['time'] ?? $recordedAt->format('H:i')),
+            ];
+
+            $data['attendance_info']['meetings'] = $meetings;
+            $data['attendance_info']['summary'] = $this->recountClassAttendance($data['attendance_info']['summary'] ?? null, $meetings);
+
+            return $data;
+        }
+
+        return $data;
+    }
+
+    /**
+     * The summary ClassesExtractor computes, counted again from the rows.
+     *
+     * @param  array<int|string, mixed>  $meetings
+     */
+    private function recountClassAttendance(mixed $summary, array $meetings): mixed
+    {
+        if (! is_array($summary) || $summary === []) {
+            return $summary;
+        }
+
+        $statuses = array_map(static fn (mixed $meeting): mixed => is_array($meeting) ? ($meeting['status'] ?? null) : null, $meetings);
+        $count = static fn (string ...$wanted): int => count(array_filter($statuses, static fn (mixed $status): bool => in_array($status, $wanted, true)));
+
+        $attended = $count('present', 'late');
+        $upcoming = $count('upcoming');
+        $held = max(0, (int) ($summary['total_meetings'] ?? count($meetings)) - $upcoming);
+
+        return [
+            ...$summary,
+            'present' => $attended,
+            'late' => $count('late'),
+            'absent' => $count('absent'),
+            'permit' => $count('permit'),
+            'sick' => $count('sick'),
+            'upcoming' => $upcoming,
+            'held_meetings' => $held,
+            'attendance_rate' => $held > 0 ? round(($attended / $held) * 100, 1) : 0,
+        ];
+    }
+
+    /**
+     * Add the upload to the history the way the portal lists a fresh one:
+     * dated today and scored 0 until the lecturer grades it.
+     *
+     * @param  array<string, mixed>  $data
+     * @param  array<string, mixed>  $entry
+     * @return array<string, mixed>
+     */
+    private function addClassUpload(array $data, int $meetingNumber, array $entry): array
+    {
+        $history = is_array($data['assignment_history'] ?? null) ? $data['assignment_history'] : [];
+        $uploads = is_array($history['assignments'] ?? null) ? $history['assignments'] : [];
+
+        foreach ($uploads as $upload) {
+            if (is_array($upload) && $this->uploadMeetingNumber($upload) === $meetingNumber) {
+                return $data;
+            }
+        }
+
+        $uploads[] = [
+            'no' => (count($uploads) + 1).'.',
+            'date' => $entry['date'] ?? null,
+            'meeting' => (string) $meetingNumber,
+            'file_info' => $entry['file_info'] ?? null,
+            'score' => '0',
+        ];
+        $history['assignments'] = $uploads;
+        $data['assignment_history'] = $history;
+
+        return $data;
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function removeClassUpload(array $data, int $meetingNumber): array
+    {
+        $uploads = $data['assignment_history']['assignments'] ?? null;
+
+        if (! is_array($uploads)) {
+            return $data;
+        }
+
+        $kept = array_values(array_filter(
+            $uploads,
+            fn (mixed $upload): bool => ! is_array($upload) || $this->uploadMeetingNumber($upload) !== $meetingNumber
+        ));
+
+        if (count($kept) !== count($uploads)) {
+            $data['assignment_history']['assignments'] = $kept;
+        }
+
+        return $data;
+    }
+
+    /**
+     * The meeting an upload history row belongs to (the portal writes "3").
+     *
+     * @param  array<string, mixed>  $upload
+     */
+    private function uploadMeetingNumber(array $upload): ?int
+    {
+        return preg_match('/\d+/', (string) ($upload['meeting'] ?? ''), $matches) === 1 ? (int) $matches[0] : null;
     }
 
     /**

@@ -368,6 +368,21 @@ class PortalDatasetRepositoryTest extends TestCase
         $this->assertSame(['40000'], array_column($this->snapshots->get('token', 'assignments')['data']['assignments'], 'meeting_id'));
     }
 
+    public function test_class_page_rebuild_that_missed_a_confirmed_attendance_keeps_it_projected(): void
+    {
+        $params = ['id' => '5393', 'dosen_id' => '1863', 'course_id' => '8833'];
+        app(PortalActionProjector::class)->recordAttendance('token', 8833, 30728, 8);
+        $this->expectBuilds(1, [
+            'course_materials' => [['meeting_number' => 8, 'join_link' => ['href' => '?mod=sipandai&act=discuss&id=30728&courses_id=8833']]],
+            'attendance_info' => ['meetings' => [['meeting_number' => 8, 'status' => 'absent', 'details' => []]], 'summary' => []],
+        ]);
+
+        $result = $this->repository()->read('token', 'class_detail', $params, forceFresh: true);
+
+        $this->assertSame('present', $result['data']['attendance_info']['meetings'][0]['status']);
+        $this->assertSame('present', $this->snapshots->get('token', 'class_detail', $params)['data']['attendance_info']['meetings'][0]['status']);
+    }
+
     public function test_peek_never_builds_inline_and_queues_a_missing_snapshot_once(): void
     {
         $this->expectBuilds(0);

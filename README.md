@@ -62,7 +62,15 @@ Jalankan perintah berikut satu per satu.
 
 `Ctrl+C` di terminal `composer run dev` menghentikan semuanya.
 
-## Menjalankan tes dan Pint
+## Menjalankan tes, Pint, dan Larastan
+
+Semua pemeriksaan yang dijalankan CI, sekaligus dan dari yang tercepat: Pint, tes JavaScript, Larastan, lalu tes PHP. Berhenti pada pemeriksaan pertama yang gagal.
+
+```bash
+composer run check
+```
+
+Perintah di bawah ini menjalankan tiap bagiannya sendiri-sendiri.
 
 Tes PHP tidak pernah menghubungi portal kampus; `phpunit.xml` mengarahkan semua URL portal ke `https://portal.invalid`.
 
@@ -110,6 +118,18 @@ Periksa format tanpa mengubah apa pun, seperti yang dijalankan CI:
 vendor/bin/pint --test
 ```
 
+Analisis statis dengan Larastan (PHPStan level 5). Error yang sudah ada saat Larastan dipasang tercatat di `phpstan-baseline.neon`, jadi hanya error baru yang dilaporkan:
+
+```bash
+composer run analyse
+```
+
+Setelah memperbaiki error yang tercatat di baseline, buat ulang baseline-nya. Larastan gagal kalau baseline masih memuat error yang sudah tidak ada:
+
+```bash
+composer run analyse:baseline
+```
+
 ## Cara berkontribusi
 
 1. Buat branch dari `main`. Sebagian besar pesan merge di `git log` memakai nama branch berawalan `feature/` dan `fix/`.
@@ -120,13 +140,13 @@ vendor/bin/pint --test
 
 2. Buat perubahan. Setiap perubahan kode disertai tes baru atau tes yang diperbarui.
 
-3. Sebelum push, jalankan `php artisan test`, `npm run test:js`, dan `vendor/bin/pint --dirty`. Kalau ada perubahan UI, pastikan `npm run build` sukses.
+3. Sebelum push, jalankan `vendor/bin/pint --dirty` lalu `composer run check`. Kalau ada perubahan UI, pastikan `npm run build` sukses.
 
 4. Tulis pesan commit dengan awalan jenis perubahan seperti commit yang sudah ada: `feat:`, `fix:`, `refactor:`, `chore:`, `docs:`, atau `ci:`, boleh dengan scope, misalnya `fix(scraping):`.
 
 5. Push branch dan buka pull request ke `main` di GitHub.
 
-Workflow `.github/workflows/tests.yml` terdaftar untuk menjalankan PHPUnit, tes JavaScript, Pint, dan Playwright pada setiap pull request. TODO: perlu dikonfirmasi: apakah GitHub Actions aktif untuk repo ini; pada 2026-10-23 push ke `main` tidak membuat run apa pun.
+Workflow `.github/workflows/tests.yml` terdaftar untuk menjalankan PHPUnit, tes JavaScript, Pint, Larastan, dan Playwright pada setiap pull request. TODO: perlu dikonfirmasi: apakah GitHub Actions aktif untuk repo ini; pada 2026-10-23 push ke `main` tidak membuat run apa pun.
 
 ## Production
 
