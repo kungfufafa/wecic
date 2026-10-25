@@ -1,33 +1,27 @@
 # Copilot Instructions
 
 ## Project Snapshot
-- Laravel 12 skeleton targeting a campus PHP app proxy; see `docs/architecture.md` for the architectural contract (session manager, scraper, JSON API facade).
-- Current codebase is mostly vanilla Laravel; new work should introduce Services/Repositories/Middleware folders under `app/` that match the `docs/architecture.md` blueprint rather than scattering logic in controllers.
-- Keep campus host URLs, credentials, and feature flags in `.env`; never hardcode inside source files.
+- MyCIC is a Laravel 12 application (PHP 8.4) in front of the CIC student portal (`https://my.cic.ac.id`). It logs in on the student's behalf, keeps that session alive, scrapes the portal's HTML pages, and serves them as a JSON API (`/api`, `/api/v1`) and a Blade + Tailwind v4 web dashboard. `mobile/` holds the Expo client.
+- The code is already structured: about 80 services under `app/Services/` (session manager, dataset repository, snapshot store, outbox, notebook) with per-page extractors in `app/Services/Extractors/`, thin controllers in `app/Http/Controllers/API/`, a Form Request per endpoint in `app/Http/Requests/`, and queued jobs in `app/Jobs/`. Add to these; do not create new base folders.
+- Read `README.md` first (local setup, tests, contribution flow), then `docs/architecture.md` (layers and data flow), `docs/api.md` (response envelope and versioning), `docs/portal-flow-map.md` (how each portal page is fetched), `docs/deployment.md` (queues, scheduler, production), and `docs/design.md` (UI system).
+- Every portal URL lives in `config/portal.php` under `endpoints` and is resolved through `PortalEndpointRegistry::url('<key>')`. Campus hosts, credentials, timeouts and feature flags come from `.env` through `config/`; never hardcode them and never call `env()` outside `config/`.
 
 ## Key Workflows
-- First run uses `composer run setup` (installs PHP deps, copies `.env`, runs migrations, installs NPM packages, builds assets).
-- Day-to-day development favours `composer run dev`, which pipes `php artisan serve`, `horizon:listen`, `reverb:start`, `pail`, and `npm run dev` through `npx concurrently`; tweak individual processes only if you replicate the same combination manually.
-- Testing relies on Laravel's suite: `composer run test` clears config cache then executes `php artisan test`; use this path so pre-test steps stay intact.
-
-## Architectural Expectations
-- Session handling should revolve around a dedicated `PortalSessionManager` service that encapsulates login, cookie persistence (Redis/file), and auto-relogin logic described in `docs/architecture.md`.
-- Scraping flows must lean on Guzzle + Symfony DomCrawler; isolate per-page parsing into extractor classes (e.g., `app/Services/Extractors/GradesExtractor.php`) that validate and normalize output before controllers expose it.
-- REST endpoints belong in `routes/api.php` with thin controllers delegating to services; response envelopes should follow the `status/message/data/meta` contract from `docs/api.md`.
-- Cache TTLs and background jobs (session refresh, prefetch) outlined in `docs/architecture.md` should be captured in queued jobs under `app/Jobs/` and scheduled via `app/Console/Kernel.php` when introduced.
+- First run: `composer run setup`. Day to day: `composer run dev` (app server, Horizon, Reverb, Pail and Vite through `concurrently`; Redis must be running).
+- Before finishing any change: `vendor/bin/pint --dirty`, then `composer run check`, which runs Pint, the Node tests, Larastan and the PHP tests in that order and stops at the first failure. `composer run -l` lists every script.
+- Larastan runs at level 5 with the `unused-public` extension. Errors that predate the analyser are frozen in `phpstan-baseline.neon`; new code must be clean, and after fixing a baselined error run `composer run analyse:baseline`.
 
 ## Coding Conventions
-- Stick to PHP 8.2 features and PSR-12 formatting; use Laravel helpers sparingly when service abstractions keep scraper logic testable.
-- Centralize error handling: prefer custom exceptions (e.g., `SessionExpiredException`) caught by an HTTP middleware that maps them to the standardized API response + logging requirements.
-- When adding new config, mirror Laravel's published configs in `config/` and expose overrides via `.env`; document any nonstandard env keys in `docs/deployment.md`.
-- Frontend assets live under `resources/js` and `resources/css`; if you add API clients or session status indicators, wire them through Vite (see `vite.config.js`).
+- PHP 8.4, `declare(strict_types=1)`, constructor property promotion, explicit parameter and return types, PHPDoc array shapes for array payloads, Laravel Pint formatting (no `pint.json`, the `laravel` preset).
+- Validation lives in Form Requests, never inline in controllers. API responses keep the `status`/`message`/`data`/`meta` envelope and every `/api/*` error is JSON (see `docs/api.md`).
+- Scraping goes through `PortalScrapingService` subclasses with Guzzle + Symfony DomCrawler; parsing belongs in an extractor that validates and normalises before a controller sees it. Write actions re-read the portal page to confirm the result (`docs/portal-workflow-mapping.md`).
+- Long-running portal work goes into a queued job on the right Horizon queue (`sessions`, `default`, `background`; see `config/horizon.php` and `docs/deployment.md`).
+- Commit messages use the existing prefixes: `feat:`, `fix:`, `refactor:`, `chore:`, `docs:`, `ci:`, optionally with a scope such as `fix(scraping):`.
 
 ## Testing & Tooling Notes
-- Add unit tests under `tests/Unit` for service classes and feature tests under `tests/Feature` for API endpoints; fake campus responses with HTTP client fakes or Mockery stubs so the suite stays offline.
-- Use Laravel Pint (`./vendor/bin/pint`) for formatting and Pail for request logging when running the dev script.
-- Queue-related features should assume Horizon (`horizon:listen` in the dev script, Redis queues `sessions`, `default`, `background` from `config/horizon.php`) is active; surface failures through logs rather than silent retries.
-
-Please review these directions and let me know if any section needs clarification or more detail.
+- PHPUnit only (no Pest). Every change ships with a new or updated test; most are feature tests. Run the narrowest filter while iterating (`php artisan test --filter=...`), the whole suite serially before finishing (`--parallel` is not available).
+- Tests never reach the portal: `phpunit.xml` points every portal URL at `portal.invalid`, and `tests/TestCase.php` fails any portal request a test did not mock. Use the sanitised HTML fixtures in `tests/Fixtures/portal` (add new ones with `php artisan portal:capture-fixtures`) and Guzzle `MockHandler` or `Http::fake()`.
+- Browser specs (`tests/e2e`, `npm run test:e2e`) run against the `e2e` environment (`.env.e2e`, `bootstrap/e2e.php`, `routes/e2e.php`), which mocks every `/api/*` call in the browser. Node unit tests live in `tests/js` (`npm run test:js`).
 
 ===
 
