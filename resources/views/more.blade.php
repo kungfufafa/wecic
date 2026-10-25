@@ -73,10 +73,7 @@
 @endphp
 
 @section('content')
-    <header class="mb-4">
-        <h1 class="mycic-page-heading">Lainnya</h1>
-        <p class="mycic-page-subheading">Semua menu portal kampus di satu tempat. Angka merah atau kuning berarti ada yang perlu kamu urus.</p>
-    </header>
+    <x-page-header title="Lainnya" subtitle="Semua menu portal kampus di satu tempat. Angka merah atau kuning berarti ada yang perlu kamu urus." />
 
     <div class="flex flex-col gap-6">
         @foreach ($tileGroups as $group)

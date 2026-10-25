@@ -8,11 +8,9 @@
 @endphp
 
 @section('content')
-    <header class="mb-4">
-        <h1 class="mycic-page-heading">Keuangan</h1>
-        <p class="mycic-page-subheading">Tagihan aktif, tahap UKT, dan riwayat pembayaran dari portal kampus.</p>
+    <x-page-header title="Keuangan" subtitle="Tagihan aktif, tahap UKT, dan riwayat pembayaran dari portal kampus.">
         <p class="mt-1 min-h-4 text-caption text-ink-subtle" data-finance-updated></p>
-    </header>
+    </x-page-header>
 
     <div class="flex flex-col gap-5" id="finance-page" data-portal-finance-url="{{ $portalFinanceUrl }}">
         <div class="grid items-start gap-5 lg:grid-cols-12">
@@ -60,18 +58,16 @@
                     <div class="mycic-skeleton h-7 w-24"></div>
                 </div>
             </div>
-            <div class="mycic-metric">
-                <div class="mycic-metric-label">Transaksi</div>
-                <div class="mycic-metric-value" data-finance-metric="count">
+            <x-metric label="Transaksi">
+                <x-slot:value data-finance-metric="count">
                     <div class="mycic-skeleton h-7 w-12"></div>
-                </div>
-            </div>
-            <div class="mycic-metric">
-                <div class="mycic-metric-label">Terakhir</div>
-                <div class="mycic-metric-value truncate text-lg font-bold sm:text-xl" data-finance-metric="latest">
+                </x-slot:value>
+            </x-metric>
+            <x-metric label="Terakhir">
+                <x-slot:value class="truncate text-lg font-bold sm:text-xl" data-finance-metric="latest">
                     <div class="mycic-skeleton h-7 w-20"></div>
-                </div>
-            </div>
+                </x-slot:value>
+            </x-metric>
         </div>
 
         <section class="mycic-card" aria-labelledby="finance-history-title">

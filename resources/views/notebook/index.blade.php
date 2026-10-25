@@ -5,10 +5,7 @@
 @section('hide_sync_refresh', '1')
 
 @section('content')
-    <header class="mb-4">
-        <h1 class="mycic-page-heading">Notebook</h1>
-        <p class="mycic-page-subheading">Setiap mata kuliah yang kamu ambil punya notebook sendiri. Pertemuan yang kamu buka masuk sendiri ke notebooknya, sisanya bisa ditambahkan kapan saja. Lalu tanya apa saja, buat bahan belajar, atau susun kerangka tugas. Jawabannya hanya dari sumbermu, lengkap dengan rujukan ke halaman materinya.</p>
-    </header>
+    <x-page-header title="Notebook" subtitle="Setiap mata kuliah yang kamu ambil punya notebook sendiri. Pertemuan yang kamu buka masuk sendiri ke notebooknya, sisanya bisa ditambahkan kapan saja. Lalu tanya apa saja, buat bahan belajar, atau susun kerangka tugas. Jawabannya hanya dari sumbermu, lengkap dengan rujukan ke halaman materinya." />
 
     <div class="flex min-w-0 flex-col gap-6">
         {{-- One banner per reason the AI cannot answer (`ai_status` of /api/notebooks). --}}

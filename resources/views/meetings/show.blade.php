@@ -27,8 +27,8 @@
 
     <div class="grid gap-5 lg:grid-cols-12">
         <div class="space-y-5 lg:col-span-8" id="meeting-content">
-            <div class="mycic-card">
-                <div class="mycic-card-body flex flex-col gap-4">
+            <x-card>
+                <x-card.body class="flex flex-col gap-4">
                     <div class="flex items-center justify-between">
                         <div class="mycic-skeleton h-6 w-40"></div>
                         <div class="mycic-skeleton h-8 w-24 rounded-lg"></div>
@@ -39,44 +39,44 @@
                         <div class="mycic-skeleton h-4 w-4/6"></div>
                     </div>
                     <div class="mycic-skeleton h-20 w-full rounded-xl"></div>
-                </div>
-            </div>
+                </x-card.body>
+            </x-card>
 
-            <div class="mycic-card">
-                <div class="mycic-card-body flex flex-col gap-4">
+            <x-card>
+                <x-card.body class="flex flex-col gap-4">
                     <div class="flex items-center justify-between">
                         <div class="mycic-skeleton h-6 w-48"></div>
                         <div class="mycic-skeleton h-6 w-32 rounded-md"></div>
                     </div>
                     <div class="mycic-skeleton h-16 w-full rounded-xl"></div>
-                </div>
-            </div>
+                </x-card.body>
+            </x-card>
         </div>
 
         <div class="space-y-5 order-first lg:order-none lg:col-span-4" id="meeting-actions">
-            <div class="mycic-card">
-                <div class="mycic-card-header">
+            <x-card>
+                <x-card.header>
                     <div class="mycic-skeleton h-5 w-28"></div>
-                </div>
-                <div class="mycic-card-body flex flex-col gap-3">
+                </x-card.header>
+                <x-card.body class="flex flex-col gap-3">
                     <div class="mycic-skeleton h-10 w-full rounded-lg"></div>
                     <div class="grid grid-cols-2 gap-2">
                         <div class="mycic-skeleton h-10 rounded-lg"></div>
                         <div class="mycic-skeleton h-10 rounded-lg"></div>
                     </div>
                     <div class="mycic-skeleton h-11 w-full rounded-lg"></div>
-                </div>
-            </div>
+                </x-card.body>
+            </x-card>
 
-            <div class="mycic-card">
-                <div class="mycic-card-header">
+            <x-card>
+                <x-card.header>
                     <div class="mycic-skeleton h-5 w-24"></div>
-                </div>
-                <div class="mycic-card-body flex flex-col gap-3">
+                </x-card.header>
+                <x-card.body class="flex flex-col gap-3">
                     <div class="mycic-skeleton h-24 w-full rounded-xl"></div>
                     <div class="mycic-skeleton h-11 w-full rounded-lg"></div>
-                </div>
-            </div>
+                </x-card.body>
+            </x-card>
         </div>
     </div>
 @endsection

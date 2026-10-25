@@ -8,11 +8,9 @@
 @endphp
 
 @section('content')
-    <header class="mb-4">
-        <h1 class="mycic-page-heading">SKKM</h1>
-        <p class="mycic-page-subheading">Poin kegiatan mahasiswa (SIREKA) dari portal kampus, lengkap dengan status validasi DPA.</p>
+    <x-page-header title="SKKM" subtitle="Poin kegiatan mahasiswa (SIREKA) dari portal kampus, lengkap dengan status validasi DPA.">
         <p class="mt-1 min-h-4 text-caption text-ink-subtle" data-skkm-updated></p>
-    </header>
+    </x-page-header>
 
     <div class="grid items-start gap-5 lg:grid-cols-12" data-portal-url="{{ config('portal.base_url') }}" id="skkm-page">
         <div class="flex min-w-0 flex-col gap-5 lg:col-span-8">

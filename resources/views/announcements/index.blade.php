@@ -4,11 +4,9 @@
 @section('page_id', 'announcement-index')
 
 @section('content')
-    <header class="mb-4">
-        <h1 class="mycic-page-heading">Pengumuman</h1>
-        <p class="mycic-page-subheading">Info resmi kampus dari portal. Tenggat terdekat selalu ada di paling atas.</p>
+    <x-page-header title="Pengumuman" subtitle="Info resmi kampus dari portal. Tenggat terdekat selalu ada di paling atas.">
         <p class="mt-1 min-h-4 text-caption text-ink-subtle" data-announcement-updated></p>
-    </header>
+    </x-page-header>
 
     <div class="flex flex-col gap-5">
         <div id="announcement-notice" class="empty:hidden"></div>

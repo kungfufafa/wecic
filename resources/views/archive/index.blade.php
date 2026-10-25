@@ -4,10 +4,7 @@
 @section('page_id', 'archive-index')
 
 @section('content')
-    <header class="mb-4">
-        <h1 class="mycic-page-heading">Arsip MyCIC</h1>
-        <p class="mycic-page-subheading">Cadangan data portal kampus milikmu. Tetap bisa dibuka saat portal bermasalah, dan jadi bukti kalau data di portal tiba-tiba berubah atau hilang.</p>
-    </header>
+    <x-page-header title="Arsip MyCIC" subtitle="Cadangan data portal kampus milikmu. Tetap bisa dibuka saat portal bermasalah, dan jadi bukti kalau data di portal tiba-tiba berubah atau hilang." />
 
     <div class="flex min-w-0 flex-col gap-6">
         <section aria-labelledby="archive-attention-title" id="archive-attention" class="hidden">

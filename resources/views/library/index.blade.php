@@ -4,11 +4,9 @@
 @section('page_id', 'library-index')
 
 @section('content')
-    <header class="mb-4">
-        <h1 class="mycic-page-heading">Perpustakaan</h1>
-        <p class="mycic-page-subheading">Repositori skripsi kampus yang bisa dicari, plus perpustakaan digital dari halaman e-Book Portal Kampus.</p>
+    <x-page-header title="Perpustakaan" subtitle="Repositori skripsi kampus yang bisa dicari, plus perpustakaan digital dari halaman e-Book Portal Kampus.">
         <p class="mt-1 min-h-4 text-caption text-ink-subtle" data-library-updated></p>
-    </header>
+    </x-page-header>
 
     <div class="grid items-start gap-5 lg:grid-cols-12">
         <div class="flex min-w-0 flex-col gap-5 lg:col-span-7">

@@ -4,10 +4,7 @@
 @section('page_id', 'notification-index')
 
 @section('content')
-    <header class="mb-4">
-        <h1 class="mycic-page-heading">Notifikasi</h1>
-        <p class="mycic-page-subheading">Perubahan di portal kampus dan tenggat yang mendekat, tanpa perlu membuka portal.</p>
-    </header>
+    <x-page-header title="Notifikasi" subtitle="Perubahan di portal kampus dan tenggat yang mendekat, tanpa perlu membuka portal." />
 
     <section class="flex min-w-0 flex-col gap-3" aria-labelledby="notification-list-title">
         <h2 class="sr-only" id="notification-list-title" tabindex="-1">Daftar notifikasi</h2>

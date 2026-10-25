@@ -8,11 +8,9 @@
 @endphp
 
 @section('content')
-    <header class="mb-4">
-        <h1 class="mycic-page-heading">Skripsi</h1>
-        <p class="mycic-page-subheading">Status e-Skripsi, kesiapan kamu, serta syarat dan SOP Tugas Akhir dari SiMASITA di Portal Kampus.</p>
+    <x-page-header title="Skripsi" subtitle="Status e-Skripsi, kesiapan kamu, serta syarat dan SOP Tugas Akhir dari SiMASITA di Portal Kampus.">
         <p class="mt-1 min-h-4 text-caption text-ink-subtle" data-thesis-updated></p>
-    </header>
+    </x-page-header>
 
     <div class="grid items-start gap-5 lg:grid-cols-12" id="thesis-page" data-portal-thesis-url="{{ $portalThesisUrl }}">
         <div class="flex min-w-0 flex-col gap-5 lg:col-span-7">

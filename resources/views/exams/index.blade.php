@@ -4,26 +4,21 @@
 @section('page_id', 'exam-index')
 
 @section('content')
-    <header class="mb-4">
-        <h1 class="mycic-page-heading">Ujian</h1>
-    </header>
+    <x-page-header title="Ujian" />
 
     {{-- Exam answers queued while offline: not at the portal yet. --}}
     <div class="mb-5 hidden" data-outbox-list data-outbox-match="action:exam_upload" data-outbox-heading="Antrean offline ujian"></div>
 
     <div id="exam-summary" class="mb-5 grid grid-cols-3 gap-3">
         @foreach (['Total', 'Jadwal', 'Terkirim'] as $label)
-            <div class="mycic-metric">
-                <div class="mycic-metric-label">{{ $label }}</div>
-                <div class="mycic-metric-value" data-exam-metric>-</div>
-            </div>
+            <x-metric :label="$label">
+                <x-slot:value data-exam-metric="">-</x-slot:value>
+            </x-metric>
         @endforeach
     </div>
 
     <div class="flex flex-col gap-3" id="exam-list">
-        <div class="mycic-empty py-8">
-            <p class="mycic-empty-title text-ink-subtle">Memuat ujian...</p>
-        </div>
+        <x-empty-state class="py-8" title="Memuat ujian..." title-class="text-ink-subtle" />
     </div>
 @endsection
 

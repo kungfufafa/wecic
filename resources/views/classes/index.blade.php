@@ -4,29 +4,25 @@
 @section('page_id', 'class-index')
 
 @section('content')
-    <header class="mb-4 flex items-center justify-between gap-3">
-        <h1 class="mycic-page-heading">Jadwal & Kelas</h1>
-        <a href="{{ route('exam.index') }}" class="mycic-btn-secondary-sm relative min-h-11 shrink-0 sm:min-h-9">
+    <x-page-header title="Jadwal & Kelas" class="flex items-center justify-between gap-3">
+        <x-button :href="route('exam.index')" variant="secondary" size="sm" class="relative min-h-11 shrink-0 sm:min-h-9">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3v4a1 1 0 0 0 1 1h4" /><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z" /><path d="M9 15l2 2l4 -4" /></svg>
             Ujian
             <span class="mycic-nav-badge hidden" data-nav-badge="exam"></span>
-        </a>
-    </header>
+        </x-button>
+    </x-page-header>
 
     <div id="class-summary" class="mb-5 grid grid-cols-3 gap-3">
-        <div class="mycic-metric">
-            <div class="mycic-metric-label">Kelas</div>
-            <div class="mycic-metric-value" data-summary-value><div class="mycic-skeleton h-6 w-12"></div></div>
-        </div>
-        <div class="mycic-metric">
-            <div class="mycic-metric-label">Semester</div>
-            <div class="mycic-metric-value" data-summary-value><div class="mycic-skeleton h-6 w-16"></div></div>
-        </div>
-        <div class="mycic-metric">
-            <div class="mycic-metric-label">Hari aktif</div>
-            <div class="mycic-metric-value" id="summary-active-days"><div class="mycic-skeleton h-6 w-16"></div></div>
-            <div class="mycic-metric-note" id="summary-total-hours"></div>
-        </div>
+        <x-metric label="Kelas">
+            <x-slot:value data-summary-value=""><div class="mycic-skeleton h-6 w-12"></div></x-slot:value>
+        </x-metric>
+        <x-metric label="Semester">
+            <x-slot:value data-summary-value=""><div class="mycic-skeleton h-6 w-16"></div></x-slot:value>
+        </x-metric>
+        <x-metric label="Hari aktif">
+            <x-slot:value id="summary-active-days"><div class="mycic-skeleton h-6 w-16"></div></x-slot:value>
+            <x-slot:note id="summary-total-hours"></x-slot:note>
+        </x-metric>
     </div>
 
     <div id="day-summary-strip" class="mb-5 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
@@ -34,20 +30,20 @@
     </div>
 
     <div class="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div class="inline-flex shrink-0 items-center gap-1 p-1 bg-surface rounded-xl border border-border/40 overflow-x-auto max-w-full" id="view-mode-tabs" role="tablist">
-            <button type="button" class="mycic-view-tab inline-flex items-center gap-1.5 min-h-10 whitespace-nowrap px-3 py-2 text-xs sm:text-sm font-bold rounded-lg transition-all bg-panel text-brand shadow-xs border border-border/40" data-view-target="blocking" role="tab" aria-selected="true" aria-controls="view-blocking" id="tab-blocking">
+        <x-view-tabs as="div" class="shrink-0" id="view-mode-tabs" role="tablist">
+            <x-view-tab :active="true" data-view-target="blocking" aria-controls="view-blocking" id="tab-blocking">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
                 <span>Grid</span>
-            </button>
-            <button type="button" class="mycic-view-tab inline-flex items-center gap-1.5 min-h-10 whitespace-nowrap px-3 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all text-ink-muted hover:text-ink" data-view-target="timeline" role="tab" aria-selected="false" aria-controls="view-timeline" id="tab-timeline">
+            </x-view-tab>
+            <x-view-tab data-view-target="timeline" aria-controls="view-timeline" id="tab-timeline">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9" /><polyline points="12 7 12 12 15 15" /></svg>
                 <span>Timeline</span>
-            </button>
-            <button type="button" class="mycic-view-tab inline-flex items-center gap-1.5 min-h-10 whitespace-nowrap px-3 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all text-ink-muted hover:text-ink" data-view-target="list" role="tab" aria-selected="false" aria-controls="view-list" id="tab-list">
+            </x-view-tab>
+            <x-view-tab data-view-target="list" aria-controls="view-list" id="tab-list">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" /><line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" /></svg>
                 <span>Daftar</span>
-            </button>
-        </div>
+            </x-view-tab>
+        </x-view-tabs>
 
         <div class="mycic-input-wrap w-full sm:w-64">
             <span class="mycic-input-icon">
@@ -65,30 +61,24 @@
     </div>
 
     <div id="view-blocking" class="view-panel mb-6" role="tabpanel" aria-labelledby="tab-blocking">
-        <div class="mycic-card overflow-hidden">
+        <x-card class="overflow-hidden">
             <div id="blocking-grid-container" class="overflow-x-auto p-2 sm:p-4">
-                <div class="mycic-empty py-12">
-                    <p class="mycic-empty-title text-ink-subtle">Memuat jadwal...</p>
-                </div>
+                <x-empty-state class="py-12" title="Memuat jadwal..." title-class="text-ink-subtle" />
             </div>
-        </div>
+        </x-card>
     </div>
 
     <!-- View Container 2: Timeline & Jam Kosong -->
     <div id="view-timeline" class="view-panel mb-6 hidden" role="tabpanel" aria-labelledby="tab-timeline">
         <div id="timeline-container" class="flex flex-col gap-4">
-            <div class="mycic-empty py-12">
-                <p class="mycic-empty-title text-ink-subtle">Memuat jadwal...</p>
-            </div>
+            <x-empty-state class="py-12" title="Memuat jadwal..." title-class="text-ink-subtle" />
         </div>
     </div>
 
     <!-- View Container 3: Daftar Kelas Asli (List View) -->
     <div id="view-list" class="view-panel mb-6 hidden" role="tabpanel" aria-labelledby="tab-list">
         <div class="mb-4 flex flex-col gap-3" id="class-list">
-            <div class="mycic-empty py-8">
-                <p class="mycic-empty-title text-ink-subtle">Memuat jadwal...</p>
-            </div>
+            <x-empty-state class="py-8" title="Memuat jadwal..." title-class="text-ink-subtle" />
         </div>
     </div>
 
@@ -134,8 +124,8 @@
                 </div>
 
                 <div class="flex items-center gap-2 pt-2 border-t border-border-light">
-                    <a href="#" class="mycic-btn-primary-sm flex-1 text-center justify-center" id="modal-btn-open-class">Buka Ruang Kelas</a>
-                    <button type="button" class="mycic-btn-secondary-sm" id="modal-btn-toggle-meeting">Lihat pertemuan</button>
+                    <x-button href="#" size="sm" class="flex-1 text-center justify-center" id="modal-btn-open-class">Buka Ruang Kelas</x-button>
+                    <x-button variant="secondary" size="sm" id="modal-btn-toggle-meeting">Lihat pertemuan</x-button>
                 </div>
 
                 <div class="hidden" id="modal-meeting-panel"></div>

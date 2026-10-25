@@ -43,89 +43,73 @@
         </section>
 
         <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <div class="mycic-metric">
-                <div class="mycic-metric-label">NIM</div>
-                <div class="mycic-metric-value text-base sm:text-lg font-mono" id="quick-nim">
+            <x-metric label="NIM">
+                <x-slot:value class="text-base sm:text-lg font-mono" id="quick-nim">
                     <div class="mycic-skeleton h-6 w-24"></div>
-                </div>
-            </div>
-            <div class="mycic-metric">
-                <div class="mycic-metric-label">Prodi</div>
-                <div class="mycic-metric-value text-base sm:text-lg line-clamp-2 leading-tight" id="quick-prodi">
+                </x-slot:value>
+            </x-metric>
+            <x-metric label="Prodi">
+                <x-slot:value class="text-base sm:text-lg line-clamp-2 leading-tight" id="quick-prodi">
                     <div class="mycic-skeleton h-6 w-28"></div>
-                </div>
-            </div>
-            <div class="mycic-metric">
-                <div class="mycic-metric-label">Angkatan</div>
-                <div class="mycic-metric-value text-base sm:text-lg" id="quick-angkatan">
+                </x-slot:value>
+            </x-metric>
+            <x-metric label="Angkatan">
+                <x-slot:value class="text-base sm:text-lg" id="quick-angkatan">
                     <div class="mycic-skeleton h-6 w-16"></div>
-                </div>
-            </div>
-            <div class="mycic-metric">
-                <div class="mycic-metric-label">Status</div>
-                <div class="mycic-metric-value text-base sm:text-lg" id="quick-status">
+                </x-slot:value>
+            </x-metric>
+            <x-metric label="Status">
+                <x-slot:value class="text-base sm:text-lg" id="quick-status">
                     <div class="mycic-skeleton h-6 w-20"></div>
-                </div>
-            </div>
+                </x-slot:value>
+            </x-metric>
         </div>
 
         <div class="grid grid-cols-1 gap-5 lg:grid-cols-2">
             <div class="flex flex-col gap-5">
-                <div class="mycic-card">
-                    <div class="mycic-card-header">
-                        <h2 class="mycic-card-title">Data pribadi</h2>
-                    </div>
-                    <div class="mycic-card-body" id="profile-personal">
+                <x-card title="Data pribadi">
+                    <x-card.body id="profile-personal">
                         <div class="flex flex-col gap-3">
                             <div class="mycic-skeleton h-4 w-3/4"></div>
                             <div class="mycic-skeleton h-4 w-1/2"></div>
                             <div class="mycic-skeleton h-4 w-2/3"></div>
                         </div>
-                    </div>
-                </div>
+                    </x-card.body>
+                </x-card>
 
-                <div class="mycic-card">
-                    <div class="mycic-card-header">
-                        <h2 class="mycic-card-title">Pendidikan</h2>
-                    </div>
-                    <div class="mycic-card-body" id="profile-education">
+                <x-card title="Pendidikan">
+                    <x-card.body id="profile-education">
                         <div class="flex flex-col gap-3">
                             <div class="mycic-skeleton h-4 w-3/4"></div>
                             <div class="mycic-skeleton h-4 w-1/2"></div>
                         </div>
-                    </div>
-                </div>
+                    </x-card.body>
+                </x-card>
             </div>
 
             <div class="flex flex-col gap-5">
-                <div class="mycic-card">
-                    <div class="mycic-card-header">
-                        <h2 class="mycic-card-title">Kontak</h2>
-                    </div>
-                    <div class="mycic-card-body" id="profile-contact">
+                <x-card title="Kontak">
+                    <x-card.body id="profile-contact">
                         <div class="flex flex-col gap-3">
                             <div class="mycic-skeleton h-4 w-3/4"></div>
                             <div class="mycic-skeleton h-4 w-1/2"></div>
                             <div class="mycic-skeleton h-4 w-2/3"></div>
                         </div>
-                    </div>
-                </div>
+                    </x-card.body>
+                </x-card>
 
-                <div class="mycic-card">
-                    <div class="mycic-card-header">
-                        <h2 class="mycic-card-title">Keamanan</h2>
-                    </div>
-                    <div class="mycic-card-body flex flex-col gap-3">
+                <x-card title="Keamanan">
+                    <x-card.body class="flex flex-col gap-3">
                         <div class="flex items-center justify-between gap-4 py-2 border-b border-border-light">
                             <div class="text-sm font-semibold text-ink">Password</div>
-                            <a href="{{ route('password.edit') }}" class="mycic-btn-secondary-sm shrink-0">Ubah</a>
+                            <x-button :href="route('password.edit')" variant="secondary" size="sm" class="shrink-0">Ubah</x-button>
                         </div>
                         <div class="flex items-center justify-between gap-4 py-2">
                             <div class="text-sm font-semibold text-ink">Portal kampus</div>
-                            <a href="{{ config('portal.base_url') }}" target="_blank" rel="noopener noreferrer" class="mycic-btn-secondary-sm shrink-0">Buka</a>
+                            <x-button :href="config('portal.base_url')" target="_blank" rel="noopener noreferrer" variant="secondary" size="sm" class="shrink-0">Buka</x-button>
                         </div>
-                    </div>
-                </div>
+                    </x-card.body>
+                </x-card>
             </div>
         </div>
     </div>
