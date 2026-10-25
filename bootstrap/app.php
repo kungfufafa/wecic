@@ -1,6 +1,7 @@
 <?php
 
 use App\Exceptions\ApiExceptionRenderer;
+use App\Services\PortalDemoFixtures;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -21,6 +22,12 @@ return Application::configure(basePath: dirname(__DIR__))
             // Browser-test helpers (fake sign-in), in the e2e environment only.
             if ($app->environment('e2e')) {
                 Route::middleware('web')->group(__DIR__.'/../routes/e2e.php');
+            }
+
+            // The demo sign-in of a checkout without a CIC account, in the
+            // local environment with PORTAL_DEMO=true only.
+            if (PortalDemoFixtures::enabledIn($app)) {
+                Route::middleware('web')->group(__DIR__.'/../routes/demo.php');
             }
         },
     )
@@ -74,10 +81,16 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->respond(ApiExceptionRenderer::respond(...));
     })
     // Browser-test guards (no portal, no Vite dev server), in the e2e
-    // environment only; set while booting, so a cached route list keeps them.
+    // environment only, and the demo mode's fixture portal (local with
+    // PORTAL_DEMO=true only); set while booting, so a cached route list
+    // keeps them.
     ->booting(function (Application $app): void {
         if ($app->environment('e2e')) {
             (require __DIR__.'/e2e.php')($app);
+        }
+
+        if (PortalDemoFixtures::enabledIn($app)) {
+            (require __DIR__.'/demo.php')($app);
         }
     })
     ->create();

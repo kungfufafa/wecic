@@ -36,6 +36,7 @@
         <env name="CAMPUS_SIPANDAI_ASSIGNMENT_URL" value="https://portal.invalid/portal/sipandai/?mod=sipandai&amp;act=send" force="true"/>
         <env name="CAMPUS_SIPANDAI_ATTENDANCE_URL" value="https://portal.invalid/portal/sipandai/views/validasi/demo.php" force="true"/>
         <env name="CAMPUS_SECURE_DNS_URL" value="" force="true"/>
+        <env name="PORTAL_DEMO" value="false" force="true"/>
         <!-- No real Gemini key: a test that needs one sets services.gemini.key and fakes the HTTP calls. -->
         <env name="GEMINI_API_KEY" value="" force="true"/>
         <!-- Broadcasts go nowhere (quoted, like LOG_CHANNEL); PortalBroadcastingTest boots with the reverb broadcaster it tests. -->
