@@ -1370,6 +1370,21 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Demo Mode (Local Only)
+    |--------------------------------------------------------------------------
+    |
+    | With `demo` on in the local environment, the login page offers a demo
+    | sign-in that needs no CIC account, and every portal client answers
+    | from the sanitized fixture pages of tests/Fixtures/portal instead of
+    | the campus portal (bootstrap/demo.php, routes/demo.php,
+    | PortalDemoFixtures). Every other environment ignores the flag.
+    |
+    */
+
+    'demo' => (bool) env('PORTAL_DEMO', false),
+
+    /*
+    |--------------------------------------------------------------------------
     | Maintainers (Horizon and Log Viewer)
     |--------------------------------------------------------------------------
     |

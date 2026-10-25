@@ -119,6 +119,19 @@
                     </button>
                 </form>
 
+                @if (App\Services\PortalDemoFixtures::enabledIn(app()) && Route::has('demo.session.start'))
+                    {{-- Local demo mode (PORTAL_DEMO=true): a session on the fixture pages, without the portal. --}}
+                    <form id="demo-login-form" class="mt-4" method="post" action="{{ route('demo.session.start') }}">
+                        @csrf
+                        <button id="demo-login-submit" type="submit" class="mycic-btn-secondary mycic-btn-block min-h-12">
+                            Masuk sebagai mahasiswa demo
+                        </button>
+                        <p class="mt-2 text-center text-xs text-ink-subtle">
+                            Mode demo lokal: data dari <code>tests/Fixtures/portal</code>, tidak menghubungi portal kampus.
+                        </p>
+                    </form>
+                @endif
+
                 <p class="mycic-legal-text mt-8">
                     Dengan masuk, Anda menyetujui penggunaan layanan akademik sesuai kebijakan kampus.
                 </p>
