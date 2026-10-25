@@ -951,7 +951,7 @@ Konvensi nama untuk fitur baru:
   - `target_sks = sks_terkumpul + sisa_sks`, ditulis `<target_sks>`. Jangan di-hardcode.
   - `computed`: IPK dan seri IPS dari `grades` (K8), dicocokkan dengan nilai resmi.
   - `transcript_rows[]` dari semua semester. `current_load_sks` diambil dari `krs`.
-- **Cakupan MyCIC**: belum ada. IPK di dashboard rusak (lihat F15); `ui-generation-prompt.md:27` meminta IPK dan SKS tanpa sumber nyata.
+- **Cakupan MyCIC**: belum ada. IPK di dashboard rusak (lihat F15); prompt UI awal (Juni 2026, sudah dihapus) meminta IPK dan SKS tanpa sumber nyata.
 - **UX**: `/transcript`.
   - Hero IPK dengan progress bar SKS bersegmen: lulus (solid), sedang ditempuh (striped), dan sisa. Label "x dari `<target_sks>` SKS".
   - Sparkline IPS (chart penuh di md+), dengan titik semester tanpa nilai dihilangkan.
@@ -1645,7 +1645,7 @@ Ketiga fitur keuangan memakai satu `GET M act=keuangan` (endpoint `student_finan
 - **Data turunan**: `finance_status {outstanding_summary, current_study_year, current_year_stages_paid[], stage1_paid_for_current_year, next_stage, active_deadline?{stage, date, source, is_future}}`.
   - `stage1_paid_for_current_year` hanya dihitung untuk `tahun ke` berjalan (`current_study_year`) dan bernilai `true | false | 'unknown'`. Bila tahap 1 tahun berjalan tidak ada di histori dan tidak ada tagihan aktif (F34), nilainya `'unknown'`, bukan `false`, sehingga item checklist "UKT tahap 1 lunas" di F10 tampil "belum bisa dipastikan" alih-alih "belum lunas". Tahap tahun lampau yang tidak tercatat tidak memengaruhi nilai ini (lihat aturan `unknown` di F35).
 - **Cakupan MyCIC**:
-  - Bukti: `dashboard.blade.php:18-24` hanya menampilkan Matkul, IPK, SKS (`ui-generation-prompt.md:27` meminta "tagihan").
+  - Bukti: `dashboard.blade.php:18-24` hanya menampilkan Matkul, IPK, SKS (prompt UI awal (Juni 2026, sudah dihapus) meminta "tagihan").
   - Gap: tidak ada penanganan state "akun diblokir", pengingat tenggat, maupun checklist syarat keuangan.
 - **UX**:
   - Metric "Tagihan" (K11).

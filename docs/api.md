@@ -1,5 +1,7 @@
 # API MyCIC
 
+Klien mobile (token bearer, push, aplikasi Expo): lihat [mobile.md](mobile.md).
+
 ## Daftar Endpoint
 Daftar lengkap dan selalu terbaru ada di dokumentasi Scramble (`/docs/api`, beserta skema request/response) dan di `php artisan route:list`. Gambaran singkatnya:
 
