@@ -11,7 +11,8 @@
             app.primeCachedView('/api/dashboard', renderDashboard, 'ringkasan beranda');
 
             const ready = await app.ensureAuthenticated();
-            let dashboardOverviewHealthy = false;
+            // The last schedule read that answered, so the task list can put its line back.
+            let dashboardSync = null;
 
             if (!ready) {
                 return;
@@ -23,10 +24,10 @@
                 try {
                     const payload = await app.request('/api/dashboard', { fresh: force, background });
                     renderDashboard(payload);
-                    dashboardOverviewHealthy = true;
+                    dashboardSync = { payload, force };
                     app.markViewSynced('Beranda', payload, { force });
                 } catch (error) {
-                    dashboardOverviewHealthy = false;
+                    dashboardSync = null;
                     app.setSyncStatus('Gagal memuat beranda.', 'error');
                     if (periodHost.hasAttribute('aria-busy')) {
                         renderPeriod(null, []);
@@ -78,8 +79,11 @@
                         void loadActionCenter({ background });
                     }
 
-                    if (dashboardOverviewHealthy) {
-                        app.markViewSynced('Tugas', payload, { force });
+                    // The strip keeps the schedule's age, not the task list's: the task crawl
+                    // visits every class and meeting page, so its older time would read as a
+                    // stale schedule. Writing it again also clears an earlier "Gagal memuat tugas."
+                    if (dashboardSync) {
+                        app.markViewSynced('Beranda', dashboardSync.payload, { force: dashboardSync.force });
                     }
                 } catch (error) {
                     app.setSyncStatus('Gagal memuat tugas.', 'error');

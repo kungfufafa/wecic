@@ -58,20 +58,19 @@ const reads = (path) => browser.requests.filter((request) => request.url.pathnam
 const paths = () => browser.requests.map((request) => request.url.pathname).sort();
 
 /**
- * A Beranda whose server answers every read, unless `hold(path)` says to
- * keep that read waiting.
+ * A Beranda whose server answers every read with `respond(request)`, unless
+ * `hold(request)` says to keep that read waiting.
  */
-async function openDashboard({ today = { value: '2026-10-22' }, renderedDay = '2026-10-22', hold = () => false, latestActionPayload = null } = {}) {
+async function openDashboard({ today = { value: '2026-10-22' }, renderedDay = '2026-10-22', hold = () => false, respond = () => json(200, { status: 'success', data: {}, meta: {} }), latestActionPayload = null } = {}) {
     const created = await createPortalApp({ url: '/dashboard', page: 'dashboard' });
     const intervals = [];
     const document = new EventTarget();
 
     browser = created.browser;
     app = created.app;
-    browser.server = (request) => (hold(request)
-        ? new Promise(() => {})
-        : json(200, { status: 'success', data: {}, meta: {} }));
+    browser.server = (request) => (hold(request) ? new Promise(() => {}) : respond(request));
     document.visibilityState = 'visible';
+    document.getElementById = (id) => browser.document.getElementById(id);
 
     const scope = {
         app,
@@ -100,7 +99,7 @@ async function openDashboard({ today = { value: '2026-10-22' }, renderedDay = '2
         actionsHost: { removeAttribute: () => {} },
         announcementsHost: { removeAttribute: () => {} },
         announcementsRendered: false,
-        dashboardOverviewHealthy: false,
+        dashboardSync: null,
         latestClassesSummary: null,
         latestActionPayload,
         latestAnnouncementPayload: null,
@@ -232,5 +231,77 @@ describe('Beranda reads the student starts while a re-read is still waiting', ()
         await settle();
 
         assert.deepEqual(reads('/api/announcement').map(marked), [true, false]);
+    });
+});
+
+describe('Beranda sync strip', () => {
+    const minutesAgo = (minutes) => new Date(Date.now() - minutes * 60000).toISOString();
+
+    /**
+     * A Beranda whose schedule synced 2 minutes ago and whose task list, a
+     * crawl of every class and meeting page, 19 minutes ago and is still being
+     * rebuilt; `fail(request)` answers a read with a server error instead.
+     */
+    async function openWithStrip({ scheduleStatus = 'synced', fail = () => false } = {}) {
+        const meta = {
+            '/api/dashboard': { data_origin: 'snapshot', status: scheduleStatus, synced_at: minutesAgo(2) },
+            '/api/assignment/pending': { data_origin: 'snapshot', status: 'syncing', synced_at: minutesAgo(19) },
+        };
+        const page = await openDashboard({
+            respond: (request) => (fail(request)
+                ? json(500, { status: 'error', message: 'Portal lambat.' })
+                : json(200, { status: 'success', data: {}, meta: meta[request.url.pathname] || {} })),
+        });
+
+        browser.element('div', { 'data-sync-alert': '', class: 'mycic-sync-strip' });
+        browser.element('span', { 'data-sync-status': '' });
+
+        return page;
+    }
+
+    const line = () => browser.document.querySelector('[data-sync-status]');
+
+    it('keeps the schedule\'s age once the task list has answered', async () => {
+        const page = await openWithStrip();
+
+        await page.loadDashboard();
+        await page.loadPendingAssignments();
+
+        assert.equal(line().textContent, 'Data diperbarui 2 menit lalu');
+        assert.equal(line().dataset.tone, 'info');
+    });
+
+    it('keeps how a forced schedule read was described', async () => {
+        const page = await openWithStrip({ scheduleStatus: 'syncing' });
+
+        await page.loadDashboard({ force: true });
+        await page.loadPendingAssignments();
+
+        assert.equal(line().textContent, 'Data diperbarui 2 menit lalu', 'not the unforced "· sedang diperbarui dari portal"');
+        assert.equal(line().dataset.tone, 'success');
+    });
+
+    it('leaves a failed schedule read on the strip', async () => {
+        const page = await openWithStrip({ fail: (request) => request.url.pathname === '/api/dashboard' });
+
+        await page.loadDashboard();
+        await page.loadPendingAssignments();
+
+        assert.equal(line().textContent, 'Gagal memuat beranda.');
+        assert.equal(line().dataset.tone, 'error');
+    });
+
+    it('puts the schedule\'s age back once a failed task list loads again', async () => {
+        let tasksDown = true;
+        const page = await openWithStrip({ fail: (request) => tasksDown && request.url.pathname === '/api/assignment/pending' });
+
+        await page.loadDashboard();
+        await page.loadPendingAssignments();
+        assert.equal(line().textContent, 'Gagal memuat tugas.');
+
+        tasksDown = false;
+        await page.loadPendingAssignments();
+
+        assert.equal(line().textContent, 'Data diperbarui 2 menit lalu');
     });
 });
