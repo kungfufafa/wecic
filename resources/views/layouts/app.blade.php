@@ -164,19 +164,7 @@
 
                 <nav class="mycic-top-nav" aria-label="Navigasi utama">
                     @foreach ($desktopNavigation as $item)
-                        <a
-                            href="{{ $item['href'] }}"
-                            class="mycic-top-nav-link {{ $item['active'] ? 'mycic-top-nav-link-active' : '' }}"
-                            title="{{ $item['label'] }}"
-                            data-nav-slot="{{ $item['badge'] }}"
-                            @if($item['active']) aria-current="page" @endif
-                        >
-                            <span class="relative inline-flex">
-                                {!! $item['icon'] !!}
-                                <span class="mycic-nav-badge hidden" data-nav-badge="{{ $item['badge'] }}"></span>
-                            </span>
-                            <span class="sr-only lg:not-sr-only">{{ $item['label'] }}</span>
-                        </a>
+                        <x-nav.top-link :href="$item['href']" :label="$item['label']" :icon="$item['icon']" :badge="$item['badge']" :active="$item['active']" />
                     @endforeach
 
                     <div class="mycic-dropdown" data-dropdown>
@@ -333,7 +321,7 @@
                             <span class="block font-bold">Mode offline</span>
                             <span class="block text-sm">Portal kampus tidak bisa diakses saat kamu masuk. Data diambil dari arsip MyCIC. Absen dan upload yang kamu kirim disimpan dulu di antrean MyCIC (belum terkirim ke portal) dan dikirim otomatis begitu portal pulih, selama tenggatnya belum lewat; sinkronisasi menunggu. <span data-portal-offline-reconnect-text>{{ \App\Http\Controllers\API\PortalAuthController::offlineReconnectMessage(session('campus_offline_reconnect')) }}</span></span>
                         </span>
-                        <button type="button" class="mycic-btn-secondary-sm" data-logout>Masuk ulang</button>
+                        <x-button variant="secondary" size="sm" data-logout="">Masuk ulang</x-button>
                     </div>
                 @endif
 
@@ -345,18 +333,7 @@
         <nav class="mycic-bottom-nav print:hidden" aria-label="Navigasi mobile">
             <div class="flex">
                 @foreach ($mobileNavigation['start'] as $item)
-                    <a
-                        href="{{ $item['href'] }}"
-                        class="mycic-bottom-nav-item {{ $item['active'] ? 'mycic-bottom-nav-item-active' : 'mycic-bottom-nav-item-inactive' }}"
-                        data-nav-slot="{{ $item['badge'] }}"
-                        @if($item['active']) aria-current="page" @endif
-                    >
-                        <span class="mycic-nav-icon">
-                            {!! $item['icon'] !!}
-                            <span class="mycic-nav-badge hidden" data-nav-badge="{{ $item['badge'] }}"></span>
-                        </span>
-                        <span>{{ $item['label'] }}</span>
-                    </a>
+                    <x-nav.bottom-item :href="$item['href']" :label="$item['label']" :icon="$item['icon']" :badge="$item['badge']" :active="$item['active']" />
                 @endforeach
 
                 <div class="mycic-bottom-nav-item mycic-bottom-nav-item-center" data-nav-slot="absen">
@@ -367,18 +344,7 @@
                 </div>
 
                 @foreach ($mobileNavigation['end'] as $item)
-                    <a
-                        href="{{ $item['href'] }}"
-                        class="mycic-bottom-nav-item {{ $item['active'] ? 'mycic-bottom-nav-item-active' : 'mycic-bottom-nav-item-inactive' }}"
-                        data-nav-slot="{{ $item['badge'] }}"
-                        @if($item['active']) aria-current="page" @endif
-                    >
-                        <span class="mycic-nav-icon">
-                            {!! $item['icon'] !!}
-                            <span class="mycic-nav-badge hidden" data-nav-badge="{{ $item['badge'] }}"></span>
-                        </span>
-                        <span>{{ $item['label'] }}</span>
-                    </a>
+                    <x-nav.bottom-item :href="$item['href']" :label="$item['label']" :icon="$item['icon']" :badge="$item['badge']" :active="$item['active']" />
                 @endforeach
             </div>
         </nav>
