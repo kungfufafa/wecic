@@ -12,6 +12,8 @@ use Tests\TestCase;
 
 class PortalActionProjectorTest extends TestCase
 {
+    private const CLASS_PARAMS = ['id' => '5393', 'dosen_id' => '1863', 'course_id' => '8833'];
+
     private PortalSnapshotStore $snapshots;
 
     private PortalActionProjector $projector;
@@ -158,6 +160,144 @@ class PortalActionProjectorTest extends TestCase
         $data = $this->dashboardData();
 
         $this->assertSame($data, $this->projector->apply('token', 'dashboard', [], $data));
+    }
+
+    public function test_attendance_marks_the_class_page_meeting_as_attended_and_recounts_it(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-10-25 08:15:00'));
+        $this->projector->recordAttendance('token', 8833, 30728, 8);
+
+        $original = $this->classDetailData();
+        $data = $this->projector->apply('token', 'class_detail', self::CLASS_PARAMS, $original);
+        $meetings = $data['attendance_info']['meetings'];
+
+        $this->assertSame('present', $meetings[2]['status']);
+        $this->assertSame('25 Oktober 2026', $meetings[2]['details']['attendance_date']);
+        $this->assertSame('08:15', $meetings[2]['details']['attendance_time']);
+        $this->assertSame([$original['attendance_info']['meetings'][0], $original['attendance_info']['meetings'][1]], [$meetings[0], $meetings[1]]);
+        $this->assertSame($original['attendance_info']['meetings'][3], $meetings[3]);
+        $this->assertSame([
+            'total_meetings' => 4,
+            'present' => 3,
+            'late' => 1,
+            'absent' => 0,
+            'permit' => 0,
+            'sick' => 0,
+            'attendance_rate' => 100.0,
+            'last_updated' => '2026-10-20T01:00:00.000000Z',
+            'upcoming' => 1,
+            'held_meetings' => 3,
+        ], $data['attendance_info']['summary']);
+        $this->assertSame($original['assignment_history'], $data['assignment_history']);
+    }
+
+    public function test_class_page_attendance_the_portal_already_reports_is_left_alone(): void
+    {
+        $this->projector->recordAttendance('token', 8833, 30400, 7);
+
+        $data = $this->classDetailData();
+
+        $this->assertSame($data, $this->projector->apply('token', 'class_detail', self::CLASS_PARAMS, $data));
+    }
+
+    public function test_attendance_on_a_meeting_the_materials_do_not_link_yet_is_matched_by_course_and_number(): void
+    {
+        $this->projector->recordAttendance('token', 8833, 30999, 9);
+
+        $data = $this->projector->apply('token', 'class_detail', self::CLASS_PARAMS, $this->classDetailData());
+        $summary = $data['attendance_info']['summary'];
+
+        $this->assertSame('present', $data['attendance_info']['meetings'][3]['status']);
+        $this->assertSame([3, 0, 4, 75.0], [$summary['present'], $summary['upcoming'], $summary['held_meetings'], $summary['attendance_rate']]);
+    }
+
+    public function test_uploaded_assignment_joins_the_class_page_history_once(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-10-25 08:15:00'));
+        $fileInfo = ['href' => '../files/tugasmhs/8833-8-20990000001-c41.pdf', 'text' => 'Open File'];
+        $this->projector->recordAssignmentUploaded('token', 8833, 30728, 8, $fileInfo);
+
+        $data = $this->projector->apply('token', 'class_detail', self::CLASS_PARAMS, $this->classDetailData());
+        $uploads = $data['assignment_history']['assignments'];
+
+        $this->assertCount(2, $uploads);
+        $this->assertSame([
+            'no' => '2.',
+            'date' => 'Minggu, 25 Oktober 2026',
+            'meeting' => '8',
+            'file_info' => $fileInfo,
+            'score' => '0',
+        ], $uploads[1]);
+        $this->assertSame('85', $data['assignment_history']['average_score']);
+        $this->assertSame($data, $this->projector->apply('token', 'class_detail', self::CLASS_PARAMS, $data));
+    }
+
+    public function test_deleted_upload_leaves_the_class_page_history(): void
+    {
+        $this->projector->recordAssignmentDeleted('token', 8833, 30100, 6);
+
+        $data = $this->projector->apply('token', 'class_detail', self::CLASS_PARAMS, $this->classDetailData());
+
+        $this->assertSame([], $data['assignment_history']['assignments']);
+    }
+
+    public function test_actions_in_another_class_leave_the_class_page_alone(): void
+    {
+        $this->projector->recordAttendance('token', 8840, 31000, 8);
+        $this->projector->recordAssignmentUploaded('token', 8840, 31001, 6, ['href' => 'files/task.pdf']);
+        $this->projector->recordAssignmentDeleted('token', 8840, 31002, 6);
+
+        $data = $this->classDetailData();
+
+        $this->assertSame($data, $this->projector->apply('token', 'class_detail', self::CLASS_PARAMS, $data));
+    }
+
+    /**
+     * A class page as ClassesExtractor reads it: meetings 6 to 8 are linked
+     * from the materials, meeting 9 is not held yet, and meeting 8 is today's.
+     *
+     * @return array<string, mixed>
+     */
+    private function classDetailData(): array
+    {
+        $material = static fn (int $meeting, string $discussionId): array => [
+            'title' => "Pertemuan {$meeting}",
+            'meeting_number' => $meeting,
+            'join_link' => ['href' => "?mod=sipandai&act=discuss&id={$discussionId}&courses_id=8833", 'text' => "Join Pertemuan {$meeting}"],
+        ];
+
+        return [
+            'course_info' => ['name' => 'Enterprise Resource Planning'],
+            'course_materials' => [$material(6, '30100'), $material(7, '30400'), $material(8, '30728')],
+            'attendance_info' => [
+                'student_name' => 'Mahasiswa Contoh',
+                'meetings' => [
+                    ['meeting_number' => 6, 'status' => 'present', 'details' => ['button_text' => 'H', 'attendance_date' => '11 Oktober 2026', 'attendance_time' => '08:05']],
+                    ['meeting_number' => 7, 'status' => 'late', 'details' => ['button_text' => 'H', 'attendance_date' => '18 Oktober 2026', 'attendance_time' => '08:40']],
+                    ['meeting_number' => 8, 'status' => 'absent', 'details' => ['image_src' => '../images/bolos.jpg']],
+                    ['meeting_number' => 9, 'status' => 'upcoming', 'details' => []],
+                ],
+                'summary' => [
+                    'total_meetings' => 4,
+                    'present' => 2,
+                    'late' => 1,
+                    'absent' => 1,
+                    'permit' => 0,
+                    'sick' => 0,
+                    'attendance_rate' => 66.7,
+                    'last_updated' => '2026-10-20T01:00:00.000000Z',
+                    'upcoming' => 1,
+                    'held_meetings' => 3,
+                ],
+            ],
+            'assignment_history' => [
+                'assignments' => [
+                    ['no' => '1.', 'date' => 'Minggu, 11 Oktober 2026', 'meeting' => '6', 'file_info' => ['href' => '../files/tugasmhs/8833-6-20990000001-a6b.pdf', 'text' => 'Open File'], 'score' => '85'],
+                ],
+                'average_score' => '85',
+            ],
+            'found' => true,
+        ];
     }
 
     /**

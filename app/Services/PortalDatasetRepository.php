@@ -77,6 +77,11 @@ class PortalDatasetRepository
     ): array {
         $result = $this->readSnapshotOrUpstream($sessionToken, $dataset, $params, $forceFresh, $broadcastSessionId);
 
+        // See PortalActionProjector::project(): a class page cannot be patched in place.
+        if ($dataset === 'class_detail') {
+            $result['data'] = $this->projector->apply($sessionToken, $dataset, $params, $result['data']);
+        }
+
         if ($dataset === 'meeting_detail' && $this->meetingSkippedByFullNotebook($sessionToken, $params, $result['data'])) {
             $result['meta']['notebook_limit_reached'] = true;
         }
