@@ -3,34 +3,12 @@
 @section('title', 'Transkrip & Progres Studi')
 @section('page_id', 'transcript-index')
 
-@php
-    $academicLinks = [
-        ['href' => route('krs.index'), 'label' => 'KRS & Perwalian', 'active' => false],
-        ['href' => route('grades.index'), 'label' => 'Nilai', 'active' => false],
-        ['href' => route('transcript.index'), 'label' => 'Transkrip', 'active' => true],
-    ];
-@endphp
-
 @section('content')
-    <nav class="mb-4" aria-label="Menu akademik">
-        <ul class="inline-flex max-w-full items-center gap-1 overflow-x-auto rounded-xl border border-border/40 bg-surface p-1">
-            @foreach ($academicLinks as $link)
-                <li class="shrink-0">
-                    <a
-                        href="{{ $link['href'] }}"
-                        class="inline-flex min-h-11 items-center whitespace-nowrap sm:min-h-10 rounded-lg px-3 py-2 text-xs font-semibold transition-all focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand sm:text-sm {{ $link['active'] ? 'border border-border/40 bg-panel font-bold text-brand shadow-xs' : 'text-ink-muted hover:text-ink' }}"
-                        @if ($link['active']) aria-current="page" @endif
-                    >{{ $link['label'] }}</a>
-                </li>
-            @endforeach
-        </ul>
-    </nav>
+    <x-academic-menu active="transcript" />
 
-    <header class="mb-4">
-        <h1 class="mycic-page-heading">Transkrip</h1>
-        <p class="mycic-page-subheading">IPK, progres SKS menuju lulus, dan apa yang bisa kamu perbaiki.</p>
+    <x-page-header title="Transkrip" subtitle="IPK, progres SKS menuju lulus, dan apa yang bisa kamu perbaiki.">
         <p class="mt-1 text-caption text-ink-subtle" data-transcript-updated></p>
-    </header>
+    </x-page-header>
 
     <div class="flex flex-col gap-5">
         <div id="transcript-alerts" class="flex flex-col gap-3 empty:hidden"></div>
@@ -138,13 +116,13 @@
             <div id="transcript-table">
                 <div class="mycic-card-body flex flex-col divide-y divide-border-light" aria-busy="true">
                     @for ($i = 0; $i < 4; $i++)
-                        <div class="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
+                        <x-list-row>
                             <div class="flex flex-col gap-1.5">
                                 <div class="mycic-skeleton h-4 w-40 sm:w-56"></div>
                                 <div class="mycic-skeleton h-3 w-24"></div>
                             </div>
                             <div class="mycic-skeleton h-8 w-8"></div>
-                        </div>
+                        </x-list-row>
                     @endfor
                 </div>
             </div>

@@ -5,11 +5,6 @@
 
 @php
     $activeTab = request()->query('tab') === 'riwayat' ? 'riwayat' : 'semester';
-    $academicLinks = [
-        ['href' => route('krs.index'), 'label' => 'KRS & Perwalian', 'active' => true],
-        ['href' => route('grades.index'), 'label' => 'Nilai', 'active' => false],
-        ['href' => route('transcript.index'), 'label' => 'Transkrip', 'active' => false],
-    ];
     $krsTabs = [
         'semester' => 'Semester ini',
         'riwayat' => 'Riwayat & DPA',
@@ -32,25 +27,12 @@
         }
     </style>
 
-    <nav class="mb-4 print:hidden" aria-label="Menu akademik">
-        <ul class="inline-flex max-w-full items-center gap-1 overflow-x-auto rounded-xl border border-border/40 bg-surface p-1">
-            @foreach ($academicLinks as $link)
-                <li class="shrink-0">
-                    <a
-                        href="{{ $link['href'] }}"
-                        class="inline-flex min-h-11 items-center whitespace-nowrap sm:min-h-10 rounded-lg px-3 py-2 text-xs font-semibold transition-all focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand sm:text-sm {{ $link['active'] ? 'border border-border/40 bg-panel font-bold text-brand shadow-xs' : 'text-ink-muted hover:text-ink' }}"
-                        @if ($link['active']) aria-current="page" @endif
-                    >{{ $link['label'] }}</a>
-                </li>
-            @endforeach
-        </ul>
-    </nav>
+    <x-academic-menu active="krs" class="print:hidden" />
 
-    <header class="mb-4 print:hidden">
-        <h1 class="mycic-page-heading">KRS & Perwalian</h1>
-        <p class="mycic-page-subheading" id="krs-period-label">Status KRS, periode, dan kontak DPA kamu.</p>
+    <x-page-header title="KRS & Perwalian" class="print:hidden">
+        <x-slot:subtitle id="krs-period-label">Status KRS, periode, dan kontak DPA kamu.</x-slot:subtitle>
         <p class="mt-1 text-caption text-ink-subtle" data-krs-updated></p>
-    </header>
+    </x-page-header>
 
     <div class="hidden print:mb-4 print:block" id="krs-print-header"></div>
 
@@ -96,13 +78,13 @@
                     </div>
                     <div class="mycic-card-body flex flex-col divide-y divide-border-light">
                         @for ($i = 0; $i < 4; $i++)
-                            <div class="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
+                            <x-list-row>
                                 <div class="flex flex-col gap-1.5">
                                     <div class="mycic-skeleton h-3 w-16"></div>
                                     <div class="mycic-skeleton h-4 w-40 sm:w-56"></div>
                                 </div>
                                 <div class="mycic-skeleton h-5 w-14"></div>
-                            </div>
+                            </x-list-row>
                         @endfor
                     </div>
                 </div>

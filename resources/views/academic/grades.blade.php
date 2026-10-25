@@ -3,42 +3,19 @@
 @section('title', 'Nilai (KHS)')
 @section('page_id', 'grades-index')
 
-@php
-    $academicLinks = [
-        ['href' => route('krs.index'), 'label' => 'KRS & Perwalian', 'active' => false],
-        ['href' => route('grades.index'), 'label' => 'Nilai', 'active' => true],
-        ['href' => route('transcript.index'), 'label' => 'Transkrip', 'active' => false],
-    ];
-@endphp
-
 @section('content')
-    <nav class="mb-4" aria-label="Menu akademik">
-        <ul class="inline-flex max-w-full items-center gap-1 overflow-x-auto rounded-xl border border-border/40 bg-surface p-1">
-            @foreach ($academicLinks as $link)
-                <li class="shrink-0">
-                    <a
-                        href="{{ $link['href'] }}"
-                        class="inline-flex min-h-11 items-center whitespace-nowrap sm:min-h-10 rounded-lg px-3 py-2 text-xs font-semibold transition-all focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand sm:text-sm {{ $link['active'] ? 'border border-border/40 bg-panel font-bold text-brand shadow-xs' : 'text-ink-muted hover:text-ink' }}"
-                        @if ($link['active']) aria-current="page" @endif
-                    >{{ $link['label'] }}</a>
-                </li>
-            @endforeach
-        </ul>
-    </nav>
+    <x-academic-menu active="grades" />
 
-    <header class="mb-4">
-        <h1 class="mycic-page-heading">Nilai (KHS)</h1>
-        <p class="mycic-page-subheading">Nilai tiap mata kuliah dan IPS per semester.</p>
+    <x-page-header title="Nilai (KHS)" subtitle="Nilai tiap mata kuliah dan IPS per semester.">
         <p class="mt-1 text-caption text-ink-subtle" data-grades-updated></p>
-    </header>
+    </x-page-header>
 
     <div class="flex flex-col gap-5">
         <div class="grid grid-cols-3 gap-3" id="grades-summary">
             @foreach (['IPK', 'IPS', 'SKS lulus'] as $label)
-                <div class="mycic-metric">
-                    <div class="mycic-metric-label">{{ $label }}</div>
-                    <div class="mycic-metric-value"><div class="mycic-skeleton h-7 w-14"></div></div>
-                </div>
+                <x-metric :label="$label">
+                    <x-slot:value><div class="mycic-skeleton h-7 w-14"></div></x-slot:value>
+                </x-metric>
             @endforeach
         </div>
 
