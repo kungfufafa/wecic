@@ -4,41 +4,76 @@ import { Fonts, ThemeColor } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 export type ThemedTextProps = TextProps & {
-  type?: 'default' | 'title' | 'subtitle' | 'small' | 'smallBold' | 'caption' | 'link' | 'code';
+  type?:
+    | 'display'
+    | 'title'
+    | 'heading'
+    | 'subtitle'
+    | 'default'
+    | 'bodyMedium'
+    | 'small'
+    | 'smallBold'
+    | 'caption'
+    | 'label'
+    | 'link'
+    | 'code';
   themeColor?: ThemeColor;
 };
 
+/**
+ * The app's type scale: three weights (400 reads, 500 emphasizes, 600
+ * announces) and letter-spacing that tightens as the size grows.
+ */
 export function ThemedText({ style, type = 'default', themeColor, ...rest }: ThemedTextProps) {
   const theme = useTheme();
+  const defaultColor: ThemeColor = themeColor ?? (type === 'link' ? 'brand' : type === 'label' ? 'textTertiary' : 'text');
 
-  return <Text style={[{ color: theme[themeColor ?? (type === 'link' ? 'primary' : 'text')] }, styles[type], style]} {...rest} />;
+  return <Text style={[{ color: theme[defaultColor] }, styles[type], style]} {...rest} />;
 }
 
 const styles = StyleSheet.create({
-  default: {
-    fontSize: 16,
-    lineHeight: 24,
-    fontWeight: 400,
+  display: {
+    fontSize: 34,
+    lineHeight: 40,
+    fontWeight: 600,
+    letterSpacing: -0.8,
   },
   title: {
-    fontSize: 30,
-    lineHeight: 36,
-    fontWeight: 700,
-    letterSpacing: -0.6,
+    fontSize: 28,
+    lineHeight: 34,
+    fontWeight: 600,
+    letterSpacing: -0.5,
+  },
+  heading: {
+    fontSize: 22,
+    lineHeight: 28,
+    fontWeight: 600,
+    letterSpacing: -0.4,
   },
   subtitle: {
-    fontSize: 18,
-    lineHeight: 26,
+    fontSize: 17,
+    lineHeight: 22,
     fontWeight: 600,
+    letterSpacing: -0.2,
+  },
+  default: {
+    fontSize: 16,
+    lineHeight: 22,
+    fontWeight: 400,
+  },
+  bodyMedium: {
+    fontSize: 16,
+    lineHeight: 22,
+    fontWeight: 500,
   },
   small: {
     fontSize: 14,
-    lineHeight: 20,
+    lineHeight: 19,
     fontWeight: 400,
   },
   smallBold: {
     fontSize: 14,
-    lineHeight: 20,
+    lineHeight: 19,
     fontWeight: 600,
   },
   caption: {
@@ -46,9 +81,14 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     fontWeight: 500,
   },
+  label: {
+    fontSize: 15,
+    lineHeight: 20,
+    fontWeight: 500,
+  },
   link: {
     fontSize: 14,
-    lineHeight: 20,
+    lineHeight: 19,
     fontWeight: 600,
   },
   code: {

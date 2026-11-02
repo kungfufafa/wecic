@@ -36,6 +36,9 @@ const unconfiguredApi: ApiClient = {
   get: () => Promise.reject(new ApiError(MISSING_API_URL_MESSAGE, 0)),
   post: () => Promise.reject(new ApiError(MISSING_API_URL_MESSAGE, 0)),
   delete: () => Promise.reject(new ApiError(MISSING_API_URL_MESSAGE, 0)),
+  patch: () => Promise.reject(new ApiError(MISSING_API_URL_MESSAGE, 0)),
+  url: (path) => path,
+  authHeaders: () => ({}),
 };
 
 const noSubscription = () => () => {};

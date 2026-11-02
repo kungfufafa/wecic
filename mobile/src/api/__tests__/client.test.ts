@@ -1,5 +1,6 @@
 import { ApiError, createApiClient, NETWORK_ERROR_MESSAGE, type ApiClientOptions } from '@/api/client';
-import { apiBaseUrl } from '@/api/config';
+import { apiBaseUrl, webUrl } from '@/api/config';
+import { requestTimeoutMs } from '@/api/client';
 
 type FakeAnswer = { status: number; body?: unknown };
 
@@ -59,9 +60,43 @@ describe('apiBaseUrl', () => {
     expect(apiBaseUrl('  ')).toBeNull();
     expect(apiBaseUrl(undefined)).toBeNull();
   });
+
+  it('gives the website at the origin itself', () => {
+    expect(webUrl('https://mycic.example//')).toBe('https://mycic.example');
+    expect(webUrl(' ')).toBeNull();
+    expect(webUrl(undefined)).toBeNull();
+  });
 });
 
 describe('createApiClient', () => {
+  it('sends a file upload as multipart, leaving the boundary to fetch', async () => {
+    const { api, calls } = client([ok({ data: { queued: false } })]);
+    const form = new FormData();
+    form.append('courses_id', '8810');
+
+    await api.post('assignment', form);
+
+    expect(calls[0].init.body).toBe(form);
+    expect((calls[0].init.headers as Record<string, string>)['Content-Type']).toBeUndefined();
+  });
+
+  it('gives full URLs and the signing headers for requests it does not send', () => {
+    const { api } = client([]);
+
+    expect(api.url('/support/download?path=x')).toBe('https://mycic.example/api/v1/support/download?path=x');
+    expect(api.authHeaders().Authorization).toMatch(/^Bearer /);
+    expect(api.authHeaders().Accept).toBe('application/json');
+  });
+
+  it('sends a PATCH with a JSON body', async () => {
+    const { api, calls } = client([ok({ data: { enabled: false } })]);
+
+    await api.patch('archive/background-sync', { enabled: false });
+
+    expect(calls[0].init.method).toBe('PATCH');
+    expect(calls[0].init.body).toBe(JSON.stringify({ enabled: false }));
+  });
+
   it('sends the bearer token and a JSON body to the versioned path', async () => {
     const { api, calls } = client([ok({ data: { updated: 1 } })]);
 
@@ -170,5 +205,18 @@ describe('createApiClient', () => {
     expect(reauthenticate).not.toHaveBeenCalled();
     expect(onSessionExpired).not.toHaveBeenCalled();
     expect(calls[0].init.headers).not.toHaveProperty('Authorization');
+  });
+});
+
+describe('requestTimeoutMs', () => {
+  it('waits as the web app does: reads, writes, uploads', () => {
+    expect(requestTimeoutMs('GET', undefined)).toBe(30_000);
+    expect(requestTimeoutMs('POST', { kode: 'a' })).toBe(60_000);
+    expect(requestTimeoutMs('POST', new FormData())).toBe(180_000);
+  });
+
+  it('lets the request, then the client, choose', () => {
+    expect(requestTimeoutMs('GET', undefined, 90_000, 5_000)).toBe(90_000);
+    expect(requestTimeoutMs('GET', undefined, undefined, 5_000)).toBe(5_000);
   });
 });

@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "mycic",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "dark",
     "ios": {
       "icon": "./assets/expo.icon"
     },
@@ -28,7 +28,7 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#0352A1",
+          "backgroundColor": "#050505",
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
         }
@@ -40,7 +40,8 @@
           "color": "#0352A1",
           "defaultChannel": "default"
         }
-      ]
+      ],
+      "expo-sharing"
     ],
     "experiments": {
       "typedRoutes": true,

@@ -1,7 +1,8 @@
-import { DarkTheme, DefaultTheme, Stack, ThemeProvider, type Theme } from 'expo-router';
+import { DarkTheme, Stack, ThemeProvider, type Theme } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
+import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
-import { useColorScheme } from 'react-native';
+import { Appearance, Platform } from 'react-native';
 
 import { SessionProvider, useSession } from '@/auth/session-provider';
 import { Colors } from '@/constants/theme';
@@ -10,11 +11,27 @@ import { configureNotificationPresentation } from '@/push/push-notifications';
 SplashScreen.preventAutoHideAsync();
 configureNotificationPresentation();
 
-export default function RootLayout() {
-  const scheme = useColorScheme() === 'dark' ? 'dark' : 'light';
+// MyCIC is dark only; native controls (switches, alerts, the tab bar) follow.
+if (Platform.OS !== 'web') {
+  Appearance.setColorScheme('dark');
+}
 
+const navigationTheme: Theme = {
+  ...DarkTheme,
+  colors: {
+    ...DarkTheme.colors,
+    primary: Colors.dark.text,
+    background: Colors.dark.background,
+    card: Colors.dark.section,
+    text: Colors.dark.text,
+    border: Colors.dark.hairline,
+  },
+};
+
+export default function RootLayout() {
   return (
-    <ThemeProvider value={navigationTheme(scheme)}>
+    <ThemeProvider value={navigationTheme}>
+      <StatusBar style="light" />
       <SessionProvider>
         <SplashScreenController />
         <RootNavigator />
@@ -42,7 +59,7 @@ function RootNavigator() {
   const signedIn = state.status === 'signedIn';
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
+    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: Colors.dark.background } }}>
       <Stack.Protected guard={signedIn}>
         <Stack.Screen name="(app)" />
       </Stack.Protected>
@@ -51,21 +68,4 @@ function RootNavigator() {
       </Stack.Protected>
     </Stack>
   );
-}
-
-function navigationTheme(scheme: 'light' | 'dark'): Theme {
-  const base = scheme === 'dark' ? DarkTheme : DefaultTheme;
-  const colors = Colors[scheme];
-
-  return {
-    ...base,
-    colors: {
-      ...base.colors,
-      primary: colors.primary,
-      background: colors.background,
-      card: colors.backgroundElement,
-      text: colors.text,
-      border: colors.border,
-    },
-  };
 }

@@ -5,18 +5,20 @@ import { Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import type { Tone } from '@/lib/format';
 
-export function StatusPill({ label, tone }: { label: string; tone: Tone }) {
+/** A status with its dot: attendance, connection, a class in progress. */
+export function StatusPill({ label, tone, onBrand = false }: { label: string; tone: Tone; onBrand?: boolean }) {
   const theme = useTheme();
   const colors = {
-    neutral: { background: theme.backgroundSelected, text: theme.textSecondary },
-    positive: { background: theme.backgroundSelected, text: theme.success },
-    attention: { background: theme.accentTint, text: theme.warning },
-    muted: { background: theme.backgroundSelected, text: theme.textTertiary },
+    neutral: { background: theme.elevated, text: theme.textSecondary, dot: theme.textTertiary },
+    positive: { background: theme.successTint, text: theme.success, dot: theme.success },
+    attention: { background: theme.accentTint, text: theme.accent, dot: theme.accent },
+    muted: { background: theme.elevated, text: theme.textTertiary, dot: theme.textQuaternary },
   }[tone];
 
   return (
-    <View style={[styles.pill, { backgroundColor: colors.background }]}>
-      <ThemedText type="caption" style={{ color: colors.text }}>
+    <View style={[styles.pill, { backgroundColor: onBrand ? 'rgba(255, 255, 255, 0.16)' : colors.background }]}>
+      <View style={[styles.dot, { backgroundColor: onBrand ? (tone === 'attention' ? theme.accent : theme.light) : colors.dot }]} />
+      <ThemedText type="caption" style={{ color: onBrand ? theme.light : colors.text }}>
         {label}
       </ThemedText>
     </View>
@@ -26,8 +28,17 @@ export function StatusPill({ label, tone }: { label: string; tone: Tone }) {
 const styles = StyleSheet.create({
   pill: {
     alignSelf: 'flex-start',
-    paddingHorizontal: Spacing.two,
-    paddingVertical: Spacing.half,
-    borderRadius: Radius.small,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two - Spacing.half,
+    paddingLeft: Spacing.two + Spacing.half,
+    paddingRight: Spacing.two + Spacing.one,
+    paddingVertical: Spacing.one + Spacing.half,
+    borderRadius: Radius.pill,
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
 });

@@ -1,21 +1,25 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import type { MarkReadResponse, NotificationsResponse, PortalNotification } from '@/api/types';
 import { useSession } from '@/auth/session-provider';
 import { Button } from '@/components/button';
-import { Card } from '@/components/card';
+import { EmptyState } from '@/components/empty-state';
+import { Icon, type IconName } from '@/components/icon';
 import { Notice } from '@/components/notice';
 import { Screen } from '@/components/screen';
+import { Divider, Panel, Section } from '@/components/section';
+import { SkeletonRows } from '@/components/skeleton';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { setUnreadCount } from '@/hooks/use-unread-count';
 import { useTheme } from '@/hooks/use-theme';
 import { formatDateTime } from '@/lib/format';
-import { routeForNotificationUrl } from '@/push/notification-links';
+import { routeForPortalUrl } from '@/push/notification-links';
 
 const PAGE_SIZE = 30;
+const ICON_SIZE = 40;
 
 type ListState = {
   items: PortalNotification[];
@@ -111,39 +115,61 @@ export default function NotificationsScreen() {
       void markRead({ ids: [notification.id] });
     }
 
-    const route = routeForNotificationUrl(notification.url);
+    const route = routeForPortalUrl(notification.url);
 
-    if (route !== '/notifications') {
-      router.navigate(route);
+    if (route !== null) {
+      router.push(route);
     }
   }
 
   const newestId = list.items.reduce((max, item) => Math.max(max, item.id), 0);
+  const canMarkAll = list.unreadCount > 0 && newestId > 0;
+  const label = list.isLoading
+    ? 'Memuat'
+    : list.unreadCount > 0
+      ? `${list.unreadCount} belum dibaca`
+      : list.items.length > 0
+        ? 'Semua sudah dibaca'
+        : 'Terbaru';
 
   return (
     <Screen
       title="Notifikasi"
-      subtitle={list.unreadCount > 0 ? `${list.unreadCount} belum dibaca` : null}
+      accessory={
+        canMarkAll ? (
+          <Button
+            variant="secondary"
+            size="small"
+            icon="checkAll"
+            label="Tandai dibaca"
+            onPress={() => markRead({ all: true, up_to: newestId })}
+          />
+        ) : null
+      }
       refreshing={list.isRefreshing}
       onRefresh={() => loadFirstPage(true)}>
       {list.error ? <Notice tone="error" message={list.error} /> : null}
-      {list.isLoading ? <ActivityIndicator /> : null}
 
-      {list.unreadCount > 0 && newestId > 0 ? (
-        <Button variant="secondary" label="Tandai semua sudah dibaca" onPress={() => markRead({ all: true, up_to: newestId })} />
-      ) : null}
+      <Section label={label}>
+        <Panel padded={false}>
+          {list.isLoading ? <SkeletonRows count={3} /> : null}
 
-      {!list.isLoading && list.items.length === 0 && !list.error ? (
-        <Card>
-          <ThemedText type="small" themeColor="textSecondary">
-            Belum ada notifikasi.
-          </ThemedText>
-        </Card>
-      ) : null}
+          {!list.isLoading && list.items.length === 0 ? (
+            <EmptyState
+              icon="bellOff"
+              title="Belum ada notifikasi"
+              description="Pengingat kelas, tenggat tugas, dan pembaruan dari portal akan muncul di sini."
+            />
+          ) : null}
 
-      {list.items.map((notification) => (
-        <NotificationRow key={notification.id} notification={notification} onPress={() => open(notification)} />
-      ))}
+          {list.items.map((notification, index) => (
+            <View key={notification.id}>
+              {index > 0 ? <Divider inset={Spacing.three + ICON_SIZE + Spacing.three - Spacing.one} /> : null}
+              <NotificationRow notification={notification} onPress={() => open(notification)} />
+            </View>
+          ))}
+        </Panel>
+      </Section>
 
       {list.nextBefore !== null ? (
         <Button variant="secondary" label="Muat lebih banyak" loading={list.isLoadingMore} onPress={loadMore} />
@@ -154,33 +180,43 @@ export default function NotificationsScreen() {
 
 function NotificationRow({ notification, onPress }: { notification: PortalNotification; onPress: () => void }) {
   const theme = useTheme();
-  const accent = notification.urgency === 'critical' ? theme.danger : notification.urgency === 'warning' ? theme.warning : theme.primary;
+  const look: Record<PortalNotification['urgency'], { icon: IconName; color: string; tint: string }> = {
+    info: { icon: 'bell', color: theme.brand, tint: theme.brandTint },
+    warning: { icon: 'warning', color: theme.warning, tint: theme.warningTint },
+    critical: { icon: 'error', color: theme.danger, tint: theme.dangerTint },
+  };
+  const urgency = look[notification.urgency] ?? look.info;
+  const unread = !notification.is_read;
 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityHint={notification.is_read ? undefined : 'Belum dibaca'}
-      onPress={onPress}>
-      {({ pressed }) => (
-        <Card style={pressed ? { backgroundColor: theme.backgroundSelected } : undefined}>
-          <View style={styles.row}>
-            <View style={[styles.dot, { backgroundColor: notification.is_read ? 'transparent' : accent }]} />
-            <View style={styles.text}>
-              <ThemedText type="smallBold" themeColor={notification.is_read ? 'textSecondary' : 'text'}>
-                {notification.title}
-              </ThemedText>
-              {notification.body ? (
-                <ThemedText type="small" themeColor="textSecondary">
-                  {notification.body}
-                </ThemedText>
-              ) : null}
-              <ThemedText type="caption" themeColor="textTertiary">
-                {formatDateTime(notification.created_at)}
-              </ThemedText>
-            </View>
-          </View>
-        </Card>
-      )}
+      accessibilityHint={unread ? 'Belum dibaca' : undefined}
+      onPress={onPress}
+      style={({ pressed }) => [styles.row, pressed && { backgroundColor: theme.section }]}>
+      <View style={[styles.iconCircle, { backgroundColor: urgency.tint }]}>
+        <Icon name={urgency.icon} size={18} color={urgency.color} />
+      </View>
+      <View style={styles.text}>
+        <View style={styles.titleRow}>
+          <ThemedText
+            type={unread ? 'smallBold' : 'small'}
+            themeColor={unread ? 'text' : 'textSecondary'}
+            style={styles.title}
+            numberOfLines={2}>
+            {notification.title}
+          </ThemedText>
+          {unread ? <View style={[styles.dot, { backgroundColor: theme.badge }]} /> : null}
+        </View>
+        {notification.body ? (
+          <ThemedText type="small" themeColor="textTertiary" numberOfLines={3}>
+            {notification.body}
+          </ThemedText>
+        ) : null}
+        <ThemedText type="caption" themeColor="textQuaternary">
+          {formatDateTime(notification.created_at)}
+        </ThemedText>
+      </View>
     </Pressable>
   );
 }
@@ -192,16 +228,33 @@ function messageOf(error: unknown): string {
 const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.three - Spacing.one,
+    padding: Spacing.three,
+  },
+  iconCircle: {
+    width: ICON_SIZE,
+    height: ICON_SIZE,
+    borderRadius: ICON_SIZE / 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  text: {
+    flex: 1,
+    gap: Spacing.one,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
     gap: Spacing.two,
+  },
+  title: {
+    flex: 1,
   },
   dot: {
     width: 8,
     height: 8,
     borderRadius: 4,
     marginTop: 6,
-  },
-  text: {
-    flex: 1,
-    gap: Spacing.half,
   },
 });

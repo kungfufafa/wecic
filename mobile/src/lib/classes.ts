@@ -1,0 +1,193 @@
+import type { Tone } from '@/lib/format';
+
+/** One query parameter of a portal or MyCIC link (`?mod=…&id=30061`, `/meeting/1?courses_id=2`); null when it is missing. */
+export function queryParam(href: string | null | undefined, name: string): string | null {
+  const query = href?.split('#')[0].split('?')[1];
+
+  if (!query) {
+    return null;
+  }
+
+  for (const pair of query.split('&')) {
+    const [key, value = ''] = pair.split('=');
+
+    if (decodeURIComponent(key) === name) {
+      const decoded = decodeURIComponent(value.replace(/\+/g, ' ')).trim();
+
+      return decoded === '' ? null : decoded;
+    }
+  }
+
+  return null;
+}
+
+/** `?a=1&b=2` from the values that are set; empty when none are. */
+export function queryString(values: Record<string, string | number | null | undefined>): string {
+  const pairs = Object.entries(values)
+    .filter((entry): entry is [string, string | number] => entry[1] !== null && entry[1] !== undefined && String(entry[1]) !== '')
+    .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`);
+
+  return pairs.length > 0 ? `?${pairs.join('&')}` : '';
+}
+
+/** The meeting a portal "Join Pertemuan" link opens: `?mod=sipandai&act=discuss&id=30061&courses_id=8987`. */
+export function meetingTargetFromHref(href: string | null | undefined): { id: string; courses_id: string | null } | null {
+  const id = queryParam(href, 'id');
+
+  return id && /^\d+$/.test(id) ? { id, courses_id: queryParam(href, 'courses_id') } : null;
+}
+
+/** The class a MyCIC link opens: `/class/2265?dosen_id=5240&course_id=8810`. */
+export function classTargetFromUrl(url: string | null | undefined): { id: string; dosen_id: string | null; course_id: string | null } | null {
+  const match = url?.match(/\/class\/(\d+)/);
+
+  return match ? { id: match[1], dosen_id: queryParam(url, 'dosen_id'), course_id: queryParam(url, 'course_id') } : null;
+}
+
+/** Calendar days from `now` to a `YYYY-MM-DD` date: 0 today, negative once passed; null when it does not parse. */
+export function daysUntil(date: string | null | undefined, now: Date = new Date()): number | null {
+  const match = date?.match(/^(\d{4})-(\d{2})-(\d{2})/);
+
+  if (!match) {
+    return null;
+  }
+
+  const target = Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  const today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+
+  return Math.round((target - today) / 86_400_000);
+}
+
+/** "Hari ini", "Besok", "3 hari lagi", "Lewat 2 hari", and its tone. */
+export function deadlineLabel(days: number | null): { label: string; tone: Tone } {
+  if (days === null) {
+    return { label: 'Tanpa tenggat', tone: 'muted' };
+  }
+
+  if (days < 0) {
+    return { label: `Lewat ${-days} hari`, tone: 'muted' };
+  }
+
+  if (days === 0) {
+    return { label: 'Hari ini', tone: 'attention' };
+  }
+
+  if (days === 1) {
+    return { label: 'Besok', tone: 'attention' };
+  }
+
+  return { label: `${days} hari lagi`, tone: days <= 3 ? 'attention' : 'neutral' };
+}
+
+/**
+ * Assignments split into the ones still open (soonest first) and the ones
+ * whose deadline passed (latest first); no deadline counts as open, last.
+ */
+export function splitByDeadline<T extends { deadline_date?: string | null }>(items: T[], now: Date = new Date()): { open: T[]; passed: T[] } {
+  const withDays = items.map((item) => ({ item, days: daysUntil(item.deadline_date, now) }));
+  const open = withDays
+    .filter((entry) => entry.days === null || entry.days >= 0)
+    .sort((a, b) => (a.days ?? Number.MAX_SAFE_INTEGER) - (b.days ?? Number.MAX_SAFE_INTEGER));
+  const passed = withDays.filter((entry) => entry.days !== null && entry.days < 0).sort((a, b) => (b.days ?? 0) - (a.days ?? 0));
+
+  return { open: open.map((entry) => entry.item), passed: passed.map((entry) => entry.item) };
+}
+
+export type MeetingStatusKind = 'present' | 'late' | 'absent' | 'permit' | 'sick' | 'upcoming' | 'unknown';
+
+/** What a meeting's attendance status says, in words. */
+export function meetingStatus(status: string | null | undefined): { kind: MeetingStatusKind; label: string } {
+  switch (status) {
+    case 'present':
+      return { kind: 'present', label: 'Hadir' };
+    case 'late':
+      return { kind: 'late', label: 'Terlambat' };
+    case 'absent':
+      return { kind: 'absent', label: 'Tidak hadir' };
+    case 'permit':
+      return { kind: 'permit', label: 'Izin' };
+    case 'sick':
+      return { kind: 'sick', label: 'Sakit' };
+    case 'upcoming':
+      return { kind: 'upcoming', label: 'Belum berlangsung' };
+    default:
+      return { kind: 'unknown', label: 'Tidak diketahui' };
+  }
+}
+
+/** The classes (by `course_id`) that have no course notebook yet. */
+export function coursesWithoutNotebook<T extends { join_link?: { params?: { course_id?: string } } }>(
+  classes: T[],
+  notebooks: { course_key?: string | null }[],
+): T[] {
+  const taken = new Set(notebooks.map((notebook) => notebook.course_key).filter(Boolean));
+  const seen = new Set<string>();
+
+  return classes.filter((portalClass) => {
+    const key = portalClass.join_link?.params?.course_id;
+
+    if (!key || taken.has(key) || seen.has(key)) {
+      return false;
+    }
+
+    seen.add(key);
+
+    return true;
+  });
+}
+
+export type MindMapNode = { title?: string | null; children?: MindMapNode[] | null };
+
+/** A mind map as indented lines, the root first. */
+export function mindMapLines(node: MindMapNode | null | undefined, depth = 0): { depth: number; title: string }[] {
+  if (!node || typeof node !== 'object') {
+    return [];
+  }
+
+  const own = typeof node.title === 'string' && node.title.trim() !== '' ? [{ depth, title: node.title.trim() }] : [];
+
+  return [...own, ...(Array.isArray(node.children) ? node.children : []).flatMap((child) => mindMapLines(child, depth + 1))];
+}
+
+/** A score the portal printed ("85", "0", "-"), as a number; null when there is none. */
+export function scoreValue(score: string | null | undefined): number | null {
+  const value = Number(score?.replace(',', '.').trim());
+
+  return score?.trim() && Number.isFinite(value) ? value : null;
+}
+
+/** What a notebook's `ai_status` means for the student, or null when the assistant works. */
+export function aiStatusMessage(available: boolean | undefined, status: string | null | undefined): string | null {
+  if (available !== false) {
+    return null;
+  }
+
+  switch (status) {
+    case 'missing_key':
+      return 'Asisten AI belum diaktifkan di server MyCIC. Sumber dan catatan tetap tersimpan, tetapi tanya jawab dan studio belum bisa dipakai.';
+    case 'disabled':
+      return 'Asisten AI dimatikan di server MyCIC. Sumber dan catatan tetap tersimpan.';
+    case 'invalid_key':
+    case 'model_misconfigured':
+      return 'Asisten AI salah diatur di server MyCIC. Hubungi pengelola MyCIC.';
+    default:
+      return 'Asisten AI sedang tidak bisa dihubungi. Coba lagi nanti.';
+  }
+}
+
+/** A source's reading state in words. */
+export function sourceStatus(source: { status?: string | null; waiting?: boolean; stalled?: boolean }): { label: string; tone: Tone } {
+  if (source.status === 'ready') {
+    return { label: 'Siap', tone: 'positive' };
+  }
+
+  if (source.status === 'failed') {
+    return { label: 'Gagal dibaca', tone: 'attention' };
+  }
+
+  if (source.stalled) {
+    return { label: 'Tertahan', tone: 'attention' };
+  }
+
+  return { label: source.waiting ? 'Menunggu' : 'Dibaca…', tone: 'muted' };
+}

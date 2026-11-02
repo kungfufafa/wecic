@@ -57,6 +57,10 @@ export type TodayClass = {
   attendance?: {
     state?: string;
     actionable?: boolean;
+    class_url?: string | null;
+    meeting_id?: string | null;
+    meeting_url?: string | null;
+    payload?: { courseid?: string | null; modulesid?: string | null; pertemuan?: number | null } | null;
     status?: { already_marked?: boolean; label?: string | null; time?: string | null };
   };
 };
@@ -112,4 +116,23 @@ export type UnreadCountResponse = ApiEnvelope & {
 
 export type MarkReadResponse = ApiEnvelope & {
   data: { updated: number; unread_count: number };
+};
+
+export type ActionItemSeverity = 'critical' | 'warning' | 'info';
+
+export type ActionItem = {
+  id: string;
+  type: string;
+  title: string;
+  description?: string | null;
+  due_at?: string | null;
+  days_left?: number | null;
+  severity: ActionItemSeverity | string;
+  cta_label?: string | null;
+  cta_url?: string | null;
+  cta_external?: boolean;
+};
+
+export type ActionItemsResponse = ApiEnvelope & {
+  data: { items: ActionItem[]; counts?: { total?: number; critical?: number; warning?: number; info?: number } };
 };

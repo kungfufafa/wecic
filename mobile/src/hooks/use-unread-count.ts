@@ -22,6 +22,11 @@ function subscribe(listener: () => void): () => void {
   };
 }
 
+/** The last known unread count, for a screen that only shows it. */
+export function useUnreadCountValue(): number {
+  return useSyncExternalStore(subscribe, () => unreadCount);
+}
+
 /**
  * The number of unread notifications for the tab badge: read when the
  * tabs open, when the app comes back to the foreground and when a push
@@ -60,5 +65,5 @@ export function useUnreadCount(): number {
     };
   }, [refresh]);
 
-  return useSyncExternalStore(subscribe, () => unreadCount);
+  return useUnreadCountValue();
 }

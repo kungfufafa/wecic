@@ -1,0 +1,155 @@
+import Constants from 'expo-constants';
+import { useRouter } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
+import { useState } from 'react';
+import { Alert, Platform, StyleSheet, View } from 'react-native';
+
+import { apiBaseUrl, webUrl } from '@/api/config';
+import { useSession } from '@/auth/session-provider';
+import { Avatar } from '@/components/avatar';
+import { Button } from '@/components/button';
+import { ListRow, ListRowTextInset } from '@/components/list-row';
+import { MetaRow } from '@/components/meta-row';
+import { Screen } from '@/components/screen';
+import { Divider, Panel, Section } from '@/components/section';
+import { StatusPill } from '@/components/status-pill';
+import { ThemedText } from '@/components/themed-text';
+import { Spacing } from '@/constants/theme';
+import { clearKnownUser, useKnownUser } from '@/hooks/use-known-user';
+import { initials, studentNumber } from '@/lib/format';
+import type { PushRegistration } from '@/push/push-notifications';
+
+export default function MoreScreen() {
+  const router = useRouter();
+  const { state, push, signOut } = useSession();
+  const [signingOut, setSigningOut] = useState(false);
+  const knownUser = useKnownUser();
+  const user = knownUser ?? (state.status === 'signedIn' ? state.user : null);
+  const offline = state.status === 'signedIn' && state.offline;
+  const nim = studentNumber(user);
+  const website = webUrl();
+
+  function leave() {
+    setSigningOut(true);
+    clearKnownUser();
+    void signOut();
+  }
+
+  function confirmSignOut() {
+    const title = 'Keluar dari MyCIC?';
+    const message = 'Token di perangkat ini dicabut dan notifikasi push berhenti.';
+
+    // The web preview has no native alert.
+    if (Platform.OS === 'web') {
+      if (window.confirm(`${title}\n${message}`)) {
+        leave();
+      }
+
+      return;
+    }
+
+    Alert.alert(title, message, [
+      { text: 'Batal', style: 'cancel' },
+      { text: 'Keluar', style: 'destructive', onPress: leave },
+    ]);
+  }
+
+  return (
+    <Screen title="Profil">
+      <Section label="Akun">
+        <Panel style={styles.profile}>
+          <Avatar initials={initials(user)} size={64} />
+          <View style={styles.profileText}>
+            <ThemedText type="subtitle" numberOfLines={2}>
+              {user?.name ?? 'Mahasiswa'}
+            </ThemedText>
+            <MetaRow icon="idCard" text={nim ? `NIM ${nim}` : null} />
+            <StatusPill label={offline ? 'Mode offline' : 'Terhubung ke portal'} tone={offline ? 'attention' : 'positive'} />
+          </View>
+        </Panel>
+      </Section>
+
+      <Section label="Akun saya">
+        <Panel padded={false}>
+          <ListRow icon="biodata" label="Biodata" value="Data pribadi, kontak, dan pendidikan" onPress={() => router.push('/biodata')} />
+          <Divider inset={ListRowTextInset} />
+          <ListRow icon="key" label="Ganti kata sandi" value="Kata sandi portal kampus" onPress={() => router.push('/password')} />
+          <Divider inset={ListRowTextInset} />
+          <ListRow icon="grid" label="Semua layanan" value="Semua fitur MyCIC dalam satu daftar" onPress={() => router.push('/services')} />
+        </Panel>
+      </Section>
+
+      <Section label="Data dan sinkronisasi">
+        <Panel padded={false}>
+          <ListRow icon="archive" label="Arsip data" value="Riwayat data portal dan sinkronisasi latar" onPress={() => router.push('/archive')} />
+          <Divider inset={ListRowTextInset} />
+          <ListRow icon="outbox" label="Antrean offline" value="Absensi dan unggahan yang menunggu portal" onPress={() => router.push('/outbox')} />
+        </Panel>
+      </Section>
+
+      <Section label="Perangkat">
+        <Panel padded={false}>
+          <ListRow icon="bellOutline" label="Notifikasi push" value={pushLabel(push)} />
+          <Divider inset={ListRowTextInset} />
+          <ListRow icon="server" label="Server MyCIC" value={apiBaseUrl() ?? '-'} />
+        </Panel>
+      </Section>
+
+      <Section label="Aplikasi">
+        <Panel padded={false}>
+          {website ? (
+            <>
+              <ListRow
+                icon="globe"
+                label="Buka MyCIC versi web"
+                value="Nilai, keuangan, KRS, dan fitur lainnya"
+                trailingIcon="arrowUpRight"
+                onPress={() => void WebBrowser.openBrowserAsync(website)}
+              />
+              <Divider inset={ListRowTextInset} />
+            </>
+          ) : null}
+          <ListRow icon="phone" label="Versi aplikasi" value={Constants.expoConfig?.version ?? '-'} />
+        </Panel>
+      </Section>
+
+      <Button variant="danger" icon="signOut" label="Keluar" loading={signingOut} onPress={confirmSignOut} />
+
+      <ThemedText type="caption" themeColor="textQuaternary" style={styles.footer}>
+        MyCIC · Universitas Catur Insan Cendekia
+      </ThemedText>
+    </Screen>
+  );
+}
+
+function pushLabel(push: PushRegistration | null): string {
+  if (push === null) {
+    return 'Mendaftarkan…';
+  }
+
+  if (push.status === 'registered') {
+    return 'Aktif di perangkat ini';
+  }
+
+  if (push.status === 'denied') {
+    return 'Izin notifikasi ditolak. Aktifkan lewat Pengaturan perangkat.';
+  }
+
+  return push.reason;
+}
+
+const styles = StyleSheet.create({
+  profile: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.three,
+  },
+  profileText: {
+    flex: 1,
+    gap: Spacing.two - Spacing.half,
+  },
+  footer: {
+    textAlign: 'center',
+    marginTop: Spacing.two,
+  },
+});

@@ -1,38 +1,89 @@
-import { StyleSheet, TextInput, View, type TextInputProps } from 'react-native';
+import { useState } from 'react';
+import { Pressable, StyleSheet, TextInput, View, type TextInputProps } from 'react-native';
 
+import { Icon, type IconName } from '@/components/icon';
 import { ThemedText } from '@/components/themed-text';
 import { Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 type TextFieldProps = TextInputProps & {
-  label: string;
+  /** Shown above the field; a search field goes without one. */
+  label?: string;
+  icon?: IconName;
   error?: string | null;
+  /** A password field: the eye shows and hides what was typed. */
+  secureToggle?: boolean;
+  /** An × that empties the field once it has text. */
+  clearable?: boolean;
 };
 
-export function TextField({ label, error, style, ...rest }: TextFieldProps) {
+export function TextField({
+  label,
+  icon,
+  error,
+  secureToggle = false,
+  clearable = false,
+  secureTextEntry,
+  style,
+  onFocus,
+  onBlur,
+  value,
+  onChangeText,
+  placeholder,
+  ...rest
+}: TextFieldProps) {
   const theme = useTheme();
+  const [focused, setFocused] = useState(false);
+  const [revealed, setRevealed] = useState(false);
+  const secure = secureToggle ? !revealed : secureTextEntry;
+  const outline = error ? theme.danger : focused ? theme.textQuaternary : 'transparent';
 
   return (
     <View style={styles.field}>
-      <ThemedText type="smallBold" themeColor="textSecondary">
-        {label}
-      </ThemedText>
-      <TextInput
-        accessibilityLabel={label}
-        placeholderTextColor={theme.textTertiary}
-        style={[
-          styles.input,
-          {
-            color: theme.text,
-            backgroundColor: theme.backgroundElement,
-            borderColor: error ? theme.danger : theme.border,
-          },
-          style,
-        ]}
-        {...rest}
-      />
+      {label ? (
+        <ThemedText type="small" themeColor="textSecondary" style={styles.label}>
+          {label}
+        </ThemedText>
+      ) : null}
+      <View style={[styles.inputRow, { backgroundColor: theme.elevated, borderColor: outline }]}>
+        {icon ? <Icon name={icon} size={20} color={focused ? theme.text : theme.textTertiary} /> : null}
+        <TextInput
+          accessibilityLabel={label ?? placeholder}
+          placeholder={placeholder}
+          placeholderTextColor={theme.textTertiary}
+          selectionColor={theme.brand}
+          keyboardAppearance="dark"
+          secureTextEntry={secure}
+          value={value}
+          onChangeText={onChangeText}
+          onFocus={(event) => {
+            setFocused(true);
+            onFocus?.(event);
+          }}
+          onBlur={(event) => {
+            setFocused(false);
+            onBlur?.(event);
+          }}
+          style={[styles.input, { color: theme.text }, style]}
+          {...rest}
+        />
+        {secureToggle ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={revealed ? 'Sembunyikan kata sandi' : 'Tampilkan kata sandi'}
+            hitSlop={8}
+            onPress={() => setRevealed((current) => !current)}>
+            <Icon name={revealed ? 'eyeOff' : 'eye'} size={20} color={theme.textTertiary} />
+          </Pressable>
+        ) : null}
+        {clearable && value ? (
+          <Pressable accessibilityRole="button" accessibilityLabel="Hapus pencarian" hitSlop={8} onPress={() => onChangeText?.('')}>
+            <Icon name="close" size={16} color={theme.textTertiary} />
+          </Pressable>
+        ) : null}
+      </View>
       {error ? (
-        <ThemedText type="caption" themeColor="danger">
+        <ThemedText type="caption" themeColor="danger" style={styles.label}>
           {error}
         </ThemedText>
       ) : null}
@@ -42,13 +93,24 @@ export function TextField({ label, error, style, ...rest }: TextFieldProps) {
 
 const styles = StyleSheet.create({
   field: {
-    gap: Spacing.one,
+    gap: Spacing.two,
+  },
+  label: {
+    paddingHorizontal: Spacing.one,
+  },
+  inputRow: {
+    minHeight: 54,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two + Spacing.one,
+    paddingHorizontal: Spacing.three + Spacing.one,
+    borderWidth: 1,
+    borderRadius: Radius.pill,
   },
   input: {
-    minHeight: 48,
-    paddingHorizontal: Spacing.three,
-    borderWidth: 1,
-    borderRadius: Radius.small,
+    flex: 1,
+    minHeight: 52,
     fontSize: 16,
+    paddingVertical: 0,
   },
 });

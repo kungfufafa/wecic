@@ -9,4 +9,11 @@ export function apiBaseUrl(origin: string | undefined = process.env.EXPO_PUBLIC_
   return trimmed === '' ? null : `${trimmed}/api/v1`;
 }
 
+/** The MyCIC website itself, for what the app does not show yet; null without a configured origin. */
+export function webUrl(origin: string | undefined = process.env.EXPO_PUBLIC_API_URL): string | null {
+  const trimmed = origin?.trim().replace(/\/+$/, '') ?? '';
+
+  return trimmed === '' ? null : trimmed;
+}
+
 export const MISSING_API_URL_MESSAGE = 'Alamat server MyCIC belum diatur (EXPO_PUBLIC_API_URL).';

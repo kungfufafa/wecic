@@ -36,6 +36,8 @@ export type RequestOptions = {
   /** An automatic check, not the student's action: does not extend the session's idle time. */
   background?: boolean;
   signal?: AbortSignal;
+  /** How long to wait for this request; see requestTimeoutMs for the defaults. */
+  timeoutMs?: number;
 };
 
 export type ApiClientOptions = {
@@ -59,11 +61,35 @@ export type ApiClient = {
   get<T extends ApiEnvelope>(path: string, options?: RequestOptions): Promise<T>;
   post<T extends ApiEnvelope>(path: string, body?: unknown, options?: RequestOptions): Promise<T>;
   delete<T extends ApiEnvelope>(path: string, body?: unknown, options?: RequestOptions): Promise<T>;
+  patch<T extends ApiEnvelope>(path: string, body?: unknown, options?: RequestOptions): Promise<T>;
+  /** The full URL of an API path, for a request the client does not send itself (a file download). */
+  url(path: string): string;
+  /** The headers that sign a request as the student. */
+  authHeaders(): Record<string, string>;
 };
 
 export const NETWORK_ERROR_MESSAGE = 'Tidak bisa terhubung ke MyCIC. Periksa koneksi internet lalu coba lagi.';
 
-const DEFAULT_TIMEOUT_MS = 30_000;
+/**
+ * How long a request may wait, as the web app waits (resources/js/lib/http.js):
+ * a read 30 s, a write 60 s, an upload 3 minutes. A request's own
+ * `timeoutMs`, then the client's, win.
+ */
+export function requestTimeoutMs(method: string, body: unknown, ownTimeoutMs?: number, clientTimeoutMs?: number): number {
+  if (ownTimeoutMs !== undefined) {
+    return ownTimeoutMs;
+  }
+
+  if (clientTimeoutMs !== undefined) {
+    return clientTimeoutMs;
+  }
+
+  if (method === 'GET') {
+    return 30_000;
+  }
+
+  return typeof FormData !== 'undefined' && body instanceof FormData ? 180_000 : 60_000;
+}
 
 /**
  * The words for a failed answer that carries no message of its own (a
@@ -124,15 +150,18 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
       headers['X-MyCIC-Background'] = '1';
     }
 
-    let body: string | undefined;
+    let body: string | FormData | undefined;
 
-    if (requestOptions.body !== undefined) {
+    // A file upload goes as multipart; fetch sets its boundary itself.
+    if (typeof FormData !== 'undefined' && requestOptions.body instanceof FormData) {
+      body = requestOptions.body;
+    } else if (requestOptions.body !== undefined) {
       headers['Content-Type'] = 'application/json';
       body = JSON.stringify(requestOptions.body);
     }
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), options.timeoutMs ?? DEFAULT_TIMEOUT_MS);
+    const timeout = setTimeout(() => controller.abort(), requestTimeoutMs(method, requestOptions.body, requestOptions.timeoutMs, options.timeoutMs));
     const abortFromCaller = () => controller.abort();
     requestOptions.signal?.addEventListener('abort', abortFromCaller);
 
@@ -188,6 +217,18 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
     get: (path, requestOptions) => request('GET', path, requestOptions),
     post: (path, body, requestOptions) => request('POST', path, { ...requestOptions, body }),
     delete: (path, body, requestOptions) => request('DELETE', path, { ...requestOptions, body }),
+    patch: (path, body, requestOptions) => request('PATCH', path, { ...requestOptions, body }),
+    url: (path) => `${baseUrl}/${path.replace(/^\/+/, '')}`,
+    authHeaders: () => {
+      const headers: Record<string, string> = { Accept: 'application/json' };
+      const token = options.getToken();
+
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
+
+      return headers;
+    },
   };
 }
 
