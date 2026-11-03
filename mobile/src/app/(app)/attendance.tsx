@@ -28,7 +28,7 @@ export default function AttendanceScreen() {
     <Screen
       back
       title="Absensi hari ini"
-      subtitle="Ketik atau tempel kode absensi dari dosen. Teks dari QR juga bisa ditempel."
+      subtitle="Pindai QR dari dosen, pilih foto QR, atau ketik kodenya."
       accessory={dayLabel ? <Chip icon="clock" label={dayLabel} /> : null}
       refreshing={today.isRefreshing}
       dataSavedAt={today.savedAt}
