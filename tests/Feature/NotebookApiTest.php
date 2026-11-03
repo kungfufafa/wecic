@@ -719,13 +719,13 @@ class NotebookApiTest extends TestCase
 
         foreach ($pages as $page) {
             $page->assertSee('data-ai-status-banner="disabled"', false)
-                ->assertSee('Fitur AI Notebook dimatikan di server MyCIC.')
+                ->assertSee('Fitur AI Notebook dimatikan di server WeCIC.')
                 ->assertSee('data-ai-status-banner="missing_key"', false)
                 ->assertSee('(GEMINI_API_KEY kosong)')
                 ->assertSee('data-ai-status-banner="invalid_key"', false)
-                ->assertSee('kunci API Gemini di server MyCIC ditolak')
+                ->assertSee('kunci API Gemini di server WeCIC ditolak')
                 ->assertSee('data-ai-status-banner="model_misconfigured"', false)
-                ->assertSee('pengaturan model AI di server MyCIC ditolak (model tidak dikenali, sudah tidak tersedia, atau pengaturannya tidak cocok)')
+                ->assertSee('pengaturan model AI di server WeCIC ditolak (model tidak dikenali, sudah tidak tersedia, atau pengaturannya tidak cocok)')
                 // Not only the model id: a thinking budget the model does not take is rejected the same way.
                 ->assertSee('misalnya GEMINI_MODEL atau NOTEBOOK_THINKING_BUDGET')
                 ->assertDontSee('perlu memperbarui GEMINI_MODEL')

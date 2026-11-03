@@ -78,7 +78,7 @@ class NotebookAiException extends RuntimeException
 
     public static function notConfigured(): self
     {
-        return self::because(self::REASON_NOT_CONFIGURED, 'Fitur AI Notebook belum diaktifkan di server MyCIC (GEMINI_API_KEY belum diisi).', 503);
+        return self::because(self::REASON_NOT_CONFIGURED, 'Fitur AI Notebook belum diaktifkan di server WeCIC (GEMINI_API_KEY belum diisi).', 503);
     }
 
     /**
@@ -86,7 +86,7 @@ class NotebookAiException extends RuntimeException
      */
     public static function disabled(): self
     {
-        return self::because(self::REASON_DISABLED, 'Fitur AI Notebook dimatikan di server MyCIC.', 503);
+        return self::because(self::REASON_DISABLED, 'Fitur AI Notebook dimatikan di server WeCIC.', 503);
     }
 
     public static function unavailable(): self
@@ -102,8 +102,8 @@ class NotebookAiException extends RuntimeException
     public static function misconfigured(string $cause = self::CAUSE_MODEL): self
     {
         return self::because(self::REASON_MISCONFIGURED, $cause === self::CAUSE_KEY
-            ? 'Fitur AI Notebook sedang tidak tersedia karena kunci API Gemini di server MyCIC ditolak. Hubungi pengelola MyCIC.'
-            : 'Fitur AI Notebook sedang tidak tersedia karena pengaturan model AI di server MyCIC ditolak (model tidak dikenali, sudah tidak tersedia, atau pengaturannya tidak cocok). Hubungi pengelola MyCIC.', 503);
+            ? 'Fitur AI Notebook sedang tidak tersedia karena kunci API Gemini di server WeCIC ditolak. Hubungi pengelola WeCIC.'
+            : 'Fitur AI Notebook sedang tidak tersedia karena pengaturan model AI di server WeCIC ditolak (model tidak dikenali, sudah tidak tersedia, atau pengaturannya tidak cocok). Hubungi pengelola WeCIC.', 503);
     }
 
     /**

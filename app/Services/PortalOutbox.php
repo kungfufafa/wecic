@@ -53,7 +53,7 @@ class PortalOutbox
 
     public const UNCONFIRMED_MESSAGE = 'Tidak dikirim: antrean ini dibuat dengan password yang berbeda dari password portal yang berlaku sekarang.';
 
-    public const UNCONFIRMABLE_MESSAGE = 'Tidak dikirim otomatis: MyCIC tidak bisa memastikan sesi yang membuat antrean ini.';
+    public const UNCONFIRMABLE_MESSAGE = 'Tidak dikirim otomatis: WeCIC tidak bisa memastikan sesi yang membuat antrean ini.';
 
     public const ABANDONED_UPLOAD_MESSAGE = 'Pengiriman terhenti sebelum portal menjawab, jadi belum pasti file ini sudah diterima.';
 
@@ -177,10 +177,10 @@ class PortalOutbox
             default => 'Kode absen',
         };
         $deadline = $item->deadline_at !== null
-            ? ' Tenggatnya '.$this->formatDeadline($item->deadline_at).'; lewat dari itu MyCIC tidak akan mengirimnya.'
+            ? ' Tenggatnya '.$this->formatDeadline($item->deadline_at).'; lewat dari itu WeCIC tidak akan mengirimnya.'
             : ' Kalau waktunya sudah ditutup portal, kiriman akan ditolak dan kamu diberi tahu.';
 
-        return "Belum terkirim ke portal. {$what} disimpan di antrean MyCIC dan dikirim otomatis begitu portal kampus bisa diakses.".$deadline;
+        return "Belum terkirim ke portal. {$what} disimpan di antrean WeCIC dan dikirim otomatis begitu portal kampus bisa diakses.".$deadline;
     }
 
     /**
@@ -567,7 +567,7 @@ class PortalOutbox
             PortalOutboxItem::STATUS_SENT => [
                 'outbox_sent',
                 "{$label} terkirim ke portal",
-                $prefix.'Dikirim dari antrean offline MyCIC.',
+                $prefix.'Dikirim dari antrean offline WeCIC.',
                 'info',
             ],
             PortalOutboxItem::STATUS_FAILED => [

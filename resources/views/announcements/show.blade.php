@@ -425,7 +425,7 @@
 
             const linkAction = (link) => {
                 if (link.is_campus_file) {
-                    return { href: link.href, icon: ICONS.file, title: `Unduh ${link.label || 'berkas'}`, detail: 'Berkas kampus · dibuka lewat MyCIC', external: true, onlineRequired: true };
+                    return { href: link.href, icon: ICONS.file, title: `Unduh ${link.label || 'berkas'}`, detail: 'Berkas kampus · dibuka lewat WeCIC', external: true, onlineRequired: true };
                 }
 
                 if (link.kind === 'form') {
@@ -517,7 +517,7 @@
 
             const buildIcs = (item, deadlines) => {
                 const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
-                const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//MyCIC//Pengumuman//ID', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH'];
+                const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//WeCIC//Pengumuman//ID', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH'];
 
                 deadlines.forEach((deadline, index) => {
                     const end = app.toDate(deadline.date);

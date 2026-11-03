@@ -100,8 +100,8 @@ class ArchiveCourseMaterialsJob implements ShouldBeUnique, ShouldQueue
         }
 
         $this->announce($broadcast, $result['files'] > 0
-            ? "{$result['files']} berkas materi baru tersimpan di arsip MyCIC."
-            : 'Semua materi kelas ini sudah ada di arsip MyCIC.');
+            ? "{$result['files']} berkas materi baru tersimpan di arsip WeCIC."
+            : 'Semua materi kelas ini sudah ada di arsip WeCIC.');
     }
 
     /**

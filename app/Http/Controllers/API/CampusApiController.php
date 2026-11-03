@@ -101,13 +101,13 @@ abstract class CampusApiController extends Controller
     {
         $html = '<!doctype html><html lang="id"><head><meta charset="utf-8">'
             .'<meta name="viewport" content="width=device-width, initial-scale=1">'
-            .'<meta name="robots" content="noindex"><title>'.e($heading).' — myCIC</title>'
+            .'<meta name="robots" content="noindex"><title>'.e($heading).' — WeCIC</title>'
             .'<style>body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:#f8fafc;color:#0f172a}'
             .'main{max-width:28rem;margin:15vh auto;padding:0 16px}h1{font-size:1.25rem;margin:0 0 .5rem}'
             .'p{line-height:1.5;color:#475569}a{color:#1d4ed8;font-weight:600}'
             .'@media (prefers-color-scheme:dark){body{background:#0f172a;color:#f1f5f9}p{color:#cbd5e1}a{color:#93c5fd}}</style>'
             .'</head><body><main><h1>'.e($heading).'</h1><p>'.e($message).'</p>'
-            .'<p><a href="'.e(url('/dashboard')).'">Kembali ke MyCIC</a></p></main></body></html>';
+            .'<p><a href="'.e(url('/dashboard')).'">Kembali ke WeCIC</a></p></main></body></html>';
 
         return response($html, $statusCode, [
             'Content-Type' => 'text/html; charset=UTF-8',
@@ -245,7 +245,7 @@ abstract class CampusApiController extends Controller
         } catch (\Throwable $throwable) {
             if ($throwable instanceof PortalOfflineException) {
                 return $this->statusError(
-                    'Data ini belum tersimpan di arsip MyCIC, jadi belum bisa dibuka selama mode offline.',
+                    'Data ini belum tersimpan di arsip WeCIC, jadi belum bisa dibuka selama mode offline.',
                     503,
                     meta: ['offline' => true],
                     campusSessionValid: true,

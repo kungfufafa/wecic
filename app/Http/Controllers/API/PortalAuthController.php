@@ -69,10 +69,10 @@ class PortalAuthController extends CampusApiController
     public static function offlineReconnectMessage(?string $mode): string
     {
         return match ($mode) {
-            'notify' => 'Sesi ini tidak menyimpan password, jadi tidak tersambung otomatis. MyCIC memberi tahu begitu portal kampus bisa diakses; setelah itu keluar lalu masuk lagi.',
+            'notify' => 'Sesi ini tidak menyimpan password, jadi tidak tersambung otomatis. WeCIC memberi tahu begitu portal kampus bisa diakses; setelah itu keluar lalu masuk lagi.',
             'portal_back' => 'Portal kampus sudah bisa diakses lagi. Keluar lalu masuk lagi untuk menyambungkan sesi.',
             'manual' => 'Keluar lalu masuk lagi saat portal kampus sudah bisa diakses.',
-            default => 'MyCIC menyambung lagi otomatis begitu portal kampus bisa diakses.',
+            default => 'WeCIC menyambung lagi otomatis begitu portal kampus bisa diakses.',
         };
     }
 
@@ -617,7 +617,7 @@ class PortalAuthController extends CampusApiController
 
             Log::info('User logged in offline from the archive', ['username_fingerprint' => PortalLogContext::fingerprint($username)]);
 
-            return $this->statusSuccess('Portal kampus sedang tidak bisa diakses. Kamu masuk dalam mode offline: data diambil dari arsip MyCIC dan aksi ke portal belum tersedia. '.self::offlineReconnectMessage($sessionResult['offline_reconnect']), [
+            return $this->statusSuccess('Portal kampus sedang tidak bisa diakses. Kamu masuk dalam mode offline: data diambil dari arsip WeCIC dan aksi ke portal belum tersedia. '.self::offlineReconnectMessage($sessionResult['offline_reconnect']), [
                 'data' => [
                     'user_info' => $sessionResult['user_info'],
                     'expires_at' => $sessionResult['expires_at'],

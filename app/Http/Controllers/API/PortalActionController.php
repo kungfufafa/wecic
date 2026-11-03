@@ -135,7 +135,7 @@ class PortalActionController extends CampusApiController
     {
         return $this->booleanResponse(
             false,
-            'Data ini belum tersimpan di arsip MyCIC, jadi belum bisa dibuka selama mode offline.',
+            'Data ini belum tersimpan di arsip WeCIC, jadi belum bisa dibuka selama mode offline.',
             null,
             503,
             meta: ['offline' => true]

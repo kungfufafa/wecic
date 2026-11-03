@@ -413,7 +413,7 @@ export class SessionFeature {
                 element.removeAttribute('aria-disabled');
 
                 if (portalOffline && queueable) {
-                    element.setAttribute('title', 'Mode offline: disimpan di antrean MyCIC, belum terkirim ke portal');
+                    element.setAttribute('title', 'Mode offline: disimpan di antrean WeCIC, belum terkirim ke portal');
                 } else {
                     element.removeAttribute('title');
                 }

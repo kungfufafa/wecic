@@ -205,20 +205,20 @@ export class RequestFeature {
         const integrity = payload?.meta?.integrity || null;
 
         if (integrity?.status === 'suspect') {
-            this.setSyncStatus(`Data ${label} dari portal terlihat janggal. MyCIC tetap menampilkan versi tersimpan; periksa di menu Arsip.`, 'warning');
+            this.setSyncStatus(`Data ${label} dari portal terlihat janggal. WeCIC tetap menampilkan versi tersimpan; periksa di menu Arsip.`, 'warning');
 
             return;
         }
 
         if (payload?.meta?.status === 'offline') {
-            this.setSyncStatus(`Mode offline. Menampilkan arsip MyCIC${updatedAgo ? ` (terakhir dari portal ${updatedAgo})` : ''}.`, 'warning');
+            this.setSyncStatus(`Mode offline. Menampilkan arsip WeCIC${updatedAgo ? ` (terakhir dari portal ${updatedAgo})` : ''}.`, 'warning');
 
             return;
         }
 
         if (dataOrigin === 'archive') {
             const statusSuffix = payload?.meta?.status === 'syncing' ? ' · sedang diperbarui dari portal' : '';
-            this.setSyncStatus(`Menampilkan arsip MyCIC${updatedAgo ? ` dari ${updatedAgo}` : ''}${statusSuffix}`, payload?.meta?.status === 'failed' ? 'warning' : 'info');
+            this.setSyncStatus(`Menampilkan arsip WeCIC${updatedAgo ? ` dari ${updatedAgo}` : ''}${statusSuffix}`, payload?.meta?.status === 'failed' ? 'warning' : 'info');
 
             return;
         }

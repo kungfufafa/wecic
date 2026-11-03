@@ -8,12 +8,12 @@
  * @type {Record<string, string>}
  */
 const RECONNECT_MESSAGES = {
-    notify: 'Sesi ini tidak menyimpan password, jadi tidak tersambung otomatis. MyCIC memberi tahu begitu portal kampus bisa diakses; setelah itu keluar lalu masuk lagi.',
+    notify: 'Sesi ini tidak menyimpan password, jadi tidak tersambung otomatis. WeCIC memberi tahu begitu portal kampus bisa diakses; setelah itu keluar lalu masuk lagi.',
     portal_back: 'Portal kampus sudah bisa diakses lagi. Keluar lalu masuk lagi untuk menyambungkan sesi.',
     manual: 'Keluar lalu masuk lagi saat portal kampus sudah bisa diakses.',
 };
 
-const AUTOMATIC_MESSAGE = 'MyCIC menyambung lagi otomatis begitu portal kampus bisa diakses.';
+const AUTOMATIC_MESSAGE = 'WeCIC menyambung lagi otomatis begitu portal kampus bisa diakses.';
 
 /**
  * The sentence telling the student how the offline session reconnects.

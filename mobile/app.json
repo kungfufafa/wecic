@@ -1,14 +1,15 @@
 {
   "expo": {
-    "name": "MyCIC",
-    "slug": "mycic",
+    "name": "WeCIC",
+    "slug": "wecic",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "mycic",
+    "scheme": "wecic",
     "userInterfaceStyle": "dark",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/expo.icon",
+      "bundleIdentifier": "com.rizqis.wecic"
     },
     "android": {
       "adaptiveIcon": {
@@ -17,7 +18,8 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.rizqis.wecic"
     },
     "web": {
       "output": "single",
@@ -45,7 +47,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "MyCIC memakai kamera untuk memindai QR absensi dari dosen.",
+          "cameraPermission": "WeCIC memakai kamera untuk memindai QR absensi dari dosen.",
           "microphonePermission": false,
           "recordAudioAndroid": false
         }
@@ -53,11 +55,13 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "MyCIC membuka foto yang kamu pilih untuk membaca QR absensi.",
+          "photosPermission": "WeCIC membuka foto yang kamu pilih untuk membaca QR absensi.",
           "cameraPermission": false,
           "microphonePermission": false
         }
-      ]
+      ],
+      "expo-image",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,

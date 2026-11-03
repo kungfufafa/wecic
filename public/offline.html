@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Tidak Ada Koneksi — myCIC</title>
+    <title>Tidak Ada Koneksi — WeCIC</title>
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -290,7 +290,7 @@
                 online: true,
                 label: 'Online lagi',
                 title: 'Koneksi kembali',
-                copy: 'Koneksi sudah kembali. myCIC sedang memuat ulang halaman.',
+                copy: 'Koneksi sudah kembali. WeCIC sedang memuat ulang halaman.',
                 meta: 'Tunggu sebentar, data terbaru akan diambil dari server.',
                 button: 'Memuat ulang...',
                 busy: true,
@@ -306,8 +306,8 @@
             render({
                 online: false,
                 label: 'Mencoba menyambung lagi…',
-                title: 'myCIC belum bisa dihubungi',
-                copy: 'Perangkat terhubung ke internet, tetapi server myCIC belum menjawab.',
+                title: 'WeCIC belum bisa dihubungi',
+                copy: 'Perangkat terhubung ke internet, tetapi server WeCIC belum menjawab.',
                 meta: '',
                 button: 'Coba lagi',
                 busy: false,
@@ -338,7 +338,7 @@
             let answered = false;
 
             probeController = controller;
-            offlineMeta.textContent = 'Memeriksa server myCIC…';
+            offlineMeta.textContent = 'Memeriksa server WeCIC…';
 
             try {
                 const response = await fetch(probeUrl, {

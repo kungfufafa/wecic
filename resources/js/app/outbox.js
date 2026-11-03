@@ -38,7 +38,7 @@ export class OutboxFeature {
             return false;
         }
 
-        this.showNotice(result?.message || 'Belum terkirim ke portal. Disimpan di antrean MyCIC dan dikirim begitu portal bisa diakses.', 'warning');
+        this.showNotice(result?.message || 'Belum terkirim ke portal. Disimpan di antrean WeCIC dan dikirim begitu portal bisa diakses.', 'warning');
         this.clearCachedResponse('/api/outbox');
         void this.loadOutbox({ force: true });
 
@@ -106,7 +106,7 @@ export class OutboxFeature {
             <section class="mycic-card" aria-label="${this.escapeHtml(title)}">
                 <div class="mycic-card-header flex flex-wrap items-center justify-between gap-2">
                     <h3 class="mycic-card-title">${this.escapeHtml(title)}</h3>
-                    <span class="text-caption text-ink-subtle">Disimpan di MyCIC, dikirim saat portal bisa diakses</span>
+                    <span class="text-caption text-ink-subtle">Disimpan di WeCIC, dikirim saat portal bisa diakses</span>
                 </div>
                 <div class="divide-y divide-border-light">
                     ${items.map((item) => {
@@ -137,7 +137,7 @@ export class OutboxFeature {
                                         ? '<div class="mt-1 text-caption text-ink-subtle">Cek halamannya di portal sebelum mengirim ulang, supaya file tidak terkirim dua kali.</div>'
                                         : ''}
                                     ${isQueued
-                                        ? `<div class="mt-1 text-caption text-ink-subtle">Portal belum menerima ini. MyCIC mengirimnya otomatis begitu portal bisa diakses${item.deadline_at ? ', selama tenggatnya belum lewat' : ''}.</div>`
+                                        ? `<div class="mt-1 text-caption text-ink-subtle">Portal belum menerima ini. WeCIC mengirimnya otomatis begitu portal bisa diakses${item.deadline_at ? ', selama tenggatnya belum lewat' : ''}.</div>`
                                         : ''}
                                 </div>
                                 <div class="flex shrink-0 flex-col items-end gap-2">
@@ -153,7 +153,7 @@ export class OutboxFeature {
     }
 
     async cancelOutboxItem(id, button = null) {
-        if (!Number.isInteger(id) || !window.confirm('Batalkan item ini? Portal belum menerimanya, dan MyCIC tidak akan mengirimnya.')) {
+        if (!Number.isInteger(id) || !window.confirm('Batalkan item ini? Portal belum menerimanya, dan WeCIC tidak akan mengirimnya.')) {
             return;
         }
 

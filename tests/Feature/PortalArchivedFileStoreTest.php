@@ -250,7 +250,7 @@ class PortalArchivedFileStoreTest extends TestCase
             $mock->shouldReceive('ensureFresh')->with(self::TOKEN, 'meeting_detail', ['meeting_id' => '446', 'courses_id' => '8810'])->andReturn(['materials' => [], 'rps_info' => []]);
         }));
         $this->instance(PortalBroadcastService::class, Mockery::mock(PortalBroadcastService::class, function (MockInterface $mock): void {
-            $mock->shouldReceive('dataInvalidated')->once()->withArgs(fn (string $sessionId, string $token, array $cacheKeys, array $syncKeys, string $message): bool => $message === '3 berkas materi baru tersimpan di arsip MyCIC.');
+            $mock->shouldReceive('dataInvalidated')->once()->withArgs(fn (string $sessionId, string $token, array $cacheKeys, array $syncKeys, string $message): bool => $message === '3 berkas materi baru tersimpan di arsip WeCIC.');
         }));
 
         app()->call([new ArchiveCourseMaterialsJob('laravel-session', self::TOKEN, $classParams), 'handle']);

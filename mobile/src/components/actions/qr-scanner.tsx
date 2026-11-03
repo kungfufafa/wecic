@@ -96,8 +96,8 @@ export function QrScanner({ visible, onScanned, onClose }: QrScannerProps) {
                 {permission === null
                   ? 'Memeriksa izin kamera…'
                   : canAskAgain
-                    ? 'MyCIC butuh kamera untuk memindai QR absensi dari dosen. Kamera hanya dipakai selama pemindai terbuka.'
-                    : 'Akses kamera ditolak. Izinkan kamera untuk MyCIC di Pengaturan, atau ketik kodenya saja.'}
+                    ? 'WeCIC butuh kamera untuk memindai QR absensi dari dosen. Kamera hanya dipakai selama pemindai terbuka.'
+                    : 'Akses kamera ditolak. Izinkan kamera untuk WeCIC di Pengaturan, atau ketik kodenya saja.'}
               </ThemedText>
               {permission !== null ? (
                 canAskAgain ? (

@@ -73,7 +73,7 @@ describe('offline page while the device is online but the server does not answer
         openOfflinePage();
 
         assert.equal(text('offline-status-label'), 'Mencoba menyambung lagi…');
-        assert.equal(text('offline-title'), 'myCIC belum bisa dihubungi');
+        assert.equal(text('offline-title'), 'WeCIC belum bisa dihubungi');
         assert.equal(text('offline-meta'), 'Dicoba lagi otomatis dalam 2 detik.');
         assert.equal(browser.document.getElementById('retry-button').disabled, false, 'the student can still retry at once');
 
@@ -124,7 +124,7 @@ describe('offline page while the device is online but the server does not answer
         assert.equal(browser.location.reloads, 1, 'one answer, one reload');
     });
 
-    it('an error page from a proxy is not an answer from myCIC', async () => {
+    it('an error page from a proxy is not an answer from WeCIC', async () => {
         openOfflinePage({ server: () => json(502, { message: 'Bad Gateway' }) });
 
         await browser.clock.advance(2 * 60 * 1000);
@@ -138,7 +138,7 @@ describe('offline page while the device is online but the server does not answer
 
         await browser.clock.advance(2000);
         assert.equal(probes().length, 1);
-        assert.equal(text('offline-meta'), 'Memeriksa server myCIC…');
+        assert.equal(text('offline-meta'), 'Memeriksa server WeCIC…');
 
         await browser.clock.advance(8000);
         assert.equal(text('offline-meta'), 'Dicoba lagi otomatis dalam 4 detik.');

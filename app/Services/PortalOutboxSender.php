@@ -93,7 +93,7 @@ class PortalOutboxSender
         }
 
         if ($item->file_path === null || ! Storage::exists($item->file_path)) {
-            return [PortalOutboxItem::STATUS_FAILED, 'File tugas tidak ditemukan lagi di MyCIC.'];
+            return [PortalOutboxItem::STATUS_FAILED, 'File tugas tidak ditemukan lagi di WeCIC.'];
         }
 
         $operationId = (string) Str::uuid();
@@ -130,7 +130,7 @@ class PortalOutboxSender
         $examId = (int) ($payload['id'] ?? 0);
 
         if ($item->file_path === null || ! Storage::exists($item->file_path)) {
-            return [PortalOutboxItem::STATUS_FAILED, 'File ujian tidak ditemukan lagi di MyCIC.'];
+            return [PortalOutboxItem::STATUS_FAILED, 'File ujian tidak ditemukan lagi di WeCIC.'];
         }
 
         $operationId = (string) Str::uuid();

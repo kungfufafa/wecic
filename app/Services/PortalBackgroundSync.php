@@ -59,7 +59,7 @@ class PortalBackgroundSync
 
     private const INTERRUPTED_MESSAGE = 'Sinkronisasi terhenti sebelum selesai (melewati batas waktu atau worker dihentikan).';
 
-    private const UNREADABLE_CREDENTIALS_MESSAGE = 'Password tersimpan tidak bisa dibaca lagi. Masuk lagi di MyCIC saat portal online untuk menyimpannya ulang.';
+    private const UNREADABLE_CREDENTIALS_MESSAGE = 'Password tersimpan tidak bisa dibaca lagi. Masuk lagi di WeCIC saat portal online untuk menyimpannya ulang.';
 
     private const SWITCHED_OFF_MESSAGE = 'Sinkronisasi latar dimatikan sebelum sinkronisasi dimulai; tidak ada yang disinkronkan.';
 
@@ -416,7 +416,7 @@ class PortalBackgroundSync
                 return $this->record($account, PortalOfflineAccount::SYNC_FAILED, 'Password tersimpan berganti saat sinkronisasi berjalan; dicoba lagi pada jadwal berikutnya.');
             }
 
-            return $this->record($account, PortalOfflineAccount::SYNC_REJECTED, 'Portal menolak password tersimpan; masuk lagi di MyCIC untuk memperbaruinya.');
+            return $this->record($account, PortalOfflineAccount::SYNC_REJECTED, 'Portal menolak password tersimpan; masuk lagi di WeCIC untuk memperbaruinya.');
         } catch (PortalConnectionException $exception) {
             return $this->record($account, PortalOfflineAccount::SYNC_UNREACHABLE, $exception->getMessage());
         } catch (\Throwable $throwable) {

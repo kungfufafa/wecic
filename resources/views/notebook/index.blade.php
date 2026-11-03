@@ -10,16 +10,16 @@
     <div class="flex min-w-0 flex-col gap-6">
         {{-- One banner per reason the AI cannot answer (`ai_status` of /api/notebooks). --}}
         <div class="mycic-alert-warning mb-0 hidden" data-ai-status-banner="disabled" role="status">
-            Fitur AI Notebook dimatikan di server MyCIC. Kamu tetap bisa memasukkan pertemuan dan sumber teks, DOCX, dan PPTX; tanya jawab aktif lagi setelah AI dinyalakan.
+            Fitur AI Notebook dimatikan di server WeCIC. Kamu tetap bisa memasukkan pertemuan dan sumber teks, DOCX, dan PPTX; tanya jawab aktif lagi setelah AI dinyalakan.
         </div>
         <div class="mycic-alert-warning mb-0 hidden" data-ai-status-banner="missing_key" role="status">
-            Fitur AI belum diaktifkan di server MyCIC (GEMINI_API_KEY kosong). Kamu tetap bisa memasukkan pertemuan dan sumber teks, DOCX, dan PPTX; tanya jawab aktif setelah AI dinyalakan.
+            Fitur AI belum diaktifkan di server WeCIC (GEMINI_API_KEY kosong). Kamu tetap bisa memasukkan pertemuan dan sumber teks, DOCX, dan PPTX; tanya jawab aktif setelah AI dinyalakan.
         </div>
         <div class="mycic-alert-warning mb-0 hidden" data-ai-status-banner="invalid_key" role="status">
-            Fitur AI sedang tidak bisa dipakai karena kunci API Gemini di server MyCIC ditolak. Pengelola MyCIC perlu memperbarui GEMINI_API_KEY. Pertemuan dan sumber teks, DOCX, dan PPTX tetap bisa dimasukkan.
+            Fitur AI sedang tidak bisa dipakai karena kunci API Gemini di server WeCIC ditolak. Pengelola WeCIC perlu memperbarui GEMINI_API_KEY. Pertemuan dan sumber teks, DOCX, dan PPTX tetap bisa dimasukkan.
         </div>
         <div class="mycic-alert-warning mb-0 hidden" data-ai-status-banner="model_misconfigured" role="status">
-            Fitur AI sedang tidak bisa dipakai karena pengaturan model AI di server MyCIC ditolak (model tidak dikenali, sudah tidak tersedia, atau pengaturannya tidak cocok). Pengelola MyCIC perlu memeriksa pengaturan model AI, misalnya GEMINI_MODEL atau NOTEBOOK_THINKING_BUDGET. Pertemuan dan sumber teks, DOCX, dan PPTX tetap bisa dimasukkan.
+            Fitur AI sedang tidak bisa dipakai karena pengaturan model AI di server WeCIC ditolak (model tidak dikenali, sudah tidak tersedia, atau pengaturannya tidak cocok). Pengelola WeCIC perlu memeriksa pengaturan model AI, misalnya GEMINI_MODEL atau NOTEBOOK_THINKING_BUDGET. Pertemuan dan sumber teks, DOCX, dan PPTX tetap bisa dimasukkan.
         </div>
 
         <section aria-labelledby="notebook-courses-title">
@@ -164,7 +164,7 @@
                     const notebooks = Array.isArray(payload?.data?.notebooks) ? payload.data.notebooks : [];
                     renderCourses(notebooks, payload?.data?.course_notebooks);
                     renderList(notebooks);
-                    app.setSyncStatus('Notebook tersimpan di MyCIC, tidak bergantung pada portal.', 'info');
+                    app.setSyncStatus('Notebook tersimpan di WeCIC, tidak bergantung pada portal.', 'info');
                 } catch (error) {
                     coursesHost.removeAttribute('aria-busy');
                     listHost.removeAttribute('aria-busy');

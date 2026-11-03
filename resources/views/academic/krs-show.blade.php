@@ -353,7 +353,7 @@
                 hosts.print.innerHTML = `
                     <div class="border-b border-border pb-3 text-sm text-ink-muted">
                         <div>${esc([header.name, header.nim].filter(Boolean).join(' · '))}</div>
-                        <p class="mt-1 text-caption">Dibuat MyCIC dari data portal per ${esc(stamp)} · bukan dokumen resmi.</p>
+                        <p class="mt-1 text-caption">Dibuat WeCIC dari data portal per ${esc(stamp)} · bukan dokumen resmi.</p>
                     </div>
                 `;
             };

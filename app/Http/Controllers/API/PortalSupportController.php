@@ -272,7 +272,7 @@ class PortalSupportController extends CampusApiController
         }
 
         if ($throwable instanceof PortalScrapingException && str_contains($throwable->getMessage(), 'byte download limit')) {
-            return $this->downloadError($request, 'File terlalu besar', 'File terlalu besar untuk diunduh lewat MyCIC. Buka langsung di portal kampus.', 422, campusSessionValid: true);
+            return $this->downloadError($request, 'File terlalu besar', 'File terlalu besar untuk diunduh lewat WeCIC. Buka langsung di portal kampus.', 422, campusSessionValid: true);
         }
 
         Log::warning('Campus file download failed', ['error' => $throwable->getMessage()]);

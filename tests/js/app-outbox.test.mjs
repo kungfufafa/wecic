@@ -26,7 +26,7 @@ describe('renderOutboxItems', () => {
     it('says a queued item has not reached the portal and lets the student cancel it', () => {
         const html = app.renderOutboxItems([{ ...queued, deadline_at: '2026-10-30T23:59:00+07:00' }]);
 
-        assert.match(html, /Portal belum menerima ini\. MyCIC mengirimnya otomatis begitu portal bisa diakses, selama tenggatnya belum lewat\./);
+        assert.match(html, /Portal belum menerima ini\. WeCIC mengirimnya otomatis begitu portal bisa diakses, selama tenggatnya belum lewat\./);
         assert.match(html, /data-outbox-cancel="7">Batalkan<\/button>/);
         assert.match(html, /<span class="mycic-badge-warning">Menunggu portal<\/span>/);
         assert.match(html, /aria-label="Antrean offline"/);

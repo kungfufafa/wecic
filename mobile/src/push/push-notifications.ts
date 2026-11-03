@@ -41,7 +41,7 @@ export async function registerForPushNotifications(api: ApiClient): Promise<Push
   if (Platform.OS === 'android') {
     // Android 13+ asks for permission only once a channel exists.
     await Notifications.setNotificationChannelAsync(ANDROID_CHANNEL_ID, {
-      name: 'Notifikasi MyCIC',
+      name: 'Notifikasi WeCIC',
       importance: AndroidImportance.HIGH,
       lightColor: '#0352A1',
     });

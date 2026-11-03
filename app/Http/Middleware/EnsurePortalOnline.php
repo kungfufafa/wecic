@@ -19,7 +19,7 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class EnsurePortalOnline
 {
-    public const OFFLINE_MESSAGE = 'Kamu sedang di mode offline, jadi aksi ke portal kampus belum bisa dijalankan. MyCIC menyambung lagi otomatis begitu portal bisa diakses.';
+    public const OFFLINE_MESSAGE = 'Kamu sedang di mode offline, jadi aksi ke portal kampus belum bisa dijalankan. WeCIC menyambung lagi otomatis begitu portal bisa diakses.';
 
     public function __construct(private readonly PortalOfflineAccess $offlineAccess) {}
 

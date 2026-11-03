@@ -1,6 +1,6 @@
 @extends('layouts.guest')
 
-@section('title', 'Masuk — myCIC')
+@section('title', 'Masuk — WeCIC')
 @section('page_id', 'login')
 
 @section('content')
@@ -17,22 +17,22 @@
 
             <div class="mycic-auth-showcase-content">
                 <div class="flex items-center gap-3">
-                    <img src="/images/ucic-shield.png" alt="Logo UCIC" class="h-12 w-auto object-contain" width="31" height="48">
+                    <img src="/icons/icon-192.png" alt="" class="h-12 w-12 rounded-xl" width="48" height="48">
                     <div>
-                        <div class="text-2xl font-black tracking-tight text-white">my<span class="text-[#ffc300]">CIC</span></div>
-                        <div class="text-[0.68rem] font-semibold uppercase tracking-wider text-white/80">Universitas Catur Insan Cendekia</div>
+                        <div class="text-2xl font-black tracking-tight text-white">We<span class="text-[#ffc300]">CIC</span></div>
+                        <div class="text-[0.68rem] font-semibold uppercase tracking-wider text-white/80">Aplikasi tidak resmi untuk MyCIC</div>
                     </div>
                 </div>
 
                 <div>
                     <div class="mb-4 inline-flex items-center gap-2 rounded-lg border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold text-white/90 backdrop-blur-sm">
                         <span class="h-2 w-2 rounded-full bg-[#ffc300]"></span>
-                        <span>Portal Resmi Akademik</span>
+                        <span>Aplikasi tidak resmi buatan mahasiswa</span>
                     </div>
-                    <blockquote class="mycic-auth-quote">
-                        “Portal terintegrasi mahasiswa UCIC untuk memantau perkuliahan, presensi, tugas, dan nilai akademik secara real-time.”
-                    </blockquote>
-                    <p class="mycic-auth-quote-author">— Universitas Catur Insan Cendekia</p>
+                    <p class="mycic-auth-quote">
+                        Jadwal, absensi, tugas, dan nilai dari MyCIC, dalam tampilan yang lebih mudah dipakai.
+                    </p>
+                    <p class="mycic-auth-quote-author">Data tetap bersumber dari MyCIC (my.cic.ac.id). WeCIC tidak berafiliasi dengan UCIC.</p>
                 </div>
             </div>
         </aside>
@@ -40,16 +40,16 @@
         <main class="mycic-auth-form-panel">
             <div class="mycic-auth-form-inner">
                 <div class="mycic-auth-mobile-brand mb-6 flex items-center gap-3 lg:hidden">
-                    <img src="/images/ucic-shield.png" alt="Logo UCIC" class="h-9 w-auto object-contain" width="23" height="36">
+                    <img src="/icons/icon-192.png" alt="" class="h-10 w-10 rounded-xl" width="40" height="40">
                     <div class="leading-tight">
-                        <div class="text-2xl font-extrabold tracking-tight text-brand">my<span class="text-ink">CIC</span></div>
-                        <div class="text-[0.65rem] font-semibold uppercase tracking-wider text-ink-subtle">Universitas Catur Insan Cendekia</div>
+                        <div class="text-2xl font-extrabold tracking-tight text-brand">We<span class="text-ink">CIC</span></div>
+                        <div class="text-[0.65rem] font-semibold uppercase tracking-wider text-ink-subtle">Aplikasi tidak resmi untuk MyCIC</div>
                     </div>
                 </div>
 
                 <header>
-                    <h1 class="mycic-page-heading">Masuk ke myCIC</h1>
-                    <p class="mycic-page-subheading">Gunakan NIM dan password portal kampus Anda.</p>
+                    <h1 class="mycic-page-heading">Masuk ke WeCIC</h1>
+                    <p class="mycic-page-subheading">Gunakan NIM dan password MyCIC (portal kampus) Anda.</p>
                     {{-- Present from page load so a failed login is read out; stays on screen unlike a toast. --}}
                     <div id="login-error" role="alert" data-login-error></div>
                 </header>
@@ -134,7 +134,7 @@
                 @endif
 
                 <p class="mycic-legal-text mt-8">
-                    Dengan masuk, Anda menyetujui penggunaan layanan akademik sesuai kebijakan kampus.
+                    WeCIC adalah aplikasi tidak resmi buatan mahasiswa dan tidak berafiliasi dengan UCIC. Data tetap bersumber dari MyCIC.
                 </p>
             </div>
         </main>

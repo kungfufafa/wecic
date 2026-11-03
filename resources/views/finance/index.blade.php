@@ -260,7 +260,7 @@
                     parts.push(`
                         <div class="${app.alertTone('neutral')}" role="status" data-finance-bill-status="unknown">
                             <p class="font-semibold text-ink">Status tagihan tidak terbaca</p>
-                            <p class="mt-1 text-sm">Tabel tagihan di portal tidak bisa dibaca, jadi MyCIC belum tahu ada tagihan atau tidak. Bukan berarti kamu tidak punya tagihan.</p>
+                            <p class="mt-1 text-sm">Tabel tagihan di portal tidak bisa dibaca, jadi WeCIC belum tahu ada tagihan atau tidak. Bukan berarti kamu tidak punya tagihan.</p>
                             <div class="mt-3 flex flex-wrap gap-2">
                                 <button type="button" class="${app.buttonClass('secondary', { small: true })}" data-finance-retry data-online-required>Coba lagi</button>
                                 <a href="${app.escapeHtml(portalFinanceUrl)}" target="_blank" rel="noopener noreferrer" class="${app.buttonClass('ghost', { small: true })}">Buka di portal<span class="sr-only"> (tab baru, perlu masuk lagi)</span></a>

@@ -83,7 +83,7 @@ class PortalReminderBuilder
                 'record_key' => $meetingId,
                 'dedupe_key' => hash('sha256', implode("\0", ['attendance', $meetingId])),
                 'title' => $courseName !== '' ? "Absen {$courseName} sekarang" : 'Absen kelas yang sedang berlangsung',
-                'body' => 'Kelas sedang berlangsung dan absensimu belum tercatat. Kirim dari MyCIC.',
+                'body' => 'Kelas sedang berlangsung dan absensimu belum tercatat. Kirim dari WeCIC.',
                 'url' => $this->openableUrl('/meeting/'.rawurlencode($meetingId).($coursesId !== '' ? '?courses_id='.rawurlencode($coursesId) : '')),
                 'urgency' => 'warning',
             ];
@@ -122,7 +122,7 @@ class PortalReminderBuilder
                 'record_key' => mb_substr($date.'|'.$classKey, 0, 255),
                 'dedupe_key' => hash('sha256', implode("\0", ['class_started', $date, $classKey])),
                 'title' => $courseName !== '' ? "Kelas {$courseName} sudah dimulai" : 'Kelasmu sudah dimulai',
-                'body' => ($room !== '' ? "Ruang {$room}. " : '').'Buka MyCIC untuk cek dan kirim absensimu.',
+                'body' => ($room !== '' ? "Ruang {$room}. " : '').'Buka WeCIC untuk cek dan kirim absensimu.',
                 'url' => '/dashboard',
                 'urgency' => 'info',
             ];

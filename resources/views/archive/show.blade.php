@@ -5,9 +5,9 @@
 
 @section('content')
     <header class="mb-4">
-        <a href="{{ route('archive.index') }}" class="mycic-link text-sm">Arsip MyCIC</a>
+        <a href="{{ route('archive.index') }}" class="mycic-link text-sm">Arsip WeCIC</a>
         <h1 class="mycic-page-heading">Riwayat {{ $label }}</h1>
-        <p class="mycic-page-subheading">Setiap versi berbeda yang pernah ditampilkan portal kampus, dari yang terbaru. Versi bertanda "Dipakai" adalah yang sedang ditampilkan MyCIC.</p>
+        <p class="mycic-page-subheading">Setiap versi berbeda yang pernah ditampilkan portal kampus, dari yang terbaru. Versi bertanda "Dipakai" adalah yang sedang ditampilkan WeCIC.</p>
     </header>
 
     <div class="flex min-w-0 flex-col gap-4">
@@ -170,7 +170,7 @@
                     <div class="flex flex-col gap-4">
                         <div class="flex flex-wrap items-center gap-2">
                             ${app.renderBadge(status.label, status.tone)}
-                            ${data.is_current ? app.renderBadge('Dipakai MyCIC', 'brand') : ''}
+                            ${data.is_current ? app.renderBadge('Dipakai WeCIC', 'brand') : ''}
                         </div>
                         ${app.renderKeyValueList([
                             { label: 'Pertama terlihat', value: formatMoment(version.first_seen_at) },
@@ -248,7 +248,7 @@
                     }
 
                     renderVersions();
-                    app.setSyncStatus('Riwayat dibaca dari arsip MyCIC.', 'info');
+                    app.setSyncStatus('Riwayat dibaca dari arsip WeCIC.', 'info');
 
                     if (state.selectedId) {
                         await loadDetail(state.selectedId, { background });

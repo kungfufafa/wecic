@@ -154,7 +154,7 @@ export default function SkkmScreen() {
               <Button
                 variant="secondary"
                 icon="globe"
-                label="Buka MyCIC versi web"
+                label="Buka WeCIC versi web"
                 onPress={() => void WebBrowser.openBrowserAsync(`${website}/skkm`)}
               />
             ) : null}

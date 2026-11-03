@@ -539,7 +539,7 @@ class PortalSnapshotDiffNotifierTest extends TestCase
         );
 
         $this->assertSame(['academic_period_changed', 'questionnaire_opened', 'portal_menu_added'], $this->types($created));
-        $this->assertSame('Sekarang T.A 2026/2027 Semester Ganjil. KRS, jadwal, dan tagihan semester baru menyusul di MyCIC.', $created[0]->body);
+        $this->assertSame('Sekarang T.A 2026/2027 Semester Ganjil. KRS, jadwal, dan tagihan semester baru menyusul di WeCIC.', $created[0]->body);
         $this->assertSame('Kuesioner VMTS 2026/2027', $created[1]->body);
         $this->assertSame('warning', $created[1]->urgency);
         $this->assertSame('Menu baru di portal: Menu skripsi', $created[2]->title);

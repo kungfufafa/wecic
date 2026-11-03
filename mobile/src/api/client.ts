@@ -70,7 +70,7 @@ export type ApiClient = {
   authHeaders(): Record<string, string>;
 };
 
-export const NETWORK_ERROR_MESSAGE = 'Tidak bisa terhubung ke MyCIC. Periksa koneksi internet lalu coba lagi.';
+export const NETWORK_ERROR_MESSAGE = 'Tidak bisa terhubung ke WeCIC. Periksa koneksi internet lalu coba lagi.';
 
 export const TIMEOUT_ERROR_MESSAGE = 'Portal kampus terlalu lama menjawab. Coba lagi sebentar lagi.';
 

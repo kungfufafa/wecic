@@ -589,7 +589,7 @@ class PortalAnnouncementApiTest extends TestCase
         $this->withSession(['campus_session_token' => self::TOKEN])
             ->getJson('/api/announcement/'.str_repeat('c', 40))
             ->assertStatus(503)
-            ->assertJsonPath('message', 'Data ini belum tersimpan di arsip MyCIC, jadi belum bisa dibuka selama mode offline.')
+            ->assertJsonPath('message', 'Data ini belum tersimpan di arsip WeCIC, jadi belum bisa dibuka selama mode offline.')
             ->assertJsonPath('meta.offline', true);
 
         // Every portal page is in the feed: there is nothing the portal could add.

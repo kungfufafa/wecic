@@ -288,7 +288,7 @@ class PortalArchiveApiTest extends TestCase
 
         $this->patchAsStudent('/api/archive/background-sync', ['enabled' => true])
             ->assertStatus(409)
-            ->assertJsonPath('message', 'Sinkronisasi background tidak tersedia di MyCIC ini.')
+            ->assertJsonPath('message', 'Sinkronisasi background tidak tersedia di WeCIC ini.')
             ->assertJsonPath('data.available', false)
             ->assertJsonPath('data.enabled', false);
     }
@@ -365,12 +365,12 @@ class PortalArchiveApiTest extends TestCase
     {
         $version = PortalArchiveVersion::factory()->forOwner($this->ownerHash)->suspect()->create();
 
-        $this->withSession(['campus_session_token' => self::TOKEN])->get('/archive')->assertOk()->assertSee('Arsip MyCIC');
+        $this->withSession(['campus_session_token' => self::TOKEN])->get('/archive')->assertOk()->assertSee('Arsip WeCIC');
         $this->withSession(['campus_session_token' => self::TOKEN])->get('/archive/grades')->assertOk()->assertSee('Riwayat Nilai (KHS)');
         $this->withSession(['campus_session_token' => self::TOKEN])->get('/archive/dashboard')->assertNotFound();
         $this->withSession(['campus_session_token' => self::TOKEN])->get('/archive/versions/'.$version->id.'/print')
             ->assertOk()
-            ->assertSee('Bukti arsip MyCIC')
+            ->assertSee('Bukti arsip WeCIC')
             ->assertSee('Kegiatan SKKM berkurang dari 2 menjadi 1.');
         $foreign = PortalArchiveVersion::factory()->forOwner('student_someone_else')->create();
         $this->withSession(['campus_session_token' => self::TOKEN])->get('/archive/versions/'.$foreign->id.'/print')->assertNotFound();

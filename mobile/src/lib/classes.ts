@@ -164,12 +164,12 @@ export function aiStatusMessage(available: boolean | undefined, status: string |
 
   switch (status) {
     case 'missing_key':
-      return 'Asisten AI belum diaktifkan di server MyCIC. Sumber dan catatan tetap tersimpan, tetapi tanya jawab dan studio belum bisa dipakai.';
+      return 'Asisten AI belum diaktifkan di server WeCIC. Sumber dan catatan tetap tersimpan, tetapi tanya jawab dan studio belum bisa dipakai.';
     case 'disabled':
-      return 'Asisten AI dimatikan di server MyCIC. Sumber dan catatan tetap tersimpan.';
+      return 'Asisten AI dimatikan di server WeCIC. Sumber dan catatan tetap tersimpan.';
     case 'invalid_key':
     case 'model_misconfigured':
-      return 'Asisten AI salah diatur di server MyCIC. Hubungi pengelola MyCIC.';
+      return 'Asisten AI salah diatur di server WeCIC. Hubungi pengelola WeCIC.';
     default:
       return 'Asisten AI sedang tidak bisa dihubungi. Coba lagi nanti.';
   }

@@ -77,7 +77,7 @@ describe('markViewSynced', () => {
 
         app.markViewSynced('KRS', { meta: { status: 'offline' } });
 
-        assert.equal(line().textContent, 'Mode offline. Menampilkan arsip MyCIC.');
+        assert.equal(line().textContent, 'Mode offline. Menampilkan arsip WeCIC.');
     });
 
     it('says a snapshot is being rebuilt while it shows it', async () => {

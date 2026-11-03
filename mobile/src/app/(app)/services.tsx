@@ -11,7 +11,7 @@ export default function ServicesScreen() {
   const router = useRouter();
 
   return (
-    <Screen back title="Semua layanan" subtitle="Semua fitur MyCIC versi web, di aplikasi">
+    <Screen back title="Semua layanan" subtitle="Semua fitur WeCIC versi web, di aplikasi">
       {FEATURE_GROUPS.map((group) => (
         <Section key={group.title} label={group.title}>
           <Panel padded={false}>

@@ -111,7 +111,7 @@ class PortalArchiveController extends CampusApiController
                 return $this->statusError(
                     $status['available']
                         ? 'Pengaturan sinkronisasi background belum tersimpan. Coba lagi beberapa saat.'
-                        : 'Sinkronisasi background tidak tersedia di MyCIC ini.',
+                        : 'Sinkronisasi background tidak tersedia di WeCIC ini.',
                     409,
                     ['data' => $status],
                     campusSessionValid: true
@@ -228,7 +228,7 @@ class PortalArchiveController extends CampusApiController
 
             $rejected = $this->archive->reject($sessionToken, $archived);
 
-            return $this->statusSuccess('Data portal ditolak. MyCIC tetap menampilkan data tersimpan.', [
+            return $this->statusSuccess('Data portal ditolak. WeCIC tetap menampilkan data tersimpan.', [
                 'data' => ['version' => $rejected->toApiArray()],
             ], campusSessionValid: true);
         });
@@ -247,7 +247,7 @@ class PortalArchiveController extends CampusApiController
 
             return response()->json([
                 'exported_at' => now()->toISOString(),
-                'source' => 'MyCIC (arsip lokal dari portal kampus)',
+                'source' => 'WeCIC (arsip lokal dari portal kampus)',
                 'label' => $this->archive->label($archived->dataset),
                 'version' => $archived->toApiArray(),
                 'payload' => $this->withoutWriteEffectLinks($archived->payload ?? []),
@@ -370,7 +370,7 @@ class PortalArchiveController extends CampusApiController
             ];
             $this->offlineAccess->forget($ownerHash);
 
-            return $this->statusSuccess('Arsip MyCIC kamu sudah dihapus.', ['data' => $deleted], campusSessionValid: true);
+            return $this->statusSuccess('Arsip WeCIC kamu sudah dihapus.', ['data' => $deleted], campusSessionValid: true);
         });
     }
 

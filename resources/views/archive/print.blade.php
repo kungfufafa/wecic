@@ -21,9 +21,9 @@
     <article class="mx-auto flex max-w-3xl flex-col gap-5">
         <header class="flex flex-wrap items-start justify-between gap-3">
             <div class="min-w-0">
-                <p class="text-caption uppercase tracking-wide text-ink-subtle">Bukti arsip MyCIC</p>
+                <p class="text-caption uppercase tracking-wide text-ink-subtle">Bukti arsip WeCIC</p>
                 <h1 class="mycic-page-heading">{{ $label }}{{ $version->subject ? ' · '.$version->subject : '' }}</h1>
-                <p class="mycic-page-subheading">Salinan data yang ditampilkan portal kampus kepada mahasiswa, disimpan otomatis oleh MyCIC.</p>
+                <p class="mycic-page-subheading">Salinan data yang ditampilkan portal kampus kepada mahasiswa, disimpan otomatis oleh WeCIC.</p>
             </div>
             <button type="button" class="mycic-btn-primary print:hidden" onclick="window.print()">Cetak / simpan PDF</button>
         </header>
@@ -107,6 +107,6 @@
             </div>
         </section>
 
-        <p class="text-caption text-ink-subtle">Dokumen ini dibuat oleh MyCIC dari arsip pribadi mahasiswa. MyCIC bukan sistem resmi kampus; cocokkan dengan bagian akademik atau keuangan bila diperlukan.</p>
+        <p class="text-caption text-ink-subtle">Dokumen ini dibuat oleh WeCIC dari arsip pribadi mahasiswa. WeCIC bukan sistem resmi kampus; cocokkan dengan bagian akademik atau keuangan bila diperlukan.</p>
     </article>
 @endsection

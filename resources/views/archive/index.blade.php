@@ -1,10 +1,10 @@
 @extends('layouts.app')
 
-@section('title', 'Arsip MyCIC')
+@section('title', 'Arsip WeCIC')
 @section('page_id', 'archive-index')
 
 @section('content')
-    <x-page-header title="Arsip MyCIC" subtitle="Cadangan data portal kampus milikmu. Tetap bisa dibuka saat portal bermasalah, dan jadi bukti kalau data di portal tiba-tiba berubah atau hilang." />
+    <x-page-header title="Arsip WeCIC" subtitle="Cadangan data portal kampus milikmu. Tetap bisa dibuka saat portal bermasalah, dan jadi bukti kalau data di portal tiba-tiba berubah atau hilang." />
 
     <div class="flex min-w-0 flex-col gap-6">
         <section aria-labelledby="archive-attention-title" id="archive-attention" class="hidden">
@@ -58,11 +58,11 @@
             </div>
             <div class="mycic-card-body flex flex-col gap-3 text-sm text-ink-muted">
                 <ul class="flex list-disc flex-col gap-1.5 ps-5">
-                    <li>Data disimpan terenkripsi di server MyCIC dan hanya bisa dibuka lewat akunmu. Daftar teman sekelas tidak ikut diarsipkan.</li>
-                    <li>Saat portal mati, kamu tetap bisa masuk dengan password terakhir yang berhasil login (maks. {{ \App\Models\PortalOfflineAccount::offlineLoginDays() }} hari), dan MyCIC menyambung lagi otomatis begitu portal pulih selama sinkronisasi background menyala. Jika dimatikan, password tidak disimpan: MyCIC hanya memberi tahu saat portal pulih dan kamu masuk lagi sendiri.</li>
-                    <li>Dengan sinkronisasi di background aktif, password terakhirmu disimpan terenkripsi supaya MyCIC bisa masuk ke portal sendiri setiap {{ (int) config('portal.background_sync.interval', 180) }} menit dan memperbarui arsip saat kamu tidak membuka MyCIC, termasuk detail kelas, pertemuan, dan materi semua kelasmu. Matikan di bawah kalau tidak mau; yang tersisa hanya hash password.</li>
+                    <li>Data disimpan terenkripsi di server WeCIC dan hanya bisa dibuka lewat akunmu. Daftar teman sekelas tidak ikut diarsipkan.</li>
+                    <li>Saat portal mati, kamu tetap bisa masuk dengan password terakhir yang berhasil login (maks. {{ \App\Models\PortalOfflineAccount::offlineLoginDays() }} hari), dan WeCIC menyambung lagi otomatis begitu portal pulih selama sinkronisasi background menyala. Jika dimatikan, password tidak disimpan: WeCIC hanya memberi tahu saat portal pulih dan kamu masuk lagi sendiri.</li>
+                    <li>Dengan sinkronisasi di background aktif, password terakhirmu disimpan terenkripsi supaya WeCIC bisa masuk ke portal sendiri setiap {{ (int) config('portal.background_sync.interval', 180) }} menit dan memperbarui arsip saat kamu tidak membuka WeCIC, termasuk detail kelas, pertemuan, dan materi semua kelasmu. Matikan di bawah kalau tidak mau; yang tersisa hanya hash password.</li>
                     <li>Semua itu tidak disimpan selamanya: {{ \App\Models\PortalOfflineAccount::credentialDays() }} hari setelah login online terakhirmu, password terenkripsi dihapus otomatis dan sinkronisasi di background berhenti; hash password dan data untuk masuk saat portal mati dihapus {{ \App\Models\PortalOfflineAccount::offlineLoginDays() }} hari sejak login itu. Password yang ditolak portal langsung dihapus. Arsipmu sendiri tetap tersimpan sampai kamu menghapusnya.</li>
-                    <li>Kalau data dari portal terlihat janggal (nilai hilang, presensi berubah jadi absen, riwayat bayar berkurang), MyCIC tetap menampilkan versi terakhir yang dipercaya sampai kamu memeriksanya.</li>
+                    <li>Kalau data dari portal terlihat janggal (nilai hilang, presensi berubah jadi absen, riwayat bayar berkurang), WeCIC tetap menampilkan versi terakhir yang dipercaya sampai kamu memeriksanya.</li>
                 </ul>
                 <div class="mycic-alert-info mb-0 flex flex-wrap items-center justify-between gap-3" id="archive-background-sync" hidden>
                     <span class="min-w-0">
@@ -113,7 +113,7 @@
                     <a href="/archive/${encodeURIComponent(dataset.dataset)}" class="mycic-alert-warning mb-0 flex items-center justify-between gap-3 transition-colors hover:border-warning/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">
                         <span class="min-w-0">
                             <span class="block font-bold">${app.escapeHtml(dataset.label)}: ${dataset.open_suspects} perubahan janggal</span>
-                            <span class="block text-caption">MyCIC menahan data dari portal dan tetap menampilkan versi tersimpan. Buka untuk memeriksa.</span>
+                            <span class="block text-caption">WeCIC menahan data dari portal dan tetap menampilkan versi tersimpan. Buka untuk memeriksa.</span>
                         </span>
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6l-6 6" /></svg>
                     </a>
@@ -227,11 +227,11 @@
 
             const describeBackgroundSync = (status) => {
                 if (!status.enabled) {
-                    return 'Nonaktif. Password tidak disimpan; arsip hanya diperbarui saat kamu membuka MyCIC.';
+                    return 'Nonaktif. Password tidak disimpan; arsip hanya diperbarui saat kamu membuka WeCIC.';
                 }
 
                 if (status.rejected) {
-                    return 'Portal menolak password yang tersimpan. Masuk lagi di MyCIC saat portal online untuk memperbaruinya.';
+                    return 'Portal menolak password yang tersimpan. Masuk lagi di WeCIC saat portal online untuk memperbaruinya.';
                 }
 
                 if (status.pending_login) {
@@ -269,7 +269,7 @@
             backgroundSyncToggle.addEventListener('change', async () => {
                 const enabled = backgroundSyncToggle.checked;
 
-                if (!enabled && !window.confirm('Matikan sinkronisasi di background? Password yang tersimpan langsung dihapus dan arsip hanya diperbarui saat kamu membuka MyCIC.')) {
+                if (!enabled && !window.confirm('Matikan sinkronisasi di background? Password yang tersimpan langsung dihapus dan arsip hanya diperbarui saat kamu membuka WeCIC.')) {
                     backgroundSyncToggle.checked = true;
 
                     return;
@@ -311,7 +311,7 @@
                     renderDatasets(Array.isArray(summary?.data?.datasets) ? summary.data.datasets : []);
                     renderFiles(files);
                     renderBackgroundSync(summary?.data?.background_sync || null);
-                    app.setSyncStatus('Arsip dibaca dari database MyCIC.', 'info');
+                    app.setSyncStatus('Arsip dibaca dari database WeCIC.', 'info');
                 } catch (error) {
                     datasetsHost.removeAttribute('aria-busy');
                     app.mountErrorState(datasetsHost, 'Arsip gagal dimuat.', () => loadArchive(), {
@@ -344,7 +344,7 @@
             });
 
             deleteButton.addEventListener('click', () => {
-                if (!window.confirm('Hapus seluruh arsip MyCIC kamu? Riwayat data, berkas materi, dan akses offline akan hilang dan tidak bisa dikembalikan.')) {
+                if (!window.confirm('Hapus seluruh arsip WeCIC kamu? Riwayat data, berkas materi, dan akses offline akan hilang dan tidak bisa dikembalikan.')) {
                     return;
                 }
 

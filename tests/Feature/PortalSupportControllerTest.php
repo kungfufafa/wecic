@@ -228,7 +228,7 @@ class PortalSupportControllerTest extends TestCase
         $this->withSession(['campus_session_token' => 'token-download'])
             ->getJson('/api/support/download?path=../files/modul/besar.pdf')
             ->assertStatus(422)
-            ->assertJsonPath('message', 'File terlalu besar untuk diunduh lewat MyCIC. Buka langsung di portal kampus.')
+            ->assertJsonPath('message', 'File terlalu besar untuk diunduh lewat WeCIC. Buka langsung di portal kampus.')
             ->assertJsonPath('meta.campus_session_valid', true);
     }
 
@@ -277,7 +277,7 @@ class PortalSupportControllerTest extends TestCase
 
         $response->assertStatus(422);
         $this->assertStringStartsWith('text/html', (string) $response->headers->get('content-type'));
-        $response->assertSee('File terlalu besar untuk diunduh lewat MyCIC. Buka langsung di portal kampus.');
+        $response->assertSee('File terlalu besar untuk diunduh lewat WeCIC. Buka langsung di portal kampus.');
     }
 
     public function test_an_expired_session_on_a_download_opened_in_a_tab_goes_to_the_login_page(): void

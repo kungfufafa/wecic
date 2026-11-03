@@ -1,6 +1,6 @@
 @extends('layouts.guest')
 
-@section('title', 'Halaman tidak ditemukan — myCIC')
+@section('title', 'Halaman tidak ditemukan — WeCIC')
 @section('page_id', 'error-404')
 
 @section('content')

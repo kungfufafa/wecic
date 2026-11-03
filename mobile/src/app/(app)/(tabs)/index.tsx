@@ -116,7 +116,7 @@ export default function HomeScreen() {
       {offline ? (
         <Notice
           tone="warning"
-          message="Portal kampus sedang tidak bisa diakses, jadi data diambil dari arsip MyCIC. Absensi dan unggahan masuk antrean."
+          message="Portal kampus sedang tidak bisa diakses, jadi data diambil dari arsip WeCIC. Absensi dan unggahan masuk antrean."
         />
       ) : null}
       {dashboard.error ? <Notice tone="error" message={dashboard.error} /> : null}

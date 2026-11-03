@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, TextInput, View, type TextInputProps } from 'react-native';
+import type { Ref } from 'react';
+import { Pressable, StyleSheet, TextInput, View, type TextInputInstance, type TextInputProps } from 'react-native';
 
 import { Icon, type IconName } from '@/components/icon';
 import { ThemedText } from '@/components/themed-text';
@@ -15,9 +16,11 @@ type TextFieldProps = TextInputProps & {
   secureToggle?: boolean;
   /** An × that empties the field once it has text. */
   clearable?: boolean;
+  ref?: Ref<TextInputInstance>;
 };
 
 export function TextField({
+  ref,
   label,
   icon,
   error,
@@ -48,6 +51,7 @@ export function TextField({
       <View style={[styles.inputRow, { backgroundColor: theme.elevated, borderColor: outline }]}>
         {icon ? <Icon name={icon} size={20} color={focused ? theme.text : theme.textTertiary} /> : null}
         <TextInput
+          ref={ref}
           accessibilityLabel={label ?? placeholder}
           placeholder={placeholder}
           placeholderTextColor={theme.textTertiary}

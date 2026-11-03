@@ -139,7 +139,7 @@
                             title: 'Status KRS belum terbaca',
                             body: rawText
                                 ? `Portal menulis: “${rawText}”. Buka portal kampus kalau kamu ragu.`
-                                : 'MyCIC belum bisa membaca status KRS dari portal. Buka portal kampus untuk memastikan.',
+                                : 'WeCIC belum bisa membaca status KRS dari portal. Buka portal kampus untuk memastikan.',
                         };
                 }
             };

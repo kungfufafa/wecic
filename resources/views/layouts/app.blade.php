@@ -10,7 +10,7 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta name="apple-mobile-web-app-title" content="myCIC">
+    <meta name="apple-mobile-web-app-title" content="WeCIC">
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=plus-jakarta-sans:400,500,600,700,800&display=swap" rel="stylesheet">
@@ -157,9 +157,9 @@
     <div class="mycic-page">
         <header class="mycic-page-header print:hidden">
             <div class="mycic-container flex h-14 items-center gap-3 md:gap-4">
-                <a href="{{ route('dashboard') }}" class="mycic-brand-wordmark shrink-0" aria-label="myCIC - Universitas Catur Insan Cendekia">
-                    <img src="/images/ucic-shield.png" alt="Logo UCIC" class="h-8 w-auto object-contain transition-transform hover:scale-105" width="22" height="34">
-                    <span>my<span class="text-ink">CIC</span></span>
+                <a href="{{ route('dashboard') }}" class="mycic-brand-wordmark shrink-0" aria-label="WeCIC, beranda">
+                    <img src="/icons/icon-192.png" alt="" class="h-8 w-8 rounded-lg transition-transform hover:scale-105" width="32" height="32">
+                    <span>We<span class="text-ink">CIC</span></span>
                 </a>
 
                 <nav class="mycic-top-nav" aria-label="Navigasi utama">
@@ -319,7 +319,7 @@
                     <div class="mycic-alert-warning mb-4 flex flex-wrap items-center justify-between gap-3 print:hidden" role="status" data-portal-offline-banner>
                         <span class="min-w-0">
                             <span class="block font-bold">Mode offline</span>
-                            <span class="block text-sm">Portal kampus tidak bisa diakses saat kamu masuk. Data diambil dari arsip MyCIC. Absen dan upload yang kamu kirim disimpan dulu di antrean MyCIC (belum terkirim ke portal) dan dikirim otomatis begitu portal pulih, selama tenggatnya belum lewat; sinkronisasi menunggu. <span data-portal-offline-reconnect-text>{{ \App\Http\Controllers\API\PortalAuthController::offlineReconnectMessage(session('campus_offline_reconnect')) }}</span></span>
+                            <span class="block text-sm">Portal kampus tidak bisa diakses saat kamu masuk. Data diambil dari arsip WeCIC. Absen dan upload yang kamu kirim disimpan dulu di antrean WeCIC (belum terkirim ke portal) dan dikirim otomatis begitu portal pulih, selama tenggatnya belum lewat; sinkronisasi menunggu. <span data-portal-offline-reconnect-text>{{ \App\Http\Controllers\API\PortalAuthController::offlineReconnectMessage(session('campus_offline_reconnect')) }}</span></span>
                         </span>
                         <x-button variant="secondary" size="sm" data-logout="">Masuk ulang</x-button>
                     </div>

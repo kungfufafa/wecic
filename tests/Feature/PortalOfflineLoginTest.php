@@ -367,7 +367,7 @@ class PortalOfflineLoginTest extends TestCase
         $this->getJson('/api/skkm')
             ->assertStatus(503)
             ->assertJsonPath('meta.offline', true)
-            ->assertJsonPath('message', 'Data ini belum tersimpan di arsip MyCIC, jadi belum bisa dibuka selama mode offline.');
+            ->assertJsonPath('message', 'Data ini belum tersimpan di arsip WeCIC, jadi belum bisa dibuka selama mode offline.');
     }
 
     public function test_actions_that_reach_the_portal_are_closed_offline(): void

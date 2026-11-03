@@ -31,7 +31,7 @@ class SendPortalOutboxCommand extends Command
 
     protected $signature = 'portal:send-outbox';
 
-    protected $description = 'Expire, flush or send the waiting outbox items of students who are not online in MyCIC';
+    protected $description = 'Expire, flush or send the waiting outbox items of students who are not online in WeCIC';
 
     public function handle(PortalOutbox $outbox, PortalSessionManager $sessions, PortalOfflineAccess $offlineAccess, PortalBackgroundSync $backgroundSync): int
     {

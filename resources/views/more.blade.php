@@ -58,7 +58,7 @@
             'title' => 'Belajar & cadangan',
             'tiles' => [
                 ['key' => 'notebook', 'label' => 'Notebook', 'caption' => 'Tanya jawab dan ringkasan dari materi kuliah', 'href' => route('notebook.index')],
-                ['key' => 'archive', 'label' => 'Arsip MyCIC', 'caption' => 'Cadangan data portal dan materi', 'href' => route('archive.index')],
+                ['key' => 'archive', 'label' => 'Arsip WeCIC', 'caption' => 'Cadangan data portal dan materi', 'href' => route('archive.index')],
             ],
         ],
         [
@@ -120,7 +120,7 @@
         <section class="mycic-card scroll-mt-20" id="panduan" aria-labelledby="more-guides-title">
             <div class="mycic-card-header">
                 <h2 class="mycic-card-title" id="more-guides-title">Panduan</h2>
-                <p class="mt-0.5 text-caption text-ink-subtle">Panduan resmi dari portal kampus, dibuka lewat MyCIC.</p>
+                <p class="mt-0.5 text-caption text-ink-subtle">Panduan resmi dari portal kampus, dibuka lewat WeCIC.</p>
             </div>
             <div class="mycic-card-body" id="more-guides">
                 <div class="flex flex-col gap-3" aria-busy="true">

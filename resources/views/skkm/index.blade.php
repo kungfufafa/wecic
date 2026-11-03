@@ -503,7 +503,7 @@
                             </span>
                             <span class="min-w-0 flex-1">
                                 <span class="block font-semibold text-ink">Pedoman SKKM${data.guide_year ? ` ${app.escapeHtml(data.guide_year)}` : ''}</span>
-                                <span class="block text-caption text-ink-subtle">PDF · dibuka lewat MyCIC, butuh internet</span>
+                                <span class="block text-caption text-ink-subtle">PDF · dibuka lewat WeCIC, butuh internet</span>
                             </span>
                         </a>
                         <p class="text-caption text-ink-subtle">Baca dulu jenis kegiatan dan bukti yang diterima sebelum mengunggah.</p>

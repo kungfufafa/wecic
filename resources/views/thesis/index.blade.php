@@ -219,7 +219,7 @@
                     body = `
                         <div class="flex flex-wrap items-center gap-2">${app.renderBadge('Skripsi aktif', 'brand')}</div>
                         ${status.message ? `<p class="text-sm text-ink-muted">${app.escapeHtml(status.message)}</p>` : ''}
-                        ${fields.length ? app.renderKeyValueList(fields.map((field) => ({ label: field.label, value: field.value }))) : '<p class="text-sm text-ink-muted">Portal menampilkan data skripsi yang belum bisa dibaca MyCIC. Detailnya ada di Portal Kampus.</p>'}
+                        ${fields.length ? app.renderKeyValueList(fields.map((field) => ({ label: field.label, value: field.value }))) : '<p class="text-sm text-ink-muted">Portal menampilkan data skripsi yang belum bisa dibaca WeCIC. Detailnya ada di Portal Kampus.</p>'}
                         <a href="${app.escapeHtml(portalThesisUrl)}" target="_blank" rel="noopener noreferrer" class="${app.buttonClass('secondary', { small: true })} self-start" data-online-required>Buka di Portal Kampus<span class="sr-only"> (tab baru)</span></a>
                     `;
                 } else {
@@ -265,7 +265,7 @@
                         <div class="${app.statusPanelClass('brand')}">
                             <p class="text-caption font-semibold uppercase tracking-wide text-ink-subtle">Ambang untuk jenjang ${app.escapeHtml(jenjang || 'kamu')}</p>
                             <p class="mt-1 text-sm font-semibold text-ink">${app.escapeHtml(summary.join(' · '))}</p>
-                            ${isDefault ? '<p class="mt-1 text-caption text-ink-subtle">Sebagian ambang tidak tertulis di portal; MyCIC memakai nilai bawaan. Pastikan lagi di SOP.</p>' : ''}
+                            ${isDefault ? '<p class="mt-1 text-caption text-ink-subtle">Sebagian ambang tidak tertulis di portal; WeCIC memakai nilai bawaan. Pastikan lagi di SOP.</p>' : ''}
                         </div>
                     ` : ''}
                     ${thesisItems.length ? `
@@ -411,7 +411,7 @@
                     : (ready === false ? app.renderBadge(`${summary.failed || 0} syarat belum terpenuhi`, 'danger') : app.renderBadge('Belum lengkap', 'secondary'));
                 readinessCaption.textContent = data.threshold_source === 'portal'
                     ? `Ambang jenjang ${data.jenjang} dari SiMASITA.`
-                    : `Ambang jenjang ${data.jenjang}${data.jenjang_source === 'default' ? ' (jenjang belum terbaca)' : ''}; sebagian memakai nilai bawaan MyCIC.`;
+                    : `Ambang jenjang ${data.jenjang}${data.jenjang_source === 'default' ? ' (jenjang belum terbaca)' : ''}; sebagian memakai nilai bawaan WeCIC.`;
 
                 const sksHint = sksItem?.status === 'passed'
                     ? 'SKS minimal sudah tercapai.'

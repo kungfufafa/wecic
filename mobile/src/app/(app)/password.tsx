@@ -50,7 +50,7 @@ export default function PasswordScreen() {
   }
 
   return (
-    <Screen back title="Ganti kata sandi" subtitle="Kata sandi baru berlaku untuk portal kampus dan MyCIC.">
+    <Screen back title="Ganti kata sandi" subtitle="Kata sandi baru berlaku untuk portal kampus dan WeCIC.">
       {offline ? <Notice tone="warning" message="Portal kampus sedang tidak bisa diakses. Ganti kata sandi butuh portal yang online." /> : null}
       {result ? <Notice tone={result.ok ? 'success' : 'error'} message={result.message} /> : null}
 

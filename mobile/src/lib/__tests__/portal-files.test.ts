@@ -14,7 +14,7 @@ describe('portal files', () => {
 
   it('words the failure for the student', () => {
     expect(downloadErrorMessage(404)).toBe('File tidak ditemukan di portal kampus.');
-    expect(downloadErrorMessage(422)).toBe('Tautan file ini tidak bisa dibuka dari MyCIC.');
+    expect(downloadErrorMessage(422)).toBe('Tautan file ini tidak bisa dibuka dari WeCIC.');
     expect(downloadErrorMessage(0)).toMatch(/koneksi internet/);
     expect(downloadErrorMessage(500)).toBe('Server sedang bermasalah. Coba lagi sebentar lagi.');
   });

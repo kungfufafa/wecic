@@ -67,7 +67,7 @@
                     <section class="mycic-card" aria-labelledby="krs-notes-title">
                         <div class="mycic-card-header"><h2 class="mycic-card-title" id="krs-notes-title">Perlu diingat</h2></div>
                         <div class="mycic-card-body flex flex-col gap-3 text-sm text-ink-muted">
-                            <p>Pengisian dan perbaikan KRS dilakukan di portal kampus. MyCIC hanya menampilkan statusnya.</p>
+                            <p>Pengisian dan perbaikan KRS dilakukan di portal kampus. WeCIC hanya menampilkan statusnya.</p>
                             ${notes.length ? `
                                 <details class="group rounded-[var(--radius-control)] border border-border-light bg-surface/40 p-3">
                                     <summary class="cursor-pointer list-none text-sm font-semibold text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">Catatan dari portal <span class="text-caption font-normal text-ink-subtle">(ketuk untuk membaca)</span></summary>

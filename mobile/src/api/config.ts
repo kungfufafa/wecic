@@ -16,4 +16,4 @@ export function webUrl(origin: string | undefined = process.env.EXPO_PUBLIC_API_
   return trimmed === '' ? null : trimmed;
 }
 
-export const MISSING_API_URL_MESSAGE = 'Alamat server MyCIC belum diatur (EXPO_PUBLIC_API_URL).';
+export const MISSING_API_URL_MESSAGE = 'Alamat server WeCIC belum diatur (EXPO_PUBLIC_API_URL).';

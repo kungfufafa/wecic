@@ -226,20 +226,20 @@
                 const fieldLabels = { ipk: 'IPK', sks_total: 'jumlah SKS', quality_points_total: 'total mutu' };
 
                 if (summary.source === 'computed') {
-                    alerts.push(`<div class="${app.alertTone('info')}">Ringkasan resmi portal belum terbaca. Angka di halaman ini <strong class="font-semibold">dihitung MyCIC</strong> dari KHS.</div>`);
+                    alerts.push(`<div class="${app.alertTone('info')}">Ringkasan resmi portal belum terbaca. Angka di halaman ini <strong class="font-semibold">dihitung WeCIC</strong> dari KHS.</div>`);
                 } else if (summary.mismatch) {
                     const fields = (summary.mismatch_fields || []).map((field) => fieldLabels[field] || field).join(', ');
 
                     alerts.push(`
                         <div class="${app.alertTone('warning')}">
-                            <div class="font-semibold">Angka resmi portal berbeda dengan hitungan MyCIC</div>
-                            <p class="mt-1">Yang berbeda: ${esc(fields || 'ringkasan nilai')}. MyCIC memakai angka resmi portal. Kalau ragu, cocokkan dengan KHS di portal kampus.</p>
+                            <div class="font-semibold">Angka resmi portal berbeda dengan hitungan WeCIC</div>
+                            <p class="mt-1">Yang berbeda: ${esc(fields || 'ringkasan nilai')}. WeCIC memakai angka resmi portal. Kalau ragu, cocokkan dengan KHS di portal kampus.</p>
                         </div>
                     `);
                 }
 
                 if (data.is_partial) {
-                    alerts.push(`<div class="${app.alertTone('warning')}"><span class="me-1">${app.renderBadge('Data sebagian', 'warning')}</span> Halaman nilai SIPANDAI gagal dibaca, jadi MyCIC memakai nilai dari halaman KRS.</div>`);
+                    alerts.push(`<div class="${app.alertTone('warning')}"><span class="me-1">${app.renderBadge('Data sebagian', 'warning')}</span> Halaman nilai SIPANDAI gagal dibaca, jadi WeCIC memakai nilai dari halaman KRS.</div>`);
                 }
 
                 hosts.alerts.innerHTML = alerts.join('');
@@ -258,7 +258,7 @@
                 const projected = progress.projected_semesters_remaining;
                 const average = typeof progress.average_sks_per_semester === 'number' ? progress.average_sks_per_semester : null;
                 const badges = [
-                    summary.ipk === null || summary.ipk === undefined ? '' : app.renderBadge(summary.source === 'official' ? 'Resmi portal' : 'Dihitung MyCIC', summary.source === 'official' ? 'success' : 'info'),
+                    summary.ipk === null || summary.ipk === undefined ? '' : app.renderBadge(summary.source === 'official' ? 'Resmi portal' : 'Dihitung WeCIC', summary.source === 'official' ? 'success' : 'info'),
                     summary.predicate_estimate ? app.renderBadge(`Perkiraan predikat: ${summary.predicate_estimate}`, 'brand') : '',
                 ].filter(Boolean).join('');
                 const facts = [

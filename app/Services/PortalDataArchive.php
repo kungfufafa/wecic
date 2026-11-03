@@ -1219,7 +1219,7 @@ class PortalDataArchive
             'record_key' => 'version:'.$version->id,
             'dedupe_key' => hash('sha256', $transition),
             'title' => "Data {$label} di portal berubah tidak wajar",
-            'body' => trim(($firstFinding ?? '').' MyCIC tetap menampilkan data tersimpan sampai kamu memeriksanya.'),
+            'body' => trim(($firstFinding ?? '').' WeCIC tetap menampilkan data tersimpan sampai kamu memeriksanya.'),
             'url' => '/archive/'.$version->dataset.'?'.http_build_query(['params_hash' => $version->params_hash, 'version' => $version->id]),
             'urgency' => 'warning',
         ]]);

@@ -38,7 +38,7 @@ export default function MoreScreen() {
   }
 
   function confirmSignOut() {
-    const title = 'Keluar dari MyCIC?';
+    const title = 'Keluar dari WeCIC?';
     const message = 'Token di perangkat ini dicabut dan notifikasi push berhenti.';
 
     // The web preview has no native alert.
@@ -88,7 +88,7 @@ export default function MoreScreen() {
           <Divider inset={ListRowTextInset} />
           <ListRow icon="sparkles" label="Notebook AI" value="Belajar dari materi kuliah" onPress={() => router.push('/notebooks')} />
           <Divider inset={ListRowTextInset} />
-          <ListRow icon="grid" label="Semua layanan" value="Semua fitur MyCIC dalam satu daftar" onPress={() => router.push('/services')} />
+          <ListRow icon="grid" label="Semua layanan" value="Semua fitur WeCIC dalam satu daftar" onPress={() => router.push('/services')} />
         </Panel>
       </Section>
 
@@ -112,7 +112,7 @@ export default function MoreScreen() {
         <Panel padded={false}>
           <ListRow icon="bellOutline" label="Notifikasi push" value={pushLabel(push)} />
           <Divider inset={ListRowTextInset} />
-          <ListRow icon="server" label="Server MyCIC" value={apiBaseUrl() ?? '-'} />
+          <ListRow icon="server" label="Server WeCIC" value={apiBaseUrl() ?? '-'} />
         </Panel>
       </Section>
 
@@ -122,7 +122,7 @@ export default function MoreScreen() {
             <>
               <ListRow
                 icon="globe"
-                label="Buka MyCIC versi web"
+                label="Buka WeCIC versi web"
                 value="Nilai, keuangan, KRS, dan fitur lainnya"
                 trailingIcon="arrowUpRight"
                 onPress={() => void WebBrowser.openBrowserAsync(website)}
@@ -137,7 +137,7 @@ export default function MoreScreen() {
       <Button variant="danger" icon="signOut" label="Keluar" loading={signingOut} onPress={confirmSignOut} />
 
       <ThemedText type="caption" themeColor="textQuaternary" style={styles.footer}>
-        MyCIC · Universitas Catur Insan Cendekia
+        WeCIC · aplikasi tidak resmi untuk MyCIC, tidak berafiliasi dengan UCIC
       </ThemedText>
     </Screen>
   );

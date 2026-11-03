@@ -46,7 +46,7 @@
         <section class="mycic-card lg:col-span-5" aria-labelledby="library-links-title">
             <div class="mycic-card-header">
                 <h2 class="mycic-card-title" id="library-links-title">Perpustakaan digital</h2>
-                <p class="mt-0.5 text-caption text-ink-subtle">Dibuka di situs masing-masing, di luar MyCIC.</p>
+                <p class="mt-0.5 text-caption text-ink-subtle">Dibuka di situs masing-masing, di luar WeCIC.</p>
             </div>
             <div class="mycic-card-body" id="library-links" aria-busy="true">
                 <div class="flex flex-col gap-3">
@@ -187,7 +187,7 @@
                 }
 
                 linksHost.innerHTML = `
-                    ${data.source === 'config' ? `<p class="mb-3 text-caption text-ink-subtle">Halaman e-Book portal belum terbaca; ini daftar bawaan MyCIC.</p>` : ''}
+                    ${data.source === 'config' ? `<p class="mb-3 text-caption text-ink-subtle">Halaman e-Book portal belum terbaca; ini daftar bawaan WeCIC.</p>` : ''}
                     <ul class="flex flex-col divide-y divide-border-light">
                         ${links.map((link) => {
                             if (link.is_internal) {
@@ -195,7 +195,7 @@
                                     <li class="flex items-center justify-between gap-3 py-3">
                                         <span class="min-w-0">
                                             <span class="block text-sm font-semibold text-ink">${app.escapeHtml(link.title)}</span>
-                                            <span class="mt-1 inline-flex">${app.renderBadge('Di MyCIC', 'brand')}</span>
+                                            <span class="mt-1 inline-flex">${app.renderBadge('Di WeCIC', 'brand')}</span>
                                         </span>
                                         <a href="${app.escapeHtml(link.internal_route || '/library/theses')}" class="${app.buttonClass('secondary', { small: true })} shrink-0">Buka</a>
                                     </li>

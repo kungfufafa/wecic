@@ -99,7 +99,7 @@
                         renderAll();
                     }
 
-                    app.setSyncStatus('Notebook tersimpan di MyCIC.', 'info');
+                    app.setSyncStatus('Notebook tersimpan di WeCIC.', 'info');
                     schedulePoll();
                 } catch (error) {
                     if (error.status === 404) {

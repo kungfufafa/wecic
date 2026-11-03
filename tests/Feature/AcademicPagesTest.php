@@ -254,8 +254,8 @@ class AcademicPagesTest extends TestCase
         $this->assertStringContainsString('app.renderStackedBar(', $html);
         $this->assertStringContainsString('app.renderProgressBar(', $html);
         $this->assertStringContainsString('Tidak tercapai semester ini', $html);
-        $this->assertStringContainsString('dihitung MyCIC', $html);
-        $this->assertStringContainsString('Angka resmi portal berbeda dengan hitungan MyCIC', $html);
+        $this->assertStringContainsString('dihitung WeCIC', $html);
+        $this->assertStringContainsString('Angka resmi portal berbeda dengan hitungan WeCIC', $html);
         $this->assertStringContainsString('Kalau diulang dan dapat B', $html);
         $this->assertStringContainsString('projected_semesters_remaining', $html);
         $this->assertStringContainsString('Math.ceil(Number((needed * 100).toFixed(6))) / 100', $html);

@@ -35,7 +35,7 @@ export function downloadErrorMessage(status: number): string {
   }
 
   if (status === 422) {
-    return 'Tautan file ini tidak bisa dibuka dari MyCIC.';
+    return 'Tautan file ini tidak bisa dibuka dari WeCIC.';
   }
 
   return statusMessage(status);

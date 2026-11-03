@@ -252,7 +252,7 @@
                     } else {
                         listHost.innerHTML = state.unreadOnly
                             ? app.renderEmptyState('Semua notifikasi sudah dibaca.', 'secondary', 'Notifikasi baru akan muncul di sini.')
-                            : app.renderEmptyState('Belum ada notifikasi.', 'secondary', 'MyCIC akan memberi tahu saat KRS divalidasi, nilai keluar, ada tagihan baru, pengumuman baru, atau tenggat mendekat.');
+                            : app.renderEmptyState('Belum ada notifikasi.', 'secondary', 'WeCIC akan memberi tahu saat KRS divalidasi, nilai keluar, ada tagihan baru, pengumuman baru, atau tenggat mendekat.');
                     }
 
                     return;

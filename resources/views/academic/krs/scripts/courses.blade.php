@@ -84,7 +84,7 @@
                 const sksTotal = Number.isInteger(totals.sks) ? totals.sks : courses.reduce((sum, course) => sum + (Number(course.sks) || 0), 0);
                 const totalsNote = totals.consistent === false
                     ? 'Total di portal berbeda dengan jumlah daftar MK. Cek lagi di portal kampus.'
-                    : (totals.source === 'computed' ? 'Total dihitung MyCIC dari daftar MK.' : '');
+                    : (totals.source === 'computed' ? 'Total dihitung WeCIC dari daftar MK.' : '');
                 const printable = krs.print_available === true;
 
                 hosts.courses.innerHTML = `
@@ -159,7 +159,7 @@
                         <div class="text-lg font-bold text-ink">Kartu Rencana Studi (KRS) · ${esc(termLabel(krs.academic_period))}</div>
                         <div class="mt-1 text-sm text-ink-muted">${esc([me.name, me.nim, me.program].filter(Boolean).join(' · '))}</div>
                         <div class="mt-2 inline-block rounded border-2 border-ink px-2 py-0.5 text-sm font-bold tracking-wide text-ink">${esc(watermark)}</div>
-                        <p class="mt-2 text-caption text-ink-subtle">Dibuat MyCIC dari data portal per ${esc(stamp)} · bukan dokumen resmi. Versi resmi ada di menu Reg & KRS Online portal kampus.</p>
+                        <p class="mt-2 text-caption text-ink-subtle">Dibuat WeCIC dari data portal per ${esc(stamp)} · bukan dokumen resmi. Versi resmi ada di menu Reg & KRS Online portal kampus.</p>
                     </div>
                 `;
             };

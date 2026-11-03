@@ -44,7 +44,7 @@ describe('mimeTypeOf', () => {
 
 describe('isConnectionFailure', () => {
   it('tells a missing connection from a slow portal and a refusal', () => {
-    expect(isConnectionFailure({ status: 0, message: 'Tidak bisa terhubung ke MyCIC.' })).toBe(true);
+    expect(isConnectionFailure({ status: 0, message: 'Tidak bisa terhubung ke WeCIC.' })).toBe(true);
     expect(isConnectionFailure({ status: 0, message: 'Portal kampus terlalu lama menjawab.' })).toBe(false);
     expect(isConnectionFailure({ status: 422, message: 'Kode salah' })).toBe(false);
     expect(isConnectionFailure(null)).toBe(false);

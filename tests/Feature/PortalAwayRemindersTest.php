@@ -131,7 +131,7 @@ class PortalAwayRemindersTest extends TestCase
         $reminder = PortalNotification::query()->sole();
         $this->assertSame('class_started', $reminder->type);
         $this->assertSame('Kelas Basis Data sudah dimulai', $reminder->title);
-        $this->assertSame('Ruang B201. Buka MyCIC untuk cek dan kirim absensimu.', $reminder->body);
+        $this->assertSame('Ruang B201. Buka WeCIC untuk cek dan kirim absensimu.', $reminder->body);
         $this->assertSame('/dashboard', $reminder->url);
         $this->assertSame('info', $reminder->urgency);
     }

@@ -70,7 +70,7 @@ export default function OutboxScreen() {
       {outbox.error ? <Notice tone="error" message={outbox.error} /> : null}
       {message ? <Notice tone={message.tone} message={message.text} /> : null}
       {data?.offline ? <Notice tone="warning" message="Portal kampus sedang tidak bisa diakses. Antrean dikirim otomatis saat portal kembali." /> : null}
-      {data && data.enabled === false ? <Notice message="Antrean offline tidak aktif di server MyCIC ini." /> : null}
+      {data && data.enabled === false ? <Notice message="Antrean offline tidak aktif di server WeCIC ini." /> : null}
 
       <Section label={items.length > 0 ? `${data?.queued_count ?? items.length} menunggu` : 'Antrean'}>
         <Panel padded={false}>

@@ -198,7 +198,7 @@ class PortalSessionMiddlewareTest extends TestCase
         $this->withSession(['campus_session_token' => self::TOKEN])
             ->get('/dashboard')
             ->assertStatus(503)
-            ->assertSee('MyCIC sedang sibuk')
+            ->assertSee('WeCIC sedang sibuk')
             ->assertSessionHas('campus_session_token', self::TOKEN);
 
         $this->get('/api/support/download?path=../files/modul/sample.pdf', ['Accept' => 'text/html'])

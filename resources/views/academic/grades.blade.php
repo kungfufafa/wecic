@@ -143,7 +143,7 @@
                     <div class="mycic-metric">
                         <div class="mycic-metric-label">IPK</div>
                         <div class="mycic-metric-value">${esc(formatIp(summary.ipk))}</div>
-                        <div class="mycic-metric-note">${summary.ipk === null || summary.ipk === undefined ? 'Belum ada nilai' : (summary.source === 'official' ? 'Resmi portal' : 'Dihitung MyCIC')}</div>
+                        <div class="mycic-metric-note">${summary.ipk === null || summary.ipk === undefined ? 'Belum ada nilai' : (summary.source === 'official' ? 'Resmi portal' : 'Dihitung WeCIC')}</div>
                     </div>
                     <div class="mycic-metric">
                         <div class="mycic-metric-label" title="IPS semester terakhir yang sudah dinilai">IPS</div>
@@ -170,7 +170,7 @@
                     alerts.push(`
                         <div class="${app.alertTone('warning')}">
                             <div class="flex flex-wrap items-center gap-2 font-semibold">${app.renderBadge('Data sebagian', 'warning')} Halaman nilai SIPANDAI gagal dibaca</div>
-                            <p class="mt-1">MyCIC memakai nilai dari halaman KRS, jadi komponen absen dan tugas tidak tampil. Coba sinkronkan lagi nanti.</p>
+                            <p class="mt-1">WeCIC memakai nilai dari halaman KRS, jadi komponen absen dan tugas tidak tampil. Coba sinkronkan lagi nanti.</p>
                         </div>
                     `);
                 }
@@ -178,7 +178,7 @@
                 if (data.summary?.mismatch) {
                     alerts.push(`
                         <div class="${app.alertTone('info')}">
-                            IPK resmi portal berbeda dengan hitungan MyCIC dari KHS. MyCIC menampilkan angka resmi portal; rinciannya ada di <a class="mycic-link" href="/transcript">Transkrip</a>.
+                            IPK resmi portal berbeda dengan hitungan WeCIC dari KHS. WeCIC menampilkan angka resmi portal; rinciannya ada di <a class="mycic-link" href="/transcript">Transkrip</a>.
                         </div>
                     `);
                 }

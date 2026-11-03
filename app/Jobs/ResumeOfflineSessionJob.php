@@ -40,7 +40,7 @@ class ResumeOfflineSessionJob implements ShouldBeUniqueUntilProcessing, ShouldQu
      * Told to a student whose offline session keeps no password, once the
      * portal answers again.
      */
-    public const PORTAL_BACK_MESSAGE = 'Portal kampus sudah bisa diakses lagi. Keluar lalu masuk lagi untuk menyambungkan sesi; sementara itu, data arsip MyCIC tetap bisa dibaca.';
+    public const PORTAL_BACK_MESSAGE = 'Portal kampus sudah bisa diakses lagi. Keluar lalu masuk lagi untuk menyambungkan sesi; sementara itu, data arsip WeCIC tetap bisa dibaca.';
 
     public int $tries = 1;
 

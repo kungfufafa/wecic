@@ -3,9 +3,9 @@
 // offline page that probes the server before it reloads. A device keeps its
 // stored offline.html until this file changes, so a change to that page
 // ships with a change here.
-const CACHE_NAME = 'mycic-v5';
+const CACHE_NAME = 'mycic-v6';
 const PROTECTED_PAGE_CACHE_NAME = 'mycic-pages-v2';
-const STATIC_CACHE_NAME = 'mycic-static-v2';
+const STATIC_CACHE_NAME = 'mycic-static-v3';
 const OFFLINE_URL = '/offline.html';
 // Every signed-in page: cached only in PROTECTED_PAGE_CACHE_NAME, which
 // logout and an ended session clear.

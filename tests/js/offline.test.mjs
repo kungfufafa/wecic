@@ -10,7 +10,7 @@ describe('offlineReconnectMessage', () => {
     });
 
     it('promises the automatic reconnect only for the automatic mode or no mode', () => {
-        const automatic = 'MyCIC menyambung lagi otomatis begitu portal kampus bisa diakses.';
+        const automatic = 'WeCIC menyambung lagi otomatis begitu portal kampus bisa diakses.';
 
         assert.equal(offlineReconnectMessage('automatic'), automatic);
         assert.equal(offlineReconnectMessage(''), automatic);
