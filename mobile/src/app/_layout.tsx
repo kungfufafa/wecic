@@ -5,6 +5,7 @@ import { useEffect } from 'react';
 import { Appearance, Platform } from 'react-native';
 
 import { SessionProvider, useSession } from '@/auth/session-provider';
+import { NetworkWatcher } from '@/components/network-watcher';
 import { Colors } from '@/constants/theme';
 import { configureNotificationPresentation } from '@/push/push-notifications';
 
@@ -32,6 +33,7 @@ export default function RootLayout() {
   return (
     <ThemeProvider value={navigationTheme}>
       <StatusBar style="light" />
+      <NetworkWatcher />
       <SessionProvider>
         <SplashScreenController />
         <RootNavigator />

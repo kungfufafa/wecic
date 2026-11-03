@@ -7,6 +7,7 @@ import { useSession } from '@/auth/session-provider';
 import { Button } from '@/components/button';
 import { Icon } from '@/components/icon';
 import { Notice } from '@/components/notice';
+import { OfflineStrip } from '@/components/offline-strip';
 import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
 import { BrandGradient, MaxContentWidth, Radius, Spacing } from '@/constants/theme';
@@ -89,6 +90,7 @@ export default function SignInScreen() {
             </View>
 
             <View style={styles.form}>
+              <OfflineStrip />
               {notice ? <Notice message={notice} tone="warning" /> : null}
               {error ? <Notice message={error} tone="error" /> : null}
 
