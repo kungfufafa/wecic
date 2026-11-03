@@ -50,6 +50,7 @@ export default function ExamDetailScreen() {
       subtitle={[detail?.exam_type, detail?.course?.code].filter(Boolean).join(' · ') || null}
       accessory={detail ? <StatusPill label={uploaded ? 'Jawaban terkirim' : 'Belum mengirim'} tone={uploaded ? 'positive' : 'attention'} /> : null}
       refreshing={exam.isRefreshing}
+      dataSavedAt={exam.savedAt}
       onRefresh={exam.refresh}>
       {exam.error ? <Notice tone="error" message={exam.error} /> : null}
       {alerts.map((alert) => (

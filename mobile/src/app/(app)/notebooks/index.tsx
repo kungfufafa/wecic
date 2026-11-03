@@ -54,6 +54,7 @@ export default function NotebooksScreen() {
       title="Notebook AI"
       subtitle="Tanya jawab dan ringkasan dari materi kuliahmu"
       refreshing={notebooks.isRefreshing}
+      dataSavedAt={notebooks.savedAt}
       onRefresh={() => {
         void notebooks.refresh();
         void classes.reload();

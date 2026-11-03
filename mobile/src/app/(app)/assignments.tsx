@@ -35,6 +35,7 @@ export default function AssignmentsScreen() {
       subtitle="Tugas pertemuan yang belum kamu kumpulkan"
       accessory={open.length > 0 ? <Chip label={`${open.length} terbuka`} /> : null}
       refreshing={assignments.isRefreshing}
+      dataSavedAt={assignments.savedAt}
       onRefresh={assignments.refresh}>
       {assignments.error ? <Notice tone="error" message={assignments.error} /> : null}
 

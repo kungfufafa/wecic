@@ -70,6 +70,7 @@ export default function ThesesScreen() {
       title="Repositori skripsi"
       subtitle={meta?.total !== undefined ? `${meta.total.toLocaleString('id-ID')} skripsi ditemukan` : 'Skripsi mahasiswa UCIC'}
       refreshing={theses.isRefreshing}
+      dataSavedAt={theses.savedAt}
       onRefresh={theses.refresh}>
       <Section label="Cari">
         <Panel style={styles.filters}>

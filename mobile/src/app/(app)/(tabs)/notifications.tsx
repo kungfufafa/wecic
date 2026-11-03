@@ -1,7 +1,8 @@
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
+import { ApiError } from '@/api/client';
 import type { MarkReadResponse, NotificationsResponse, PortalNotification } from '@/api/types';
 import { useSession } from '@/auth/session-provider';
 import { Button } from '@/components/button';
@@ -13,8 +14,10 @@ import { Divider, Panel, Section } from '@/components/section';
 import { SkeletonRows } from '@/components/skeleton';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
+import { NO_COPY_OFFLINE_MESSAGE } from '@/hooks/use-api-resource';
 import { setUnreadCount } from '@/hooks/use-unread-count';
 import { useTheme } from '@/hooks/use-theme';
+import { readCached, writeCached } from '@/lib/device-cache';
 import { formatDateTime } from '@/lib/format';
 import { routeForPortalUrl } from '@/push/notification-links';
 
@@ -29,10 +32,12 @@ type ListState = {
   isLoading: boolean;
   isRefreshing: boolean;
   isLoadingMore: boolean;
+  /** When the first page shown came from the server; set for a copy kept on the device. */
+  savedAt: number | null;
 };
 
 export default function NotificationsScreen() {
-  const { api } = useSession();
+  const { api, state: session } = useSession();
   const router = useRouter();
   const [list, setList] = useState<ListState>({
     items: [],
@@ -42,14 +47,37 @@ export default function NotificationsScreen() {
     isLoading: true,
     isRefreshing: false,
     isLoadingMore: false,
+    savedAt: null,
   });
+  const owner = session.status === 'signedIn' ? session.owner : null;
+  const firstPage = `notifications?limit=${PAGE_SIZE}`;
+  const hasItems = useRef(false);
+  hasItems.current = list.items.length > 0;
 
   const loadFirstPage = useCallback(
     async (refreshing: boolean) => {
+      // The list kept on the device shows at once, as on the web.
+      if (!hasItems.current && !refreshing) {
+        const kept = await readCached<NotificationsResponse>(owner, firstPage);
+
+        if (kept !== null) {
+          hasItems.current = kept.payload.data.items.length > 0;
+          setList((current) => ({
+            ...current,
+            items: kept.payload.data.items,
+            unreadCount: kept.payload.data.unread_count,
+            nextBefore: kept.payload.data.has_more ? kept.payload.data.next_before : null,
+            isLoading: false,
+            savedAt: kept.savedAt,
+          }));
+        }
+      }
+
       setList((current) => ({ ...current, isRefreshing: refreshing }));
 
       try {
-        const response = await api.get<NotificationsResponse>(`notifications?limit=${PAGE_SIZE}`);
+        const response = await api.get<NotificationsResponse>(firstPage);
+        const savedAt = Date.now();
         setUnreadCount(response.data.unread_count);
         setList((current) => ({
           ...current,
@@ -59,12 +87,21 @@ export default function NotificationsScreen() {
           error: null,
           isLoading: false,
           isRefreshing: false,
+          savedAt,
         }));
+        void writeCached(owner, firstPage, response, savedAt);
       } catch (error) {
-        setList((current) => ({ ...current, error: messageOf(error), isLoading: false, isRefreshing: false }));
+        const offline = error instanceof ApiError && error.status === 0;
+
+        setList((current) => ({
+          ...current,
+          error: offline && current.items.length > 0 ? null : offline ? NO_COPY_OFFLINE_MESSAGE : messageOf(error),
+          isLoading: false,
+          isRefreshing: false,
+        }));
       }
     },
-    [api],
+    [api, owner, firstPage],
   );
 
   useFocusEffect(
@@ -147,6 +184,7 @@ export default function NotificationsScreen() {
         ) : null
       }
       refreshing={list.isRefreshing}
+      dataSavedAt={list.savedAt}
       onRefresh={() => loadFirstPage(true)}>
       {list.error ? <Notice tone="error" message={list.error} /> : null}
 

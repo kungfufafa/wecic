@@ -46,7 +46,8 @@ export default function KrsScreen() {
       title="KRS & Perwalian"
       subtitle={data?.academic_period?.label ?? null}
       refreshing={krs.isRefreshing || advising.isRefreshing}
-      onRefresh={refresh}>
+      onRefresh={refresh}
+      dataSavedAt={krs.savedAt}>
       {krs.error ? <Notice tone="error" message={krs.error} /> : null}
 
       {krs.isLoading ? (

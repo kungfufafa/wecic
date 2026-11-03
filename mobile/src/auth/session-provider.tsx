@@ -5,6 +5,8 @@ import { ApiError, type ApiClient } from '@/api/client';
 import { apiBaseUrl, MISSING_API_URL_MESSAGE } from '@/api/config';
 import { deviceSecureStorage } from '@/auth/device-secure-storage';
 import { SessionManager, type SessionState } from '@/auth/session-manager';
+import { setReachable } from '@/lib/connectivity';
+import { clearDeviceCache, keepOnlyOwner } from '@/lib/device-cache';
 import { registerForPushNotifications, type PushRegistration } from '@/push/push-notifications';
 
 type SessionContextValue = {
@@ -27,6 +29,9 @@ const manager = baseUrl === null
       storage: deviceSecureStorage,
       baseUrl,
       deviceName: Device.deviceName ?? Device.modelName,
+      onReachability: setReachable,
+      onOwner: keepOnlyOwner,
+      onEnd: clearDeviceCache,
     });
 
 const unconfiguredState: SessionState = { status: 'signedOut', notice: MISSING_API_URL_MESSAGE };

@@ -69,6 +69,7 @@ export default function AnnouncementsScreen() {
       title="Pengumuman"
       subtitle={data?.paging?.total ? `${data.paging.total} pengumuman dari kampus` : 'Info resmi dari kampus'}
       refreshing={feed.isRefreshing}
+      dataSavedAt={feed.savedAt}
       onRefresh={feed.refresh}>
       {feed.error ? <Notice tone="error" message={feed.error} /> : null}
       {notice ? <Notice tone={notice.is_future ? 'warning' : 'info'} message={notice.text ?? ''} /> : null}

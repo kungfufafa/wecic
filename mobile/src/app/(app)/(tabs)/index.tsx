@@ -20,6 +20,7 @@ import { StatusPill } from '@/components/status-pill';
 import { ThemedText } from '@/components/themed-text';
 import { BrandGradient, CourseColors, Radius, Spacing } from '@/constants/theme';
 import { useApiResource } from '@/hooks/use-api-resource';
+import { useReachable } from '@/hooks/use-connectivity';
 import { setKnownUser, useKnownUser } from '@/hooks/use-known-user';
 import { useTheme } from '@/hooks/use-theme';
 import { useUnreadCountValue } from '@/hooks/use-unread-count';
@@ -43,6 +44,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const { state } = useSession();
   const unreadCount = useUnreadCountValue();
+  const reachable = useReachable();
   const dashboard = useApiResource<DashboardResponse>('dashboard');
   const knownUser = useKnownUser();
   const sessionUser = state.status === 'signedIn' ? state.user : null;
@@ -68,6 +70,7 @@ export default function HomeScreen() {
   return (
     <Screen
       refreshing={dashboard.isRefreshing}
+      dataSavedAt={dashboard.savedAt}
       onRefresh={refreshAll}
       header={
         <View style={styles.header}>
@@ -117,7 +120,7 @@ export default function HomeScreen() {
         />
       ) : null}
       {dashboard.error ? <Notice tone="error" message={dashboard.error} /> : null}
-      {(dashboard.data?.data.pending_sources?.length ?? 0) > 0 ? (
+      {reachable && (dashboard.data?.data.pending_sources?.length ?? 0) > 0 ? (
         <Notice message="Sebagian data sedang diperbarui dari portal. Tarik ke bawah untuk memuat ulang." />
       ) : null}
 

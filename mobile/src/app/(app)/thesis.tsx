@@ -50,7 +50,8 @@ export default function ThesisScreen() {
       title="Skripsi"
       subtitle={data?.title ?? null}
       refreshing={thesis.isRefreshing || readiness.isRefreshing}
-      onRefresh={refresh}>
+      onRefresh={refresh}
+      dataSavedAt={thesis.savedAt}>
       {thesis.error ? <Notice tone="error" message={thesis.error} /> : null}
       {readiness.error && !thesis.error ? <Notice tone="error" message={readiness.error} /> : null}
 

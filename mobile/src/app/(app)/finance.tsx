@@ -48,7 +48,8 @@ export default function FinanceScreen() {
       title="Keuangan"
       subtitle={finance?.current_academic_year ? `Tahun akademik ${finance.current_academic_year}` : null}
       refreshing={summary.isRefreshing || history.isRefreshing}
-      onRefresh={refresh}>
+      onRefresh={refresh}
+      dataSavedAt={summary.savedAt}>
       {summary.error ? <Notice tone="error" message={summary.error} /> : null}
       {history.error && !summary.error ? <Notice tone="error" message={history.error} /> : null}
 

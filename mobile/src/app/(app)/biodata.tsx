@@ -22,7 +22,8 @@ export default function BiodataScreen() {
   const status = personal.status ?? null;
 
   return (
-    <Screen back title="Biodata" subtitle="Data pribadi dari portal kampus" refreshing={profile.isRefreshing} onRefresh={profile.refresh}>
+    <Screen back title="Biodata" subtitle="Data pribadi dari portal kampus" refreshing={profile.isRefreshing}
+      dataSavedAt={profile.savedAt} onRefresh={profile.refresh}>
       {profile.error ? <Notice tone="error" message={profile.error} /> : null}
 
       <Section label="Mahasiswa">

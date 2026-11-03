@@ -32,6 +32,7 @@ export default function ExamsScreen() {
       subtitle="Ujian mata kuliah semester ini"
       accessory={uploadable > 0 ? <Chip label={`${uploadable} bisa diunggah`} /> : null}
       refreshing={exams.isRefreshing}
+      dataSavedAt={exams.savedAt}
       onRefresh={exams.refresh}>
       {exams.error ? <Notice tone="error" message={exams.error} /> : null}
 

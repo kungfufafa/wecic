@@ -48,7 +48,8 @@ export default function ArchiveScreen() {
   }
 
   return (
-    <Screen back title="Arsip data" subtitle="Salinan data portal yang disimpan MyCIC" refreshing={archive.isRefreshing} onRefresh={archive.refresh}>
+    <Screen back title="Arsip data" subtitle="Salinan data portal yang disimpan MyCIC" refreshing={archive.isRefreshing}
+      dataSavedAt={archive.savedAt} onRefresh={archive.refresh}>
       {archive.error ? <Notice tone="error" message={archive.error} /> : null}
       {message ? <Notice tone={message.tone} message={message.text} /> : null}
 

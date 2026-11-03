@@ -80,6 +80,16 @@ describe('createApiClient', () => {
     expect((calls[0].init.headers as Record<string, string>)['Content-Type']).toBeUndefined();
   });
 
+  it('reports whether the server could be reached', async () => {
+    const reachability: boolean[] = [];
+    const { api } = client([ok(), new Error('offline')], { onReachability: (reachable) => reachability.push(reachable) });
+
+    await api.get('dashboard');
+    await expect(api.get('dashboard')).rejects.toMatchObject({ status: 0 });
+
+    expect(reachability).toEqual([true, false]);
+  });
+
   it('gives full URLs and the signing headers for requests it does not send', () => {
     const { api } = client([]);
 

@@ -1,4 +1,4 @@
-import { isFinished, isQueuedOffline, operationIdOf, operationOutcome } from '@/lib/operations';
+import { isConnectionFailure, isFinished, isQueuedOffline, operationIdOf, operationOutcome } from '@/lib/operations';
 import { formatBytes, mimeTypeOf } from '@/lib/pick-file';
 
 describe('operations', () => {
@@ -39,5 +39,14 @@ describe('mimeTypeOf', () => {
     expect(mimeTypeOf('jawaban.zip')).toBe('application/zip');
     expect(mimeTypeOf('jawaban.rar')).toBe('application/vnd.rar');
     expect(mimeTypeOf('catatan')).toBe('application/octet-stream');
+  });
+});
+
+describe('isConnectionFailure', () => {
+  it('tells a missing connection from a slow portal and a refusal', () => {
+    expect(isConnectionFailure({ status: 0, message: 'Tidak bisa terhubung ke MyCIC.' })).toBe(true);
+    expect(isConnectionFailure({ status: 0, message: 'Portal kampus terlalu lama menjawab.' })).toBe(false);
+    expect(isConnectionFailure({ status: 422, message: 'Kode salah' })).toBe(false);
+    expect(isConnectionFailure(null)).toBe(false);
   });
 });

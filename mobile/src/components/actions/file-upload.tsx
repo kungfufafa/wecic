@@ -12,7 +12,7 @@ import { ThemedText } from '@/components/themed-text';
 import { Radius, Spacing } from '@/constants/theme';
 import { useOperation } from '@/hooks/use-operation';
 import { useTheme } from '@/hooks/use-theme';
-import { isQueuedOffline, operationIdOf } from '@/lib/operations';
+import { isConnectionFailure, isQueuedOffline, operationIdOf } from '@/lib/operations';
 import { formatBytes, pickFile, type PickedFile } from '@/lib/pick-file';
 
 type FileUploadProps = {
@@ -106,7 +106,13 @@ export function FileUpload({ path, fields, mimeTypes, maxBytes, hint, label, onU
       }
 
       operation.reset();
-      setError(caught instanceof Error ? caught.message : String(caught));
+      setError(
+        isConnectionFailure(caught)
+          ? 'Unggahan butuh koneksi internet. File belum terkirim dan tetap terpilih; kirim lagi begitu tersambung.'
+          : caught instanceof Error
+            ? caught.message
+            : String(caught),
+      );
     }
   }
 

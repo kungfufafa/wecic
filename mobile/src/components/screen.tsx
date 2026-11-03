@@ -4,6 +4,7 @@ import { Platform, RefreshControl, ScrollView, StyleSheet, View } from 'react-na
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { IconButton } from '@/components/icon-button';
+import { OfflineStrip } from '@/components/offline-strip';
 import { ThemedText } from '@/components/themed-text';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -21,11 +22,13 @@ type ScreenProps = {
   back?: boolean;
   refreshing?: boolean;
   onRefresh?: () => void;
+  /** When the main data on screen came from the server, for the offline strip. */
+  dataSavedAt?: number | null;
   children: ReactNode;
 };
 
 /** A page on the black canvas: its header, then sections that scroll and pull to refresh. */
-export function Screen({ title, subtitle, accessory, header, back = false, refreshing = false, onRefresh, children }: ScreenProps) {
+export function Screen({ title, subtitle, accessory, header, back = false, refreshing = false, onRefresh, dataSavedAt, children }: ScreenProps) {
   const theme = useTheme();
   const router = useRouter();
 
@@ -81,6 +84,7 @@ export function Screen({ title, subtitle, accessory, header, back = false, refre
               </View>
             </View>
           ) : null)}
+        <OfflineStrip savedAt={dataSavedAt} onRetry={onRefresh} />
         {children}
       </ScrollView>
     </SafeAreaView>

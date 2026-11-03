@@ -49,6 +49,7 @@ export default function ClassDetailScreen() {
       title={course?.name ?? 'Kelas'}
       subtitle={[course?.code, course?.class_name, course?.credits ? `${course.credits} SKS` : null].filter(Boolean).join(' · ') || null}
       refreshing={detail.isRefreshing}
+      dataSavedAt={detail.savedAt}
       onRefresh={detail.refresh}>
       {detail.error ? <Notice tone="error" message={detail.error} /> : null}
 

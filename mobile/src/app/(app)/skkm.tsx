@@ -33,7 +33,8 @@ export default function SkkmScreen() {
   const website = webUrl();
 
   return (
-    <Screen back title="SKKM" subtitle="Satuan Kredit Kegiatan Mahasiswa" refreshing={skkm.isRefreshing} onRefresh={skkm.refresh}>
+    <Screen back title="SKKM" subtitle="Satuan Kredit Kegiatan Mahasiswa" refreshing={skkm.isRefreshing}
+      dataSavedAt={skkm.savedAt} onRefresh={skkm.refresh}>
       {skkm.error ? <Notice tone="error" message={skkm.error} /> : null}
       {data?.message ? <Notice tone="warning" message={data.message} /> : null}
 

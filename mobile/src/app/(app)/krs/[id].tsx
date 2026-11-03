@@ -39,7 +39,8 @@ export default function KrsDetailScreen() {
   }
 
   return (
-    <Screen back title={title} subtitle={subtitle} refreshing={detail.isRefreshing} onRefresh={detail.refresh}>
+    <Screen back title={title} subtitle={subtitle} refreshing={detail.isRefreshing}
+      dataSavedAt={detail.savedAt} onRefresh={detail.refresh}>
       {krsId === null ? <Notice tone="error" message="Nomor KRS tidak valid." /> : null}
       {detail.error ? <Notice tone="error" message={detail.error} /> : null}
 

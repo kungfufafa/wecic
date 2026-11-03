@@ -116,6 +116,7 @@ export default function NotebookScreen() {
       subtitle={notebook ? [notebook.course_code, `${notebook.sources_count ?? sources.length} sumber`, notebook.lecturer_name].filter(Boolean).join(' · ') : null}
       accessory={notebook ? <IconButton icon="trash" label={isCourse ? 'Kosongkan notebook' : 'Hapus notebook'} size={44} onPress={confirmDelete} /> : null}
       refreshing={detail.isRefreshing}
+      dataSavedAt={detail.savedAt}
       onRefresh={detail.reload}>
       {aiNotice ? <Notice tone="warning" message={aiNotice} /> : null}
       {detail.error ? <Notice tone="error" message={detail.error} /> : null}

@@ -107,6 +107,7 @@ export default function MeetingScreen() {
         ) : null
       }
       refreshing={meeting.isRefreshing}
+      dataSavedAt={meeting.savedAt}
       onRefresh={meeting.refresh}>
       {meeting.error ? <Notice tone="error" message={meeting.error} /> : null}
 

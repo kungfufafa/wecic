@@ -14,13 +14,14 @@ export type SecureStorage = {
 export type SessionState =
   | { status: 'loading' }
   | { status: 'signedOut'; notice: string | null }
-  | { status: 'signedIn'; user: UserInfo | null; offline: boolean };
+  | { status: 'signedIn'; user: UserInfo | null; offline: boolean; owner: string | null };
 
 export const STORAGE_KEYS = {
   token: 'mycic.token',
   user: 'mycic.user',
   credentials: 'mycic.credentials',
   pushToken: 'mycic.pushToken',
+  owner: 'mycic.owner',
 } as const;
 
 export const SESSION_EXPIRED_NOTICE = 'Sesi kampus sudah berakhir. Silakan masuk lagi.';
@@ -32,6 +33,12 @@ type SessionManagerOptions = {
   baseUrl: string;
   deviceName?: string | null;
   fetch?: typeof fetch;
+  /** Told whether the server could be reached, after every request. */
+  onReachability?: (reachable: boolean) => void;
+  /** A student signed in (their NIM): what other students left can go. */
+  onOwner?: (owner: string) => void;
+  /** The student signed out or the session ended: everything kept on the device goes. */
+  onEnd?: () => void;
 };
 
 /**
@@ -50,13 +57,19 @@ export class SessionManager {
   private readonly listeners = new Set<() => void>();
   private readonly storage: SecureStorage;
   private readonly deviceName: string | null;
+  private readonly onOwner?: (owner: string) => void;
+  private readonly onEnd?: () => void;
+  private owner: string | null = null;
 
   constructor(options: SessionManagerOptions) {
     this.storage = options.storage;
     this.deviceName = options.deviceName ?? null;
+    this.onOwner = options.onOwner;
+    this.onEnd = options.onEnd;
     this.api = createApiClient({
       baseUrl: options.baseUrl,
       fetch: options.fetch,
+      onReachability: options.onReachability,
       getToken: () => this.token,
       reauthenticate: () => this.reauthenticate(),
       onSessionExpired: () => {
@@ -94,7 +107,21 @@ export class SessionManager {
       return;
     }
 
-    this.setState({ status: 'signedIn', user: await this.storedUser(), offline: false });
+    const user = await this.storedUser();
+    const storedOwner = await this.storage.getItem(STORAGE_KEYS.owner).catch(() => null);
+
+    // A login from before the owner was kept: the remembered NIM, else the one the server named.
+    if (storedOwner === null) {
+      const fallback = (await this.storedCredentials())?.username ?? user?.nim ?? user?.student_id ?? null;
+
+      if (fallback) {
+        await this.rememberOwner(fallback);
+      }
+    } else {
+      this.owner = storedOwner;
+    }
+
+    this.setState({ status: 'signedIn', user, offline: false, owner: this.owner });
 
     try {
       const session = await this.api.get<SessionResponse>('auth/session');
@@ -112,6 +139,7 @@ export class SessionManager {
    */
   async signIn(username: string, password: string, remember: boolean): Promise<void> {
     const login = await this.login(username, password);
+    await this.rememberOwner(username);
 
     if (remember) {
       await this.storage.setItem(STORAGE_KEYS.credentials, JSON.stringify({ username, password }), { sensitive: true });
@@ -174,6 +202,19 @@ export class SessionManager {
     }
   }
 
+  /** The NIM this device's kept data belongs to, normalized as it is typed at login. */
+  private async rememberOwner(username: string): Promise<void> {
+    const owner = username.trim().toLowerCase();
+
+    if (owner === '') {
+      return;
+    }
+
+    this.owner = owner;
+    await this.storage.setItem(STORAGE_KEYS.owner, owner);
+    this.onOwner?.(owner);
+  }
+
   private async login(username: string, password: string): Promise<TokenLoginResponse> {
     const login = await this.api.post<TokenLoginResponse>(
       'auth/token',
@@ -189,13 +230,16 @@ export class SessionManager {
 
   private async signedIn(user: UserInfo | null, offline: boolean): Promise<void> {
     await this.storage.setItem(STORAGE_KEYS.user, JSON.stringify(user ?? null));
-    this.setState({ status: 'signedIn', user, offline });
+    this.setState({ status: 'signedIn', user, offline, owner: this.owner });
   }
 
   private async end(notice: string | null): Promise<void> {
     this.token = null;
+    this.owner = null;
     await this.storage.deleteItem(STORAGE_KEYS.token);
     await this.storage.deleteItem(STORAGE_KEYS.user);
+    await this.storage.deleteItem(STORAGE_KEYS.owner);
+    this.onEnd?.();
     this.setState({ status: 'signedOut', notice });
   }
 

@@ -20,7 +20,8 @@ export default function LibraryScreen() {
   const repository = data?.repository ?? null;
 
   return (
-    <Screen back title="Perpustakaan" subtitle="Tautan perpustakaan dan repositori skripsi" refreshing={library.isRefreshing} onRefresh={library.refresh}>
+    <Screen back title="Perpustakaan" subtitle="Tautan perpustakaan dan repositori skripsi" refreshing={library.isRefreshing}
+      dataSavedAt={library.savedAt} onRefresh={library.refresh}>
       {library.error ? <Notice tone="error" message={library.error} /> : null}
 
       <Section label="Repositori skripsi">

@@ -52,6 +52,8 @@ export type ApiClientOptions = {
   reauthenticate?: () => Promise<boolean>;
   /** A 401 that a new login could not cure. */
   onSessionExpired?: () => void;
+  /** Told after every request whether the server could be reached (a timeout tells nothing). */
+  onReachability?: (reachable: boolean) => void;
   fetch?: typeof fetch;
   timeoutMs?: number;
 };
@@ -69,6 +71,8 @@ export type ApiClient = {
 };
 
 export const NETWORK_ERROR_MESSAGE = 'Tidak bisa terhubung ke MyCIC. Periksa koneksi internet lalu coba lagi.';
+
+export const TIMEOUT_ERROR_MESSAGE = 'Portal kampus terlalu lama menjawab. Coba lagi sebentar lagi.';
 
 /**
  * How long a request may wait, as the web app waits (resources/js/lib/http.js):
@@ -161,19 +165,34 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
     }
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), requestTimeoutMs(method, requestOptions.body, requestOptions.timeoutMs, options.timeoutMs));
+    let timedOut = false;
+    const timeout = setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, requestTimeoutMs(method, requestOptions.body, requestOptions.timeoutMs, options.timeoutMs));
     const abortFromCaller = () => controller.abort();
     requestOptions.signal?.addEventListener('abort', abortFromCaller);
 
     try {
       // Read at each request, so a fetch a debugger installs later is used too.
-      return await (options.fetch ?? globalThis.fetch)(`${baseUrl}/${path.replace(/^\/+/, '')}`, {
+      const response = await (options.fetch ?? globalThis.fetch)(`${baseUrl}/${path.replace(/^\/+/, '')}`, {
         method,
         headers,
         body,
         signal: controller.signal,
       });
+      options.onReachability?.(true);
+
+      return response;
     } catch {
+      if (timedOut) {
+        throw new ApiError(TIMEOUT_ERROR_MESSAGE, 0);
+      }
+
+      if (!requestOptions.signal?.aborted) {
+        options.onReachability?.(false);
+      }
+
       throw new ApiError(NETWORK_ERROR_MESSAGE, 0);
     } finally {
       clearTimeout(timeout);

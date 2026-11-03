@@ -34,6 +34,7 @@ export default function AnnouncementScreen() {
       back
       accessory={announcement?.category_label ? <Chip label={announcement.category_label} /> : null}
       refreshing={resource.isRefreshing}
+      dataSavedAt={resource.savedAt}
       onRefresh={resource.refresh}>
       {resource.error ? <Notice tone="error" message={resource.error} /> : null}
 

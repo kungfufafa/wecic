@@ -43,6 +43,7 @@ export default function ClassesScreen() {
       title="Kelas"
       accessory={items.length > 0 ? <Chip label={`${items.length} mata kuliah`} /> : null}
       refreshing={classes.isRefreshing}
+      dataSavedAt={classes.savedAt}
       onRefresh={classes.refresh}>
       <Section label="Cari kelas">
         <Panel style={styles.filters}>

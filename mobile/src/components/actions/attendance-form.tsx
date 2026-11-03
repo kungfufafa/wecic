@@ -9,7 +9,7 @@ import { Notice } from '@/components/notice';
 import { TextField } from '@/components/text-field';
 import { Spacing } from '@/constants/theme';
 import { extractAttendanceCode } from '@/lib/attendance';
-import { isQueuedOffline } from '@/lib/operations';
+import { isConnectionFailure, isQueuedOffline } from '@/lib/operations';
 
 type AttendanceFormProps = {
   target: AttendancePayload;
@@ -58,7 +58,14 @@ export function AttendanceForm({ target, onMarked }: AttendanceFormProps) {
         onMarked?.();
       }
     } catch (error) {
-      setResult({ tone: 'error', message: error instanceof ApiError || error instanceof Error ? error.message : String(error) });
+      setResult({
+        tone: 'error',
+        message: isConnectionFailure(error)
+          ? 'Absensi butuh koneksi internet. Kode belum terkirim dan masih ada di kotak; kirim lagi begitu tersambung.'
+          : error instanceof ApiError || error instanceof Error
+            ? error.message
+            : String(error),
+      });
     } finally {
       setSending(false);
     }

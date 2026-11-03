@@ -48,7 +48,8 @@ export default function ArchiveDatasetScreen() {
   }
 
   return (
-    <Screen back title={data?.label ?? 'Arsip'} subtitle="Riwayat versi, terbaru dulu" refreshing={resource.isRefreshing} onRefresh={resource.refresh}>
+    <Screen back title={data?.label ?? 'Arsip'} subtitle="Riwayat versi, terbaru dulu" refreshing={resource.isRefreshing}
+      dataSavedAt={resource.savedAt} onRefresh={resource.refresh}>
       {resource.error ? <Notice tone="error" message={resource.error} /> : null}
       {message ? <Notice tone={message.tone} message={message.text} /> : null}
 

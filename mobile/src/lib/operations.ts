@@ -57,3 +57,10 @@ export function operationIdOf(body: unknown): string | null {
 export function isQueuedOffline(body: unknown): boolean {
   return (body as { data?: { status?: unknown } } | null | undefined)?.data?.status === 'queued_offline';
 }
+
+/** Whether a failed request never reached MyCIC: no connection, not a slow portal. */
+export function isConnectionFailure(error: unknown): boolean {
+  const failure = error as { status?: unknown; message?: unknown } | null;
+
+  return failure?.status === 0 && typeof failure.message === 'string' && !/terlalu lama/i.test(failure.message);
+}

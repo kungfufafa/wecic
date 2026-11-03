@@ -40,7 +40,8 @@ export default function GradesScreen() {
   const selected = semesters.find((semester) => semesterKey(semester) === picked) ?? firstGraded;
 
   return (
-    <Screen back title="Nilai & IPK" refreshing={grades.isRefreshing} onRefresh={grades.refresh}>
+    <Screen back title="Nilai & IPK" refreshing={grades.isRefreshing}
+      dataSavedAt={grades.savedAt} onRefresh={grades.refresh}>
       {grades.error ? <Notice tone="error" message={grades.error} /> : null}
 
       {grades.isLoading ? (

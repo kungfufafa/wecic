@@ -65,6 +65,7 @@ export default function OutboxScreen() {
       title="Antrean offline"
       subtitle="Absensi dan unggahan yang menunggu portal online"
       refreshing={outbox.isRefreshing}
+      dataSavedAt={outbox.savedAt}
       onRefresh={outbox.refresh}>
       {outbox.error ? <Notice tone="error" message={outbox.error} /> : null}
       {message ? <Notice tone={message.tone} message={message.text} /> : null}

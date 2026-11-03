@@ -58,9 +58,18 @@ const expired: Route = { method: 'GET', path: 'dashboard', status: 401, body: { 
 function manager(routes: Route[], initial: Record<string, string> = {}) {
   const { storage, values, sensitive } = memoryStorage(initial);
   const server = fakeServer(routes);
-  const session = new SessionManager({ storage, baseUrl: 'https://mycic.example/api/v1', deviceName: 'Pixel 8', fetch: server.fetch });
+  const owners: string[] = [];
+  const ends: number[] = [];
+  const session = new SessionManager({
+    storage,
+    baseUrl: 'https://mycic.example/api/v1',
+    deviceName: 'Pixel 8',
+    fetch: server.fetch,
+    onOwner: (owner) => owners.push(owner),
+    onEnd: () => ends.push(1),
+  });
 
-  return { session, values, sensitive, server };
+  return { session, values, sensitive, server, owners, ends };
 }
 
 describe('SessionManager', () => {
@@ -69,7 +78,7 @@ describe('SessionManager', () => {
 
     await session.signIn('20990000501', 'rahasia', true);
 
-    expect(session.getState()).toEqual({ status: 'signedIn', user: { name: 'Siti Aminah', nim: '20990000501' }, offline: false });
+    expect(session.getState()).toEqual({ status: 'signedIn', user: { name: 'Siti Aminah', nim: '20990000501' }, offline: false, owner: '20990000501' });
     expect(server.requests[0].body).toEqual({ username: '20990000501', password: 'rahasia', device_name: 'Pixel 8' });
     expect(values.get(STORAGE_KEYS.token)).toBe('token-1');
     expect(JSON.parse(values.get(STORAGE_KEYS.credentials) ?? '')).toEqual({ username: '20990000501', password: 'rahasia' });
@@ -119,15 +128,15 @@ describe('SessionManager', () => {
   it('restores a stored login and refreshes it from the server', async () => {
     const { session, server } = manager(
       [{ method: 'GET', path: 'auth/session', status: 200, body: success({ data: { user_info: { name: 'Siti A.', nim: '1' }, offline: false, offline_reconnect: null } }) }],
-      { [STORAGE_KEYS.token]: 'token-1', [STORAGE_KEYS.user]: JSON.stringify({ name: 'Siti Aminah' }) },
+      { [STORAGE_KEYS.token]: 'token-1', [STORAGE_KEYS.user]: JSON.stringify({ name: 'Siti Aminah' }), [STORAGE_KEYS.owner]: '20990000501' },
     );
     const states: string[] = [];
     session.subscribe(() => states.push(JSON.stringify(session.getState())));
 
     await session.restore();
 
-    expect(JSON.parse(states[0])).toEqual({ status: 'signedIn', user: { name: 'Siti Aminah' }, offline: false });
-    expect(session.getState()).toEqual({ status: 'signedIn', user: { name: 'Siti A.', nim: '1' }, offline: false });
+    expect(JSON.parse(states[0])).toEqual({ status: 'signedIn', user: { name: 'Siti Aminah' }, offline: false, owner: '20990000501' });
+    expect(session.getState()).toEqual({ status: 'signedIn', user: { name: 'Siti A.', nim: '1' }, offline: false, owner: '20990000501' });
     expect(server.requests[0].headers.Authorization).toBe('Bearer token-1');
   });
 
@@ -216,3 +225,37 @@ describe('SessionManager', () => {
 function flushPromises(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 0));
 }
+
+describe('SessionManager device data', () => {
+  it('names the student who owns the kept data, by the NIM typed at login', async () => {
+    const { session, values, owners } = manager([tokenLogin('token-1')]);
+
+    await session.signIn(' 20990000501 ', 'rahasia', false);
+
+    expect(owners).toEqual(['20990000501']);
+    expect(values.get(STORAGE_KEYS.owner)).toBe('20990000501');
+    expect(session.getState()).toMatchObject({ owner: '20990000501' });
+  });
+
+  it('finds the owner of a login kept from before, from the remembered NIM', async () => {
+    const { session, owners } = manager([], {
+      [STORAGE_KEYS.token]: 'token-1',
+      [STORAGE_KEYS.credentials]: JSON.stringify({ username: '20990000501', password: 'rahasia' }),
+    });
+
+    await session.restore();
+
+    expect(owners).toEqual(['20990000501']);
+    expect(session.getState()).toMatchObject({ status: 'signedIn', owner: '20990000501' });
+  });
+
+  it('lets the kept data go when the student signs out', async () => {
+    const { session, values, ends } = manager([tokenLogin('token-1'), { method: 'POST', path: 'auth/logout', status: 200, body: success({}) }]);
+
+    await session.signIn('20990000501', 'rahasia', false);
+    await session.signOut();
+
+    expect(ends).toHaveLength(1);
+    expect(values.has(STORAGE_KEYS.owner)).toBe(false);
+  });
+});

@@ -35,6 +35,7 @@ export default function TranscriptScreen() {
       title="Transkrip"
       subtitle={courses.length > 0 ? `${courses.length} mata kuliah sudah dinilai` : null}
       refreshing={transcript.isRefreshing}
+      dataSavedAt={transcript.savedAt}
       onRefresh={transcript.refresh}>
       {transcript.error ? <Notice tone="error" message={transcript.error} /> : null}
       {data?.is_partial ? <Notice tone="warning" message="Sebagian nilai belum terbaca dari portal, jadi transkrip ini mungkin belum lengkap." /> : null}
