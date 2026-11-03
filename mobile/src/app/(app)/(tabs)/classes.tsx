@@ -22,6 +22,7 @@ import { groupClassesByDay, matchesClassQuery, timeRange } from '@/lib/format';
 const TILE_SIZE = 44;
 
 export default function ClassesScreen() {
+  const router = useRouter();
   const classes = useApiResource<ClassesResponse>('class');
   const [query, setQuery] = useState('');
   const [day, setDay] = useState<string | null>(null);
@@ -40,11 +41,17 @@ export default function ClassesScreen() {
 
   return (
     <Screen
-      title="Kelas"
+      title="Kuliah"
       accessory={items.length > 0 ? <Chip label={`${items.length} mata kuliah`} /> : null}
       refreshing={classes.isRefreshing}
       dataSavedAt={classes.savedAt}
       onRefresh={classes.refresh}>
+      <View style={styles.shortcuts}>
+        <Chip label="Tugas" icon="task" onPress={() => router.push('/assignments')} />
+        <Chip label="Ujian" icon="checklist" onPress={() => router.push('/exams')} />
+        <Chip label="Absen" icon="qr" onPress={() => router.navigate('/attendance')} />
+      </View>
+
       <Section label="Cari kelas">
         <Panel style={styles.filters}>
           <TextField
@@ -173,6 +180,12 @@ function ClassRow({ portalClass }: { portalClass: PortalClass }) {
 }
 
 const styles = StyleSheet.create({
+  shortcuts: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
+    paddingHorizontal: Spacing.one,
+  },
   filters: {
     gap: Spacing.two + Spacing.one,
     padding: Spacing.two,

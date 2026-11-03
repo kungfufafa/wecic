@@ -16,6 +16,7 @@ import { StatusPill } from '@/components/status-pill';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { clearKnownUser, useKnownUser } from '@/hooks/use-known-user';
+import { useUnreadCountValue } from '@/hooks/use-unread-count';
 import { initials, studentNumber } from '@/lib/format';
 import type { PushRegistration } from '@/push/push-notifications';
 
@@ -24,6 +25,7 @@ export default function MoreScreen() {
   const { state, push, signOut } = useSession();
   const [signingOut, setSigningOut] = useState(false);
   const knownUser = useKnownUser();
+  const unreadCount = useUnreadCountValue();
   const user = knownUser ?? (state.status === 'signedIn' ? state.user : null);
   const offline = state.status === 'signedIn' && state.offline;
   const nim = studentNumber(user);
@@ -55,7 +57,7 @@ export default function MoreScreen() {
   }
 
   return (
-    <Screen title="Profil">
+    <Screen title="Lainnya">
       <Section label="Akun">
         <Panel style={styles.profile}>
           <Avatar initials={initials(user)} size={64} />
@@ -69,13 +71,32 @@ export default function MoreScreen() {
         </Panel>
       </Section>
 
+      <Section label="Layanan">
+        <Panel padded={false}>
+          <ListRow
+            icon="bellOutline"
+            label="Notifikasi"
+            value={unreadCount > 0 ? `${unreadCount} belum dibaca` : 'Pengingat dan pembaruan dari portal'}
+            onPress={() => router.push('/notifications')}
+          />
+          <Divider inset={ListRowTextInset} />
+          <ListRow icon="wallet" label="Keuangan" value="Tagihan dan riwayat pembayaran" onPress={() => router.push('/finance')} />
+          <Divider inset={ListRowTextInset} />
+          <ListRow icon="megaphone" label="Pengumuman" value="Info resmi dari kampus" onPress={() => router.push('/announcements')} />
+          <Divider inset={ListRowTextInset} />
+          <ListRow icon="library" label="Perpustakaan" value="Tautan dan repositori skripsi" onPress={() => router.push('/library')} />
+          <Divider inset={ListRowTextInset} />
+          <ListRow icon="sparkles" label="Notebook AI" value="Belajar dari materi kuliah" onPress={() => router.push('/notebooks')} />
+          <Divider inset={ListRowTextInset} />
+          <ListRow icon="grid" label="Semua layanan" value="Semua fitur MyCIC dalam satu daftar" onPress={() => router.push('/services')} />
+        </Panel>
+      </Section>
+
       <Section label="Akun saya">
         <Panel padded={false}>
           <ListRow icon="biodata" label="Biodata" value="Data pribadi, kontak, dan pendidikan" onPress={() => router.push('/biodata')} />
           <Divider inset={ListRowTextInset} />
           <ListRow icon="key" label="Ganti kata sandi" value="Kata sandi portal kampus" onPress={() => router.push('/password')} />
-          <Divider inset={ListRowTextInset} />
-          <ListRow icon="grid" label="Semua layanan" value="Semua fitur MyCIC dalam satu daftar" onPress={() => router.push('/services')} />
         </Panel>
       </Section>
 

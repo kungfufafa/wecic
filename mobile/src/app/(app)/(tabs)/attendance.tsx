@@ -26,8 +26,7 @@ export default function AttendanceScreen() {
 
   return (
     <Screen
-      back
-      title="Absensi hari ini"
+      title="Absen"
       subtitle="Pindai QR dari dosen, pilih foto QR, atau ketik kodenya."
       accessory={dayLabel ? <Chip icon="clock" label={dayLabel} /> : null}
       refreshing={today.isRefreshing}

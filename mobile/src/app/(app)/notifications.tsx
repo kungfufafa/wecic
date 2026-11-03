@@ -171,6 +171,7 @@ export default function NotificationsScreen() {
 
   return (
     <Screen
+      back
       title="Notifikasi"
       accessory={
         canMarkAll ? (

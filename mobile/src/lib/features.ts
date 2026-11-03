@@ -53,8 +53,8 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
   },
 ];
 
-/** The services on Beranda's grid, in order. */
-export const HOME_FEATURE_KEYS = ['attendance', 'assignments', 'krs', 'grades', 'finance', 'announcements', 'skkm', 'exams'];
+/** The services on Beranda's grid, in order; Absen, Kuliah and Akademik have their own tabs. */
+export const HOME_FEATURE_KEYS = ['assignments', 'exams', 'krs', 'grades', 'finance', 'announcements', 'skkm', 'thesis'];
 
 export function featuresByKey(keys: string[]): Feature[] {
   const all = FEATURE_GROUPS.flatMap((group) => group.features);
