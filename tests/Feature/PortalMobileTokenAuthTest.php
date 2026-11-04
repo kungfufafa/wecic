@@ -109,6 +109,68 @@ class PortalMobileTokenAuthTest extends TestCase
         $this->assertSame(0, PortalMobileSession::query()->count());
     }
 
+    public function test_the_token_login_tells_the_app_where_to_connect_for_realtime_updates(): void
+    {
+        $this->broadcastOverReverb();
+
+        $response = $this->tokenLogin()->assertOk();
+        $token = (string) $response->json('data.token');
+
+        $expected = ['key' => 'reverb-app-key', 'host' => 'reverb.example.ac.id', 'port' => 443, 'scheme' => 'https'];
+        $this->assertSame($expected, $response->json('data.realtime'));
+        $this->assertSame('portal.session.'.PortalMobileSession::query()->sole()->session_id, $response->json('data.channel'));
+
+        // An app opened from a stored token asks the session check, not the login.
+        $this->withToken($token)
+            ->getJson('/api/auth/session')
+            ->assertOk()
+            ->assertJsonPath('data.channel', $response->json('data.channel'))
+            ->assertJsonPath('data.realtime', $expected);
+    }
+
+    public function test_the_app_is_told_nothing_to_connect_to_while_events_are_not_broadcast(): void
+    {
+        config(['broadcasting.default' => 'null']);
+
+        $response = $this->tokenLogin()->assertOk();
+
+        $this->assertNull($response->json('data.realtime'));
+        $this->assertStringStartsWith('portal.session.', (string) $response->json('data.channel'));
+
+        config(['broadcasting.default' => 'reverb', 'broadcasting.connections.reverb.key' => '']);
+
+        $this->withToken((string) $response->json('data.token'))
+            ->getJson('/api/auth/session')
+            ->assertOk()
+            ->assertJsonPath('data.realtime', null);
+    }
+
+    public function test_the_cookie_session_check_carries_no_channel(): void
+    {
+        $this->broadcastOverReverb();
+
+        $this->withSession(['_token' => 'known-csrf-token'])
+            ->postJson('/api/auth/login', ['username' => self::USERNAME, 'password' => self::PASSWORD], ['X-CSRF-TOKEN' => 'known-csrf-token'])
+            ->assertOk();
+
+        $this->getJson('/api/auth/session')
+            ->assertOk()
+            ->assertJsonPath('data.user_info.name', 'Mahasiswa Mobile')
+            ->assertJsonMissingPath('data.channel')
+            ->assertJsonMissingPath('data.realtime');
+    }
+
+    private function broadcastOverReverb(): void
+    {
+        config([
+            'broadcasting.default' => 'reverb',
+            'broadcasting.connections.reverb.key' => 'reverb-app-key',
+            'broadcasting.connections.reverb.options.host' => 'reverb.example.ac.id',
+            'broadcasting.connections.reverb.options.port' => '443',
+            'broadcasting.connections.reverb.options.scheme' => 'https',
+        ]);
+    }
+
     public function test_the_token_login_ignores_a_cookie_session_it_carries(): void
     {
         $this->withSession(['campus_session_token' => 'campus-token-browser', '_token' => 'known-csrf-token']);
@@ -479,7 +541,8 @@ class PortalMobileTokenAuthTest extends TestCase
 
         // The refresh answers the new expiry only; the campus token never leaves the server.
         $this->assertSame(['expires_at'], $dataKeys('/auth/session/refresh', 'post'));
-        $this->assertSame(['user_info', 'expires_at', 'offline', 'offline_reconnect', 'token', 'token_type', 'channel'], $dataKeys('/auth/token', 'post'));
+        $this->assertSame(['user_info', 'expires_at', 'offline', 'offline_reconnect', 'token', 'token_type', 'channel', 'realtime'], $dataKeys('/auth/token', 'post'));
+        $this->assertSame(['user_info', 'offline', 'offline_reconnect', 'channel', 'realtime'], $dataKeys('/auth/session', 'get'));
         $this->assertNotContains('token', $dataKeys('/auth/login', 'post'));
         $this->assertSame(['platform', 'registered_at'], $dataKeys('/devices/push-token', 'post'));
         $this->assertSame(['removed'], $dataKeys('/devices/push-token', 'delete'));

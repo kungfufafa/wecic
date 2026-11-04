@@ -7,6 +7,11 @@ import { useSession } from '@/auth/session-provider';
 import { useReachable } from '@/hooks/use-connectivity';
 import { isFresh, policyFor } from '@/lib/cache-policies';
 import { readCached, writeCached } from '@/lib/device-cache';
+import { invalidatedPaths, pathIsInvalidated } from '@/lib/realtime';
+import { onRealtime } from '@/realtime/portal-realtime';
+
+/** Events of one background job come in a burst (each dataset as it lands); one re-read per burst, as on the web. */
+const REALTIME_RELOAD_DELAY_MS = 250;
 
 export const NO_COPY_OFFLINE_MESSAGE = 'Belum ada data tersimpan untuk halaman ini. Sambungkan internet untuk memuatnya.';
 
@@ -104,7 +109,32 @@ export function useApiResource<T extends ApiEnvelope>(path: string | null, optio
   useFocusEffect(
     useCallback(() => {
       void load('focus');
-    }, [load]),
+
+      if (path === null) {
+        return;
+      }
+
+      // While on screen: the server says when a background sync changed
+      // this data, and the screen re-reads it (a snapshot now, never a
+      // scrape); after a dropped socket, it re-reads once in case it missed one.
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const stale = (payload: Record<string, unknown>) => {
+        if (pathIsInvalidated(path, invalidatedPaths(payload))) {
+          clearTimeout(timer);
+          timer = setTimeout(() => void load('reload'), REALTIME_RELOAD_DELAY_MS);
+        }
+      };
+      const subscriptions = [
+        onRealtime('dataInvalidated', stale),
+        onRealtime('syncStatus', stale),
+        onRealtime('gap', () => void load('reload')),
+      ];
+
+      return () => {
+        clearTimeout(timer);
+        subscriptions.forEach((unsubscribe) => unsubscribe());
+      };
+    }, [load, path]),
   );
 
   // Back online: a screen showing a kept copy, or nothing, asks the server again.

@@ -27,6 +27,9 @@ export type UserInfo = {
 
 export type OfflineReconnect = 'automatic' | 'notify' | 'portal_back' | 'manual';
 
+/** The Reverb server the app connects to for the session's events; null while the server broadcasts nothing. */
+export type RealtimeConfig = { key: string; host: string; port: number; scheme: 'http' | 'https' };
+
 export type TokenLoginResponse = ApiEnvelope & {
   data: {
     user_info: UserInfo | null;
@@ -35,7 +38,9 @@ export type TokenLoginResponse = ApiEnvelope & {
     offline_reconnect: OfflineReconnect | null;
     token: string;
     token_type: 'Bearer';
+    /** This session's private channel (`portal.session.…`). */
     channel: string;
+    realtime?: RealtimeConfig | null;
   };
 };
 
@@ -44,6 +49,9 @@ export type SessionResponse = ApiEnvelope & {
     user_info: UserInfo | null;
     offline: boolean;
     offline_reconnect: OfflineReconnect | null;
+    /** Told with a token, as at login, so an app opened from a stored token knows its channel. */
+    channel?: string;
+    realtime?: RealtimeConfig | null;
   } | null;
 };
 

@@ -18,7 +18,7 @@ Opsional:
 
 - Google Chrome, hanya untuk tes browser (`npm run test:e2e`).
 - `GEMINI_API_KEY` di `.env`, hanya untuk fitur notebook.
-- Reverb (pembaruan realtime di browser) ikut terpasang lewat Composer dan dijalankan oleh `composer run dev`. Tidak perlu dipasang terpisah.
+- Reverb (pembaruan realtime di browser dan di aplikasi mobile) ikut terpasang lewat Composer dan dijalankan oleh `composer run dev`. Tidak perlu dipasang terpisah. Aplikasi mobile mendapat alamatnya dari server saat login, jadi untuk HP fisik `REVERB_HOST` harus alamat yang bisa dijangkau HP (sama seperti `EXPO_PUBLIC_API_URL`).
 
 ## Menjalankan di lokal
 

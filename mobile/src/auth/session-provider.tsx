@@ -1,5 +1,6 @@
 import * as Device from 'expo-device';
 import { createContext, use, useEffect, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { AppState } from 'react-native';
 
 import { ApiError, type ApiClient } from '@/api/client';
 import { apiBaseUrl, MISSING_API_URL_MESSAGE } from '@/api/config';
@@ -8,6 +9,7 @@ import { SessionManager, type SessionState } from '@/auth/session-manager';
 import { setReachable } from '@/lib/connectivity';
 import { clearDeviceCache, keepOnlyOwner } from '@/lib/device-cache';
 import { registerForPushNotifications, type PushRegistration } from '@/push/push-notifications';
+import { connectRealtime, disconnectRealtime, onRealtime, resumeRealtime, type ChannelAuth } from '@/realtime/portal-realtime';
 
 type SessionContextValue = {
   state: SessionState;
@@ -55,10 +57,42 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   );
   const [push, setPush] = useState<PushRegistration | null>(null);
   const signedIn = state.status === 'signedIn';
+  const realtime = state.status === 'signedIn' ? state.realtime : null;
+  const realtimeKey = realtime === null ? null : JSON.stringify(realtime);
 
   useEffect(() => {
     void manager?.restore();
   }, []);
+
+  // The session's realtime channel, as long as the server names one: data
+  // changes, upload progress and session notices arrive at once instead of
+  // on the next poll. A new login (a new channel) connects again.
+  useEffect(() => {
+    if (manager === null || realtimeKey === null) {
+      disconnectRealtime();
+
+      return;
+    }
+
+    const api = manager.api;
+    connectRealtime(JSON.parse(realtimeKey), (socketId, channelName) =>
+      api.post<ChannelAuth & { status: 'success'; message: string }>('broadcasting/auth', { socket_id: socketId, channel_name: channelName }, { background: true }),
+    );
+    const notices = onRealtime('sessionNotice', (payload) => {
+      void manager.applySessionNotice(payload.status);
+    });
+    const appState = AppState.addEventListener('change', (status) => {
+      if (status === 'active') {
+        resumeRealtime();
+      }
+    });
+
+    return () => {
+      notices();
+      appState.remove();
+      disconnectRealtime();
+    };
+  }, [realtimeKey]);
 
   // Every launch while signed in, and after each login: the server keeps
   // only the push tokens an install keeps registering.

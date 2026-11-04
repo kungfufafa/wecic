@@ -62,8 +62,8 @@ class SentryIntegrationTest extends TestCase
     {
         $transport = new class($this->sentEvents) implements TransportInterface
         {
-            /** @param  list<Event>  $events */
-            public function __construct(private array &$events) {}
+            /** @param  list<Event>  $events  The test's own list, read through that reference. */
+            public function __construct(private array &$events) {} // @phpstan-ignore property.onlyWritten
 
             public function send(Event $event): Result
             {

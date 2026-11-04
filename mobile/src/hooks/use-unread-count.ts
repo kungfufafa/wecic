@@ -4,6 +4,7 @@ import { AppState, Platform } from 'react-native';
 
 import type { UnreadCountResponse } from '@/api/types';
 import { useSession } from '@/auth/session-provider';
+import { onRealtime } from '@/realtime/portal-realtime';
 
 let unreadCount = 0;
 const listeners = new Set<() => void>();
@@ -29,8 +30,9 @@ export function useUnreadCountValue(): number {
 
 /**
  * The number of unread notifications for the tab badge: read when the
- * tabs open, when the app comes back to the foreground and when a push
- * arrives while it is open.
+ * tabs open, when the app comes back to the foreground, when a push
+ * arrives while it is open, and when the server broadcasts a new
+ * notification (or the socket is back after a drop).
  */
 export function useUnreadCount(): number {
   const { api } = useSession();
@@ -59,9 +61,14 @@ export function useUnreadCount(): number {
             void refresh();
           });
 
+    const broadcast = onRealtime('notification', () => void refresh());
+    const afterGap = onRealtime('gap', () => void refresh());
+
     return () => {
       appState.remove();
       received?.remove();
+      broadcast();
+      afterGap();
     };
   }, [refresh]);
 

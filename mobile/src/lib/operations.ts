@@ -29,6 +29,8 @@ export type Operation = {
 };
 
 export const OPERATION_POLL_MS = 2000;
+/** With the realtime channel reporting progress, the server is only asked now and then, as a safety net. */
+export const OPERATION_POLL_REALTIME_MS = 15_000;
 export const OPERATION_TIMEOUT_MS = 4 * 60 * 1000;
 
 export function isFinished(status: OperationStatus): boolean {

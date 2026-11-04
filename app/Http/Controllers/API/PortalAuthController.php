@@ -36,9 +36,9 @@ class PortalAuthController extends CampusApiController
 {
     private const LOGIN_RESPONSE = "array{status: 'success', message: string, data: array{user_info: mixed, expires_at: string|null, offline: bool, offline_reconnect: 'automatic'|'notify'|'portal_back'|'manual'|null}, meta: array{timestamp: string, campus_session_valid: true}}";
 
-    private const CHECK_SESSION_RESPONSE = "array{status: 'success', message: string, data: array{user_info: mixed, offline: bool, offline_reconnect: 'automatic'|'notify'|'portal_back'|'manual'|null}, meta: array{timestamp: string, campus_session_valid: true}}";
+    private const CHECK_SESSION_RESPONSE = "array{status: 'success', message: string, data: array{user_info: mixed, offline: bool, offline_reconnect: 'automatic'|'notify'|'portal_back'|'manual'|null, channel?: string, realtime?: array{key: string, host: string, port: int, scheme: 'http'|'https'}|null}, meta: array{timestamp: string, campus_session_valid: true}}";
 
-    private const TOKEN_LOGIN_RESPONSE = "array{status: 'success', message: string, data: array{user_info: mixed, expires_at: string|null, offline: bool, offline_reconnect: 'automatic'|'notify'|'portal_back'|'manual'|null, token: string, token_type: 'Bearer', channel: string}, meta: array{timestamp: string, campus_session_valid: true}}";
+    private const TOKEN_LOGIN_RESPONSE = "array{status: 'success', message: string, data: array{user_info: mixed, expires_at: string|null, offline: bool, offline_reconnect: 'automatic'|'notify'|'portal_back'|'manual'|null, token: string, token_type: 'Bearer', channel: string, realtime: array{key: string, host: string, port: int, scheme: 'http'|'https'}|null}, meta: array{timestamp: string, campus_session_valid: true}}";
 
     private const REFRESH_SESSION_RESPONSE = "array{status: 'success', message: string, data: array{expires_at: string|null}, meta: array{timestamp: string, campus_session_valid: true}}";
 
@@ -245,6 +245,7 @@ class PortalAuthController extends CampusApiController
                     'user_info' => $this->userInfo(),
                     'offline' => $this->offlineAccess->isOfflineSession($sessionToken),
                     'offline_reconnect' => $this->sessionManager->offlineReconnectMode($sessionToken),
+                    ...$this->realtimeForToken($request),
                 ] : null,
             ];
 
@@ -445,7 +446,7 @@ class PortalAuthController extends CampusApiController
      * login just started; a token the request came with is replaced (its
      * session was rotated away). A cookie login gets nothing.
      *
-     * @return array{token?: string, token_type?: 'Bearer', channel?: string}
+     * @return array{token?: string, token_type?: 'Bearer', channel?: string, realtime?: array{key: string, host: string, port: int, scheme: 'http'|'https'}|null}
      */
     private function issueMobileToken(PortalLoginRequest $request): array
     {
@@ -469,7 +470,27 @@ class PortalAuthController extends CampusApiController
         return [
             'token' => $token,
             'token_type' => 'Bearer',
+            ...$this->realtimeForToken($request, issued: true),
+        ];
+    }
+
+    /**
+     * The app's private channel and where to connect for it (`realtime`:
+     * null while the server broadcasts nothing). Told at the token login and
+     * on every session check with the token, so an app opened from a stored
+     * token knows them too; a cookie request (the web app) gets nothing.
+     *
+     * @return array{channel?: string, realtime?: array{key: string, host: string, port: int, scheme: 'http'|'https'}|null}
+     */
+    private function realtimeForToken(Request $request, bool $issued = false): array
+    {
+        if (! $issued && ! StartPortalSession::isTokenRequest($request)) {
+            return [];
+        }
+
+        return [
             'channel' => 'portal.session.'.session()->getId(),
+            'realtime' => app(PortalBroadcastService::class)->clientConfig(),
         ];
     }
 

@@ -1,5 +1,6 @@
 import { ApiError, createApiClient, type ApiClient } from '@/api/client';
 import type { SessionResponse, TokenLoginResponse, UserInfo } from '@/api/types';
+import { realtimeTargetFrom, sessionNoticeAction, type RealtimeTarget } from '@/lib/realtime';
 
 /**
  * Where the session lives between launches: the device's secure storage
@@ -14,7 +15,14 @@ export type SecureStorage = {
 export type SessionState =
   | { status: 'loading' }
   | { status: 'signedOut'; notice: string | null }
-  | { status: 'signedIn'; user: UserInfo | null; offline: boolean; owner: string | null };
+  | {
+      status: 'signedIn';
+      user: UserInfo | null;
+      offline: boolean;
+      owner: string | null;
+      /** The session's realtime channel and server, once the server named them; null while it broadcasts nothing. */
+      realtime: RealtimeTarget | null;
+    };
 
 export const STORAGE_KEYS = {
   token: 'mycic.token',
@@ -60,6 +68,7 @@ export class SessionManager {
   private readonly onOwner?: (owner: string) => void;
   private readonly onEnd?: () => void;
   private owner: string | null = null;
+  private signingOut = false;
 
   constructor(options: SessionManagerOptions) {
     this.storage = options.storage;
@@ -121,13 +130,13 @@ export class SessionManager {
       this.owner = storedOwner;
     }
 
-    this.setState({ status: 'signedIn', user, offline: false, owner: this.owner });
+    this.setState({ status: 'signedIn', user, offline: false, owner: this.owner, realtime: null });
 
     try {
       const session = await this.api.get<SessionResponse>('auth/session');
 
       if (session.data !== null && this.state.status === 'signedIn') {
-        await this.signedIn(session.data.user_info, session.data.offline);
+        await this.signedIn(session.data.user_info, session.data.offline, realtimeTargetFrom(session.data));
       }
     } catch {
       // No network: stay signed in with what is stored. A 401 already ended the session.
@@ -147,7 +156,7 @@ export class SessionManager {
       await this.storage.deleteItem(STORAGE_KEYS.credentials);
     }
 
-    await this.signedIn(login.data.user_info, login.data.offline);
+    await this.signedIn(login.data.user_info, login.data.offline, realtimeTargetFrom(login.data));
   }
 
   /**
@@ -155,19 +164,51 @@ export class SessionManager {
    * either way) and stops this install's pushes.
    */
   async signOut(): Promise<void> {
+    this.signingOut = true;
     const pushToken = await this.storage.getItem(STORAGE_KEYS.pushToken);
     await this.storage.deleteItem(STORAGE_KEYS.credentials);
 
-    if (this.token !== null) {
-      try {
-        await this.api.post('auth/logout', pushToken !== null ? { push_token: pushToken } : {}, { reauthenticate: false });
-      } catch {
-        // Already ended on the server, or no network: the token is forgotten below.
+    try {
+      if (this.token !== null) {
+        try {
+          await this.api.post('auth/logout', pushToken !== null ? { push_token: pushToken } : {}, { reauthenticate: false });
+        } catch {
+          // Already ended on the server, or no network: the token is forgotten below.
+        }
       }
+
+      await this.storage.deleteItem(STORAGE_KEYS.pushToken);
+      await this.end(null);
+    } finally {
+      this.signingOut = false;
+    }
+  }
+
+  /**
+   * A session notice the server broadcast (lib/realtime.ts): the session
+   * ended there (a logout, the portal session expired or idled out) means
+   * logging in again with the kept password right away, or signing out
+   * with the notice; an offline session the server reconnected is online
+   * again. The app's own logout broadcasts one too, which is not news.
+   */
+  async applySessionNotice(status: unknown): Promise<void> {
+    if (this.state.status !== 'signedIn' || this.signingOut) {
+      return;
     }
 
-    await this.storage.deleteItem(STORAGE_KEYS.pushToken);
-    await this.end(null);
+    const action = sessionNoticeAction(status);
+
+    if (action === 'end') {
+      if (!(await this.reauthenticate())) {
+        await this.end(SESSION_EXPIRED_NOTICE);
+      }
+
+      return;
+    }
+
+    if (action === 'back_online' && this.state.offline) {
+      this.setState({ ...this.state, offline: false });
+    }
   }
 
   /** The Expo push token this install registered, sent along at logout. */
@@ -189,7 +230,7 @@ export class SessionManager {
 
     try {
       const login = await this.login(credentials.username, credentials.password);
-      await this.signedIn(login.data.user_info, login.data.offline);
+      await this.signedIn(login.data.user_info, login.data.offline, realtimeTargetFrom(login.data));
 
       return true;
     } catch (error) {
@@ -228,9 +269,9 @@ export class SessionManager {
     return login;
   }
 
-  private async signedIn(user: UserInfo | null, offline: boolean): Promise<void> {
+  private async signedIn(user: UserInfo | null, offline: boolean, realtime: RealtimeTarget | null): Promise<void> {
     await this.storage.setItem(STORAGE_KEYS.user, JSON.stringify(user ?? null));
-    this.setState({ status: 'signedIn', user, offline, owner: this.owner });
+    this.setState({ status: 'signedIn', user, offline, owner: this.owner, realtime });
   }
 
   private async end(notice: string | null): Promise<void> {

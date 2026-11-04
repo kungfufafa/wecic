@@ -131,4 +131,37 @@ class PortalBroadcastService
             'session_fingerprint' => PortalLogContext::fingerprint($campusSessionToken),
         ], $data);
     }
+
+    /**
+     * Where an API client (the mobile app) connects to receive these events:
+     * the Reverb server's public address and app key, as the browser gets
+     * them from `VITE_REVERB_*` at build time. Null while events are not
+     * broadcast over Reverb (`BROADCAST_CONNECTION` not `reverb`, or no key),
+     * so the client does not try to connect at all.
+     *
+     * @return array{key: string, host: string, port: int, scheme: 'http'|'https'}|null
+     */
+    public function clientConfig(): ?array
+    {
+        if (config('broadcasting.default') !== 'reverb') {
+            return null;
+        }
+
+        $reverb = config('broadcasting.connections.reverb', []);
+        $key = trim((string) ($reverb['key'] ?? ''));
+        $host = trim((string) ($reverb['options']['host'] ?? ''));
+
+        if ($key === '' || $host === '') {
+            return null;
+        }
+
+        $scheme = ($reverb['options']['scheme'] ?? 'https') === 'http' ? 'http' : 'https';
+
+        return [
+            'key' => $key,
+            'host' => $host,
+            'port' => (int) ($reverb['options']['port'] ?? ($scheme === 'https' ? 443 : 80)),
+            'scheme' => $scheme,
+        ];
+    }
 }

@@ -3,7 +3,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { ApiError } from '@/api/client';
 import type { ApiEnvelope } from '@/api/types';
 import { useSession } from '@/auth/session-provider';
-import { isFinished, OPERATION_POLL_MS, OPERATION_TIMEOUT_MS, operationOutcome, type Operation } from '@/lib/operations';
+import { isFinished, OPERATION_POLL_MS, OPERATION_POLL_REALTIME_MS, OPERATION_TIMEOUT_MS, operationOutcome, type Operation } from '@/lib/operations';
+import { operationFromProgress } from '@/lib/realtime';
+import { getRealtimeStatus, onRealtime } from '@/realtime/portal-realtime';
 
 type OperationResponse = ApiEnvelope & { data: Operation };
 
@@ -13,9 +15,11 @@ export type OperationState =
   | { phase: 'done'; ok: boolean; message: string };
 
 /**
- * Follows a background operation to its end, every 2 s for at most 4
- * minutes, as the web does. `track` starts following an id; `finish` ends
- * with a message of the caller's own (an answer that needed no polling).
+ * Follows a background operation to its end, for at most 4 minutes, as
+ * the web does: every step the server broadcasts shows at once, and the
+ * server is asked every 2 s (every 15 s while the realtime channel is
+ * connected, as a safety net). `track` starts following an id; `finish`
+ * ends with a message of the caller's own (an answer that needed no polling).
  */
 export function useOperation(onFinished?: (ok: boolean) => void) {
   const { api } = useSession();
@@ -44,34 +48,75 @@ export function useOperation(onFinished?: (ok: boolean) => void) {
     async (operationId: string) => {
       setState({ phase: 'running', operation: null });
       const startedAt = Date.now();
+      let ended = false;
+      let wake: () => void = () => {};
 
-      while (!cancelled.current) {
-        try {
-          const response = await api.get<OperationResponse>(`operations/${operationId}`, { background: true });
-
-          if (isFinished(response.data.status)) {
-            const outcome = operationOutcome(response.data);
-            finish(outcome.ok, outcome.message);
-
-            return;
-          }
-
-          setState({ phase: 'running', operation: response.data });
-        } catch (error) {
-          if (error instanceof ApiError && error.status !== 0) {
-            finish(false, error.message);
-
-            return;
-          }
+      const end = (operation: Operation) => {
+        if (!ended) {
+          ended = true;
+          const outcome = operationOutcome(operation);
+          finish(outcome.ok, outcome.message);
         }
+      };
 
-        if (Date.now() - startedAt > OPERATION_TIMEOUT_MS) {
-          finish(false, 'Portal belum memberi kabar. Muat ulang halaman untuk melihat apakah kiriman sudah masuk.');
+      const unsubscribe = onRealtime('uploadProgress', (payload) => {
+        const operation = operationFromProgress(payload, operationId);
 
+        if (operation === null || ended) {
           return;
         }
 
-        await new Promise((resolve) => setTimeout(resolve, OPERATION_POLL_MS));
+        if (isFinished(operation.status)) {
+          end(operation);
+          wake();
+        } else {
+          setState({ phase: 'running', operation });
+        }
+      });
+
+      try {
+        while (!cancelled.current && !ended) {
+          try {
+            const response = await api.get<OperationResponse>(`operations/${operationId}`, { background: true });
+
+            if (ended) {
+              return;
+            }
+
+            if (isFinished(response.data.status)) {
+              end(response.data);
+
+              return;
+            }
+
+            setState({ phase: 'running', operation: response.data });
+          } catch (error) {
+            if (error instanceof ApiError && error.status !== 0) {
+              ended = true;
+              finish(false, error.message);
+
+              return;
+            }
+          }
+
+          if (ended) {
+            return;
+          }
+
+          if (Date.now() - startedAt > OPERATION_TIMEOUT_MS) {
+            ended = true;
+            finish(false, 'Portal belum memberi kabar. Muat ulang halaman untuk melihat apakah kiriman sudah masuk.');
+
+            return;
+          }
+
+          await new Promise<void>((resolve) => {
+            wake = resolve;
+            setTimeout(resolve, getRealtimeStatus() === 'connected' ? OPERATION_POLL_REALTIME_MS : OPERATION_POLL_MS);
+          });
+        }
+      } finally {
+        unsubscribe();
       }
     },
     [api, finish],

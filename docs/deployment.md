@@ -61,8 +61,8 @@ sudo supervisorctl start mycic-horizon
   4. Hentikan worker database lama: `sudo supervisorctl stop "mycic-queue-sessions:*" "mycic-queue-default:*" "mycic-queue-background:*"`, hapus program itu dari konfigurasi Supervisor, lalu `sudo supervisorctl reread && sudo supervisorctl update`. Tunggu sampai `pgrep -af 'queue:[w]ork'` tidak menampilkan apa-apa: biasanya beberapa detik, sampai 30 menit bila ada crawl arsip yang sedang berjalan. Langkah ini harus selesai dulu, karena di SQLite worker lama bisa mengambil job yang sedang dipindahkan.
   5. Jalankan `php artisan migrate --force`. Migrasinya menjalankan `php artisan portal:move-old-queue-jobs`, yang memindahkan job yang masih menunggu di tabel `jobs` (termasuk nama antrean lama `campus-*`, tetap dengan waktu jatuh temponya) ke Redis dan mengarahkan job gagal ke Redis supaya `queue:retry` tetap jalan. Perintah ini aman dijalankan lagi kapan saja; ia hanya memindahkan yang masih tersisa.
 
-### Reverb (realtime di browser, opsional)
-`BROADCAST_CONNECTION=reverb` di `.env.example` mengirim event sesi (status sinkronisasi, progres upload, notifikasi, pemberitahuan sesi) ke browser lewat WebSocket. Reverb **opsional**: `PortalBroadcastService` hanya mencatat warning bila broadcast gagal, browser tetap polling untuk operasi dan refresh, dan aplikasi mobile tidak memakainya (hanya push). Pilih salah satu di production:
+### Reverb (realtime di browser dan aplikasi, opsional)
+`BROADCAST_CONNECTION=reverb` di `.env.example` mengirim event sesi (status sinkronisasi, progres upload, notifikasi, pemberitahuan sesi) ke browser dan ke aplikasi mobile lewat WebSocket. Aplikasi mobile tidak membawa alamat Reverb di build-nya: server memberitahukannya saat login token dan di `GET /api/v1/auth/session` (`data.realtime`, dari `REVERB_APP_KEY`, `REVERB_HOST`, `REVERB_PORT`, `REVERB_SCHEME`), jadi `REVERB_HOST` harus alamat publik yang bisa dijangkau HP, bukan `127.0.0.1`. Reverb **opsional**: `PortalBroadcastService` hanya mencatat warning bila broadcast gagal, browser dan aplikasi tetap polling untuk operasi dan membaca ulang layar saat dibuka, dan aplikasi yang tertutup tetap hanya menerima push. Pilih salah satu di production:
 
 1. **Menjalankan Reverb.** Jaga `php artisan reverb:start` tetap hidup dengan program Supervisor kedua, misalnya `/etc/supervisor/conf.d/mycic-reverb.conf`:
 
@@ -81,7 +81,7 @@ sudo supervisorctl start mycic-horizon
    ```
 
    Server mendengarkan di `REVERB_SERVER_HOST:REVERB_SERVER_PORT` (default `0.0.0.0:8080`). Browser menghubungi `REVERB_HOST`, `REVERB_PORT`, dan `REVERB_SCHEME`, yang ikut terpanggang ke bundel Vite lewat `VITE_REVERB_*`, jadi letakkan Reverb di belakang nginx dengan TLS (lihat [dokumentasi Reverb](https://laravel.com/docs/reverb#production)), isi ketiganya dengan alamat publiknya (mis. `REVERB_HOST=mycic.example.ac.id`, `REVERB_PORT=443`, `REVERB_SCHEME=https`), lalu `npm run build`. Setelah deploy jalankan `php artisan reverb:restart` supaya Supervisor menyalakan Reverb dengan kode baru.
-2. **Tidak menjalankan Reverb.** Isi `BROADCAST_CONNECTION=null` supaya setiap event tidak mencoba menghubungi server yang tidak ada, kosongkan `REVERB_APP_KEY` (dengannya `VITE_REVERB_APP_KEY` ikut kosong dan browser tidak mencoba WebSocket sama sekali; chip menunjukkan "Pembaruan otomatis belum aktif"), lalu `npm run build`.
+2. **Tidak menjalankan Reverb.** Isi `BROADCAST_CONNECTION=null` supaya setiap event tidak mencoba menghubungi server yang tidak ada, kosongkan `REVERB_APP_KEY` (dengannya `VITE_REVERB_APP_KEY` ikut kosong dan browser tidak mencoba WebSocket sama sekali; chip menunjukkan "Pembaruan otomatis belum aktif"; aplikasi mobile menerima `data.realtime: null` dan tidak menyambung), lalu `npm run build`.
 
 Tanpa salah satunya, `BROADCAST_CONNECTION=reverb` dengan Reverb yang tidak berjalan membuat setiap event gagal (tercatat sebagai warning di log) dan browser terus mencoba menyambung.
 

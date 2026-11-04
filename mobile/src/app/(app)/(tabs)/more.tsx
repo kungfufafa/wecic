@@ -19,7 +19,9 @@ import { Spacing } from '@/constants/theme';
 import { clearKnownUser, useKnownUser } from '@/hooks/use-known-user';
 import { useUnreadCountValue } from '@/hooks/use-unread-count';
 import { initials, studentNumber } from '@/lib/format';
+import { realtimeStatusLabel } from '@/lib/realtime';
 import type { PushRegistration } from '@/push/push-notifications';
+import { useRealtimeStatus } from '@/realtime/portal-realtime';
 
 export default function MoreScreen() {
   const router = useRouter();
@@ -27,6 +29,7 @@ export default function MoreScreen() {
   const [signingOut, setSigningOut] = useState(false);
   const knownUser = useKnownUser();
   const unreadCount = useUnreadCountValue();
+  const realtimeStatus = useRealtimeStatus();
   const user = knownUser ?? (state.status === 'signedIn' ? state.user : null);
   const offline = state.status === 'signedIn' && state.offline;
   const nim = studentNumber(user);
@@ -112,6 +115,8 @@ export default function MoreScreen() {
       <Section label="Perangkat">
         <Panel padded={false}>
           <ListRow icon="bellOutline" label="Notifikasi push" value={pushLabel(push)} />
+          <Divider inset={ListRowTextInset} />
+          <ListRow icon="bolt" label="Pembaruan otomatis" value={realtimeStatusLabel(realtimeStatus)} />
           <Divider inset={ListRowTextInset} />
           <ListRow icon="server" label="Server WeCIC" value={apiBaseUrl() ?? '-'} />
         </Panel>
