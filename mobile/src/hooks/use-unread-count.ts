@@ -61,10 +61,17 @@ export function useUnreadCount(): number {
             void refresh();
           });
 
-    const broadcast = onRealtime('notification', () => void refresh());
-    const afterGap = onRealtime('gap', () => void refresh());
+    // A scan sends its notifications in a burst: one read of the count for all of them.
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const soon = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => void refresh(), 250);
+    };
+    const broadcast = onRealtime('notification', soon);
+    const afterGap = onRealtime('gap', soon);
 
     return () => {
+      clearTimeout(timer);
       appState.remove();
       received?.remove();
       broadcast();

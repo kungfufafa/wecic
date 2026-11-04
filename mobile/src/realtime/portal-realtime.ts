@@ -1,8 +1,16 @@
 import Echo from 'laravel-echo';
-import Pusher from 'pusher-js/react-native';
+import * as PusherModule from 'pusher-js/react-native';
 import { useSyncExternalStore } from 'react';
 
 import { REALTIME_EVENTS, type RealtimeEventName, type RealtimePayload, type RealtimeStatus, type RealtimeTarget } from '@/lib/realtime';
+
+/**
+ * pusher-js's React Native bundle exports its class as `Pusher`
+ * (`module.exports.Pusher`), while its typings declare a default export;
+ * either shape gives the constructor here.
+ */
+const Pusher: typeof PusherModule.default =
+  (PusherModule as unknown as { Pusher?: typeof PusherModule.default; default?: typeof PusherModule.default }).Pusher ?? PusherModule.default;
 
 /**
  * The session's private Reverb channel, one connection for the whole app
