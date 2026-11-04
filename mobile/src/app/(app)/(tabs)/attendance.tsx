@@ -1,4 +1,5 @@
 import { useRouter } from 'expo-router';
+import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import type { TodayAttendanceClass, TodayAttendanceResponse } from '@/api/types/actions';
@@ -52,15 +53,21 @@ export default function AttendanceScreen() {
       ) : null}
 
       {classes.map((todayClass, index) => (
-        <AttendanceClass key={`${todayClass.meeting_id ?? todayClass.course_code ?? 'class'}-${index}`} todayClass={todayClass} onMarked={today.reload} />
+        <AttendanceClass key={`${todayClass.meeting_id ?? todayClass.course_code ?? 'class'}-${index}`} todayClass={todayClass} />
       ))}
     </Screen>
   );
 }
 
-function AttendanceClass({ todayClass, onMarked }: { todayClass: TodayAttendanceClass; onMarked: () => void }) {
+/**
+ * One class of today. Once the code is accepted, the card shows the status
+ * the server sent back instead of reloading every class from the portal,
+ * which kept a second code waiting behind that crawl.
+ */
+function AttendanceClass({ todayClass }: { todayClass: TodayAttendanceClass }) {
   const router = useRouter();
-  const status = todayClass.attendance_status;
+  const [recorded, setRecorded] = useState<TodayAttendanceClass['attendance_status'] | null>(null);
+  const status = recorded ?? todayClass.attendance_status;
   const marked = status?.already_marked === true;
   const closed = status?.window === 'closed';
   const tone: Tone = marked ? 'positive' : closed ? 'muted' : todayClass.active_now ? 'attention' : 'neutral';
@@ -98,7 +105,7 @@ function AttendanceClass({ todayClass, onMarked }: { todayClass: TodayAttendance
         {canSend && todayClass.attendance_target_reliable === false ? (
           <Notice tone="warning" message="Materi pertemuan hari ini mungkin belum diunggah dosen. Pastikan kode untuk kelas ini." />
         ) : null}
-        {canSend && payload ? <AttendanceForm target={payload} onMarked={onMarked} /> : null}
+        {canSend && payload ? <AttendanceForm target={payload} onMarked={setRecorded} /> : null}
       </Panel>
     </Section>
   );

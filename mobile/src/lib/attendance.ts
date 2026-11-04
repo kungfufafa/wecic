@@ -3,6 +3,8 @@
  * resources/js/lib/attendance.js so both clients read the portal alike.
  */
 
+import type { AttendanceStatus } from '@/api/types/actions';
+
 /**
  * The 8-character attendance code in what the student typed or scanned (a
  * bare code, a portal URL or "Kode: …"). A code right after a hint word
@@ -149,6 +151,28 @@ export function todayClassTakesAttendanceCode(
   payload: { modulesid?: unknown } | null | undefined,
 ): boolean {
   return status?.already_marked !== true && Boolean(payload?.modulesid);
+}
+
+/**
+ * The attendance to show right after the server recorded it: the status it
+ * sent back (`data.attendance`), else a plain "Hadir". The class's card
+ * takes it as is, without asking the portal for every class again.
+ */
+export function markedAttendanceStatus(
+  response: { data?: { status?: string; attendance?: AttendanceStatus | null } | null } | null | undefined,
+): AttendanceStatus {
+  const attendance = response?.data?.attendance;
+
+  if (attendance?.already_marked === true) {
+    return attendance;
+  }
+
+  return {
+    already_marked: true,
+    status: 'present',
+    label: response?.data?.status === 'already_marked' ? 'Sudah absen' : 'Hadir',
+    time: null,
+  };
 }
 
 export const ATTENDANCE_STATE_LABELS: Record<MeetingAttendanceState, string> = {

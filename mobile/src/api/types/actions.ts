@@ -3,6 +3,9 @@ import type { ApiEnvelope } from '@/api/types';
 /** Where an attendance code goes: the meeting by its course and module ids. */
 export type AttendancePayload = { courseid?: string | number | null; modulesid?: string | number | null; pertemuan?: number | null };
 
+/** A class's attendance as the server reports it; `already_marked` once the portal recorded it. */
+export type AttendanceStatus = { already_marked?: boolean; status?: string | null; label?: string | null; time?: string | null };
+
 export type TodayAttendanceClass = {
   class_id?: string | null;
   meeting_id?: string | null;
@@ -14,7 +17,7 @@ export type TodayAttendanceClass = {
   today_material?: { title?: string | null; date?: string | null; time?: string | null; meeting_number?: number | null; is_today?: boolean } | null;
   attendance_target_reliable?: boolean;
   active_now?: boolean;
-  attendance_status?: { already_marked?: boolean; status?: string | null; label?: string | null; time?: string | null; window?: 'not_open' | 'closed' | null };
+  attendance_status?: AttendanceStatus & { window?: 'not_open' | 'closed' | null };
   attendance_payload?: AttendancePayload | null;
   assignment_payload?: { courses_id?: string | null; id?: string | null; pertemuan?: number | null } | null;
 };
@@ -24,7 +27,8 @@ export type TodayAttendanceResponse = ApiEnvelope & {
 };
 
 export type AttendanceResponse = ApiEnvelope & {
-  data?: { status?: 'marked' | 'already_marked' | string; attendance?: unknown } | null;
+  /** `attendance`: the class's status right after a recorded attendance, so a screen updates without asking the portal again. */
+  data?: { status?: 'marked' | 'already_marked' | string; attendance?: AttendanceStatus | null } | null;
 };
 
 export type PortalFileLink = { href?: string | null; text?: string | null };

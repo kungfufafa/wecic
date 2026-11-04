@@ -2,21 +2,21 @@ import { useState } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 
 import { ApiError } from '@/api/client';
-import type { AttendancePayload, AttendanceResponse } from '@/api/types/actions';
+import type { AttendancePayload, AttendanceResponse, AttendanceStatus } from '@/api/types/actions';
 import { useSession } from '@/auth/session-provider';
 import { QrScanner } from '@/components/actions/qr-scanner';
 import { Button } from '@/components/button';
 import { Notice } from '@/components/notice';
 import { TextField } from '@/components/text-field';
 import { Spacing } from '@/constants/theme';
-import { extractAttendanceCode } from '@/lib/attendance';
+import { extractAttendanceCode, markedAttendanceStatus } from '@/lib/attendance';
 import { isConnectionFailure, isQueuedOffline } from '@/lib/operations';
 import { scanQrFromPhoto } from '@/lib/scan-photo';
 
 type AttendanceFormProps = {
   target: AttendancePayload;
-  /** Called once the portal recorded the attendance (or already had it). */
-  onMarked?: () => void;
+  /** Called once the portal recorded the attendance (or already had it), with the status to show for it. */
+  onMarked?: (status: AttendanceStatus) => void;
 };
 
 type Result = { tone: 'success' | 'error' | 'warning'; message: string };
@@ -66,7 +66,7 @@ export function AttendanceForm({ target, onMarked }: AttendanceFormProps) {
           message: response.data?.status === 'already_marked' ? 'Kehadiran sudah tercatat sebelumnya.' : response.message || 'Absensi berhasil dikirim.',
         });
         setValue('');
-        onMarked?.();
+        onMarked?.(markedAttendanceStatus(response));
       }
     } catch (error) {
       setResult({

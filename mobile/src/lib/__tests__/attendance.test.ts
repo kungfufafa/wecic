@@ -1,6 +1,7 @@
 import {
   extractAttendanceCode,
   meetingAttendanceState,
+  markedAttendanceStatus,
   meetingAttendanceView,
   meetingTakesAttendanceCode,
   parseIndonesianDate,
@@ -92,5 +93,33 @@ describe('dates', () => {
 
   it('formats today on this device', () => {
     expect(todayIso(new Date(2026, 10, 2, 23, 59))).toBe('2026-11-02');
+  });
+});
+
+describe('markedAttendanceStatus', () => {
+  it('shows the status the server sent back with the recorded attendance', () => {
+    const attendance = { already_marked: true, status: 'present', label: 'Hadir', time: '14:27' };
+
+    expect(markedAttendanceStatus({ data: { status: 'marked', attendance } })).toEqual(attendance);
+  });
+
+  it('falls back to "Hadir" when the server sent no status', () => {
+    expect(markedAttendanceStatus({ data: { status: 'marked' } })).toEqual({ already_marked: true, status: 'present', label: 'Hadir', time: null });
+    expect(markedAttendanceStatus(null)).toEqual({ already_marked: true, status: 'present', label: 'Hadir', time: null });
+  });
+
+  it('says "Sudah absen" for an attendance the portal already had', () => {
+    expect(markedAttendanceStatus({ data: { status: 'already_marked', attendance: null } })?.label).toBe('Sudah absen');
+  });
+
+  it('never shows an unrecorded status as marked', () => {
+    const unrecorded = { already_marked: false, label: 'Tidak hadir' };
+
+    expect(markedAttendanceStatus({ data: { status: 'marked', attendance: unrecorded } })).toEqual({
+      already_marked: true,
+      status: 'present',
+      label: 'Hadir',
+      time: null,
+    });
   });
 });
