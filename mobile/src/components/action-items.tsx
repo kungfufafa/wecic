@@ -13,7 +13,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { routeForPortalUrl } from '@/push/notification-links';
 import { daysLeftLabel } from '@/lib/today';
 
-/** What the student should do next, most urgent first, each opening where it is done. */
+/** What the student should do next, most urgent first, one line each, each opening where it is done. */
 export function ActionItemRows({ items }: { items: ActionItem[] }) {
   return (
     <View>
@@ -30,10 +30,10 @@ export function ActionItemRows({ items }: { items: ActionItem[] }) {
 function ActionItemRow({ item }: { item: ActionItem }) {
   const theme = useTheme();
   const router = useRouter();
-  const look: Record<string, { icon: IconName; color: string; tint: string }> = {
-    critical: { icon: 'alert', color: theme.danger, tint: theme.dangerTint },
-    warning: { icon: 'warning', color: theme.warning, tint: theme.warningTint },
-    info: { icon: 'info', color: theme.brand, tint: theme.brandTint },
+  const look: Record<string, { icon: IconName; color: string }> = {
+    critical: { icon: 'alert', color: theme.danger },
+    warning: { icon: 'warning', color: theme.warning },
+    info: { icon: 'info', color: theme.brand },
   };
   const severity = look[item.severity] ?? look.info;
   const due = daysLeftLabel(item.days_left);
@@ -56,30 +56,21 @@ function ActionItemRow({ item }: { item: ActionItem }) {
   return (
     <Pressable
       accessibilityRole={pressable ? 'button' : undefined}
+      accessibilityHint={item.description ?? undefined}
       disabled={!pressable}
       onPress={open}
       style={({ pressed }) => [styles.row, pressed && { backgroundColor: theme.section }]}>
-      <Icon name={severity.icon} size={20} color={severity.color} style={styles.icon} />
+      <Icon name={severity.icon} size={20} color={severity.color} />
       <View style={styles.text}>
-        <ThemedText type="smallBold">{item.title}</ThemedText>
-        {item.description ? (
-          <ThemedText type="small" themeColor="textTertiary" numberOfLines={2}>
-            {item.description}
+        <ThemedText type="bodyMedium" numberOfLines={1}>
+          {item.title}
+        </ThemedText>
+        {due || (item.cta_label && pressable) ? (
+          <ThemedText type="small" themeColor="textTertiary" numberOfLines={1}>
+            {due ? <ThemedText type="small" style={{ color: severity.color }}>{due}</ThemedText> : null}
+            {due && item.cta_label && pressable ? ' · ' : null}
+            {item.cta_label && pressable ? item.cta_label : null}
           </ThemedText>
-        ) : null}
-        {due || item.cta_label ? (
-          <View style={styles.meta}>
-            {due ? (
-              <ThemedText type="caption" style={{ color: severity.color }}>
-                {due}
-              </ThemedText>
-            ) : null}
-            {item.cta_label && pressable ? (
-              <ThemedText type="caption" themeColor="brand">
-                {item.cta_label}
-              </ThemedText>
-            ) : null}
-          </View>
         ) : null}
       </View>
       {pressable ? <Icon name="chevronRight" size={14} color={theme.textQuaternary} /> : null}
@@ -90,20 +81,13 @@ function ActionItemRow({ item }: { item: ActionItem }) {
 const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     gap: Spacing.three - Spacing.half,
     paddingHorizontal: Spacing.three + Spacing.half,
     paddingVertical: Spacing.three - Spacing.one,
   },
-  icon: {
-    marginTop: 1,
-  },
   text: {
     flex: 1,
     gap: Spacing.half,
-  },
-  meta: {
-    flexDirection: 'row',
-    gap: Spacing.three,
   },
 });

@@ -53,8 +53,20 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
   },
 ];
 
-/** The services on Beranda's grid, in order; Absen, Kuliah and Akademik have their own tabs. */
-export const HOME_FEATURE_KEYS = ['assignments', 'exams', 'krs', 'grades', 'finance', 'announcements', 'skkm', 'thesis'];
+/**
+ * The services on Beranda's grid, in order, four to a page; Absen, Kuliah
+ * and Akademik have their own tabs, and the last tile opens every service.
+ */
+export const HOME_FEATURE_KEYS = ['assignments', 'exams', 'grades', 'finance', 'krs', 'announcements', 'skkm'];
+
+/** The tile after Beranda's services that opens the full list. */
+export const ALL_SERVICES_FEATURE: Feature = {
+  key: 'services',
+  title: 'Semua',
+  description: 'Semua layanan WeCIC',
+  icon: 'gridOutline',
+  href: '/services',
+};
 
 export function featuresByKey(keys: string[]): Feature[] {
   const all = FEATURE_GROUPS.flatMap((group) => group.features);
