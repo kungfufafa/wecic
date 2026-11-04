@@ -2,7 +2,9 @@ import {
   extractAttendanceCode,
   meetingAttendanceState,
   meetingAttendanceView,
+  meetingTakesAttendanceCode,
   parseIndonesianDate,
+  todayClassTakesAttendanceCode,
   todayIso,
 } from '@/lib/attendance';
 
@@ -48,6 +50,35 @@ describe('meeting attendance', () => {
     expect(meetingAttendanceView({ status: 'Absensi sudah ditutup' }, null, '2026-11-02')).toBe('closed');
     expect(meetingAttendanceView({ status: 'Belum dibuka' }, null, '2026-11-02')).toBe('not_open');
     expect(meetingAttendanceView({ state: 'open' }, '2026-11-02', '2026-11-02')).toBe('open');
+  });
+
+  it('still takes a code on a meeting page the portal marks "Tidak hadir"', () => {
+    expect(meetingTakesAttendanceCode('open')).toBe(true);
+    expect(meetingTakesAttendanceCode('closed')).toBe(true);
+    expect(meetingTakesAttendanceCode('recorded')).toBe(false);
+    expect(meetingTakesAttendanceCode('past')).toBe(false);
+    expect(meetingTakesAttendanceCode('upcoming')).toBe(false);
+    expect(meetingTakesAttendanceCode('not_open')).toBe(false);
+  });
+});
+
+describe('todayClassTakesAttendanceCode', () => {
+  const payload = { courseid: '9520', modulesid: '37574' };
+
+  it('takes a code whatever the window, even "Tidak hadir"', () => {
+    expect(todayClassTakesAttendanceCode({ already_marked: false }, payload)).toBe(true);
+    const tidakHadir = { already_marked: false, label: 'Tidak hadir', window: 'closed' as const };
+    expect(todayClassTakesAttendanceCode(tidakHadir, payload)).toBe(true);
+    expect(todayClassTakesAttendanceCode(null, payload)).toBe(true);
+  });
+
+  it('stops once the portal records the student', () => {
+    expect(todayClassTakesAttendanceCode({ already_marked: true }, payload)).toBe(false);
+  });
+
+  it('needs a meeting to send to', () => {
+    expect(todayClassTakesAttendanceCode({ already_marked: false }, null)).toBe(false);
+    expect(todayClassTakesAttendanceCode({ already_marked: false }, { ...payload, modulesid: '' })).toBe(false);
   });
 });
 

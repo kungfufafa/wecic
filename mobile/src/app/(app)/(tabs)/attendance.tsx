@@ -15,10 +15,11 @@ import { StatusPill } from '@/components/status-pill';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useApiResource } from '@/hooks/use-api-resource';
+import { todayClassTakesAttendanceCode } from '@/lib/attendance';
 import type { Tone } from '@/lib/format';
 import { timeRange } from '@/lib/format';
 
-/** Today's classes, each with its attendance and the code box while it can still be sent. */
+/** Today's classes, each with its attendance and the code box until the portal records the student. */
 export default function AttendanceScreen() {
   const today = useApiResource<TodayAttendanceResponse>('attendance/today');
   const classes = today.data?.data.classes ?? [];
@@ -67,7 +68,7 @@ function AttendanceClass({ todayClass, onMarked }: { todayClass: TodayAttendance
     ? [status?.label ?? 'Sudah absen', status?.time].filter(Boolean).join(' · ')
     : (status?.label ?? (todayClass.active_now ? 'Sedang berlangsung' : 'Belum absen'));
   const payload = todayClass.attendance_payload;
-  const canSend = !marked && !closed && payload !== null && payload !== undefined && Boolean(payload.modulesid);
+  const canSend = todayClassTakesAttendanceCode(status, payload);
   const courseId = payload?.courseid ?? todayClass.assignment_payload?.courses_id ?? null;
 
   return (

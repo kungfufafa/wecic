@@ -21,7 +21,14 @@ import { Spacing } from '@/constants/theme';
 import { useApiResource } from '@/hooks/use-api-resource';
 import { usePortalFile } from '@/hooks/use-portal-file';
 import { useTheme } from '@/hooks/use-theme';
-import { ATTENDANCE_STATE_LABELS, meetingAttendanceState, meetingAttendanceView, parseIndonesianDate, todayIso } from '@/lib/attendance';
+import {
+  ATTENDANCE_STATE_LABELS,
+  meetingAttendanceState,
+  meetingAttendanceView,
+  meetingTakesAttendanceCode,
+  parseIndonesianDate,
+  todayIso,
+} from '@/lib/attendance';
 import type { Tone } from '@/lib/format';
 import { assignmentTarget, classRouteOf, meetingTitleParts, saysNoAssignment } from '@/lib/meetings';
 
@@ -148,7 +155,7 @@ export default function MeetingScreen() {
               <ThemedText type="small" themeColor="textSecondary">
                 {attendanceHint(attendanceView)}
               </ThemedText>
-              {attendanceView === 'open' && resolvedCoursesId ? (
+              {meetingTakesAttendanceCode(attendanceView) && resolvedCoursesId ? (
                 <AttendanceForm target={{ courseid: resolvedCoursesId, modulesid: meetingId }} onMarked={meeting.reload} />
               ) : null}
             </Panel>
@@ -290,7 +297,7 @@ function attendanceHint(view: ReturnType<typeof meetingAttendanceView>): string 
     open: 'Masukkan kode absensi dari dosen untuk mencatat kehadiran.',
     past: 'Pertemuan ini sudah lewat. Absensi tidak bisa dikirim lagi.',
     upcoming: 'Absensi bisa dikirim pada hari pertemuan.',
-    closed: 'Absensi pertemuan ini sudah ditutup di portal.',
+    closed: 'Portal mencatat kamu tidak hadir, tapi kode absensi dari dosen masih bisa dikirim.',
     not_open: 'Absensi belum dibuka dosen. Tarik ke bawah untuk memeriksa lagi.',
   }[view];
 }
