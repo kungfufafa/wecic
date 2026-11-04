@@ -1,6 +1,6 @@
 import * as Sentry from '@sentry/react-native';
 
-import { initSentry, sentryOptions } from '@/lib/sentry';
+import { initSentry, sentryOptions, WECIC_SENTRY_DSN } from '@/lib/sentry';
 
 jest.mock('@sentry/react-native', () => ({
   init: jest.fn(),
@@ -10,8 +10,7 @@ jest.mock('@sentry/react-native', () => ({
 const DSN = 'https://public@o1.ingest.sentry.io/2';
 
 describe('sentryOptions', () => {
-  it('is off without a DSN', () => {
-    expect(sentryOptions(undefined)).toBeNull();
+  it('is off with an empty DSN', () => {
     expect(sentryOptions('')).toBeNull();
     expect(sentryOptions('   ')).toBeNull();
   });
@@ -50,15 +49,24 @@ describe('initSentry', () => {
     jest.mocked(Sentry.init).mockClear();
   });
 
-  it('does not start Sentry without a DSN', () => {
+  it('reports to the wecic-mobile project when no DSN is configured', () => {
     delete process.env.EXPO_PUBLIC_SENTRY_DSN;
+
+    initSentry();
+
+    expect(WECIC_SENTRY_DSN).toMatch(/^https:\/\/[0-9a-f]+@o\d+\.ingest\.de\.sentry\.io\/\d+$/);
+    expect(Sentry.init).toHaveBeenCalledWith(expect.objectContaining({ dsn: WECIC_SENTRY_DSN }));
+  });
+
+  it('does not start Sentry when the DSN is set empty', () => {
+    process.env.EXPO_PUBLIC_SENTRY_DSN = '';
 
     initSentry();
 
     expect(Sentry.init).not.toHaveBeenCalled();
   });
 
-  it('starts Sentry with the configured DSN', () => {
+  it('starts Sentry with a configured DSN instead', () => {
     process.env.EXPO_PUBLIC_SENTRY_DSN = DSN;
 
     initSentry();
