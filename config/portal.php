@@ -720,6 +720,9 @@ return [
         'action_rate_limit_decay' => (int) env('CAMPUS_ACTION_RATE_LIMIT_DECAY', 60),
         // Parameterized reads (class, meeting, flow) per minute per campus session.
         'read_rate_limit_attempts' => (int) env('CAMPUS_READ_RATE_LIMIT_ATTEMPTS', 60),
+        // Realtime channel sign-ins (broadcasting/auth) per minute per campus session:
+        // one per socket (re)connect, so a working client stays far below it.
+        'channel_auth_rate_limit_attempts' => (int) env('CAMPUS_CHANNEL_AUTH_RATE_LIMIT_ATTEMPTS', 30),
         // Comma-separated proxy addresses or CIDRs, or '*'; null trusts no proxy.
         'trusted_proxies' => env('TRUSTED_PROXIES'),
     ],

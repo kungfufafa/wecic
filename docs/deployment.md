@@ -81,6 +81,14 @@ sudo supervisorctl start mycic-horizon
    ```
 
    Server mendengarkan di `REVERB_SERVER_HOST:REVERB_SERVER_PORT` (default `0.0.0.0:8080`). Browser menghubungi `REVERB_HOST`, `REVERB_PORT`, dan `REVERB_SCHEME`, yang ikut terpanggang ke bundel Vite lewat `VITE_REVERB_*`, jadi letakkan Reverb di belakang nginx dengan TLS (lihat [dokumentasi Reverb](https://laravel.com/docs/reverb#production)), isi ketiganya dengan alamat publiknya (mis. `REVERB_HOST=mycic.example.ac.id`, `REVERB_PORT=443`, `REVERB_SCHEME=https`), lalu `npm run build`. Setelah deploy jalankan `php artisan reverb:restart` supaya Supervisor menyalakan Reverb dengan kode baru.
+
+   Pengaturan yang wajib di production:
+
+   - **Hanya lewat nginx.** Isi `REVERB_SERVER_HOST=127.0.0.1` supaya port 8080 tidak terbuka ke internet; nginx yang meneruskan `wss://` ke sana. Tanpa TLS, nama channel (berisi ID sesi Laravel) dan isi event lewat tanpa enkripsi.
+   - **Tanpa `--debug`.** Mode debug mencatat setiap pesan, termasuk nama channel dan isi event, ke log. Pakai perintah Supervisor di atas apa adanya.
+   - **Batasi origin.** Isi `REVERB_ALLOWED_ORIGINS` dengan host situs (mis. `mycic.example.ac.id`; beberapa host dipisah koma) supaya halaman di situs lain tidak bisa membuka socket ke Reverb. Setelah mengubahnya, pastikan aplikasi mobile masih tersambung (Reverb menolak socket yang origin-nya tidak cocok).
+   - **Batasi pesan per socket.** `REVERB_APP_RATE_LIMITING_ENABLED=true` (bawaan 60 pesan per 60 detik, `REVERB_APP_RATE_LIMIT_MAX_ATTEMPTS` dan `REVERB_APP_RATE_LIMIT_DECAY_SECONDS`) menahan klien yang membanjiri server.
+   - **Tanda tangan channel sudah dibatasi.** `POST /broadcasting/auth` (browser) dan `POST /api/v1/broadcasting/auth` (aplikasi) melayani paling banyak `CAMPUS_CHANNEL_AUTH_RATE_LIMIT_ATTEMPTS` (bawaan 30) permintaan per menit per sesi kampus, lalu menjawab 429.
 2. **Tidak menjalankan Reverb.** Isi `BROADCAST_CONNECTION=null` supaya setiap event tidak mencoba menghubungi server yang tidak ada, kosongkan `REVERB_APP_KEY` (dengannya `VITE_REVERB_APP_KEY` ikut kosong dan browser tidak mencoba WebSocket sama sekali; chip menunjukkan "Pembaruan otomatis belum aktif"; aplikasi mobile menerima `data.realtime: null` dan tidak menyambung), lalu `npm run build`.
 
 Tanpa salah satunya, `BROADCAST_CONNECTION=reverb` dengan Reverb yang tidak berjalan membuat setiap event gagal (tercatat sebagai warning di log) dan browser terus mencoba menyambung.

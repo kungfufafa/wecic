@@ -110,6 +110,39 @@ class PortalBroadcastingTest extends TestCase
         ])->assertForbidden();
     }
 
+    public function test_a_bearer_tokens_channel_sign_ins_are_throttled_per_campus_session(): void
+    {
+        config(['portal.security.channel_auth_rate_limit_attempts' => 2]);
+        [$token, $sessionId] = $this->tokenForCampusSession('campus-token-mobile');
+        [$otherToken, $otherSessionId] = $this->tokenForCampusSession('campus-token-other');
+
+        foreach (['/api/broadcasting/auth', '/api/v1/broadcasting/auth'] as $path) {
+            $this->withToken($token)->postJson($path, [
+                'channel_name' => 'private-portal.session.'.$sessionId,
+                'socket_id' => '123.456',
+            ])->assertOk();
+        }
+
+        $this->withToken($token)->postJson('/api/v1/broadcasting/auth', [
+            'channel_name' => 'private-portal.session.'.$sessionId,
+            'socket_id' => '123.456',
+        ])->assertTooManyRequests()->assertHeader('Retry-After');
+
+        $this->withToken($otherToken)->postJson('/api/v1/broadcasting/auth', [
+            'channel_name' => 'private-portal.session.'.$otherSessionId,
+            'socket_id' => '123.456',
+        ])->assertOk();
+    }
+
+    public function test_the_browsers_channel_sign_ins_are_throttled_too(): void
+    {
+        config(['portal.security.channel_auth_rate_limit_attempts' => 1]);
+        $channel = 'private-portal.session.'.self::SESSION_ID;
+
+        $this->authorizeChannel($channel)->assertOk();
+        $this->authorizeChannel($channel)->assertTooManyRequests();
+    }
+
     /**
      * The database session handler stores the auth guard's user id in the
      * integer `sessions.user_id` column; a session id there is refused by

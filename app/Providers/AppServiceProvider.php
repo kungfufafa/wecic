@@ -61,6 +61,13 @@ class AppServiceProvider extends ServiceProvider
                 ->by((string) $request->session()->get('campus_session_token', $request->ip()));
         });
 
+        // Realtime channel sign-ins, web and API alike: a client reconnecting in a loop
+        // (or a script probing channel names) is held up without touching the portal.
+        RateLimiter::for('portal-channel-auth', function (Request $request): Limit {
+            return Limit::perMinute((int) config('portal.security.channel_auth_rate_limit_attempts', 30))
+                ->by('channel-auth|'.$request->session()->get('campus_session_token', $request->ip()));
+        });
+
         RateLimiter::for('portal-action', function (Request $request): Limit {
             $sessionToken = (string) $request->session()->get('campus_session_token', $request->ip());
 

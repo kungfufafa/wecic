@@ -52,7 +52,7 @@ Route::middleware($sessionMiddleware)->group(function () {
 
     // Echo's authEndpoint for API clients: signs the session's own channel only (routes/channels.php).
     Route::post('broadcasting/auth', [PortalDeviceController::class, 'authorizeChannel'])
-        ->middleware(\App\Http\Middleware\ResolvePortalBroadcastUser::class);
+        ->middleware([\App\Http\Middleware\ResolvePortalBroadcastUser::class, 'throttle:portal-channel-auth']);
 
     Route::middleware('portal.session')->group(function (): void {
         // An offline session (portal unreachable at login) reads the archive
