@@ -81,6 +81,17 @@ const ICONS = {
   moon: { ios: 'moon.fill', android: 'dark_mode', web: 'dark_mode' },
   appearance: { ios: 'circle.lefthalf.filled', android: 'contrast', web: 'contrast' },
   checkmark: { ios: 'checkmark', android: 'check', web: 'check' },
+  walletOutline: { ios: 'creditcard', android: 'credit_card', web: 'credit_card' },
+  megaphoneOutline: { ios: 'megaphone', android: 'campaign', web: 'campaign' },
+  libraryOutline: { ios: 'books.vertical', android: 'local_library', web: 'local_library' },
+  gridOutline: { ios: 'square.grid.2x2', android: 'apps', web: 'apps' },
+  keyOutline: { ios: 'key', android: 'key', web: 'key' },
+  archiveOutline: { ios: 'archivebox', android: 'inventory_2', web: 'inventory_2' },
+  outboxOutline: { ios: 'tray.and.arrow.up', android: 'outbox', web: 'outbox' },
+  boltOutline: { ios: 'bolt', android: 'bolt', web: 'bolt' },
+  listOutline: { ios: 'list.bullet.rectangle', android: 'list_alt', web: 'list_alt' },
+  chartOutline: { ios: 'chart.bar', android: 'bar_chart', web: 'bar_chart' },
+  documentOutline: { ios: 'doc.text', android: 'description', web: 'description' },
 } as const satisfies Record<string, PlatformSymbol>;
 
 export type IconName = keyof typeof ICONS;

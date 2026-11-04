@@ -4,10 +4,11 @@ import { Fragment } from 'react';
 
 import type { LibraryResponse, RepositorySummary } from '@/api/types/admin';
 import { EmptyState } from '@/components/empty-state';
-import { ListRow, ListRowTextInset } from '@/components/list-row';
+import { ListRow } from '@/components/list-row';
 import { Notice } from '@/components/notice';
 import { Screen } from '@/components/screen';
 import { Divider, Panel, Section } from '@/components/section';
+import { SettingsRow } from '@/components/settings-row';
 import { SkeletonRows } from '@/components/skeleton';
 import { StatRow } from '@/components/stat-row';
 import { useApiResource } from '@/hooks/use-api-resource';
@@ -20,18 +21,17 @@ export default function LibraryScreen() {
   const repository = data?.repository ?? null;
 
   return (
-    <Screen back title="Perpustakaan" subtitle="Tautan perpustakaan dan repositori skripsi" refreshing={library.isRefreshing}
-      dataSavedAt={library.savedAt} onRefresh={library.refresh}>
+    <Screen back title="Perpustakaan" refreshing={library.isRefreshing} dataSavedAt={library.savedAt} onRefresh={library.refresh}>
       {library.error ? <Notice tone="error" message={library.error} /> : null}
 
       <Section label="Repositori skripsi">
         <Panel padded={false}>
           {repository ? <StatRow stats={repositoryStats(repository)} /> : null}
-          {repository ? <Divider inset={0} /> : null}
-          <ListRow
+          {repository ? <Divider /> : null}
+          <SettingsRow
             icon="search"
             label="Cari skripsi"
-            value="Judul, penulis, pembimbing, atau tahun"
+            accessibilityHint="Cari menurut judul, penulis, pembimbing, atau tahun"
             onPress={() => router.push('/library/theses')}
           />
         </Panel>
@@ -41,11 +41,11 @@ export default function LibraryScreen() {
         <Panel padded={false}>
           {library.isLoading ? <SkeletonRows count={3} /> : null}
           {!library.isLoading && links.length === 0 && !library.error ? (
-            <EmptyState icon="library" title="Belum ada tautan" description="Tautan perpustakaan dari portal akan tampil di sini." />
+            <EmptyState icon="library" title="Belum ada tautan" />
           ) : null}
           {links.map((link, index) => (
             <Fragment key={link.key}>
-              {index > 0 ? <Divider inset={ListRowTextInset} /> : null}
+              {index > 0 ? <Divider /> : null}
               <ListRow
                 icon={link.is_internal ? 'library' : 'globe'}
                 label={link.title}

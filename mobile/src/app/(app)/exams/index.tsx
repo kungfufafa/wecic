@@ -4,10 +4,8 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import type { ExamListItem, ExamListResponse } from '@/api/types/classes';
 import { Chip } from '@/components/chip';
-import { CourseTile } from '@/components/course-tile';
 import { EmptyState } from '@/components/empty-state';
 import { Icon } from '@/components/icon';
-import { MetaRow } from '@/components/meta-row';
 import { Notice } from '@/components/notice';
 import { Screen } from '@/components/screen';
 import { Divider, Panel, Section } from '@/components/section';
@@ -18,8 +16,6 @@ import { Spacing } from '@/constants/theme';
 import { useApiResource } from '@/hooks/use-api-resource';
 import { useTheme } from '@/hooks/use-theme';
 
-const TILE_SIZE = 44;
-
 export default function ExamsScreen() {
   const exams = useApiResource<ExamListResponse>('exam');
   const items = exams.data?.data.exams ?? [];
@@ -29,7 +25,6 @@ export default function ExamsScreen() {
     <Screen
       back
       title="Ujian"
-      subtitle="Ujian mata kuliah semester ini"
       accessory={uploadable > 0 ? <Chip label={`${uploadable} bisa diunggah`} /> : null}
       refreshing={exams.isRefreshing}
       dataSavedAt={exams.savedAt}
@@ -47,17 +42,17 @@ export default function ExamsScreen() {
       {!exams.isLoading && items.length === 0 && !exams.error ? (
         <Section>
           <Panel>
-            <EmptyState icon="checklist" title="Belum ada ujian" description="Ujian yang dibuka dosen akan muncul di sini." />
+            <EmptyState icon="checklist" title="Belum ada ujian" />
           </Panel>
         </Section>
       ) : null}
 
       {items.length > 0 ? (
-        <Section label="Daftar ujian" accessory={<ThemedText type="small" themeColor="textTertiary" style={styles.count}>{`${items.length} mata kuliah`}</ThemedText>}>
+        <Section label="Daftar ujian" accessory={<Chip label={`${items.length} MK`} />}>
           <Panel padded={false}>
             {items.map((exam, index) => (
               <Fragment key={`${exam.id ?? exam.course_code ?? 'ujian'}-${index}`}>
-                {index > 0 ? <Divider inset={Spacing.three + TILE_SIZE + Spacing.three - Spacing.one} /> : null}
+                {index > 0 ? <Divider /> : null}
                 <ExamRow exam={exam} />
               </Fragment>
             ))}
@@ -66,7 +61,7 @@ export default function ExamsScreen() {
       ) : null}
 
       {items.length > 0 && items.every((exam) => !exam.id) ? (
-        <Notice message="Portal belum membuka ujian mana pun. Ujian bisa dibuka setelah dosen menjadwalkannya." />
+        <Notice message="Belum ada ujian yang dibuka dosen." />
       ) : null}
     </Screen>
   );
@@ -78,29 +73,29 @@ function ExamRow({ exam }: { exam: ExamListItem }) {
   const id = exam.id !== null && exam.id !== undefined && String(exam.id) !== '' ? String(exam.id) : null;
   const status = exam.status?.trim() || null;
 
+  const meta = [exam.course_code, exam.schedule, exam.lecturer].filter((part) => part && part.trim() !== '').join(' · ');
+  const hasPills = exam.can_upload || status !== null || !id;
+
   const content = (
     <>
-      <CourseTile name={exam.course_name} code={exam.course_code} size={TILE_SIZE} />
       <View style={styles.text}>
-        <View style={styles.title}>
-          <ThemedText type="bodyMedium" numberOfLines={2}>
-            {exam.course_name ?? 'Mata kuliah'}
+        <ThemedText type="bodyMedium" numberOfLines={2}>
+          {exam.course_name ?? 'Mata kuliah'}
+        </ThemedText>
+        {meta ? (
+          <ThemedText type="small" themeColor="textTertiary" numberOfLines={2}>
+            {meta}
           </ThemedText>
-          {exam.course_code ? (
-            <ThemedText type="caption" themeColor="textTertiary">
-              {exam.course_code}
-            </ThemedText>
-          ) : null}
-        </View>
-        <MetaRow icon="calendarClock" text={exam.schedule} />
-        <MetaRow icon="person" text={exam.lecturer} />
-        <View style={styles.pills}>
-          {exam.can_upload ? <StatusPill label="Unggah jawaban dibuka" tone="attention" /> : null}
-          {status ? <StatusPill label={status} tone="neutral" /> : null}
-          {!id ? <StatusPill label="Belum dibuka" tone="muted" /> : null}
-        </View>
+        ) : null}
+        {hasPills ? (
+          <View style={styles.pills}>
+            {exam.can_upload ? <StatusPill label="Unggah dibuka" tone="attention" /> : null}
+            {status ? <StatusPill label={status} tone="neutral" /> : null}
+            {!id ? <StatusPill label="Belum dibuka" tone="muted" /> : null}
+          </View>
+        ) : null}
       </View>
-      {id ? <Icon name="chevronRight" size={14} color={theme.textQuaternary} style={styles.chevron} /> : null}
+      {id ? <Icon name="chevronRight" size={15} color={theme.textQuaternary} /> : null}
     </>
   );
 
@@ -120,30 +115,21 @@ function ExamRow({ exam }: { exam: ExamListItem }) {
 }
 
 const styles = StyleSheet.create({
-  count: {
-    paddingRight: Spacing.two,
-  },
   row: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     gap: Spacing.three - Spacing.one,
-    padding: Spacing.three,
+    paddingVertical: Spacing.three - Spacing.one,
+    paddingHorizontal: Spacing.three,
   },
   text: {
     flex: 1,
-    gap: Spacing.one + Spacing.half,
-  },
-  title: {
     gap: Spacing.half,
-    marginBottom: Spacing.one,
   },
   pills: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: Spacing.two - Spacing.half,
+    gap: Spacing.one,
     marginTop: Spacing.one,
-  },
-  chevron: {
-    alignSelf: 'center',
   },
 });

@@ -67,7 +67,7 @@ export default function AnnouncementsScreen() {
     <Screen
       back
       title="Pengumuman"
-      subtitle={data?.paging?.total ? `${data.paging.total} pengumuman dari kampus` : 'Info resmi dari kampus'}
+      subtitle={data?.paging?.total ? `${data.paging.total} pengumuman` : null}
       refreshing={feed.isRefreshing}
       dataSavedAt={feed.savedAt}
       onRefresh={feed.refresh}>
@@ -79,15 +79,13 @@ export default function AnnouncementsScreen() {
           <Panel padded={false}>
             {upcoming.map((deadline, index) => (
               <Fragment key={`${deadline.date}-${index}`}>
-                {index > 0 ? <Divider inset={Spacing.three} /> : null}
+                {index > 0 ? <Divider /> : null}
                 <View style={styles.deadline}>
-                  <Icon name="alarm" size={18} color={theme.accent} />
-                  <View style={styles.flex}>
+                  <Icon name="alarm" size={20} color={theme.accent} />
+                  <ThemedText type="small" themeColor="textSecondary" style={styles.flex} numberOfLines={2}>
                     <ThemedText type="smallBold">{formatDate(deadline.date)}</ThemedText>
-                    <ThemedText type="small" themeColor="textTertiary" numberOfLines={3}>
-                      {deadline.title ?? deadline.context ?? ''}
-                    </ThemedText>
-                  </View>
+                    {deadline.title ?? deadline.context ? ` · ${deadline.title ?? deadline.context}` : ''}
+                  </ThemedText>
                 </View>
               </Fragment>
             ))}
@@ -107,35 +105,35 @@ export default function AnnouncementsScreen() {
         <Panel padded={false}>
           {feed.isLoading ? <SkeletonRows count={3} /> : null}
           {!feed.isLoading && visible.length === 0 && !feed.error ? (
-            <EmptyState icon="megaphone" title="Belum ada pengumuman" description="Pengumuman dari kampus akan tampil di sini." />
+            <EmptyState icon="megaphone" title="Belum ada pengumuman" />
           ) : null}
           {visible.map((announcement, index) => (
             <Fragment key={announcement.id}>
-              {index > 0 ? <Divider inset={Spacing.three} /> : null}
+              {index > 0 ? <Divider /> : null}
               <Pressable
                 accessibilityRole="button"
                 onPress={() => router.push({ pathname: '/announcements/[id]', params: { id: announcement.id } })}
                 style={({ pressed }) => [styles.row, pressed && { backgroundColor: theme.section }]}>
-                <ThemedText type="caption" themeColor="textTertiary">
-                  {[announcement.publisher_unit_short ?? announcement.publisher, announcement.published_label ?? formatDate(announcement.published_date)]
-                    .filter(Boolean)
-                    .join(' · ')}
-                </ThemedText>
-                <ThemedText type="bodyMedium" numberOfLines={3}>
-                  {announcement.title}
-                </ThemedText>
-                {announcement.excerpt ? (
-                  <ThemedText type="small" themeColor="textTertiary" numberOfLines={2}>
-                    {announcement.excerpt}
+                <View style={styles.flex}>
+                  <ThemedText type="bodyMedium" numberOfLines={2}>
+                    {announcement.title}
                   </ThemedText>
-                ) : null}
-                {announcement.category_label ? (
-                  <View style={[styles.tag, { backgroundColor: theme.elevated }]}>
-                    <ThemedText type="caption" themeColor="textSecondary">
-                      {announcement.category_label}
+                  {announcement.excerpt ? (
+                    <ThemedText type="small" themeColor="textTertiary" numberOfLines={1}>
+                      {announcement.excerpt}
                     </ThemedText>
-                  </View>
-                ) : null}
+                  ) : null}
+                  <ThemedText type="caption" themeColor="textTertiary" numberOfLines={1}>
+                    {[
+                      announcement.publisher_unit_short ?? announcement.publisher,
+                      announcement.published_label ?? formatDate(announcement.published_date),
+                      announcement.category_label,
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </ThemedText>
+                </View>
+                <Icon name="chevronRight" size={15} color={theme.textQuaternary} />
               </Pressable>
             </Fragment>
           ))}
@@ -159,19 +157,16 @@ const styles = StyleSheet.create({
   },
   deadline: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: Spacing.three - Spacing.one,
-    padding: Spacing.three,
+    alignItems: 'center',
+    gap: Spacing.three - Spacing.half,
+    paddingHorizontal: Spacing.three + Spacing.half,
+    paddingVertical: Spacing.two + Spacing.one,
   },
   row: {
-    gap: Spacing.one + Spacing.half,
-    padding: Spacing.three,
-  },
-  tag: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: Spacing.two + Spacing.half,
-    paddingVertical: Spacing.half + 1,
-    borderRadius: 999,
-    marginTop: Spacing.one,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.three - Spacing.half,
+    paddingHorizontal: Spacing.three + Spacing.half,
+    paddingVertical: Spacing.two + Spacing.one,
   },
 });

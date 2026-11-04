@@ -3,11 +3,11 @@ import { Fragment } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import type { GradesResponse, KrsResponse } from '@/api/types/academic';
-import { ListRow, ListRowTextInset } from '@/components/list-row';
 import { Notice } from '@/components/notice';
 import { ProgressBar } from '@/components/progress-bar';
 import { Screen } from '@/components/screen';
 import { Divider, Panel, Section } from '@/components/section';
+import { SettingsRow } from '@/components/settings-row';
 import { StatRow } from '@/components/stat-row';
 import { StatusPill } from '@/components/status-pill';
 import { ThemedText } from '@/components/themed-text';
@@ -62,7 +62,7 @@ export default function AcademicScreen() {
           />
           {progress?.target_sks ? (
             <>
-              <Divider inset={Spacing.three} />
+              <Divider />
               <View style={styles.progress}>
                 <ProgressBar percent={progress.progress_percent} color={theme.success} />
                 <ThemedText type="caption" themeColor="textTertiary">
@@ -76,10 +76,11 @@ export default function AcademicScreen() {
 
       <Section label="KRS semester ini" accessory={status?.label ? <StatusPill label={status.label} tone={krsStatusTone(status.code)} /> : null}>
         <Panel padded={false}>
-          <ListRow
+          <SettingsRow
             icon="list"
             label="KRS & Perwalian"
-            value={krs.data?.data?.totals?.sks ? `${krs.data.data.totals.courses ?? 0} mata kuliah · ${krs.data.data.totals.sks} SKS` : 'Rencana studi dan dosen wali'}
+            detail={krs.data?.data?.totals?.sks ? `${krs.data.data.totals.courses ?? 0} MK · ${krs.data.data.totals.sks} SKS` : null}
+            accessibilityHint="Rencana studi dan dosen wali"
             onPress={() => router.push('/krs')}
           />
         </Panel>
@@ -91,8 +92,8 @@ export default function AcademicScreen() {
             .filter((feature) => feature.key !== 'krs')
             .map((feature, index) => (
               <Fragment key={feature.key}>
-                {index > 0 ? <Divider inset={ListRowTextInset} /> : null}
-                <ListRow icon={feature.icon} label={feature.title} value={feature.description} onPress={() => router.push(feature.href)} />
+                {index > 0 ? <Divider /> : null}
+                <SettingsRow icon={feature.icon} label={feature.title} accessibilityHint={feature.description} onPress={() => router.push(feature.href)} />
               </Fragment>
             ))}
         </Panel>
@@ -104,6 +105,7 @@ export default function AcademicScreen() {
 const styles = StyleSheet.create({
   progress: {
     gap: Spacing.two,
-    padding: Spacing.three,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.three - Spacing.one,
   },
 });

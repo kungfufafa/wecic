@@ -26,9 +26,9 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
   {
     title: 'Akademik',
     features: [
-      { key: 'krs', title: 'KRS', description: 'Rencana studi dan perwalian', icon: 'list', href: '/krs' },
-      { key: 'grades', title: 'Nilai', description: 'IPK, IPS, dan KHS per semester', icon: 'chart', href: '/grades' },
-      { key: 'transcript', title: 'Transkrip', description: 'Semua nilai mata kuliah', icon: 'document', href: '/transcript' },
+      { key: 'krs', title: 'KRS', description: 'Rencana studi dan perwalian', icon: 'listOutline', href: '/krs' },
+      { key: 'grades', title: 'Nilai', description: 'IPK, IPS, dan KHS per semester', icon: 'chartOutline', href: '/grades' },
+      { key: 'transcript', title: 'Transkrip', description: 'Semua nilai mata kuliah', icon: 'documentOutline', href: '/transcript' },
       { key: 'skkm', title: 'SKKM', description: 'Poin kegiatan kemahasiswaan', icon: 'award', href: '/skkm' },
       { key: 'thesis', title: 'Skripsi', description: 'Status dan kesiapan skripsi', icon: 'graduationOutline', href: '/thesis' },
     ],
@@ -36,19 +36,19 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
   {
     title: 'Administrasi',
     features: [
-      { key: 'finance', title: 'Keuangan', description: 'Tagihan dan riwayat pembayaran', icon: 'wallet', href: '/finance' },
-      { key: 'announcements', title: 'Pengumuman', description: 'Info resmi dari kampus', icon: 'megaphone', href: '/announcements' },
-      { key: 'biodata', title: 'Biodata', description: 'Data pribadi dan kontak', icon: 'biodata', href: '/biodata' },
+      { key: 'finance', title: 'Keuangan', description: 'Tagihan dan riwayat pembayaran', icon: 'walletOutline', href: '/finance' },
+      { key: 'announcements', title: 'Pengumuman', description: 'Info resmi dari kampus', icon: 'megaphoneOutline', href: '/announcements' },
+      { key: 'biodata', title: 'Biodata', description: 'Data pribadi dan kontak', icon: 'idCard', href: '/biodata' },
     ],
   },
   {
     title: 'Lainnya',
     features: [
-      { key: 'library', title: 'Perpustakaan', description: 'Tautan dan repositori skripsi', icon: 'library', href: '/library' },
+      { key: 'library', title: 'Perpustakaan', description: 'Tautan dan repositori skripsi', icon: 'libraryOutline', href: '/library' },
       { key: 'notebooks', title: 'Notebook AI', description: 'Belajar dari materi kuliah', icon: 'sparkles', href: '/notebooks' },
-      { key: 'archive', title: 'Arsip', description: 'Riwayat data portal', icon: 'archive', href: '/archive' },
-      { key: 'outbox', title: 'Antrean', description: 'Kiriman yang menunggu portal', icon: 'outbox', href: '/outbox' },
-      { key: 'password', title: 'Kata sandi', description: 'Ganti kata sandi portal', icon: 'key', href: '/password' },
+      { key: 'archive', title: 'Arsip', description: 'Riwayat data portal', icon: 'archiveOutline', href: '/archive' },
+      { key: 'outbox', title: 'Antrean', description: 'Kiriman yang menunggu portal', icon: 'outboxOutline', href: '/outbox' },
+      { key: 'password', title: 'Kata sandi', description: 'Ganti kata sandi portal', icon: 'keyOutline', href: '/password' },
     ],
   },
 ];

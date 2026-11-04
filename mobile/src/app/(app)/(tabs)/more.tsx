@@ -2,27 +2,25 @@ import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useState } from 'react';
-import { Alert, Platform, StyleSheet, View } from 'react-native';
+import { Alert, Platform, Pressable, StyleSheet, View } from 'react-native';
 
-import { apiBaseUrl, webUrl } from '@/api/config';
+import { webUrl } from '@/api/config';
 import { useSession } from '@/auth/session-provider';
 import { AppearancePicker } from '@/components/appearance-picker';
 import { Avatar } from '@/components/avatar';
 import { BrandLogo } from '@/components/brand-logo';
 import { Button } from '@/components/button';
-import { ListRow, ListRowTextInset } from '@/components/list-row';
-import { MetaRow } from '@/components/meta-row';
+import { Icon } from '@/components/icon';
 import { Screen } from '@/components/screen';
 import { Divider, Panel, Section } from '@/components/section';
-import { StatusPill } from '@/components/status-pill';
+import { CountBadge, SettingsRow, StatusTagPill } from '@/components/settings-row';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { clearKnownUser, useKnownUser } from '@/hooks/use-known-user';
 import { useUnreadCountValue } from '@/hooks/use-unread-count';
 import { initials, studentNumber } from '@/lib/format';
-import { realtimeStatusLabel } from '@/lib/realtime';
-import type { PushRegistration } from '@/push/push-notifications';
+import { portalStatusTag, pushStatusTag, realtimeStatusTag } from '@/lib/device-status';
 import { useRealtimeStatus } from '@/realtime/portal-realtime';
 
 export default function MoreScreen() {
@@ -37,6 +35,7 @@ export default function MoreScreen() {
   const offline = state.status === 'signedIn' && state.offline;
   const nim = studentNumber(user);
   const website = webUrl();
+  const portal = portalStatusTag(offline);
 
   function leave() {
     setSigningOut(true);
@@ -66,44 +65,55 @@ export default function MoreScreen() {
   return (
     <Screen title="Lainnya">
       <Section label="Akun">
-        <Panel style={styles.profile}>
-          <Avatar initials={initials(user)} size={64} />
-          <View style={styles.profileText}>
-            <ThemedText type="subtitle" numberOfLines={2}>
-              {user?.name ?? 'Mahasiswa'}
-            </ThemedText>
-            <MetaRow icon="idCard" text={nim ? `NIM ${nim}` : null} />
-            <StatusPill label={offline ? 'Mode offline' : 'Terhubung ke portal'} tone={offline ? 'attention' : 'positive'} />
-          </View>
+        <Panel padded={false}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`${user?.name ?? 'Mahasiswa'}${nim ? `, NIM ${nim}` : ''}, portal ${portal.label}`}
+            accessibilityHint="Buka biodata"
+            onPress={() => router.push('/biodata')}
+            style={({ pressed }) => [styles.profile, pressed && { backgroundColor: theme.section }]}>
+            <Avatar initials={initials(user)} size={52} />
+            <View style={styles.profileText}>
+              <ThemedText type="subtitle" numberOfLines={1}>
+                {user?.name ?? 'Mahasiswa'}
+              </ThemedText>
+              <ThemedText type="small" themeColor="textTertiary" numberOfLines={1}>
+                {nim ? `NIM ${nim}` : 'Mahasiswa UCIC'}
+              </ThemedText>
+            </View>
+            <StatusTagPill tag={portal} />
+            <Icon name="chevronRight" size={15} color={theme.textQuaternary} />
+          </Pressable>
         </Panel>
       </Section>
 
       <Section label="Layanan">
         <Panel padded={false}>
-          <ListRow
+          <SettingsRow
             icon="bellOutline"
             label="Notifikasi"
-            value={unreadCount > 0 ? `${unreadCount} belum dibaca` : 'Pengingat dan pembaruan dari portal'}
+            accessory={unreadCount > 0 ? <CountBadge count={unreadCount} /> : null}
+            accessibilityHint={unreadCount > 0 ? `${unreadCount} belum dibaca` : undefined}
             onPress={() => router.push('/notifications')}
           />
-          <Divider inset={ListRowTextInset} />
-          <ListRow icon="wallet" label="Keuangan" value="Tagihan dan riwayat pembayaran" onPress={() => router.push('/finance')} />
-          <Divider inset={ListRowTextInset} />
-          <ListRow icon="megaphone" label="Pengumuman" value="Info resmi dari kampus" onPress={() => router.push('/announcements')} />
-          <Divider inset={ListRowTextInset} />
-          <ListRow icon="library" label="Perpustakaan" value="Tautan dan repositori skripsi" onPress={() => router.push('/library')} />
-          <Divider inset={ListRowTextInset} />
-          <ListRow icon="sparkles" label="Notebook AI" value="Belajar dari materi kuliah" onPress={() => router.push('/notebooks')} />
-          <Divider inset={ListRowTextInset} />
-          <ListRow icon="grid" label="Semua layanan" value="Semua fitur WeCIC dalam satu daftar" onPress={() => router.push('/services')} />
+          <Divider />
+          <SettingsRow icon="walletOutline" label="Keuangan" onPress={() => router.push('/finance')} />
+          <Divider />
+          <SettingsRow icon="megaphoneOutline" label="Pengumuman" onPress={() => router.push('/announcements')} />
+          <Divider />
+          <SettingsRow icon="libraryOutline" label="Perpustakaan" onPress={() => router.push('/library')} />
+          <Divider />
+          <SettingsRow icon="sparkles" label="Notebook AI" onPress={() => router.push('/notebooks')} />
+          <Divider />
+          <SettingsRow icon="gridOutline" label="Semua layanan" onPress={() => router.push('/services')} />
         </Panel>
       </Section>
 
       <Section label="Akun saya">
         <Panel padded={false}>
-          <ListRow icon="biodata" label="Biodata" value="Data pribadi, kontak, dan pendidikan" onPress={() => router.push('/biodata')} />
-          <Divider inset={ListRowTextInset} />
-          <ListRow icon="key" label="Ganti kata sandi" value="Kata sandi portal kampus" onPress={() => router.push('/password')} />
+          <SettingsRow icon="idCard" label="Biodata" onPress={() => router.push('/biodata')} />
+          <Divider />
+          <SettingsRow icon="keyOutline" label="Ganti kata sandi" onPress={() => router.push('/password')} />
         </Panel>
       </Section>
 
@@ -115,19 +125,22 @@ export default function MoreScreen() {
 
       <Section label="Data dan sinkronisasi">
         <Panel padded={false}>
-          <ListRow icon="archive" label="Arsip data" value="Riwayat data portal dan sinkronisasi latar" onPress={() => router.push('/archive')} />
-          <Divider inset={ListRowTextInset} />
-          <ListRow icon="outbox" label="Antrean offline" value="Absensi dan unggahan yang menunggu portal" onPress={() => router.push('/outbox')} />
+          <SettingsRow icon="archiveOutline" label="Arsip data" onPress={() => router.push('/archive')} />
+          <Divider />
+          <SettingsRow icon="outboxOutline" label="Antrean offline" onPress={() => router.push('/outbox')} />
         </Panel>
       </Section>
 
       <Section label="Perangkat">
         <Panel padded={false}>
-          <ListRow icon="bellOutline" label="Notifikasi push" value={pushLabel(push)} />
-          <Divider inset={ListRowTextInset} />
-          <ListRow icon="bolt" label="Pembaruan otomatis" value={realtimeStatusLabel(realtimeStatus)} />
-          <Divider inset={ListRowTextInset} />
-          <ListRow icon="server" label="Server WeCIC" value={apiBaseUrl() ?? '-'} />
+          <SettingsRow
+            icon="bellOutline"
+            label="Notifikasi push"
+            accessory={<StatusTagPill tag={pushStatusTag(push)} />}
+            accessibilityHint={push?.status === 'unavailable' ? push.reason : undefined}
+          />
+          <Divider />
+          <SettingsRow icon="boltOutline" label="Pembaruan otomatis" accessory={<StatusTagPill tag={realtimeStatusTag(realtimeStatus)} />} />
         </Panel>
       </Section>
 
@@ -135,17 +148,16 @@ export default function MoreScreen() {
         <Panel padded={false}>
           {website ? (
             <>
-              <ListRow
+              <SettingsRow
                 icon="globe"
-                label="Buka WeCIC versi web"
-                value="Nilai, keuangan, KRS, dan fitur lainnya"
+                label="WeCIC versi web"
                 trailingIcon="arrowUpRight"
                 onPress={() => void WebBrowser.openBrowserAsync(website)}
               />
-              <Divider inset={ListRowTextInset} />
+              <Divider />
             </>
           ) : null}
-          <ListRow icon="phone" label="Versi aplikasi" value={Constants.expoConfig?.version ?? '-'} />
+          <SettingsRow icon="phone" label="Versi aplikasi" detail={Constants.expoConfig?.version ?? '-'} />
         </Panel>
       </Section>
 
@@ -161,31 +173,16 @@ export default function MoreScreen() {
   );
 }
 
-function pushLabel(push: PushRegistration | null): string {
-  if (push === null) {
-    return 'Mendaftarkan…';
-  }
-
-  if (push.status === 'registered') {
-    return 'Aktif di perangkat ini';
-  }
-
-  if (push.status === 'denied') {
-    return 'Izin notifikasi ditolak. Aktifkan lewat Pengaturan perangkat.';
-  }
-
-  return push.reason;
-}
-
 const styles = StyleSheet.create({
   profile: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.three,
+    gap: Spacing.three - Spacing.one,
+    padding: Spacing.three,
   },
   profileText: {
     flex: 1,
-    gap: Spacing.two - Spacing.half,
+    gap: Spacing.half,
   },
   footer: {
     alignItems: 'center',

@@ -22,7 +22,7 @@ type CourseRowProps = {
 export function CourseRow({ code, name, detail, note, trailing, showTile = true }: CourseRowProps) {
   return (
     <View style={styles.row}>
-      {showTile ? <CourseTile name={name} code={code} size={40} /> : null}
+      {showTile ? <CourseTile name={name} code={code} size={36} /> : null}
       <View style={styles.text}>
         <ThemedText type="bodyMedium" numberOfLines={2}>
           {name || 'Mata kuliah'}
@@ -44,14 +44,15 @@ export function CourseRow({ code, name, detail, note, trailing, showTile = true 
 }
 
 /** Where a course row's text starts, for the hairline between rows. */
-export const CourseRowInset = Spacing.three + 40 + Spacing.three - Spacing.one;
+export const CourseRowInset = 0;
 
 const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.three - Spacing.one,
-    padding: Spacing.three,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.three - Spacing.one,
   },
   text: {
     flex: 1,

@@ -137,8 +137,8 @@ export default function NotebookScreen() {
               {chat.length === 0 && !asking ? (
                 <ThemedText type="small" themeColor="textTertiary">
                   {hasReadySource
-                    ? 'Tanyakan apa saja tentang materi di notebook ini. Jawaban hanya diambil dari sumbernya.'
-                    : 'Belum ada sumber yang siap. Tambahkan pertemuan sebagai sumber dulu.'}
+                    ? 'Jawaban hanya diambil dari sumber notebook ini.'
+                    : 'Belum ada sumber yang siap.'}
                 </ThemedText>
               ) : null}
               {chat.map((message) => (
@@ -217,11 +217,15 @@ export default function NotebookScreen() {
             }>
             <Panel padded={false}>
               {sources.length === 0 ? (
-                <EmptyState icon="document" title="Belum ada sumber" description="Tambahkan pertemuan di bawah agar materinya bisa ditanyakan." />
+                <EmptyState
+                  icon="document"
+                  title="Belum ada sumber"
+                  description={isCourse && meetings.length > 0 ? 'Tambahkan dari daftar pertemuan.' : undefined}
+                />
               ) : null}
               {sources.map((source, index) => (
                 <Fragment key={source.id}>
-                  {index > 0 ? <Divider inset={Spacing.three} /> : null}
+                  {index > 0 ? <Divider /> : null}
                   <SourceRow source={source} />
                 </Fragment>
               ))}
@@ -233,7 +237,7 @@ export default function NotebookScreen() {
               <Panel padded={false}>
                 {meetings.map((meeting, index) => (
                   <Fragment key={meeting.meeting_id}>
-                    {index > 0 ? <Divider inset={Spacing.three} /> : null}
+                    {index > 0 ? <Divider /> : null}
                     <MeetingRow
                       meeting={meeting}
                       busy={busy === `meeting-${meeting.meeting_id}`}
@@ -284,12 +288,12 @@ function SourceRow({ source }: { source: NotebookSource }) {
           {source.title ?? 'Sumber'}
         </ThemedText>
         {detail ? (
-          <ThemedText type="small" themeColor="textTertiary">
+          <ThemedText type="small" themeColor="textTertiary" numberOfLines={1}>
             {detail}
           </ThemedText>
         ) : null}
         {source.error ? (
-          <ThemedText type="small" themeColor="danger">
+          <ThemedText type="small" themeColor="danger" numberOfLines={2}>
             {source.error}
           </ThemedText>
         ) : null}
@@ -306,7 +310,7 @@ function MeetingRow({ meeting, busy, onAdd }: { meeting: NotebookMeeting; busy: 
         <ThemedText type="bodyMedium" numberOfLines={2}>
           {meeting.title ?? `Pertemuan ${meeting.meeting_number ?? ''}`}
         </ThemedText>
-        <ThemedText type="small" themeColor="textTertiary">
+        <ThemedText type="small" themeColor="textTertiary" numberOfLines={1}>
           {[meeting.meeting_number ? `Pertemuan ${meeting.meeting_number}` : null, meeting.date].filter(Boolean).join(' · ')}
         </ThemedText>
       </View>
@@ -328,7 +332,7 @@ const styles = StyleSheet.create({
     paddingRight: Spacing.two,
   },
   chat: {
-    gap: Spacing.two + Spacing.one,
+    gap: Spacing.two,
   },
   bubble: {
     maxWidth: '88%',
@@ -346,7 +350,7 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   ask: {
-    gap: Spacing.three - Spacing.one,
+    gap: Spacing.two,
     padding: Spacing.two,
   },
   askInput: {
@@ -362,7 +366,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.one,
   },
   result: {
-    gap: Spacing.three - Spacing.one,
+    gap: Spacing.two,
   },
   resultHead: {
     flexDirection: 'row',
@@ -373,6 +377,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.three - Spacing.one,
-    padding: Spacing.three,
+    paddingHorizontal: Spacing.three + Spacing.half,
+    paddingVertical: Spacing.two + Spacing.one,
   },
 });

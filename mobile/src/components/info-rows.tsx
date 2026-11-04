@@ -26,7 +26,7 @@ export function InfoRows({ rows, empty = 'Belum ada data.' }: { rows: InfoRow[];
     <View>
       {filled.map((row, index) => (
         <Fragment key={`${row.label}-${index}`}>
-          {index > 0 ? <Divider inset={Spacing.three} /> : null}
+          {index > 0 ? <Divider /> : null}
           <View style={styles.row}>
             <ThemedText type="small" themeColor="textTertiary" style={styles.label}>
               {row.label}
@@ -47,7 +47,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: Spacing.three,
     paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.three - Spacing.one,
+    paddingVertical: Spacing.two + Spacing.one,
   },
   label: {
     width: '38%',

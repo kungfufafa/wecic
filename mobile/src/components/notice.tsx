@@ -10,7 +10,7 @@ type NoticeProps = {
   tone?: 'info' | 'warning' | 'error' | 'success';
 };
 
-/** A short message above the content: a failed request, offline mode. */
+/** A one- or two-line message above the content: a failed request, offline mode. */
 export function Notice({ message, tone = 'info' }: NoticeProps) {
   const theme = useTheme();
   const look: Record<NonNullable<NoticeProps['tone']>, { color: string; tint: string; icon: IconName }> = {
@@ -22,10 +22,8 @@ export function Notice({ message, tone = 'info' }: NoticeProps) {
   const colors = look[tone];
 
   return (
-    <View accessibilityRole={tone === 'error' ? 'alert' : undefined} style={[styles.notice, { backgroundColor: theme.section }]}>
-      <View style={[styles.iconTile, { backgroundColor: colors.tint }]}>
-        <Icon name={colors.icon} size={16} color={colors.color} />
-      </View>
+    <View accessibilityRole={tone === 'error' ? 'alert' : undefined} style={[styles.notice, { backgroundColor: colors.tint }]}>
+      <Icon name={colors.icon} size={16} color={colors.color} />
       <ThemedText type="small" themeColor="textSecondary" style={styles.text}>
         {message}
       </ThemedText>
@@ -37,17 +35,10 @@ const styles = StyleSheet.create({
   notice: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.two + Spacing.one,
-    padding: Spacing.two + Spacing.one,
-    paddingRight: Spacing.three,
-    borderRadius: Radius.panel,
-  },
-  iconTile: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
+    gap: Spacing.two + Spacing.half,
+    paddingVertical: Spacing.two + Spacing.half,
+    paddingHorizontal: Spacing.three - Spacing.one,
+    borderRadius: Radius.large,
   },
   text: {
     flex: 1,

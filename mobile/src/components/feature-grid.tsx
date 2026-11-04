@@ -54,17 +54,17 @@ const styles = StyleSheet.create({
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    rowGap: Spacing.three,
+    rowGap: Spacing.three - Spacing.one,
   },
   item: {
     width: '25%',
     alignItems: 'center',
-    gap: Spacing.two,
+    gap: Spacing.one + Spacing.half,
     paddingHorizontal: Spacing.one,
   },
   tile: {
     width: '100%',
-    height: 60,
+    height: 52,
     borderRadius: Radius.pill,
     alignItems: 'center',
     justifyContent: 'center',

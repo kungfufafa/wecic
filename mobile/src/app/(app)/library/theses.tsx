@@ -6,7 +6,7 @@ import { Button } from '@/components/button';
 import { Chip } from '@/components/chip';
 import { EmptyState } from '@/components/empty-state';
 import { Icon } from '@/components/icon';
-import { MetaRow } from '@/components/meta-row';
+import { joinMeta, MetaRow } from '@/components/meta-row';
 import { Notice } from '@/components/notice';
 import { Screen } from '@/components/screen';
 import { Divider, Panel, Section } from '@/components/section';
@@ -68,7 +68,7 @@ export default function ThesesScreen() {
     <Screen
       back
       title="Repositori skripsi"
-      subtitle={meta?.total !== undefined ? `${meta.total.toLocaleString('id-ID')} skripsi ditemukan` : 'Skripsi mahasiswa UCIC'}
+      subtitle={meta?.total !== undefined ? `${meta.total.toLocaleString('id-ID')} skripsi` : null}
       refreshing={theses.isRefreshing}
       dataSavedAt={theses.savedAt}
       onRefresh={theses.refresh}>
@@ -104,7 +104,7 @@ export default function ThesesScreen() {
       </Section>
 
       {theses.error ? <Notice tone="error" message={theses.error} /> : null}
-      {meta?.index?.partial ? <Notice message="Indeks repositori masih dimuat dari portal, jadi hasilnya belum lengkap." /> : null}
+      {meta?.index?.partial ? <Notice message="Indeks masih dimuat, hasil belum lengkap." /> : null}
 
       <Section label={lastPage > 1 ? `Halaman ${page} dari ${lastPage}` : 'Hasil'}>
         <Panel padded={false}>
@@ -113,13 +113,12 @@ export default function ThesesScreen() {
             <EmptyState
               icon="library"
               title="Tidak ada skripsi yang cocok"
-              description="Coba kata lain atau hapus filter."
               action={filtering ? { label: 'Hapus filter', icon: 'close', onPress: clearAll } : null}
             />
           ) : null}
           {items.map((record, index) => (
             <Fragment key={record.record_key}>
-              {index > 0 ? <Divider inset={Spacing.three} /> : null}
+              {index > 0 ? <Divider /> : null}
               <ThesisRow record={record} />
             </Fragment>
           ))}
@@ -167,12 +166,11 @@ function ThesisRow({ record }: { record: ThesisRecord }) {
 
   return (
     <View style={styles.row}>
-      <ThemedText type="bodyMedium" selectable>
+      <ThemedText type="bodyMedium" selectable numberOfLines={3}>
         {record.title ?? 'Tanpa judul'}
       </ThemedText>
-      <MetaRow icon="person" text={[record.author, record.nim].filter(Boolean).join(' · ')} />
-      <MetaRow icon="graduationOutline" text={[record.program, record.academic_year].filter(Boolean).join(' · ')} />
-      {advisors.length > 0 ? <MetaRow icon="idCard" text={advisors.join(', ')} /> : null}
+      <MetaRow icon="person" text={joinMeta(record.author, record.nim, record.academic_year)} />
+      <MetaRow icon="graduationOutline" text={joinMeta(record.program, advisors.length > 0 ? advisors.join(', ') : null)} />
       {record.file_path ? (
         <View style={styles.fileRow}>
           <Chip icon="document" label={file.busyHref === record.file_path ? 'Membuka…' : 'Buka berkas'} onPress={() => void file.open(record.file_path, record.title)} />
@@ -205,14 +203,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.two,
   },
   row: {
-    gap: Spacing.one + Spacing.half,
-    padding: Spacing.three,
+    gap: Spacing.one,
+    paddingHorizontal: Spacing.three + Spacing.half,
+    paddingVertical: Spacing.two + Spacing.one,
   },
   fileRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.one + Spacing.half,
-    marginTop: Spacing.one,
+    marginTop: Spacing.half,
   },
   paging: {
     flexDirection: 'row',

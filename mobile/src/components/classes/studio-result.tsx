@@ -104,14 +104,14 @@ export function plainText(content: string | null | undefined): string {
 
 const styles = StyleSheet.create({
   list: {
-    gap: Spacing.three - Spacing.one,
+    gap: Spacing.two + Spacing.half,
   },
   item: {
-    gap: Spacing.two,
+    gap: Spacing.one + Spacing.half,
   },
   option: {
-    paddingHorizontal: Spacing.three - Spacing.one,
-    paddingVertical: Spacing.two,
+    paddingHorizontal: Spacing.two + Spacing.half,
+    paddingVertical: Spacing.one + Spacing.half,
     borderRadius: Radius.small,
   },
   mindMap: {

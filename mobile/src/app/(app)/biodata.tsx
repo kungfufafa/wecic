@@ -22,26 +22,25 @@ export default function BiodataScreen() {
   const status = personal.status ?? null;
 
   return (
-    <Screen back title="Biodata" subtitle="Data pribadi dari portal kampus" refreshing={profile.isRefreshing}
-      dataSavedAt={profile.savedAt} onRefresh={profile.refresh}>
+    <Screen back title="Biodata" refreshing={profile.isRefreshing} dataSavedAt={profile.savedAt} onRefresh={profile.refresh}>
       {profile.error ? <Notice tone="error" message={profile.error} /> : null}
 
       <Section label="Mahasiswa">
-        <Panel padded={!profile.isLoading}>
+        <Panel padded={false}>
           {profile.isLoading ? (
             <SkeletonRows count={1} />
           ) : (
             <View style={styles.identity}>
-              <Avatar initials={initials({ name })} size={64} />
+              <Avatar initials={initials({ name })} size={52} />
               <View style={styles.identityText}>
                 <ThemedText type="subtitle" numberOfLines={2}>
                   {name ?? 'Mahasiswa'}
                 </ThemedText>
-                <ThemedText type="small" themeColor="textTertiary">
+                <ThemedText type="small" themeColor="textTertiary" numberOfLines={1}>
                   {[personal.nim, personal.program_studi].filter(Boolean).join(' · ')}
                 </ThemedText>
-                {status ? <StatusPill label={status} tone={/aktif/i.test(status) ? 'positive' : 'neutral'} /> : null}
               </View>
+              {status ? <StatusPill label={status} tone={/aktif/i.test(status) ? 'positive' : 'neutral'} /> : null}
             </View>
           )}
         </Panel>
@@ -56,16 +55,16 @@ export default function BiodataScreen() {
           </Section>
           <Section label="Kontak">
             <Panel padded={false}>
-              <InfoRows rows={profileRows(data.contact_data)} empty="Kontak belum diisi di portal." />
+              <InfoRows rows={profileRows(data.contact_data)} empty="Belum diisi di portal." />
             </Panel>
           </Section>
           <Section label="Pendidikan sebelumnya">
             <Panel padded={false}>
-              <InfoRows rows={profileRows(data.education_data)} empty="Data pendidikan belum diisi di portal." />
+              <InfoRows rows={profileRows(data.education_data)} empty="Belum diisi di portal." />
             </Panel>
           </Section>
           <ThemedText type="caption" themeColor="textQuaternary" style={styles.footnote}>
-            Data ini dibaca dari portal kampus. Untuk mengubahnya, hubungi BAAK.
+            Untuk mengubah data, hubungi BAAK.
           </ThemedText>
         </>
       ) : null}
@@ -77,11 +76,12 @@ const styles = StyleSheet.create({
   identity: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.three,
+    gap: Spacing.three - Spacing.one,
+    padding: Spacing.three,
   },
   identityText: {
     flex: 1,
-    gap: Spacing.two - Spacing.half,
+    gap: Spacing.half,
   },
   footnote: {
     textAlign: 'center',

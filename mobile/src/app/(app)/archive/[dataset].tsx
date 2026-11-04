@@ -48,8 +48,7 @@ export default function ArchiveDatasetScreen() {
   }
 
   return (
-    <Screen back title={data?.label ?? 'Arsip'} subtitle="Riwayat versi, terbaru dulu" refreshing={resource.isRefreshing}
-      dataSavedAt={resource.savedAt} onRefresh={resource.refresh}>
+    <Screen back title={data?.label ?? 'Arsip'} refreshing={resource.isRefreshing} dataSavedAt={resource.savedAt} onRefresh={resource.refresh}>
       {resource.error ? <Notice tone="error" message={resource.error} /> : null}
       {message ? <Notice tone={message.tone} message={message.text} /> : null}
 
@@ -72,22 +71,22 @@ export default function ArchiveDatasetScreen() {
         <Panel padded={false}>
           {resource.isLoading ? <SkeletonRows count={2} /> : null}
           {!resource.isLoading && versions.length === 0 && !resource.error ? (
-            <EmptyState icon="archive" title="Belum ada versi" description="Versi tersimpan setiap kali data ini berubah di portal." />
+            <EmptyState icon="archive" title="Belum ada versi" />
           ) : null}
           {versions.map((version, index) => {
             const look = archiveStatusLook(version.status);
 
             return (
               <Fragment key={version.id}>
-                {index > 0 ? <Divider inset={Spacing.three} /> : null}
+                {index > 0 ? <Divider /> : null}
                 <View style={styles.row}>
                   <View style={styles.rowTop}>
-                    <ThemedText type="bodyMedium" style={styles.flex}>
+                    <ThemedText type="bodyMedium" style={styles.flex} numberOfLines={1}>
                       {version.is_current ? 'Versi saat ini' : `Versi #${version.id}`}
                     </ThemedText>
                     <StatusPill label={look.label} tone={look.tone} />
                   </View>
-                  <ThemedText type="small" themeColor="textTertiary">
+                  <ThemedText type="small" themeColor="textTertiary" numberOfLines={2}>
                     {[
                       version.first_seen_at ? `Pertama ${formatDateTime(version.first_seen_at)}` : null,
                       version.last_seen_at ? `terakhir ${formatDateTime(version.last_seen_at)}` : null,
@@ -126,8 +125,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.one,
   },
   row: {
-    gap: Spacing.one + Spacing.half,
-    padding: Spacing.three,
+    gap: Spacing.one,
+    paddingHorizontal: Spacing.three + Spacing.half,
+    paddingVertical: Spacing.two + Spacing.one,
   },
   rowTop: {
     flexDirection: 'row',
@@ -137,6 +137,6 @@ const styles = StyleSheet.create({
   actions: {
     flexDirection: 'row',
     gap: Spacing.two,
-    marginTop: Spacing.one,
+    marginTop: Spacing.half,
   },
 });

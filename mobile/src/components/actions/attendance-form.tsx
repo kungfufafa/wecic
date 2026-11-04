@@ -21,7 +21,7 @@ type AttendanceFormProps = {
 
 type Result = { tone: 'success' | 'error' | 'warning'; message: string };
 
-const NO_CODE_IN_QR = 'QR terbaca, tetapi tidak berisi kode absensi. Pastikan yang dipindai QR absensi dari dosen.';
+const NO_CODE_IN_QR = 'QR terbaca, tetapi bukan QR absensi.';
 
 /**
  * Three ways to send attendance, as on the web: scan the lecturer's QR
@@ -41,7 +41,7 @@ export function AttendanceForm({ target, onMarked }: AttendanceFormProps) {
     const code = extractAttendanceCode(text);
 
     if (code === null) {
-      setResult({ tone: 'error', message: 'Kode absensi tidak ditemukan. Kode berisi 8 huruf a-f atau angka.' });
+      setResult({ tone: 'error', message: 'Kode tidak valid: 8 huruf a-f atau angka.' });
 
       return;
     }
@@ -72,7 +72,7 @@ export function AttendanceForm({ target, onMarked }: AttendanceFormProps) {
       setResult({
         tone: 'error',
         message: isConnectionFailure(error)
-          ? 'Absensi butuh koneksi internet. Kode belum terkirim dan masih ada di kotak; kirim lagi begitu tersambung.'
+          ? 'Tidak ada koneksi. Kode belum terkirim, kirim lagi nanti.'
           : error instanceof ApiError || error instanceof Error
             ? error.message
             : String(error),
@@ -106,7 +106,7 @@ export function AttendanceForm({ target, onMarked }: AttendanceFormProps) {
       }
 
       if (photo.status === 'unreadable') {
-        setResult({ tone: 'error', message: 'QR tidak terbaca dari foto itu. Pilih foto yang QR-nya utuh dan tajam, atau ketik kodenya.' });
+        setResult({ tone: 'error', message: 'QR di foto tidak terbaca. Coba foto lain atau ketik kodenya.' });
 
         return;
       }
@@ -158,7 +158,7 @@ export function AttendanceForm({ target, onMarked }: AttendanceFormProps) {
 
 const styles = StyleSheet.create({
   form: {
-    gap: Spacing.three - Spacing.one,
+    gap: Spacing.two + Spacing.half,
   },
   row: {
     flexDirection: 'row',

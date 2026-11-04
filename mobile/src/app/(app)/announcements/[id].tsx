@@ -64,7 +64,7 @@ export default function AnnouncementScreen() {
               <Panel padded={false}>
                 {deadlines.map((deadline, index) => (
                   <Fragment key={`${deadline.date}-${index}`}>
-                    {index > 0 ? <Divider inset={Spacing.three} /> : null}
+                    {index > 0 ? <Divider /> : null}
                     <View style={styles.deadline}>
                       <View style={styles.deadlineTop}>
                         <ThemedText type="smallBold" style={styles.flex}>
@@ -75,7 +75,7 @@ export default function AnnouncementScreen() {
                         <StatusPill label={deadline.is_future ? 'Akan datang' : 'Sudah lewat'} tone={deadline.is_future ? 'attention' : 'muted'} />
                       </View>
                       {deadline.context ? (
-                        <ThemedText type="small" themeColor="textTertiary">
+                        <ThemedText type="small" themeColor="textTertiary" numberOfLines={2}>
                           {deadline.context}
                         </ThemedText>
                       ) : null}
@@ -146,13 +146,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    gap: Spacing.two,
+    gap: Spacing.one,
     paddingHorizontal: Spacing.one,
     paddingBottom: Spacing.one,
   },
   deadline: {
-    gap: Spacing.one + Spacing.half,
-    padding: Spacing.three,
+    gap: Spacing.half,
+    paddingHorizontal: Spacing.three + Spacing.half,
+    paddingVertical: Spacing.two + Spacing.one,
   },
   deadlineTop: {
     flexDirection: 'row',
@@ -160,16 +161,16 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   steps: {
-    gap: Spacing.three - Spacing.one,
+    gap: Spacing.two + Spacing.one,
   },
   step: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: Spacing.three - Spacing.one,
+    gap: Spacing.two + Spacing.half,
   },
   stepNumber: {
-    width: 26,
-    height: 26,
+    width: 22,
+    height: 22,
     borderRadius: Radius.pill,
     alignItems: 'center',
     justifyContent: 'center',

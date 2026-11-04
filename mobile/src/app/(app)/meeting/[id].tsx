@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, StyleSheet, View } from 'react-native';
+import { Alert, StyleSheet, View } from 'react-native';
 
 import type { ActionResponse, MeetingResponse } from '@/api/types/actions';
 import { useSession } from '@/auth/session-provider';
@@ -8,8 +8,8 @@ import { AttendanceForm } from '@/components/actions/attendance-form';
 import { FileUpload } from '@/components/actions/file-upload';
 import { Button } from '@/components/button';
 import { Chip } from '@/components/chip';
+import { FileRow } from '@/components/classes/file-row';
 import { EmptyState } from '@/components/empty-state';
-import { Icon } from '@/components/icon';
 import { InfoRows } from '@/components/info-rows';
 import { Notice } from '@/components/notice';
 import { Screen } from '@/components/screen';
@@ -20,7 +20,6 @@ import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useApiResource } from '@/hooks/use-api-resource';
 import { usePortalFile } from '@/hooks/use-portal-file';
-import { useTheme } from '@/hooks/use-theme';
 import {
   ATTENDANCE_STATE_LABELS,
   meetingAttendanceState,
@@ -68,6 +67,8 @@ export default function MeetingScreen() {
   const noAssignment = saysNoAssignment(assignment?.status_text) || saysNoAssignment(assignment?.deadline);
   const uploaded = assignment?.status === 'uploaded' || Boolean(assignment?.submission);
   const deadlinePassed = /sudah\s+berakhir|ditutup|kedaluwarsa/i.test(assignment?.status_text ?? assignment?.deadline ?? '');
+  const hint = attendanceHint(attendanceView);
+  const takesCode = meetingTakesAttendanceCode(attendanceView) && resolvedCoursesId !== null;
 
   function confirmDelete() {
     const payload = assignment?.delete_payload;
@@ -129,7 +130,7 @@ export default function MeetingScreen() {
       {detail && detail.found === false ? (
         <Section>
           <Panel>
-            <EmptyState icon="calendarEmpty" title="Pertemuan tidak ditemukan" description="Portal tidak punya halaman untuk pertemuan ini." />
+            <EmptyState icon="calendarEmpty" title="Pertemuan tidak ditemukan" />
           </Panel>
         </Section>
       ) : null}
@@ -151,14 +152,18 @@ export default function MeetingScreen() {
           <Section
             label="Absensi"
             accessory={<StatusPill label={attendanceLabel(attendanceState, detail.attendance_info?.time)} tone={attendanceTone(attendanceView)} />}>
-            <Panel style={styles.gap}>
-              <ThemedText type="small" themeColor="textSecondary">
-                {attendanceHint(attendanceView)}
-              </ThemedText>
-              {meetingTakesAttendanceCode(attendanceView) && resolvedCoursesId ? (
-                <AttendanceForm target={{ courseid: resolvedCoursesId, modulesid: meetingId }} onMarked={meeting.reload} />
-              ) : null}
-            </Panel>
+            {hint || takesCode ? (
+              <Panel style={styles.gap}>
+                {hint ? (
+                  <ThemedText type="small" themeColor="textSecondary">
+                    {hint}
+                  </ThemedText>
+                ) : null}
+                {takesCode && resolvedCoursesId ? (
+                  <AttendanceForm target={{ courseid: resolvedCoursesId, modulesid: meetingId }} onMarked={meeting.reload} />
+                ) : null}
+              </Panel>
+            ) : null}
           </Section>
 
           {materials?.main_topic || materials?.main_description || materials?.main_material_iframe || detail.rps_info?.file_link ? (
@@ -174,8 +179,8 @@ export default function MeetingScreen() {
                     ) : null}
                   </View>
                 ) : null}
-                <FileRow href={materials?.main_material_iframe} label="Modul pertemuan" />
-                <FileRow href={detail.rps_info?.file_link} label="RPS mata kuliah" />
+                <MeetingFile href={materials?.main_material_iframe} label="Modul pertemuan" />
+                <MeetingFile href={detail.rps_info?.file_link} label="RPS mata kuliah" />
               </Panel>
             </Section>
           ) : null}
@@ -192,12 +197,12 @@ export default function MeetingScreen() {
               <View style={styles.text}>
                 {materials?.assignment_topic ? <ThemedText type="bodyMedium">{materials.assignment_topic}</ThemedText> : null}
                 <ThemedText type="small" themeColor="textSecondary">
-                  {assignment?.status_text || assignment?.deadline || 'Belum ada keterangan tugas untuk pertemuan ini.'}
+                  {assignment?.status_text || assignment?.deadline || 'Belum ada keterangan tugas.'}
                 </ThemedText>
               </View>
-              <FileRow href={materials?.assignment_material_iframe} label="Soal / latihan" />
+              <MeetingFile href={materials?.assignment_material_iframe} label="Soal / latihan" />
               {assignment?.submission?.file_info?.href ? (
-                <FileRow
+                <MeetingFile
                   href={assignment.submission.file_info.href}
                   label="File yang dikumpulkan"
                   detail={[assignment.submission.date, assignment.submission.score ? `Nilai ${assignment.submission.score}` : null].filter(Boolean).join(' · ')}
@@ -205,7 +210,7 @@ export default function MeetingScreen() {
               ) : null}
               {target && !deadlinePassed ? (
                 <>
-                  <Divider inset={Spacing.three} />
+                  <Divider />
                   <View style={styles.text}>
                     <FileUpload
                       path="assignment"
@@ -235,7 +240,7 @@ export default function MeetingScreen() {
                   {detail.conformity_info.description}
                 </ThemedText>
                 <ThemedText type="caption" themeColor="textTertiary">
-                  Penilaian kesesuaian materi diisi langsung di portal kampus.
+                  Penilaian diisi di portal kampus.
                 </ThemedText>
               </Panel>
             </Section>
@@ -246,37 +251,18 @@ export default function MeetingScreen() {
   );
 }
 
-function FileRow({ href, label, detail }: { href: string | null | undefined; label: string; detail?: string }) {
-  const theme = useTheme();
+/** A portal file of the meeting under a hairline, or nothing when the portal has none. */
+function MeetingFile({ href, label, detail }: { href: string | null | undefined; label: string; detail?: string }) {
   const file = usePortalFile();
 
   if (!href || href.trim() === '') {
     return null;
   }
 
-  const busy = file.busyHref === href.trim();
-
   return (
     <>
-      <Divider inset={Spacing.three} />
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`Buka ${label}`}
-        onPress={() => void file.open(href, label)}
-        style={({ pressed }) => [styles.fileRow, pressed && { backgroundColor: theme.section }]}>
-        <View style={[styles.fileIcon, { backgroundColor: theme.elevated }]}>
-          <Icon name="document" size={18} color={theme.text} />
-        </View>
-        <View style={styles.fileText}>
-          <ThemedText type="bodyMedium">{label}</ThemedText>
-          {detail ? (
-            <ThemedText type="small" themeColor="textTertiary">
-              {detail}
-            </ThemedText>
-          ) : null}
-        </View>
-        {busy ? <ActivityIndicator color={theme.textSecondary} /> : <Icon name="download" size={18} color={theme.textTertiary} />}
-      </Pressable>
+      <Divider />
+      <FileRow label={label} detail={detail} busy={file.busyHref === href.trim()} onPress={() => void file.open(href, label)} />
     </>
   );
 }
@@ -291,41 +277,26 @@ function attendanceTone(view: ReturnType<typeof meetingAttendanceView>): Tone {
   return { recorded: 'positive', open: 'attention', past: 'muted', upcoming: 'neutral', closed: 'muted', not_open: 'neutral' }[view] as Tone;
 }
 
-function attendanceHint(view: ReturnType<typeof meetingAttendanceView>): string {
+/** A line under the status only when the status alone does not say what the student can do. */
+function attendanceHint(view: ReturnType<typeof meetingAttendanceView>): string | null {
   return {
-    recorded: 'Kehadiranmu di pertemuan ini sudah tercatat di portal.',
-    open: 'Masukkan kode absensi dari dosen untuk mencatat kehadiran.',
-    past: 'Pertemuan ini sudah lewat. Absensi tidak bisa dikirim lagi.',
-    upcoming: 'Absensi bisa dikirim pada hari pertemuan.',
-    closed: 'Portal mencatat kamu tidak hadir, tapi kode absensi dari dosen masih bisa dikirim.',
-    not_open: 'Absensi belum dibuka dosen. Tarik ke bawah untuk memeriksa lagi.',
+    recorded: null,
+    open: null,
+    past: 'Absensi sudah ditutup.',
+    upcoming: 'Dibuka pada hari pertemuan.',
+    closed: 'Kode dari dosen masih bisa dikirim.',
+    not_open: null,
   }[view];
 }
 
 const styles = StyleSheet.create({
   gap: {
-    gap: Spacing.three - Spacing.one,
+    gap: Spacing.two + Spacing.half,
+    padding: Spacing.three - Spacing.one,
   },
   text: {
-    gap: Spacing.two,
-    padding: Spacing.three,
-  },
-  fileRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.three,
+    gap: Spacing.one + Spacing.half,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.three - Spacing.one,
-  },
-  fileIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  fileText: {
-    flex: 1,
-    gap: Spacing.half,
   },
 });

@@ -29,7 +29,7 @@ export function BarList({ bars, max }: { bars: Bar[]; max: number }) {
 
 const styles = StyleSheet.create({
   list: {
-    gap: Spacing.three - Spacing.one,
+    gap: Spacing.two,
   },
   row: {
     flexDirection: 'row',
@@ -37,7 +37,7 @@ const styles = StyleSheet.create({
     gap: Spacing.three - Spacing.one,
   },
   label: {
-    width: 72,
+    width: 56,
   },
   bar: {
     flex: 1,

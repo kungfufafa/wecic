@@ -37,12 +37,12 @@ export function SkeletonRows({ count = 2 }: { count?: number }) {
     <View>
       {Array.from({ length: count }, (_, index) => (
         <View key={index}>
-          {index > 0 ? <Divider inset={Spacing.three} /> : null}
+          {index > 0 ? <Divider /> : null}
           <View style={styles.row}>
-            <Skeleton width={44} height={44} radius={Radius.medium} />
+            <Skeleton width={22} height={22} radius={Radius.small / 2} />
             <View style={styles.lines}>
-              <Skeleton width="68%" height={15} />
-              <Skeleton width="42%" height={12} />
+              <Skeleton width="68%" height={14} />
+              <Skeleton width="42%" height={11} />
             </View>
           </View>
         </View>
@@ -53,13 +53,15 @@ export function SkeletonRows({ count = 2 }: { count?: number }) {
 
 const styles = StyleSheet.create({
   row: {
+    minHeight: 56,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.three,
-    padding: Spacing.three,
+    gap: Spacing.three - Spacing.half,
+    paddingHorizontal: Spacing.three + Spacing.half,
+    paddingVertical: Spacing.two + Spacing.one,
   },
   lines: {
     flex: 1,
-    gap: Spacing.two,
+    gap: Spacing.one + Spacing.half,
   },
 });

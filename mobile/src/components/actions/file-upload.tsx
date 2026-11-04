@@ -108,7 +108,7 @@ export function FileUpload({ path, fields, mimeTypes, maxBytes, hint, label, onU
       operation.reset();
       setError(
         isConnectionFailure(caught)
-          ? 'Unggahan butuh koneksi internet. File belum terkirim dan tetap terpilih; kirim lagi begitu tersambung.'
+          ? 'Tidak ada koneksi. File belum terkirim, kirim lagi nanti.'
           : caught instanceof Error
             ? caught.message
             : String(caught),
@@ -159,13 +159,14 @@ export function FileUpload({ path, fields, mimeTypes, maxBytes, hint, label, onU
 
 const styles = StyleSheet.create({
   upload: {
-    gap: Spacing.three - Spacing.one,
+    gap: Spacing.two + Spacing.half,
   },
   file: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.two + Spacing.one,
-    padding: Spacing.three - Spacing.one,
+    paddingHorizontal: Spacing.three - Spacing.one,
+    paddingVertical: Spacing.two + Spacing.half,
     borderRadius: Radius.medium,
   },
   fileText: {

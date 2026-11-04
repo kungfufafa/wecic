@@ -7,7 +7,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { stepState } from '@/lib/academic';
 import type { TrackerStep } from '@/api/types/academic';
 
-const DOT = 24;
+const DOT = 20;
 
 /** Steps down a rail: done ones checked, the current one lit, the rest hollow. */
 export function StepList({ steps }: { steps: TrackerStep[] }) {
@@ -25,7 +25,7 @@ export function StepList({ steps }: { steps: TrackerStep[] }) {
             <View style={styles.rail}>
               {state === 'done' ? (
                 <View style={[styles.dot, { backgroundColor: theme.successTint }]}>
-                  <Icon name="check" size={16} color={theme.success} />
+                  <Icon name="check" size={14} color={theme.success} />
                 </View>
               ) : state === 'current' ? (
                 <View style={[styles.dot, { backgroundColor: theme.accentTint }]}>
@@ -51,12 +51,12 @@ export function StepList({ steps }: { steps: TrackerStep[] }) {
 
 const styles = StyleSheet.create({
   list: {
-    paddingVertical: Spacing.one,
+    paddingVertical: Spacing.half,
   },
   step: {
     flexDirection: 'row',
     gap: Spacing.three - Spacing.one,
-    minHeight: DOT + Spacing.four,
+    minHeight: DOT + Spacing.three,
   },
   rail: {
     width: DOT,
@@ -73,8 +73,8 @@ const styles = StyleSheet.create({
     borderWidth: 2,
   },
   core: {
-    width: 8,
-    height: 8,
+    width: 7,
+    height: 7,
     borderRadius: 4,
   },
   line: {
@@ -85,6 +85,6 @@ const styles = StyleSheet.create({
   },
   label: {
     flex: 1,
-    paddingTop: 2,
+    paddingTop: 1,
   },
 });

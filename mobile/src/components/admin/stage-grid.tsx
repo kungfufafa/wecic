@@ -17,7 +17,6 @@ export function StageGrid({ stages }: { stages: PaymentStage[] }) {
         const look = stageStatusLook(stage.status);
         const color =
           stage.status === 'paid' ? theme.success : stage.status === 'unpaid' ? theme.accent : stage.status === 'upcoming' ? theme.brand : theme.textQuaternary;
-        const tint = stage.status === 'paid' ? theme.successTint : stage.status === 'unpaid' ? theme.accentTint : theme.elevated;
         const amount = rupiah(stage.paid_amount ?? stage.bill_amount ?? stage.installment_amount);
         const detail = stage.paid_at_label ?? (stage.deadline ? `Batas ${stage.deadline}` : null);
 
@@ -26,14 +25,14 @@ export function StageGrid({ stages }: { stages: PaymentStage[] }) {
             key={stage.stage}
             style={[styles.tile, { backgroundColor: theme.elevated }]}
             accessible
-            accessibilityLabel={`Tahap ${stage.stage}: ${look.label}${amount ? `, ${amount}` : ''}`}>
+            accessibilityLabel={`Tahap ${stage.stage}: ${look.label}${amount ? `, ${amount}` : ''}${detail ? `, ${detail}` : ''}`}>
             <View style={styles.tileTop}>
-              <ThemedText type="smallBold">Tahap {stage.stage}</ThemedText>
-              <View style={[styles.statusIcon, { backgroundColor: tint }]}>
-                <Icon name={stage.status === 'paid' ? 'check' : stage.status === 'unpaid' ? 'alert' : 'clock'} size={14} color={color} />
-              </View>
+              <ThemedText type="smallBold" style={styles.flex} numberOfLines={1}>
+                Tahap {stage.stage}
+              </ThemedText>
+              <Icon name={stage.status === 'paid' ? 'check' : stage.status === 'unpaid' ? 'alert' : 'clock'} size={15} color={color} />
             </View>
-            <ThemedText type="caption" style={{ color }}>
+            <ThemedText type="caption" style={{ color }} numberOfLines={1}>
               {look.label}
               {stage.is_partial ? ' · sebagian' : ''}
             </ThemedText>
@@ -43,7 +42,7 @@ export function StageGrid({ stages }: { stages: PaymentStage[] }) {
               </ThemedText>
             ) : null}
             {detail ? (
-              <ThemedText type="caption" themeColor="textTertiary" numberOfLines={2}>
+              <ThemedText type="caption" themeColor="textTertiary" numberOfLines={1}>
                 {detail}
               </ThemedText>
             ) : null}
@@ -63,21 +62,17 @@ const styles = StyleSheet.create({
   tile: {
     flexBasis: '47%',
     flexGrow: 1,
-    gap: Spacing.one,
-    padding: Spacing.three - Spacing.one,
-    borderRadius: Radius.large,
+    gap: Spacing.half,
+    paddingVertical: Spacing.two + Spacing.half,
+    paddingHorizontal: Spacing.three - Spacing.one,
+    borderRadius: Radius.medium,
   },
   tileTop: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: Spacing.half,
+    gap: Spacing.two,
   },
-  statusIcon: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    alignItems: 'center',
-    justifyContent: 'center',
+  flex: {
+    flex: 1,
   },
 });

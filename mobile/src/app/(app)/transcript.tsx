@@ -33,12 +33,12 @@ export default function TranscriptScreen() {
     <Screen
       back
       title="Transkrip"
-      subtitle={courses.length > 0 ? `${courses.length} mata kuliah sudah dinilai` : null}
+      subtitle={courses.length > 0 ? `${courses.length} mata kuliah dinilai` : null}
       refreshing={transcript.isRefreshing}
       dataSavedAt={transcript.savedAt}
       onRefresh={transcript.refresh}>
       {transcript.error ? <Notice tone="error" message={transcript.error} /> : null}
-      {data?.is_partial ? <Notice tone="warning" message="Sebagian nilai belum terbaca dari portal, jadi transkrip ini mungkin belum lengkap." /> : null}
+      {data?.is_partial ? <Notice tone="warning" message="Sebagian nilai belum terbaca, transkrip mungkin belum lengkap." /> : null}
 
       {transcript.isLoading ? (
         <Section label="Memuat transkrip">
@@ -63,7 +63,7 @@ export default function TranscriptScreen() {
             {load?.sks ? (
               <>
                 <Divider />
-                <ThemedText type="small" themeColor="textTertiary" style={styles.load}>
+                <ThemedText type="small" themeColor="textTertiary" style={styles.load} numberOfLines={1}>
                   Sedang ditempuh: {load.courses ?? 0} mata kuliah · {load.sks} SKS
                 </ThemedText>
               </>
@@ -75,17 +75,17 @@ export default function TranscriptScreen() {
       {!transcript.isLoading && courses.length === 0 && !transcript.error ? (
         <Section>
           <Panel>
-            <EmptyState icon="document" title="Transkrip masih kosong" description="Nilai mata kuliah akan muncul di sini setelah dinilai." />
+            <EmptyState icon="document" title="Transkrip masih kosong" />
           </Panel>
         </Section>
       ) : null}
 
       {lowCourses.length > 0 ? (
-        <Section label="Nilai yang bisa diperbaiki" accessory={<Chip label={`${lowCourses.length} mata kuliah`} />}>
+        <Section label="Nilai bisa diperbaiki" accessory={<Chip label={`${lowCourses.length} MK`} />}>
           <Panel padded={false}>
             {lowCourses.map((course, index) => (
               <Fragment key={`low-${course.code ?? index}`}>
-                {index > 0 ? <Divider inset={Spacing.three} /> : null}
+                {index > 0 ? <Divider /> : null}
                 <TranscriptRow course={course} />
               </Fragment>
             ))}
@@ -101,7 +101,7 @@ export default function TranscriptScreen() {
             <Panel padded={false}>
               {group.items.map((course, index) => (
                 <Fragment key={`${course.code ?? course.name ?? 'mk'}-${index}`}>
-                  {index > 0 ? <Divider inset={Spacing.three} /> : null}
+                  {index > 0 ? <Divider /> : null}
                   <TranscriptRow course={course} />
                 </Fragment>
               ))}
@@ -136,6 +136,7 @@ function TranscriptRow({ course }: { course: GradedCourse }) {
 
 const styles = StyleSheet.create({
   load: {
-    padding: Spacing.three,
+    paddingVertical: Spacing.three - Spacing.one,
+    paddingHorizontal: Spacing.three,
   },
 });

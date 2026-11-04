@@ -8,7 +8,7 @@ import type { ChecklistItem, ThesisReadinessResponse, ThesisResponse } from '@/a
 import { Chip } from '@/components/chip';
 import { Icon, type IconName } from '@/components/icon';
 import { InfoRows } from '@/components/info-rows';
-import { ListRow, ListRowTextInset } from '@/components/list-row';
+import { ListRow } from '@/components/list-row';
 import { Notice } from '@/components/notice';
 import { ProgressBar } from '@/components/progress-bar';
 import { Screen } from '@/components/screen';
@@ -38,6 +38,12 @@ export default function ThesisScreen() {
   const thresholds = ready?.thresholds;
   const minSks = thresholds?.min_sks ?? (jenjang ? data?.thresholds?.min_sks?.[jenjang] : null) ?? null;
   const enrolled = data?.status?.state !== 'not_enrolled' && data?.krs_hint?.has_thesis_course !== false;
+  const krsNote = [
+    data?.krs_hint?.course?.name ? `Di KRS: ${data.krs_hint.course.name}` : null,
+    data?.krs_hint?.awaiting_status ? 'menunggu status portal' : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
 
   function refresh() {
     void thesis.refresh();
@@ -66,17 +72,12 @@ export default function ThesisScreen() {
       {data?.status?.message ? (
         <Section
           label="Status skripsi"
-          accessory={<StatusPill label={enrolled ? 'Mengambil skripsi' : 'Belum mengambil'} tone={enrolled ? 'positive' : 'muted'} />}>
-          <Panel style={styles.gap}>
+          accessory={<StatusPill label={enrolled ? 'Diambil' : 'Belum diambil'} tone={enrolled ? 'positive' : 'muted'} />}>
+          <Panel padded={false} style={styles.block}>
             <ThemedText type="bodyMedium">{data.status.message}</ThemedText>
-            {data.krs_hint?.course?.name ? (
-              <ThemedText type="small" themeColor="textTertiary">
-                Di KRS: {data.krs_hint.course.name}
-              </ThemedText>
-            ) : null}
-            {data.krs_hint?.awaiting_status ? (
-              <ThemedText type="small" themeColor="textTertiary">
-                Status dari portal sedang ditunggu.
+            {krsNote ? (
+              <ThemedText type="small" themeColor="textTertiary" numberOfLines={2}>
+                {krsNote}
               </ThemedText>
             ) : null}
           </Panel>
@@ -87,15 +88,17 @@ export default function ThesisScreen() {
         <Section
           label="Kesiapan akademik"
           accessory={
-            <StatusPill label={summary.academic_ready ? 'Siap secara akademik' : 'Belum siap'} tone={summary.academic_ready ? 'positive' : 'attention'} />
+            <StatusPill label={summary.academic_ready ? 'Siap' : 'Belum siap'} tone={summary.academic_ready ? 'positive' : 'attention'} />
           }>
           <Panel padded={false}>
-            <View style={styles.progress}>
+            <View style={styles.block}>
               <View style={styles.progressHead}>
-                <ThemedText type="bodyMedium">Syarat otomatis terpenuhi</ThemedText>
-                <ThemedText type="subtitle">{formatDecimal(summary.progress_percent, 1)}%</ThemedText>
+                <ThemedText type="small" themeColor="textSecondary">
+                  Syarat otomatis terpenuhi
+                </ThemedText>
+                <ThemedText type="smallBold">{formatDecimal(summary.progress_percent, 1)}%</ThemedText>
               </View>
-              <ProgressBar percent={summary.progress_percent} color={summary.academic_ready ? theme.success : theme.brand} height={10} />
+              <ProgressBar percent={summary.progress_percent} color={summary.academic_ready ? theme.success : theme.brand} />
             </View>
             <Divider />
             <StatRow
@@ -114,11 +117,11 @@ export default function ThesisScreen() {
         : null}
 
       {automatic.length > 0 ? (
-        <Section label="Syarat dari data akademik">
+        <Section label="Syarat otomatis">
           <Panel padded={false}>
             {automatic.map((item, index) => (
               <Fragment key={item.key ?? index}>
-                {index > 0 ? <Divider inset={CHECK_INSET} /> : null}
+                {index > 0 ? <Divider /> : null}
                 <CheckRow item={item} />
               </Fragment>
             ))}
@@ -131,7 +134,7 @@ export default function ThesisScreen() {
           <Panel padded={false}>
             {manual.map((item, index) => (
               <Fragment key={item.key ?? index}>
-                {index > 0 ? <Divider inset={CHECK_INSET} /> : null}
+                {index > 0 ? <Divider /> : null}
                 <CheckRow item={item} />
               </Fragment>
             ))}
@@ -156,7 +159,7 @@ export default function ThesisScreen() {
 
       {(data?.requirements?.thesis?.length ?? 0) > 0 ? (
         <Section label="Syarat mengambil skripsi">
-          <Panel>
+          <Panel padded={false} style={styles.block}>
             <NumberedList items={data?.requirements?.thesis ?? []} />
           </Panel>
         </Section>
@@ -164,7 +167,7 @@ export default function ThesisScreen() {
 
       {(data?.requirements?.exam?.length ?? 0) > 0 ? (
         <Section label="Syarat ujian skripsi">
-          <Panel>
+          <Panel padded={false} style={styles.block}>
             <NumberedList items={data?.requirements?.exam ?? []} />
           </Panel>
         </Section>
@@ -175,7 +178,7 @@ export default function ThesisScreen() {
           <Panel padded={false}>
             {data?.documents?.map((document, index) => (
               <Fragment key={document.path ?? index}>
-                {index > 0 ? <Divider inset={ListRowTextInset} /> : null}
+                {index > 0 ? <Divider /> : null}
                 <ListRow
                   icon="document"
                   label={document.label ?? document.filename ?? 'Dokumen'}
@@ -192,9 +195,6 @@ export default function ThesisScreen() {
   );
 }
 
-const CHECK_ICON = 36;
-const CHECK_INSET = Spacing.three + CHECK_ICON + Spacing.three - Spacing.one;
-
 function CheckRow({ item }: { item: ChecklistItem }) {
   const theme = useTheme();
   const tone = checklistTone(item.status);
@@ -203,45 +203,35 @@ function CheckRow({ item }: { item: ChecklistItem }) {
   const progress = checkProgress(item.current, item.target);
   const statusLabel =
     item.status === 'passed' ? 'Terpenuhi' : item.status === 'failed' ? 'Belum' : item.status === 'manual' ? 'Siapkan' : 'Cek manual';
+  const detail = [progress, item.hint].filter(Boolean).join(' · ');
 
   return (
     <View style={styles.check}>
-      <View style={[styles.checkIcon, { backgroundColor: colors.tint }]}>
-        <Icon name={icon} size={18} color={colors.ink} />
-      </View>
+      <Icon name={icon} size={20} color={colors.ink} />
       <View style={styles.flex}>
-        <View style={styles.checkHead}>
-          <ThemedText type="bodyMedium" style={styles.flex}>
-            {item.label ?? 'Syarat'}
-          </ThemedText>
-          <ToneBadge label={statusLabel} tone={tone} />
-        </View>
-        {progress ? (
-          <ThemedText type="small" themeColor="textSecondary">
-            {progress}
-          </ThemedText>
-        ) : null}
-        {item.hint ? (
-          <ThemedText type="small" themeColor="textTertiary">
-            {item.hint}
+        <ThemedText type="bodyMedium" numberOfLines={2}>
+          {item.label ?? 'Syarat'}
+        </ThemedText>
+        {detail ? (
+          <ThemedText type="small" themeColor="textTertiary" numberOfLines={2}>
+            {detail}
           </ThemedText>
         ) : null}
       </View>
+      <ToneBadge label={statusLabel} tone={tone} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  gap: {
+  block: {
     gap: Spacing.two,
+    paddingVertical: Spacing.three - Spacing.one,
+    paddingHorizontal: Spacing.three,
   },
   flex: {
     flex: 1,
     gap: Spacing.half,
-  },
-  progress: {
-    gap: Spacing.two + Spacing.one,
-    padding: Spacing.three,
   },
   progressHead: {
     flexDirection: 'row',
@@ -250,20 +240,9 @@ const styles = StyleSheet.create({
   },
   check: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: Spacing.three - Spacing.one,
-    padding: Spacing.three,
-  },
-  checkIcon: {
-    width: CHECK_ICON,
-    height: CHECK_ICON,
-    borderRadius: CHECK_ICON / 2,
     alignItems: 'center',
-    justifyContent: 'center',
-  },
-  checkHead: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: Spacing.two,
+    gap: Spacing.three - Spacing.one,
+    paddingVertical: Spacing.three - Spacing.one,
+    paddingHorizontal: Spacing.three,
   },
 });

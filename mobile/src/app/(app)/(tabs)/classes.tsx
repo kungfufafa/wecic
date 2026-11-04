@@ -7,7 +7,7 @@ import { Chip } from '@/components/chip';
 import { CourseTile } from '@/components/course-tile';
 import { EmptyState } from '@/components/empty-state';
 import { Icon } from '@/components/icon';
-import { MetaRow } from '@/components/meta-row';
+import { joinMeta } from '@/components/meta-row';
 import { Notice } from '@/components/notice';
 import { Screen } from '@/components/screen';
 import { Divider, Panel, Section } from '@/components/section';
@@ -19,7 +19,7 @@ import { useApiResource } from '@/hooks/use-api-resource';
 import { useTheme } from '@/hooks/use-theme';
 import { groupClassesByDay, matchesClassQuery, timeRange } from '@/lib/format';
 
-const TILE_SIZE = 44;
+const TILE_SIZE = 36;
 
 export default function ClassesScreen() {
   const router = useRouter();
@@ -52,7 +52,7 @@ export default function ClassesScreen() {
         <Chip label="Absen" icon="qr" onPress={() => router.navigate('/attendance')} />
       </View>
 
-      <Section label="Cari kelas">
+      <Section>
         <Panel style={styles.filters}>
           <TextField
             icon="search"
@@ -88,7 +88,7 @@ export default function ClassesScreen() {
       {!classes.isLoading && items.length === 0 && !classes.error ? (
         <Section>
           <Panel>
-            <EmptyState icon="book" title="Belum ada kelas" description="Kelas yang Anda ambil semester ini akan tampil di sini." />
+            <EmptyState icon="book" title="Belum ada kelas" />
           </Panel>
         </Section>
       ) : null}
@@ -99,7 +99,6 @@ export default function ClassesScreen() {
             <EmptyState
               icon="search"
               title="Tidak ada kelas yang cocok"
-              description="Coba kata lain, atau tampilkan semua hari."
               action={filtering ? { label: 'Hapus filter', icon: 'close', onPress: clearFilters } : null}
             />
           </Panel>
@@ -118,7 +117,7 @@ export default function ClassesScreen() {
           <Panel padded={false}>
             {group.classes.map((portalClass, index) => (
               <View key={portalClass.join_link?.params?.id ?? `${portalClass.course_info?.code ?? 'class'}-${index}`}>
-                {index > 0 ? <Divider inset={Spacing.three + TILE_SIZE + Spacing.three - Spacing.one} /> : null}
+                {index > 0 ? <Divider /> : null}
                 <ClassRow portalClass={portalClass} />
               </View>
             ))}
@@ -133,27 +132,26 @@ function ClassRow({ portalClass }: { portalClass: PortalClass }) {
   const theme = useTheme();
   const router = useRouter();
   const params = portalClass.join_link?.params;
-  const room = [portalClass.class_room_info?.room, portalClass.class_room_info?.class_name]
-    .filter((part): part is string => typeof part === 'string' && part.trim() !== '')
-    .join(' · ');
+  const when = joinMeta(timeRange(portalClass.schedule), portalClass.class_room_info?.room, portalClass.class_room_info?.class_name);
+  const who = joinMeta(portalClass.course_info?.code, portalClass.lecturer_info?.name);
 
   const content = (
     <>
       <CourseTile name={portalClass.course_info?.name} code={portalClass.course_info?.code} size={TILE_SIZE} />
       <View style={styles.rowText}>
-        <View style={styles.title}>
-          <ThemedText type="bodyMedium" numberOfLines={2}>
-            {portalClass.course_info?.name ?? 'Mata kuliah'}
+        <ThemedText type="bodyMedium" numberOfLines={2}>
+          {portalClass.course_info?.name ?? 'Mata kuliah'}
+        </ThemedText>
+        {when ? (
+          <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
+            {when}
           </ThemedText>
-          {portalClass.course_info?.code ? (
-            <ThemedText type="caption" themeColor="textTertiary">
-              {portalClass.course_info.code}
-            </ThemedText>
-          ) : null}
-        </View>
-        <MetaRow icon="clock" text={timeRange(portalClass.schedule)} />
-        <MetaRow icon="location" text={room} />
-        <MetaRow icon="person" text={portalClass.lecturer_info?.name} />
+        ) : null}
+        {who ? (
+          <ThemedText type="small" themeColor="textTertiary" numberOfLines={1}>
+            {who}
+          </ThemedText>
+        ) : null}
       </View>
       {params?.id ? <Icon name="chevronRight" size={14} color={theme.textQuaternary} style={styles.chevron} /> : null}
     </>
@@ -202,15 +200,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: Spacing.three - Spacing.one,
-    padding: Spacing.three,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.three - Spacing.one,
   },
   rowText: {
     flex: 1,
-    gap: Spacing.one + Spacing.half,
-  },
-  title: {
     gap: Spacing.half,
-    marginBottom: Spacing.one,
   },
   chevron: {
     alignSelf: 'center',

@@ -56,31 +56,31 @@ export default function FinanceScreen() {
       <Section
         label="Tagihan"
         accessory={
-          finance ? <StatusPill label={hasOutstanding ? 'Ada tagihan' : 'Tidak ada tagihan'} tone={hasOutstanding ? 'attention' : 'positive'} /> : null
+          finance ? <StatusPill label={hasOutstanding ? 'Ada tagihan' : 'Lunas'} tone={hasOutstanding ? 'attention' : 'positive'} /> : null
         }>
         <Panel padded={false}>
           {isLoading ? <SkeletonRows count={1} /> : null}
           {finance ? (
             <>
-              <View style={styles.hero}>
-                <View style={[styles.heroIcon, { backgroundColor: hasOutstanding ? theme.accentTint : theme.successTint }]}>
-                  <Icon name={hasOutstanding ? 'alert' : 'check'} size={22} color={hasOutstanding ? theme.accent : theme.success} />
-                </View>
-                <View style={styles.heroText}>
-                  <ThemedText type="small" themeColor="textTertiary">
-                    {hasOutstanding ? 'Total tagihan belum dibayar' : 'Semua tagihan sudah dibayar'}
-                  </ThemedText>
-                  <ThemedText type="heading">{outstandingLabel}</ThemedText>
-                </View>
+              <View style={styles.row} accessible accessibilityLabel={`${hasOutstanding ? 'Belum dibayar' : 'Semua tagihan sudah dibayar'}: ${outstandingLabel}`}>
+                <Icon name={hasOutstanding ? 'alert' : 'check'} size={22} color={hasOutstanding ? theme.accent : theme.success} />
+                <ThemedText type="bodyMedium" style={styles.flex} numberOfLines={1}>
+                  {hasOutstanding ? 'Belum dibayar' : 'Semua sudah dibayar'}
+                </ThemedText>
+                <ThemedText type="subtitle" numberOfLines={1}>
+                  {outstandingLabel}
+                </ThemedText>
               </View>
               {bills.map((bill, index) => (
                 <Fragment key={`${bill.no ?? 'bill'}-${index}`}>
-                  <Divider inset={Spacing.three} />
-                  <View style={styles.paymentRow}>
-                    <View style={styles.paymentText}>
-                      <ThemedText type="bodyMedium">{bill.name ?? 'Tagihan'}</ThemedText>
+                  <Divider />
+                  <View style={styles.row}>
+                    <View style={styles.rowText}>
+                      <ThemedText type="bodyMedium" numberOfLines={1}>
+                        {bill.name ?? 'Tagihan'}
+                      </ThemedText>
                       {bill.description ? (
-                        <ThemedText type="small" themeColor="textTertiary">
+                        <ThemedText type="small" themeColor="textTertiary" numberOfLines={2}>
                           {bill.description}
                         </ThemedText>
                       ) : null}
@@ -102,17 +102,28 @@ export default function FinanceScreen() {
         <Section
           label={`Tahun ke-${currentYear.study_year}${currentYear.academic_year ? ` · ${currentYear.academic_year}` : ''}`}
           accessory={<Chip label={`${currentYear.paid_count ?? 0}/${currentYear.stages.length} lunas`} />}>
-          <Panel style={styles.stagePanel}>
-            <StageGrid stages={currentYear.stages} />
+          <Panel padded={false}>
+            <View style={styles.stages}>
+              <StageGrid stages={currentYear.stages} />
+            </View>
             {nextStage?.stage ? (
-              <View style={[styles.nextStage, { backgroundColor: theme.elevated }]}>
-                <Icon name="calendarClock" size={18} color={theme.brand} />
-                <ThemedText type="small" themeColor="textSecondary" style={styles.flex}>
-                  Berikutnya: tahap {nextStage.stage} tahun ke-{nextStage.study_year ?? currentYear.study_year},{' '}
-                  {stageStatusLook(nextStage.status).label.toLowerCase()}
-                  {nextStage.deadline ? `, batas ${formatDate(nextStage.deadline)}` : ''}.
-                </ThemedText>
-              </View>
+              <>
+                <Divider />
+                <View style={styles.row}>
+                  <Icon name="calendarClock" size={20} color={theme.brand} />
+                  <ThemedText type="small" themeColor="textSecondary" style={styles.flex} numberOfLines={2}>
+                    {[
+                      `Berikutnya: tahap ${nextStage.stage}${
+                        nextStage.study_year && nextStage.study_year !== currentYear.study_year ? ` tahun ke-${nextStage.study_year}` : ''
+                      }`,
+                      stageStatusLook(nextStage.status).label.toLowerCase(),
+                      nextStage.deadline ? `batas ${formatDate(nextStage.deadline)}` : null,
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </ThemedText>
+                </View>
+              </>
             ) : null}
           </Panel>
         </Section>
@@ -129,11 +140,13 @@ export default function FinanceScreen() {
             />
             {byYear.map((year) => (
               <Fragment key={year.study_year}>
-                <Divider inset={Spacing.three} />
-                <View style={styles.paymentRow}>
-                  <View style={styles.paymentText}>
-                    <ThemedText type="bodyMedium">Tahun ke-{year.study_year}</ThemedText>
-                    <ThemedText type="small" themeColor="textTertiary">
+                <Divider />
+                <View style={styles.row}>
+                  <View style={styles.rowText}>
+                    <ThemedText type="bodyMedium" numberOfLines={1}>
+                      Tahun ke-{year.study_year}
+                    </ThemedText>
+                    <ThemedText type="small" themeColor="textTertiary" numberOfLines={1}>
                       {[year.academic_year, `${year.payment_count ?? 0} pembayaran`, year.stages_paid?.length ? `tahap ${year.stages_paid.join(', ')}` : null]
                         .filter(Boolean)
                         .join(' · ')}
@@ -149,7 +162,7 @@ export default function FinanceScreen() {
 
       {pastYears.map((year) => (
         <Section key={year.study_year} label={`Tahun ke-${year.study_year}${year.academic_year ? ` · ${year.academic_year}` : ''}`}>
-          <Panel>
+          <Panel padded={false} style={styles.stages}>
             <StageGrid stages={year.stages} />
           </Panel>
         </Section>
@@ -158,12 +171,10 @@ export default function FinanceScreen() {
       <Section label="Riwayat pembayaran" accessory={rows.length > 0 ? <Chip label={`${rows.length} transaksi`} /> : null}>
         <Panel padded={false}>
           {history.isLoading ? <SkeletonRows count={2} /> : null}
-          {!history.isLoading && rows.length === 0 && !history.error ? (
-            <EmptyState icon="wallet" title="Belum ada pembayaran" description="Pembayaran yang tercatat di portal akan tampil di sini." />
-          ) : null}
+          {!history.isLoading && rows.length === 0 && !history.error ? <EmptyState icon="wallet" title="Belum ada pembayaran" /> : null}
           {rows.map((payment, index) => (
             <Fragment key={`${payment.no ?? 'payment'}-${index}`}>
-              {index > 0 ? <Divider inset={Spacing.three} /> : null}
+              {index > 0 ? <Divider /> : null}
               <PaymentRow payment={payment} />
             </Fragment>
           ))}
@@ -174,18 +185,13 @@ export default function FinanceScreen() {
 }
 
 function PaymentRow({ payment }: { payment: Payment }) {
-  const theme = useTheme();
-
   return (
-    <View style={styles.paymentRow}>
-      <View style={[styles.rowIcon, { backgroundColor: theme.successTint }]}>
-        <Icon name="wallet" size={16} color={theme.success} />
-      </View>
-      <View style={styles.paymentText}>
-        <ThemedText type="bodyMedium" numberOfLines={2}>
+    <View style={styles.row}>
+      <View style={styles.rowText}>
+        <ThemedText type="bodyMedium" numberOfLines={1}>
           {payment.description ?? payment.category ?? 'Pembayaran'}
         </ThemedText>
-        <ThemedText type="small" themeColor="textTertiary">
+        <ThemedText type="small" themeColor="textTertiary" numberOfLines={1}>
           {[payment.paid_at_label ?? formatDate(payment.paid_at), payment.category].filter(Boolean).join(' · ')}
         </ThemedText>
       </View>
@@ -198,49 +204,18 @@ const styles = StyleSheet.create({
   flex: {
     flex: 1,
   },
-  hero: {
+  row: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.three - Spacing.one,
-    padding: Spacing.three,
+    paddingVertical: Spacing.three - Spacing.one,
+    paddingHorizontal: Spacing.three,
   },
-  heroIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  heroText: {
+  rowText: {
     flex: 1,
     gap: Spacing.half,
   },
-  stagePanel: {
-    gap: Spacing.three - Spacing.one,
+  stages: {
     padding: Spacing.two,
-  },
-  nextStage: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.two + Spacing.half,
-    padding: Spacing.three - Spacing.one,
-    borderRadius: 16,
-  },
-  paymentRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.three - Spacing.one,
-    padding: Spacing.three,
-  },
-  rowIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  paymentText: {
-    flex: 1,
-    gap: Spacing.half,
   },
 });

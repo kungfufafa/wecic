@@ -37,7 +37,7 @@ export default function PasswordScreen() {
         new_password: next,
         new_password_confirmation: confirmation,
       });
-      setResult({ ok: true, message: `${response.message || 'Kata sandi berhasil diganti.'} Kalau "Tetap masuk" aktif, masuk ulang dengan kata sandi baru agar login otomatis tetap berjalan.` });
+      setResult({ ok: true, message: `${response.message || 'Kata sandi berhasil diganti.'} Jika "Tetap masuk" aktif, masuk ulang dengan sandi baru.` });
       setCurrent('');
       setNext('');
       setConfirmation('');
@@ -50,8 +50,8 @@ export default function PasswordScreen() {
   }
 
   return (
-    <Screen back title="Ganti kata sandi" subtitle="Kata sandi baru berlaku untuk portal kampus dan WeCIC.">
-      {offline ? <Notice tone="warning" message="Portal kampus sedang tidak bisa diakses. Ganti kata sandi butuh portal yang online." /> : null}
+    <Screen back title="Ganti kata sandi">
+      {offline ? <Notice tone="warning" message="Portal offline. Ganti kata sandi butuh portal online." /> : null}
       {result ? <Notice tone={result.ok ? 'success' : 'error'} message={result.message} /> : null}
 
       <Section label="Kata sandi portal">
@@ -89,7 +89,7 @@ export default function PasswordScreen() {
             error={fieldErrors.new_password_confirmation ?? (mismatch ? 'Tidak sama dengan kata sandi baru.' : null)}
           />
           <ThemedText type="caption" themeColor="textTertiary">
-            Minimal 6 karakter dan berbeda dari kata sandi sekarang.
+            Minimal 6 karakter, beda dari yang sekarang.
           </ThemedText>
         </Panel>
       </Section>
@@ -101,6 +101,6 @@ export default function PasswordScreen() {
 
 const styles = StyleSheet.create({
   form: {
-    gap: Spacing.three + Spacing.one,
+    gap: Spacing.three,
   },
 });

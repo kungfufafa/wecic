@@ -80,7 +80,7 @@ export default function SignInScreen() {
               <View style={styles.heading}>
                 <ThemedText type="display">Selamat datang</ThemedText>
                 <ThemedText type="default" themeColor="textSecondary">
-                  Masuk dengan NIM dan kata sandi MyCIC, portal kampus kamu.
+                  Masuk dengan akun MyCIC kamu.
                 </ThemedText>
               </View>
             </View>
@@ -122,15 +122,12 @@ export default function SignInScreen() {
               <Pressable
                 accessibilityRole="switch"
                 accessibilityState={{ checked: remember }}
-                accessibilityHint="Kata sandi disimpan aman di perangkat ini, jadi WeCIC bisa masuk lagi sendiri."
+                accessibilityHint="Masuk lagi otomatis saat sesi kampus berakhir. Kata sandi disimpan aman di perangkat ini."
                 onPress={() => setRemember((current) => !current)}
                 style={styles.remember}>
-                <View style={styles.rememberText}>
-                  <ThemedText type="bodyMedium">Tetap masuk</ThemedText>
-                  <ThemedText type="caption" themeColor="textTertiary">
-                    Masuk lagi otomatis saat sesi kampus berakhir.
-                  </ThemedText>
-                </View>
+                <ThemedText type="bodyMedium" style={styles.flex}>
+                  Tetap masuk
+                </ThemedText>
                 <Switch value={remember} onValueChange={setRemember} trackColor={{ true: theme.success, false: theme.elevated }} />
               </Pressable>
 
@@ -141,11 +138,11 @@ export default function SignInScreen() {
               <View style={styles.footerRow}>
                 <Icon name="lock" size={13} color={theme.textQuaternary} />
                 <ThemedText type="caption" themeColor="textQuaternary">
-                  Data bersumber langsung dari MyCIC (my.cic.ac.id)
+                  Data langsung dari MyCIC (my.cic.ac.id)
                 </ThemedText>
               </View>
               <ThemedText type="caption" themeColor="textQuaternary" style={styles.centered}>
-                WeCIC adalah aplikasi tidak resmi buatan mahasiswa dan tidak berafiliasi dengan UCIC.
+                Aplikasi tidak resmi, tidak berafiliasi dengan UCIC.
               </ThemedText>
             </View>
           </ScrollView>
@@ -175,7 +172,7 @@ const styles = StyleSheet.create({
   content: {
     flexGrow: 1,
     justifyContent: 'space-between',
-    gap: Spacing.five,
+    gap: Spacing.four,
     paddingHorizontal: Spacing.four,
     paddingTop: Spacing.six,
     paddingBottom: Spacing.four,
@@ -184,10 +181,10 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   brand: {
-    gap: Spacing.four,
+    gap: Spacing.three,
   },
   heading: {
-    gap: Spacing.two,
+    gap: Spacing.one,
   },
   form: {
     gap: Spacing.three - Spacing.one,
@@ -200,13 +197,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.one,
     borderRadius: Radius.medium,
   },
-  rememberText: {
-    flex: 1,
-    gap: Spacing.half,
-  },
   footer: {
     alignItems: 'center',
-    gap: Spacing.one + Spacing.half,
+    gap: Spacing.one,
     paddingHorizontal: Spacing.three,
   },
   footerRow: {

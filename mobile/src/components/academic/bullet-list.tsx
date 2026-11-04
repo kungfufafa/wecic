@@ -23,14 +23,14 @@ export function NumberedList({ items }: { items: string[] }) {
 
 const styles = StyleSheet.create({
   list: {
-    gap: Spacing.two + Spacing.one,
+    gap: Spacing.two,
   },
   row: {
     flexDirection: 'row',
     gap: Spacing.two,
   },
   number: {
-    width: 22,
+    width: 20,
   },
   text: {
     flex: 1,

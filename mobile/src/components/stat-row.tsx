@@ -20,7 +20,7 @@ export function StatRow({ stats }: { stats: Stat[] }) {
             <ThemedText type="heading" style={stat.color ? { color: stat.color } : undefined} numberOfLines={1} adjustsFontSizeToFit>
               {stat.value}
             </ThemedText>
-            <ThemedText type="caption" themeColor="textTertiary" numberOfLines={2}>
+            <ThemedText type="caption" themeColor="textTertiary" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
               {stat.label}
             </ThemedText>
           </View>
@@ -34,7 +34,7 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'stretch',
-    paddingVertical: Spacing.three + Spacing.one,
+    paddingVertical: Spacing.three,
   },
   stat: {
     flex: 1,

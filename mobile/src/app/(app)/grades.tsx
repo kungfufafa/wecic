@@ -38,6 +38,16 @@ export default function GradesScreen() {
   const firstGraded = semesters.find((semester) => (semester.courses?.length ?? 0) > 0) ?? semesters[0];
   const [picked, setPicked] = useState<string | null>(null);
   const selected = semesters.find((semester) => semesterKey(semester) === picked) ?? firstGraded;
+  const progressFacts = progress
+    ? [
+        `${progress.earned_sks ?? 0}/${progress.target_sks} SKS`,
+        progress.remaining_sks !== null && progress.remaining_sks !== undefined ? `sisa ${progress.remaining_sks}` : null,
+        progress.projected_semesters_remaining ? `±${progress.projected_semesters_remaining} semester lagi` : null,
+        progress.average_sks_per_semester ? `${progress.average_sks_per_semester} SKS/smt` : null,
+      ]
+        .filter(Boolean)
+        .join(' · ')
+    : '';
 
   return (
     <Screen back title="Nilai & IPK" refreshing={grades.isRefreshing}
@@ -55,31 +65,21 @@ export default function GradesScreen() {
       {!grades.isLoading && data?.found === false ? (
         <Section>
           <Panel>
-            <EmptyState icon="chart" title="Nilai belum tersedia" description="Portal belum menampilkan KHS untuk akunmu." />
+            <EmptyState icon="chart" title="Nilai belum tersedia" />
           </Panel>
         </Section>
       ) : null}
 
       {summary ? (
-        <Section
-          label="Indeks prestasi kumulatif"
-          accessory={summary.predicate_estimate ? <StatusPill label={summary.predicate_estimate} tone="positive" /> : null}>
+        <Section label="Ringkasan" accessory={summary.predicate_estimate ? <StatusPill label={summary.predicate_estimate} tone="positive" /> : null}>
           <Panel padded={false}>
-            <View style={styles.hero}>
-              <ThemedText type="display" style={styles.ipk}>
-                {formatDecimal(ipk)}
-              </ThemedText>
-              <ThemedText type="small" themeColor="textTertiary">
-                IPK dari skala 4,00
-              </ThemedText>
-            </View>
-            <Divider />
             <StatRow
               stats={[
+                { label: 'IPK', value: formatDecimal(ipk) },
                 { label: 'SKS lulus', value: String(summary.sks_passed ?? summary.official?.sks_total ?? '–') },
-                { label: 'Total mutu', value: String(summary.quality_points_total ?? summary.official?.quality_points_total ?? '–') },
+                { label: 'Mutu', value: String(summary.quality_points_total ?? summary.official?.quality_points_total ?? '–') },
                 {
-                  label: delta ? `IPS terakhir (${delta})` : 'IPS terakhir',
+                  label: delta ? `IPS akhir (${delta})` : 'IPS akhir',
                   value: formatDecimal(latest?.ips),
                   color: latest?.delta && latest.delta < 0 ? theme.danger : undefined,
                 },
@@ -91,19 +91,10 @@ export default function GradesScreen() {
 
       {progress?.target_sks ? (
         <Section label="Progres studi" accessory={<Chip label={`${formatDecimal(progress.progress_percent, 1)}%`} />}>
-          <Panel style={styles.gap}>
-            <ProgressBar percent={progress.progress_percent} color={theme.success} height={10} />
-            <ThemedText type="bodyMedium">
-              {progress.earned_sks ?? 0} dari {progress.target_sks} SKS
-            </ThemedText>
-            <ThemedText type="small" themeColor="textTertiary">
-              {[
-                progress.remaining_sks !== null && progress.remaining_sks !== undefined ? `Sisa ${progress.remaining_sks} SKS` : null,
-                progress.projected_semesters_remaining ? `perkiraan ${progress.projected_semesters_remaining} semester lagi` : null,
-                progress.average_sks_per_semester ? `rata-rata ${progress.average_sks_per_semester} SKS/semester` : null,
-              ]
-                .filter(Boolean)
-                .join(', ')}
+          <Panel padded={false} style={styles.block}>
+            <ProgressBar percent={progress.progress_percent} color={theme.success} />
+            <ThemedText type="small" themeColor="textSecondary" numberOfLines={2}>
+              {progressFacts}
             </ThemedText>
           </Panel>
         </Section>
@@ -111,7 +102,7 @@ export default function GradesScreen() {
 
       {series.length > 0 ? (
         <Section label="IPS per semester">
-          <Panel>
+          <Panel padded={false} style={styles.block}>
             <BarList
               max={4}
               bars={series.map((point, index) => ({
@@ -128,11 +119,11 @@ export default function GradesScreen() {
 
       {Object.keys(letterCounts).length > 0 ? (
         <Section label="Sebaran nilai">
-          <Panel style={styles.letters}>
+          <Panel padded={false} style={styles.letters}>
             {LETTERS.map((letter) => (
-              <View key={letter} style={styles.letter}>
-                <LetterBadge letter={letter} size={44} />
-                <ThemedText type="subtitle">{letterCounts[letter] ?? 0}</ThemedText>
+              <View key={letter} style={styles.letter} accessible accessibilityLabel={`Nilai ${letter}: ${letterCounts[letter] ?? 0}`}>
+                <LetterBadge letter={letter} size={28} />
+                <ThemedText type="smallBold">{letterCounts[letter] ?? 0}</ThemedText>
               </View>
             ))}
           </Panel>
@@ -140,11 +131,11 @@ export default function GradesScreen() {
       ) : null}
 
       {(progress?.graduation_targets?.length ?? 0) > 0 ? (
-        <Section label="Target predikat kelulusan">
+        <Section label="Target predikat">
           <Panel padded={false}>
             {progress?.graduation_targets?.map((target, index) => (
               <Fragment key={target.predicate ?? index}>
-                {index > 0 ? <Divider inset={Spacing.three} /> : null}
+                {index > 0 ? <Divider /> : null}
                 <TargetRow target={target} />
               </Fragment>
             ))}
@@ -153,7 +144,7 @@ export default function GradesScreen() {
       ) : null}
 
       {semesters.length > 0 ? (
-        <Section label="Kartu hasil studi (KHS)">
+        <Section label="KHS">
           <Panel padded={false}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
               {semesters.map((semester) => (
@@ -179,7 +170,7 @@ function semesterKey(semester: KhsSemester): string {
 
 function TargetRow({ target }: { target: GraduationTarget }) {
   const status = target.already_reached
-    ? { label: 'Sudah tercapai', tone: 'positive' as const }
+    ? { label: 'Tercapai', tone: 'positive' as const }
     : target.achievable
       ? { label: 'Bisa dicapai', tone: 'neutral' as const }
       : { label: 'Sulit dicapai', tone: 'attention' as const };
@@ -187,10 +178,12 @@ function TargetRow({ target }: { target: GraduationTarget }) {
   return (
     <View style={styles.target}>
       <View style={styles.targetText}>
-        <ThemedText type="bodyMedium">{target.predicate ?? 'Predikat'}</ThemedText>
-        <ThemedText type="small" themeColor="textTertiary">
-          IPK minimal {formatDecimal(target.target_ipk)}
-          {target.already_reached ? '' : ` · butuh IPS rata-rata ${formatDecimal(target.required_ips)}`}
+        <ThemedText type="bodyMedium" numberOfLines={1}>
+          {target.predicate ?? 'Predikat'}
+        </ThemedText>
+        <ThemedText type="small" themeColor="textTertiary" numberOfLines={1}>
+          IPK min. {formatDecimal(target.target_ipk)}
+          {target.already_reached ? '' : ` · perlu IPS ${formatDecimal(target.required_ips)}`}
         </ThemedText>
       </View>
       <StatusPill label={status.label} tone={status.tone} />
@@ -204,11 +197,9 @@ function KhsPanel({ semester }: { semester: KhsSemester }) {
 
   if (courses.length === 0) {
     return (
-      <View style={styles.empty}>
-        <ThemedText type="small" themeColor="textTertiary">
-          Belum ada nilai di {semester.semester !== undefined && semester.semester !== null ? semesterLabel(semester.semester).toLowerCase() : 'semester ini'}.
-        </ThemedText>
-      </View>
+      <ThemedText type="small" themeColor="textTertiary" style={styles.empty}>
+        Belum ada nilai di {semester.semester !== undefined && semester.semester !== null ? semesterLabel(semester.semester).toLowerCase() : 'semester ini'}.
+      </ThemedText>
     );
   }
 
@@ -234,7 +225,7 @@ function KhsPanel({ semester }: { semester: KhsSemester }) {
 
         return (
           <Fragment key={`${course.code ?? course.name ?? 'mk'}-${index}`}>
-            <Divider inset={Spacing.three} />
+            <Divider />
             <CourseRow
               showTile={false}
               code={course.code}
@@ -253,32 +244,28 @@ function KhsPanel({ semester }: { semester: KhsSemester }) {
 }
 
 const styles = StyleSheet.create({
-  hero: {
-    alignItems: 'center',
-    gap: Spacing.one,
-    paddingVertical: Spacing.four,
-  },
-  ipk: {
-    fontSize: 52,
-    lineHeight: 58,
-    letterSpacing: -1.5,
-  },
-  gap: {
-    gap: Spacing.two + Spacing.one,
+  block: {
+    gap: Spacing.two,
+    paddingVertical: Spacing.three - Spacing.one,
+    paddingHorizontal: Spacing.three,
   },
   letters: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    paddingVertical: Spacing.three - Spacing.one,
+    paddingHorizontal: Spacing.three + Spacing.half,
   },
   letter: {
+    flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.two,
+    gap: Spacing.one + Spacing.half,
   },
   target: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.three,
-    padding: Spacing.three,
+    gap: Spacing.three - Spacing.one,
+    paddingVertical: Spacing.three - Spacing.one,
+    paddingHorizontal: Spacing.three,
   },
   targetText: {
     flex: 1,
@@ -286,12 +273,11 @@ const styles = StyleSheet.create({
   },
   chips: {
     gap: Spacing.two,
-    padding: Spacing.three,
-    paddingBottom: Spacing.three - Spacing.one,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.three - Spacing.one,
   },
   empty: {
     paddingHorizontal: Spacing.three,
-    paddingBottom: Spacing.four,
-    paddingTop: Spacing.one,
+    paddingBottom: Spacing.three,
   },
 });

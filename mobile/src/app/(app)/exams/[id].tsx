@@ -1,13 +1,14 @@
 import * as WebBrowser from 'expo-web-browser';
 import { useLocalSearchParams } from 'expo-router';
 import { Fragment, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet } from 'react-native';
 
 import type { ExamDetailResponse } from '@/api/types/actions';
+import { NumberedList } from '@/components/academic/bullet-list';
 import { FileUpload } from '@/components/actions/file-upload';
 import { EmptyState } from '@/components/empty-state';
 import { InfoRows } from '@/components/info-rows';
-import { ListRow, ListRowTextInset } from '@/components/list-row';
+import { ListRow } from '@/components/list-row';
 import { Notice } from '@/components/notice';
 import { Screen } from '@/components/screen';
 import { Divider, Panel, Section } from '@/components/section';
@@ -71,7 +72,6 @@ export default function ExamDetailScreen() {
             <Panel padded={false}>
               <InfoRows
                 rows={[
-                  { label: 'Mata kuliah', value: detail.course?.name },
                   { label: 'Dosen', value: detail.course?.lecturer },
                   { label: 'Jadwal', value: detail.course?.schedule },
                   { label: 'Status', value: detail.course?.status },
@@ -79,7 +79,7 @@ export default function ExamDetailScreen() {
               />
               {detail.description ? (
                 <>
-                  <Divider inset={Spacing.three} />
+                  <Divider />
                   <ThemedText type="small" themeColor="textSecondary" style={styles.text} selectable>
                     {detail.description}
                   </ThemedText>
@@ -90,12 +90,8 @@ export default function ExamDetailScreen() {
 
           {requirements.length > 0 ? (
             <Section label="Ketentuan">
-              <Panel style={styles.list}>
-                {requirements.map((requirement, index) => (
-                  <ThemedText key={requirement} type="small" themeColor="textSecondary">
-                    {index + 1}. {requirement}
-                  </ThemedText>
-                ))}
+              <Panel padded={false} style={styles.text}>
+                <NumberedList items={requirements} />
               </Panel>
             </Section>
           ) : null}
@@ -109,7 +105,7 @@ export default function ExamDetailScreen() {
 
                   return (
                     <Fragment key={`${href}-${index}`}>
-                      {index > 0 ? <Divider inset={ListRowTextInset} /> : null}
+                      {index > 0 ? <Divider /> : null}
                       <ListRow icon="document" label={label} trailingIcon="download" onPress={() => openLink(href, label)} />
                     </Fragment>
                   );
@@ -121,7 +117,7 @@ export default function ExamDetailScreen() {
           <Section label="Jawaban terkirim">
             <Panel padded={false}>
               {submissions.length === 0 ? (
-                <EmptyState icon="upload" title="Belum ada jawaban" description="Jawaban yang kamu kirim ke portal tampil di sini." />
+                <EmptyState icon="upload" title="Belum ada jawaban" />
               ) : (
                 submissions.map((submission, index) => {
                   const href = hrefOf(submission);
@@ -130,7 +126,7 @@ export default function ExamDetailScreen() {
 
                   return (
                     <Fragment key={`${label}-${index}`}>
-                      {index > 0 ? <Divider inset={ListRowTextInset} /> : null}
+                      {index > 0 ? <Divider /> : null}
                       <ListRow
                         icon="document"
                         label={label}
@@ -146,7 +142,7 @@ export default function ExamDetailScreen() {
           </Section>
 
           <Section label={uploaded ? 'Kirim ulang jawaban' : 'Kirim jawaban'}>
-            <Panel style={styles.list}>
+            <Panel padded={false} style={[styles.text, styles.list]}>
               {canUpload ? (
                 <>
                   {editableFields.map((name) => (
@@ -175,11 +171,9 @@ export default function ExamDetailScreen() {
                   />
                 </>
               ) : (
-                <View style={styles.list}>
-                  <ThemedText type="small" themeColor="textSecondary">
-                    Portal belum membuka upload jawaban untuk ujian ini.
-                  </ThemedText>
-                </View>
+                <ThemedText type="small" themeColor="textTertiary">
+                  Upload jawaban belum dibuka.
+                </ThemedText>
               )}
             </Panel>
           </Section>
@@ -191,7 +185,8 @@ export default function ExamDetailScreen() {
 
 const styles = StyleSheet.create({
   text: {
-    padding: Spacing.three,
+    paddingVertical: Spacing.three - Spacing.one,
+    paddingHorizontal: Spacing.three,
   },
   list: {
     gap: Spacing.three - Spacing.one,

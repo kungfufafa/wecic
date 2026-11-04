@@ -25,15 +25,13 @@ export function FileRow({ icon = 'document', label, detail, busy = false, onPres
       disabled={busy}
       onPress={onPress}
       style={({ pressed }) => [styles.row, pressed && { backgroundColor: theme.section }]}>
-      <View style={[styles.iconCircle, { backgroundColor: theme.elevated }]}>
-        <Icon name={icon} size={18} color={theme.text} />
-      </View>
+      <Icon name={icon} size={22} color={theme.text} />
       <View style={styles.text}>
         <ThemedText type="bodyMedium" numberOfLines={2}>
           {label}
         </ThemedText>
         {detail ? (
-          <ThemedText type="small" themeColor="textTertiary" numberOfLines={2}>
+          <ThemedText type="small" themeColor="textTertiary" numberOfLines={1}>
             {detail}
           </ThemedText>
         ) : null}
@@ -45,19 +43,12 @@ export function FileRow({ icon = 'document', label, detail, busy = false, onPres
 
 const styles = StyleSheet.create({
   row: {
+    minHeight: 56,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.three,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.three - Spacing.one,
-    minHeight: 64,
-  },
-  iconCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
+    gap: Spacing.three - Spacing.half,
+    paddingHorizontal: Spacing.three + Spacing.half,
+    paddingVertical: Spacing.two + Spacing.one,
   },
   text: {
     flex: 1,

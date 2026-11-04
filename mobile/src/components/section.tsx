@@ -79,7 +79,7 @@ const styles = StyleSheet.create({
     gap: SectionInset,
   },
   header: {
-    minHeight: 40,
+    minHeight: 36,
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.two,

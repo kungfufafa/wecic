@@ -19,7 +19,7 @@ export function ActionItemRows({ items }: { items: ActionItem[] }) {
     <View>
       {items.map((item, index) => (
         <Fragment key={item.id}>
-          {index > 0 ? <Divider inset={Spacing.three + 40 + Spacing.three - Spacing.one} /> : null}
+          {index > 0 ? <Divider /> : null}
           <ActionItemRow item={item} />
         </Fragment>
       ))}
@@ -59,13 +59,11 @@ function ActionItemRow({ item }: { item: ActionItem }) {
       disabled={!pressable}
       onPress={open}
       style={({ pressed }) => [styles.row, pressed && { backgroundColor: theme.section }]}>
-      <View style={[styles.iconCircle, { backgroundColor: severity.tint }]}>
-        <Icon name={severity.icon} size={18} color={severity.color} />
-      </View>
+      <Icon name={severity.icon} size={20} color={severity.color} style={styles.icon} />
       <View style={styles.text}>
         <ThemedText type="smallBold">{item.title}</ThemedText>
         {item.description ? (
-          <ThemedText type="small" themeColor="textTertiary" numberOfLines={3}>
+          <ThemedText type="small" themeColor="textTertiary" numberOfLines={2}>
             {item.description}
           </ThemedText>
         ) : null}
@@ -93,23 +91,19 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: Spacing.three - Spacing.one,
-    padding: Spacing.three,
+    gap: Spacing.three - Spacing.half,
+    paddingHorizontal: Spacing.three + Spacing.half,
+    paddingVertical: Spacing.three - Spacing.one,
   },
-  iconCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
+  icon: {
+    marginTop: 1,
   },
   text: {
     flex: 1,
-    gap: Spacing.one,
+    gap: Spacing.half,
   },
   meta: {
     flexDirection: 'row',
     gap: Spacing.three,
-    marginTop: Spacing.half,
   },
 });

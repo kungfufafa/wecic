@@ -3,7 +3,7 @@ import { Fragment } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { ToneBadge } from '@/components/academic/badges';
-import { CourseRow, CourseRowInset } from '@/components/academic/course-row';
+import { CourseRow } from '@/components/academic/course-row';
 import type { KrsDetailResponse } from '@/api/types/academic';
 import { Button } from '@/components/button';
 import { Chip } from '@/components/chip';
@@ -12,7 +12,6 @@ import { Notice } from '@/components/notice';
 import { Screen } from '@/components/screen';
 import { Divider, Panel, Section } from '@/components/section';
 import { SkeletonRows } from '@/components/skeleton';
-import { StatRow } from '@/components/stat-row';
 import { StatusPill } from '@/components/status-pill';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
@@ -55,7 +54,7 @@ export default function KrsDetailScreen() {
       {!detail.isLoading && data?.found === false ? (
         <Section>
           <Panel>
-            <EmptyState icon="list" title="KRS tidak ditemukan" description="Portal tidak punya KRS dengan nomor ini." />
+            <EmptyState icon="list" title="KRS tidak ditemukan" />
           </Panel>
         </Section>
       ) : null}
@@ -63,7 +62,7 @@ export default function KrsDetailScreen() {
       {data?.status?.label ? (
         <Section label="Status" accessory={<StatusPill label={data.status.label} tone={krsStatusTone(data.status.code)} />}>
           {data.status.raw_text ? (
-            <Panel>
+            <Panel padded={false} style={styles.block}>
               <ThemedText type="small" themeColor="textTertiary">
                 {data.status.raw_text}
               </ThemedText>
@@ -73,22 +72,23 @@ export default function KrsDetailScreen() {
       ) : null}
 
       {data?.counts_as_study_load === false ? (
-        <Notice message="KRS ini konversi, jadi tidak dihitung sebagai beban studi semester." />
+        <Notice message="KRS konversi, tidak dihitung sebagai beban studi." />
       ) : null}
 
       {courses.length > 0 ? (
-        <Section label="Mata kuliah" accessory={data?.totals?.sks ? <Chip label={`${data.totals.sks} SKS`} /> : null}>
-          <Panel padded={false}>
-            <StatRow
-              stats={[
-                { label: 'Mata kuliah', value: String(data?.totals?.courses ?? courses.length) },
-                { label: 'Total SKS', value: String(data?.totals?.sks ?? courses.reduce((sum, course) => sum + (course.sks ?? 0), 0)) },
-              ]}
+        <Section
+          label="Mata kuliah"
+          accessory={
+            <Chip
+              label={`${data?.totals?.courses ?? courses.length} MK · ${data?.totals?.sks ?? courses.reduce((sum, course) => sum + (course.sks ?? 0), 0)} SKS`}
             />
+          }>
+          <Panel padded={false}>
             {courses.map((course, index) => (
               <Fragment key={`${course.code ?? course.name ?? 'mk'}-${index}`}>
-                <Divider inset={index === 0 ? 0 : CourseRowInset} />
+                {index > 0 ? <Divider /> : null}
                 <CourseRow
+                  showTile={false}
                   code={course.code}
                   name={course.name}
                   detail={[course.code, course.sks ? `${course.sks} SKS` : null, course.semester ? `Smt ${course.semester}` : null]
@@ -108,6 +108,7 @@ export default function KrsDetailScreen() {
         <View style={styles.navigation}>
           <Button
             variant="secondary"
+            size="small"
             icon="back"
             label="Sebelumnya"
             disabled={!navigation.older_krs_id}
@@ -116,6 +117,7 @@ export default function KrsDetailScreen() {
           />
           <Button
             variant="secondary"
+            size="small"
             icon="arrowRight"
             label="Berikutnya"
             disabled={!navigation.newer_krs_id}
@@ -129,9 +131,13 @@ export default function KrsDetailScreen() {
 }
 
 const styles = StyleSheet.create({
+  block: {
+    paddingVertical: Spacing.three - Spacing.one,
+    paddingHorizontal: Spacing.three,
+  },
   navigation: {
     flexDirection: 'row',
-    gap: Spacing.two + Spacing.one,
+    gap: Spacing.two,
   },
   flex: {
     flex: 1,

@@ -4,6 +4,7 @@ import {
   coursesWithoutNotebook,
   daysUntil,
   deadlineLabel,
+  meetingRows,
   meetingStatus,
   meetingTargetFromHref,
   mindMapLines,
@@ -137,5 +138,22 @@ describe('notebook states', () => {
     expect(sourceStatus({ status: 'pending', waiting: true }).label).toBe('Menunggu');
     expect(sourceStatus({ status: 'pending', stalled: true }).label).toBe('Tertahan');
     expect(sourceStatus({ status: 'pending' }).label).toBe('Dibaca…');
+  });
+});
+
+describe('meetingRows', () => {
+  const numbers = (count: number) => Array.from({ length: count }, (_, index) => index + 1);
+
+  it('puts a half-semester on each row, so rows end at meeting 7 and 14', () => {
+    expect(meetingRows(numbers(14))).toEqual([numbers(7), numbers(14).slice(7)]);
+  });
+
+  it('keeps a short last row and extra meetings on a row of their own', () => {
+    expect(meetingRows(numbers(16)).map((row) => row.length)).toEqual([7, 7, 2]);
+    expect(meetingRows(numbers(5))).toEqual([numbers(5)]);
+  });
+
+  it('has no rows for no meetings', () => {
+    expect(meetingRows([])).toEqual([]);
   });
 });

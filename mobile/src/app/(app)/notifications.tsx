@@ -22,7 +22,6 @@ import { formatDateTime } from '@/lib/format';
 import { routeForPortalUrl } from '@/push/notification-links';
 
 const PAGE_SIZE = 30;
-const ICON_SIZE = 40;
 
 type ListState = {
   items: PortalNotification[];
@@ -194,16 +193,12 @@ export default function NotificationsScreen() {
           {list.isLoading ? <SkeletonRows count={3} /> : null}
 
           {!list.isLoading && list.items.length === 0 ? (
-            <EmptyState
-              icon="bellOff"
-              title="Belum ada notifikasi"
-              description="Pengingat kelas, tenggat tugas, dan pembaruan dari portal akan muncul di sini."
-            />
+            <EmptyState icon="bellOff" title="Belum ada notifikasi" />
           ) : null}
 
           {list.items.map((notification, index) => (
             <View key={notification.id}>
-              {index > 0 ? <Divider inset={Spacing.three + ICON_SIZE + Spacing.three - Spacing.one} /> : null}
+              {index > 0 ? <Divider /> : null}
               <NotificationRow notification={notification} onPress={() => open(notification)} />
             </View>
           ))}
@@ -219,10 +214,10 @@ export default function NotificationsScreen() {
 
 function NotificationRow({ notification, onPress }: { notification: PortalNotification; onPress: () => void }) {
   const theme = useTheme();
-  const look: Record<PortalNotification['urgency'], { icon: IconName; color: string; tint: string }> = {
-    info: { icon: 'bell', color: theme.brand, tint: theme.brandTint },
-    warning: { icon: 'warning', color: theme.warning, tint: theme.warningTint },
-    critical: { icon: 'error', color: theme.danger, tint: theme.dangerTint },
+  const look: Record<PortalNotification['urgency'], { icon: IconName; color: string }> = {
+    info: { icon: 'bellOutline', color: theme.text },
+    warning: { icon: 'warning', color: theme.warning },
+    critical: { icon: 'error', color: theme.danger },
   };
   const urgency = look[notification.urgency] ?? look.info;
   const unread = !notification.is_read;
@@ -233,9 +228,7 @@ function NotificationRow({ notification, onPress }: { notification: PortalNotifi
       accessibilityHint={unread ? 'Belum dibaca' : undefined}
       onPress={onPress}
       style={({ pressed }) => [styles.row, pressed && { backgroundColor: theme.section }]}>
-      <View style={[styles.iconCircle, { backgroundColor: urgency.tint }]}>
-        <Icon name={urgency.icon} size={18} color={urgency.color} />
-      </View>
+      <Icon name={urgency.icon} size={22} color={urgency.color} />
       <View style={styles.text}>
         <View style={styles.titleRow}>
           <ThemedText
@@ -248,7 +241,7 @@ function NotificationRow({ notification, onPress }: { notification: PortalNotifi
           {unread ? <View style={[styles.dot, { backgroundColor: theme.badge }]} /> : null}
         </View>
         {notification.body ? (
-          <ThemedText type="small" themeColor="textTertiary" numberOfLines={3}>
+          <ThemedText type="small" themeColor="textTertiary" numberOfLines={2}>
             {notification.body}
           </ThemedText>
         ) : null}
@@ -268,19 +261,13 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: Spacing.three - Spacing.one,
-    padding: Spacing.three,
-  },
-  iconCircle: {
-    width: ICON_SIZE,
-    height: ICON_SIZE,
-    borderRadius: ICON_SIZE / 2,
-    alignItems: 'center',
-    justifyContent: 'center',
+    gap: Spacing.three - Spacing.half,
+    paddingHorizontal: Spacing.three + Spacing.half,
+    paddingVertical: Spacing.two + Spacing.one,
   },
   text: {
     flex: 1,
-    gap: Spacing.one,
+    gap: Spacing.half,
   },
   titleRow: {
     flexDirection: 'row',

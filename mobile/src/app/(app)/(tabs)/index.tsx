@@ -11,7 +11,7 @@ import { EmptyState } from '@/components/empty-state';
 import { FeatureGrid } from '@/components/feature-grid';
 import { Icon, type IconName } from '@/components/icon';
 import { IconButton } from '@/components/icon-button';
-import { MetaRow } from '@/components/meta-row';
+import { joinMeta, MetaRow } from '@/components/meta-row';
 import { Notice } from '@/components/notice';
 import { Screen } from '@/components/screen';
 import { Divider, Panel, Section } from '@/components/section';
@@ -114,14 +114,11 @@ export default function HomeScreen() {
       />
 
       {offline ? (
-        <Notice
-          tone="warning"
-          message="Portal kampus sedang tidak bisa diakses, jadi data diambil dari arsip WeCIC. Absensi dan unggahan masuk antrean."
-        />
+<Notice tone="warning" message="Portal kampus offline. Data dari arsip, absen dan unggahan diantrekan." />
       ) : null}
       {dashboard.error ? <Notice tone="error" message={dashboard.error} /> : null}
       {reachable && (dashboard.data?.data.pending_sources?.length ?? 0) > 0 ? (
-        <Notice message="Sebagian data sedang diperbarui dari portal. Tarik ke bawah untuk memuat ulang." />
+        <Notice message="Sebagian data masih diperbarui dari portal." />
       ) : null}
 
       {items.length > 0 ? (
@@ -144,14 +141,13 @@ export default function HomeScreen() {
             <EmptyState
               icon="calendarEmpty"
               title="Tidak ada kelas hari ini"
-              description="Nikmati harimu. Jadwal minggu ini ada di tab Kelas."
               action={{ label: 'Lihat jadwal minggu ini', icon: 'bookOutline', onPress: () => router.navigate('/classes') }}
             />
           ) : null}
 
           {todayClasses.map((todayClass, index) => (
             <View key={`${todayClass.course_code ?? todayClass.course_name ?? 'class'}-${index}`}>
-              {index > 0 ? <Divider inset={Spacing.three} /> : null}
+              {index > 0 ? <Divider /> : null}
               <TodayClassRow todayClass={todayClass} />
             </View>
           ))}
@@ -208,12 +204,11 @@ function UpNextCard({ todayClass, inProgress }: { todayClass: TodayClass; inProg
         ) : null}
       </View>
       <View style={styles.upNextBody}>
-        <ThemedText type="heading" style={{ color: theme.onColor }} numberOfLines={2}>
-          {todayClass.course_name ?? 'Mata kuliah'}
-        </ThemedText>
         <View style={styles.upNextMeta}>
-          <MetaRow icon="location" text={todayClass.room} color={onCard} />
-          <MetaRow icon="person" text={todayClass.lecturer_name} color={onCard} />
+          <ThemedText type="subtitle" style={{ color: theme.onColor }} numberOfLines={2}>
+            {todayClass.course_name ?? 'Mata kuliah'}
+          </ThemedText>
+          <MetaRow icon="location" text={joinMeta(todayClass.room, todayClass.lecturer_name)} color={onCard} />
         </View>
         <View style={styles.upNextFooter}>
           <StatusPill label={attendance.label} tone={inProgress ? 'attention' : attendance.tone} onBrand />
@@ -266,10 +261,9 @@ function TodayClassRow({ todayClass }: { todayClass: TodayClass }) {
         <ThemedText type="bodyMedium" numberOfLines={2}>
           {todayClass.course_name ?? 'Mata kuliah'}
         </ThemedText>
-        <MetaRow icon="location" text={todayClass.room} />
-        <MetaRow icon="person" text={todayClass.lecturer_name} />
+        <MetaRow icon="location" text={joinMeta(todayClass.room, todayClass.lecturer_name)} />
         <View style={styles.pills}>
-          {active ? <StatusPill label="Sedang berlangsung" tone="attention" /> : null}
+          {active ? <StatusPill label="Berlangsung" tone="attention" /> : null}
           <StatusPill label={attendance.label} tone={attendance.tone} />
         </View>
       </View>
@@ -294,7 +288,7 @@ const styles = StyleSheet.create({
   split: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: Spacing.four - Spacing.one,
+    paddingVertical: Spacing.three - Spacing.one,
   },
   splitDivider: {
     width: StyleSheet.hairlineWidth,
@@ -335,10 +329,8 @@ const styles = StyleSheet.create({
     borderRadius: Radius.pill,
   },
   upNext: {
-    minHeight: 200,
-    justifyContent: 'space-between',
-    gap: Spacing.four,
-    padding: Spacing.four - Spacing.one,
+    gap: Spacing.three - Spacing.one,
+    padding: Spacing.three,
     borderRadius: Radius.section - 2,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(255, 255, 255, 0.14)',
@@ -350,23 +342,24 @@ const styles = StyleSheet.create({
     gap: Spacing.three - Spacing.one,
   },
   upNextTile: {
-    width: 44,
-    height: 44,
+    width: 36,
+    height: 36,
     borderRadius: Radius.medium,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.18)',
   },
   upNextBody: {
-    gap: Spacing.two + Spacing.one,
+    gap: Spacing.two + Spacing.half,
   },
   upNextMeta: {
-    gap: Spacing.one + Spacing.half,
+    gap: Spacing.one,
   },
   classRow: {
     flexDirection: 'row',
     gap: Spacing.three - Spacing.one,
-    padding: Spacing.three,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.three - Spacing.one,
   },
   timeColumn: {
     width: 46,
@@ -378,12 +371,12 @@ const styles = StyleSheet.create({
   },
   classText: {
     flex: 1,
-    gap: Spacing.one + Spacing.half,
+    gap: Spacing.one,
   },
   pills: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: Spacing.two - Spacing.half,
-    marginTop: Spacing.one,
+    marginTop: Spacing.half,
   },
 });

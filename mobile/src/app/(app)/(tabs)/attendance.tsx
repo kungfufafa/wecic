@@ -7,7 +7,7 @@ import { AttendanceForm } from '@/components/actions/attendance-form';
 import { Chip } from '@/components/chip';
 import { CourseTile } from '@/components/course-tile';
 import { EmptyState } from '@/components/empty-state';
-import { MetaRow } from '@/components/meta-row';
+import { joinMeta, MetaRow } from '@/components/meta-row';
 import { Notice } from '@/components/notice';
 import { Screen } from '@/components/screen';
 import { Panel, Section } from '@/components/section';
@@ -29,7 +29,6 @@ export default function AttendanceScreen() {
   return (
     <Screen
       title="Absen"
-      subtitle="Pindai QR dari dosen, pilih foto QR, atau ketik kodenya."
       accessory={dayLabel ? <Chip icon="clock" label={dayLabel} /> : null}
       refreshing={today.isRefreshing}
       dataSavedAt={today.savedAt}
@@ -47,7 +46,7 @@ export default function AttendanceScreen() {
       {!today.isLoading && classes.length === 0 && !today.error ? (
         <Section>
           <Panel>
-            <EmptyState icon="calendarEmpty" title="Tidak ada kelas hari ini" description="Absensi muncul di sini pada hari ada jadwal kuliah." />
+            <EmptyState icon="calendarEmpty" title="Tidak ada kelas hari ini" />
           </Panel>
         </Section>
       ) : null}
@@ -91,19 +90,20 @@ function AttendanceClass({ todayClass }: { todayClass: TodayAttendanceClass }) {
       }>
       <Panel style={styles.panel}>
         <View style={styles.header}>
-          <CourseTile name={todayClass.course_name} code={todayClass.course_code} />
+          <CourseTile name={todayClass.course_name} code={todayClass.course_code} size={36} />
           <View style={styles.headerText}>
             <ThemedText type="bodyMedium" numberOfLines={2}>
               {todayClass.course_name ?? 'Mata kuliah'}
             </ThemedText>
-            <MetaRow icon="clock" text={timeRange(todayClass.schedule)} />
-            <MetaRow icon="person" text={todayClass.lecturer_name} />
+            <MetaRow icon="clock" text={joinMeta(timeRange(todayClass.schedule), todayClass.lecturer_name)} />
+            <MetaRow icon="document" text={todayClass.today_material?.title} />
+            <View style={styles.pill}>
+              <StatusPill label={label} tone={tone} />
+            </View>
           </View>
         </View>
-        {todayClass.today_material?.title ? <MetaRow icon="document" text={todayClass.today_material.title} /> : null}
-        <StatusPill label={label} tone={tone} />
         {canSend && todayClass.attendance_target_reliable === false ? (
-          <Notice tone="warning" message="Materi pertemuan hari ini mungkin belum diunggah dosen. Pastikan kode untuk kelas ini." />
+          <Notice tone="warning" message="Materi hari ini mungkin belum diunggah. Pastikan kodenya untuk kelas ini." />
         ) : null}
         {canSend && payload ? <AttendanceForm target={payload} onMarked={setRecorded} /> : null}
       </Panel>
@@ -114,6 +114,7 @@ function AttendanceClass({ todayClass }: { todayClass: TodayAttendanceClass }) {
 const styles = StyleSheet.create({
   panel: {
     gap: Spacing.three - Spacing.one,
+    padding: Spacing.three - Spacing.one,
   },
   header: {
     flexDirection: 'row',
@@ -122,6 +123,9 @@ const styles = StyleSheet.create({
   },
   headerText: {
     flex: 1,
-    gap: Spacing.one + Spacing.half,
+    gap: Spacing.one,
+  },
+  pill: {
+    marginTop: Spacing.half,
   },
 });

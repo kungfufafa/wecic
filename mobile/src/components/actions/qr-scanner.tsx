@@ -82,9 +82,6 @@ export function QrScanner({ visible, onScanned, onClose }: QrScannerProps) {
                 <ThemedText type="smallBold" style={{ color: theme.onColor }}>
                   Arahkan kamera ke QR absensi
                 </ThemedText>
-                <ThemedText type="caption" style={{ color: 'rgba(255, 255, 255, 0.75)' }}>
-                  Kode terbaca otomatis lalu langsung dikirim.
-                </ThemedText>
               </View>
             </View>
           ) : (
@@ -96,8 +93,8 @@ export function QrScanner({ visible, onScanned, onClose }: QrScannerProps) {
                 {permission === null
                   ? 'Memeriksa izin kamera…'
                   : canAskAgain
-                    ? 'WeCIC butuh kamera untuk memindai QR absensi dari dosen. Kamera hanya dipakai selama pemindai terbuka.'
-                    : 'Akses kamera ditolak. Izinkan kamera untuk WeCIC di Pengaturan, atau ketik kodenya saja.'}
+                    ? 'Untuk memindai QR absensi dari dosen.'
+                    : 'Akses kamera ditolak. Izinkan di Pengaturan, atau ketik kodenya.'}
               </ThemedText>
               {permission !== null ? (
                 canAskAgain ? (

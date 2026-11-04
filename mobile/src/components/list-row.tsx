@@ -8,6 +8,7 @@ import { useTheme } from '@/hooks/use-theme';
 type ListRowProps = {
   icon: IconName;
   label: string;
+  /** One quiet line under the label: a fact, never an explanation. */
   value?: string | null;
   tone?: 'neutral' | 'danger';
   /** Opens something; the row then ends with an arrow. */
@@ -15,27 +16,25 @@ type ListRowProps = {
   trailingIcon?: IconName;
 };
 
-/** One setting or fact in a panel: an icon, what it is, and what it says. */
+/** One item in a panel: an outlined icon, what it is, and one line about it. */
 export function ListRow({ icon, label, value, tone = 'neutral', onPress, trailingIcon = 'chevronRight' }: ListRowProps) {
   const theme = useTheme();
-  const iconColor = tone === 'danger' ? theme.danger : theme.text;
+  const color = tone === 'danger' ? theme.danger : theme.text;
 
   const content = (
     <>
-      <View style={[styles.iconCircle, { backgroundColor: tone === 'danger' ? theme.dangerTint : theme.elevated }]}>
-        <Icon name={icon} size={18} color={iconColor} />
-      </View>
+      <Icon name={icon} size={22} color={color} />
       <View style={styles.text}>
-        <ThemedText type="bodyMedium" style={tone === 'danger' && { color: theme.danger }}>
+        <ThemedText style={[styles.label, { color }]} numberOfLines={2}>
           {label}
         </ThemedText>
         {value ? (
-          <ThemedText type="small" themeColor="textTertiary">
+          <ThemedText type="small" themeColor="textTertiary" numberOfLines={1}>
             {value}
           </ThemedText>
         ) : null}
       </View>
-      {onPress ? <Icon name={trailingIcon} size={14} color={theme.textQuaternary} /> : null}
+      {onPress ? <Icon name={trailingIcon} size={15} color={theme.textQuaternary} /> : null}
     </>
   );
 
@@ -50,27 +49,24 @@ export function ListRow({ icon, label, value, tone = 'neutral', onPress, trailin
   );
 }
 
-/** Where a row's text starts, for the hairline between rows. */
-export const ListRowTextInset = Spacing.three + 40 + Spacing.three;
+/** Rows in a panel are split by full-width hairlines. */
+export const ListRowTextInset = 0;
 
 const styles = StyleSheet.create({
   row: {
+    minHeight: 56,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.three,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.three - Spacing.one,
-    minHeight: 64,
-  },
-  iconCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
+    gap: Spacing.three - Spacing.half,
+    paddingHorizontal: Spacing.three + Spacing.half,
+    paddingVertical: Spacing.two + Spacing.one,
   },
   text: {
     flex: 1,
     gap: Spacing.half,
+  },
+  label: {
+    fontSize: 17,
+    lineHeight: 22,
   },
 });

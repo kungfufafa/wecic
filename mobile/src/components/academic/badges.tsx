@@ -7,7 +7,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { letterTone, type AcademicTone } from '@/lib/academic';
 
 /** A letter grade on a tile colored by how good it is. */
-export function LetterBadge({ letter, size = 40 }: { letter: string | null | undefined; size?: number }) {
+export function LetterBadge({ letter, size = 32 }: { letter: string | null | undefined; size?: number }) {
   const theme = useTheme();
   const colors = toneColors(theme, letterTone(letter));
 
@@ -15,7 +15,7 @@ export function LetterBadge({ letter, size = 40 }: { letter: string | null | und
     <View
       accessible
       accessibilityLabel={`Nilai ${letter ?? 'belum ada'}`}
-      style={[styles.letter, { width: size, height: size, borderRadius: Radius.medium, backgroundColor: colors.tint }]}>
+      style={[styles.letter, { width: size, height: size, borderRadius: Radius.small, backgroundColor: colors.tint }]}>
       <ThemedText style={{ color: colors.ink, fontSize: size * 0.42, lineHeight: size * 0.52, fontWeight: 600 }}>
         {letter?.trim() || '–'}
       </ThemedText>
@@ -44,7 +44,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   pill: {
-    alignSelf: 'flex-start',
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.two - Spacing.half,

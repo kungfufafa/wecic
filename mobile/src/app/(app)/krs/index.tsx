@@ -2,18 +2,17 @@ import { useRouter } from 'expo-router';
 import { Fragment } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { CourseRow, CourseRowInset } from '@/components/academic/course-row';
+import { CourseRow } from '@/components/academic/course-row';
 import { StepList } from '@/components/academic/step-list';
 import type { AdvisingResponse, KrsPeriod, KrsResponse } from '@/api/types/academic';
 import { Chip } from '@/components/chip';
 import { ContactButtons } from '@/components/contact-buttons';
 import { EmptyState } from '@/components/empty-state';
-import { ListRow, ListRowTextInset } from '@/components/list-row';
+import { ListRow } from '@/components/list-row';
 import { Notice } from '@/components/notice';
 import { Screen } from '@/components/screen';
 import { Divider, Panel, Section } from '@/components/section';
 import { SkeletonRows } from '@/components/skeleton';
-import { StatRow } from '@/components/stat-row';
 import { StatusPill } from '@/components/status-pill';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
@@ -61,7 +60,7 @@ export default function KrsScreen() {
       {!krs.isLoading && data && data.found === false ? (
         <Section>
           <Panel>
-            <EmptyState icon="list" title="KRS belum tersedia" description="Portal belum menampilkan KRS untuk semester ini." />
+            <EmptyState icon="list" title="KRS belum tersedia" />
           </Panel>
         </Section>
       ) : null}
@@ -70,7 +69,7 @@ export default function KrsScreen() {
         <Section
           label="Status KRS"
           accessory={status?.label ? <StatusPill label={status.label} tone={krsStatusTone(status.code)} /> : null}>
-          <Panel style={styles.gap}>
+          <Panel padded={false} style={styles.block}>
             {tracker.length > 0 ? <StepList steps={tracker} /> : null}
             {data?.notice_text ? (
               <ThemedText type="small" themeColor="textTertiary">
@@ -86,7 +85,7 @@ export default function KrsScreen() {
           <Panel padded={false}>
             {periods.map((period: KrsPeriod, index: number) => (
               <Fragment key={`${period.label ?? 'periode'}-${index}`}>
-                {index > 0 ? <Divider inset={Spacing.three} /> : null}
+                {index > 0 ? <Divider /> : null}
                 <PeriodRow period={period} />
               </Fragment>
             ))}
@@ -97,12 +96,14 @@ export default function KrsScreen() {
       {data?.notice?.text ? <Notice message={data.notice.text} /> : null}
 
       {dpa?.name ? (
-        <Section label="Dosen Pembimbing Akademik">
-          <Panel style={styles.gap}>
+        <Section label="Dosen pembimbing akademik">
+          <Panel padded={false} style={styles.block}>
             <View style={styles.dpa}>
-              <ThemedText type="bodyMedium">{dpa.name}</ThemedText>
+              <ThemedText type="bodyMedium" numberOfLines={2}>
+                {dpa.name}
+              </ThemedText>
               {dpa.nidn ? (
-                <ThemedText type="small" themeColor="textTertiary">
+                <ThemedText type="small" themeColor="textTertiary" numberOfLines={1}>
                   NIDN {dpa.nidn}
                 </ThemedText>
               ) : null}
@@ -113,18 +114,19 @@ export default function KrsScreen() {
       ) : null}
 
       {courses.length > 0 ? (
-        <Section label="Mata kuliah semester ini" accessory={load?.sks ? <Chip label={`${load.sks} SKS`} /> : null}>
-          <Panel padded={false}>
-            <StatRow
-              stats={[
-                { label: 'Mata kuliah', value: String(load?.courses ?? courses.length) },
-                { label: 'Total SKS', value: String(load?.sks ?? courses.reduce((sum, course) => sum + (course.sks ?? 0), 0)) },
-              ]}
+        <Section
+          label="Mata kuliah semester ini"
+          accessory={
+            <Chip
+              label={`${load?.courses ?? courses.length} MK · ${load?.sks ?? courses.reduce((sum, course) => sum + (course.sks ?? 0), 0)} SKS`}
             />
+          }>
+          <Panel padded={false}>
             {courses.map((course, index) => (
               <Fragment key={`${course.code ?? course.name ?? 'mk'}-${index}`}>
-                <Divider inset={index === 0 ? 0 : CourseRowInset} />
+                {index > 0 ? <Divider /> : null}
                 <CourseRow
+                  showTile={false}
                   code={course.code}
                   name={course.name}
                   detail={[course.code, course.sks ? `${course.sks} SKS` : null, course.semester ? `Smt ${course.semester}` : null]
@@ -142,7 +144,7 @@ export default function KrsScreen() {
           <Panel padded={false}>
             {history.map((entry, index) => (
               <Fragment key={entry.krs_id ?? index}>
-                {index > 0 ? <Divider inset={ListRowTextInset} /> : null}
+                {index > 0 ? <Divider /> : null}
                 <ListRow
                   icon="list"
                   label={entry.semester_label ?? semesterLabel(entry.semester)}
@@ -168,26 +170,39 @@ function PeriodRow({ period }: { period: KrsPeriod }) {
 
   return (
     <View style={styles.period}>
-      <ThemedText type="bodyMedium">{period.label ?? 'Periode KRS'}</ThemedText>
-      {dates ? (
-        <ThemedText type="small" themeColor="textTertiary">
-          {dates}
+      <View style={styles.periodText}>
+        <ThemedText type="bodyMedium" numberOfLines={1}>
+          {period.label ?? 'Periode KRS'}
         </ThemedText>
-      ) : null}
+        {dates ? (
+          <ThemedText type="small" themeColor="textTertiary" numberOfLines={1}>
+            {dates}
+          </ThemedText>
+        ) : null}
+      </View>
       {timing ? <StatusPill label={timing.label} tone={timing.tone} /> : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  gap: {
-    gap: Spacing.three,
+  block: {
+    gap: Spacing.three - Spacing.one,
+    paddingVertical: Spacing.three - Spacing.one,
+    paddingHorizontal: Spacing.three,
   },
   dpa: {
     gap: Spacing.half,
   },
   period: {
-    gap: Spacing.one + Spacing.half,
-    padding: Spacing.three,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.three - Spacing.one,
+    paddingVertical: Spacing.three - Spacing.one,
+    paddingHorizontal: Spacing.three,
+  },
+  periodText: {
+    flex: 1,
+    gap: Spacing.half,
   },
 });

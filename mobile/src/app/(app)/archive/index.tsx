@@ -5,6 +5,7 @@ import { StyleSheet, Switch, View } from 'react-native';
 import type { ArchiveSummaryResponse, BackgroundSync, BackgroundSyncResponse } from '@/api/types/admin';
 import { useSession } from '@/auth/session-provider';
 import { EmptyState } from '@/components/empty-state';
+import { Icon } from '@/components/icon';
 import { ListRow, ListRowTextInset } from '@/components/list-row';
 import { Notice } from '@/components/notice';
 import { Screen } from '@/components/screen';
@@ -48,8 +49,7 @@ export default function ArchiveScreen() {
   }
 
   return (
-    <Screen back title="Arsip data" subtitle="Salinan data portal yang disimpan WeCIC" refreshing={archive.isRefreshing}
-      dataSavedAt={archive.savedAt} onRefresh={archive.refresh}>
+    <Screen back title="Arsip data" refreshing={archive.isRefreshing} dataSavedAt={archive.savedAt} onRefresh={archive.refresh}>
       {archive.error ? <Notice tone="error" message={archive.error} /> : null}
       {message ? <Notice tone={message.tone} message={message.text} /> : null}
 
@@ -67,18 +67,21 @@ export default function ArchiveScreen() {
         </Section>
       ) : null}
 
-      {suspects > 0 ? <Notice tone="warning" message={`${suspects} versi data terlihat janggal dan perlu kamu cek.`} /> : null}
+      {suspects > 0 ? <Notice tone="warning" message={`${suspects} versi janggal perlu dicek.`} /> : null}
 
       {background ? (
         <Section label="Sinkronisasi di background">
-          <Panel style={styles.syncPanel}>
+          <Panel padded={false} style={styles.syncPanel}>
             <View style={styles.syncRow}>
+              <Icon name="sync" size={22} color={theme.text} />
               <View style={styles.flex}>
-                <ThemedText type="bodyMedium">Perbarui data otomatis</ThemedText>
-                <ThemedText type="caption" themeColor="textTertiary">
+                <ThemedText style={styles.syncLabel} numberOfLines={1}>
+                  Perbarui otomatis
+                </ThemedText>
+                <ThemedText type="caption" themeColor="textTertiary" numberOfLines={1}>
                   {background.available
-                    ? `Setiap ${background.interval_minutes ?? 180} menit, memakai kata sandi yang disimpan ${background.credential_days ?? 30} hari. Mematikannya menghapus kata sandi itu.`
-                    : 'Tidak tersedia di server WeCIC ini.'}
+                    ? `Tiap ${background.interval_minutes ?? 180} menit · sandi disimpan ${background.credential_days ?? 30} hari`
+                    : 'Tidak tersedia di server ini'}
                 </ThemedText>
               </View>
               <Switch
@@ -87,6 +90,7 @@ export default function ArchiveScreen() {
                 onValueChange={(enabled) => void toggleSync(enabled)}
                 trackColor={{ true: theme.success, false: theme.elevated }}
                 accessibilityLabel="Sinkronisasi di background"
+                accessibilityHint="Mematikannya menghapus kata sandi yang disimpan"
               />
             </View>
             {background.pending_login ? (
@@ -100,7 +104,7 @@ export default function ArchiveScreen() {
               </ThemedText>
             ) : null}
             {background.last_error ? (
-              <ThemedText type="caption" themeColor="danger">
+              <ThemedText type="caption" themeColor="danger" numberOfLines={3}>
                 {background.last_error}
               </ThemedText>
             ) : null}
@@ -112,7 +116,7 @@ export default function ArchiveScreen() {
         <Panel padded={false}>
           {archive.isLoading ? <SkeletonRows count={3} /> : null}
           {!archive.isLoading && datasets.length === 0 && !archive.error ? (
-            <EmptyState icon="archive" title="Arsip masih kosong" description="Data portal yang kamu buka akan diarsipkan otomatis." />
+            <EmptyState icon="archive" title="Arsip masih kosong" />
           ) : null}
           {datasets.map((dataset, index) => (
             <Fragment key={dataset.dataset}>
@@ -143,11 +147,17 @@ const styles = StyleSheet.create({
     gap: Spacing.half,
   },
   syncPanel: {
-    gap: Spacing.two,
+    gap: Spacing.one,
+    paddingHorizontal: Spacing.three + Spacing.half,
+    paddingVertical: Spacing.two + Spacing.one,
   },
   syncRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.three,
+    gap: Spacing.three - Spacing.half,
+  },
+  syncLabel: {
+    fontSize: 17,
+    lineHeight: 22,
   },
 });

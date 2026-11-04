@@ -10,7 +10,6 @@ import { CourseTile } from '@/components/course-tile';
 import { EmptyState } from '@/components/empty-state';
 import { Icon } from '@/components/icon';
 import { InfoRows } from '@/components/info-rows';
-import { ListRowTextInset } from '@/components/list-row';
 import { Notice } from '@/components/notice';
 import { ProgressBar } from '@/components/progress-bar';
 import { Screen } from '@/components/screen';
@@ -64,7 +63,7 @@ export default function ClassDetailScreen() {
       {notFound ? (
         <Section>
           <Panel>
-            <EmptyState icon="book" title="Kelas tidak ditemukan" description="Portal tidak mengenali kelas ini. Buka lagi dari tab Kelas." />
+            <EmptyState icon="book" title="Kelas tidak ditemukan" description="Buka lagi dari daftar kelas." />
           </Panel>
         </Section>
       ) : null}
@@ -74,11 +73,13 @@ export default function ClassDetailScreen() {
           <Section label="Dosen pengampu">
             <Panel style={styles.lecturer}>
               <View style={styles.lecturerHead}>
-                <CourseTile name={course?.name} code={course?.code} size={48} />
+                <CourseTile name={course?.name} code={course?.code} size={36} />
                 <View style={styles.flex}>
-                  <ThemedText type="bodyMedium">{lecturer?.name ?? 'Dosen'}</ThemedText>
+                  <ThemedText type="bodyMedium" numberOfLines={2}>
+                    {lecturer?.name ?? 'Dosen'}
+                  </ThemedText>
                   {lecturer?.email || lecturer?.contact ? (
-                    <ThemedText type="small" themeColor="textTertiary" selectable numberOfLines={2}>
+                    <ThemedText type="small" themeColor="textTertiary" selectable numberOfLines={1}>
                       {[lecturer?.contact, lecturer?.email].filter(Boolean).join(' · ')}
                     </ThemedText>
                   ) : null}
@@ -103,16 +104,19 @@ export default function ClassDetailScreen() {
                   <View style={styles.progress}>
                     <ProgressBar percent={rate} color={rate >= 75 ? theme.success : theme.warning} />
                     <ThemedText type="caption" themeColor="textTertiary">
-                      {`${summary.held_meetings ?? 0} dari ${summary.total_meetings ?? meetings.length} pertemuan sudah berlangsung`}
+                      {`${summary.held_meetings ?? 0}/${summary.total_meetings ?? meetings.length} pertemuan berlangsung`}
                     </ThemedText>
                   </View>
                 ) : null}
+                {meetings.length > 0 ? (
+                  <>
+                    <Divider />
+                    <View style={styles.grid}>
+                      <MeetingGrid meetings={meetings} />
+                    </View>
+                  </>
+                ) : null}
               </Panel>
-              {meetings.length > 0 ? (
-                <Panel>
-                  <MeetingGrid meetings={meetings} />
-                </Panel>
-              ) : null}
             </Section>
           ) : null}
 
@@ -123,19 +127,18 @@ export default function ClassDetailScreen() {
                   <FileRow
                     icon="bookText"
                     label="Rencana Pembelajaran Semester"
-                    detail="RPS mata kuliah ini"
                     busy={file.busyHref === rpsLink}
                     onPress={() => void file.open(rpsLink, `RPS ${course?.code ?? ''}`.trim())}
                   />
-                  {materials.length > 0 ? <Divider inset={ListRowTextInset} /> : null}
+                  {materials.length > 0 ? <Divider /> : null}
                 </>
               ) : null}
               {materials.length === 0 && !rpsLink ? (
-                <EmptyState icon="bookOutline" title="Belum ada materi" description="Materi yang diunggah dosen akan muncul di sini." />
+                <EmptyState icon="bookOutline" title="Belum ada materi" />
               ) : null}
               {materials.map((material, index) => (
                 <Fragment key={`${material.meeting_number ?? 'm'}-${index}`}>
-                  {index > 0 ? <Divider inset={Spacing.three + 44 + Spacing.three} /> : null}
+                  {index > 0 ? <Divider /> : null}
                   <MaterialRow material={material} />
                 </Fragment>
               ))}
@@ -151,7 +154,7 @@ export default function ClassDetailScreen() {
             }>
             <Panel padded={false}>
               {submissions.length === 0 ? (
-                <EmptyState icon="task" title="Belum ada tugas terkumpul" description="Tugas yang sudah kamu unggah akan tercatat di sini." />
+                <EmptyState icon="task" title="Belum ada tugas terkumpul" />
               ) : null}
               {submissions.map((submission, index) => {
                 const href = submission.file_info?.href?.trim() || null;
@@ -159,7 +162,7 @@ export default function ClassDetailScreen() {
 
                 return (
                   <Fragment key={`${submission.no ?? index}`}>
-                    {index > 0 ? <Divider inset={ListRowTextInset} /> : null}
+                    {index > 0 ? <Divider /> : null}
                     {href ? (
                       <FileRow
                         icon="upload"
@@ -198,12 +201,12 @@ function MaterialRow({ material }: { material: CourseMaterial }) {
           {material.title ?? `Pertemuan ${material.meeting_number ?? ''}`}
         </ThemedText>
         {when ? (
-          <ThemedText type="small" themeColor="textTertiary">
+          <ThemedText type="small" themeColor="textTertiary" numberOfLines={1}>
             {when}
           </ThemedText>
         ) : null}
         {material.description ? (
-          <ThemedText type="small" themeColor="textSecondary" numberOfLines={3}>
+          <ThemedText type="small" themeColor="textSecondary" numberOfLines={2}>
             {material.description.trim()}
           </ThemedText>
         ) : null}
@@ -235,7 +238,8 @@ const styles = StyleSheet.create({
     gap: Spacing.half,
   },
   lecturer: {
-    gap: Spacing.three,
+    gap: Spacing.three - Spacing.one,
+    padding: Spacing.three - Spacing.one,
   },
   lecturerHead: {
     flexDirection: 'row',
@@ -248,18 +252,22 @@ const styles = StyleSheet.create({
   progress: {
     gap: Spacing.two,
     paddingHorizontal: Spacing.three,
-    paddingBottom: Spacing.three,
+    paddingBottom: Spacing.three - Spacing.one,
+  },
+  grid: {
+    padding: Spacing.three - Spacing.one,
   },
   material: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: Spacing.three,
-    padding: Spacing.three,
+    gap: Spacing.three - Spacing.one,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.three - Spacing.one,
   },
   number: {
-    width: 44,
-    height: 44,
-    borderRadius: Radius.medium,
+    width: 32,
+    height: 32,
+    borderRadius: Radius.small,
     alignItems: 'center',
     justifyContent: 'center',
   },

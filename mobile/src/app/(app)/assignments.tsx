@@ -7,7 +7,7 @@ import { Chip } from '@/components/chip';
 import { CourseTile } from '@/components/course-tile';
 import { EmptyState } from '@/components/empty-state';
 import { Icon } from '@/components/icon';
-import { MetaRow } from '@/components/meta-row';
+import { joinMeta, MetaRow } from '@/components/meta-row';
 import { Notice } from '@/components/notice';
 import { Screen } from '@/components/screen';
 import { Divider, Panel, Section } from '@/components/section';
@@ -20,8 +20,7 @@ import { usePortalFile } from '@/hooks/use-portal-file';
 import { useTheme } from '@/hooks/use-theme';
 import { daysUntil, deadlineLabel, queryParam, splitByDeadline } from '@/lib/classes';
 
-const TILE_SIZE = 44;
-const ROW_INSET = Spacing.three + TILE_SIZE + Spacing.three - Spacing.one;
+const TILE_SIZE = 36;
 
 export default function AssignmentsScreen() {
   const assignments = useApiResource<PendingAssignmentsResponse>('assignment/pending', { timeoutMs: 90_000 });
@@ -32,7 +31,6 @@ export default function AssignmentsScreen() {
     <Screen
       back
       title="Tugas"
-      subtitle="Tugas pertemuan yang belum kamu kumpulkan"
       accessory={open.length > 0 ? <Chip label={`${open.length} terbuka`} /> : null}
       refreshing={assignments.isRefreshing}
       dataSavedAt={assignments.savedAt}
@@ -50,7 +48,7 @@ export default function AssignmentsScreen() {
       {!assignments.isLoading && items.length === 0 && !assignments.error ? (
         <Section>
           <Panel>
-            <EmptyState icon="check" title="Tidak ada tugas tertunda" description="Semua tugas pertemuan sudah kamu kumpulkan." />
+            <EmptyState icon="check" title="Tidak ada tugas tertunda" />
           </Panel>
         </Section>
       ) : null}
@@ -67,7 +65,7 @@ function AssignmentSection({ label, items }: { label: string; items: PendingAssi
       <Panel padded={false}>
         {items.map((assignment, index) => (
           <Fragment key={`${assignment.meeting_id ?? 'tugas'}-${index}`}>
-            {index > 0 ? <Divider inset={ROW_INSET} /> : null}
+            {index > 0 ? <Divider /> : null}
             <AssignmentRow assignment={assignment} />
           </Fragment>
         ))}
@@ -84,6 +82,7 @@ function AssignmentRow({ assignment }: { assignment: PendingAssignment }) {
   const meetingId = assignment.meeting_id ?? assignment.assignment_payload?.id ?? null;
   const coursesId = assignment.assignment_payload?.courses_id ?? queryParam(assignment.meeting_url, 'courses_id');
   const exercise = assignment.assignment_file_url?.trim() || null;
+  const meta = joinMeta(assignment.material_title, assignment.meeting_number ? `Pertemuan ${assignment.meeting_number}` : null, assignment.lecturer_name);
 
   function openMeeting() {
     if (!meetingId) {
@@ -102,16 +101,15 @@ function AssignmentRow({ assignment }: { assignment: PendingAssignment }) {
       style={({ pressed }) => [styles.row, pressed && { backgroundColor: theme.section }]}>
       <CourseTile name={assignment.course_name} code={assignment.course_code} size={TILE_SIZE} />
       <View style={styles.text}>
-        <View style={styles.title}>
-          <ThemedText type="bodyMedium" numberOfLines={2}>
-            {assignment.course_name ?? 'Mata kuliah'}
-          </ThemedText>
-          <ThemedText type="small" themeColor="textTertiary" numberOfLines={1}>
-            {[assignment.material_title, assignment.meeting_number ? `Pertemuan ${assignment.meeting_number}` : null].filter(Boolean).join(' · ')}
-          </ThemedText>
-        </View>
+        <ThemedText type="bodyMedium" numberOfLines={2}>
+          {assignment.course_name ?? 'Mata kuliah'}
+        </ThemedText>
         <MetaRow icon="alarm" text={assignment.deadline} />
-        <MetaRow icon="person" text={assignment.lecturer_name} />
+        {meta ? (
+          <ThemedText type="small" themeColor="textTertiary" numberOfLines={1}>
+            {meta}
+          </ThemedText>
+        ) : null}
         <View style={styles.pills}>
           <StatusPill label={deadline.label} tone={deadline.tone} />
           {exercise ? (
@@ -146,22 +144,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: Spacing.three - Spacing.one,
-    padding: Spacing.three,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.three - Spacing.one,
   },
   text: {
     flex: 1,
-    gap: Spacing.one + Spacing.half,
-  },
-  title: {
-    gap: Spacing.half,
-    marginBottom: Spacing.one,
+    gap: Spacing.one,
   },
   pills: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     alignItems: 'center',
     gap: Spacing.two - Spacing.half,
-    marginTop: Spacing.one,
+    marginTop: Spacing.half,
   },
   fileChip: {
     flexDirection: 'row',

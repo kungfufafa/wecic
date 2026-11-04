@@ -95,6 +95,20 @@ export function splitByDeadline<T extends { deadline_date?: string | null }>(ite
 
 export type MeetingStatusKind = 'present' | 'late' | 'absent' | 'permit' | 'sick' | 'upcoming' | 'unknown';
 
+/** Meetings a half-semester to a row: 1–7 end at UTS, 8–14 at UAS. */
+export const MeetingsPerRow = 7;
+
+/** Meetings in rows of `size`, in order; the last row may be shorter. */
+export function meetingRows<T>(meetings: T[], size: number = MeetingsPerRow): T[][] {
+  const rows: T[][] = [];
+
+  for (let start = 0; start < meetings.length; start += size) {
+    rows.push(meetings.slice(start, start + size));
+  }
+
+  return rows;
+}
+
 /** What a meeting's attendance status says, in words. */
 export function meetingStatus(status: string | null | undefined): { kind: MeetingStatusKind; label: string } {
   switch (status) {

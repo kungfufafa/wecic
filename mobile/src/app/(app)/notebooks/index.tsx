@@ -8,7 +8,7 @@ import { useSession } from '@/auth/session-provider';
 import { Button } from '@/components/button';
 import { Chip } from '@/components/chip';
 import { EmptyState } from '@/components/empty-state';
-import { ListRow, ListRowTextInset } from '@/components/list-row';
+import { ListRow } from '@/components/list-row';
 import { Notice } from '@/components/notice';
 import { Screen } from '@/components/screen';
 import { Divider, Panel, Section } from '@/components/section';
@@ -52,7 +52,6 @@ export default function NotebooksScreen() {
     <Screen
       back
       title="Notebook AI"
-      subtitle="Tanya jawab dan ringkasan dari materi kuliahmu"
       refreshing={notebooks.isRefreshing}
       dataSavedAt={notebooks.savedAt}
       onRefresh={() => {
@@ -76,8 +75,8 @@ export default function NotebooksScreen() {
 
       {!notebooks.isLoading && items.length === 0 && !notebooks.error ? (
         <Section>
-          <Panel>
-            <EmptyState icon="sparkles" title="Belum ada notebook" description="Buat notebook untuk mata kuliah, lalu masukkan materi pertemuan sebagai sumber." />
+          <Panel padded={false}>
+            <EmptyState icon="sparkles" title="Belum ada notebook" />
           </Panel>
         </Section>
       ) : null}
@@ -85,9 +84,6 @@ export default function NotebooksScreen() {
       {missingCourses.length > 0 ? (
         <Section label="Buka notebook mata kuliah">
           <Panel style={styles.chipsPanel}>
-            <ThemedText type="small" themeColor="textTertiary" style={styles.hint}>
-              Mata kuliah ini belum punya notebook.
-            </ThemedText>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
               {missingCourses.map((portalClass) => {
                 const key = portalClass.join_link?.params?.course_id as string;
@@ -131,7 +127,7 @@ function NotebookSection({ label, notebooks }: { label: string; notebooks: Noteb
       <Panel padded={false}>
         {notebooks.map((notebook, index) => (
           <Fragment key={notebook.id}>
-            {index > 0 ? <Divider inset={ListRowTextInset} /> : null}
+            {index > 0 ? <Divider /> : null}
             <ListRow
               icon={notebook.kind === 'course' ? 'bookOutline' : 'sparkles'}
               label={notebook.title}
@@ -150,11 +146,7 @@ const styles = StyleSheet.create({
     paddingRight: Spacing.two,
   },
   chipsPanel: {
-    gap: Spacing.two + Spacing.one,
-    paddingHorizontal: Spacing.two,
-  },
-  hint: {
-    paddingHorizontal: Spacing.two,
+    padding: Spacing.two,
   },
   chips: {
     gap: Spacing.two,

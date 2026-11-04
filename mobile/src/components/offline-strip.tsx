@@ -28,22 +28,21 @@ export function OfflineStrip({ savedAt, onRetry }: OfflineStripProps) {
     return null;
   }
 
-  const kept = savedAt ? ` Data di layar ini tersimpan dari ${ageLabel(savedAt)}.` : '';
-  const copy =
-    reason === 'device'
-      ? { title: 'Tidak ada internet', body: `Nyalakan data seluler atau Wi-Fi.${kept}` }
-      : { title: 'WeCIC tidak bisa dihubungi', body: `Internet tersambung, tetapi server belum menjawab.${kept}` };
+  const title = reason === 'device' ? 'Tidak ada internet' : 'Server WeCIC tidak menjawab';
+  const kept = savedAt ? `Data dari ${ageLabel(savedAt)}` : null;
 
   return (
     <View accessibilityRole="alert" accessibilityLiveRegion="polite" style={[styles.strip, { backgroundColor: theme.warningTint }]}>
       <Icon name="offline" size={18} color={theme.warning} />
       <View style={styles.text}>
         <ThemedText type="smallBold" style={{ color: theme.warning }}>
-          {copy.title}
+          {title}
         </ThemedText>
-        <ThemedText type="caption" themeColor="textSecondary">
-          {copy.body}
-        </ThemedText>
+        {kept ? (
+          <ThemedText type="caption" themeColor="textSecondary">
+            {kept}
+          </ThemedText>
+        ) : null}
       </View>
       {reason === 'server' && onRetry ? <Chip label="Coba lagi" icon="refresh" onPress={onRetry} /> : null}
     </View>
@@ -54,11 +53,11 @@ const styles = StyleSheet.create({
   strip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.two + Spacing.one,
-    paddingVertical: Spacing.two + Spacing.one,
-    paddingLeft: Spacing.three,
+    gap: Spacing.two + Spacing.half,
+    paddingVertical: Spacing.two,
+    paddingLeft: Spacing.three - Spacing.one,
     paddingRight: Spacing.two,
-    borderRadius: Radius.panel,
+    borderRadius: Radius.large,
   },
   text: {
     flex: 1,

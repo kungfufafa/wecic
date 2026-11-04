@@ -23,6 +23,11 @@ export function MetaRow({ icon, text, color }: { icon: IconName; text: string | 
   );
 }
 
+/** Details on one line, "Lab 1 · Pak Budi", leaving out the empty ones. */
+export function joinMeta(...parts: (string | null | undefined)[]): string {
+  return parts.filter((part): part is string => typeof part === 'string' && part.trim() !== '').join(' · ');
+}
+
 const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',

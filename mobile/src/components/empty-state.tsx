@@ -9,6 +9,7 @@ import { useTheme } from '@/hooks/use-theme';
 type EmptyStateProps = {
   icon: IconName;
   title: string;
+  /** One short line, only when it tells the student something the title does not. */
   description?: string;
   action?: { label: string; icon?: IconName; onPress: () => void } | null;
 };
@@ -20,10 +21,10 @@ export function EmptyState({ icon, title, description, action }: EmptyStateProps
   return (
     <View style={styles.empty}>
       <View style={[styles.iconTile, { backgroundColor: theme.elevated }]}>
-        <Icon name={icon} size={26} color={theme.textSecondary} />
+        <Icon name={icon} size={20} color={theme.textSecondary} />
       </View>
       <View style={styles.text}>
-        <ThemedText type="subtitle" style={styles.centered}>
+        <ThemedText type="bodyMedium" style={styles.centered}>
           {title}
         </ThemedText>
         {description ? (
@@ -32,7 +33,7 @@ export function EmptyState({ icon, title, description, action }: EmptyStateProps
           </ThemedText>
         ) : null}
       </View>
-      {action ? <Button label={action.label} icon={action.icon} onPress={action.onPress} style={styles.action} /> : null}
+      {action ? <Button size="small" variant="secondary" label={action.label} icon={action.icon} onPress={action.onPress} /> : null}
     </View>
   );
 }
@@ -40,26 +41,21 @@ export function EmptyState({ icon, title, description, action }: EmptyStateProps
 const styles = StyleSheet.create({
   empty: {
     alignItems: 'center',
-    gap: Spacing.three,
-    paddingVertical: Spacing.four,
-    paddingHorizontal: Spacing.two,
+    gap: Spacing.two + Spacing.one,
+    paddingVertical: Spacing.four - Spacing.one,
+    paddingHorizontal: Spacing.three,
   },
   iconTile: {
-    width: 64,
-    height: 64,
-    borderRadius: Radius.large + 2,
+    width: 44,
+    height: 44,
+    borderRadius: Radius.medium,
     alignItems: 'center',
     justifyContent: 'center',
   },
   text: {
-    gap: Spacing.one + Spacing.half,
-    paddingHorizontal: Spacing.three,
+    gap: Spacing.half,
   },
   centered: {
     textAlign: 'center',
-  },
-  action: {
-    alignSelf: 'stretch',
-    marginTop: Spacing.two,
   },
 });

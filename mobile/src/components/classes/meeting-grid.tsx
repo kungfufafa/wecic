@@ -4,9 +4,12 @@ import type { MeetingAttendance } from '@/api/types/classes';
 import { ThemedText } from '@/components/themed-text';
 import { Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { meetingStatus, type MeetingStatusKind } from '@/lib/classes';
+import { meetingRows, MeetingsPerRow, meetingStatus, type MeetingStatusKind } from '@/lib/classes';
 
-/** Every meeting of a class as a numbered tile colored by attendance, with a legend under it. */
+/**
+ * Every meeting of a class as a numbered tile colored by attendance, seven
+ * to a row (UTS after 7, UAS after 14), with a legend under it.
+ */
 export function MeetingGrid({ meetings }: { meetings: MeetingAttendance[] }) {
   const theme = useTheme();
   const colors: Record<MeetingStatusKind, { background: string; text: string }> = {
@@ -24,23 +27,34 @@ export function MeetingGrid({ meetings }: { meetings: MeetingAttendance[] }) {
   return (
     <View style={styles.wrap}>
       <View style={styles.grid}>
-        {meetings.map((meeting, index) => {
-          const status = meetingStatus(meeting.status);
-          const color = colors[status.kind];
-          const when = [meeting.details?.attendance_date, meeting.details?.attendance_time].filter(Boolean).join(', ');
+        {meetingRows(meetings).map((row, rowIndex) => (
+          <View key={rowIndex} style={styles.row}>
+            {Array.from({ length: MeetingsPerRow }, (_, column) => {
+              const meeting = row[column];
 
-          return (
-            <View
-              key={`${meeting.meeting_number ?? index}`}
-              accessible
-              accessibilityLabel={`Pertemuan ${meeting.meeting_number ?? index + 1}: ${status.label}${when ? `, ${when}` : ''}`}
-              style={[styles.tile, { backgroundColor: color.background }]}>
-              <ThemedText type="smallBold" style={{ color: color.text }}>
-                {meeting.meeting_number ?? index + 1}
-              </ThemedText>
-            </View>
-          );
-        })}
+              if (!meeting) {
+                return <View key={`empty-${column}`} style={styles.tile} />;
+              }
+
+              const index = rowIndex * MeetingsPerRow + column;
+              const status = meetingStatus(meeting.status);
+              const color = colors[status.kind];
+              const when = [meeting.details?.attendance_date, meeting.details?.attendance_time].filter(Boolean).join(', ');
+
+              return (
+                <View
+                  key={`${meeting.meeting_number ?? index}`}
+                  accessible
+                  accessibilityLabel={`Pertemuan ${meeting.meeting_number ?? index + 1}: ${status.label}${when ? `, ${when}` : ''}`}
+                  style={[styles.tile, { backgroundColor: color.background }]}>
+                  <ThemedText type="smallBold" style={{ color: color.text }}>
+                    {meeting.meeting_number ?? index + 1}
+                  </ThemedText>
+                </View>
+              );
+            })}
+          </View>
+        ))}
       </View>
       <View style={styles.legend}>
         {legend.map((kind) => (
@@ -56,19 +70,21 @@ export function MeetingGrid({ meetings }: { meetings: MeetingAttendance[] }) {
   );
 }
 
-const TILE = 40;
+const TILE = 34;
 
 const styles = StyleSheet.create({
   wrap: {
-    gap: Spacing.three,
+    gap: Spacing.two + Spacing.half,
   },
   grid: {
+    gap: Spacing.two - Spacing.half,
+  },
+  row: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.two,
+    gap: Spacing.two - Spacing.half,
   },
   tile: {
-    width: TILE,
+    flex: 1,
     height: TILE,
     borderRadius: Radius.small,
     alignItems: 'center',

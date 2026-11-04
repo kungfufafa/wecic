@@ -9,7 +9,7 @@ type ProgressBarProps = {
   height?: number;
 };
 
-export function ProgressBar({ percent, color, height = 8 }: ProgressBarProps) {
+export function ProgressBar({ percent, color, height = 6 }: ProgressBarProps) {
   const theme = useTheme();
   const value = Math.max(0, Math.min(100, Number.isFinite(percent) ? Number(percent) : 0));
 
