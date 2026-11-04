@@ -6,6 +6,7 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Support\Facades\Route;
+use Sentry\Laravel\Integration;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -79,6 +80,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // Every /api/* error is JSON in the API's envelope, whatever the client's Accept header.
         $exceptions->shouldRenderJsonWhen(ApiExceptionRenderer::rendersJson(...));
         $exceptions->respond(ApiExceptionRenderer::respond(...));
+
+        // Reported exceptions also go to Sentry when SENTRY_LARAVEL_DSN is set.
+        Integration::handles($exceptions);
     })
     // Browser-test guards (no portal, no Vite dev server), in the e2e
     // environment only, and the demo mode's fixture portal (local with

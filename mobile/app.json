@@ -61,7 +61,15 @@
         }
       ],
       "expo-image",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "@sentry/react-native/expo",
+        {
+          "url": "https://de.sentry.io/",
+          "organization": "developer-hof",
+          "project": "wecic-mobile"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

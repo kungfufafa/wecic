@@ -58,6 +58,12 @@ return [
             'ignore_exceptions' => false,
         ],
 
+        // Sentry Logs; reached when LOG_STACK lists it and SENTRY_ENABLE_LOGS is true.
+        'sentry_logs' => [
+            'driver' => 'sentry_logs',
+            'level' => env('SENTRY_LOG_LEVEL', 'info'),
+        ],
+
         'single' => [
             'driver' => 'single',
             'path' => storage_path('logs/laravel.log'),

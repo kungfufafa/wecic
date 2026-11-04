@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/react-native';
 import { DarkTheme, Stack, ThemeProvider, type Theme } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
@@ -7,8 +8,10 @@ import { Appearance, Platform } from 'react-native';
 import { SessionProvider, useSession } from '@/auth/session-provider';
 import { NetworkWatcher } from '@/components/network-watcher';
 import { Colors } from '@/constants/theme';
+import { initSentry } from '@/lib/sentry';
 import { configureNotificationPresentation } from '@/push/push-notifications';
 
+initSentry();
 SplashScreen.preventAutoHideAsync();
 configureNotificationPresentation();
 
@@ -29,7 +32,9 @@ const navigationTheme: Theme = {
   },
 };
 
-export default function RootLayout() {
+export default Sentry.wrap(RootLayout);
+
+function RootLayout() {
   return (
     <ThemeProvider value={navigationTheme}>
       <StatusBar style="light" />
