@@ -27,7 +27,7 @@ Jalankan perintah berikut satu per satu.
 1. Clone repo.
 
    ```bash
-   git clone https://github.com/apriansyahrs/mycic.git
+   git clone https://github.com/apriansyahrs/wecic.git mycic
    ```
 
 2. Masuk ke direktorinya.
