@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Icon, type IconName } from '@/components/icon';
-import { useTheme } from '@/hooks/use-theme';
+import { useElevation, useTheme } from '@/hooks/use-theme';
 
 type IconButtonProps = {
   icon: IconName;
@@ -12,9 +12,10 @@ type IconButtonProps = {
   badge?: boolean;
 };
 
-/** A round charcoal button with one icon. */
+/** A round raised button with one icon, on the section tone. */
 export function IconButton({ icon, label, onPress, size = 48, badge = false }: IconButtonProps) {
   const theme = useTheme();
+  const elevation = useElevation();
 
   return (
     <Pressable
@@ -24,7 +25,7 @@ export function IconButton({ icon, label, onPress, size = 48, badge = false }: I
       onPress={onPress}
       style={({ pressed }) => [
         styles.button,
-        { width: size, height: size, borderRadius: size / 2, backgroundColor: pressed ? theme.elevatedPressed : theme.section },
+        { width: size, height: size, borderRadius: size / 2, backgroundColor: pressed ? theme.elevatedPressed : theme.section, boxShadow: elevation.raised },
       ]}>
       <Icon name={icon} size={size * 0.44} color={theme.text} />
       {badge ? <View style={[styles.badge, { backgroundColor: theme.badge, borderColor: theme.section }]} /> : null}

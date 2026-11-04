@@ -27,7 +27,7 @@ type ScreenProps = {
   children: ReactNode;
 };
 
-/** A page on the black canvas: its header, then sections that scroll and pull to refresh. */
+/** A page on the canvas: its header, then sections that scroll and pull to refresh. */
 export function Screen({ title, subtitle, accessory, header, back = false, refreshing = false, onRefresh, dataSavedAt, children }: ScreenProps) {
   const theme = useTheme();
   const router = useRouter();
@@ -53,8 +53,8 @@ export function Screen({ title, subtitle, accessory, header, back = false, refre
               refreshing={refreshing}
               onRefresh={onRefresh}
               tintColor={theme.textSecondary}
-              colors={[theme.onLight]}
-              progressBackgroundColor={theme.light}
+              colors={[theme.onPrimary]}
+              progressBackgroundColor={theme.primary}
             />
           ) : undefined
         }>

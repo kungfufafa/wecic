@@ -5,7 +5,7 @@ import { Pressable, StyleSheet, TextInput, View, type TextInputInstance, type Te
 import { Icon, type IconName } from '@/components/icon';
 import { ThemedText } from '@/components/themed-text';
 import { Radius, Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { useResolvedColorScheme, useTheme } from '@/hooks/use-theme';
 
 type TextFieldProps = TextInputProps & {
   /** Shown above the field; a search field goes without one. */
@@ -36,10 +36,11 @@ export function TextField({
   ...rest
 }: TextFieldProps) {
   const theme = useTheme();
+  const scheme = useResolvedColorScheme();
   const [focused, setFocused] = useState(false);
   const [revealed, setRevealed] = useState(false);
   const secure = secureToggle ? !revealed : secureTextEntry;
-  const outline = error ? theme.danger : focused ? theme.textQuaternary : 'transparent';
+  const outline = error ? theme.danger : focused ? theme.textQuaternary : theme.hairline;
 
   return (
     <View style={styles.field}>
@@ -56,7 +57,7 @@ export function TextField({
           placeholder={placeholder}
           placeholderTextColor={theme.textTertiary}
           selectionColor={theme.brand}
-          keyboardAppearance="dark"
+          keyboardAppearance={scheme}
           secureTextEntry={secure}
           value={value}
           onChangeText={onChangeText}

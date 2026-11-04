@@ -6,6 +6,7 @@ import { Alert, Platform, StyleSheet, View } from 'react-native';
 
 import { apiBaseUrl, webUrl } from '@/api/config';
 import { useSession } from '@/auth/session-provider';
+import { AppearancePicker } from '@/components/appearance-picker';
 import { Avatar } from '@/components/avatar';
 import { BrandLogo } from '@/components/brand-logo';
 import { Button } from '@/components/button';
@@ -16,6 +17,7 @@ import { Divider, Panel, Section } from '@/components/section';
 import { StatusPill } from '@/components/status-pill';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { clearKnownUser, useKnownUser } from '@/hooks/use-known-user';
 import { useUnreadCountValue } from '@/hooks/use-unread-count';
 import { initials, studentNumber } from '@/lib/format';
@@ -25,6 +27,7 @@ import { useRealtimeStatus } from '@/realtime/portal-realtime';
 
 export default function MoreScreen() {
   const router = useRouter();
+  const theme = useTheme();
   const { state, push, signOut } = useSession();
   const [signingOut, setSigningOut] = useState(false);
   const knownUser = useKnownUser();
@@ -104,6 +107,12 @@ export default function MoreScreen() {
         </Panel>
       </Section>
 
+      <Section label="Tampilan">
+        <Panel padded={false}>
+          <AppearancePicker />
+        </Panel>
+      </Section>
+
       <Section label="Data dan sinkronisasi">
         <Panel padded={false}>
           <ListRow icon="archive" label="Arsip data" value="Riwayat data portal dan sinkronisasi latar" onPress={() => router.push('/archive')} />
@@ -143,7 +152,7 @@ export default function MoreScreen() {
       <Button variant="danger" icon="signOut" label="Keluar" loading={signingOut} onPress={confirmSignOut} />
 
       <View style={styles.footer}>
-        <BrandLogo width={132} />
+        <BrandLogo width={132} color={theme.text} />
         <ThemedText type="caption" themeColor="textQuaternary" style={styles.centered}>
           WeCIC · aplikasi tidak resmi untuk MyCIC, tidak berafiliasi dengan UCIC
         </ThemedText>

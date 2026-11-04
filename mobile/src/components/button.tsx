@@ -3,11 +3,11 @@ import { ActivityIndicator, Pressable, StyleSheet, type PressableProps } from 'r
 import { Icon, type IconName } from '@/components/icon';
 import { ThemedText } from '@/components/themed-text';
 import { Radius, Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { useElevation, useTheme } from '@/hooks/use-theme';
 
 type ButtonProps = Omit<PressableProps, 'children'> & {
   label: string;
-  /** `primary` is the light pill, one per screen; `secondary` sits on charcoal. */
+  /** `primary` is the raised pill (charcoal in light mode, white in dark), one per screen; `secondary` sits on a panel. */
   variant?: 'primary' | 'secondary' | 'danger';
   size?: 'large' | 'small';
   icon?: IconName;
@@ -16,9 +16,10 @@ type ButtonProps = Omit<PressableProps, 'children'> & {
 
 export function Button({ label, variant = 'primary', size = 'large', icon, loading = false, disabled, style, ...rest }: ButtonProps) {
   const theme = useTheme();
+  const elevation = useElevation();
   const isDisabled = disabled || loading;
   const colors = {
-    primary: { background: theme.light, pressed: theme.lightPressed, text: theme.onLight },
+    primary: { background: theme.primary, pressed: theme.primaryPressed, text: theme.onPrimary },
     secondary: { background: theme.elevated, pressed: theme.elevatedPressed, text: theme.text },
     danger: { background: theme.dangerTint, pressed: theme.elevated, text: theme.danger },
   }[variant];
@@ -32,6 +33,7 @@ export function Button({ label, variant = 'primary', size = 'large', icon, loadi
         styles.button,
         size === 'small' && styles.small,
         { backgroundColor: state.pressed ? colors.pressed : colors.background },
+        variant === 'primary' && !isDisabled && { boxShadow: elevation.primary },
         isDisabled && styles.disabled,
         typeof style === 'function' ? style(state) : style,
       ]}

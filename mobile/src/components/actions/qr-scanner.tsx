@@ -77,9 +77,9 @@ export function QrScanner({ visible, onScanned, onClose }: QrScannerProps) {
 
           {granted ? (
             <View style={styles.center} pointerEvents="none">
-              <View style={[styles.frame, { borderColor: theme.light }]} />
+              <View style={[styles.frame, { borderColor: theme.onColor }]} />
               <View style={[styles.hint, { backgroundColor: 'rgba(0, 0, 0, 0.6)' }]}>
-                <ThemedText type="smallBold" style={{ color: theme.light }}>
+                <ThemedText type="smallBold" style={{ color: theme.onColor }}>
                   Arahkan kamera ke QR absensi
                 </ThemedText>
                 <ThemedText type="caption" style={{ color: 'rgba(255, 255, 255, 0.75)' }}>

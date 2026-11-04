@@ -1,7 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { Radius, Spacing } from '@/constants/theme';
+import { Colors, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import type { Tone } from '@/lib/format';
 
@@ -17,8 +17,8 @@ export function StatusPill({ label, tone, onBrand = false }: { label: string; to
 
   return (
     <View style={[styles.pill, { backgroundColor: onBrand ? 'rgba(255, 255, 255, 0.16)' : colors.background }]}>
-      <View style={[styles.dot, { backgroundColor: onBrand ? (tone === 'attention' ? theme.accent : theme.light) : colors.dot }]} />
-      <ThemedText type="caption" style={{ color: onBrand ? theme.light : colors.text }}>
+      <View style={[styles.dot, { backgroundColor: onBrand ? (tone === 'attention' ? Colors.dark.accent : theme.onColor) : colors.dot }]} />
+      <ThemedText type="caption" style={{ color: onBrand ? theme.onColor : colors.text }}>
         {label}
       </ThemedText>
     </View>

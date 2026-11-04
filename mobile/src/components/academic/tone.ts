@@ -1,9 +1,7 @@
-import type { Colors } from '@/constants/theme';
+import type { Palette } from '@/constants/theme';
 import type { AcademicTone } from '@/lib/academic';
 
-type Palette = (typeof Colors)['dark'];
-
-/** The ink and tint of a tone on the dark panels. */
+/** The ink and tint of a tone on the panels of the current mode. */
 export function toneColors(theme: Palette, tone: AcademicTone): { ink: string; tint: string } {
   switch (tone) {
     case 'success':

@@ -12,7 +12,7 @@ import { OfflineStrip } from '@/components/offline-strip';
 import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
 import { MaxContentWidth, Radius, Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { useResolvedColorScheme, useTheme } from '@/hooks/use-theme';
 
 /**
  * The login: the WeCIC wordmark on a soft blue glow, two fields, one light
@@ -21,6 +21,7 @@ import { useTheme } from '@/hooks/use-theme';
  */
 export default function SignInScreen() {
   const theme = useTheme();
+  const scheme = useResolvedColorScheme();
   const { state, signIn, rememberedUsername } = useSession();
   const passwordRef = useRef<TextInputInstance>(null);
   const [username, setUsername] = useState('');
@@ -70,12 +71,12 @@ export default function SignInScreen() {
 
   return (
     <View style={[styles.flex, { backgroundColor: theme.background }]}>
-      <View pointerEvents="none" style={[styles.glow, { backgroundImage: GLOW }]} />
+      <View pointerEvents="none" style={[styles.glow, { backgroundImage: Glow[scheme] }]} />
       <SafeAreaView style={styles.flex}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
           <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
             <View style={styles.brand}>
-              <BrandLogo />
+              <BrandLogo color={theme.text} />
               <View style={styles.heading}>
                 <ThemedText type="display">Selamat datang</ThemedText>
                 <ThemedText type="default" themeColor="textSecondary">
@@ -154,8 +155,11 @@ export default function SignInScreen() {
   );
 }
 
-/** A soft CIC-blue light from the top, fading into the black canvas. */
-const GLOW = 'linear-gradient(180deg, rgba(3, 82, 161, 0.42) 0%, rgba(3, 82, 161, 0.12) 45%, rgba(5, 5, 5, 0) 100%)';
+/** A soft CIC-blue light from the top, fading into the canvas. */
+const Glow = {
+  dark: 'linear-gradient(180deg, rgba(3, 82, 161, 0.42) 0%, rgba(3, 82, 161, 0.12) 45%, rgba(3, 82, 161, 0) 100%)',
+  light: 'linear-gradient(180deg, rgba(3, 82, 161, 0.16) 0%, rgba(3, 82, 161, 0.05) 45%, rgba(3, 82, 161, 0) 100%)',
+} as const;
 
 const styles = StyleSheet.create({
   flex: {

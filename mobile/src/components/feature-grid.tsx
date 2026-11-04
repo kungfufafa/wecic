@@ -4,12 +4,13 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { Icon } from '@/components/icon';
 import { ThemedText } from '@/components/themed-text';
 import { Radius, Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { useElevation, useTheme } from '@/hooks/use-theme';
 import type { Feature } from '@/lib/features';
 
 /** Services as round tiles, four to a row, each with its name under it. */
 export function FeatureGrid({ features, badges = {} }: { features: Feature[]; badges?: Record<string, string | null> }) {
   const theme = useTheme();
+  const elevation = useElevation();
   const router = useRouter();
 
   return (
@@ -27,7 +28,7 @@ export function FeatureGrid({ features, badges = {} }: { features: Feature[]; ba
             style={styles.item}>
             {({ pressed }) => (
               <>
-                <View style={[styles.tile, { backgroundColor: pressed ? theme.elevated : theme.section }]}>
+                <View style={[styles.tile, { backgroundColor: pressed ? theme.elevatedPressed : theme.section, boxShadow: elevation.raised }]}>
                   <Icon name={feature.icon} size={24} color={theme.text} />
                 </View>
                 <ThemedText type="caption" style={styles.label} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
@@ -35,7 +36,7 @@ export function FeatureGrid({ features, badges = {} }: { features: Feature[]; ba
                 </ThemedText>
                 {badge ? (
                   <View style={[styles.badge, { backgroundColor: theme.badge, borderColor: theme.background }]}>
-                    <ThemedText type="caption" style={{ color: theme.light }}>
+                    <ThemedText type="caption" style={{ color: theme.onColor }}>
                       {badge}
                     </ThemedText>
                   </View>

@@ -1,7 +1,8 @@
 import { StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { CourseColors, Radius } from '@/constants/theme';
+import { Radius } from '@/constants/theme';
+import { useCourseColors } from '@/hooks/use-theme';
 import { courseColorIndex, courseInitials } from '@/lib/format';
 
 type CourseTileProps = {
@@ -12,7 +13,8 @@ type CourseTileProps = {
 
 /** A course's monogram on its own color, the same wherever the course appears. */
 export function CourseTile({ name, code, size = 44 }: CourseTileProps) {
-  const color = CourseColors[courseColorIndex(code ?? name, CourseColors.length)];
+  const courseColors = useCourseColors();
+  const color = courseColors[courseColorIndex(code ?? name, courseColors.length)];
 
   return (
     <View

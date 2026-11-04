@@ -77,6 +77,10 @@ const ICONS = {
   calendarClock: { ios: 'calendar.badge.clock', android: 'event_upcoming', web: 'event_upcoming' },
   alert: { ios: 'exclamationmark.circle.fill', android: 'error', web: 'error' },
   refresh: { ios: 'arrow.clockwise', android: 'refresh', web: 'refresh' },
+  sun: { ios: 'sun.max.fill', android: 'light_mode', web: 'light_mode' },
+  moon: { ios: 'moon.fill', android: 'dark_mode', web: 'dark_mode' },
+  appearance: { ios: 'circle.lefthalf.filled', android: 'contrast', web: 'contrast' },
+  checkmark: { ios: 'checkmark', android: 'check', web: 'check' },
 } as const satisfies Record<string, PlatformSymbol>;
 
 export type IconName = keyof typeof ICONS;

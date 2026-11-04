@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { Icon, type IconName } from '@/components/icon';
 import { ThemedText } from '@/components/themed-text';
 import { Radius, Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { useElevation, useTheme } from '@/hooks/use-theme';
 
 type ChipProps = {
   label: string;
@@ -13,9 +13,14 @@ type ChipProps = {
   onPress?: () => void;
 };
 
-/** A pill: a filter to pick, or a small fact in a section's corner. */
+/**
+ * A raised pill (white in light mode, deep charcoal in dark): a filter to
+ * pick, or a small fact in a section's corner.
+ */
 export function Chip({ label, selected = false, icon, onPress }: ChipProps) {
   const theme = useTheme();
+  const elevation = useElevation();
+  const surface = { backgroundColor: theme.panel, borderColor: theme.panelBorder, boxShadow: elevation.raised };
   const textColor = selected ? theme.text : theme.textSecondary;
 
   const content = (
@@ -28,7 +33,7 @@ export function Chip({ label, selected = false, icon, onPress }: ChipProps) {
   );
 
   if (!onPress) {
-    return <View style={[styles.chip, { backgroundColor: theme.elevated }]}>{content}</View>;
+    return <View style={[styles.chip, surface]}>{content}</View>;
   }
 
   return (
@@ -39,7 +44,8 @@ export function Chip({ label, selected = false, icon, onPress }: ChipProps) {
       onPress={onPress}
       style={({ pressed }) => [
         styles.chip,
-        { backgroundColor: selected ? theme.selected : pressed ? theme.elevatedPressed : theme.elevated },
+        surface,
+        selected ? { backgroundColor: theme.selected } : pressed && { backgroundColor: theme.elevatedPressed },
       ]}>
       {content}
     </Pressable>
@@ -54,5 +60,6 @@ const styles = StyleSheet.create({
     gap: Spacing.one + Spacing.half,
     paddingHorizontal: Spacing.three - Spacing.one,
     borderRadius: Radius.pill,
+    borderWidth: StyleSheet.hairlineWidth,
   },
 });

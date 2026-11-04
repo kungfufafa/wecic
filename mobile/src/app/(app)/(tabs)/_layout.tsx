@@ -1,6 +1,6 @@
 import { NativeTabs } from 'expo-router/native-tabs';
 
-import { useTheme } from '@/hooks/use-theme';
+import { useResolvedColorScheme, useTheme } from '@/hooks/use-theme';
 import { useUnreadCount } from '@/hooks/use-unread-count';
 import { useNotificationTaps } from '@/push/use-notification-taps';
 
@@ -12,6 +12,7 @@ import { useNotificationTaps } from '@/push/use-notification-taps';
  */
 export default function AppTabs() {
   const theme = useTheme();
+  const scheme = useResolvedColorScheme();
   const unreadCount = useUnreadCount();
 
   useNotificationTaps();
@@ -19,7 +20,7 @@ export default function AppTabs() {
   return (
     <NativeTabs
       backgroundColor={theme.section}
-      indicatorColor={theme.elevated}
+      indicatorColor={scheme === 'dark' ? theme.panel : theme.elevatedPressed}
       tintColor={theme.text}
       iconColor={{ default: theme.textSecondary, selected: theme.text }}
       labelVisibilityMode="unlabeled"

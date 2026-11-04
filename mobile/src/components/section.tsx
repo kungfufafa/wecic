@@ -3,7 +3,7 @@ import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { Radius, SectionInset, Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { useElevation, useTheme } from '@/hooks/use-theme';
 
 type SectionProps = {
   /** The quiet label in the section's top corner. */
@@ -15,8 +15,8 @@ type SectionProps = {
 };
 
 /**
- * A charcoal section with its label on top and its content on the deeper
- * panels inside it, the app's basic grouping.
+ * A section (light grey or charcoal) with its label on top and its content
+ * on the panels inside it, the app's basic grouping.
  */
 export function Section({ label, accessory, children, style }: SectionProps) {
   const theme = useTheme();
@@ -47,11 +47,22 @@ type PanelProps = {
   style?: StyleProp<ViewStyle>;
 };
 
-/** The deeper surface inside a section that holds its content. */
+/** The surface inside a section that holds its content: white in light mode, deep charcoal in dark. */
 export function Panel({ children, padded = true, style }: PanelProps) {
   const theme = useTheme();
+  const elevation = useElevation();
 
-  return <View style={[styles.panel, padded && styles.padded, { backgroundColor: theme.panel }, style]}>{children}</View>;
+  return (
+    <View
+      style={[
+        styles.panel,
+        padded && styles.padded,
+        { backgroundColor: theme.panel, borderColor: theme.panelBorder, boxShadow: elevation.panel },
+        style,
+      ]}>
+      {children}
+    </View>
+  );
 }
 
 /** A hairline between rows of a panel, starting at `inset`. */
@@ -81,6 +92,7 @@ const styles = StyleSheet.create({
   },
   panel: {
     borderRadius: Radius.panel,
+    borderWidth: StyleSheet.hairlineWidth,
     overflow: 'hidden',
   },
   padded: {

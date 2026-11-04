@@ -18,11 +18,11 @@ import { Divider, Panel, Section } from '@/components/section';
 import { SkeletonRows } from '@/components/skeleton';
 import { StatusPill } from '@/components/status-pill';
 import { ThemedText } from '@/components/themed-text';
-import { BrandGradient, CourseColors, Radius, Spacing } from '@/constants/theme';
+import { BrandGradient, Colors, Radius, Spacing } from '@/constants/theme';
 import { useApiResource } from '@/hooks/use-api-resource';
 import { useReachable } from '@/hooks/use-connectivity';
 import { setKnownUser, useKnownUser } from '@/hooks/use-known-user';
-import { useTheme } from '@/hooks/use-theme';
+import { useCourseColors, useTheme } from '@/hooks/use-theme';
 import { useUnreadCountValue } from '@/hooks/use-unread-count';
 import { featuresByKey, HOME_FEATURE_KEYS } from '@/lib/features';
 import { todayClassRoute } from '@/lib/today';
@@ -194,7 +194,7 @@ function UpNextCard({ todayClass, inProgress }: { todayClass: TodayClass; inProg
       style={({ pressed }) => [styles.upNext, { backgroundColor: theme.brandStrong, backgroundImage: BrandGradient }, pressed && styles.pressed]}>
       <View style={styles.upNextTop}>
         <View style={styles.upNextTile}>
-          <ThemedText type="smallBold" style={{ color: theme.light }}>
+          <ThemedText type="smallBold" style={{ color: theme.onColor }}>
             {courseInitials(todayClass.course_name, todayClass.course_code)}
           </ThemedText>
         </View>
@@ -202,13 +202,13 @@ function UpNextCard({ todayClass, inProgress }: { todayClass: TodayClass; inProg
           {inProgress ? 'Sedang berlangsung' : 'Kelas berikutnya'}
         </ThemedText>
         {start ? (
-          <ThemedText type="subtitle" style={{ color: theme.light }}>
+          <ThemedText type="subtitle" style={{ color: theme.onColor }}>
             {end ? `${start}–${end}` : start}
           </ThemedText>
         ) : null}
       </View>
       <View style={styles.upNextBody}>
-        <ThemedText type="heading" style={{ color: theme.light }} numberOfLines={2}>
+        <ThemedText type="heading" style={{ color: theme.onColor }} numberOfLines={2}>
           {todayClass.course_name ?? 'Mata kuliah'}
         </ThemedText>
         <View style={styles.upNextMeta}>
@@ -221,9 +221,9 @@ function UpNextCard({ todayClass, inProgress }: { todayClass: TodayClass; inProg
             <Pressable
               accessibilityRole="button"
               onPress={() => router.push('/attendance')}
-              style={({ pressed }) => [styles.absenButton, { backgroundColor: pressed ? theme.lightPressed : theme.light }]}>
-              <Icon name="qr" size={16} color={theme.onLight} />
-              <ThemedText type="smallBold" style={{ color: theme.onLight }}>
+              style={({ pressed }) => [styles.absenButton, { backgroundColor: pressed ? Colors.dark.primaryPressed : Colors.dark.primary }]}>
+              <Icon name="qr" size={16} color={Colors.dark.onPrimary} />
+              <ThemedText type="smallBold" style={{ color: Colors.dark.onPrimary }}>
                 Absen
               </ThemedText>
             </Pressable>
@@ -242,7 +242,8 @@ function TodayClassRow({ todayClass }: { todayClass: TodayClass }) {
   const active = todayClass.active_now === true;
   const start = shortTime(todayClass.schedule?.start_time);
   const end = shortTime(todayClass.schedule?.end_time);
-  const courseColor = CourseColors[courseColorIndex(todayClass.course_code ?? todayClass.course_name, CourseColors.length)];
+  const courseColors = useCourseColors();
+  const courseColor = courseColors[courseColorIndex(todayClass.course_code ?? todayClass.course_name, courseColors.length)];
 
   return (
     <Pressable

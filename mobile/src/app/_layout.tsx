@@ -1,13 +1,13 @@
 import * as Sentry from '@sentry/react-native';
-import { DarkTheme, Stack, ThemeProvider, type Theme } from 'expo-router';
+import { DarkTheme, DefaultTheme, Stack, ThemeProvider, type Theme } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
-import { Appearance, Platform } from 'react-native';
 
 import { SessionProvider, useSession } from '@/auth/session-provider';
 import { NetworkWatcher } from '@/components/network-watcher';
-import { Colors } from '@/constants/theme';
+import { Colors, type ColorSchemeName } from '@/constants/theme';
+import { useResolvedColorScheme, useTheme } from '@/hooks/use-theme';
 import { initSentry } from '@/lib/sentry';
 import { configureNotificationPresentation } from '@/push/push-notifications';
 
@@ -15,29 +15,32 @@ initSentry();
 SplashScreen.preventAutoHideAsync();
 configureNotificationPresentation();
 
-// MyCIC is dark only; native controls (switches, alerts, the tab bar) follow.
-if (Platform.OS !== 'web') {
-  Appearance.setColorScheme('dark');
-}
+/** React Navigation's colors for each mode, from the app's palette. */
+function navigationTheme(scheme: ColorSchemeName): Theme {
+  const base = scheme === 'dark' ? DarkTheme : DefaultTheme;
+  const palette = Colors[scheme];
 
-const navigationTheme: Theme = {
-  ...DarkTheme,
-  colors: {
-    ...DarkTheme.colors,
-    primary: Colors.dark.text,
-    background: Colors.dark.background,
-    card: Colors.dark.section,
-    text: Colors.dark.text,
-    border: Colors.dark.hairline,
-  },
-};
+  return {
+    ...base,
+    colors: {
+      ...base.colors,
+      primary: palette.text,
+      background: palette.background,
+      card: palette.section,
+      text: palette.text,
+      border: palette.hairline,
+    },
+  };
+}
 
 export default Sentry.wrap(RootLayout);
 
 function RootLayout() {
+  const scheme = useResolvedColorScheme();
+
   return (
-    <ThemeProvider value={navigationTheme}>
-      <StatusBar style="light" />
+    <ThemeProvider value={navigationTheme(scheme)}>
+      <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
       <NetworkWatcher />
       <SessionProvider>
         <SplashScreenController />
@@ -64,9 +67,10 @@ function SplashScreenController() {
 function RootNavigator() {
   const { state } = useSession();
   const signedIn = state.status === 'signedIn';
+  const theme = useTheme();
 
   return (
-    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: Colors.dark.background } }}>
+    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: theme.background } }}>
       <Stack.Protected guard={signedIn}>
         <Stack.Screen name="(app)" />
       </Stack.Protected>
