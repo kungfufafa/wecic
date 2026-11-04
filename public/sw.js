@@ -3,9 +3,9 @@
 // offline page that probes the server before it reloads. A device keeps its
 // stored offline.html until this file changes, so a change to that page
 // ships with a change here.
-const CACHE_NAME = 'mycic-v6';
+const CACHE_NAME = 'mycic-v7';
 const PROTECTED_PAGE_CACHE_NAME = 'mycic-pages-v2';
-const STATIC_CACHE_NAME = 'mycic-static-v3';
+const STATIC_CACHE_NAME = 'mycic-static-v4';
 const OFFLINE_URL = '/offline.html';
 // Every signed-in page: cached only in PROTECTED_PAGE_CACHE_NAME, which
 // logout and an ended session clear.
@@ -50,6 +50,7 @@ function carriesCredentials(url) {
 function isStaticAsset(pathname) {
     return pathname === '/manifest.json'
         || pathname === '/favicon.ico'
+        || pathname === '/favicon.svg'
         || STATIC_ASSET_PREFIXES.some((prefix) => pathname.startsWith(prefix));
 }
 

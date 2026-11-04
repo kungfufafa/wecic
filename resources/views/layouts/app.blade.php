@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', config('app.name'))</title>
+    <link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48">
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#0352A1">
     <meta name="mobile-web-app-capable" content="yes">
@@ -158,8 +160,7 @@
         <header class="mycic-page-header print:hidden">
             <div class="mycic-container flex h-14 items-center gap-3 md:gap-4">
                 <a href="{{ route('dashboard') }}" class="mycic-brand-wordmark shrink-0" aria-label="WeCIC, beranda">
-                    <img src="/icons/icon-192.png" alt="" class="h-8 w-8 rounded-lg transition-transform hover:scale-105" width="32" height="32">
-                    <span>We<span class="text-ink">CIC</span></span>
+                    <x-brand-logo class="h-10" />
                 </a>
 
                 <nav class="mycic-top-nav" aria-label="Navigasi utama">

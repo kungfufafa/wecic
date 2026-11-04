@@ -16,12 +16,9 @@
             </svg>
 
             <div class="mycic-auth-showcase-content">
-                <div class="flex items-center gap-3">
-                    <img src="/icons/icon-192.png" alt="" class="h-12 w-12 rounded-xl" width="48" height="48">
-                    <div>
-                        <div class="text-2xl font-black tracking-tight text-white">We<span class="text-[#ffc300]">CIC</span></div>
-                        <div class="text-[0.68rem] font-semibold uppercase tracking-wider text-white/80">Aplikasi tidak resmi untuk MyCIC</div>
-                    </div>
+                <div class="flex flex-col items-start gap-2">
+                    <x-brand-logo :on-dark="true" class="h-16" />
+                    <div class="text-[0.68rem] font-semibold uppercase tracking-wider text-white/80">Aplikasi tidak resmi untuk MyCIC</div>
                 </div>
 
                 <div>
@@ -39,12 +36,9 @@
 
         <main class="mycic-auth-form-panel">
             <div class="mycic-auth-form-inner">
-                <div class="mycic-auth-mobile-brand mb-6 flex items-center gap-3 lg:hidden">
-                    <img src="/icons/icon-192.png" alt="" class="h-10 w-10 rounded-xl" width="40" height="40">
-                    <div class="leading-tight">
-                        <div class="text-2xl font-extrabold tracking-tight text-brand">We<span class="text-ink">CIC</span></div>
-                        <div class="text-[0.65rem] font-semibold uppercase tracking-wider text-ink-subtle">Aplikasi tidak resmi untuk MyCIC</div>
-                    </div>
+                <div class="mb-6 flex flex-col items-start gap-2 lg:hidden">
+                    <x-brand-logo class="h-14" />
+                    <div class="text-[0.65rem] font-semibold uppercase tracking-wider text-ink-subtle">Aplikasi tidak resmi untuk MyCIC</div>
                 </div>
 
                 <header>

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256"><title>WeCIC</title><g transform="translate(-15.85 -12.12) scale(1.121)">
+  <title id="title">WeCIC — Kait CIC, small-size cut</title>
+  <g fill="#111111" transform="translate(-6 0)">
+    <path d="M110 28H177C197 28 199 37 194 51L192 56Q191 60 184 60H134C117 60 106 68 97 83L77 117.64C72 126 76 132 87 132H111L91.95 165H75C45 165 22 145 25 122C26 114 30 111 34 104L69 43.38C79 30 94 28 110 28Z"/>
+    <path transform="translate(12 0)" d="M135 74H150Q157 74 157 81V89Q157 92 153 94L139.14 102Q136 104 133 104Q127 104 127 98V82Q127 74 135 74Z"/>
+    <path transform="translate(12 0)" d="M157 110V142L140 171.44C136 178 139 182 147 182H220Q227 182 224 190L218 207C214 219 208 222 195 222H115C96 222 86 213 86 200C86 194 88 188 92 181.07L124 125.64C126 122.18 136 122.13 145 116.93Z"/>
+    <path transform="translate(12 0)" d="M183 102H208C228 102 236 113 230 129L228 135Q227 138 221 138H191C184 138 178 139 173 142V112Q173 102 183 102Z"/>
+  </g>
+</g><style>@media (prefers-color-scheme: dark) { path { fill: #fff; } }</style></svg>

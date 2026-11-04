@@ -4,13 +4,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ApiError } from '@/api/client';
 import { useSession } from '@/auth/session-provider';
+import { BrandLogo } from '@/components/brand-logo';
 import { Button } from '@/components/button';
 import { Icon } from '@/components/icon';
 import { Notice } from '@/components/notice';
 import { OfflineStrip } from '@/components/offline-strip';
 import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
-import { BrandGradient, MaxContentWidth, Radius, Spacing } from '@/constants/theme';
+import { MaxContentWidth, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 /**
@@ -74,13 +75,7 @@ export default function SignInScreen() {
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
           <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
             <View style={styles.brand}>
-              <View style={styles.wordmark} accessible accessibilityLabel="WeCIC">
-                <View style={[styles.mark, { backgroundColor: theme.brandStrong, backgroundImage: BrandGradient }]}>
-                  <ThemedText style={[styles.markText, { color: theme.light }]}>We</ThemedText>
-                  <View style={[styles.markDot, { backgroundColor: theme.accent }]} />
-                </View>
-                <ThemedText type="heading">WeCIC</ThemedText>
-              </View>
+              <BrandLogo />
               <View style={styles.heading}>
                 <ThemedText type="display">Selamat datang</ThemedText>
                 <ThemedText type="default" themeColor="textSecondary">
@@ -186,33 +181,6 @@ const styles = StyleSheet.create({
   },
   brand: {
     gap: Spacing.four,
-  },
-  wordmark: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.two + Spacing.one,
-  },
-  mark: {
-    width: 44,
-    height: 44,
-    overflow: 'hidden',
-    borderRadius: Radius.medium,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  markDot: {
-    position: 'absolute',
-    right: 7,
-    bottom: 13,
-    width: 5,
-    height: 5,
-    borderRadius: 3,
-  },
-  markText: {
-    fontSize: 17,
-    lineHeight: 22,
-    fontWeight: 700,
-    letterSpacing: -0.4,
   },
   heading: {
     gap: Spacing.two,

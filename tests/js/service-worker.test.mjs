@@ -202,6 +202,48 @@ describe('service worker caches', () => {
         assert.equal((await worker.dispatch('fetch', { request: { method: 'POST', url: absolute('/login'), mode: 'navigate' } })).handled, false);
     });
 
+    it('keeps the SVG favicon and brand artwork available offline in the static cache', async () => {
+        const assets = [
+            '/favicon.svg',
+            '/icons/wecic-logo.svg',
+            '/icons/icon-192.png',
+        ];
+
+        for (const asset of assets) {
+            await worker.navigate(asset, 'cors');
+        }
+
+        assert.deepEqual(worker.storedUrls(worker.constant('STATIC_CACHE_NAME')), assets);
+        assert.deepEqual(worker.storedUrls(worker.constant('CACHE_NAME')), []);
+        assert.deepEqual(worker.storedUrls(worker.constant('PROTECTED_PAGE_CACHE_NAME')), []);
+
+        worker.network.respond = () => {
+            throw new TypeError('Failed to fetch');
+        };
+
+        for (const asset of assets) {
+            assert.equal((await worker.navigate(asset, 'cors')).answer.url, absolute(asset));
+        }
+    });
+
+    it('refreshes a cached logo from the network for the next offline visit', async () => {
+        const asset = '/icons/wecic-logo.svg';
+        const previousArtwork = page(absolute(asset));
+        const updatedArtwork = page(absolute(asset));
+        worker.network.respond = () => previousArtwork;
+        await worker.navigate(asset, 'cors');
+
+        worker.network.respond = () => updatedArtwork;
+
+        assert.equal((await worker.navigate(asset, 'cors')).answer, previousArtwork);
+
+        worker.network.respond = () => {
+            throw new TypeError('Failed to fetch');
+        };
+
+        assert.equal((await worker.navigate(asset, 'cors')).answer, updatedArtwork);
+    });
+
     it('stores the offline page fetched past the HTTP cache, so a device gets the page this version ships', async () => {
         await worker.dispatch('install', {});
 
@@ -260,13 +302,25 @@ describe('ending a session', () => {
         assert.deepEqual(worker.storedUrls(worker.constant('PROTECTED_PAGE_CACHE_NAME')), ['/dashboard']);
     });
 
-    it('drops caches of older versions on activate', async () => {
-        await (await worker.caches.open('mycic-v4')).put(`${origin}/archive/print/1`, page(`${origin}/archive/print/1`));
+    it('drops the previous shell and artwork caches on activate while preserving signed-in pages', async () => {
+        await (await worker.caches.open('mycic-v6')).put(`${origin}/offline.html`, page(`${origin}/offline.html`));
+        await (await worker.caches.open('mycic-static-v3')).put(`${origin}/icons/icon-192.png`, page(`${origin}/icons/icon-192.png`));
+        await worker.dispatch('install', {});
+        await worker.navigate('/favicon.svg', 'cors');
         await worker.navigate('/dashboard');
 
         await worker.dispatch('activate', {});
 
-        assert.deepEqual(await worker.caches.keys(), [worker.constant('PROTECTED_PAGE_CACHE_NAME')]);
+        assert.deepEqual((await worker.caches.keys()).sort(), [
+            worker.constant('CACHE_NAME'),
+            worker.constant('STATIC_CACHE_NAME'),
+            worker.constant('PROTECTED_PAGE_CACHE_NAME'),
+        ].sort());
+        assert.equal(worker.caches.stores.has('mycic-v6'), false);
+        assert.equal(worker.caches.stores.has('mycic-static-v3'), false);
+        assert.deepEqual(worker.storedUrls(worker.constant('CACHE_NAME')), [worker.constant('OFFLINE_URL')]);
+        assert.deepEqual(worker.storedUrls(worker.constant('STATIC_CACHE_NAME')), ['/favicon.svg']);
+        assert.deepEqual(worker.storedUrls(worker.constant('PROTECTED_PAGE_CACHE_NAME')), ['/dashboard']);
     });
 });
 

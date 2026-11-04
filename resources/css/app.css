@@ -234,7 +234,7 @@ html[data-theme='dark'] {
     }
 
     .mycic-brand-wordmark {
-        @apply inline-flex items-center gap-2.5 text-xl font-extrabold tracking-tight text-brand no-underline;
+        @apply inline-flex items-center no-underline;
     }
 
     .mycic-page-heading {
@@ -939,10 +939,6 @@ html[data-theme='dark'] {
         @apply relative z-10 flex h-full flex-col justify-between p-10 xl:p-14;
     }
 
-    .mycic-auth-showcase-brand {
-        @apply text-2xl font-extrabold tracking-tight text-white;
-    }
-
     .mycic-auth-quote {
         @apply max-w-md text-2xl font-bold leading-snug tracking-tight text-white/95 xl:text-3xl;
     }
@@ -957,10 +953,6 @@ html[data-theme='dark'] {
 
     .mycic-auth-form-inner {
         @apply mx-auto flex w-full max-w-md flex-1 flex-col justify-center;
-    }
-
-    .mycic-auth-mobile-brand {
-        @apply mb-6 text-2xl font-extrabold tracking-tight text-brand;
     }
 
     @media (prefers-reduced-motion: reduce) {

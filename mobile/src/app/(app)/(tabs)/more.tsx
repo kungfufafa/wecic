@@ -7,6 +7,7 @@ import { Alert, Platform, StyleSheet, View } from 'react-native';
 import { apiBaseUrl, webUrl } from '@/api/config';
 import { useSession } from '@/auth/session-provider';
 import { Avatar } from '@/components/avatar';
+import { BrandLogo } from '@/components/brand-logo';
 import { Button } from '@/components/button';
 import { ListRow, ListRowTextInset } from '@/components/list-row';
 import { MetaRow } from '@/components/meta-row';
@@ -136,9 +137,12 @@ export default function MoreScreen() {
 
       <Button variant="danger" icon="signOut" label="Keluar" loading={signingOut} onPress={confirmSignOut} />
 
-      <ThemedText type="caption" themeColor="textQuaternary" style={styles.footer}>
-        WeCIC · aplikasi tidak resmi untuk MyCIC, tidak berafiliasi dengan UCIC
-      </ThemedText>
+      <View style={styles.footer}>
+        <BrandLogo width={132} />
+        <ThemedText type="caption" themeColor="textQuaternary" style={styles.centered}>
+          WeCIC · aplikasi tidak resmi untuk MyCIC, tidak berafiliasi dengan UCIC
+        </ThemedText>
+      </View>
     </Screen>
   );
 }
@@ -170,7 +174,11 @@ const styles = StyleSheet.create({
     gap: Spacing.two - Spacing.half,
   },
   footer: {
-    textAlign: 'center',
+    alignItems: 'center',
+    gap: Spacing.two,
     marginTop: Spacing.two,
+  },
+  centered: {
+    textAlign: 'center',
   },
 });
