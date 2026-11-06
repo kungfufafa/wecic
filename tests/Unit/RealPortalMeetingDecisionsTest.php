@@ -316,9 +316,11 @@ class RealPortalMeetingDecisionsTest extends TestCase
         $this->assertSame('/meeting/36365?courses_id=9496', $dueToday['meeting_url']);
         $this->assertSame('../files/latihan/7836009139c4eb3d39d4d31978994c2a-3-lat-2dd.pdf', $dueToday['assignment_file_url']);
         $this->assertSame(['courses_id' => '9496', 'id' => '36365', 'pertemuan' => 3], $dueToday['assignment_payload']);
+        $this->assertNull($dueToday['upload_status_text'], 'An open upload needs no reason.');
 
         $this->assertFalse($closed['can_submit_directly'], 'The closed meeting page links no upload form.');
         $this->assertSame('2026-10-17', $closed['deadline_date']);
+        $this->assertSame('Waktu upload tugas sudah berakhir.', $closed['upload_status_text'], 'The portal\'s reason, without the deadline the card shows already.');
 
         $this->assertNull($this->pendingAssignment(36633, 9496, 4, 'Data Governance'));
         $this->assertNull($this->pendingAssignment(36957, 9496, 5, 'Data Governance'));

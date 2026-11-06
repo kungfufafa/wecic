@@ -91,7 +91,7 @@
                                             <button type="submit" class="${app.buttonClass('primary')}" data-online-required>Kirim</button>
                                         </form>
                                     ` : `
-                                        <div class="text-sm text-ink-subtle">Portal sedang tidak membuka upload tugas ini. Buka detail untuk melihat statusnya.</div>
+                                        <div class="text-sm text-ink-subtle">${assignment.upload_status_text ? esc(assignment.upload_status_text) : 'Portal sedang tidak membuka upload tugas ini. Buka detail untuk melihat statusnya.'}</div>
                                     `}
                                 </div>
                             </div>

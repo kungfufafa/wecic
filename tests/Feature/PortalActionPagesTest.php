@@ -48,6 +48,10 @@ class PortalActionPagesTest extends TestCase
             ->assertSee("} else if (assignmentStatus === 'upload_unavailable') {", false)
             ->assertSee("} else if (assignmentStatus === 'unresolved') {", false)
             ->assertSee('Cek ulang status')
+            ->assertSee('data-assignment-override>', false)
+            ->assertSee('Tetap kirim tugas')
+            ->assertSee("if (assignmentForm.closest('[data-assignment-override]')) {", false)
+            ->assertSee("formData.append('allow_closed', '1');", false)
             ->assertSee('if (file.size > ASSIGNMENT_MAX_BYTES) {', false)
             ->assertSee('if (error.status === 409 && error.payload?.data?.operation_id) {', false);
     }
@@ -116,7 +120,7 @@ class PortalActionPagesTest extends TestCase
             ->assertSee("const payload = await app.request('/api/assignment/pending', { fresh: false, background });", false)
             ->assertSee("'announcements', 'exams', 'assignments'];", false)
             ->assertDontSee("app.request('/api/assignment/pending', { fresh: force })", false)
-            ->assertSee('Portal sedang tidak membuka upload tugas ini.');
+            ->assertSee('${assignment.upload_status_text ? esc(assignment.upload_status_text) : \'Portal sedang tidak membuka upload tugas ini.', false);
     }
 
     public function test_meeting_page_on_another_day_still_lets_a_moved_class_send_its_code(): void

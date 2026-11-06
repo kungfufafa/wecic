@@ -115,7 +115,8 @@ class PortalOutboxSender
             (string) ($payload['mime_type'] ?? 'application/pdf'),
             is_array($payload['form_values'] ?? null) ? $payload['form_values'] : [],
             $upload['lock_key'],
-            $upload['lock_owner']
+            $upload['lock_owner'],
+            (bool) ($payload['allow_closed'] ?? false)
         ));
 
         return $this->operationOutcome($operationId, 'Upload tugas gagal diproses portal.');

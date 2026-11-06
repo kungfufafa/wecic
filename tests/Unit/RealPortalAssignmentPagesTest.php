@@ -149,6 +149,37 @@ class RealPortalAssignmentPagesTest extends TestCase
         $this->assertStringContainsString('sudah ditutup', $result['message']);
     }
 
+    #[DataProvider('closedAssignmentPages')]
+    public function test_a_closed_assignment_is_posted_when_the_student_overrides_the_closed_window(int $meetingId, int $coursesId, int $meetingNumber): void
+    {
+        $page = $this->assignmentPage($meetingId, $coursesId, $meetingNumber);
+        $this->assertStringContainsString('Waktu upload tugas sudah berakhir', $page);
+
+        $history = [];
+        $service = $this->serviceAnswering([
+            new Response(200, [], $page),
+            new ConnectException('cURL error 28: Operation timed out', new Request('POST', 'https://portal.invalid/portal/sipandai/?mod=sipandai&act=sent')),
+        ], $history);
+
+        $service->submitAssignment('token-real', $coursesId, $meetingId, $meetingNumber, $this->pdf(), allowClosed: true);
+
+        $this->assertCount(2, $history, 'The override posts the file to the closed form.');
+        $post = $history[1]['request'];
+        $this->assertSame('POST', $post->getMethod());
+        $this->assertStringContainsString('act=sent', (string) $post->getUri());
+        // The closed form keeps its hidden fields and the empty Pesan input; it
+        // lacks only the Upload button, which MyCIC supplies as cmd=Upload.
+        $this->assertSame([
+            'data[courses_id]' => (string) $coursesId,
+            'data[pertemuan]' => (string) $meetingNumber,
+            'data[id]' => (string) $meetingId,
+            'data[name]' => '',
+            'pertemuan' => (string) $meetingNumber,
+            'cmd' => 'Upload',
+            'data[tugas]' => 'tugas.pdf',
+        ], $this->multipartFields($post));
+    }
+
     #[DataProvider('openAssignmentPages')]
     public function test_an_open_assignment_is_posted_with_the_hidden_fields_of_its_real_form(int $meetingId, int $coursesId, int $meetingNumber): void
     {

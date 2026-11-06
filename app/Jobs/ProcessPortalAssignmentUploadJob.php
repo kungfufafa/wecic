@@ -67,7 +67,8 @@ class ProcessPortalAssignmentUploadJob implements ShouldQueue
         private readonly string $mimeType,
         private readonly array $formValues = [],
         private readonly ?string $targetLockKey = null,
-        private readonly ?string $targetLockOwner = null
+        private readonly ?string $targetLockOwner = null,
+        private readonly bool $allowClosed = false
     ) {}
 
     public function handle(
@@ -97,7 +98,8 @@ class ProcessPortalAssignmentUploadJob implements ShouldQueue
                 $this->meetingNumber,
                 $uploadedFile,
                 $this->formValues,
-                fn (PortalOperationStage $stage, string $message, int $percent) => $this->reportStage($tracker, $broadcast, $stage, $message, $percent)
+                fn (PortalOperationStage $stage, string $message, int $percent) => $this->reportStage($tracker, $broadcast, $stage, $message, $percent),
+                $this->allowClosed
             );
         } catch (\Throwable $throwable) {
             Log::warning('SIPANDAI assignment upload failed before the portal stored it', [

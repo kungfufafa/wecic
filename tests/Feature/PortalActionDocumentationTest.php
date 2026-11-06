@@ -33,6 +33,7 @@ class PortalActionDocumentationTest extends TestCase
                 'attachment',
                 'form_values',
                 'deadline',
+                'allow_closed',
             ], $properties);
         } finally {
             @unlink($exportPath);

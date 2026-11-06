@@ -244,7 +244,8 @@ class PortalActionController extends CampusApiController
                     $request->hasMeetingContext() ? $request->meetingId() : null,
                     $request->attachment(),
                     $request->formValues(),
-                    $request->deadline()
+                    $request->deadline(),
+                    $request->allowClosed()
                 ));
             }
 
@@ -301,7 +302,8 @@ class PortalActionController extends CampusApiController
                 $attachment->getMimeType() ?: 'application/pdf',
                 $request->formValues(),
                 $uploadLock['key'],
-                $uploadLock['owner']
+                $uploadLock['owner'],
+                $request->allowClosed()
             );
 
             return $this->booleanResponse(true, 'Upload tugas diterima dan sedang diproses.', [

@@ -78,6 +78,13 @@ class SipandaiAssignmentUploadRequest extends ApiFormRequest
              * @example "2026-04-14T23:59:00+07:00"
              */
             'deadline' => ['sometimes', 'nullable', 'date'],
+            /**
+             * Kirim tugas walau portal sudah menutup tombol upload (tenggat lewat).
+             * Portal tetap yang memutuskan diterima atau ditolak.
+             *
+             * @example true
+             */
+            'allow_closed' => ['sometimes', 'boolean'],
         ];
     }
 
@@ -158,6 +165,11 @@ class SipandaiAssignmentUploadRequest extends ApiFormRequest
         $values = $this->validated('form_values', []);
 
         return is_array($values) ? $values : [];
+    }
+
+    public function allowClosed(): bool
+    {
+        return $this->boolean('allow_closed');
     }
 
     public function deadline(): ?CarbonImmutable

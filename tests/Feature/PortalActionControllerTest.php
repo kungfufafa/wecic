@@ -114,6 +114,49 @@ class PortalActionControllerTest extends TestCase
         $this->assertNotEmpty($operation['session_id']);
     }
 
+    public function test_upload_assignment_carries_the_override_flag_to_the_job(): void
+    {
+        Bus::fake();
+
+        $this->mockValidCampusSession('token-override');
+
+        $this->withSession(['campus_session_token' => 'token-override'])
+            ->post('/api/assignment', [
+                'courses_id' => 9496,
+                'id' => 36633,
+                'pertemuan' => 4,
+                'allow_closed' => '1',
+                'attachment' => UploadedFile::fake()->create('task.pdf', 64, 'application/pdf'),
+            ], ['Accept' => 'application/json'])
+            ->assertStatus(202);
+
+        Bus::assertDispatchedAfterResponse(
+            ProcessPortalAssignmentUploadJob::class,
+            fn (ProcessPortalAssignmentUploadJob $job): bool => (new \ReflectionProperty($job, 'allowClosed'))->getValue($job) === true
+        );
+    }
+
+    public function test_upload_assignment_does_not_override_the_closed_window_by_default(): void
+    {
+        Bus::fake();
+
+        $this->mockValidCampusSession('token-default');
+
+        $this->withSession(['campus_session_token' => 'token-default'])
+            ->post('/api/assignment', [
+                'courses_id' => 9496,
+                'id' => 36633,
+                'pertemuan' => 4,
+                'attachment' => UploadedFile::fake()->create('task.pdf', 64, 'application/pdf'),
+            ], ['Accept' => 'application/json'])
+            ->assertStatus(202);
+
+        Bus::assertDispatchedAfterResponse(
+            ProcessPortalAssignmentUploadJob::class,
+            fn (ProcessPortalAssignmentUploadJob $job): bool => (new \ReflectionProperty($job, 'allowClosed'))->getValue($job) === false
+        );
+    }
+
     public function test_upload_assignment_runs_after_the_response_and_clears_the_pending_task(): void
     {
         Storage::fake();

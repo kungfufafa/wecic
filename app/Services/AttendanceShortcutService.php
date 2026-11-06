@@ -477,7 +477,8 @@ class AttendanceShortcutService
     /**
      * `can_submit_directly` follows the upload link: the meeting page only
      * links the upload form while the portal accepts files, and without it
-     * an upload would be refused.
+     * an upload would be refused. `upload_status_text` is then what the
+     * portal writes in place of the link (see portalUploadStatusText()).
      *
      * @param  array<string, mixed>  $class
      * @param  array<string, mixed>  $candidate
@@ -518,12 +519,38 @@ class AttendanceShortcutService
             'meeting_url' => sprintf('/meeting/%s?courses_id=%s', $candidate['meeting_id'], $candidate['courses_id']),
             'assignment_file_url' => ! empty($materials['assignment_material_iframe']) ? (string) $materials['assignment_material_iframe'] : null,
             'can_submit_directly' => $hasUploadLink,
+            'upload_status_text' => $hasUploadLink ? null : $this->portalUploadStatusText($assignmentInfo),
             'assignment_payload' => [
                 'courses_id' => $candidate['courses_id'],
                 'id' => $candidate['meeting_id'],
                 'pertemuan' => $candidate['meeting_number'],
             ],
         ];
+    }
+
+    /**
+     * The portal's own words for a meeting that links no upload form, from
+     * its "Upload Tugas" row: "Batas waktu upload tugas Pertemuan 4 Sd Sabtu,
+     * 17 Oktober 2026 dan Waktu upload tugas sudah berakhir." reads "Waktu
+     * upload tugas sudah berakhir." (the deadline is on the card already).
+     * A row that names only the deadline says nothing more.
+     *
+     * @param  array<string, mixed>  $assignmentInfo
+     */
+    private function portalUploadStatusText(array $assignmentInfo): ?string
+    {
+        $rowText = trim((string) ($assignmentInfo['status_text'] ?? '')) ?: trim((string) ($assignmentInfo['deadline'] ?? ''));
+        $rowText = trim((string) preg_replace('/\s+/u', ' ', $rowText));
+
+        if (preg_match('/\d{1,2}\s+\p{L}+\s+\d{4}(.*)$/u', $rowText, $matches)) {
+            $rowText = trim((string) preg_replace('/^[\s,.;:]*(?:dan\b)?\s*/iu', '', $matches[1]));
+        }
+
+        if ($rowText === '' || $rowText === ':') {
+            return null;
+        }
+
+        return mb_strtoupper(mb_substr($rowText, 0, 1)).mb_substr($rowText, 1);
     }
 
     /**

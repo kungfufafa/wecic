@@ -68,6 +68,12 @@
                             formData.append('form_values[keterangan]', note);
                         }
 
+                        // Submitted from "Tetap kirim tugas": POST past the closed
+                        // upload window and let the portal decide.
+                        if (assignmentForm.closest('[data-assignment-override]')) {
+                            formData.append('allow_closed', '1');
+                        }
+
                         await app.guardFormSubmit(assignmentForm, () => app.withSubmitLoading(assignmentForm.querySelector('button[type="submit"]'), async () => {
                             try {
                                 const result = await app.request('/api/assignment', {

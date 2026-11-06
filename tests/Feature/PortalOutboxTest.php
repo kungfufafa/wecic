@@ -193,6 +193,26 @@ class PortalOutboxTest extends TestCase
         $this->assertTrue(CarbonImmutable::parse('2026-12-01T17:00:00+07:00')->equalTo(PortalOutboxItem::query()->latest('id')->first()->deadline_at));
     }
 
+    public function test_an_overridden_assignment_queued_offline_keeps_the_flag_and_is_not_auto_expired(): void
+    {
+        $this->fakeBus([ProcessPortalAssignmentUploadJob::class]);
+        $this->offlineSession();
+
+        $this->post('/api/assignment', [
+            'courses_id' => 9496,
+            'id' => 36633,
+            'pertemuan' => 4,
+            'deadline' => '2026-10-23T23:59:00+07:00', // already past
+            'allow_closed' => '1',
+            'attachment' => UploadedFile::fake()->create('tugas.pdf', 64, 'application/pdf'),
+        ], ['Accept' => 'application/json'])->assertStatus(202);
+
+        $item = PortalOutboxItem::query()->sole();
+        $this->assertTrue($item->payload['allow_closed']);
+        // A deliberate late submission is not expired by its own passed deadline.
+        $this->assertNull($item->deadline_at);
+    }
+
     public function test_an_attendance_code_and_an_exam_answer_wait_in_the_outbox_too(): void
     {
         $this->fakeBus([ProcessPortalExamUploadJob::class]);

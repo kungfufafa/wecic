@@ -40,7 +40,9 @@ class SipandaiSubmissionService extends PortalScrapingService
      *
      * An `act=send` page without an open upload form means the portal has
      * closed (or not yet opened) the upload, so nothing is posted: see
-     * resolveFormForAssignment(). A POST that gets
+     * resolveFormForAssignment(). `$allowClosed` overrides that — the student
+     * asked to submit past the deadline, and the portal, not MyCIC, decides
+     * whether the late POST is accepted. A POST that gets
      * no reply comes back as `unknown` with `transport_error`: the portal may
      * have stored the file before the connection dropped, and the caller
      * checks the assignment page.
@@ -52,7 +54,8 @@ class SipandaiSubmissionService extends PortalScrapingService
         int $meetingNumber,
         UploadedFile $attachment,
         array $overrides = [],
-        ?callable $onStage = null
+        ?callable $onStage = null,
+        bool $allowClosed = false
     ): array {
         $this->setSession($sessionToken);
         $this->beginRecordedAction('assignment_upload', [$attachment->getClientOriginalName()]);
@@ -71,7 +74,7 @@ class SipandaiSubmissionService extends PortalScrapingService
             'discussion_id' => $discussionId,
             'meeting_number' => $meetingNumber,
         ];
-        $formCrawler = $this->resolveFormForAssignment($targetUrl);
+        $formCrawler = $this->resolveFormForAssignment($targetUrl, $allowClosed);
         $formMeta = $formCrawler !== null ? $this->extractFormMetadata($formCrawler) : null;
 
         if ($formMeta === null || $formMeta['file_field'] === null) {
@@ -1941,14 +1944,14 @@ class SipandaiSubmissionService extends PortalScrapingService
      * The upload form of the assignment page, or null when the page renders
      * no form with a file input, or only a closed one.
      */
-    private function resolveFormForAssignment(string $targetUrl): ?Crawler
+    private function resolveFormForAssignment(string $targetUrl, bool $allowClosed = false): ?Crawler
     {
         $html = $this->get($targetUrl);
         $crawler = $this->createCrawler($html);
 
         foreach ($crawler->filter('form') as $node) {
             $formCrawler = new Crawler($node);
-            if (self::formScope($formCrawler)->filter('input[type="file"]')->count() > 0 && ! $this->isClosedAssignmentForm($formCrawler)) {
+            if (self::formScope($formCrawler)->filter('input[type="file"]')->count() > 0 && ($allowClosed || ! $this->isClosedAssignmentForm($formCrawler))) {
                 return $formCrawler;
             }
         }
@@ -1960,7 +1963,8 @@ class SipandaiSubmissionService extends PortalScrapingService
      * The portal keeps rendering the upload form, file input included, after
      * the upload time has ended: it only replaces the Upload button with
      * "Waktu upload tugas sudah berakhir". A form without any submit control
-     * that says so is closed.
+     * that says so is closed. A student who chooses to submit anyway
+     * ($allowClosed) still POSTs to it — the portal has the final say.
      */
     private function isClosedAssignmentForm(Crawler $form): bool
     {

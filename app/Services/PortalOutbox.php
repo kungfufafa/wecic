@@ -100,7 +100,8 @@ class PortalOutbox
         ?int $meetingId,
         UploadedFile $attachment,
         array $formValues = [],
-        ?CarbonInterface $deadline = null
+        ?CarbonInterface $deadline = null,
+        bool $allowClosed = false
     ): PortalOutboxItem {
         $targetId = $discussionId ?? $meetingId;
         $pending = $this->pendingAssignment($sessionToken, $targetId);
@@ -112,9 +113,13 @@ class PortalOutbox
             'pertemuan' => $meetingNumber,
             'meeting_id' => $meetingId ?? $discussionId,
             'form_values' => $formValues,
+            'allow_closed' => $allowClosed,
         ], $attachment, 'application/pdf',
             $this->assignmentSubject($pending, $meetingDetail, $meetingNumber ?? $pending['meeting_number'] ?? null),
-            $deadline ?? $this->assignmentDeadline($pending, $meetingDetail)
+            // A deliberate late submission has no deadline to expire against: the
+            // student already chose to send past it, so it flushes whenever the
+            // portal is reachable and the portal has the final say.
+            $allowClosed ? null : ($deadline ?? $this->assignmentDeadline($pending, $meetingDetail))
         );
     }
 

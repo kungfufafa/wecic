@@ -176,17 +176,27 @@
                     `;
                 } else if (assignmentStatus === 'upload_unavailable') {
                     // The meeting page no longer links the upload form: the portal
-                    // is not taking files for this assignment.
+                    // is not taking files for this assignment. The student may still
+                    // try, like the attendance override — the portal decides.
                     assignmentSectionMarkup = `
                         <div class="mycic-card">
                             <div class="mycic-card-header flex items-center justify-between">
                                 <h3 class="mycic-card-title">Tugas</h3>
                                 ${app.renderBadge('Ditutup', 'danger')}
                             </div>
-                            <div class="mycic-card-body">
+                            <div class="mycic-card-body space-y-4">
                                 <div class="${app.alertTone('warning')} mb-0">
                                     Pengumpulan tugas ini sudah ditutup portal${hasDeadline ? ` (deadline ${app.escapeHtml(deadlineText)})` : ''}.
                                 </div>
+                                ${assignmentParams ? `
+                                    <details class="rounded-xl border border-border-light" data-assignment-override>
+                                        <summary class="cursor-pointer px-3 py-2 text-sm font-semibold text-ink">Tetap kirim tugas</summary>
+                                        <div class="space-y-3 border-t border-border-light p-3">
+                                            <p class="text-xs text-ink-subtle">Portal yang memutuskan: file ditolak bila pengumpulan tugas ini benar-benar sudah ditutup di server.</p>
+                                            ${uploadFormMarkup}
+                                        </div>
+                                    </details>
+                                ` : ''}
                             </div>
                         </div>
                     `;

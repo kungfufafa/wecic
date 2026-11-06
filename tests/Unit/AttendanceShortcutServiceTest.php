@@ -10,6 +10,7 @@ use App\Services\Extractors\SipandaiClassesExtractor;
 use Carbon\CarbonImmutable;
 use Mockery;
 use Mockery\MockInterface;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 class AttendanceShortcutServiceTest extends TestCase
@@ -486,6 +487,7 @@ class AttendanceShortcutServiceTest extends TestCase
         $this->assertSame('Teknologi dan trend E-commerce', $pendingAssignments[0]['course_name']);
         // No upload link on the meeting page: the portal is not taking files.
         $this->assertFalse($pendingAssignments[0]['can_submit_directly']);
+        $this->assertNull($pendingAssignments[0]['upload_status_text'], 'An empty Upload Tugas row gives no reason.');
         $this->assertSame('/meeting/32993?courses_id=9186', $pendingAssignments[0]['meeting_url']);
         $this->assertSame('9186', $pendingAssignments[0]['assignment_payload']['courses_id']);
     }
@@ -1060,5 +1062,45 @@ class AttendanceShortcutServiceTest extends TestCase
 
         $this->assertCount(5, $pendingAssignments);
         $this->assertSame(['Kelas 1', 'Kelas 2', 'Kelas 3', 'Kelas 4', 'Kelas 5'], array_column($pendingAssignments, 'course_name'));
+    }
+
+    /**
+     * @return array<string, array{array<string, string>, string|null}>
+     */
+    public static function closedUploadRows(): array
+    {
+        return [
+            'deadline passed, as the portal writes it' => [
+                ['status_text' => 'Batas waktu upload tugas Pertemuan 6 Sd Minggu, 01 November 2026 dan Waktu upload tugas sudah berakhir.'],
+                'Waktu upload tugas sudah berakhir.',
+            ],
+            'an older payload kept the row as its deadline' => [
+                ['deadline' => "Batas waktu upload tugas Pertemuan 3 Sd Jumat, 23 Oktober 2026\n dan  waktu upload tugas sudah berakhir."],
+                'Waktu upload tugas sudah berakhir.',
+            ],
+            'a row without a date is the reason itself' => [
+                ['status_text' => 'Upload tugas belum dibuka dosen'],
+                'Upload tugas belum dibuka dosen',
+            ],
+            'a deadline alone says nothing more' => [
+                ['status_text' => 'Batas waktu upload tugas Pertemuan 6 Sd Minggu, 01 November 2026'],
+                null,
+            ],
+            'the empty row of an old page' => [
+                ['deadline' => ':', 'status_text' => ''],
+                null,
+            ],
+        ];
+    }
+
+    /**
+     * @param  array<string, string>  $assignmentInfo
+     */
+    #[DataProvider('closedUploadRows')]
+    public function test_a_closed_upload_carries_the_portals_own_reason(array $assignmentInfo, ?string $expected): void
+    {
+        $service = new AttendanceShortcutService(Mockery::mock(ClassesExtractor::class), Mockery::mock(SipandaiClassesExtractor::class));
+
+        $this->assertSame($expected, (new \ReflectionMethod($service, 'portalUploadStatusText'))->invoke($service, $assignmentInfo));
     }
 }
