@@ -3,49 +3,53 @@
 @section('title', 'Detail Ujian')
 @section('page_id', 'exam-show')
 
+{{--
+    Detail Ujian: a loading header and KPI strip in #exam-hero that the
+    script replaces with the exam's own (app.ui.pageHero…, app.ui.statGridKpi),
+    then the soal and portal notes beside the upload column.
+--}}
 @section('content')
-    <div id="exam-hero" class="mb-5">
-        <div class="mb-4 flex flex-col gap-2" aria-busy="true">
+    <div id="exam-hero">
+        <x-page-hero title="Detail ujian" back="{{ route('exam.index') }}" back-label="Kembali ke daftar" aria-busy="true">
             <span class="sr-only">Memuat detail ujian…</span>
-            <div class="mycic-skeleton h-8 w-2/3 max-w-md"></div>
-            <div class="mycic-skeleton h-4 w-1/2 max-w-sm"></div>
-        </div>
-        <div class="mycic-stat-strip grid-cols-2 xl:grid-cols-4" aria-hidden="true">
+            <x-skeleton class="mt-2 h-4 w-64 max-w-full" />
+        </x-page-hero>
+        <x-stat-strip kpi class="mb-6" aria-hidden="true">
             @for ($i = 0; $i < 4; $i++)
-                <div class="mycic-metric">
-                    <div class="mycic-skeleton h-3 w-16"></div>
-                    <div class="mycic-skeleton mt-1 h-7 w-20"></div>
+                <div class="flex min-w-0 flex-col gap-2 bg-panel p-4 sm:p-5">
+                    <x-skeleton class="h-4 w-16" />
+                    <x-skeleton class="h-7 w-20" />
                 </div>
             @endfor
-        </div>
+        </x-stat-strip>
     </div>
 
     {{-- An answer queued for this exam while offline: not at the portal yet. --}}
-    <div class="mb-4 hidden" data-outbox-list data-outbox-match="exam:{{ e($id) }}" data-outbox-heading="Antrean offline ujian ini"></div>
+    <div class="mb-6 hidden" data-outbox-list data-outbox-match="exam:{{ e($id) }}" data-outbox-heading="Antrean offline ujian ini"></div>
 
-    <div class="grid items-start gap-4 lg:grid-cols-12">
-        <div class="lg:col-span-8" id="exam-content">
+    <x-split :sticky="false">
+        <div class="flex flex-col gap-6" id="exam-content">
             <x-card aria-busy="true">
                 <x-card.body class="flex flex-col gap-3">
-                    <div class="mycic-skeleton h-5 w-36"></div>
-                    <div class="mycic-skeleton h-4 w-full"></div>
-                    <div class="mycic-skeleton h-4 w-3/4"></div>
+                    <x-skeleton class="h-5 w-36" />
+                    <x-skeleton class="h-4 w-full" />
+                    <x-skeleton class="h-4 w-3/4" />
                 </x-card.body>
             </x-card>
         </div>
 
-        <div class="flex flex-col gap-4 lg:col-span-4" id="exam-actions">
+        <x-slot:aside id="exam-actions" aria-label="Pengumpulan jawaban">
             <x-card aria-busy="true">
                 <x-card.header>
-                    <div class="mycic-skeleton h-5 w-32"></div>
+                    <x-skeleton class="h-5 w-32" />
                 </x-card.header>
                 <x-card.body class="flex flex-col gap-3">
-                    <div class="mycic-skeleton h-14 w-full rounded-[var(--radius-control)]"></div>
-                    <div class="mycic-skeleton h-11 w-full rounded-lg"></div>
+                    <x-skeleton class="h-14 w-full" />
+                    <x-skeleton class="h-10 w-full" />
                 </x-card.body>
             </x-card>
-        </div>
-    </div>
+        </x-slot:aside>
+    </x-split>
 @endsection
 
 @push('scripts')
@@ -70,6 +74,23 @@
                 upload_unavailable: ['Upload belum dibuka', 'neutral'],
                 unknown: ['Status belum diketahui', 'neutral'],
             };
+            const svgIcon = (paths, size = 'size-4') => `<svg xmlns="http://www.w3.org/2000/svg" class="${size} shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
+            const ICONS = {
+                back: svgIcon('<path d="M15 6l-6 6l6 6" />'),
+                download: svgIcon('<path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2 -2v-2" /><path d="M7 11l5 5l5 -5" /><path d="M12 4l0 12" />'),
+            };
+
+            /**
+             * A KPI cell (app.ui.metric) of the divider strip (app.ui.statGridKpi).
+             * `text` values (a status, a schedule) are set smaller than a number.
+             */
+            const renderMetric = ({ label, value, note = '', text = false }) => `
+                <div class="${app.ui.metric}" data-slot="metric">
+                    <div class="${app.ui.metricLabel}" data-slot="metric-label">${app.escapeHtml(label)}</div>
+                    <div class="${app.ui.metricValue}${text ? ' text-base! sm:text-lg!' : ''}" data-slot="metric-value">${app.escapeHtml(value === null || value === '' ? '-' : value)}</div>
+                    ${note ? `<div class="${app.ui.metricNote}" data-slot="metric-note">${app.escapeHtml(note)}</div>` : ''}
+                </div>
+            `;
             const statusBadge = (status) => STATUS_LABELS[String(status || '').toLowerCase()] || [status || 'Belum diketahui', 'neutral'];
             // The server takes PDF, ZIP or RAR up to 20 MB.
             const EXAM_FILE_TYPES = /\.(pdf|zip|rar)$/i;
@@ -93,11 +114,11 @@
                 }
 
                 return `
-                    <p class="mb-2 text-caption text-ink-subtle">Isian tambahan dari form portal (opsional).</p>
+                    <p class="${app.ui.hint}">Isian tambahan dari form portal (opsional).</p>
                     ${entries.map(([name, value], index) => `
-                        <div class="mycic-field mb-3">
-                            <label class="mycic-label" for="exam-field-${index}">${app.escapeHtml(FIELD_LABELS[name] || name.replace(/^data\[(.+)\]$/, '$1'))}</label>
-                            <input id="exam-field-${index}" class="mycic-input" data-override-field="${app.escapeHtml(name)}" value="${app.escapeHtml(value)}">
+                        <div class="${app.ui.field}">
+                            <label class="${app.ui.label}" for="exam-field-${index}">${app.escapeHtml(FIELD_LABELS[name] || name.replace(/^data\[(.+)\]$/, '$1'))}</label>
+                            <input id="exam-field-${index}" class="${app.ui.input}" data-override-field="${app.escapeHtml(name)}" value="${app.escapeHtml(value)}">
                         </div>
                     `).join('')}
                 `;
@@ -141,49 +162,56 @@
                 return fileNameFromUrl(link?.url || text || fallback);
             };
 
+            /**
+             * The soal and attachments as rows of one card: its name, kind and
+             * link, and Buka / Download.
+             */
             const renderFileLinks = (links) => {
                 if (!links.length) {
-                    return app.renderEmptyState('Belum ada soal atau lampiran ujian.', 'secondary');
+                    return app.renderEmptyState('Belum ada soal atau lampiran ujian.', 'secondary', '', { icon: 'file' });
                 }
 
                 return `
-                    <div class="mb-4 flex flex-col gap-3">
+                    <section class="${app.ui.card} overflow-hidden" data-slot="card" aria-labelledby="exam-files-title">
+                        <div class="${app.ui.cardHeader}">
+                            <div class="${app.ui.sectionTitleRow}">
+                                <h2 class="${app.ui.cardTitle}" id="exam-files-title">Soal &amp; lampiran</h2>
+                                <span class="${app.ui.sectionCount}">${links.length}</span>
+                            </div>
+                        </div>
+                        <ul class="${app.ui.list}">
                         ${links.map((link, index) => {
                             const absoluteUrl = app.absoluteCampusUrl(link.url);
                             const filename = fileNameFromUrl(link.url);
                             const title = linkLabel(link, filename);
                             const downloadUrl = app.buildCampusDownloadUrl(link.url, filename);
-                            const badge = /soal/i.test(`${link.url || ''} ${link.text || ''}`) ? 'Soal ujian' : `Lampiran ${index + 1}`;
+                            const kind = /soal/i.test(`${link.url || ''} ${link.text || ''}`) ? 'Soal ujian' : `Lampiran ${index + 1}`;
 
                             return `
-                                <div class="mycic-card-interactive">
-                                    <div class="flex flex-col gap-3 md:flex-row md:items-center">
-                                        <div class="min-w-0 flex-1">
-                                            <div class="mb-2 flex flex-wrap items-center gap-2">
-                                                ${app.renderBadge(badge, 'brand')}
-                                                <span class="text-caption text-ink-subtle">${app.escapeHtml(filename)}</span>
-                                            </div>
-                                            <h3 class="mb-1 text-sm font-medium leading-snug text-ink">${app.escapeHtml(title)}</h3>
-                                            <div class="break-all text-caption text-ink-subtle">${app.escapeHtml(link.url || '')}</div>
-                                        </div>
-                                        <div class="shrink-0">
-                                            <div class="flex flex-wrap justify-end gap-2">
-                                                ${absoluteUrl ? `<a href="${app.escapeHtml(absoluteUrl)}" target="_blank" rel="noreferrer" class="${app.buttonClass('primary', { small: true })}">Buka</a>` : ''}
-                                                ${downloadUrl ? `<a href="${app.escapeHtml(downloadUrl)}" class="${app.buttonClass('secondary', { small: true })}">Download</a>` : ''}
-                                            </div>
+                                <li class="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:px-5">
+                                    <div class="min-w-0 flex-1">
+                                        <h3 class="text-sm font-medium leading-snug text-ink">${app.escapeHtml(title)}</h3>
+                                        <div class="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-1.5 text-xs text-ink-muted">
+                                            <span>${app.escapeHtml(kind)}</span>
+                                            ${filename !== title ? `<span class="min-w-0 truncate before:me-1.5 before:content-['·']">${app.escapeHtml(filename)}</span>` : ''}
                                         </div>
                                     </div>
-                                </div>
+                                    <div class="flex shrink-0 flex-wrap gap-2 sm:justify-end">
+                                        ${absoluteUrl ? `<a href="${app.escapeHtml(absoluteUrl)}" target="_blank" rel="noreferrer" class="${app.buttonClass('secondary', { small: true })}">Buka</a>` : ''}
+                                        ${downloadUrl ? `<a href="${app.escapeHtml(downloadUrl)}" class="${app.buttonClass('secondary', { small: true })}">Download</a>` : ''}
+                                    </div>
+                                </li>
                             `;
                         }).join('')}
-                    </div>
+                        </ul>
+                    </section>
                 `;
             };
 
             const renderNoticeList = (alerts, requirements) => {
                 const items = [
-                    ...(alerts || []).map((text) => ({ label: 'Alert', text, tone: 'warning' })),
-                    ...(requirements || []).map((text) => ({ label: 'Persyaratan', text, tone: 'secondary' })),
+                    ...(alerts || []).map((text) => ({ label: 'Alert', text, labelClass: app.ui.text.warning })),
+                    ...(requirements || []).map((text) => ({ label: 'Persyaratan', text, labelClass: app.ui.text.muted })),
                 ];
 
                 if (!items.length) {
@@ -191,17 +219,15 @@
                 }
 
                 return `
-                    <div class="mycic-card mb-3">
-                        <div class="mycic-card-header">
-                            <h3 class="mycic-card-title">Catatan portal</h3>
+                    <div class="${app.ui.card}" data-slot="card">
+                        <div class="${app.ui.cardHeader}">
+                            <h3 class="${app.ui.cardTitle}">Catatan portal</h3>
                         </div>
-                        <div class="mycic-card-body">
+                        <div class="${app.ui.cardBody}">
                             ${items.map((item) => `
-                                <div class="mycic-list-row">
+                                <div class="${app.ui.listRow}">
                                     <div class="min-w-0 flex-1">
-                                        <div class="mb-1 flex flex-wrap items-center gap-2">
-                                            ${app.renderBadge(item.label, item.tone)}
-                                        </div>
+                                        <div class="mb-0.5 text-xs font-medium ${item.labelClass}">${app.escapeHtml(item.label)}</div>
                                         <div class="text-sm leading-relaxed text-ink">${app.escapeHtml(item.text)}</div>
                                     </div>
                                 </div>
@@ -217,18 +243,21 @@
                 }
 
                 return `
-                    <div class="mycic-card">
-                        <div class="mycic-card-header">
-                            <h3 class="mycic-card-title">Link portal</h3>
+                    <div class="${app.ui.card} overflow-hidden" data-slot="card">
+                        <div class="${app.ui.cardHeader}">
+                            <h3 class="${app.ui.cardTitle}">Link portal</h3>
                         </div>
                         <div class="divide-y divide-border-light">
                             ${links.map((link) => {
                                 const absoluteUrl = app.absoluteCampusUrl(link.url);
 
                                 return `
-                                    <a href="${app.escapeHtml(absoluteUrl || link.url)}" target="_blank" rel="noreferrer" class="block px-4 py-3 transition-colors duration-150 hover:bg-surface/60 md:px-5">
+                                    <a href="${app.escapeHtml(absoluteUrl || link.url)}" target="_blank" rel="noreferrer" class="flex items-start justify-between gap-3 px-4 py-3 transition-colors hover:bg-surface/50 focus-visible:bg-surface/50 focus-visible:outline-none sm:px-5">
+                                        <div class="min-w-0">
                                         <div class="text-sm font-medium leading-snug text-ink">${app.escapeHtml(linkLabel(link, 'Buka portal'))}</div>
-                                        <div class="mt-0.5 break-all text-caption text-ink-subtle">${app.escapeHtml(link.url || '')}</div>
+                                        <div class="mt-0.5 break-all text-xs text-ink-subtle">${app.escapeHtml(link.url || '')}</div>
+                                        </div>
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="mt-0.5 size-4 shrink-0 text-ink-subtle" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 6h-6a2 2 0 0 0 -2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-6" /><path d="M11 13l9 -9" /><path d="M15 4h5v5" /></svg>
                                     </a>
                                 `;
                             }).join('')}
@@ -241,28 +270,28 @@
                 const uploadTone = isUploadReady ? 'success' : 'secondary';
 
                 return `
-                <div class="mycic-card">
-                    <div class="mycic-card-header">
-                        <h3 class="mycic-card-title">Upload jawaban</h3>
+                <div class="${app.ui.card}" data-slot="card">
+                    <div class="${app.ui.cardHeader}">
+                        <h3 class="${app.ui.cardTitle}">Upload jawaban</h3>
                     </div>
-                    <div class="mycic-card-body">
-                        <div class="${app.alertTone(uploadTone)} mb-3">
-                            <div class="text-sm font-medium leading-snug text-ink">${isUploadReady ? 'Jawaban bisa dikirim dari sini.' : 'Portal tidak menampilkan form upload saat ini.'}</div>
-                            <div class="mt-0.5 text-caption ${app.textToneClass(uploadTone)}">${app.escapeHtml(statusBadge(detail.status)[0])}</div>
+                    <div class="${app.ui.cardBody} flex flex-col gap-4">
+                        <div class="${app.alertTone(uploadTone)}">
+                            <div class="font-medium leading-snug text-ink">${isUploadReady ? 'Jawaban bisa dikirim dari sini.' : 'Portal tidak menampilkan form upload saat ini.'}</div>
+                            <div class="mt-0.5 text-xs ${app.textToneClass(uploadTone)}">${app.escapeHtml(statusBadge(detail.status)[0])}</div>
                         </div>
                         ${isUploadReady ? `
-                            <form id="exam-upload-form">
-                                <div class="mycic-field mb-3">
-                                    <label for="exam-file" class="mycic-label">Lampiran jawaban</label>
-                                    <input id="exam-file" type="file" class="mycic-input" accept=".pdf,.zip,.rar" aria-describedby="exam-file-hint" required>
-                                    <p id="exam-file-hint" class="mycic-field-hint">PDF, ZIP, atau RAR, maks. 20 MB.</p>
+                            <form id="exam-upload-form" class="flex flex-col gap-4">
+                                <div class="${app.ui.field}">
+                                    <label for="exam-file" class="${app.ui.label}">Lampiran jawaban</label>
+                                    <input id="exam-file" type="file" class="${app.ui.fileInput}" accept=".pdf,.zip,.rar" aria-describedby="exam-file-hint" required>
+                                    <p id="exam-file-hint" class="${app.ui.hint}">PDF, ZIP, atau RAR, maks. 20 MB.</p>
                                 </div>
                                 ${buildOverrideInputs(form)}
-                                <div class="mycic-sticky-action">
-                                    <button type="submit" class="${app.buttonClass('primary')} mycic-btn-block" data-online-required data-outbox-capable>Kirim jawaban</button>
+                                <div class="${app.ui.stickyAction}" data-sticky-action>
+                                    <button type="submit" class="${app.buttonClass('primary')} w-full" data-online-required data-outbox-capable>Kirim jawaban</button>
                                 </div>
                             </form>
-                        ` : app.renderDisabledButton('Upload belum tersedia')}
+                        ` : `<div class="flex">${app.renderDisabledButton('Upload belum tersedia')}</div>`}
                     </div>
                 </div>
                 `;
@@ -284,21 +313,21 @@
                 ].filter((item) => item.value);
 
                 return `
-                    <div class="mycic-card">
-                        <div class="mycic-card-header">
-                            <h3 class="mycic-card-title">Jawaban terkirim</h3>
+                    <div class="${app.ui.card}" data-slot="card">
+                        <div class="${app.ui.cardHeader}">
+                            <h3 class="${app.ui.cardTitle}">Jawaban terkirim</h3>
                         </div>
-                        <div class="mycic-card-body">
+                        <div class="${app.ui.cardBody}">
                             <div class="flex flex-col gap-3">
                                 ${fields.map((item) => `
                                     <div>
-                                        <div class="mb-1 text-caption font-medium text-ink-subtle">${app.escapeHtml(item.label)}</div>
+                                        <div class="mb-1 text-xs font-medium text-ink-subtle">${app.escapeHtml(item.label)}</div>
                                         <div class="break-all text-sm font-medium leading-snug text-ink">${app.escapeHtml(item.value)}</div>
                                     </div>
                                 `).join('')}
                             </div>
                             ${latest?.submission_id && !hasLiveDeleteId ? `
-                                <div class="${app.alertTone('warning')} mt-3 mb-0">
+                                <div class="${app.alertTone('warning')} mt-3">
                                     Jawaban ini tercatat pernah dikirim, tetapi portal sedang tidak menampilkannya.
                                 </div>
                             ` : ''}
@@ -318,32 +347,35 @@
                 const hero = document.getElementById('exam-hero');
 
                 const course = detail.course || {};
-                const [statusLabel, statusTone] = statusBadge(detail.status);
+                const [statusLabel] = statusBadge(detail.status);
                 const portalTitle = String(detail.title || '');
                 const isGenericTitle = /sipandai|portal/i.test(portalTitle);
 
+                const heroTitle = course.name || (isGenericTitle ? 'Detail ujian' : portalTitle) || 'Detail ujian';
+                const heroEyebrow = course.code ? `Ujian · ${course.code}` : 'Detail ujian';
+                const heroDescription = course.lecturer || (isGenericTitle ? 'Soal, lampiran, dan pengumpulan jawaban ujian.' : (detail.description || 'Soal, lampiran, dan pengumpulan jawaban ujian.'));
+                const heroActions = [
+                    primaryFile ? `<a href="${app.escapeHtml(app.buildCampusDownloadUrl(primaryFile.url, fileNameFromUrl(primaryFile.url)))}" class="${app.buttonClass('primary')}">${ICONS.download}Download soal</a>` : '',
+                ].filter(Boolean).join('');
+
                 hero.innerHTML = `
-                    <div class="mb-4">
-                    ${app.renderPageHeader({
-                        pretitle: course.code ? `Ujian · ${course.code}` : 'Detail ujian',
-                        title: course.name || (isGenericTitle ? 'Detail ujian' : portalTitle) || 'Detail ujian',
-                        description: [course.lecturer, course.schedule].filter(Boolean).join(' · ') || (isGenericTitle ? 'Soal, lampiran, dan pengumpulan jawaban ujian.' : (detail.description || 'Soal, lampiran, dan pengumpulan jawaban ujian.')),
-                        badges: [
-                            app.renderBadge(statusLabel, statusTone),
-                            fileLinks.length ? app.renderBadge(`${fileLinks.length} berkas`, 'info') : '',
-                        ],
-                        actions: [
-                            `<a href="/exam" class="${app.buttonClass('secondary')}">Kembali ke daftar</a>`,
-                            primaryFile ? `<a href="${app.escapeHtml(app.buildCampusDownloadUrl(primaryFile.url, fileNameFromUrl(primaryFile.url)))}" class="${app.buttonClass('primary')}">Download soal</a>` : '',
-                        ],
-                    })}
+                    <header class="${app.ui.pageHero}" data-slot="page-hero">
+                        <a href="/exam" class="${app.ui.backLink} mb-2">${ICONS.back}<span>Kembali ke daftar</span></a>
+                        <div class="${app.ui.pageHeroRow}">
+                            <div class="min-w-0">
+                                <p class="${app.ui.pageEyebrow}">${app.escapeHtml(heroEyebrow)}</p>
+                                <h1 class="${app.ui.pageHeroTitle}">${app.escapeHtml(heroTitle)}</h1>
+                                <p class="${app.ui.pageHeroSubtitle}">${app.escapeHtml(heroDescription)}</p>
+                            </div>
+                            ${heroActions ? `<div class="${app.ui.pageHeroActions}" data-slot="page-hero-actions">${heroActions}</div>` : ''}
+                        </div>
+                    </header>
+                    <div class="${app.ui.statGridKpi} mb-6" data-slot="stat-strip">
+                        ${renderMetric({ label: 'Status', value: statusLabel, note: 'Dibaca dari halaman ujian di portal.', text: true })}
+                        ${renderMetric({ label: 'Soal', value: fileLinks.length || '0', note: fileLinks.length ? 'Soal atau lampiran tersedia.' : 'Belum ada soal yang diunggah dosen.' })}
+                        ${renderMetric({ label: 'Pengumpulan', value: isUploadReady ? 'Dibuka' : 'Tertutup', note: isUploadReady ? 'Kirim jawaban dari halaman ini.' : 'Form upload belum dibuka atau sudah ditutup portal.', text: true })}
+                        ${renderMetric({ label: 'Jadwal', value: course.schedule || 'Belum ada', note: course.schedule ? 'Sesuai jadwal kelas.' : 'Jadwal ujian belum diumumkan.', text: true })}
                     </div>
-                    ${app.renderStatCards([
-                        { label: 'Status', value: statusLabel, note: 'Dibaca dari halaman ujian di portal.' },
-                        { label: 'Soal', value: fileLinks.length || '0', note: fileLinks.length ? 'Soal atau lampiran tersedia.' : 'Belum ada soal yang diunggah dosen.' },
-                        { label: 'Pengumpulan', value: isUploadReady ? 'Dibuka' : 'Tertutup', note: isUploadReady ? 'Kirim jawaban dari halaman ini.' : 'Form upload belum dibuka atau sudah ditutup portal.' },
-                        { label: 'Jadwal', value: course.schedule || 'Belum ada', note: course.schedule ? 'Sesuai jadwal kelas.' : 'Jadwal ujian belum diumumkan.' },
-                    ])}
                 `;
 
                 document.getElementById('exam-content').innerHTML = `
@@ -462,6 +494,7 @@
                         notFound ? null : () => loadExamDetail({ force }),
                         { subtitle: notFound ? 'Link yang kamu buka tidak cocok dengan ujian mana pun di daftar ujianmu.' : app.describeError(error) }
                     );
+                    document.getElementById('exam-hero').firstElementChild?.classList.add('mb-6');
                     document.getElementById('exam-content').innerHTML = notFound ? `<a href="/exam" class="${app.buttonClass('primary')}">Ke daftar ujian</a>` : '';
                     document.getElementById('exam-actions').innerHTML = '';
                 }

@@ -1,0 +1,2 @@
+{{-- A multi-line input (app.ui.textarea); the slot is its value. --}}
+<textarea {{ $attributes->class('min-h-20 w-full min-w-0 rounded-lg border border-border bg-panel px-3 py-2 text-base leading-relaxed text-ink shadow-xs transition-[color,box-shadow,border-color] placeholder:text-ink-subtle focus-visible:border-brand focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand/20 disabled:cursor-not-allowed disabled:bg-surface disabled:opacity-60 aria-invalid:border-danger aria-invalid:ring-danger/20 sm:text-sm dark:shadow-none') }}>{{ $slot }}</textarea>

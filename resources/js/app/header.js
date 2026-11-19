@@ -43,7 +43,7 @@ export class HeaderFeature {
         const meta = document.querySelector('meta[name="theme-color"]');
 
         if (meta) {
-            meta.setAttribute('content', document.documentElement.dataset.theme === 'dark' ? '#091019' : '#0352A1');
+            meta.setAttribute('content', document.documentElement.dataset.theme === 'dark' ? '#111113' : '#ffffff');
         }
     }
 

@@ -181,6 +181,19 @@ class AcademicPagesTest extends TestCase
 
         $this->assertSame('Semester lain', $crawler->filter('#krs-show-nav')->attr('aria-label'));
 
+        // "Cetak KRS" prints the title, the period line and the status chips; only the
+        // back link, the academic menu and "Diperbarui" stay off paper.
+        foreach (['#krs-show-title', '#krs-show-subtitle', '#krs-show-pretitle', '#krs-show-chips'] as $printed) {
+            $node = $crawler->filter('main '.$printed);
+            $this->assertCount(1, $node, $printed);
+            $this->assertCount(0, $node->ancestors()->reduce(fn (Crawler $ancestor): bool => in_array('print:hidden', explode(' ', (string) $ancestor->attr('class')), true)), $printed);
+            $this->assertNotContains('print:hidden', explode(' ', (string) $node->attr('class')), $printed);
+        }
+
+        $this->assertContains('print:hidden', explode(' ', (string) $back->attr('class')));
+        $this->assertContains('print:hidden', explode(' ', (string) $crawler->filter('main [data-slot="page-hero-tabs"]')->attr('class')));
+        $this->assertContains('print:hidden', explode(' ', (string) $crawler->filter('main [data-krs-show-updated]')->attr('class')));
+
         $html = $this->html('/krs/90004');
 
         $this->assertStringContainsString('const endpoint = `/api/academic/krs/${krsId}`;', $html);
@@ -201,13 +214,13 @@ class AcademicPagesTest extends TestCase
     {
         $crawler = $this->crawl('/grades');
 
-        $this->assertSame(['IPK', 'IPS', 'SKS lulus'], $crawler->filter('#grades-summary .mycic-metric-label')->each(
+        $this->assertSame(['IPK', 'IPS', 'SKS lulus'], $crawler->filter('#grades-summary [data-slot="metric-label"]')->each(
             fn (Crawler $label): string => trim($label->text())
         ));
         $this->assertSame('tablist', $crawler->filter('#grades-semesters')->attr('role'));
         $this->assertSame('Pilih semester', $crawler->filter('#grades-semesters')->attr('aria-label'));
         $this->assertSame('tabpanel', $crawler->filter('#grades-panel')->attr('role'));
-        $this->assertCount(1, $crawler->filter('main a.mycic-card[href$="/transcript"]'));
+        $this->assertCount(1, $crawler->filter('main a[data-slot="card"][href$="/transcript"]'));
 
         $html = $this->html('/grades');
 

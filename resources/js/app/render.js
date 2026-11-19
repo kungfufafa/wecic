@@ -1,3 +1,5 @@
+import { ui } from './ui.js';
+
 /**
  * Shared HTML the pages render with: tone → class maps, badges, page
  * headers, stat cards, empty and error states.
@@ -8,15 +10,15 @@
 export class RenderFeature {
     alertTone(type = 'secondary') {
         const tones = {
-            secondary: 'mycic-alert-neutral',
-            neutral: 'mycic-alert-neutral',
-            info: 'mycic-alert-info',
-            success: 'mycic-alert-success',
-            warning: 'mycic-alert-warning',
-            danger: 'mycic-alert-danger',
-            error: 'mycic-alert-danger',
-            primary: 'mycic-alert-brand',
-            brand: 'mycic-alert-brand',
+            secondary: ui.alert.neutral,
+            neutral: ui.alert.neutral,
+            info: ui.alert.info,
+            success: ui.alert.success,
+            warning: ui.alert.warning,
+            danger: ui.alert.danger,
+            error: ui.alert.danger,
+            primary: ui.alert.brand,
+            brand: ui.alert.brand,
         };
 
         return tones[type] || tones.secondary;
@@ -24,16 +26,17 @@ export class RenderFeature {
 
     badgeTone(type = 'secondary') {
         const tones = {
-            primary: 'mycic-badge-brand',
-            brand: 'mycic-badge-brand',
-            secondary: 'mycic-badge-neutral',
-            neutral: 'mycic-badge-neutral',
-            success: 'mycic-badge-success',
-            warning: 'mycic-badge-warning',
-            danger: 'mycic-badge-danger',
-            error: 'mycic-badge-danger',
-            info: 'mycic-badge-info',
-            dark: 'mycic-badge-neutral',
+            primary: ui.badge.brand,
+            brand: ui.badge.brand,
+            secondary: ui.badge.neutral,
+            neutral: ui.badge.neutral,
+            accent: ui.badge.accent,
+            success: ui.badge.success,
+            warning: ui.badge.warning,
+            danger: ui.badge.danger,
+            error: ui.badge.danger,
+            info: ui.badge.info,
+            dark: ui.badge.neutral,
         };
 
         return tones[type] || tones.secondary;
@@ -41,29 +44,31 @@ export class RenderFeature {
 
     statusPanelClass(tone = 'neutral') {
         const tones = {
-            primary: 'mycic-status-panel-brand',
-            brand: 'mycic-status-panel-brand',
-            success: 'mycic-status-panel-success',
-            warning: 'mycic-status-panel-warning',
-            info: 'mycic-status-panel-info',
-            secondary: 'mycic-status-panel-neutral',
-            neutral: 'mycic-status-panel-neutral',
+            primary: ui.panel.brand,
+            brand: ui.panel.brand,
+            success: ui.panel.success,
+            warning: ui.panel.warning,
+            danger: ui.panel.danger,
+            error: ui.panel.danger,
+            info: ui.panel.info,
+            secondary: ui.panel.neutral,
+            neutral: ui.panel.neutral,
         };
 
         return tones[tone] || tones.neutral;
     }
 
     /**
-     * Button classes. Small buttons stay compact from `sm` up but keep the
-     * 44 px touch target on phones (§5).
+     * Button classes (ui.button). Small buttons are compact from `sm` up but
+     * keep the 44 px touch target on phones (§5).
      */
     buttonClass(variant = 'primary', { small = false } = {}) {
         const variants = {
-            primary: small ? 'mycic-btn-primary-sm min-h-11 sm:min-h-9' : 'mycic-btn-primary',
-            secondary: small ? 'mycic-btn-secondary-sm min-h-11 sm:min-h-9' : 'mycic-btn-secondary',
-            ghost: small ? 'mycic-btn-ghost-sm min-h-11 sm:min-h-9' : 'mycic-btn-ghost',
-            destructive: small ? 'mycic-btn-destructive-sm min-h-11 sm:min-h-9' : 'mycic-btn-destructive',
-            icon: small ? 'mycic-btn-icon-sm' : 'mycic-btn-icon',
+            primary: small ? ui.button.primarySm : ui.button.primary,
+            secondary: small ? ui.button.secondarySm : ui.button.secondary,
+            ghost: small ? ui.button.ghostSm : ui.button.ghost,
+            destructive: small ? ui.button.destructiveSm : ui.button.destructive,
+            icon: small ? ui.button.iconSm : ui.button.icon,
         };
 
         return variants[variant] || variants.primary;
@@ -71,15 +76,15 @@ export class RenderFeature {
 
     textToneClass(tone = 'muted') {
         const tones = {
-            brand: 'text-brand-text',
-            primary: 'text-brand-text',
-            success: 'text-success',
-            warning: 'text-warning',
-            danger: 'text-danger',
-            error: 'text-danger',
-            info: 'text-info',
-            muted: 'text-ink-muted',
-            secondary: 'text-ink-subtle',
+            brand: ui.text.brand,
+            primary: ui.text.brand,
+            success: ui.text.success,
+            warning: ui.text.warning,
+            danger: ui.text.danger,
+            error: ui.text.danger,
+            info: ui.text.info,
+            muted: ui.text.muted,
+            secondary: ui.text.subtle,
         };
 
         return tones[tone] || tones.muted;
@@ -87,16 +92,16 @@ export class RenderFeature {
 
     fillToneClass(tone = 'brand') {
         const tones = {
-            brand: 'bg-brand',
-            primary: 'bg-brand',
-            success: 'bg-success',
-            warning: 'bg-warning',
-            danger: 'bg-danger',
-            error: 'bg-danger',
-            info: 'bg-info',
-            accent: 'bg-accent',
-            neutral: 'bg-ink-subtle/50',
-            secondary: 'bg-ink-subtle/50',
+            brand: ui.fill.brand,
+            primary: ui.fill.brand,
+            success: ui.fill.success,
+            warning: ui.fill.warning,
+            danger: ui.fill.danger,
+            error: ui.fill.danger,
+            info: ui.fill.info,
+            accent: ui.fill.accent,
+            neutral: ui.fill.neutral,
+            secondary: ui.fill.neutral,
         };
 
         return tones[tone] || tones.brand;
@@ -114,9 +119,9 @@ export class RenderFeature {
             <div class="mb-6 print:hidden">
                 <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div class="min-w-0 flex-1">
-                        ${pretitle ? `<div class="text-caption font-medium text-ink-subtle">${this.escapeHtml(pretitle)}</div>` : ''}
-                        <h2 class="text-2xl font-semibold leading-[1.2] tracking-[-0.025em] text-ink sm:text-[1.75rem]">${this.escapeHtml(title)}</h2>
-                        ${description ? `<div class="mt-1.5 text-sm leading-relaxed text-ink-muted">${this.escapeHtml(description)}</div>` : ''}
+                        ${pretitle ? `<div class="${ui.pageEyebrow}">${this.escapeHtml(pretitle)}</div>` : ''}
+                        <h2 class="${ui.pageTitle}">${this.escapeHtml(title)}</h2>
+                        ${description ? `<div class="${ui.pageSubtitle}">${this.escapeHtml(description)}</div>` : ''}
                         ${safeBadges ? `<div class="mt-3 flex flex-wrap gap-2">${safeBadges}</div>` : ''}
                     </div>
                     ${safeActions ? `
@@ -137,12 +142,12 @@ export class RenderFeature {
         }
 
         return `
-            <div class="mb-4 mycic-stat-strip grid-cols-2 xl:grid-cols-4">
+            <div class="mb-4 ${ui.statGrid} grid-cols-2 xl:grid-cols-4">
                 ${safeItems.map((item) => `
-                    <div class="mycic-metric">
-                        <div class="mycic-metric-label">${this.escapeHtml(item.label || '')}</div>
-                        <div class="mycic-metric-value">${this.escapeHtml(item.value === null || item.value === '' ? '-' : item.value)}</div>
-                        ${item.note ? `<div class="mycic-metric-note">${this.escapeHtml(item.note)}</div>` : ''}
+                    <div class="${ui.metric}">
+                        <div class="${ui.metricLabel}">${this.escapeHtml(item.label || '')}</div>
+                        <div class="${ui.metricValue}">${this.escapeHtml(item.value === null || item.value === '' ? '-' : item.value)}</div>
+                        ${item.note ? `<div class="${ui.metricNote}">${this.escapeHtml(item.note)}</div>` : ''}
                     </div>
                 `).join('')}
             </div>
@@ -160,9 +165,9 @@ export class RenderFeature {
             <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
                 ${safeItems.map((item) => `
                     <div>
-                        <div class="mb-1 text-caption font-medium text-ink-subtle">${this.escapeHtml(item.label || '')}</div>
-                        <div class="font-mono font-medium text-ink tabular-nums">${this.escapeHtml(item.value === null || item.value === '' ? '-' : item.value)}</div>
-                        ${item.note ? `<div class="mt-1 text-caption text-ink-subtle">${this.escapeHtml(item.note)}</div>` : ''}
+                        <div class="mb-1 text-xs font-medium text-ink-subtle">${this.escapeHtml(item.label || '')}</div>
+                        <div class="font-medium text-ink tabular-nums">${this.escapeHtml(item.value === null || item.value === '' ? '-' : item.value)}</div>
+                        ${item.note ? `<div class="mt-1 text-xs text-ink-subtle">${this.escapeHtml(item.note)}</div>` : ''}
                     </div>
                 `).join('')}
             </div>
@@ -175,9 +180,9 @@ export class RenderFeature {
      */
     renderErrorState(message, { subtitle = '', retryLabel = 'Coba lagi', retry = true } = {}) {
         return `
-            <div class="mycic-card">
-                <div class="mycic-card-body">
-                    <div class="${this.alertTone('error')} mb-0" role="alert">
+            <div class="${ui.card}">
+                <div class="${ui.cardBody}">
+                    <div class="${this.alertTone('error')}" role="alert">
                         <div class="font-medium">${this.escapeHtml(message)}</div>
                         ${subtitle ? `<p class="mt-1 text-sm">${this.escapeHtml(subtitle)}</p>` : ''}
                         ${retry ? `<div class="mt-3"><button type="button" class="${this.buttonClass('secondary', { small: true })}" data-error-retry>${this.escapeHtml(retryLabel)}</button></div>` : ''}
@@ -199,21 +204,56 @@ export class RenderFeature {
         });
     }
 
-    renderEmptyState(message, type = 'secondary', subtitle = '') {
-        if (['danger', 'error', 'warning'].includes(type)) {
-            return `<div class="${this.alertTone(type)} mb-0" role="alert">${this.escapeHtml(message)}</div>`;
+    /**
+     * An accent's class string (app.ui.accents): `accent` is brand or neutral
+     * (an old section name reads neutral), `key` is tile, soft, text, ring,
+     * dot, glow, border, navIcon or tabMarker. An unknown accent reads neutral.
+     */
+    accentClass(accent, key = 'tile') {
+        return (ui.accents[accent] || ui.accents.neutral)[key] || '';
+    }
+
+    /**
+     * The <svg> <x-icon name size> draws (app.ui.icons, app.ui.iconSize);
+     * `className` adds to its classes. An unknown name draws nothing.
+     */
+    renderIcon(name, size = 'md', className = '') {
+        const paths = ui.icons[name];
+
+        if (!paths) {
+            return '';
         }
 
+        const pixels = { sm: 16, md: 18, lg: 20, xl: 24 };
+        const sizeKey = pixels[size] ? size : 'md';
+        const classes = className ? `${ui.iconSize[sizeKey]} ${className}` : ui.iconSize[sizeKey];
+
+        return `<svg xmlns="http://www.w3.org/2000/svg" class="${classes}" width="${pixels[sizeKey]}" height="${pixels[sizeKey]}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" data-icon="${this.escapeHtml(name)}">${paths}</svg>`;
+    }
+
+    /**
+     * An empty state as <x-empty-state> draws it; `icon` (an icon name) puts a
+     * small neutral icon above the title. An `accent` option is ignored.
+     */
+    renderEmptyState(message, type = 'secondary', subtitle = '', { icon = '' } = {}) {
+        if (['danger', 'error', 'warning'].includes(type)) {
+            return `<div class="${this.alertTone(type)}" role="alert">${this.escapeHtml(message)}</div>`;
+        }
+
+        const iconChip = icon && ui.icons[icon]
+            ? `<div class="${ui.emptyIcon}" aria-hidden="true">${this.renderIcon(icon, 'lg')}</div>`
+            : '';
+
         return `
-            <div class="mycic-empty">
-                <p class="mycic-empty-title">${this.escapeHtml(message)}</p>
-                ${subtitle ? `<p class="mycic-empty-subtitle">${this.escapeHtml(subtitle)}</p>` : ''}
+            <div class="${ui.empty}">
+                ${iconChip}<p class="${ui.emptyTitle}">${this.escapeHtml(message)}</p>
+                ${subtitle ? `<p class="${ui.emptySubtitle}">${this.escapeHtml(subtitle)}</p>` : ''}
             </div>
         `;
     }
 
     renderDisabledButton(label) {
-        return `<span class="${this.buttonClass('secondary')} pointer-events-none opacity-50" aria-disabled="true">${this.escapeHtml(label)}</span>`;
+        return `<span class="${this.buttonClass('secondary')}" aria-disabled="true">${this.escapeHtml(label)}</span>`;
     }
 
     renderKeyValueList(entries = []) {

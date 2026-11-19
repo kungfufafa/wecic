@@ -67,7 +67,7 @@ class PortalActionPagesTest extends TestCase
             ->assertDontSee('font-bold uppercase tracking-widest', false)
             ->assertSee("const kode = normalizeAttendanceCode(document.getElementById('attendance-code')?.value);", false)
             ->assertSee('href="${app.escapeHtml(backHref(detail.class_url))}"', false)
-            ->assertDontSee('<a href="/class" class="mycic-hero-pill">Kembali</a>', false);
+            ->assertDontSee('href="/class" class="${app.ui.backLink} mb-2">${BACK_ICON}', false);
     }
 
     public function test_meeting_link_without_course_explains_itself_instead_of_a_blank_page(): void
@@ -130,7 +130,7 @@ class PortalActionPagesTest extends TestCase
         $this->withSession(['campus_session_token' => 'token-meeting'])
             ->get('/meeting/445?courses_id=8861')
             ->assertOk()
-            ->assertSee('<details class="rounded-xl border border-border-light" data-attendance-override>', false)
+            ->assertSee('<details class="border-t border-border-light" data-attendance-override>', false)
             ->assertSee('Tetap kirim kode')
             ->assertSee('kehadiranmu belum terlihat tercatat di portal')
             ->assertDontSee('kehadiranmu tidak tercatat di portal')

@@ -12,7 +12,8 @@
 @endphp
 
 {{--
-    KRS & Perwalian: the "Semester ini" and "Riwayat & DPA" tabs, each a
+    KRS & Perwalian: the hero with the academic tabs, then the "Semester
+    ini" and "Riwayat & DPA" tabs (segmented, under the hero), each a
     partial in resources/views/academic/krs/widgets. The script is split
     into parts in resources/views/academic/krs/scripts.
 --}}
@@ -25,36 +26,32 @@
                 display: none !important;
             }
 
-            .mycic-sticky-action {
+            [data-sticky-action] {
                 position: static !important;
                 border: 0 !important;
             }
         }
     </style>
 
-    <x-academic-menu active="krs" class="print:hidden" />
-
-    <x-page-header title="KRS & Perwalian" class="print:hidden">
+    <x-page-hero title="Akademik" class="print:hidden">
         <x-slot:subtitle id="krs-period-label">Status KRS, periode, dan kontak DPA kamu.</x-slot:subtitle>
-        <p class="mt-1 text-caption text-ink-subtle" data-krs-updated></p>
-    </x-page-header>
+        <x-slot:meta><span class="text-ink-subtle" data-krs-updated></span></x-slot:meta>
+        <x-slot:tabs><x-academic-menu active="krs" underline /></x-slot:tabs>
+    </x-page-hero>
 
     <div class="hidden print:mb-4 print:block" id="krs-print-header"></div>
 
-    <div class="mb-4 flex gap-1 border-b border-border-light print:hidden" role="tablist" aria-label="Bagian halaman KRS">
+    <x-view-tabs as="div" class="mb-6 print:hidden" role="tablist" aria-label="Bagian halaman KRS">
         @foreach ($krsTabs as $key => $label)
-            <button
-                type="button"
-                role="tab"
+            <x-view-tab
+                :active="$activeTab === $key"
                 id="krs-tab-{{ $key }}"
                 aria-controls="krs-panel-{{ $key }}"
-                aria-selected="{{ $activeTab === $key ? 'true' : 'false' }}"
                 tabindex="{{ $activeTab === $key ? '0' : '-1' }}"
                 data-krs-tab="{{ $key }}"
-                class="-mb-px inline-flex min-h-11 shrink-0 cursor-pointer items-center gap-2 whitespace-nowrap border-b-2 border-transparent px-3 text-sm font-medium text-ink-muted transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand aria-selected:border-brand aria-selected:text-brand-text"
-            >{{ $label }}</button>
+            >{{ $label }}</x-view-tab>
         @endforeach
-    </div>
+    </x-view-tabs>
 
     @include('academic.krs.widgets.semester')
 

@@ -2,6 +2,7 @@ import { afterEach, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createPortalApp, json, settle } from './support/browser.mjs';
+import { ui } from '../../resources/js/app/ui.js';
 
 /**
  * PortalApp's realtime side (resources/js/app.js) against a fake Echo: the
@@ -33,7 +34,7 @@ async function signedInApp(options = {}) {
 
     browser = created.browser;
     browser.element('span', { 'data-realtime-label': '' });
-    browser.element('span', { 'data-realtime-chip': '', class: 'mycic-chip-online' });
+    browser.element('span', { 'data-realtime-chip': '', class: ui.chipOnline });
     browser.element('p', { 'data-sync-status': '' });
 
     return created.app;
@@ -82,13 +83,13 @@ describe('realtime channel', () => {
         app.initRealtime();
 
         assert.equal(realtimeLabel(), 'Menghubungkan real-time...');
-        assert.ok(realtimeChip().classList.contains('mycic-chip-offline'));
+        assert.equal(realtimeChip().className, ui.chipOffline);
         assert.equal(app.realtimeConnected, false);
 
         onlyChannel().onSubscribed();
 
         assert.equal(realtimeLabel(), 'Pembaruan otomatis aktif.');
-        assert.ok(realtimeChip().classList.contains('mycic-chip-online'));
+        assert.equal(realtimeChip().className, ui.chipOnline);
         assert.equal(app.realtimeConnected, true);
 
         onlyChannel().onError();

@@ -4,82 +4,85 @@
 @section('page_id', 'archive-index')
 
 @section('content')
-    <x-page-header title="Arsip WeCIC" subtitle="Cadangan data portal kampus milikmu. Tetap bisa dibuka saat portal bermasalah, dan jadi bukti kalau data di portal tiba-tiba berubah atau hilang." />
+    <x-page-hero title="Arsip WeCIC" subtitle="Cadangan data portal kampus milikmu, tetap bisa dibuka saat portal bermasalah." />
 
-    <div class="flex min-w-0 flex-col gap-6">
-        <section aria-labelledby="archive-attention-title" id="archive-attention" class="hidden">
-            <h2 class="mycic-section-title mb-2" id="archive-attention-title">Perlu kamu cek</h2>
+    <x-split :sticky="false">
+        <x-section title="Perlu kamu cek" title-id="archive-attention-title" id="archive-attention" class="hidden">
             <div class="flex flex-col gap-2" id="archive-attention-list"></div>
-        </section>
+        </x-section>
 
-        <section aria-labelledby="archive-datasets-title">
-            <h2 class="mycic-section-title mb-2" id="archive-datasets-title">Data akademik</h2>
-            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3" id="archive-datasets" aria-busy="true">
-                <span class="sr-only">Memuat arsip…</span>
-                @for ($i = 0; $i < 6; $i++)
-                    <div class="mycic-card p-4">
-                        <div class="flex flex-col gap-2">
-                            <div class="mycic-skeleton h-5 w-1/2"></div>
-                            <div class="mycic-skeleton h-3.5 w-2/3"></div>
+        <x-section title="Data akademik" title-id="archive-datasets-title">
+            <x-slot:count id="archive-datasets-count"></x-slot:count>
+            <x-card class="overflow-hidden">
+                <x-list id="archive-datasets" aria-busy="true">
+                    <span class="sr-only">Memuat arsip…</span>
+                    @for ($i = 0; $i < 6; $i++)
+                        <div class="flex items-center gap-3 px-4 py-3.5 sm:px-5">
+                            <div class="flex min-w-0 flex-1 flex-col gap-2">
+                                <x-skeleton class="h-4 w-1/3" />
+                                <x-skeleton class="h-3.5 w-1/2" />
+                            </div>
                         </div>
-                    </div>
-                @endfor
-            </div>
-        </section>
+                    @endfor
+                </x-list>
+            </x-card>
+        </x-section>
 
-        <section class="mycic-card" aria-labelledby="archive-files-title">
-            <div class="mycic-card-header flex flex-wrap items-start justify-between gap-3">
+        <x-card as="section" class="overflow-hidden" aria-labelledby="archive-files-title">
+            <x-card.header>
                 <div class="min-w-0">
-                    <h2 class="mycic-card-title" id="archive-files-title">Materi kuliah</h2>
-                    <p class="mycic-card-subtitle">Modul, latihan, dan RPS tersimpan otomatis setiap kali kamu membuka pertemuan, dan sinkronisasi di background mengarsipkan semua kelasmu secara berkala. Bisa dibuka tanpa portal dan dijadikan sumber Notebook.</p>
+                    <x-card.title id="archive-files-title">Materi kuliah</x-card.title>
+                    <x-card.subtitle>Modul, latihan, dan RPS tersimpan otomatis setiap kali kamu membuka pertemuan, dan sinkronisasi di background mengarsipkan semua kelasmu secara berkala. Bisa dibuka tanpa portal dan dijadikan sumber Notebook.</x-card.subtitle>
                 </div>
-                <form class="flex w-full flex-wrap items-end gap-2 sm:w-auto" id="archive-class-form">
-                    <label class="mycic-field min-w-0 flex-1 sm:w-64 sm:flex-none">
-                        <span class="mycic-label">Arsipkan semua materi kelas</span>
-                        <select class="mycic-input" id="archive-class-select" required>
-                            <option value="">Memuat daftar kelas…</option>
-                        </select>
-                    </label>
-                    <button type="submit" class="mycic-btn-secondary" data-online-required>Arsipkan</button>
-                </form>
-            </div>
-            <div class="mycic-card-body" id="archive-files">
+            </x-card.header>
+            <form class="flex flex-wrap items-end gap-2 border-b border-border-light bg-surface/40 px-4 py-3 sm:px-5" id="archive-class-form">
+                <label class="flex min-w-0 flex-1 basis-56 flex-col gap-1.5">
+                    <span class="text-sm font-medium text-ink">Arsipkan semua materi kelas</span>
+                    <x-select id="archive-class-select" required>
+                        <option value="">Memuat daftar kelas…</option>
+                    </x-select>
+                </label>
+                <x-button variant="secondary" type="submit" data-online-required>Arsipkan</x-button>
+            </form>
+            <x-card.body id="archive-files">
                 <div class="flex flex-col gap-3" aria-busy="true">
                     <span class="sr-only">Memuat berkas…</span>
-                    <div class="mycic-skeleton h-4 w-2/3"></div>
-                    <div class="mycic-skeleton h-4 w-1/2"></div>
+                    <x-skeleton class="h-4 w-2/3" />
+                    <x-skeleton class="h-4 w-1/2" />
                 </div>
-            </div>
-        </section>
+            </x-card.body>
+        </x-card>
 
-        <section class="mycic-card" aria-labelledby="archive-privacy-title">
-            <div class="mycic-card-header">
-                <h2 class="mycic-card-title" id="archive-privacy-title">Privasi arsip</h2>
-            </div>
-            <div class="mycic-card-body flex flex-col gap-3 text-sm text-ink-muted">
-                <ul class="flex list-disc flex-col gap-1.5 ps-5">
-                    <li>Data disimpan terenkripsi di server WeCIC dan hanya bisa dibuka lewat akunmu. Daftar teman sekelas tidak ikut diarsipkan.</li>
-                    <li>Saat portal mati, kamu tetap bisa masuk dengan password terakhir yang berhasil login (maks. {{ \App\Models\PortalOfflineAccount::offlineLoginDays() }} hari), dan WeCIC menyambung lagi otomatis begitu portal pulih selama sinkronisasi background menyala. Jika dimatikan, password tidak disimpan: WeCIC hanya memberi tahu saat portal pulih dan kamu masuk lagi sendiri.</li>
-                    <li>Dengan sinkronisasi di background aktif, password terakhirmu disimpan terenkripsi supaya WeCIC bisa masuk ke portal sendiri setiap {{ (int) config('portal.background_sync.interval', 180) }} menit dan memperbarui arsip saat kamu tidak membuka WeCIC, termasuk detail kelas, pertemuan, dan materi semua kelasmu. Matikan di bawah kalau tidak mau; yang tersisa hanya hash password.</li>
-                    <li>Semua itu tidak disimpan selamanya: {{ \App\Models\PortalOfflineAccount::credentialDays() }} hari setelah login online terakhirmu, password terenkripsi dihapus otomatis dan sinkronisasi di background berhenti; hash password dan data untuk masuk saat portal mati dihapus {{ \App\Models\PortalOfflineAccount::offlineLoginDays() }} hari sejak login itu. Password yang ditolak portal langsung dihapus. Arsipmu sendiri tetap tersimpan sampai kamu menghapusnya.</li>
-                    <li>Kalau data dari portal terlihat janggal (nilai hilang, presensi berubah jadi absen, riwayat bayar berkurang), WeCIC tetap menampilkan versi terakhir yang dipercaya sampai kamu memeriksanya.</li>
-                </ul>
-                <div class="mycic-alert-info mb-0 flex flex-wrap items-center justify-between gap-3" id="archive-background-sync" hidden>
-                    <span class="min-w-0">
-                        <span class="block font-medium text-ink">Sinkronisasi di background</span>
-                        <span class="block text-sm" id="archive-background-sync-caption"></span>
-                    </span>
-                    <label class="flex min-h-11 shrink-0 cursor-pointer items-center gap-2 text-sm font-medium text-ink">
-                        <input type="checkbox" class="h-5 w-5 cursor-pointer accent-brand" id="archive-background-sync-toggle">
-                        <span>Aktif</span>
-                    </label>
-                </div>
-                <div>
-                    <button type="button" class="mycic-btn-destructive" id="archive-delete">Hapus seluruh arsip saya</button>
-                </div>
-            </div>
-        </section>
-    </div>
+        <x-slot:aside aria-label="Privasi dan sinkronisasi arsip">
+            <x-card as="section" aria-labelledby="archive-privacy-title">
+                <x-card.header>
+                    <x-card.title id="archive-privacy-title">Privasi arsip</x-card.title>
+                </x-card.header>
+                <x-card.body class="flex flex-col gap-4 text-[13px] text-ink-muted">
+                    <ul class="flex list-disc flex-col gap-2.5 ps-5 leading-relaxed marker:text-ink-subtle">
+                        <li>Data disimpan terenkripsi di server WeCIC dan hanya bisa dibuka lewat akunmu. Daftar teman sekelas tidak ikut diarsipkan.</li>
+                        <li>Saat portal mati, kamu tetap bisa masuk dengan password terakhir yang berhasil login (maks. {{ \App\Models\PortalOfflineAccount::offlineLoginDays() }} hari), dan WeCIC menyambung lagi otomatis begitu portal pulih selama sinkronisasi background menyala. Jika dimatikan, password tidak disimpan: WeCIC hanya memberi tahu saat portal pulih dan kamu masuk lagi sendiri.</li>
+                        <li>Dengan sinkronisasi di background aktif, password terakhirmu disimpan terenkripsi supaya WeCIC bisa masuk ke portal sendiri setiap {{ (int) config('portal.background_sync.interval', 180) }} menit dan memperbarui arsip saat kamu tidak membuka WeCIC, termasuk detail kelas, pertemuan, dan materi semua kelasmu. Matikan di bawah kalau tidak mau; yang tersisa hanya hash password.</li>
+                        <li>Semua itu tidak disimpan selamanya: {{ \App\Models\PortalOfflineAccount::credentialDays() }} hari setelah login online terakhirmu, password terenkripsi dihapus otomatis dan sinkronisasi di background berhenti; hash password dan data untuk masuk saat portal mati dihapus {{ \App\Models\PortalOfflineAccount::offlineLoginDays() }} hari sejak login itu. Password yang ditolak portal langsung dihapus. Arsipmu sendiri tetap tersimpan sampai kamu menghapusnya.</li>
+                        <li>Kalau data dari portal terlihat janggal (nilai hilang, presensi berubah jadi absen, riwayat bayar berkurang), WeCIC tetap menampilkan versi terakhir yang dipercaya sampai kamu memeriksanya.</li>
+                    </ul>
+                    <x-alert tone="info" class="flex flex-wrap items-center justify-between gap-3" id="archive-background-sync" hidden>
+                        <span class="min-w-0">
+                            <span class="block font-medium text-ink">Sinkronisasi di background</span>
+                            <span class="block text-sm text-ink-muted" id="archive-background-sync-caption"></span>
+                        </span>
+                        <label class="flex min-h-11 shrink-0 cursor-pointer items-center gap-2 text-sm font-medium text-ink">
+                            <input type="checkbox" class="size-5 cursor-pointer accent-brand" id="archive-background-sync-toggle">
+                            <span>Aktif</span>
+                        </label>
+                    </x-alert>
+                </x-card.body>
+                <x-card.footer>
+                    <x-button variant="destructive" size="sm" id="archive-delete">Hapus seluruh arsip saya</x-button>
+                </x-card.footer>
+            </x-card>
+        </x-slot:aside>
+    </x-split>
 @endsection
 
 @push('scripts')
@@ -93,6 +96,23 @@
             const classForm = document.getElementById('archive-class-form');
             const classSelect = document.getElementById('archive-class-select');
             const deleteButton = document.getElementById('archive-delete');
+            const datasetsCount = document.getElementById('archive-datasets-count');
+            // Each dataset with the icon of the page it comes from: the icon tells the data's type.
+            const DATASET_ICON = {
+                classes: 'class',
+                class_detail: 'class',
+                meeting_detail: 'presentation',
+                exams: 'exam',
+                krs: 'list-check',
+                krs_detail: 'list-check',
+                advising: 'users',
+                grades: 'chart',
+                payments: 'finance',
+                skkm: 'skkm',
+                thesis: 'thesis',
+                announcements: 'announcement',
+                profile: 'user',
+            };
 
             const formatBytes = (bytes) => {
                 const value = Number(bytes) || 0;
@@ -108,14 +128,17 @@
                 datasetsHost.removeAttribute('aria-busy');
 
                 const pending = datasets.filter((dataset) => dataset.open_suspects > 0);
+
+                datasetsCount.textContent = datasets.length ? `${datasets.filter((dataset) => dataset.versions > 0).length} dari ${datasets.length} tersimpan` : '';
+
                 attentionSection.classList.toggle('hidden', pending.length === 0);
                 attentionList.innerHTML = pending.map((dataset) => `
-                    <a href="/archive/${encodeURIComponent(dataset.dataset)}" class="mycic-alert-warning mb-0 flex cursor-pointer items-center justify-between gap-3 transition-colors hover:border-warning/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">
-                        <span class="min-w-0">
+                    <a href="/archive/${encodeURIComponent(dataset.dataset)}" class="${app.ui.alert.warning} flex min-h-11 cursor-pointer items-center gap-3 transition-colors hover:border-warning/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40">
+                        <span class="min-w-0 flex-1">
                             <span class="block font-medium">${app.escapeHtml(dataset.label)}: ${dataset.open_suspects} perubahan janggal</span>
-                            <span class="block text-caption">WeCIC menahan data dari portal dan tetap menampilkan versi tersimpan. Buka untuk memeriksa.</span>
+                            <span class="block text-xs text-ink-muted">WeCIC menahan data dari portal dan tetap menampilkan versi tersimpan. Buka untuk memeriksa.</span>
                         </span>
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6l-6 6" /></svg>
+                        ${app.renderIcon('chevron-right', 'sm', app.ui.listRowChevron)}
                     </a>
                 `).join('');
 
@@ -127,14 +150,17 @@
                             dataset.last_seen_at ? `terakhir dicek ${app.formatTimeAgo(dataset.last_seen_at)}` : '',
                         ].filter(Boolean).join(' · ')
                         : 'Belum ada arsip. Tersimpan saat halamannya dibuka.';
+                    const icon = DATASET_ICON[dataset.dataset] || 'archive';
 
                     return `
-                        <a href="/archive/${encodeURIComponent(dataset.dataset)}" class="mycic-card-interactive flex min-h-24 min-w-0 flex-col gap-2">
-                            <span class="flex flex-wrap items-center justify-between gap-2">
-                                <span class="text-sm font-medium leading-snug text-ink">${app.escapeHtml(dataset.label)}</span>
-                                ${dataset.open_suspects > 0 ? app.renderBadge(`${dataset.open_suspects} janggal`, 'warning') : (dataset.versions > 0 ? app.renderBadge('Tersimpan', 'success') : '')}
+                        <a href="/archive/${encodeURIComponent(dataset.dataset)}" class="${app.ui.listRowFlushInteractive}">
+                            <span class="flex shrink-0 text-ink-subtle" aria-hidden="true">${app.renderIcon(icon, 'sm')}</span>
+                            <span class="${app.ui.listRowBody}">
+                                <span class="block ${app.ui.listRowTitle}">${app.escapeHtml(dataset.label)}</span>
+                                <span class="block ${app.ui.listRowSubtitle}">${app.escapeHtml(caption)}</span>
                             </span>
-                            <span class="text-caption text-ink-subtle">${app.escapeHtml(caption)}</span>
+                            ${dataset.open_suspects > 0 ? app.renderBadge(`${dataset.open_suspects} janggal`, 'warning') : ''}
+                            ${app.renderIcon('chevron-right', 'sm', app.ui.listRowChevron)}
                         </a>
                     `;
                 }).join('');
@@ -148,29 +174,33 @@
                     filesHost.innerHTML = app.renderEmptyState(
                         'Belum ada materi tersimpan.',
                         'secondary',
-                        'Buka pertemuan di halaman Kuliah, atau pilih kelas di atas untuk mengarsipkan semua materinya.'
+                        'Buka pertemuan di halaman Kuliah, atau pilih kelas di atas untuk mengarsipkan semua materinya.',
+                        { icon: 'folder' }
                     );
 
                     return;
                 }
 
                 filesHost.innerHTML = `
-                    <p class="mb-3 text-caption text-ink-subtle">${totals.count} berkas · ${formatBytes(totals.bytes)}</p>
-                    <div class="flex flex-col gap-5">
+                    <p class="mb-4 text-xs text-ink-subtle tabular-nums">${totals.count} berkas · ${formatBytes(totals.bytes)}</p>
+                    <div class="flex flex-col gap-6">
                         ${courses.map((course) => `
                             <section class="flex flex-col gap-1">
-                                <h3 class="text-sm font-medium leading-snug text-ink">${app.escapeHtml(course.course_name || 'Mata kuliah')}</h3>
-                                <div class="flex flex-col">
+                                <div class="${app.ui.sectionTitleRow}">
+                                    <h3 class="min-w-0 truncate text-sm font-semibold leading-snug text-ink">${app.escapeHtml(course.course_name || 'Mata kuliah')}</h3>
+                                    <span class="${app.ui.sectionCount}">${course.files.length}</span>
+                                </div>
+                                <div class="${app.ui.list}">
                                     ${course.files.map((file) => `
-                                        <a href="${app.escapeHtml(file.download_url)}" target="_blank" rel="noopener" class="mycic-list-row mycic-list-row-interactive min-h-11 items-center">
-                                            <span class="flex min-w-0 items-center gap-3">
-                                                ${app.renderBadge(file.kind_label || file.kind, file.kind === 'rps' ? 'info' : (file.kind === 'latihan' ? 'warning' : 'brand'))}
-                                                <span class="min-w-0">
-                                                    <span class="block truncate text-sm font-medium leading-snug text-ink">${app.escapeHtml(file.title || file.filename)}</span>
-                                                    <span class="block text-caption text-ink-subtle">${app.escapeHtml([file.meeting_number ? `Pertemuan ${file.meeting_number}` : '', file.filename, formatBytes(file.size)].filter(Boolean).join(' · '))}</span>
-                                                </span>
+                                        <a href="${app.escapeHtml(file.download_url)}" target="_blank" rel="noopener" class="-mx-2 flex min-h-11 items-center gap-3 rounded-lg px-2 py-2.5 transition-colors hover:bg-surface/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40">
+                                            <span class="${app.ui.listRowBody}">
+                                                <span class="block ${app.ui.listRowTitle}">${app.escapeHtml(file.title || file.filename)}</span>
+                                                <span class="block ${app.ui.listRowSubtitle}">${app.escapeHtml([file.meeting_number ? `Pertemuan ${file.meeting_number}` : '', file.filename, formatBytes(file.size)].filter(Boolean).join(' · '))}</span>
                                             </span>
-                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 self-center text-ink-subtle" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6l-6 6" /></svg>
+                                            <span class="flex shrink-0 items-center gap-2">
+                                                ${app.renderBadge(file.kind_label || file.kind, 'secondary')}
+                                                ${app.renderIcon('download', 'sm', app.ui.listRowChevron)}
+                                            </span>
                                         </a>
                                     `).join('')}
                                 </div>

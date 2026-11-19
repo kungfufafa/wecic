@@ -6,51 +6,60 @@
 @section('hide_sync_refresh', '1')
 
 @section('content')
-    <div class="mx-auto max-w-lg">
-        <header class="mb-6">
-            <h1 class="mycic-page-heading">Ubah password</h1>
-            <p class="mycic-page-subheading">Gunakan password portal kampus kamu saat ini, lalu tentukan password baru</p>
-        </header>
+    <x-page-hero title="Ubah password" subtitle="Gunakan password portal kampus kamu saat ini, lalu tentukan password baru" />
 
-        <div class="mycic-card">
-            <div class="mycic-card-body">
+    <x-split at="xl">
+        <x-card as="section" title="Password portal" title-id="password-form-title" subtitle="Password yang sama dipakai untuk masuk ke WeCIC dan portal kampus." aria-labelledby="password-form-title">
+            <x-card.body class="sm:p-6">
                 {{-- Submitted only by the script below: a native submit must never put the passwords in a URL. --}}
-                <form id="form-change-password" class="mycic-form" method="post" action="javascript:void(0)">
-                    <div class="mycic-field">
-                        <label class="mycic-label" for="current_password">Password lama</label>
-                        <div class="mycic-input-wrap">
-                            <input type="password" class="mycic-input mycic-input-with-toggle" name="current_password" id="current_password" autocomplete="current-password" aria-describedby="current_password-error" required>
-                            <button type="button" class="mycic-input-toggle password-toggle" data-target="current_password" aria-label="Tampilkan password" aria-pressed="false">
+                <form id="form-change-password" class="flex flex-col gap-5" method="post" action="javascript:void(0)">
+                    <x-field label="Password lama" for="current_password">
+                        <div class="relative flex items-center">
+                            <input type="password" class="h-11 w-full min-w-0 rounded-lg border border-border bg-panel pe-11 ps-3 text-base text-ink shadow-xs transition-[color,box-shadow,border-color] placeholder:text-ink-subtle focus-visible:border-brand focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand/20 disabled:cursor-not-allowed disabled:bg-surface disabled:opacity-60 aria-invalid:border-danger aria-invalid:ring-danger/20 sm:h-9 sm:text-sm dark:shadow-none" name="current_password" id="current_password" autocomplete="current-password" aria-describedby="current_password-error" required>
+                            <button type="button" class="absolute end-1 top-1/2 z-10 flex size-9 -translate-y-1/2 sm:size-7 cursor-pointer items-center justify-center rounded-md text-ink-subtle transition-colors hover:bg-surface hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40" data-password-toggle data-target="current_password" aria-label="Tampilkan password" aria-pressed="false">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" /><path d="M21 12c-2.4 4 -5.4 6 -9 6c-3.6 0 -6.6 -2 -9 -6c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6" /></svg>
                             </button>
                         </div>
-                        <p class="mycic-field-error" id="current_password-error" data-field-error="current_password" hidden></p>
-                    </div>
-                    <div class="mycic-field">
-                        <label class="mycic-label" for="new_password">Password baru</label>
-                        <div class="mycic-input-wrap">
-                            <input type="password" class="mycic-input mycic-input-with-toggle" name="new_password" id="new_password" autocomplete="new-password" aria-describedby="new_password-error" required>
-                            <button type="button" class="mycic-input-toggle password-toggle" data-target="new_password" aria-label="Tampilkan password" aria-pressed="false">
+                        <p class="text-xs font-medium leading-relaxed text-danger" id="current_password-error" data-field-error="current_password" hidden></p>
+                    </x-field>
+                    <x-field label="Password baru" for="new_password">
+                        <div class="relative flex items-center">
+                            <input type="password" class="h-11 w-full min-w-0 rounded-lg border border-border bg-panel pe-11 ps-3 text-base text-ink shadow-xs transition-[color,box-shadow,border-color] placeholder:text-ink-subtle focus-visible:border-brand focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand/20 disabled:cursor-not-allowed disabled:bg-surface disabled:opacity-60 aria-invalid:border-danger aria-invalid:ring-danger/20 sm:h-9 sm:text-sm dark:shadow-none" name="new_password" id="new_password" autocomplete="new-password" aria-describedby="new_password-error" required>
+                            <button type="button" class="absolute end-1 top-1/2 z-10 flex size-9 -translate-y-1/2 sm:size-7 cursor-pointer items-center justify-center rounded-md text-ink-subtle transition-colors hover:bg-surface hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40" data-password-toggle data-target="new_password" aria-label="Tampilkan password" aria-pressed="false">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" /><path d="M21 12c-2.4 4 -5.4 6 -9 6c-3.6 0 -6.6 -2 -9 -6c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6" /></svg>
                             </button>
                         </div>
-                        <p class="mycic-field-error" id="new_password-error" data-field-error="new_password" hidden></p>
-                    </div>
-                    <div class="mycic-field">
-                        <label class="mycic-label" for="new_password_confirmation">Konfirmasi password baru</label>
-                        <div class="mycic-input-wrap">
-                            <input type="password" class="mycic-input mycic-input-with-toggle" name="new_password_confirmation" id="new_password_confirmation" autocomplete="new-password" aria-describedby="new_password_confirmation-error" required>
-                            <button type="button" class="mycic-input-toggle password-toggle" data-target="new_password_confirmation" aria-label="Tampilkan password" aria-pressed="false">
+                        <p class="text-xs font-medium leading-relaxed text-danger" id="new_password-error" data-field-error="new_password" hidden></p>
+                    </x-field>
+                    <x-field label="Konfirmasi password baru" for="new_password_confirmation">
+                        <div class="relative flex items-center">
+                            <input type="password" class="h-11 w-full min-w-0 rounded-lg border border-border bg-panel pe-11 ps-3 text-base text-ink shadow-xs transition-[color,box-shadow,border-color] placeholder:text-ink-subtle focus-visible:border-brand focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand/20 disabled:cursor-not-allowed disabled:bg-surface disabled:opacity-60 aria-invalid:border-danger aria-invalid:ring-danger/20 sm:h-9 sm:text-sm dark:shadow-none" name="new_password_confirmation" id="new_password_confirmation" autocomplete="new-password" aria-describedby="new_password_confirmation-error" required>
+                            <button type="button" class="absolute end-1 top-1/2 z-10 flex size-9 -translate-y-1/2 sm:size-7 cursor-pointer items-center justify-center rounded-md text-ink-subtle transition-colors hover:bg-surface hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40" data-password-toggle data-target="new_password_confirmation" aria-label="Tampilkan password" aria-pressed="false">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" /><path d="M21 12c-2.4 4 -5.4 6 -9 6c-3.6 0 -6.6 -2 -9 -6c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6" /></svg>
                             </button>
                         </div>
-                        <p class="mycic-field-error" id="new_password_confirmation-error" data-field-error="new_password_confirmation" hidden></p>
-                    </div>
-                    <button type="submit" class="mycic-btn-primary mycic-btn-block mt-2" id="btn-submit" disabled>Simpan password</button>
+                        <p class="text-xs font-medium leading-relaxed text-danger" id="new_password_confirmation-error" data-field-error="new_password_confirmation" hidden></p>
+                    </x-field>
+                    <x-button type="submit" class="mt-1 w-full sm:w-auto sm:self-end" id="btn-submit" disabled>Simpan password</x-button>
                 </form>
-            </div>
-        </div>
-    </div>
+            </x-card.body>
+        </x-card>
+
+        <x-slot:aside aria-label="Ketentuan password">
+            <x-card as="section" title="Ketentuan" title-id="password-rules-title" aria-labelledby="password-rules-title">
+                <x-card.body>
+                    <ol class="flex flex-col gap-3">
+                        @foreach (['Isi password lama yang kamu pakai sekarang.', 'Password baru minimal 6 karakter.', 'Password baru harus berbeda dari password lama.', 'Ketik ulang password baru sama persis di kolom konfirmasi.'] as $rule)
+                            <li class="flex gap-3 text-sm">
+                                <span class="w-4 shrink-0 text-end font-medium text-ink-subtle tabular-nums">{{ $loop->iteration }}.</span>
+                                <span class="text-ink-muted">{{ $rule }}</span>
+                            </li>
+                        @endforeach
+                    </ol>
+                </x-card.body>
+            </x-card>
+        </x-slot:aside>
+    </x-split>
 @endsection
 
 @push('scripts')
@@ -61,7 +70,7 @@
             const btnSubmit = document.getElementById('btn-submit');
             let ready = false;
 
-            document.querySelectorAll('.password-toggle').forEach((toggle) => {
+            document.querySelectorAll('[data-password-toggle]').forEach((toggle) => {
                 toggle.addEventListener('click', (e) => {
                     e.preventDefault();
                     const input = document.getElementById(toggle.dataset.target);

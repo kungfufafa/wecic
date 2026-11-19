@@ -1,56 +1,62 @@
 {{--
-    The "Semester ini" tab: loading skeletons for the status card, the
-    courses and the schedule until the script fills them.
+    The "Semester ini" tab: the status card (the page's focal point) and the
+    courses, beside a sticky aside with the period schedule and the notes.
+    Loading skeletons stand in until the script fills them.
 --}}
     <section
         id="krs-panel-semester"
         role="tabpanel"
         aria-labelledby="krs-tab-semester"
-        class="flex flex-col gap-4 lg:grid lg:grid-cols-12 lg:items-start lg:gap-5"
         @if ($activeTab !== 'semester') hidden @endif
     >
-        <div class="flex min-w-0 flex-col gap-4 lg:col-span-8">
+        <x-split>
             <div id="krs-status" class="print:hidden">
-                <div class="mycic-card" aria-busy="true">
-                    <div class="mycic-card-body flex flex-col gap-3">
+                <x-card aria-busy="true">
+                    <x-card.body class="flex flex-col gap-4">
                         <span class="sr-only">Memuat status KRS…</span>
-                        <div class="mycic-skeleton h-3.5 w-1/3"></div>
-                        <div class="mycic-skeleton h-6 w-2/3"></div>
-                        <div class="mycic-skeleton h-14 w-full"></div>
-                        <div class="mycic-skeleton h-3.5 w-1/2"></div>
-                    </div>
-                </div>
+                        <div class="flex items-center gap-3">
+                            <x-skeleton class="size-11 shrink-0 rounded-xl!" />
+                            <div class="flex flex-1 flex-col gap-1.5">
+                                <x-skeleton class="h-3.5 w-1/3" />
+                                <x-skeleton class="h-6 w-2/3" />
+                            </div>
+                        </div>
+                        <x-skeleton class="h-14 w-full" />
+                        <x-skeleton class="h-3.5 w-1/2" />
+                    </x-card.body>
+                </x-card>
             </div>
 
             <div id="krs-courses">
-                <div class="mycic-card" aria-busy="true">
-                    <div class="mycic-card-header">
-                        <div class="mycic-skeleton h-5 w-48"></div>
-                    </div>
-                    <div class="mycic-card-body flex flex-col divide-y divide-border-light">
+                <x-card aria-busy="true">
+                    <x-card.header>
+                        <x-skeleton class="h-5 w-48" />
+                        <x-skeleton class="h-5 w-24" />
+                    </x-card.header>
+                    <x-list>
                         @for ($i = 0; $i < 4; $i++)
-                            <x-list-row>
+                            <x-list-row flush>
+                                <x-slot:leading><x-skeleton class="size-11 rounded-lg!" /></x-slot:leading>
                                 <div class="flex flex-col gap-1.5">
-                                    <div class="mycic-skeleton h-3 w-16"></div>
-                                    <div class="mycic-skeleton h-4 w-40 sm:w-56"></div>
+                                    <x-skeleton class="h-3 w-16" />
+                                    <x-skeleton class="h-4 w-40 sm:w-56" />
                                 </div>
-                                <div class="mycic-skeleton h-5 w-14"></div>
                             </x-list-row>
                         @endfor
-                    </div>
-                </div>
+                    </x-list>
+                </x-card>
             </div>
-        </div>
 
-        <aside class="flex min-w-0 flex-col gap-4 print:hidden lg:sticky lg:top-20 lg:col-span-4" aria-label="Jadwal dan catatan KRS">
-            <div id="krs-schedule">
-                <div class="mycic-card" aria-busy="true">
-                    <div class="mycic-card-body flex flex-col gap-3">
-                        <div class="mycic-skeleton h-4 w-1/2"></div>
-                        <div class="mycic-skeleton h-3.5 w-3/4"></div>
-                    </div>
+            <x-slot:aside class="print:hidden" aria-label="Jadwal dan catatan KRS">
+                <div id="krs-schedule">
+                    <x-card aria-busy="true">
+                        <x-card.body class="flex flex-col gap-3">
+                            <x-skeleton class="h-4 w-1/2" />
+                            <x-skeleton class="h-3.5 w-3/4" />
+                        </x-card.body>
+                    </x-card>
                 </div>
-            </div>
-            <div id="krs-notes"></div>
-        </aside>
+                <div id="krs-notes" class="empty:hidden"></div>
+            </x-slot:aside>
+        </x-split>
     </section>

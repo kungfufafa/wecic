@@ -4,87 +4,44 @@
 @section('page_id', 'login')
 
 @section('content')
-    <div class="mycic-auth-page">
-        <aside class="mycic-auth-showcase">
-            <div class="mycic-auth-showcase-content">
+    <div class="grid min-h-dvh lg:grid-cols-2">
+        <aside class="relative hidden border-e border-border bg-surface text-ink lg:flex lg:flex-col lg:justify-between">
+            <div class="relative z-10 flex h-full flex-col justify-between gap-8 p-10 xl:p-14">
                 <div class="flex flex-col items-start gap-2">
                     <x-brand-logo class="h-9" />
-                    <div class="text-caption font-medium text-ink-subtle">Aplikasi tidak resmi untuk MyCIC</div>
+                    <p class="text-xs font-medium text-ink-subtle">Aplikasi tidak resmi untuk MyCIC</p>
                 </div>
 
-                <div class="my-auto w-full max-w-md">
-                    <div class="mycic-card overflow-hidden">
-                        <div class="mycic-card-header flex items-center justify-between gap-3">
-                            <span class="text-sm font-medium text-ink">Hari ini</span>
-                            <span class="inline-flex items-center gap-2 text-caption font-medium text-ink-subtle">
-                                <span class="h-1.5 w-1.5 rounded-full bg-success" aria-hidden="true"></span>
-                                <span>Terhubung</span>
-                            </span>
-                        </div>
-                        <div class="divide-y divide-border-light">
-                            <div class="flex items-center justify-between gap-4 px-4 py-3">
-                                <div class="min-w-0">
-                                    <div class="font-mono text-caption text-ink-subtle tabular-nums">08:00 · Lab 2</div>
-                                    <div class="truncate text-sm font-medium text-ink">Pemrograman Web</div>
-                                </div>
-                                <span class="inline-flex shrink-0 items-center gap-1.5 text-caption font-medium text-success">
-                                    <span class="h-1.5 w-1.5 rounded-full bg-success" aria-hidden="true"></span>
-                                    <span>Hadir</span>
-                                </span>
-                            </div>
-                            <div class="flex items-center justify-between gap-4 px-4 py-3">
-                                <div class="min-w-0">
-                                    <div class="font-mono text-caption text-ink-subtle tabular-nums">10:30 · R.304</div>
-                                    <div class="truncate text-sm font-medium text-ink">Basis Data</div>
-                                </div>
-                                <span class="mycic-badge-brand shrink-0">Absensi dibuka</span>
-                            </div>
-                        </div>
-                        <div class="flex items-center justify-between border-t border-border-light bg-surface/60 px-4 py-2 font-mono text-caption text-ink-muted tabular-nums">
-                            <span>IPK 3.74</span>
-                            <span>108/144 SKS</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div>
-                    <p class="mycic-auth-quote">
-                        Jadwal, absensi, tugas, dan nilai MyCIC dalam satu tempat yang tenang
-                    </p>
-                    <p class="mycic-auth-quote-author">Data tetap bersumber dari MyCIC (my.cic.ac.id) · WeCIC tidak berafiliasi dengan UCIC</p>
-                </div>
+                <p class="text-xs leading-relaxed text-ink-subtle">Data tetap bersumber dari MyCIC (my.cic.ac.id) · WeCIC tidak berafiliasi dengan UCIC</p>
             </div>
         </aside>
 
-        <main class="mycic-auth-form-panel">
-            <div class="mycic-auth-form-inner">
+        <main class="relative flex flex-col bg-panel px-6 py-8 sm:px-10 sm:py-10 lg:px-14 lg:py-12 xl:px-20">
+            <div class="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center">
                 <div class="mb-8 flex flex-col items-start gap-2 lg:hidden">
                     <x-brand-logo class="h-9" />
-                    <div class="text-caption font-medium text-ink-subtle">Aplikasi tidak resmi untuk MyCIC</div>
+                    <p class="text-xs font-medium text-ink-subtle">Aplikasi tidak resmi untuk MyCIC</p>
                 </div>
 
-                <header>
-                    <h1 class="mycic-page-heading">Masuk ke WeCIC</h1>
-                    <p class="mycic-page-subheading">Gunakan NIM dan password MyCIC kamu</p>
+                <x-page-header title="Masuk ke WeCIC" subtitle="Gunakan NIM dan password MyCIC kamu">
                     {{-- Present from page load so a failed login is read out; stays on screen unlike a toast. --}}
                     <div id="login-error" role="alert" data-login-error></div>
-                </header>
+                </x-page-header>
 
                 {{-- POST so a submit that beats the script never puts the password in the URL. --}}
-                <form id="login-form" class="mycic-form mt-8" method="post" novalidate>
-                    <div class="mycic-field">
-                        <label for="username" class="mycic-label">NIM atau username</label>
-                        <div class="mycic-input-wrap">
-                            <svg class="mycic-input-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <form id="login-form" class="flex flex-col gap-5" method="post" novalidate>
+                    <x-field label="NIM atau username" for="username">
+                        <div class="relative flex items-center">
+                            <svg class="pointer-events-none absolute start-3 top-1/2 z-10 -translate-y-1/2 text-ink-subtle" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                 <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
                                 <path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0" />
                                 <path d="M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" />
                             </svg>
-                            <input
+                            <x-input
+                                icon
                                 id="username"
                                 name="username"
                                 type="text"
-                                class="mycic-input mycic-input-with-icon"
                                 autocomplete="username"
                                 placeholder="2023102001"
                                 autocapitalize="off"
@@ -92,24 +49,24 @@
                                 inputmode="text"
                                 aria-describedby="login-error"
                                 required
-                            >
+                            />
                         </div>
-                    </div>
+                    </x-field>
 
-                    <div class="mycic-field">
-                        <label for="password" class="mycic-label">Password</label>
-                        <div class="mycic-input-wrap">
-                            <svg class="mycic-input-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <x-field label="Password" for="password">
+                        <div class="relative flex items-center">
+                            <svg class="pointer-events-none absolute start-3 top-1/2 z-10 -translate-y-1/2 text-ink-subtle" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                 <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
                                 <path d="M5 13a2 2 0 0 1 2 -2h10a2 2 0 0 1 2 2v6a2 2 0 0 1 -2 2h-10a2 2 0 0 1 -2 -2v-6z" />
                                 <path d="M11 16a1 1 0 1 0 2 0a1 1 0 0 0 -2 0" />
                                 <path d="M8 11v-4a4 4 0 1 1 8 0v4" />
                             </svg>
+                            {{-- A plain input, not x-input: FrontendShellTest reads password field names from the view source. --}}
                             <input
+                                class="h-11 w-full min-w-0 rounded-lg border border-border bg-panel pe-11 ps-9 text-base text-ink shadow-xs transition-[color,box-shadow,border-color] placeholder:text-ink-subtle focus-visible:border-brand focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand/20 disabled:cursor-not-allowed disabled:bg-surface disabled:opacity-60 aria-invalid:border-danger aria-invalid:ring-danger/20 sm:h-9 sm:text-sm dark:shadow-none"
                                 id="password"
                                 name="password"
                                 type="password"
-                                class="mycic-input mycic-input-with-icon mycic-input-with-toggle"
                                 autocomplete="current-password"
                                 placeholder="Masukkan password"
                                 aria-describedby="login-error"
@@ -117,7 +74,7 @@
                             >
                             <button
                                 type="button"
-                                class="mycic-input-toggle"
+                                class="absolute end-1 top-1/2 z-10 flex size-9 -translate-y-1/2 sm:size-7 cursor-pointer items-center justify-center rounded-md text-ink-subtle transition-colors hover:bg-surface hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
                                 id="password-visibility-toggle"
                                 aria-label="Tampilkan password"
                                 aria-pressed="false"
@@ -129,28 +86,28 @@
                                 </svg>
                             </button>
                         </div>
-                    </div>
+                    </x-field>
 
-                    <button id="login-submit" type="submit" class="mycic-btn-primary mycic-btn-block mt-2" data-online-required>
+                    <x-button id="login-submit" type="submit" class="mt-1 w-full" data-online-required>
                         Masuk
-                    </button>
+                    </x-button>
                 </form>
 
                 @php($demoSignInUrl = App\Services\PortalDemoFixtures::signInUrl(app()))
                 @if ($demoSignInUrl !== null)
                     {{-- Local demo mode (PORTAL_DEMO=true): a session on the fixture pages, without the portal. --}}
-                    <form id="demo-login-form" class="mt-4" method="post" action="{{ $demoSignInUrl }}">
+                    <form id="demo-login-form" class="mt-6 flex flex-col gap-2 border-t border-border-light pt-6" method="post" action="{{ $demoSignInUrl }}">
                         @csrf
-                        <button id="demo-login-submit" type="submit" class="mycic-btn-secondary mycic-btn-block">
+                        <x-button id="demo-login-submit" type="submit" variant="secondary" class="w-full">
                             Masuk sebagai mahasiswa demo
-                        </button>
-                        <p class="mt-2 text-center text-caption text-ink-subtle">
-                            Mode demo lokal: data dari <code>tests/Fixtures/portal</code>, tidak menghubungi portal kampus.
+                        </x-button>
+                        <p class="text-center text-xs leading-relaxed text-ink-subtle">
+                            Mode demo lokal: data dari <code class="font-mono">tests/Fixtures/portal</code>, tidak menghubungi portal kampus.
                         </p>
                     </form>
                 @endif
 
-                <p class="mycic-legal-text mt-8 lg:hidden">
+                <p class="mt-8 text-center text-xs leading-relaxed text-ink-subtle lg:hidden">
                     WeCIC adalah aplikasi tidak resmi buatan mahasiswa dan tidak berafiliasi dengan UCIC. Data tetap bersumber dari MyCIC.
                 </p>
             </div>
@@ -181,7 +138,10 @@
             const showLoginError = (message, { tone = 'danger', invalid = false } = {}) => {
                 const notice = document.createElement('div');
 
-                notice.className = `${tone === 'warning' ? 'mycic-alert-warning' : 'mycic-alert-danger'} mt-4`;
+                // Full strings, not app.ui: this also runs when the bundle never loaded.
+                notice.className = tone === 'warning'
+                    ? 'mt-4 rounded-lg border border-warning/25 bg-warning-soft px-4 py-3 text-sm text-ink'
+                    : 'mt-4 rounded-lg border border-danger/25 bg-danger-soft px-4 py-3 text-sm text-ink';
                 notice.textContent = message;
                 errorHost.replaceChildren(notice);
 

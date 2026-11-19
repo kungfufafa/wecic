@@ -8,7 +8,7 @@
     <link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48">
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <link rel="manifest" href="/manifest.json">
-    <meta name="theme-color" content="#0352A1">
+    <meta name="theme-color" content="#ffffff">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -30,17 +30,21 @@
             }
 
             document.documentElement.dataset.theme = theme;
+
+            if (theme === 'dark') {
+                document.querySelector('meta[name="theme-color"]')?.setAttribute('content', '#111113');
+            }
         })();
     </script>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body data-auth="guest" data-page="@yield('page_id', 'guest')">
-    <div id="notice-host" class="mycic-toast-host"></div>
+    <x-toast-host guest />
     {{-- Live regions exist from page load so toasts are announced (app.announce). --}}
     <div class="sr-only" role="status" aria-live="polite" aria-atomic="true" data-live-polite></div>
     <div class="sr-only" aria-live="assertive" aria-atomic="true" data-live-assertive></div>
 
-    <div class="mycic-guest-shell">
+    <div class="min-h-dvh bg-canvas">
         @yield('content')
     </div>
 

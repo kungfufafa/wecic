@@ -32,9 +32,9 @@
                 const usedCachedPayload = app.primeCachedView(endpoint, renderSource, 'daftar kelas utama');
 
                 if (!usedCachedPayload) {
-                    blockingGridHost.innerHTML = '<div class="mycic-empty py-12"><p class="mycic-empty-title text-ink-subtle">Memuat jadwal...</p></div>';
-                    timelineHost.innerHTML = '<div class="mycic-empty py-12"><p class="mycic-empty-title text-ink-subtle">Memuat jadwal...</p></div>';
-                    listHost.innerHTML = '<div class="mycic-empty py-8"><p class="mycic-empty-title text-ink-subtle">Memuat jadwal...</p></div>';
+                    blockingGridHost.innerHTML = `<div class="flex flex-col items-center gap-2 px-4 py-12 text-center"><span class="${app.ui.spinner} text-ink-subtle" aria-hidden="true"></span><p class="text-sm text-ink-subtle">Memuat jadwal...</p></div>`;
+                    timelineHost.innerHTML = `<div class="${app.ui.empty}" data-slot="empty"><p class="${app.ui.emptyTitle} font-normal! text-ink-subtle!">Memuat jadwal...</p></div>`;
+                    listHost.innerHTML = `<div class="${app.ui.empty}" data-slot="empty"><p class="${app.ui.emptyTitle} font-normal! text-ink-subtle!">Memuat jadwal...</p></div>`;
                 }
 
                 try {

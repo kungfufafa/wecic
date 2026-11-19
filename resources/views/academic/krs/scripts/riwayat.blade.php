@@ -15,10 +15,10 @@
 
                 if (!dpa || !contact) {
                     hosts.dpa.innerHTML = `
-                        <section class="mycic-card" aria-labelledby="krs-dpa-title">
-                            <div class="mycic-card-header"><h2 class="mycic-card-title" id="krs-dpa-title">Dosen Pembimbing Akademik</h2></div>
-                            <div class="mycic-card-body">
-                                ${app.renderEmptyState('Data DPA belum terbaca dari portal.', 'secondary', 'Tanyakan nama DPA kamu lewat BAAK atau buka menu Perwalian di portal kampus.')}
+                        <section class="${app.ui.card}" data-slot="card" aria-labelledby="krs-dpa-title">
+                            <div class="${app.ui.cardHeader}"><h2 class="${app.ui.cardTitle}" id="krs-dpa-title">Dosen Pembimbing Akademik</h2></div>
+                            <div class="${app.ui.cardBody}">
+                                ${app.renderEmptyState('Data DPA belum terbaca dari portal.', 'secondary', 'Tanyakan nama DPA kamu lewat BAAK atau buka menu Perwalian di portal kampus.', { icon: 'user' })}
                             </div>
                         </section>
                     `;
@@ -30,17 +30,19 @@
                 const source = state.advising?.dpa && hasContact(state.advising.dpa) ? 'menu Perwalian portal' : 'halaman KRS portal';
 
                 hosts.dpa.innerHTML = `
-                    <section class="mycic-card" aria-labelledby="krs-dpa-title">
-                        <div class="mycic-card-header">
-                            <h2 class="mycic-card-title" id="krs-dpa-title">Dosen Pembimbing Akademik</h2>
-                            <p class="mycic-card-subtitle">Sumber: ${esc(source)}</p>
+                    <section class="${app.ui.card}" data-slot="card" aria-labelledby="krs-dpa-title">
+                        <div class="${app.ui.cardHeader}">
+                            <div class="min-w-0">
+                                <h2 class="${app.ui.cardTitle}" id="krs-dpa-title">Dosen Pembimbing Akademik</h2>
+                                <p class="${app.ui.cardSubtitle}">Sumber: ${esc(source)}</p>
+                            </div>
                         </div>
-                        <div class="mycic-card-body flex flex-col gap-4">
+                        <div class="${app.ui.cardBody} flex flex-col gap-4">
                             <div class="flex min-w-0 items-center gap-3">
-                                <span class="mycic-avatar shrink-0" aria-hidden="true">${esc(initials)}</span>
+                                <span class="flex size-11 shrink-0 items-center justify-center rounded-full bg-surface text-sm font-medium text-ink-muted ring-1 ring-border" aria-hidden="true">${esc(initials)}</span>
                                 <div class="min-w-0">
                                     <div class="text-sm font-medium leading-snug text-ink">${esc(dpa.name || 'Dosen Pembimbing Akademik')}</div>
-                                    ${dpa.nidn ? `<div class="text-caption text-ink-subtle">NIDN ${esc(dpa.nidn)}</div>` : ''}
+                                    ${dpa.nidn ? `<div class="font-mono text-xs text-ink-subtle">NIDN ${esc(dpa.nidn)}</div>` : ''}
                                 </div>
                             </div>
                             ${app.renderContactActions(contact)}
@@ -78,7 +80,7 @@
 
                 if (advising.found === false) {
                     hosts.history.innerHTML = `
-                        <div class="mycic-card"><div class="mycic-card-body">
+                        <div class="${app.ui.card}" data-slot="card"><div class="${app.ui.cardBody}">
                             ${app.renderEmptyState('Riwayat KRS belum terbaca dari portal.', 'secondary', 'Coba sinkronkan lagi nanti, atau buka menu Perwalian di portal kampus.')}
                         </div></div>
                     `;
@@ -92,9 +94,9 @@
 
                 if (!rows.length) {
                     hosts.history.innerHTML = `
-                        <section class="mycic-card" aria-labelledby="krs-history-title">
-                            <div class="mycic-card-header"><h2 class="mycic-card-title" id="krs-history-title">Riwayat KRS</h2></div>
-                            <div class="mycic-card-body">${app.renderEmptyState('Belum ada riwayat KRS.', 'secondary', 'Riwayat muncul setelah KRS pertama kamu diajukan.')}</div>
+                        <section class="${app.ui.card}" data-slot="card" aria-labelledby="krs-history-title">
+                            <div class="${app.ui.cardHeader}"><h2 class="${app.ui.cardTitle}" id="krs-history-title">Riwayat KRS</h2></div>
+                            <div class="${app.ui.cardBody}">${app.renderEmptyState('Belum ada riwayat KRS.', 'secondary', 'Riwayat muncul setelah KRS pertama kamu diajukan.', { icon: 'history' })}</div>
                         </section>
                     `;
 
@@ -104,55 +106,54 @@
                 const ips = historyIps();
 
                 hosts.history.innerHTML = `
-                    <section class="mycic-card" aria-labelledby="krs-history-title">
-                        <div class="mycic-card-header">
-                            <h2 class="mycic-card-title" id="krs-history-title">Riwayat KRS</h2>
-                            ${facts.length ? `<p class="mycic-card-subtitle">${esc(facts.join(' · '))}</p>` : ''}
+                    <section class="${app.ui.card}" data-slot="card" aria-labelledby="krs-history-title">
+                        <div class="${app.ui.cardHeader}">
+                            <div class="min-w-0">
+                                <h2 class="${app.ui.cardTitle}" id="krs-history-title">Riwayat KRS</h2>
+                                ${facts.length ? `<p class="${app.ui.cardSubtitle}">${esc(facts.join(' · '))}</p>` : ''}
+                            </div>
                         </div>
-                        <ol class="flex flex-col px-2 py-1 md:px-3" aria-label="Riwayat KRS per semester">
+                        <ol class="${app.ui.list}" aria-label="Riwayat KRS per semester">
                             ${rows.map((row) => {
                                 const regular = row.semester_is_regular !== false && Number.isInteger(row.semester);
                                 const detail = cachedData(`/api/academic/krs/${row.krs_id}`);
-                                const chips = [];
-
-                                if (row.krs_id === advising.latest_krs_id) {
-                                    chips.push(app.renderBadge('Terbaru', 'brand'));
-                                }
+                                const facts = [row.date ? `Diajukan ${esc(app.formatIndonesianDate(row.date))}` : 'Tanggal tidak tercatat'];
 
                                 if (!regular) {
-                                    chips.push(app.renderBadge(row.semester === 'T' ? 'Konversi' : 'Non-reguler', 'secondary'));
+                                    facts.push(row.semester === 'T' ? 'Konversi' : 'Non-reguler');
                                 }
 
                                 if (row.semester === 'T' && detail?.found && detail.totals) {
-                                    chips.push(`<span class="mycic-chip tabular-nums">${esc(detail.totals.courses)} MK · ${esc(detail.totals.sks)} SKS diakui</span>`);
+                                    facts.push(`${esc(detail.totals.courses)} MK · ${esc(detail.totals.sks)} SKS diakui`);
                                 }
 
                                 if (regular && detail?.found && detail.counts_as_study_load !== false && detail.totals) {
-                                    chips.push(`<span class="mycic-chip tabular-nums">${esc(detail.totals.courses)} MK · ${esc(detail.totals.sks)} SKS</span>`);
+                                    facts.push(`${esc(detail.totals.courses)} MK · ${esc(detail.totals.sks)} SKS`);
                                 }
 
                                 if (regular && ips.has(row.semester)) {
-                                    chips.push(`<span class="mycic-chip tabular-nums">IPS ${esc(Number(ips.get(row.semester)).toFixed(2))}</span>`);
+                                    facts.push(`IPS ${esc(Number(ips.get(row.semester)).toFixed(2))}`);
                                 }
 
                                 const title = regular ? `Semester ${row.semester}` : 'Semester T';
 
                                 return `
-                                    <li class="border-b border-border-light last:border-b-0">
-                                        <a href="/krs/${esc(row.krs_id)}" class="flex min-h-11 cursor-pointer items-center gap-3 rounded-[var(--radius-control)] px-2 py-3 transition-colors duration-150 ease-[var(--ease-snappy)] hover:bg-surface/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">
-                                            <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${regular ? 'bg-surface-tint text-brand-text' : 'bg-surface text-ink-subtle'} font-mono text-sm font-medium" aria-hidden="true">${esc(regular ? row.semester : 'T')}</span>
-                                            <span class="min-w-0 flex-1">
-                                                <span class="block text-sm font-medium leading-snug text-ink">${esc(title)}${row.academic_year ? ` · T.A ${esc(row.academic_year)}` : ''}</span>
-                                                <span class="block text-caption text-ink-subtle">${row.date ? `Diajukan ${esc(app.formatIndonesianDate(row.date))}` : 'Tanggal tidak tercatat'}</span>
-                                                ${chips.length ? `<span class="mt-1.5 flex flex-wrap gap-1.5">${chips.join('')}</span>` : ''}
+                                    <li>
+                                        <a href="/krs/${esc(row.krs_id)}" class="${app.ui.listRowFlushInteractive}">
+                                            <span class="${app.ui.listRowBody}">
+                                                <span class="flex flex-wrap items-center gap-2">
+                                                    <span class="text-sm font-medium leading-snug text-ink">${esc(title)}${row.academic_year ? ` · T.A ${esc(row.academic_year)}` : ''}</span>
+                                                    ${row.krs_id === advising.latest_krs_id ? app.renderBadge('Terbaru', 'brand') : ''}
+                                                </span>
+                                                <span class="mt-0.5 block text-xs tabular-nums text-ink-subtle">${facts.join(' · ')}</span>
                                             </span>
-                                            ${icons.chevron}
+                                            ${app.renderIcon('chevron-right', 'sm', app.ui.listRowChevron)}
                                         </a>
                                     </li>
                                 `;
                             }).join('')}
                         </ol>
-                        <p class="border-t border-border-light px-4 py-3 text-caption text-ink-subtle md:px-5">Nilai tiap semester ada di halaman <a class="mycic-link" href="${esc(gradesUrl)}">Nilai</a>. Semester T tidak dihitung sebagai beban studi.</p>
+                        <p class="border-t border-border-light px-4 py-3 text-xs text-ink-subtle sm:px-5">Nilai tiap semester ada di halaman <a class="${app.ui.link}" href="${esc(gradesUrl)}">Nilai</a>. Semester T tidak dihitung sebagai beban studi.</p>
                     </section>
                 `;
             };

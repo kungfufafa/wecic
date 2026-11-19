@@ -174,8 +174,8 @@
             };
 
             const renderProgressTrack = (percent, tone = 'brand') => `
-                <span class="mycic-progress-track h-1.5">
-                    ${percent !== null && percent > 0 ? `<span class="mycic-progress-fill ${app.fillToneClass(tone)}" style="width: ${percent.toFixed(1)}%"></span>` : ''}
+                <span class="${app.ui.progressTrack} h-1.5">
+                    ${percent !== null && percent > 0 ? `<span class="${app.ui.progressFill} ${app.fillToneClass(tone)}" style="width: ${percent.toFixed(1)}%"></span>` : ''}
                 </span>
             `;
 
@@ -204,15 +204,15 @@
                     valueNode.classList.add(tone);
                 }
 
-                // A long value ("Rp 750.000") must fit a half-width tile at 375px and in the lg aside.
-                if (valueNode.classList.contains('mycic-metric-value')) {
+                // A long value ("Rp 750.000") must fit a half-width card at 375px and a quarter at lg.
+                if (valueNode.hasAttribute('data-metric-fit')) {
                     const isLong = text.length > 8;
 
                     METRIC_LONG_VALUE_CLASSES.forEach((className) => valueNode.classList.toggle(className, isLong));
                 }
 
                 noteNode.innerHTML = pending
-                    ? `<span class="mycic-spinner h-3 w-3 shrink-0" aria-hidden="true"></span><span>${esc(note)}</span>`
+                    ? `<span class="${app.ui.spinner} size-3!" aria-hidden="true"></span><span>${esc(note)}</span>`
                     : `<span>${esc(note)}</span>`;
 
                 if (barNode) {

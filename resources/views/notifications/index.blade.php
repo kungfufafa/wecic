@@ -4,36 +4,46 @@
 @section('page_id', 'notification-index')
 
 @section('content')
-    <x-page-header title="Notifikasi" subtitle="Perubahan di portal kampus dan tenggat yang mendekat, tanpa perlu membuka portal." />
+    <x-page-hero title="Notifikasi" subtitle="Perubahan di portal kampus dan tenggat yang mendekat, tanpa perlu membuka portal." />
 
-    <section class="flex min-w-0 flex-col gap-3" aria-labelledby="notification-list-title">
-        <h2 class="sr-only" id="notification-list-title" tabindex="-1">Daftar notifikasi</h2>
+    <div class="flex flex-col gap-6">
+        <section class="flex min-w-0 flex-col gap-3" aria-labelledby="notification-list-title">
+            <h2 class="sr-only" id="notification-list-title" tabindex="-1">Daftar notifikasi</h2>
 
-        <div class="flex flex-wrap items-center justify-between gap-2">
-            <div class="mycic-segmented" role="group" aria-label="Saring notifikasi" id="notification-filters">
-                <button type="button" class="mycic-segmented-item mycic-segmented-item-active" aria-pressed="true" data-notification-filter="all">Semua</button>
-                <button type="button" class="mycic-segmented-item" aria-pressed="false" data-notification-filter="unread">Belum dibaca</button>
+            <div class="flex flex-wrap items-center justify-between gap-2">
+                <x-view-tabs as="div" role="group" aria-label="Saring notifikasi" id="notification-filters">
+                    <button type="button" class="inline-flex h-11 shrink-0 cursor-pointer select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-3 text-sm font-medium text-ink-muted transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 aria-selected:bg-panel aria-selected:text-ink aria-selected:shadow-xs aria-pressed:bg-panel aria-pressed:text-ink aria-pressed:shadow-xs aria-[current=page]:bg-panel aria-[current=page]:text-ink aria-[current=page]:shadow-xs sm:h-8 dark:aria-selected:bg-surface-tint dark:aria-pressed:bg-surface-tint dark:aria-[current=page]:bg-surface-tint" aria-pressed="true" data-notification-filter="all">Semua</button>
+                    <button type="button" class="inline-flex h-11 shrink-0 cursor-pointer select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-3 text-sm font-medium text-ink-muted transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 aria-selected:bg-panel aria-selected:text-ink aria-selected:shadow-xs aria-pressed:bg-panel aria-pressed:text-ink aria-pressed:shadow-xs aria-[current=page]:bg-panel aria-[current=page]:text-ink aria-[current=page]:shadow-xs sm:h-8 dark:aria-selected:bg-surface-tint dark:aria-pressed:bg-surface-tint dark:aria-[current=page]:bg-surface-tint" aria-pressed="false" data-notification-filter="unread">Belum dibaca</button>
+                </x-view-tabs>
+                <x-button variant="ghost" size="sm" id="notification-mark-all" hidden>Tandai semua sudah dibaca</x-button>
             </div>
-            <button type="button" class="mycic-btn-ghost-sm hidden" id="notification-mark-all">Tandai semua sudah dibaca</button>
-        </div>
 
-        <p class="min-h-4 text-caption text-ink-subtle" id="notification-status" aria-live="polite"></p>
+            <p class="min-h-4 text-xs text-ink-subtle" id="notification-status" aria-live="polite"></p>
 
-        <div id="notification-list" class="flex flex-col gap-5" aria-busy="true">
-            <span class="sr-only">Memuat notifikasi…</span>
-            @for ($i = 0; $i < 3; $i++)
-                <div class="mycic-card">
-                    <div class="mycic-card-body flex flex-col gap-3">
-                        <div class="mycic-skeleton h-5 w-24"></div>
-                        <div class="mycic-skeleton h-5 w-4/5"></div>
-                        <div class="mycic-skeleton h-3.5 w-1/3"></div>
+            <div id="notification-list" class="flex flex-col gap-4" aria-busy="true">
+                <span class="sr-only">Memuat notifikasi…</span>
+                <x-card class="overflow-hidden">
+                    <div class="border-b border-border-light bg-surface/40 px-4 py-2.5 sm:px-5">
+                        <x-skeleton class="h-3.5 w-20" />
                     </div>
-                </div>
-            @endfor
-        </div>
+                    <x-list>
+                        @for ($i = 0; $i < 3; $i++)
+                            <div class="flex items-start gap-3 px-4 py-3 sm:px-5">
+                                <x-skeleton class="size-9 shrink-0" />
+                                <div class="flex min-w-0 flex-1 flex-col gap-2">
+                                    <x-skeleton class="h-4 w-4/5" />
+                                    <x-skeleton class="h-3.5 w-full" />
+                                    <x-skeleton class="h-3.5 w-24" />
+                                </div>
+                            </div>
+                        @endfor
+                    </x-list>
+                </x-card>
+            </div>
 
-        <div id="notification-more" class="flex flex-col items-center gap-2 text-center"></div>
-    </section>
+            <div id="notification-more" class="flex flex-col items-center gap-2 text-center"></div>
+        </section>
+    </div>
 @endsection
 
 @push('scripts')
@@ -71,9 +81,35 @@
                 archive_suspect: 'Arsip',
                 archive_class_not_run: 'Arsip',
             };
-            const URGENCY_BADGES = { critical: 'danger', warning: 'warning', info: 'brand' };
+            // Only an urgent notification carries a status badge; the kind is plain text in the meta line.
+            const URGENCY_BADGES = {
+                critical: { label: 'Penting', tone: 'danger' },
+                warning: { label: 'Segera', tone: 'warning' },
+            };
+            // The neutral icon of each kind (by its label): it tells the row's type at a glance.
+            const TYPE_ICONS = {
+                Tugas: 'exam',
+                Absensi: 'qr',
+                Kelas: 'class',
+                Ujian: 'exam',
+                Nilai: 'chart',
+                KRS: 'list-check',
+                Keuangan: 'finance',
+                SKKM: 'skkm',
+                Pengumuman: 'announcement',
+                Tenggat: 'clock',
+                Portal: 'world',
+                Skripsi: 'thesis',
+                Arsip: 'archive',
+            };
+            const ROW_CLASSES = {
+                static: 'flex min-w-0 items-start gap-3 px-4 py-3 sm:px-5',
+                link: 'flex min-h-11 min-w-0 cursor-pointer items-start gap-3 px-4 py-3 transition-colors hover:bg-surface/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand/40 sm:px-5',
+                unread: 'bg-surface/40',
+            };
             const GROUPS = [
                 { key: 'today', label: 'Hari ini' },
+                { key: 'yesterday', label: 'Kemarin' },
                 { key: 'week', label: 'Minggu ini' },
                 { key: 'older', label: 'Lebih lama' },
             ];
@@ -155,8 +191,6 @@
 
             const maxKnownId = () => state.items.reduce((max, item) => Math.max(max, item.id), 0);
 
-            const segmentClass = (active) => (active ? 'mycic-segmented-item mycic-segmented-item-active' : 'mycic-segmented-item');
-
             const startOfDay = (date) => new Date(date.getFullYear(), date.getMonth(), date.getDate());
 
             const groupOf = (item) => {
@@ -172,6 +206,10 @@
                     return 'today';
                 }
 
+                if (created >= new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1)) {
+                    return 'yesterday';
+                }
+
                 return created >= new Date(today.getTime() - 6 * 24 * 60 * 60 * 1000) ? 'week' : 'older';
             };
 
@@ -185,21 +223,24 @@
                 const unread = !item.is_read;
                 const href = app.safeHref(item.url) && !app.isExternalHref(item.url) ? item.url : '';
                 const tag = href ? 'a' : 'div';
-                const meta = [app.formatTimeAgo(item.created_at), item.urgency === 'critical' ? 'Penting' : ''].filter(Boolean).join(' · ');
+                const label = TYPE_LABELS[item.type] || 'Info';
+                const meta = [label, app.formatTimeAgo(item.created_at)].filter(Boolean).join(' · ');
+                const urgency = URGENCY_BADGES[item.urgency] || null;
 
                 return `
                     <li>
-                        <${tag} ${href ? `href="${app.escapeHtml(href)}"` : ''} class="${href ? 'mycic-card-interactive' : 'mycic-card p-4 md:p-5'} flex min-w-0 gap-3 ${unread ? `border-brand/40 bg-surface-tint/25 ${href ? 'hover:border-brand/60 hover:bg-surface-tint/40' : ''}` : ''}" data-notification-id="${item.id}">
-                            <span class="mt-2 h-1.5 w-1.5 shrink-0 rounded-full ${unread ? 'bg-brand' : 'bg-transparent'}" aria-hidden="true"></span>
-                            <span class="flex min-w-0 flex-1 flex-col gap-1.5">
-                                <span class="flex flex-wrap items-center gap-2">
-                                    ${app.renderBadge(TYPE_LABELS[item.type] || 'Info', URGENCY_BADGES[item.urgency] || 'brand')}
-                                    ${unread ? '<span class="sr-only">Belum dibaca.</span>' : ''}
-                                    <span class="text-caption text-ink-subtle">${app.escapeHtml(meta)}</span>
-                                </span>
+                        <${tag} ${href ? `href="${app.escapeHtml(href)}"` : ''} class="${href ? ROW_CLASSES.link : ROW_CLASSES.static}${unread ? ` ${ROW_CLASSES.unread}` : ''}" data-notification-id="${item.id}">
+                            <span class="${app.ui.iconTile.neutral} size-9" aria-hidden="true">${app.renderIcon(TYPE_ICONS[label] || 'bell', 'sm')}</span>
+                            <span class="flex min-w-0 flex-1 flex-col gap-1">
                                 <span class="text-sm font-medium leading-snug ${unread ? 'text-ink' : 'text-ink-muted'}">${app.escapeHtml(item.title || 'Notifikasi')}</span>
-                                ${item.body ? `<span class="line-clamp-3 text-sm leading-relaxed text-ink-muted">${app.escapeHtml(item.body)}</span>` : ''}
+                                ${item.body ? `<span class="line-clamp-3 text-[13px] leading-relaxed text-ink-muted sm:line-clamp-2">${app.escapeHtml(item.body)}</span>` : ''}
+                                <span class="mt-0.5 flex flex-wrap items-center gap-2">
+                                    ${urgency ? app.renderBadge(urgency.label, urgency.tone) : ''}
+                                    ${unread ? '<span class="sr-only">Belum dibaca.</span>' : ''}
+                                    <span class="text-xs text-ink-subtle">${app.escapeHtml(meta)}</span>
+                                </span>
                             </span>
+                            <span class="mt-1.5 size-2 shrink-0 rounded-full ${unread ? app.ui.fill.brand : 'bg-transparent'}" aria-hidden="true"></span>
                         </${tag}>
                     </li>
                 `;
@@ -209,13 +250,12 @@
                 filterButtons.forEach((button) => {
                     const active = (button.dataset.notificationFilter === 'unread') === state.unreadOnly;
 
-                    button.className = segmentClass(active);
                     button.setAttribute('aria-pressed', active ? 'true' : 'false');
                     button.textContent = button.dataset.notificationFilter === 'unread'
                         ? (state.unreadCount > 0 ? `Belum dibaca (${state.unreadCount > 99 ? '99+' : state.unreadCount})` : 'Belum dibaca')
                         : 'Semua';
                 });
-                markAllButton.classList.toggle('hidden', state.unreadCount === 0);
+                markAllButton.hidden = state.unreadCount === 0;
             };
 
             const renderMore = () => {
@@ -246,17 +286,17 @@
 
                 if (items.length === 0) {
                     if (state.unreadOnly && canLoadMore()) {
-                        listHost.innerHTML = app.renderEmptyState('Tidak ada yang belum dibaca di notifikasi terbaru.', 'secondary', 'Muat notifikasi lama untuk memeriksa yang lebih lama.');
+                        listHost.innerHTML = app.renderEmptyState('Tidak ada yang belum dibaca di notifikasi terbaru.', 'secondary', 'Muat notifikasi lama untuk memeriksa yang lebih lama.', { icon: 'inbox' });
                     } else {
                         listHost.innerHTML = state.unreadOnly
-                            ? app.renderEmptyState('Semua notifikasi sudah dibaca.', 'secondary', 'Notifikasi baru akan muncul di sini.')
-                            : app.renderEmptyState('Belum ada notifikasi.', 'secondary', 'WeCIC akan memberi tahu saat KRS divalidasi, nilai keluar, ada tagihan baru, pengumuman baru, atau tenggat mendekat.');
+                            ? app.renderEmptyState('Semua notifikasi sudah dibaca.', 'secondary', 'Notifikasi baru akan muncul di sini.', { icon: 'circle-check' })
+                            : app.renderEmptyState('Belum ada notifikasi.', 'secondary', 'WeCIC akan memberi tahu saat KRS divalidasi, nilai keluar, ada tagihan baru, pengumuman baru, atau tenggat mendekat.', { icon: 'bell' });
                     }
 
                     return;
                 }
 
-                listHost.innerHTML = GROUPS.map((group) => {
+                const groups = GROUPS.map((group) => {
                     const groupItems = items.filter((item) => groupOf(item) === group.key);
 
                     if (groupItems.length === 0) {
@@ -264,12 +304,17 @@
                     }
 
                     return `
-                        <section class="flex flex-col gap-2" aria-labelledby="notification-group-${group.key}">
-                            <h3 class="mycic-section-title" id="notification-group-${group.key}">${group.label}</h3>
-                            <ul class="flex flex-col gap-2">${groupItems.map(renderItem).join('')}</ul>
+                        <section class="border-t border-border-light first:border-t-0" aria-labelledby="notification-group-${group.key}">
+                            <h3 class="flex items-center justify-between gap-2 border-b border-border-light bg-surface/40 px-4 py-2.5 text-xs font-medium text-ink-muted sm:px-5" id="notification-group-${group.key}">
+                                ${group.label}
+                                <span class="tabular-nums text-ink-subtle" aria-hidden="true">${groupItems.length}</span>
+                            </h3>
+                            <ul class="${app.ui.list}">${groupItems.map(renderItem).join('')}</ul>
                         </section>
                     `;
                 }).join('');
+
+                listHost.innerHTML = `<div class="${app.ui.card} overflow-hidden" data-slot="card">${groups}</div>`;
             };
 
             const mergeItems = (items) => {

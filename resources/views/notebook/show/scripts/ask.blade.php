@@ -60,8 +60,8 @@
                 const pending = document.createElement('li');
                 pending.className = 'flex flex-col gap-2';
                 pending.innerHTML = `
-                    <div class="ms-auto max-w-[85%] rounded-[var(--radius-card)] rounded-tr-xs bg-brand px-3 py-2 text-sm text-white">${app.escapeHtml(question)}</div>
-                    <div class="flex items-center gap-2 text-sm text-ink-subtle"><span class="mycic-spinner" aria-hidden="true"></span> Membaca ${contextSources().length} sumber…</div>
+                    <div class="ms-auto max-w-[85%] rounded-xl rounded-tr-xs bg-surface px-3 py-2 text-sm text-ink">${app.escapeHtml(question)}</div>
+                    <div class="flex items-center gap-2 text-sm text-ink-subtle"><span class="${app.ui.spinner}" aria-hidden="true"></span> Membaca ${contextSources().length} sumber…</div>
                 `;
 
                 if (!state.messages.some((message) => message.kind === 'chat')) {

@@ -7,11 +7,13 @@ import { createPortalApp } from './support/browser.mjs';
  * resources/js/app.js builds PortalApp from the feature classes in
  * resources/js/app/: every feature file is mixed in, every method the pages
  * call comes from exactly one of them, and the entry itself keeps only the
- * constructor (all state) and init().
+ * constructor (all state) and init(). resources/js/app/ui.js is not a
+ * feature: it is the class map the constructor puts on `app.ui`.
  */
 const featureDirectory = new URL('../../resources/js/app/', import.meta.url);
 const entry = readFileSync(new URL('../../resources/js/app.js', import.meta.url), 'utf8');
-const featureFiles = readdirSync(featureDirectory).filter((file) => file.endsWith('.js')).sort();
+const classMapFile = 'ui.js';
+const featureFiles = readdirSync(featureDirectory).filter((file) => file.endsWith('.js') && file !== classMapFile).sort();
 
 let browser;
 
@@ -45,7 +47,8 @@ describe('PortalApp features', () => {
         const imported = [...entry.matchAll(/^import \{ (\w+) \} from '\.\/app\/([\w-]+\.js)';$/gm)].map((match) => match[2]).sort();
         const mixed = entry.slice(entry.indexOf('mixFeatures(\n')).match(/^ {4}(\w+Feature),$/gm).map((line) => line.trim().replace(',', ''));
 
-        assert.deepEqual(imported, featureFiles);
+        assert.deepEqual(imported.filter((file) => file !== classMapFile), featureFiles);
+        assert.ok(imported.includes(classMapFile), 'app.js puts the class map on app.ui');
         assert.equal(mixed.length, featureFiles.length);
     });
 

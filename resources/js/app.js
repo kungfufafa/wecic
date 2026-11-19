@@ -20,6 +20,7 @@ import { RequestFeature } from './app/requests.js';
 import { SessionFeature } from './app/session.js';
 import { SheetFeature } from './app/sheet.js';
 import { ToastFeature } from './app/toasts.js';
+import { ui } from './app/ui.js';
 import * as cacheRules from './lib/cache.js';
 import { mixFeatures } from './lib/mixin.js';
 
@@ -29,10 +30,14 @@ import { mixFeatures } from './lib/mixin.js';
  * `app.renderBadge()`…). The constructor holds all of its state; the
  * methods live in resources/js/app/*.js, one feature per file, and are mixed
  * in below (lib/mixin.js: a name defined twice throws). Pure rules the
- * features delegate to are in resources/js/lib/.
+ * features delegate to are in resources/js/lib/, and `app.ui` holds the
+ * class strings scripts build HTML with (resources/js/app/ui.js).
  */
 class PortalApp {
     constructor() {
+        // The class strings scripts build HTML with (resources/js/app/ui.js):
+        // `app.ui.card`, `app.ui.button.primary`, `app.ui.badge.success`…
+        this.ui = ui;
         this.campusBase = document.documentElement.dataset.campusBase || window.location.origin;
         this.onlineState = navigator.onLine;
         this.syncHandlers = new Map();

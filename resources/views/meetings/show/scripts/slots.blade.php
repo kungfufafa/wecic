@@ -17,7 +17,7 @@
 
                 if (!actionsContainer.querySelector('[data-meeting-slot]')) {
                     actionsContainer.innerHTML = `
-                        <div class="space-y-5">
+                        <div class="flex flex-col gap-4">
                             <div data-meeting-slot="attendance"></div>
                             <div data-meeting-slot="assignment"></div>
                             <div data-meeting-slot="notebook"></div>

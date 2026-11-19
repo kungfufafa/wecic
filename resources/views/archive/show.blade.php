@@ -3,49 +3,51 @@
 @section('title', 'Arsip '.$label)
 @section('page_id', 'archive-show')
 
+@section('breadcrumb')
+    <x-breadcrumb size="md" :items="[['label' => 'Arsip WeCIC', 'href' => route('archive.index')], 'Riwayat '.$label]" />
+@endsection
+
 @section('content')
-    <nav class="mb-2" aria-label="Navigasi arsip">
-        <a href="{{ route('archive.index') }}" class="mycic-back-link">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6l6 6" /></svg>
-            Arsip WeCIC
-        </a>
-    </nav>
-
-    <header class="mb-4">
-        <h1 class="mycic-page-heading">Riwayat {{ $label }}</h1>
-        <p class="mycic-page-subheading">Setiap versi berbeda yang pernah ditampilkan portal kampus, dari yang terbaru. Versi bertanda "Dipakai" adalah yang sedang ditampilkan WeCIC.</p>
-    </header>
-
-    <div class="flex min-w-0 flex-col gap-4">
-        <div class="hidden" id="archive-group-picker">
-            <label class="mycic-field max-w-md">
-                <span class="mycic-label">Pilih data</span>
-                <select class="mycic-input" id="archive-group-select"></select>
+    <x-page-hero :back="route('archive.index')" back-label="Arsip WeCIC" :title="'Riwayat '.$label">
+        <x-slot:subtitle>Setiap versi berbeda yang pernah ditampilkan portal kampus, dari yang terbaru. Versi bertanda "Dipakai" adalah yang sedang ditampilkan WeCIC.</x-slot:subtitle>
+        <div class="mt-4 hidden" id="archive-group-picker">
+            <label class="flex max-w-md flex-col gap-1.5">
+                <span class="text-sm font-medium text-ink">Pilih data</span>
+                <x-select id="archive-group-select"></x-select>
             </label>
         </div>
+    </x-page-hero>
 
-        <div class="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-            <section class="flex min-w-0 flex-col gap-2" aria-labelledby="archive-versions-title">
-                <h2 class="mycic-section-title" id="archive-versions-title">Versi</h2>
-                <ul class="flex flex-col gap-2" id="archive-versions" aria-busy="true">
-                    @for ($i = 0; $i < 3; $i++)
-                        <li class="mycic-card p-4">
-                            <div class="mycic-skeleton h-4 w-1/3"></div>
-                            <div class="mycic-skeleton mt-2 h-3.5 w-2/3"></div>
-                        </li>
-                    @endfor
-                </ul>
-            </section>
+    <div class="grid min-w-0 items-start gap-6 xl:grid-cols-[22rem_minmax(0,1fr)] xl:gap-8">
+        <x-section title="Versi" title-id="archive-versions-title" class="min-w-0">
+            <x-slot:count id="archive-versions-count" class="hidden"></x-slot:count>
+            <ul class="flex flex-col" id="archive-versions" aria-busy="true">
+                @for ($i = 0; $i < 3; $i++)
+                    <li class="group relative flex gap-3 pb-3 last:pb-0">
+                        <span class="relative flex w-3 shrink-0 justify-center" aria-hidden="true">
+                            <span class="mt-5 size-2.5 rounded-full bg-surface ring-4 ring-panel"></span>
+                            <span class="absolute top-8 -bottom-8 w-px bg-border group-last:hidden"></span>
+                        </span>
+                        <x-card class="flex min-w-0 flex-1 flex-col gap-2 p-4">
+                            <x-skeleton class="h-4 w-1/3" />
+                            <x-skeleton class="h-3.5 w-2/3" />
+                        </x-card>
+                    </li>
+                @endfor
+            </ul>
+        </x-section>
 
-            <section class="mycic-card min-w-0" aria-labelledby="archive-detail-title" id="archive-detail">
-                <div class="mycic-card-header">
-                    <h2 class="mycic-card-title" id="archive-detail-title" tabindex="-1">Detail versi</h2>
-                </div>
-                <div class="mycic-card-body" id="archive-detail-body">
+        <x-card as="section" class="min-w-0 overflow-hidden" aria-labelledby="archive-detail-title" id="archive-detail">
+            <x-card.header>
+                <x-card.title id="archive-detail-title" tabindex="-1" class="focus:outline-none">Detail versi</x-card.title>
+            </x-card.header>
+            <x-card.body id="archive-detail-body">
+                <div class="flex flex-col items-center gap-2 px-4 py-8 text-center">
+                    <span class="mb-1 flex text-ink-subtle" aria-hidden="true"><x-icon name="history" size="lg" /></span>
                     <p class="text-sm text-ink-subtle">Pilih satu versi untuk melihat isinya.</p>
                 </div>
-            </section>
-        </div>
+            </x-card.body>
+        </x-card>
     </div>
 @endsection
 
@@ -59,6 +61,7 @@
             const detailTitle = document.getElementById('archive-detail-title');
             const groupPicker = document.getElementById('archive-group-picker');
             const groupSelect = document.getElementById('archive-group-select');
+            const versionsCount = document.getElementById('archive-versions-count');
 
             const STATUS = {
                 trusted: { label: 'Terpercaya', tone: 'success' },
@@ -80,9 +83,11 @@
 
             const renderVersions = () => {
                 versionsHost.removeAttribute('aria-busy');
+                versionsCount.textContent = String(state.versions.length);
+                versionsCount.classList.toggle('hidden', state.versions.length === 0);
 
                 if (!state.versions.length) {
-                    versionsHost.innerHTML = `<li>${app.renderEmptyState('Belum ada versi tersimpan.', 'secondary', 'Arsip terisi otomatis saat halaman data ini dibuka dan disinkronkan dari portal.')}</li>`;
+                    versionsHost.innerHTML = `<li>${app.renderEmptyState('Belum ada versi tersimpan.', 'secondary', 'Arsip terisi otomatis saat halaman data ini dibuka dan disinkronkan dari portal.', { icon: 'history' })}</li>`;
 
                     return;
                 }
@@ -92,16 +97,22 @@
                     const selected = version.id === state.selectedId;
 
                     return `
-                        <li>
-                            <button type="button" class="mycic-card-interactive flex w-full min-w-0 flex-col gap-1.5 text-start ${selected ? 'border-brand bg-surface-tint/50 hover:border-brand hover:bg-surface-tint/60' : ''}" data-version-id="${version.id}" aria-pressed="${selected ? 'true' : 'false'}">
-                                <span class="flex flex-wrap items-center gap-2">
-                                    ${app.renderBadge(status.label, status.tone)}
-                                    ${version.is_current ? app.renderBadge('Dipakai', 'brand') : ''}
-                                    <span class="text-caption text-ink-subtle">${app.escapeHtml(`${version.seen_count}× terlihat`)}</span>
+                        <li class="group relative flex gap-3 pb-3 last:pb-0">
+                            <span class="relative flex w-3 shrink-0 justify-center" aria-hidden="true">
+                                <span class="mt-5 size-2.5 rounded-full ring-4 ring-panel ${app.ui.fill[status.tone] || app.ui.fill.neutral}"></span>
+                                <span class="absolute top-8 -bottom-8 w-px bg-border group-last:hidden"></span>
+                            </span>
+                            <button type="button" class="${app.ui.cardInteractive} w-full min-w-0 flex-1 p-4 text-start ${selected ? 'border-brand/50! bg-surface-tint/40!' : ''}" data-version-id="${version.id}" aria-pressed="${selected ? 'true' : 'false'}">
+                                <span class="flex min-w-0 flex-col gap-1.5">
+                                    <span class="flex flex-wrap items-center gap-2">
+                                        ${app.renderBadge(status.label, status.tone)}
+                                        ${version.is_current ? '<span class="text-xs font-medium text-ink">Dipakai</span>' : ''}
+                                        <span class="ms-auto text-xs text-ink-subtle tabular-nums">${app.escapeHtml(`${version.seen_count}× terlihat`)}</span>
+                                    </span>
+                                    <span class="text-sm font-medium leading-snug text-ink tabular-nums">${app.escapeHtml(formatMoment(version.first_seen_at))}</span>
+                                    <span class="text-xs text-ink-subtle">Terakhir terlihat ${app.escapeHtml(app.formatTimeAgo(version.last_seen_at))}</span>
+                                    ${version.findings.length ? `<span class="line-clamp-2 text-xs text-warning">${app.escapeHtml(version.findings[0].message)}</span>` : ''}
                                 </span>
-                                <span class="text-sm font-medium leading-snug text-ink">${app.escapeHtml(formatMoment(version.first_seen_at))}</span>
-                                <span class="text-caption text-ink-subtle">Terakhir terlihat ${app.escapeHtml(app.formatTimeAgo(version.last_seen_at))}</span>
-                                ${version.findings.length ? `<span class="line-clamp-2 text-caption text-warning">${app.escapeHtml(version.findings[0].message)}</span>` : ''}
                             </button>
                         </li>
                     `;
@@ -135,29 +146,29 @@
                 const diff = Array.isArray(data.diff) ? data.diff : [];
 
                 if (!diff.length) {
-                    return '<p class="text-sm text-ink-subtle">Tidak ada perbedaan isi dengan versi pembanding.</p>';
+                    return `<div class="${app.ui.inset} text-sm text-ink-subtle">Tidak ada perbedaan isi dengan versi pembanding.</div>`;
                 }
 
                 const truncated = describeTruncatedDiff(data, diff.length);
 
                 return `
-                    ${truncated ? `<p class="mycic-alert-info mb-0 text-sm" data-diff-truncated>${app.escapeHtml(truncated)}</p>` : ''}
-                    <div class="mycic-table-wrap">
-                        <table class="mycic-table">
+                    ${truncated ? `<p class="${app.ui.alert.info}" data-diff-truncated>${app.escapeHtml(truncated)}</p>` : ''}
+                    <div class="${app.ui.tableWrap}">
+                        <table class="${app.ui.table}">
                             <caption class="sr-only">Perbedaan dengan versi pembanding</caption>
                             <thead>
                                 <tr>
-                                    <th scope="col">Bagian</th>
-                                    <th scope="col">Sebelumnya</th>
-                                    <th scope="col">Versi ini</th>
+                                    <th scope="col" class="${app.ui.th}">Bagian</th>
+                                    <th scope="col" class="${app.ui.th}">Sebelumnya</th>
+                                    <th scope="col" class="${app.ui.th}">Versi ini</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 ${diff.map((row) => `
-                                    <tr>
-                                        <td class="align-top"><span class="block text-caption text-ink-subtle">${app.escapeHtml(KIND[row.kind] || row.kind)}</span>${app.escapeHtml(row.path)}</td>
-                                        <td class="align-top ${row.kind === 'removed' || row.kind === 'changed' ? 'text-danger' : 'text-ink-subtle'}">${app.escapeHtml(row.old ?? '–')}</td>
-                                        <td class="align-top ${row.kind === 'added' || row.kind === 'changed' ? 'text-success' : 'text-ink-subtle'}">${app.escapeHtml(row.new ?? '–')}</td>
+                                    <tr class="${app.ui.tr}">
+                                        <td class="${app.ui.td} align-top"><span class="mb-0.5 block text-xs text-ink-subtle">${app.escapeHtml(KIND[row.kind] || row.kind)}</span>${app.escapeHtml(row.path)}</td>
+                                        <td class="${app.ui.td} align-top ${row.kind === 'removed' || row.kind === 'changed' ? 'text-danger' : 'text-ink-subtle'}">${app.escapeHtml(row.old ?? '–')}</td>
+                                        <td class="${app.ui.td} align-top ${row.kind === 'added' || row.kind === 'changed' ? 'text-success' : 'text-ink-subtle'}">${app.escapeHtml(row.new ?? '–')}</td>
                                     </tr>
                                 `).join('')}
                             </tbody>
@@ -176,7 +187,7 @@
                     <div class="flex flex-col gap-4">
                         <div class="flex flex-wrap items-center gap-2">
                             ${app.renderBadge(status.label, status.tone)}
-                            ${data.is_current ? app.renderBadge('Dipakai WeCIC', 'brand') : ''}
+                            ${data.is_current ? app.renderBadge('Dipakai WeCIC', 'secondary') : ''}
                         </div>
                         ${app.renderKeyValueList([
                             { label: 'Pertama terlihat', value: formatMoment(version.first_seen_at) },
@@ -185,25 +196,34 @@
                             { label: 'Data', value: version.subject },
                         ])}
                         ${version.findings.length ? `
-                            <div class="mycic-alert-warning mb-0">
-                                <p class="font-medium">Kenapa ditahan</p>
-                                <ul class="mt-1 flex list-disc flex-col gap-1 ps-5">${version.findings.map((finding) => `<li>${app.escapeHtml(finding.message)}</li>`).join('')}</ul>
-                                ${version.status === 'suspect' ? '<p class="mt-2">Kalau perubahan ini memang benar (misalnya nilai direvisi resmi), terima versinya. Kalau salah, tolak dan simpan bukti untuk dilaporkan ke kampus.</p>' : ''}
+                            <div class="${app.ui.alert.warning} flex gap-3">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="${app.ui.alertIcon.warning}" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 9v4" /><path d="M10.363 3.591l-8.106 13.534a1.914 1.914 0 0 0 1.636 2.871h16.214a1.914 1.914 0 0 0 1.636 -2.87l-8.106 -13.536a1.914 1.914 0 0 0 -3.274 0z" /><path d="M12 16h.01" /></svg>
+                                <div class="min-w-0 flex-1">
+                                    <p class="font-medium">Kenapa ditahan</p>
+                                    <ul class="mt-1 flex list-disc flex-col gap-1 ps-5">${version.findings.map((finding) => `<li>${app.escapeHtml(finding.message)}</li>`).join('')}</ul>
+                                    ${version.status === 'suspect' ? '<p class="mt-2 text-ink-muted">Kalau perubahan ini memang benar (misalnya nilai direvisi resmi), terima versinya. Kalau salah, tolak dan simpan bukti untuk dilaporkan ke kampus.</p>' : ''}
+                                </div>
                             </div>
                         ` : ''}
                         ${pending ? `
                             <div class="flex flex-wrap gap-2">
-                                <button type="button" class="mycic-btn-primary" data-archive-action="accept">Data portal benar, pakai versi ini</button>
-                                ${version.status === 'suspect' ? '<button type="button" class="mycic-btn-secondary" data-archive-action="reject">Data portal salah, tetap pakai yang lama</button>' : ''}
+                                <button type="button" class="${app.ui.button.primary}" data-archive-action="accept">Data portal benar, pakai versi ini</button>
+                                ${version.status === 'suspect' ? `<button type="button" class="${app.ui.button.secondary}" data-archive-action="reject">Data portal salah, tetap pakai yang lama</button>` : ''}
                             </div>
                         ` : ''}
                         <div class="flex flex-wrap gap-2">
-                            <a class="mycic-btn-ghost-sm" href="/archive/versions/${version.id}/print" target="_blank" rel="noopener">Cetak bukti</a>
-                            <a class="mycic-btn-ghost-sm" href="/api/archive/versions/${version.id}/export">Unduh JSON</a>
+                            <a class="${app.ui.button.secondarySm}" href="/archive/versions/${version.id}/print" target="_blank" rel="noopener">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="size-4 shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 17h2a2 2 0 0 0 2 -2v-4a2 2 0 0 0 -2 -2h-14a2 2 0 0 0 -2 2v4a2 2 0 0 0 2 2h2" /><path d="M17 9v-4a2 2 0 0 0 -2 -2h-6a2 2 0 0 0 -2 2v4" /><path d="M7 15a2 2 0 0 1 2 -2h6a2 2 0 0 1 2 2v4a2 2 0 0 1 -2 2h-6a2 2 0 0 1 -2 -2z" /></svg>
+                                Cetak bukti
+                            </a>
+                            <a class="${app.ui.button.ghostSm}" href="/api/archive/versions/${version.id}/export">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="size-4 shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2 -2v-2" /><path d="M7 11l5 5l5 -5" /><path d="M12 4v12" /></svg>
+                                Unduh JSON
+                            </a>
                         </div>
-                        <section class="flex flex-col gap-2">
-                            <h3 class="mycic-section-title">${data.baseline ? `Dibanding versi ${app.escapeHtml(formatMoment(data.baseline.first_seen_at))}` : 'Versi pertama'}</h3>
-                            ${data.baseline ? renderDiff(data) : '<p class="text-sm text-ink-subtle">Ini versi pertama yang tersimpan, jadi belum ada pembanding.</p>'}
+                        <section class="flex flex-col gap-3 border-t border-border-light pt-4">
+                            <h3 class="${app.ui.cardTitle}">${data.baseline ? `Dibanding versi ${app.escapeHtml(formatMoment(data.baseline.first_seen_at))}` : 'Versi pertama'}</h3>
+                            ${data.baseline ? renderDiff(data) : `<div class="${app.ui.inset} text-sm text-ink-subtle">Ini versi pertama yang tersimpan, jadi belum ada pembanding.</div>`}
                         </section>
                     </div>
                 `;
@@ -212,7 +232,7 @@
             const loadDetail = async (versionId, { focus = false, background = false } = {}) => {
                 state.selectedId = versionId;
                 renderVersions();
-                detailBody.innerHTML = '<div class="flex flex-col gap-2" aria-busy="true"><div class="mycic-skeleton h-4 w-1/2"></div><div class="mycic-skeleton h-4 w-2/3"></div></div>';
+                detailBody.innerHTML = `<div class="flex flex-col gap-2" aria-busy="true"><div class="${app.ui.skeleton} h-4 w-1/2" data-slot="skeleton"></div><div class="${app.ui.skeleton} h-4 w-2/3" data-slot="skeleton"></div></div>`;
 
                 try {
                     const url = new URL(window.location.href);
@@ -269,7 +289,7 @@
                 const button = event.target instanceof Element ? event.target.closest('[data-version-id]') : null;
 
                 if (button) {
-                    loadDetail(Number(button.dataset.versionId), { focus: window.matchMedia('(max-width: 1023px)').matches });
+                    loadDetail(Number(button.dataset.versionId), { focus: window.matchMedia('(max-width: 1279px)').matches });
                 }
             });
 

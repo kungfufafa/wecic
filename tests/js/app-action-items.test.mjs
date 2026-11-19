@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { createPortalApp } from './support/browser.mjs';
+import { ui } from '../../resources/js/app/ui.js';
 
 /**
  * Action-centre rows and navigation badges (resources/js/app/action-items.js).
@@ -38,7 +39,7 @@ describe('renderActionItem', () => {
     it('links a safe target, in a new tab when it leaves MyCIC', () => {
         const html = app.renderActionItem({ title: 'Bayar', cta_url: '/finance', cta_label: 'Lihat' });
 
-        assert.match(html, /^<a href="\/finance" class="mycic-list-row mycic-list-row-interactive[^"]*">/);
+        assert.ok(html.startsWith(`<a href="/finance" class="${ui.listRow} ${ui.listRowInteractive}`));
         assert.doesNotMatch(html, /font-semibold/);
         assert.match(app.renderActionItem({ title: 'Portal', cta_url: 'https://portal.invalid/x' }), /target="_blank" rel="noopener noreferrer"/);
     });
@@ -46,7 +47,7 @@ describe('renderActionItem', () => {
     it('never links a script URL', () => {
         const html = app.renderActionItem({ title: '<Hack>', cta_url: 'javascript:alert(1)' });
 
-        assert.match(html, /^<div class="mycic-list-row">/);
+        assert.ok(html.startsWith(`<div class="${ui.listRow}">`));
         assert.match(html, /&lt;Hack&gt;/);
         assert.doesNotMatch(html, /javascript:/);
     });
@@ -54,7 +55,7 @@ describe('renderActionItem', () => {
 
 describe('paintNavBadge', () => {
     it('shows a count, caps it at 9+, and hides at zero', () => {
-        const badge = browser.element('span', { 'data-nav-badge': 'kuliah', class: 'mycic-nav-badge hidden' });
+        const badge = browser.element('span', { 'data-nav-badge': 'kuliah', class: `${ui.navBadge} hidden` });
 
         app.paintNavBadge('kuliah', 12, { tone: 'warning', label: '12 tugas' });
         assert.equal(badge.classList.contains('hidden'), false);
@@ -68,7 +69,7 @@ describe('paintNavBadge', () => {
     });
 
     it('draws a dot for `true`', () => {
-        const badge = browser.element('span', { 'data-nav-badge': 'akademik', class: 'mycic-nav-badge hidden' });
+        const badge = browser.element('span', { 'data-nav-badge': 'akademik', class: `${ui.navBadge} hidden` });
 
         app.paintNavBadge('akademik', true);
 
@@ -79,7 +80,7 @@ describe('paintNavBadge', () => {
 
 describe('setNavBadge', () => {
     it('lets a page value win over the action items until the page drops it', () => {
-        const badge = browser.element('span', { 'data-nav-badge': 'exam', class: 'mycic-nav-badge hidden' });
+        const badge = browser.element('span', { 'data-nav-badge': 'exam', class: `${ui.navBadge} hidden` });
 
         app.setNavBadge('exam', 2, { label: '2 ujian' });
         app.applyActionItemBadges([]);

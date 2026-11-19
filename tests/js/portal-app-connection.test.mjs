@@ -1,6 +1,7 @@
 import { afterEach, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { createPortalApp, json, settle } from './support/browser.mjs';
+import { ui } from '../../resources/js/app/ui.js';
 
 /**
  * PortalApp.updateConnectionState and the way requests move the shell
@@ -16,7 +17,7 @@ async function shell(options = {}) {
     const showNotice = created.app.showNotice.bind(created.app);
 
     browser = created.browser;
-    browser.element('span', { 'data-connection-chip': '', class: 'mycic-chip-online' });
+    browser.element('span', { 'data-connection-chip': '', class: ui.chipOnline });
     browser.element('span', { 'data-connection-label': '' }).textContent = 'Online';
     browser.element('p', { 'data-sync-status': '' });
     browser.element('button', { 'data-sync-refresh': '' });
@@ -51,7 +52,7 @@ describe('updateConnectionState', () => {
 
         app.updateConnectionState(true, { announce: false });
 
-        assert.equal(chip().className, 'mycic-chip-online');
+        assert.equal(chip().className, ui.chipOnline);
         assert.equal(label(), 'Online');
         assert.equal(browser.echoes.length, 1);
         assert.equal(syncStatus().textContent, 'Data siap dipakai.');
@@ -83,7 +84,7 @@ describe('updateConnectionState', () => {
         app.updateConnectionState(true, { announce: false });
         goOffline(app);
 
-        assert.equal(chip().className, 'mycic-chip-offline');
+        assert.equal(chip().className, ui.chipOffline);
         assert.equal(label(), 'Offline');
         assert.equal(onlineRequired().disabled, true);
         assert.equal(onlineRequired().getAttribute('title'), 'Butuh koneksi internet');
@@ -103,7 +104,7 @@ describe('updateConnectionState', () => {
 
         app.updateConnectionState(false, { announce: false });
 
-        assert.equal(chip().className, 'mycic-chip-offline');
+        assert.equal(chip().className, ui.chipOffline);
         assert.deepEqual(notices, []);
         assert.equal(browser.echoes.length, 0);
     });
@@ -122,7 +123,7 @@ describe('updateConnectionState', () => {
         goOnline(app);
         await settle();
 
-        assert.equal(chip().className, 'mycic-chip-online');
+        assert.equal(chip().className, ui.chipOnline);
         assert.equal(label(), 'Online');
         assert.equal(onlineRequired().disabled, false);
         assert.equal(onlineRequired().hasAttribute('title'), false);
@@ -156,13 +157,13 @@ describe('requests and the connection state', () => {
 
             return true;
         });
-        assert.equal(chip().className, 'mycic-chip-offline');
+        assert.equal(chip().className, ui.chipOffline);
         assert.equal(app.echo, null);
 
         reachable = true;
         assert.deepEqual(await app.request('/api/notifications/unread-count'), { status: 'success', data: { unread_count: 0 } });
 
-        assert.equal(chip().className, 'mycic-chip-online');
+        assert.equal(chip().className, ui.chipOnline);
         assert.equal(label(), 'Online');
         assert.equal(browser.echoes.length, 2, 'realtime is joined again');
         assert.deepEqual(notices, [], 'a hiccup the browser never reported is not announced');
@@ -181,7 +182,7 @@ describe('requests and the connection state', () => {
 
         assert.equal(payload.data.name, 'Dashboard');
         assert.equal(payload.meta.cache_mode, 'fallback');
-        assert.equal(chip().className, 'mycic-chip-offline');
+        assert.equal(chip().className, ui.chipOffline);
         assert.equal(syncStatus().dataset.tone, 'warning');
     });
 
@@ -214,7 +215,7 @@ describe('requests and the connection state', () => {
         await browser.clock.advance(1);
         await pending;
 
-        assert.equal(chip().className, 'mycic-chip-online', 'a slow server is not an offline device');
+        assert.equal(chip().className, ui.chipOnline, 'a slow server is not an offline device');
     });
 
     it('sends the CSRF token and marks only GETs made by background work', async () => {

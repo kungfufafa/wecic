@@ -6,24 +6,28 @@
 {{--
     The Beranda. Each widget is a partial in resources/views/dashboard/widgets
     with its script part in resources/views/dashboard/scripts (same name, or
-    the section it fills: hero → period, actions → action-center).
+    the section it fills: hero → period, actions → action-center). The
+    greeting header (hero) opens the page in place of an <x-page-hero>.
 --}}
 
 @section('content')
     @include('dashboard.widgets.hero')
 
     {{-- Everything queued while offline (attendance, uploads): not at the portal yet. --}}
-    <div class="mb-5 hidden" data-outbox-list data-outbox-heading="Antrean offline"></div>
+    <div class="mb-6 hidden" data-outbox-list data-outbox-heading="Antrean offline"></div>
 
     {{--
         The DOM follows the §4.2 mobile order (actions, today, assignments,
         metrics, announcements), so focus and reading order match the screen.
-        From lg the script below moves the widgets into the 8/4 columns, so
-        the main column is read before the aside there too.
+        arrange-columns moves the widgets, so the DOM keeps matching the
+        screen there too: from lg the KPI strip (metrics) comes first, under
+        the greeting header; from xl it spans the 12-column grid and the rest
+        is a bento of the main column (today's timeline, tasks) and the
+        aside (action centre, announcements).
     --}}
-    <div class="flex flex-col gap-5 lg:grid lg:grid-cols-12 lg:items-start lg:gap-6" data-dashboard-layout>
-        <div class="hidden min-w-0 lg:col-span-8 lg:flex lg:flex-col lg:gap-5" data-dashboard-column="main"></div>
-        <div class="hidden min-w-0 lg:col-span-4 lg:flex lg:flex-col lg:gap-5" data-dashboard-column="aside"></div>
+    <div class="flex flex-col gap-6 xl:grid xl:grid-cols-12 xl:items-start" data-dashboard-layout>
+        <div class="hidden min-w-0 xl:col-span-8 xl:flex xl:flex-col xl:gap-6" data-dashboard-column="main"></div>
+        <div class="hidden min-w-0 xl:col-span-4 xl:flex xl:flex-col xl:gap-6" data-dashboard-column="aside"></div>
 
         @include('dashboard.widgets.actions')
         @include('dashboard.widgets.today')

@@ -1,3 +1,5 @@
+import { ui } from './ui.js';
+
 import * as actionItemRules from '../lib/action-items.js';
 
 /**
@@ -72,8 +74,8 @@ export class ActionItemFeature {
         `;
 
         return href
-            ? `<a href="${this.escapeHtml(href)}" class="mycic-list-row mycic-list-row-interactive min-h-11"${external}>${content}</a>`
-            : `<div class="mycic-list-row">${content}</div>`;
+            ? `<a href="${this.escapeHtml(href)}" class="${ui.listRow} ${ui.listRowInteractive} min-h-11"${external}>${content}</a>`
+            : `<div class="${ui.listRow}">${content}</div>`;
     }
 
     /**

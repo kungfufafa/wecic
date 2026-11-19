@@ -1,3 +1,5 @@
+import { ui } from './ui.js';
+
 import { createPortalEcho } from '../echo';
 
 /**
@@ -189,8 +191,7 @@ export class RealtimeFeature {
         });
 
         document.querySelectorAll('[data-realtime-chip]').forEach((element) => {
-            element.classList.remove('mycic-chip-online', 'mycic-chip-offline');
-            element.classList.add(tone === 'success' ? 'mycic-chip-online' : 'mycic-chip-offline');
+            element.className = tone === 'success' ? ui.chipOnline : ui.chipOffline;
         });
     }
 

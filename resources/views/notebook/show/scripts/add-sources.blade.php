@@ -13,19 +13,19 @@
                 const body = courses.length
                     ? `
                         <form class="flex flex-col gap-4" data-archive-picker>
-                            ${room === null ? '' : `<p class="text-caption text-ink-subtle">Notebook ini bisa menambah ${room} sumber lagi (batas ${state.sourceLimit}).</p>`}
+                            ${room === null ? '' : `<p class="text-xs text-ink-subtle">Notebook ini bisa menambah ${room} sumber lagi (batas ${state.sourceLimit}).</p>`}
                             ${courses.map((course) => `
                                 <fieldset class="flex flex-col gap-1">
-                                    <legend class="mb-1 text-sm font-medium leading-snug text-ink">${app.escapeHtml(course.course_name || 'Mata kuliah')}</legend>
+                                    <legend class="mb-2 text-sm font-medium leading-snug text-ink">${app.escapeHtml(course.course_name || 'Mata kuliah')}</legend>
                                     ${course.files.map((file) => `
-                                        <label class="flex cursor-pointer items-start gap-2 text-sm ${used.has(file.id) ? 'opacity-60' : ''}">
-                                            <input type="checkbox" class="mt-1 cursor-pointer accent-brand" value="${file.id}" ${used.has(file.id) ? 'checked disabled' : ''}>
+                                        <label class="flex min-h-11 cursor-pointer items-start gap-2.5 rounded-md px-1 py-1.5 text-sm sm:min-h-9 sm:py-1 text-ink transition-colors hover:bg-surface/50 ${used.has(file.id) ? 'opacity-60' : ''}">
+                                            <input type="checkbox" class="${app.ui.checkbox} mt-0.5" value="${file.id}" ${used.has(file.id) ? 'checked disabled' : ''}>
                                             <span>${app.escapeHtml([file.meeting_number ? `P${file.meeting_number}` : '', file.kind_label, file.title || file.filename].filter(Boolean).join(' · '))}</span>
                                         </label>
                                     `).join('')}
                                 </fieldset>
                             `).join('')}
-                            <button type="submit" class="mycic-btn-primary">Tambahkan</button>
+                            <button type="submit" class="${app.ui.button.primary}">Tambahkan</button>
                         </form>
                     `
                     : app.renderEmptyState('Arsip materi masih kosong.', 'secondary', 'Buka pertemuan di halaman Kuliah atau arsipkan materi kelas di menu Arsip.');
@@ -86,9 +86,9 @@
                     title: 'Tulis catatan',
                     body: `
                         <form class="flex flex-col gap-3" data-text-source>
-                            <label class="mycic-field"><span class="mycic-label">Judul</span><input class="mycic-input" name="title" maxlength="120" required></label>
-                            <label class="mycic-field"><span class="mycic-label">Isi</span><textarea class="mycic-input min-h-48" name="content" required placeholder="Tempel catatan kuliah, ringkasan, atau teks materi."></textarea></label>
-                            <button type="submit" class="mycic-btn-primary">Simpan sebagai sumber</button>
+                            <label class="${app.ui.field}"><span class="${app.ui.label}">Judul</span><input class="${app.ui.input}" name="title" maxlength="120" required></label>
+                            <label class="${app.ui.field}"><span class="${app.ui.label}">Isi</span><textarea class="${app.ui.textarea} min-h-48!" name="content" required placeholder="Tempel catatan kuliah, ringkasan, atau teks materi."></textarea></label>
+                            <button type="submit" class="${app.ui.button.primary}">Simpan sebagai sumber</button>
                         </form>
                     `,
                 });

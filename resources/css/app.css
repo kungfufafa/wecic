@@ -5,6 +5,13 @@
 @source '../**/*.blade.php';
 @source '../**/*.js';
 
+/*
+ * Styling lives in Tailwind utilities: the Blade components in
+ * resources/views/components and, for HTML a script builds, the class map in
+ * resources/js/app/ui.js (app.ui). This file only holds the tokens, the base
+ * layer, keyframes and the few rules utilities cannot express.
+ */
+
 /* On screen only: paper is white, so a page printed (or saved as PDF) in dark mode keeps the light
    utilities that go with the light print tokens below. */
 @custom-variant dark {
@@ -19,13 +26,13 @@
     --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
     --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
-    --color-canvas: #fafafa;
+    --color-canvas: #f4f4f5;
     --color-panel: #ffffff;
     --color-surface: #f4f4f5;
-    --color-surface-tint: #eef3fa;
-    --color-ink: #171717;
-    --color-ink-muted: #525252;
-    --color-ink-subtle: #6e6e73;
+    --color-surface-tint: #eff4fb;
+    --color-ink: #09090b;
+    --color-ink-muted: #52525b;
+    --color-ink-subtle: #71717a;
     --color-brand: #0352a1;
     --color-brand-hover: #024182;
     --color-brand-pressed: #02366c;
@@ -43,20 +50,23 @@
     --color-info: #0369a1;
     --color-info-soft: #f0f7ff;
     --color-border: #e4e4e7;
-    --color-border-light: #ededef;
+    --color-border-light: #f0f0f2;
 
     --radius-control: 0.5rem;
     --radius-button: 0.5rem;
     --radius-card: 0.75rem;
-    --radius-modal: 1rem;
-    --radius-sheet: 1rem;
+    --radius-modal: 0.75rem;
+    --radius-sheet: 0.75rem;
 
-    --shadow-brand: none;
-    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.04);
-    --shadow-elevated: 0 4px 12px rgba(0, 0, 0, 0.06);
-    --shadow-float: 0 8px 24px rgba(0, 0, 0, 0.08);
+    --shadow-xs: 0 1px 2px rgb(0 0 0 / 0.05);
+    --shadow-card: 0 1px 2px rgb(0 0 0 / 0.05);
+    --shadow-elevated: 0 4px 12px rgb(0 0 0 / 0.06);
+    --shadow-float: 0 10px 30px -10px rgb(0 0 0 / 0.18), 0 2px 6px rgb(0 0 0 / 0.05);
 
     --ease-snappy: cubic-bezier(0.22, 1, 0.36, 1);
+
+    --animate-sheet-in: sheet-in 200ms var(--ease-snappy);
+    --animate-toast-in: toast-in 180ms var(--ease-snappy);
 
     --text-display: clamp(1.75rem, 1.4rem + 1vw, 2.25rem);
     --text-display--line-height: 1.15;
@@ -75,18 +85,42 @@
 
     --text-caption: 0.75rem;
     --text-caption--line-height: 1.4;
+
+    @keyframes sheet-in {
+        from {
+            opacity: 0;
+            transform: translateY(0.75rem);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @keyframes toast-in {
+        from {
+            opacity: 0;
+            transform: translateY(0.35rem);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
 }
 
 html[data-theme='dark'] {
     color-scheme: dark;
 
-    --color-canvas: #111113;
-    --color-panel: #18181b;
-    --color-surface: #222226;
-    --color-surface-tint: #1a2332;
-    --color-ink: #ededee;
-    --color-ink-muted: #a1a1a8;
-    --color-ink-subtle: #82828a;
+    --color-canvas: #09090b;
+    --color-panel: #111113;
+    --color-surface: #1c1c1f;
+    --color-surface-tint: #172033;
+    --color-ink: #fafafa;
+    --color-ink-muted: #a1a1aa;
+    --color-ink-subtle: #8b8b93;
     --color-brand: #2a6fd1;
     --color-brand-hover: #387ee0;
     --color-brand-pressed: #1f5fb9;
@@ -103,13 +137,12 @@ html[data-theme='dark'] {
     --color-danger-soft: #2b1517;
     --color-info: #5eb0ef;
     --color-info-soft: #122230;
-    --color-border: #28282c;
-    --color-border-light: #202024;
+    --color-border: #27272a;
+    --color-border-light: #1f1f22;
 
-    --shadow-brand: none;
     --shadow-card: none;
     --shadow-elevated: none;
-    --shadow-float: 0 8px 24px rgba(0, 0, 0, 0.38);
+    --shadow-float: 0 10px 30px -10px rgb(0 0 0 / 0.6), 0 0 0 1px rgb(255 255 255 / 0.02);
 }
 
 /* Paper is white: a page printed (or saved as PDF) in dark mode uses the light tokens. */
@@ -120,10 +153,10 @@ html[data-theme='dark'] {
         --color-canvas: #ffffff;
         --color-panel: #ffffff;
         --color-surface: #f4f4f5;
-        --color-surface-tint: #eef3fa;
-        --color-ink: #171717;
-        --color-ink-muted: #525252;
-        --color-ink-subtle: #6e6e73;
+        --color-surface-tint: #eff4fb;
+        --color-ink: #09090b;
+        --color-ink-muted: #52525b;
+        --color-ink-subtle: #71717a;
         --color-brand: #0352a1;
         --color-brand-hover: #024182;
         --color-brand-pressed: #02366c;
@@ -141,7 +174,7 @@ html[data-theme='dark'] {
         --color-info: #0369a1;
         --color-info-soft: #f0f7ff;
         --color-border: #e4e4e7;
-        --color-border-light: #ededef;
+        --color-border-light: #f0f0f2;
     }
 }
 
@@ -201,792 +234,16 @@ html[data-theme='dark'] {
             transition-duration: 0.01ms !important;
             scroll-behavior: auto !important;
         }
-
-        .mycic-toast {
-            animation: none;
-        }
     }
 }
 
-@layer components {
-    .mycic-container {
-        @apply mx-auto w-full max-w-7xl px-4 md:px-6 lg:px-8;
-    }
-
-    .mycic-page {
-        @apply min-h-dvh bg-canvas md:pb-8;
-        padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px));
-    }
-
-    .mycic-card {
-        @apply rounded-[var(--radius-card)] border border-border bg-panel;
-        box-shadow: var(--shadow-card);
-    }
-
-    .mycic-card-body {
-        @apply p-4 md:p-5;
-    }
-
-    .mycic-card-header {
-        @apply border-b border-border-light px-4 py-3.5 md:px-5;
-    }
-
-    .mycic-card-title {
-        @apply text-[0.9375rem] font-semibold leading-snug tracking-[-0.01em] text-ink;
-    }
-
-    .mycic-card-subtitle {
-        @apply mt-0.5 text-caption leading-normal text-ink-subtle;
-    }
-
-    .mycic-card-interactive {
-        @apply cursor-pointer rounded-[var(--radius-card)] border border-border bg-panel p-4 transition-colors duration-150 ease-[var(--ease-snappy)] hover:border-ink-subtle/40 hover:bg-surface/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand md:p-5;
-        box-shadow: var(--shadow-card);
-    }
-
-    .mycic-brand-wordmark {
-        @apply inline-flex items-center no-underline;
-    }
-
-    .mycic-page-heading {
-        @apply text-[1.5rem] font-semibold leading-[1.2] tracking-[-0.025em] text-ink sm:text-[1.75rem];
-    }
-
-    .mycic-page-subheading {
-        @apply mt-1.5 text-sm leading-relaxed text-ink-muted;
-    }
-
-    .mycic-section-title {
-        @apply text-base font-semibold leading-snug tracking-[-0.015em] text-ink;
-    }
-
-    .mycic-modal-title {
-        @apply text-base font-semibold leading-snug tracking-[-0.015em] text-ink;
-    }
-
-    .mycic-field {
-        @apply flex flex-col gap-1.5;
-    }
-
-    .mycic-field-hint {
-        @apply text-xs leading-relaxed text-ink-subtle;
-    }
-
-    .mycic-field-error {
-        @apply text-xs font-medium leading-relaxed text-danger;
-    }
-
-    .mycic-form {
-        @apply flex flex-col gap-5;
-    }
-
-    .mycic-input-wrap {
-        @apply relative flex items-center;
-    }
-
-    .mycic-input-icon {
-        @apply pointer-events-none absolute start-3 top-1/2 z-10 -translate-y-1/2 text-ink-subtle;
-    }
-
-    .mycic-input-toggle {
-        @apply absolute end-2 top-1/2 z-10 flex min-h-9 min-w-9 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md text-ink-subtle transition-colors duration-150 ease-[var(--ease-snappy)] hover:bg-surface hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand;
-    }
-
-    .mycic-legal-text {
-        @apply text-center text-xs leading-relaxed text-ink-subtle;
-    }
-
-    .mycic-btn {
-        @apply inline-flex min-h-11 sm:min-h-10 min-w-10 cursor-pointer select-none items-center justify-center gap-2 whitespace-nowrap rounded-[var(--radius-button)] border border-transparent px-4 text-sm font-medium leading-none transition-[color,background-color,border-color,box-shadow,transform] duration-150 ease-[var(--ease-snappy)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50;
-    }
-
-    .mycic-btn-sm {
-        @apply inline-flex min-h-11 sm:min-h-9 cursor-pointer select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-[var(--radius-button)] border border-transparent px-3 text-[0.8125rem] font-medium leading-none transition-[color,background-color,border-color,box-shadow,transform] duration-150 ease-[var(--ease-snappy)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50;
-    }
-
-    .mycic-btn-primary {
-        @apply inline-flex min-h-11 sm:min-h-10 min-w-10 cursor-pointer select-none items-center justify-center gap-2 whitespace-nowrap rounded-[var(--radius-button)] border border-transparent bg-brand px-4 text-sm font-medium leading-none text-brand-ink shadow-[inset_0_1px_0_rgba(255,255,255,0.14)] transition-[color,background-color,border-color,box-shadow,transform] duration-150 ease-[var(--ease-snappy)] hover:bg-brand-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand active:scale-[0.98] active:bg-brand-pressed disabled:pointer-events-none disabled:opacity-50;
-    }
-
-    .mycic-btn-primary-sm {
-        @apply inline-flex min-h-11 sm:min-h-9 cursor-pointer select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-[var(--radius-button)] border border-transparent bg-brand px-3 text-[0.8125rem] font-medium leading-none text-brand-ink shadow-[inset_0_1px_0_rgba(255,255,255,0.14)] transition-[color,background-color,border-color,box-shadow,transform] duration-150 ease-[var(--ease-snappy)] hover:bg-brand-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand active:scale-[0.98] active:bg-brand-pressed disabled:pointer-events-none disabled:opacity-50;
-    }
-
-    .mycic-btn-secondary {
-        @apply inline-flex min-h-11 sm:min-h-10 min-w-10 cursor-pointer select-none items-center justify-center gap-2 whitespace-nowrap rounded-[var(--radius-button)] border border-border bg-panel px-4 text-sm font-medium leading-none text-ink transition-[color,background-color,border-color,box-shadow,transform] duration-150 ease-[var(--ease-snappy)] hover:border-ink-subtle/35 hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand active:scale-[0.98] active:bg-surface disabled:pointer-events-none disabled:opacity-50;
-    }
-
-    .mycic-btn-secondary-sm {
-        @apply inline-flex min-h-11 sm:min-h-9 cursor-pointer select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-[var(--radius-button)] border border-border bg-panel px-3 text-[0.8125rem] font-medium leading-none text-ink transition-[color,background-color,border-color,box-shadow,transform] duration-150 ease-[var(--ease-snappy)] hover:border-ink-subtle/35 hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand active:scale-[0.98] active:bg-surface disabled:pointer-events-none disabled:opacity-50;
-    }
-
-    .mycic-btn-ghost {
-        @apply inline-flex min-h-11 sm:min-h-10 min-w-10 cursor-pointer select-none items-center justify-center gap-2 whitespace-nowrap rounded-[var(--radius-button)] border border-transparent bg-transparent px-4 text-sm font-medium leading-none text-ink-muted transition-[color,background-color,border-color,box-shadow,transform] duration-150 ease-[var(--ease-snappy)] hover:bg-surface hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand active:scale-[0.98] active:bg-surface disabled:pointer-events-none disabled:opacity-50;
-    }
-
-    .mycic-btn-ghost-sm {
-        @apply inline-flex min-h-11 sm:min-h-9 cursor-pointer select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-[var(--radius-button)] border border-transparent bg-transparent px-3 text-[0.8125rem] font-medium leading-none text-ink-muted transition-[color,background-color,border-color,box-shadow,transform] duration-150 ease-[var(--ease-snappy)] hover:bg-surface hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand active:scale-[0.98] active:bg-surface disabled:pointer-events-none disabled:opacity-50;
-    }
-
-    .mycic-btn-destructive {
-        @apply inline-flex min-h-11 sm:min-h-10 min-w-10 cursor-pointer select-none items-center justify-center gap-2 whitespace-nowrap rounded-[var(--radius-button)] border border-transparent bg-danger px-4 text-sm font-medium leading-none text-white transition-[color,background-color,border-color,box-shadow,transform] duration-150 ease-[var(--ease-snappy)] hover:bg-danger/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50;
-    }
-
-    .mycic-btn-destructive-sm {
-        @apply inline-flex min-h-11 sm:min-h-9 cursor-pointer select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-[var(--radius-button)] border border-transparent bg-danger px-3 text-[0.8125rem] font-medium leading-none text-white transition-[color,background-color,border-color,box-shadow,transform] duration-150 ease-[var(--ease-snappy)] hover:bg-danger/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50;
-    }
-
-    .mycic-btn-icon {
-        @apply inline-flex h-9 w-9 shrink-0 cursor-pointer select-none items-center justify-center whitespace-nowrap rounded-[var(--radius-button)] border border-transparent bg-transparent leading-none text-ink-muted transition-[color,background-color,border-color,box-shadow,transform] duration-150 ease-[var(--ease-snappy)] hover:border-border hover:bg-surface hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50;
-    }
-
-    .mycic-btn-icon-sm {
-        @apply inline-flex h-8 w-8 shrink-0 cursor-pointer select-none items-center justify-center whitespace-nowrap rounded-[var(--radius-button)] border border-transparent bg-transparent leading-none text-ink-muted transition-[color,background-color,border-color,box-shadow,transform] duration-150 ease-[var(--ease-snappy)] hover:border-border hover:bg-surface hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50;
-    }
-
-    .mycic-btn-block {
-        @apply w-full;
-    }
-
-    .mycic-back-link {
-        @apply inline-flex min-h-9 cursor-pointer items-center gap-1 -ms-1.5 rounded-[var(--radius-button)] px-1.5 text-sm font-medium text-ink-muted transition-colors duration-150 ease-[var(--ease-snappy)] hover:bg-surface hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand;
-    }
-
-    .mycic-segmented {
-        @apply inline-flex max-w-full items-center gap-1 overflow-x-auto rounded-[var(--radius-control)] border border-border bg-surface p-1;
-    }
-
-    .mycic-segmented-item {
-        @apply inline-flex min-h-10 sm:min-h-9 shrink-0 cursor-pointer select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-[calc(var(--radius-control)-2px)] border border-transparent px-3 py-1.5 text-xs font-medium leading-none text-ink-muted transition-[color,background-color,border-color,box-shadow] duration-150 ease-[var(--ease-snappy)] hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand sm:text-sm;
-    }
-
-    .mycic-segmented-item-active,
-    .mycic-segmented-item[aria-selected='true'],
-    .mycic-segmented-item[aria-pressed='true'],
-    .mycic-segmented-item[aria-current='page'] {
-        @apply border-border/80 bg-panel text-ink shadow-[0_1px_2px_rgba(0,0,0,0.05)] dark:border-border dark:shadow-none;
-    }
-
-    .mycic-input {
-        @apply min-h-11 sm:min-h-10 w-full rounded-[var(--radius-control)] border border-border bg-panel px-3.5 text-sm text-ink transition-[border-color,box-shadow] duration-150 ease-[var(--ease-snappy)] placeholder:text-ink-subtle focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20 disabled:cursor-not-allowed disabled:bg-surface disabled:opacity-60;
-    }
-
-    textarea.mycic-input {
-        @apply py-2.5 leading-relaxed;
-    }
-
-    select.mycic-input {
-        @apply cursor-pointer;
-    }
-
-    .mycic-input[aria-invalid='true'] {
-        @apply border-danger focus:border-danger focus:ring-danger/20;
-    }
-
-    .mycic-input[type='file'] {
-        @apply cursor-pointer py-2 pe-3 ps-2 text-xs text-ink-subtle file:me-3 file:cursor-pointer file:rounded-md file:border-0 file:bg-surface file:px-3 file:py-1 file:text-xs file:font-medium file:text-ink hover:file:bg-surface-tint;
-    }
-
-    .mycic-input-with-icon {
-        @apply ps-10;
-    }
-
-    .mycic-input-with-toggle {
-        @apply pe-11;
-    }
-
-    .mycic-label {
-        @apply text-[0.8125rem] font-medium leading-snug text-ink;
-    }
-
-    .mycic-badge {
-        @apply inline-flex items-center gap-1 whitespace-nowrap rounded-md px-2 py-0.5 text-xs font-medium leading-tight ring-1 ring-inset ring-border/80;
-    }
-
-    .mycic-badge-brand {
-        @apply inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-surface-tint px-2 py-0.5 text-xs font-medium leading-tight text-brand-text ring-1 ring-inset ring-brand/15;
-    }
-
-    .mycic-badge-accent {
-        @apply inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-accent-soft px-2 py-0.5 text-xs font-medium leading-tight text-amber-900 ring-1 ring-inset ring-amber-500/25 dark:text-amber-200;
-    }
-
-    .mycic-badge-success {
-        @apply inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-success-soft px-2 py-0.5 text-xs font-medium leading-tight text-success ring-1 ring-inset ring-success/20;
-    }
-
-    .mycic-badge-warning {
-        @apply inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-warning-soft px-2 py-0.5 text-xs font-medium leading-tight text-warning ring-1 ring-inset ring-warning/20;
-    }
-
-    .mycic-badge-danger {
-        @apply inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-danger-soft px-2 py-0.5 text-xs font-medium leading-tight text-danger ring-1 ring-inset ring-danger/20;
-    }
-
-    .mycic-badge-info {
-        @apply inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-info-soft px-2 py-0.5 text-xs font-medium leading-tight text-info ring-1 ring-inset ring-info/20;
-    }
-
-    .mycic-badge-neutral {
-        @apply inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-surface px-2 py-0.5 text-xs font-medium leading-tight text-ink-muted ring-1 ring-inset ring-border/80;
-    }
-
-    .mycic-chip {
-        @apply inline-flex items-center gap-2 rounded-md border border-border-light bg-panel px-2 py-1 text-xs font-medium text-ink-muted;
-    }
-
-    .mycic-chip-online {
-        @apply inline-flex items-center gap-2 text-xs font-medium text-ink-muted;
-    }
-
-    .mycic-chip-online::before {
-        content: '';
-        @apply h-1.5 w-1.5 shrink-0 rounded-full bg-success;
-    }
-
-    .mycic-chip-offline {
-        @apply inline-flex items-center gap-2 rounded-md bg-warning-soft px-2 py-0.5 text-xs font-medium text-warning;
-    }
-
-    .mycic-chip-offline::before {
-        content: '';
-        @apply h-1.5 w-1.5 shrink-0 rounded-full bg-warning;
-    }
-
-    .mycic-alert {
-        @apply rounded-[var(--radius-control)] border px-4 py-3 text-sm text-ink;
-    }
-
-    .mycic-alert-info {
-        @apply rounded-[var(--radius-control)] border border-info/20 border-s-[3px] border-s-info bg-info-soft/70 px-4 py-3 text-sm text-ink;
-    }
-
-    .mycic-alert-warning {
-        @apply rounded-[var(--radius-control)] border border-warning/20 border-s-[3px] border-s-warning bg-warning-soft/70 px-4 py-3 text-sm text-ink;
-    }
-
-    .mycic-alert-danger {
-        @apply rounded-[var(--radius-control)] border border-danger/20 border-s-[3px] border-s-danger bg-danger-soft/70 px-4 py-3 text-sm text-ink;
-    }
-
-    .mycic-alert-success {
-        @apply rounded-[var(--radius-control)] border border-success/20 border-s-[3px] border-s-success bg-success-soft/70 px-4 py-3 text-sm text-ink;
-    }
-
-    .mycic-alert-neutral {
-        @apply rounded-[var(--radius-control)] border border-border bg-panel px-4 py-3 text-sm text-ink-muted;
-    }
-
-    .mycic-alert-brand {
-        @apply rounded-[var(--radius-control)] border border-brand/20 border-s-[3px] border-s-brand bg-surface-tint/70 px-4 py-3 text-sm text-ink;
-    }
-
-    .mycic-sync-strip {
-        @apply mb-5 border-b border-border-light bg-transparent px-0 py-2 text-xs text-ink-subtle;
-    }
-
-    .mycic-sync-strip-success {
-        @apply text-ink-muted;
-    }
-
-    .mycic-sync-strip-warning {
-        @apply rounded-[var(--radius-control)] border border-warning/25 bg-warning-soft/70 px-3 py-2 text-ink;
-    }
-
-    .mycic-sync-strip-danger {
-        @apply rounded-[var(--radius-control)] border border-danger/25 bg-danger-soft/70 px-3 py-2 text-ink;
-    }
-
-    .mycic-skeleton {
-        @apply animate-pulse rounded-[var(--radius-control)] bg-surface;
-    }
-
-    .mycic-empty {
-        @apply flex flex-col items-center gap-2 rounded-[var(--radius-card)] border border-dashed border-border bg-panel px-6 py-10 text-center;
-    }
-
-    .mycic-card .mycic-empty {
-        @apply rounded-none border-0 bg-transparent px-4 py-8;
-    }
-
-    .mycic-empty-title {
-        @apply text-sm font-medium text-ink;
-    }
-
-    .mycic-empty-subtitle {
-        @apply max-w-sm text-xs leading-relaxed text-ink-subtle;
-    }
-
-    .mycic-page-header {
-        @apply sticky top-0 z-30 border-b border-border bg-panel;
-    }
-
-    .mycic-top-nav {
-        @apply hidden min-w-0 flex-1 items-center justify-center gap-1 md:flex;
-    }
-
-    .mycic-top-nav-link {
-        @apply inline-flex min-h-9 shrink-0 cursor-pointer items-center gap-2 rounded-[var(--radius-button)] px-3 py-2 text-sm font-medium text-ink-muted transition-colors duration-150 ease-[var(--ease-snappy)] hover:bg-surface hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand lg:px-3;
-    }
-
-    .mycic-nav-badge {
-        @apply pointer-events-none absolute -end-2 -top-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 font-mono text-[11px] font-medium leading-none text-white tabular-nums ring-2 ring-panel;
-    }
-
-    .mycic-bottom-nav-item .mycic-nav-badge {
-        @apply end-2 top-0;
-    }
-
-    /* White digits on amber are below 4.5:1 in both themes; dark digits are not. */
-    .mycic-nav-badge[data-tone='warning'],
-    .mycic-nav-badge-inline[data-tone='warning'] {
-        @apply bg-warning text-amber-950;
-    }
-
-    .mycic-nav-badge[data-tone='brand'],
-    .mycic-nav-badge-inline[data-tone='brand'],
-    .mycic-nav-badge[data-tone='info'],
-    .mycic-nav-badge-inline[data-tone='info'] {
-        @apply bg-brand;
-    }
-
-    .mycic-nav-badge[data-variant='dot'] {
-        @apply h-2.5 min-w-2.5 px-0;
-    }
-
-    .mycic-nav-badge-inline {
-        @apply inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-danger px-1.5 font-mono text-[11px] font-medium leading-none text-white tabular-nums;
-    }
-
-    .mycic-nav-badge-inline[data-variant='dot'] {
-        @apply h-2.5 min-w-2.5 px-0;
-    }
-
-    .mycic-top-nav-link-active {
-        @apply bg-surface-tint text-brand-text;
-    }
-
-    .mycic-bottom-nav {
-        @apply fixed inset-x-0 bottom-0 z-40 border-t border-border bg-panel md:hidden;
-        padding-bottom: env(safe-area-inset-bottom, 0px);
-    }
-
-    .mycic-bottom-nav>div {
-        @apply mx-auto flex max-w-lg items-center px-2 py-1.5;
-    }
-
-    .mycic-bottom-nav-item {
-        @apply flex flex-1 flex-col items-center gap-1 rounded-[var(--radius-button)] px-1 py-1 text-[11px] font-medium transition-colors duration-150 ease-[var(--ease-snappy)];
-    }
-
-    .mycic-bottom-nav-item .mycic-nav-icon {
-        @apply relative flex h-7 w-11 items-center justify-center rounded-[var(--radius-button)] transition-colors duration-150 ease-[var(--ease-snappy)];
-    }
-
-    .mycic-bottom-nav-item-active {
-        @apply text-brand-text;
-    }
-
-    .mycic-bottom-nav-item-active .mycic-nav-icon {
-        @apply bg-surface-tint text-brand-text;
-    }
-
-    .mycic-bottom-nav-item-inactive {
-        @apply text-ink-subtle active:bg-surface active:text-ink-muted;
-    }
-
-    .mycic-bottom-nav-item-center {
-        @apply justify-center;
-    }
-
-    .mycic-bottom-nav-action {
-        @apply flex h-8 w-11 cursor-pointer items-center justify-center rounded-[var(--radius-button)] bg-brand text-brand-ink shadow-[inset_0_1px_0_rgba(255,255,255,0.14)] transition-[background-color,transform] duration-150 ease-[var(--ease-snappy)] hover:bg-brand-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand active:scale-95;
-    }
-
-    .mycic-no-scrollbar {
-        scrollbar-width: none;
-    }
-
-    .mycic-no-scrollbar::-webkit-scrollbar {
-        display: none;
-    }
-
-    .mycic-dropdown {
-        @apply relative;
-    }
-
-    .mycic-dropdown-panel {
-        @apply absolute end-0 z-50 mt-2 min-w-48 overflow-hidden rounded-[var(--radius-card)] border border-border bg-panel py-1.5;
-        box-shadow: var(--shadow-float);
-    }
-
-    .mycic-dropdown-item {
-        @apply block w-full cursor-pointer px-4 py-2 text-start text-sm font-normal text-ink-muted transition-colors duration-150 ease-[var(--ease-snappy)] hover:bg-surface hover:text-ink;
-    }
-
-    .mycic-dropdown-item-danger {
-        @apply block w-full cursor-pointer px-4 py-2 text-start text-sm font-medium text-danger transition-colors duration-150 ease-[var(--ease-snappy)] hover:bg-danger-soft;
-    }
-
-    .mycic-dropdown-divider {
-        @apply my-1.5 border-t border-border-light;
-    }
-
-    .mycic-avatar {
-        @apply inline-flex h-8 w-8 items-center justify-center rounded-full border border-border bg-surface-tint text-xs font-medium text-brand-text;
-    }
-
-    .mycic-avatar-lg {
-        @apply inline-flex h-16 w-16 items-center justify-center overflow-hidden rounded-[var(--radius-card)] border border-border bg-surface-tint text-xl font-medium text-brand-text;
-    }
-
-    .mycic-avatar-lg img {
-        @apply h-full w-full object-cover;
-    }
-
-    .mycic-modal {
-        @apply fixed inset-0 z-50 flex items-center justify-center p-4;
-    }
-
-    .mycic-modal-backdrop {
-        @apply absolute inset-0 bg-black/45;
-    }
-
-    .mycic-modal-panel {
-        @apply relative z-10 w-full max-w-md overflow-hidden rounded-[var(--radius-modal)] border border-border bg-panel;
-        box-shadow: var(--shadow-float);
-    }
-
-    .mycic-modal-header {
-        @apply flex items-start justify-between gap-3 border-b border-border-light px-4 py-4 md:px-5;
-    }
-
-    .mycic-modal-body {
-        @apply px-4 py-4 md:px-5;
-    }
-
-    .mycic-modal-close {
-        @apply inline-flex min-h-9 min-w-9 cursor-pointer items-center justify-center rounded-[var(--radius-button)] text-ink-subtle transition-colors duration-150 ease-[var(--ease-snappy)] hover:bg-surface hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand;
-    }
-
-    .mycic-sheet {
-        @apply fixed inset-0 z-[55] flex items-end justify-center md:items-center md:p-4;
-    }
-
-    .mycic-sheet-backdrop {
-        @apply absolute inset-0 bg-black/45;
-    }
-
-    .mycic-sheet-panel {
-        @apply relative z-10 max-h-[85dvh] w-full overflow-y-auto rounded-t-[var(--radius-sheet)] border border-b-0 border-border bg-panel focus:outline-none md:max-w-md md:rounded-[var(--radius-modal)] md:border-b;
-        padding-bottom: env(safe-area-inset-bottom, 0px);
-        box-shadow: var(--shadow-float);
-        animation: mycic-sheet-in 200ms var(--ease-snappy);
-    }
-
-    .mycic-sheet-handle {
-        @apply mx-auto mt-2 h-1 w-10 rounded-full bg-border md:hidden;
-    }
-
-    .mycic-sheet-action {
-        @apply flex min-h-12 w-full cursor-pointer items-center gap-3 rounded-[var(--radius-control)] border border-border-light bg-panel px-3 py-2 text-start text-sm transition-colors duration-150 ease-[var(--ease-snappy)] hover:border-ink-subtle/35 hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand active:scale-[0.99];
-    }
-
-    .mycic-sheet-action-icon {
-        @apply flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--radius-button)] bg-surface-tint text-brand-text;
-    }
-
-    @keyframes mycic-sheet-in {
-        from {
-            opacity: 0;
-            transform: translateY(0.75rem);
-        }
-
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
-
-    .mycic-progress-track {
-        @apply flex w-full gap-0.5 overflow-hidden rounded-full bg-surface;
-    }
-
-    .mycic-progress-fill {
-        @apply h-full shrink-0 first:rounded-s-full last:rounded-e-full;
-    }
-
-    .mycic-progress-striped {
-        background-image: repeating-linear-gradient(135deg, rgb(255 255 255 / 38%) 0 4px, transparent 4px 8px);
-    }
-
-    .mycic-toast-host {
-        @apply pointer-events-none fixed inset-x-0 z-[60] flex flex-col items-center gap-2 px-4;
-        bottom: calc(4.75rem + env(safe-area-inset-bottom, 0px));
-    }
-
-    body[data-auth='guest'] .mycic-toast-host {
-        bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
-    }
-
-    @media (min-width: 768px) {
-        .mycic-toast-host {
-            @apply inset-x-0 top-4 items-center px-4;
-            bottom: auto;
-        }
-    }
-
-    .mycic-toast {
-        @apply pointer-events-auto flex w-full max-w-sm items-center gap-3 rounded-[var(--radius-control)] border border-border bg-panel px-3 py-2.5 text-sm;
-        box-shadow: var(--shadow-float);
-        animation: mycic-toast-in 180ms var(--ease-snappy);
-    }
-
-    .mycic-toast-success {
-        @apply border-s-[3px] border-s-success;
-    }
-
-    .mycic-toast-danger {
-        @apply border-s-[3px] border-s-danger;
-    }
-
-    .mycic-toast-warning {
-        @apply border-s-[3px] border-s-warning;
-    }
-
-    .mycic-toast-info {
-        @apply border-s-[3px] border-s-info;
-    }
-
-    .mycic-toast-icon {
-        @apply flex h-5 w-5 shrink-0 items-center justify-center;
-    }
-
-    .mycic-toast-icon-success {
-        @apply text-success;
-    }
-
-    .mycic-toast-icon-danger {
-        @apply text-danger;
-    }
-
-    .mycic-toast-icon-warning {
-        @apply text-warning;
-    }
-
-    .mycic-toast-icon-info {
-        @apply text-info;
-    }
-
-    .mycic-toast-message {
-        @apply m-0 min-w-0 flex-1 self-center text-sm font-medium leading-normal text-ink;
-    }
-
-    .mycic-toast-close {
-        @apply inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-[var(--radius-button)] text-ink-subtle transition-colors duration-150 ease-[var(--ease-snappy)] hover:bg-surface hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand;
-    }
-
-    @keyframes mycic-toast-in {
-        from {
-            opacity: 0;
-            transform: translateY(0.35rem);
-        }
-
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
-
-    .mycic-spinner {
-        @apply inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent;
-    }
-
-    .mycic-sticky-action {
-        @apply fixed inset-x-3 z-30 rounded-[var(--radius-card)] border border-border bg-panel p-2.5 md:static md:rounded-none md:border-0 md:bg-transparent md:p-0;
-        bottom: calc(4.75rem + env(safe-area-inset-bottom, 0px));
-        box-shadow: var(--shadow-float);
-    }
-
-    @media (min-width: 768px) {
-        .mycic-sticky-action {
-            box-shadow: none;
-        }
-    }
-
-    @media (max-width: 767.98px) {
-        .mycic-page:has(.mycic-sticky-action) {
-            padding-bottom: calc(10rem + env(safe-area-inset-bottom, 0px));
-        }
-    }
-
-    .mycic-list-row {
-        @apply flex items-start justify-between gap-3 border-b border-border-light py-3 first:pt-0 last:border-b-0 last:pb-0;
-    }
-
-    .mycic-list-row-interactive {
-        @apply cursor-pointer -mx-2 px-2 rounded-[var(--radius-control)] transition-colors duration-150 ease-[var(--ease-snappy)] hover:bg-surface/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand;
-    }
-
-    .mycic-metric {
-        @apply flex h-full flex-col gap-1 rounded-[var(--radius-card)] border border-border bg-panel p-4 md:p-5;
-        box-shadow: var(--shadow-card);
-    }
-
-    .mycic-metric-value {
-        @apply font-mono text-2xl font-semibold leading-none tracking-[-0.025em] text-ink tabular-nums;
-    }
-
-    .mycic-metric-label {
-        @apply overflow-hidden text-ellipsis whitespace-nowrap text-xs font-medium text-ink-subtle;
-    }
-
-    .mycic-metric-note {
-        @apply text-caption leading-normal text-ink-subtle;
-    }
-
-    .mycic-stat-strip {
-        @apply grid gap-px overflow-hidden rounded-[var(--radius-card)] border border-border bg-border-light;
-        box-shadow: var(--shadow-card);
-    }
-
-    .mycic-stat-strip > .mycic-metric {
-        @apply rounded-none border-0;
-        box-shadow: none;
-    }
-
-    .mycic-hero {
-        @apply rounded-[var(--radius-card)] border border-border bg-panel p-4 text-ink md:p-6;
-        box-shadow: var(--shadow-card);
-    }
-
-    .mycic-hero-icon-btn {
-        @apply flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-[var(--radius-button)] border border-border bg-surface text-ink-muted transition-colors duration-150 ease-[var(--ease-snappy)] hover:bg-surface-tint hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand active:scale-95 disabled:pointer-events-none disabled:opacity-50;
-    }
-
-    .mycic-hero-tile {
-        @apply flex w-16 shrink-0 cursor-pointer flex-col items-center justify-center gap-2 rounded-[var(--radius-control)] border border-border bg-surface px-1 py-3 text-xs font-medium text-ink transition-colors duration-150 ease-[var(--ease-snappy)] hover:bg-surface-tint focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand active:scale-95 disabled:pointer-events-none disabled:opacity-50;
-    }
-
-    .mycic-hero-pill {
-        @apply inline-flex min-h-11 sm:min-h-9 shrink-0 cursor-pointer select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-[var(--radius-button)] border border-border bg-panel px-3 text-[0.8125rem] font-medium leading-none text-ink-muted transition-[color,background-color,border-color,box-shadow,transform] duration-150 ease-[var(--ease-snappy)] hover:border-ink-subtle/35 hover:bg-surface hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand active:scale-[0.98];
-    }
-
-    .mycic-tile {
-        @apply flex cursor-pointer flex-col items-center gap-2 rounded-[var(--radius-control)] p-2 text-center transition-colors duration-150 ease-[var(--ease-snappy)] hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand active:scale-[0.97];
-    }
-
-    .mycic-tile-icon {
-        @apply flex h-12 w-12 items-center justify-center rounded-[var(--radius-button)] bg-surface text-ink-muted;
-    }
-
-    .mycic-tile-label {
-        @apply text-[11px] font-medium leading-tight text-ink-muted;
-    }
-
-    .mycic-status-panel-brand {
-        @apply rounded-[var(--radius-control)] bg-surface-tint p-3 text-brand-text;
-    }
-
-    .mycic-status-panel-success {
-        @apply rounded-[var(--radius-control)] bg-success-soft p-3 text-success;
-    }
-
-    .mycic-status-panel-warning {
-        @apply rounded-[var(--radius-control)] bg-warning-soft p-3 text-warning;
-    }
-
-    .mycic-status-panel-info {
-        @apply rounded-[var(--radius-control)] bg-info-soft p-3 text-info;
-    }
-
-    .mycic-status-panel-neutral {
-        @apply rounded-[var(--radius-control)] bg-surface p-3 text-ink-muted;
-    }
-
-    .mycic-table-wrap {
-        @apply overflow-x-auto rounded-[var(--radius-card)] border border-border bg-panel;
-        box-shadow: var(--shadow-card);
-    }
-
-    .mycic-card>.mycic-table-wrap {
-        @apply rounded-[var(--radius-card)] border-0;
-        box-shadow: none;
-    }
-
-    .mycic-table {
-        @apply w-full text-left text-sm;
-    }
-
-    .mycic-table thead th {
-        @apply whitespace-nowrap border-b border-border bg-surface/60 px-4 py-3 text-xs font-medium text-ink-subtle first:rounded-tl-[var(--radius-card)] last:rounded-tr-[var(--radius-card)];
-    }
-
-    .mycic-table tbody tr {
-        @apply transition-colors duration-150 ease-[var(--ease-snappy)] hover:bg-surface/50 focus-within:bg-surface/70;
-    }
-
-    .mycic-table tbody td {
-        @apply border-b border-border-light px-4 py-3 text-ink-muted;
-    }
-
-    .mycic-table tbody tr:last-child td {
-        @apply border-b-0;
-    }
-
-    .mycic-divider {
-        @apply my-3 border-t border-border-light;
-    }
-
-    .mycic-link {
-        @apply font-medium text-brand-text hover:underline;
-    }
-
-    .mycic-dropzone {
-        @apply relative flex cursor-pointer flex-col items-center justify-center rounded-[var(--radius-card)] border border-dashed border-border bg-surface/40 p-6 text-center transition-colors duration-150 ease-[var(--ease-snappy)] hover:border-brand hover:bg-surface-tint/40;
-    }
-
-    .mycic-dropzone.dragover {
-        @apply border-brand bg-surface-tint/60 ring-2 ring-brand/20;
-    }
-
-    .mycic-outline-item {
-        @apply flex items-start gap-3 rounded-[var(--radius-control)] border border-border-light bg-surface/40 p-4 transition-colors duration-150 ease-[var(--ease-snappy)] hover:bg-surface/80;
-    }
-
-    .mycic-outline-badge {
-        @apply flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-surface-tint font-mono text-xs font-medium text-brand-text tabular-nums;
-    }
-
-    .mycic-guest-shell {
-        @apply min-h-dvh bg-canvas;
-    }
-
-    .mycic-auth-page {
-        @apply grid min-h-dvh lg:grid-cols-2;
-    }
-
-    .mycic-auth-showcase {
-        @apply relative hidden border-e border-border bg-surface text-ink lg:flex lg:flex-col lg:justify-between;
-    }
-
-    .mycic-auth-showcase-content {
-        @apply relative z-10 flex h-full flex-col justify-between gap-8 p-10 xl:p-14;
-    }
-
-    .mycic-auth-quote {
-        @apply max-w-md text-2xl font-medium leading-snug tracking-[-0.02em] text-ink;
-    }
-
-    .mycic-auth-quote-author {
-        @apply mt-3 text-xs leading-relaxed text-ink-subtle;
-    }
-
-    .mycic-auth-form-panel {
-        @apply relative flex flex-col bg-panel px-6 py-8 sm:px-10 sm:py-10 lg:px-14 lg:py-12 xl:px-20;
-    }
-
-    .mycic-auth-form-inner {
-        @apply mx-auto flex w-full max-w-md flex-1 flex-col justify-center;
+/*
+ * Below lg the bottom navigation covers the end of the page, and a page's
+ * floating action bar ([data-sticky-action], app.ui.stickyAction) sits above
+ * it: the shell leaves room for both.
+ */
+@media (width < 64rem) {
+    [data-app-shell]:has([data-sticky-action]) {
+        padding-bottom: calc(10rem + env(safe-area-inset-bottom, 0px));
     }
 }

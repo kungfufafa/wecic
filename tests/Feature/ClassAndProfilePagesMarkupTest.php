@@ -70,7 +70,8 @@ class ClassAndProfilePagesMarkupTest extends TestCase
         $this->withSession(['campus_session_token' => 'token-profile'])
             ->get('/profile')
             ->assertOk()
-            ->assertSee("quickStatus.textContent = personal.status || '-';", false)
+            ->assertSee('statusHost.textContent = personal.status;', false)
+            ->assertSee("statusWrap.classList.add('hidden');", false)
             ->assertDontSee("personal.status || 'Aktif'", false)
             ->assertSee("app.mountErrorState(document.getElementById('profile-personal'), 'Profil gagal dimuat.'", false)
             ->assertSee('if (profileRendered) {', false);

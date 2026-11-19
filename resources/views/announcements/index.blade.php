@@ -4,69 +4,68 @@
 @section('page_id', 'announcement-index')
 
 @section('content')
-    <x-page-header title="Pengumuman" subtitle="Info resmi kampus dari portal. Tenggat terdekat selalu ada di paling atas.">
-        <p class="mt-1 min-h-4 text-caption text-ink-subtle" data-announcement-updated></p>
-    </x-page-header>
+    <x-page-hero title="Pengumuman" subtitle="Info resmi kampus dari portal. Tenggat terdekat selalu ada di paling atas.">
+        <x-slot:meta>
+            <span class="min-h-4" data-announcement-updated></span>
+        </x-slot:meta>
+    </x-page-hero>
 
-    <div class="flex flex-col gap-5">
+    <div class="flex flex-col gap-6">
         <div id="announcement-notice" class="empty:hidden"></div>
 
-        <section id="announcement-deadlines" class="hidden" aria-labelledby="announcement-deadlines-title">
-            <div class="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-                <h2 class="mycic-section-title" id="announcement-deadlines-title">Tenggat mendatang</h2>
-                <span class="text-caption text-ink-subtle" id="announcement-deadline-count"></span>
-            </div>
-            <ul class="mycic-no-scrollbar relative flex snap-x snap-mandatory gap-3 overflow-x-auto pb-1 md:grid md:grid-cols-2 md:overflow-visible lg:grid-cols-3" id="announcement-deadline-list"></ul>
-        </section>
+        <x-section title="Tenggat mendatang" title-id="announcement-deadlines-title" id="announcement-deadlines" class="hidden">
+            <x-slot:count id="announcement-deadline-count"></x-slot:count>
+            <ul class="relative flex snap-x snap-mandatory gap-3 overflow-x-auto pb-1 [scrollbar-width:none] md:grid md:grid-cols-2 md:overflow-visible xl:grid-cols-3 [&::-webkit-scrollbar]:hidden" id="announcement-deadline-list"></ul>
+        </x-section>
 
-        <section class="flex min-w-0 flex-col gap-3" aria-labelledby="announcement-list-title">
+        <section class="flex min-w-0 flex-col gap-4" aria-labelledby="announcement-list-title">
             <div class="flex flex-wrap items-center justify-between gap-2">
-                <h2 class="mycic-section-title" id="announcement-list-title" tabindex="-1">Semua pengumuman</h2>
-                <button type="button" class="mycic-btn-ghost-sm hidden" id="announcement-mark-all">Tandai semua sudah dibaca</button>
+                <h2 class="text-sm font-semibold text-ink focus:outline-none" id="announcement-list-title" tabindex="-1">Semua pengumuman</h2>
+                <x-button variant="ghost" size="sm" id="announcement-mark-all" hidden>Tandai semua sudah dibaca</x-button>
             </div>
 
             <div class="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                <div class="mycic-input-wrap w-full lg:w-80 lg:shrink-0">
+                <div class="relative flex w-full items-center lg:w-72 lg:shrink-0">
                     <label for="announcement-search" class="sr-only">Cari pengumuman</label>
-                    <span class="mycic-input-icon">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0 -14 0" /><path d="M21 21l-6 -6" /></svg>
+                    <span class="pointer-events-none absolute start-3 top-1/2 z-10 -translate-y-1/2 text-ink-subtle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="size-4" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0 -14 0" /><path d="M21 21l-6 -6" /></svg>
                     </span>
-                    <input
+                    <x-input
+                        icon
                         type="search"
                         id="announcement-search"
-                        class="mycic-input mycic-input-with-icon"
                         placeholder="Cari pengumuman"
                         autocomplete="off"
                         enterkeyhint="search"
                         aria-describedby="announcement-result-status"
-                    >
+                    />
                 </div>
-                <div class="mycic-no-scrollbar min-w-0 overflow-x-auto">
-                    <div class="mycic-segmented" role="group" aria-label="Saring kategori pengumuman" id="announcement-categories">
-                        <span class="mycic-skeleton h-9 w-20"></span>
-                        <span class="mycic-skeleton h-9 w-24"></span>
-                        <span class="mycic-skeleton h-9 w-20"></span>
-                    </div>
+                <div class="min-w-0">
+                    <x-view-tabs as="div" class="[scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="group" aria-label="Saring kategori pengumuman" id="announcement-categories">
+                        <x-skeleton as="span" class="h-11 w-20 bg-panel! sm:h-8" />
+                        <x-skeleton as="span" class="h-11 w-24 bg-panel! sm:h-8" />
+                        <x-skeleton as="span" class="h-11 w-20 bg-panel! sm:h-8" />
+                    </x-view-tabs>
                 </div>
             </div>
 
-            <p class="min-h-4 text-caption text-ink-subtle" id="announcement-result-status" aria-live="polite"></p>
+            <p class="-mt-1 min-h-4 text-xs text-ink-subtle" id="announcement-result-status" aria-live="polite"></p>
 
-            <div id="announcement-list" class="flex flex-col gap-3" aria-busy="true">
+            <div id="announcement-list" class="flex flex-col gap-4" aria-busy="true">
                 <span class="sr-only">Memuat pengumuman…</span>
-                @for ($i = 0; $i < 3; $i++)
-                    <div class="mycic-card">
-                        <div class="mycic-card-body flex flex-col gap-3">
-                            <div class="flex gap-2">
-                                <div class="mycic-skeleton h-5 w-24"></div>
-                                <div class="mycic-skeleton h-5 w-16"></div>
+                <x-card class="overflow-hidden">
+                    <x-list>
+                        @for ($i = 0; $i < 3; $i++)
+                            <div class="flex items-center gap-3 px-4 py-3.5 sm:px-5">
+                                <x-skeleton class="size-11 shrink-0" />
+                                <div class="flex min-w-0 flex-1 flex-col gap-2">
+                                    <x-skeleton class="h-4 w-4/5" />
+                                    <x-skeleton class="h-3.5 w-1/3" />
+                                </div>
                             </div>
-                            <div class="mycic-skeleton h-5 w-4/5"></div>
-                            <div class="mycic-skeleton h-3.5 w-1/3"></div>
-                            <div class="mycic-skeleton h-3.5 w-full"></div>
-                        </div>
-                    </div>
-                @endfor
+                        @endfor
+                    </x-list>
+                </x-card>
             </div>
 
             <div id="announcement-more" class="flex flex-col items-center gap-2 text-center"></div>
@@ -104,10 +103,11 @@
                 umum: 'Umum',
             };
             const DEADLINE_TYPES = { deadline: 'Batas akhir', period: 'Periode', date: 'Tanggal penting' };
-            const TILE_TONES = {
-                danger: 'bg-danger-soft text-danger',
-                warning: 'bg-warning-soft text-warning',
-                info: 'bg-info-soft text-info',
+            const ICONS = {
+                info: '<svg xmlns="http://www.w3.org/2000/svg" class="size-4" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" /><path d="M12 9h.01" /><path d="M11 12h1v4h1" /></svg>',
+                wallet: '<svg xmlns="http://www.w3.org/2000/svg" class="size-4" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 8v-3a1 1 0 0 0 -1 -1h-10a2 2 0 0 0 0 4h12a1 1 0 0 1 1 1v3m0 4v3a1 1 0 0 1 -1 1h-12a2 2 0 0 1 -2 -2v-12" /><path d="M20 12v4h-4a2 2 0 0 1 0 -4h4" /></svg>',
+                close: '<svg xmlns="http://www.w3.org/2000/svg" class="size-4" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6l-12 12" /><path d="M6 6l12 12" /></svg>',
+                search: '<svg xmlns="http://www.w3.org/2000/svg" class="size-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0 -14 0" /><path d="M21 21l-6 -6" /></svg>',
             };
 
             const storage = {
@@ -155,6 +155,7 @@
             const shortDate = (value) => app.formatIndonesianDate(value, { month: 'short', year: false });
             const deadlineTone = (days) => (days <= 3 ? 'danger' : (days <= 7 ? 'warning' : 'info'));
             const isFiltering = () => state.category !== 'semua' || state.query.trim() !== '';
+            const categoryLabel = (key, label) => label || CATEGORY_LABELS[key] || 'Umum';
 
             const describeFreshness = (payload) => {
                 const meta = payload?.meta || {};
@@ -263,12 +264,6 @@
                 return app.formatIndonesianDate(item.published_date, { month: 'short', fallback: 'Tanggal tidak terbaca' });
             };
 
-            const isRecent = (item) => {
-                const days = app.daysUntil(item.published_date);
-
-                return days !== null && days <= 0 && days >= -7;
-            };
-
             const noticeKey = (notice) => `${notice.kind || 'general'}:${String(notice.text || '').slice(0, 160)}`;
 
             const paymentStageIsPaid = (notice) => {
@@ -318,17 +313,17 @@
 
                 const lastDate = futureDates[futureDates.length - 1];
                 const isPayment = notice.kind === 'payment';
+                const tone = isPayment ? 'warning' : 'info';
 
                 noticeHost.innerHTML = `
-                    <div class="${app.alertTone(isPayment ? 'warning' : 'info')} flex items-start gap-3" role="status">
+                    <div class="${app.alertTone(tone)} flex items-start gap-3" role="status">
+                        <span class="${app.ui.alertIcon[tone]}">${isPayment ? ICONS.wallet : ICONS.info}</span>
                         <div class="min-w-0 flex-1">
-                            <p class="font-medium">${isPayment ? 'Pengingat pembayaran dari portal' : 'Info dari portal'} · ${app.escapeHtml(app.formatRelativeDays(lastDate))}</p>
+                            <p class="font-medium text-ink">${isPayment ? 'Pengingat pembayaran dari portal' : 'Info dari portal'} · ${app.escapeHtml(app.formatRelativeDays(lastDate))}</p>
                             <p class="mt-1 text-sm text-ink-muted">${app.escapeHtml(notice.text)}</p>
-                            ${isPayment ? '<a href="/finance#tagihan" class="mycic-link mt-2 inline-flex min-h-9 items-center text-sm">Cek status tagihan</a>' : ''}
+                            ${isPayment ? `<a href="/finance#tagihan" class="${app.ui.link} mt-1 inline-flex min-h-11 items-center text-sm sm:min-h-8">Cek status tagihan</a>` : ''}
                         </div>
-                        <button type="button" class="mycic-modal-close min-h-11 min-w-11 shrink-0 sm:min-h-9 sm:min-w-9" aria-label="Tutup pengingat ini" data-dismiss-notice>
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6l-12 12" /><path d="M6 6l12 12" /></svg>
-                        </button>
+                        <button type="button" class="${app.ui.modalClose} -me-2 -mt-1.5 min-h-11 min-w-11 sm:min-h-9 sm:min-w-9" aria-label="Tutup pengingat ini" data-dismiss-notice>${ICONS.close}</button>
                     </div>
                 `;
 
@@ -358,10 +353,9 @@
                     return;
                 }
 
-                deadlineCount.textContent = `${upcoming.length} tenggat dalam waktu dekat`;
+                deadlineCount.textContent = String(upcoming.length);
                 deadlineList.innerHTML = upcoming.map((deadline) => {
                     const tone = deadlineTone(deadline.days);
-                    const date = app.toDate(deadline.date);
                     const ongoing = isOngoing(deadline);
                     const relative = app.formatRelativeDays(deadline.date);
                     const headline = ongoing ? `Berlangsung, berakhir ${relative}` : app.capitalize(relative);
@@ -371,27 +365,21 @@
 
                     return `
                         <li class="w-64 shrink-0 snap-start md:w-auto">
-                            <a href="/announcement/${encodeURIComponent(deadline.announcement_id)}" class="mycic-card flex h-full min-w-0 cursor-pointer flex-col gap-2.5 p-4 transition-colors hover:border-ink-subtle/40 hover:bg-surface/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">
-                                <span class="flex min-w-0 items-center gap-3">
-                                    <span class="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-lg ${TILE_TONES[tone]}" aria-hidden="true">
-                                        <span class="font-mono text-lg font-semibold leading-none tabular-nums">${date ? date.getDate() : '–'}</span>
-                                        <span class="mt-0.5 text-[11px] font-medium">${date ? app.escapeHtml(monthFormatter.format(date)) : ''}</span>
-                                    </span>
+                            <a href="/announcement/${encodeURIComponent(deadline.announcement_id)}" class="${app.ui.cardInteractive} h-full p-4" data-slot="card">
+                                <span class="flex h-full min-w-0 flex-col gap-3">
                                     <span class="min-w-0">
                                         <span class="block text-sm font-medium leading-snug ${app.textToneClass(tone)}">${app.escapeHtml(headline)}</span>
-                                        <span class="block truncate text-caption text-ink-subtle">${app.escapeHtml(DEADLINE_TYPES[deadline.type] || 'Tenggat')} · ${app.escapeHtml(range)}</span>
+                                        <span class="block truncate text-xs text-ink-muted">${app.escapeHtml(DEADLINE_TYPES[deadline.type] || 'Tenggat')} · ${app.escapeHtml(range)}</span>
                                         <span class="sr-only">${app.escapeHtml(app.formatIndonesianDate(deadline.date, { weekday: true }))}.</span>
                                     </span>
+                                    <span class="line-clamp-2 text-sm font-medium leading-snug text-ink">${app.escapeHtml(deadline.title || 'Pengumuman')}</span>
+                                    <span class="mt-auto text-xs text-ink-muted">${app.escapeHtml(categoryLabel(deadline.category, deadline.category_label))}</span>
                                 </span>
-                                <span class="line-clamp-2 text-sm font-medium leading-snug text-ink">${app.escapeHtml(deadline.title || 'Pengumuman')}</span>
-                                <span class="mt-auto">${app.renderBadge(deadline.category_label || CATEGORY_LABELS[deadline.category] || 'Umum', 'secondary')}</span>
                             </a>
                         </li>
                     `;
                 }).join('');
             };
-
-            const categoryButtonClass = (active) => (active ? 'mycic-segmented-item mycic-segmented-item-active' : 'mycic-segmented-item');
 
             const renderCategories = (items) => {
                 const counts = new Map();
@@ -410,9 +398,9 @@
                     const active = state.category === key;
 
                     return `
-                        <button type="button" class="${categoryButtonClass(active)}" aria-pressed="${active ? 'true' : 'false'}" data-category="${app.escapeHtml(key)}">
+                        <button type="button" class="${app.ui.tab}" aria-pressed="${active ? 'true' : 'false'}" data-category="${app.escapeHtml(key)}">
                             ${app.escapeHtml(label)}
-                            <span class="tabular-nums ${active ? 'text-brand-text' : 'text-ink-subtle'}">${count}</span>
+                            <span class="text-xs text-ink-subtle tabular-nums">${count}</span>
                         </button>
                     `;
                 };
@@ -449,39 +437,68 @@
                 });
             };
 
-            const renderCard = (item) => {
+            /**
+             * One announcement as a list row: date tile, title, at most one
+             * status badge (its nearest deadline or, for the newest one,
+             * "Terbaru") and a muted meta line (date · unit · category).
+             */
+            const renderCard = (item, { featured = false } = {}) => {
                 const unread = !isRead(item);
                 const deadline = nextDeadline(item);
                 const unit = item.publisher_unit_short || item.publisher_unit || item.publisher || '';
-                let deadlineBadge = '';
+                const published = app.toDate(item.published_date);
+                let badge = featured ? app.renderBadge('Terbaru', 'neutral') : '';
 
                 if (deadline) {
-                    deadlineBadge = app.renderBadge(
+                    badge = app.renderBadge(
                         isOngoing(deadline) ? `Berlangsung s.d. ${shortDate(deadline.date)}` : `Tenggat ${app.formatRelativeDays(deadline.date)}`,
                         deadlineTone(deadline.days)
                     );
                 }
 
+                const unreadMark = unread ? `<span class="size-2 shrink-0 rounded-full ${app.ui.fill.brand}" aria-hidden="true" data-unread-dot></span><span class="sr-only">Belum dibaca.</span>` : '';
+                // The date tile carries the date; the meta line names it only when the tile cannot.
+                const meta = app.escapeHtml([
+                    published ? '' : publishedLabel(item),
+                    unit,
+                    categoryLabel(item.category, item.category_label),
+                    item.duplicate_of ? 'Mirip pengumuman lain' : '',
+                ].filter(Boolean).join(' · '));
+
                 return `
-                    <a href="/announcement/${encodeURIComponent(item.id)}" class="mycic-card-interactive flex min-w-0 flex-col gap-2" data-announcement-card="${app.escapeHtml(item.id)}">
-                        <span class="flex flex-wrap items-center gap-2">
-                            ${unread ? '<span class="h-1.5 w-1.5 shrink-0 rounded-full bg-brand" aria-hidden="true" data-unread-dot></span><span class="sr-only">Belum dibaca.</span>' : ''}
-                            ${app.renderBadge(item.category_label || CATEGORY_LABELS[item.category] || 'Umum', 'brand')}
-                            ${unread && isRecent(item) ? '<span class="mycic-badge-accent">Baru</span>' : ''}
-                            ${deadlineBadge}
-                            ${item.duplicate_of ? app.renderBadge('Mirip pengumuman lain', 'secondary') : ''}
+                    <a href="/announcement/${encodeURIComponent(item.id)}" class="${app.ui.listRowFlushInteractive}" data-announcement-card="${app.escapeHtml(item.id)}">
+                        <span class="${app.ui.dateTile}" aria-hidden="true">
+                            <span class="${app.ui.dateTileMonth}">${published ? app.escapeHtml(monthFormatter.format(published)) : ''}</span>
+                            <span class="${app.ui.dateTileDay}">${published ? published.getDate() : '–'}</span>
                         </span>
-                        <span class="line-clamp-2 text-[0.9375rem] font-medium leading-snug ${unread ? 'text-ink' : 'text-ink-muted'}">${app.escapeHtml(item.title || 'Pengumuman')}</span>
-                        <span class="text-caption text-ink-subtle">${app.escapeHtml([publishedLabel(item), unit].filter(Boolean).join(' · '))}</span>
-                        ${item.excerpt ? `<span class="line-clamp-2 text-sm text-ink-muted">${app.escapeHtml(item.excerpt)}</span>` : ''}
+                        <span class="${app.ui.listRowBody} flex flex-col gap-1">
+                            <span class="flex min-w-0 items-center gap-2">
+                                ${unreadMark}
+                                <span class="line-clamp-2 min-w-0 text-sm font-medium leading-snug ${unread ? 'text-ink' : 'text-ink-muted'}">${app.escapeHtml(item.title || 'Pengumuman')}</span>
+                            </span>
+                            <span class="flex flex-wrap items-center gap-x-2 gap-y-1">
+                                ${badge}
+                                ${published ? `<span class="sr-only">${app.escapeHtml(publishedLabel(item))}.</span>` : ''}
+                                <span class="text-xs text-ink-muted">${meta}</span>
+                            </span>
+                            ${item.excerpt ? `<span class="line-clamp-2 text-[13px] leading-relaxed text-ink-muted sm:line-clamp-1">${app.escapeHtml(item.excerpt)}</span>` : ''}
+                        </span>
+                        ${app.renderIcon('chevron-right', 'sm', app.ui.listRowChevron)}
                     </a>
                 `;
             };
 
+            // One list card; unfiltered, the newest announcement opens it with a "Terbaru" badge.
+            const renderItems = (items) => `
+                <div class="${app.ui.card} overflow-hidden" data-slot="card">
+                    <div class="${app.ui.list}">${items.map((item, index) => renderCard(item, { featured: index === 0 && !isFiltering() })).join('')}</div>
+                </div>
+            `;
+
             const renderMore = () => {
                 if (!state.nextPage) {
                     moreHost.innerHTML = state.rendered && state.feedComplete && allItems().length
-                        ? '<p class="text-caption text-ink-subtle">Semua pengumuman sudah dimuat.</p>'
+                        ? '<p class="text-xs text-ink-subtle">Semua pengumuman sudah dimuat.</p>'
                         : '';
                     observer?.disconnect();
 
@@ -490,9 +507,9 @@
 
                 moreHost.innerHTML = `
                     <button type="button" class="${app.buttonClass('secondary')} w-full sm:w-auto" data-load-more ${state.loadingMore ? 'disabled aria-busy="true"' : ''}>
-                        ${state.loadingMore ? '<span class="mycic-spinner" aria-hidden="true"></span> Memuat pengumuman lama…' : 'Muat pengumuman lama'}
+                        ${state.loadingMore ? `<span class="${app.ui.spinner}" aria-hidden="true"></span> Memuat pengumuman lama…` : 'Muat pengumuman lama'}
                     </button>
-                    <p class="text-caption text-ink-subtle">Diambil dari portal kampus, 3 pengumuman per halaman.</p>
+                    <p class="text-xs text-ink-subtle">Diambil dari portal kampus, 3 pengumuman per halaman.</p>
                 `;
                 observeMore();
             };
@@ -505,11 +522,11 @@
                 listHost.removeAttribute('aria-busy');
                 searchInput.disabled = false;
                 renderCategories(items);
-                markAllButton.classList.toggle('hidden', unreadCount === 0);
+                markAllButton.hidden = unreadCount === 0;
                 markAllButton.textContent = `Tandai ${unreadCount} sudah dibaca`;
 
                 if (!items.length) {
-                    listHost.innerHTML = app.renderEmptyState('Belum ada pengumuman.', 'secondary', 'Pengumuman baru dari portal kampus akan muncul di sini.');
+                    listHost.innerHTML = app.renderEmptyState('Belum ada pengumuman.', 'secondary', 'Pengumuman baru dari portal kampus akan muncul di sini.', { icon: 'announcement' });
                     resultStatus.textContent = '';
                     renderMore();
 
@@ -517,11 +534,12 @@
                 }
 
                 listHost.innerHTML = filtered.length
-                    ? filtered.map(renderCard).join('')
+                    ? renderItems(filtered)
                     : `
-                        <div class="mycic-empty">
-                            <p class="mycic-empty-title">Tidak ada pengumuman yang cocok.</p>
-                            <p class="mycic-empty-subtitle">${state.nextPage ? 'Coba kata kunci lain, atau muat pengumuman lama di bawah.' : 'Coba kata kunci lain atau pilih kategori Semua.'}</p>
+                        <div class="${app.ui.empty}" data-slot="empty">
+                            <span class="${app.ui.emptyIcon}">${ICONS.search}</span>
+                            <p class="${app.ui.emptyTitle}">Tidak ada pengumuman yang cocok.</p>
+                            <p class="${app.ui.emptySubtitle}">${state.nextPage ? 'Coba kata kunci lain, atau muat pengumuman lama di bawah.' : 'Coba kata kunci lain atau pilih kategori Semua.'}</p>
                             <button type="button" class="${app.buttonClass('secondary', { small: true })} mt-2" data-reset-filters>Tampilkan semua</button>
                         </div>
                     `;

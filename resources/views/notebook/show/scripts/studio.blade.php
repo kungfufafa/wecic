@@ -31,17 +31,17 @@
                     body: `
                         <form class="flex flex-col gap-3" data-assignment-plan>
                             <p class="text-sm text-ink-muted">Tulis instruksi tugas dari dosen (atau tempel dari portal). Kerangka, poin per bagian, konsep kunci bersitasi, langkah kerja, dan checklist disusun hanya dari sumber yang dicentang, agar kamu menulis sendiri dengan cepat dan rapi.</p>
-                            <label class="mycic-field">
-                                <span class="mycic-label">Instruksi / fokus tugas</span>
-                                <textarea class="mycic-input min-h-32" name="focus" maxlength="1500" placeholder="Contoh: Makalah 5 halaman tentang normalisasi basis data, sertakan contoh kasus, dikumpulkan pertemuan 7."></textarea>
+                            <label class="${app.ui.field}">
+                                <span class="${app.ui.label}">Instruksi / fokus tugas</span>
+                                <textarea class="${app.ui.textarea} min-h-32!" name="focus" maxlength="1500" placeholder="Contoh: Makalah 5 halaman tentang normalisasi basis data, sertakan contoh kasus, dikumpulkan pertemuan 7."></textarea>
                             </label>
                             ${meetingsWithTasks.length ? `
                                 <div class="flex flex-wrap gap-2">
-                                    ${meetingsWithTasks.map((source) => `<button type="button" class="mycic-btn-secondary-sm" data-focus-meeting="${source.id}">Tugas ${app.escapeHtml(source.meeting_number ? `pertemuan ${source.meeting_number}` : source.title)}</button>`).join('')}
+                                    ${meetingsWithTasks.map((source) => `<button type="button" class="${app.ui.button.secondarySm}" data-focus-meeting="${source.id}">Tugas ${app.escapeHtml(source.meeting_number ? `pertemuan ${source.meeting_number}` : source.title)}</button>`).join('')}
                                 </div>
                             ` : ''}
-                            <p class="text-caption text-ink-subtle">Konteks terukur: ${chosen.length} sumber${chosen.length !== readySources().length ? ` (dari ${readySources().length} yang siap)` : ''}. Ubah centang di panel Sumber bila perlu.</p>
-                            <button type="submit" class="mycic-btn-primary">Susun kerangka</button>
+                            <p class="text-xs text-ink-subtle">Konteks terukur: ${chosen.length} sumber${chosen.length !== readySources().length ? ` (dari ${readySources().length} yang siap)` : ''}. Ubah centang di panel Sumber bila perlu.</p>
+                            <button type="submit" class="${app.ui.button.primary}">Susun kerangka</button>
                         </form>
                     `,
                 });

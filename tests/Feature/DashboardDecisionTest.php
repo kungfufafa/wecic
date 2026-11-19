@@ -59,13 +59,13 @@ class DashboardDecisionTest extends TestCase
             $this->assertNotNull($section->ancestors()->first()->attr('data-dashboard-layout'), $widget);
         }
 
-        // From lg the widgets move into an 8/4 grid: main column first, then the aside.
+        // From xl the widgets move into an 8/4 grid: main column first, then the aside.
         $columns = $crawler->filter('main [data-dashboard-layout] > [data-dashboard-column]');
         $this->assertSame(['main', 'aside'], $columns->each(fn (Crawler $column): string => (string) $column->attr('data-dashboard-column')));
-        $this->assertContains('lg:col-span-8', explode(' ', (string) $columns->eq(0)->attr('class')));
-        $this->assertContains('lg:col-span-4', explode(' ', (string) $columns->eq(1)->attr('class')));
+        $this->assertContains('xl:col-span-8', explode(' ', (string) $columns->eq(0)->attr('class')));
+        $this->assertContains('xl:col-span-4', explode(' ', (string) $columns->eq(1)->attr('class')));
         $this->assertContains('hidden', explode(' ', (string) $columns->eq(1)->attr('class')));
-        $this->assertContains('lg:flex', explode(' ', (string) $columns->eq(1)->attr('class')));
+        $this->assertContains('xl:flex', explode(' ', (string) $columns->eq(1)->attr('class')));
     }
 
     public function test_every_widget_starts_with_its_own_skeleton(): void
@@ -77,7 +77,7 @@ class DashboardDecisionTest extends TestCase
 
             $this->assertCount(1, $node, $host);
             $this->assertSame('true', $node->attr('aria-busy'), $host);
-            $this->assertGreaterThan(0, $node->filter('.mycic-skeleton')->count(), $host);
+            $this->assertGreaterThan(0, $node->filter('[data-slot="skeleton"]')->count(), $host);
             $this->assertGreaterThan(0, $node->filter('.sr-only')->count(), $host);
         }
 
@@ -85,7 +85,7 @@ class DashboardDecisionTest extends TestCase
             $tile = $crawler->filter('main [data-dashboard-metric="'.$metric.'"]');
 
             $this->assertSame('true', $tile->attr('aria-busy'), $metric);
-            $this->assertCount(1, $tile->filter('[data-metric-value] .mycic-skeleton'), $metric);
+            $this->assertCount(1, $tile->filter('[data-metric-value] [data-slot="skeleton"]'), $metric);
         }
     }
 
@@ -100,7 +100,7 @@ class DashboardDecisionTest extends TestCase
         );
         $this->assertSame(
             ['IPK', 'SKS lulus', 'SKS semester ini', 'Tagihan', 'Poin SKKM'],
-            $tiles->each(fn (Crawler $tile): string => trim($tile->filter('.mycic-metric-label')->text()))
+            $tiles->each(fn (Crawler $tile): string => trim($tile->filter('[data-slot="metric-label"]')->text()))
         );
         $this->assertSame(
             ['/transcript', '/transcript', '/krs', '/finance', '/skkm'],
@@ -113,7 +113,17 @@ class DashboardDecisionTest extends TestCase
             $this->assertStringNotContainsString('Rp 0', $tile->text());
         });
 
-        $this->assertCount(4, $crawler->filter('main [data-dashboard-widget="metrics"] .grid.grid-cols-2 > a.mycic-metric'));
+        // All five sit in the KPI strip: two columns with Poin SKKM across both, one row from xl.
+        $strip = $crawler->filter('main [data-dashboard-widget="metrics"] .grid.grid-cols-2');
+        $this->assertCount(1, $strip);
+        $this->assertContains('xl:grid-cols-5', explode(' ', (string) $strip->attr('class')));
+        $this->assertSame(
+            ['ipk', 'sks_passed', 'sks_current', 'bills', 'skkm'],
+            $strip->children('a[data-slot="metric"]')->each(fn (Crawler $tile): string => (string) $tile->attr('data-dashboard-metric'))
+        );
+        $skkmClasses = explode(' ', (string) $strip->filter('[data-dashboard-metric="skkm"]')->attr('class'));
+        $this->assertContains('col-span-2', $skkmClasses);
+        $this->assertContains('xl:col-span-1', $skkmClasses);
     }
 
     public function test_metrics_read_the_snapshot_values_and_never_show_fake_zeroes(): void
@@ -218,7 +228,7 @@ class DashboardDecisionTest extends TestCase
         $this->assertSame('Pengumuman terbaru', trim($section->filter('h2')->text()));
         $this->assertSame('/announcement', parse_url((string) $section->filter('a')->attr('href'), PHP_URL_PATH));
         $this->assertSame('Lihat semua', trim($section->filter('a')->text()));
-        $this->assertCount(2, $section->filter('#dashboard-announcements .mycic-card'));
+        $this->assertCount(2, $section->filter('#dashboard-announcements [data-slot="card"]'));
 
         $this->dashboardResponse()
             ->assertSee("app.primeCachedView('/api/announcement', renderAnnouncements, 'pengumuman');", false)
@@ -238,7 +248,8 @@ class DashboardDecisionTest extends TestCase
             ->assertSee('<input type="file" class="peer sr-only" id="qr-file-${index}" data-qr-file accept="image/*">', false)
             ->assertSee('peer-focus-visible:outline-2', false)
             ->assertSee('<label class="sr-only" for="dashboard-assignment-file-${index}">', false)
-            ->assertDontSee('mycic-input hidden', false);
+            ->assertDontSee('${app.ui.fileInput} hidden', false)
+            ->assertDontSee('${app.ui.input} hidden', false);
     }
 
     public function test_existing_schedule_attendance_and_assignment_flows_are_kept(): void

@@ -1,6 +1,7 @@
 import { afterEach, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { createPortalApp } from './support/browser.mjs';
+import { ui } from '../../resources/js/app/ui.js';
 
 /**
  * The sync strip (resources/js/app/connection.js and requests.js): which
@@ -19,7 +20,7 @@ async function open(options = {}, refreshable = 'dashboard,assignments,classes,k
         browser.document.body.setAttribute('data-refreshable-datasets', refreshable);
     }
 
-    browser.element('div', { 'data-sync-alert': '', class: 'mycic-sync-strip' });
+    browser.element('div', { 'data-sync-alert': '', class: ui.syncStrip.base });
     browser.element('span', { 'data-sync-status': '' });
 }
 
@@ -55,10 +56,10 @@ describe('setSyncStatus', () => {
         app.setSyncStatus('Portal lambat.', 'error');
         assert.equal(line().textContent, 'Portal lambat.');
         assert.equal(line().dataset.tone, 'error');
-        assert.equal(strip(), 'mycic-sync-strip mycic-sync-strip-danger');
+        assert.equal(strip(), ui.syncStrip.danger);
 
         app.setSyncStatus('Siap.', 'info');
-        assert.equal(strip(), 'mycic-sync-strip');
+        assert.equal(strip(), ui.syncStrip.base);
     });
 });
 

@@ -1,47 +1,61 @@
 {{--
-    Jadwal & Kelas script, the Daftar view's class cards and the classes
-    without a fixed schedule. Part of the DOMContentLoaded handler opened in
-    classes/index.blade.php: it shares that scope (app, the elements,
-    constants and state in setup).
+    Jadwal & Kelas script, the Daftar view (one card, a divided row per
+    class) and the classes without a fixed schedule. Part of the
+    DOMContentLoaded handler opened in classes/index.blade.php: it shares
+    that scope (app, the elements, constants and state in setup).
 --}}
+            // A class as a row of the Daftar list: day and time on the left, the
+            // course, and its actions.
             const renderCard = (c) => {
                 return `
-                    <div class="mycic-card-interactive" data-class-card>
-                        <div class="flex flex-col gap-3 md:flex-row md:items-center">
-                            <div class="min-w-0 flex-1">
-                                <div class="mb-1 flex items-center gap-2 text-caption text-ink-subtle">
-                                    ${app.renderBadge(c.courseCode || '-', 'brand')}
-                                    <span>${app.escapeHtml(c.lecturerName)}</span>
+                    <li class="flex gap-3 px-4 py-3 sm:gap-4 sm:px-5" data-class-card>
+                        <div class="w-12 shrink-0 pt-0.5 text-xs sm:w-16">
+                            <div class="font-medium text-ink">${app.escapeHtml(c.day || '-')}</div>
+                            <div class="mt-0.5 tabular-nums text-ink-subtle">${app.escapeHtml(c.startTimeFormatted || '-')}</div>
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <div class="flex flex-col gap-3 md:flex-row md:items-center">
+                                <div class="min-w-0 flex-1">
+                                    <div class="mb-1 flex min-w-0 flex-wrap items-center gap-x-1.5 text-xs text-ink-subtle">
+                                        <span class="font-mono">${app.escapeHtml(c.courseCode || '-')}</span>
+                                        <span class="truncate before:me-1.5 before:content-['·']">${app.escapeHtml(c.lecturerName)}</span>
+                                    </div>
+                                    <h3 class="mb-1.5 text-sm font-medium leading-snug text-ink">
+                                        ${c.classUrl ? `<a href="${c.classUrl}" class="text-ink no-underline transition-colors hover:text-brand-text">${app.escapeHtml(c.courseName)}</a>` : app.escapeHtml(c.courseName)}
+                                    </h3>
+                                    <div class="flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-ink-muted">
+                                        <span class="inline-flex items-center gap-1">
+                                            ${app.renderIcon('clock', 'sm', 'text-ink-subtle')}
+                                            <span class="tabular-nums">${app.escapeHtml(c.formattedTime)}</span>
+                                        </span>
+                                        <span class="inline-flex items-center gap-1">
+                                            ${app.renderIcon('users', 'sm', 'text-ink-subtle')}
+                                            ${app.escapeHtml(c.className)}
+                                        </span>
+                                        <span class="inline-flex items-center gap-1">
+                                            ${app.renderIcon('map-pin', 'sm', 'text-ink-subtle')}
+                                            ${app.escapeHtml(c.roomName)}
+                                        </span>
+                                    </div>
                                 </div>
-                                <h3 class="mb-2 text-sm font-medium leading-snug text-ink">
-                                    ${c.classUrl ? `<a href="${c.classUrl}" class="text-ink no-underline transition-colors hover:text-brand-text">${app.escapeHtml(c.courseName)}</a>` : app.escapeHtml(c.courseName)}
-                                </h3>
-                                <div class="flex flex-wrap gap-3 text-caption text-ink-subtle">
-                                    <span class="inline-flex items-center gap-1">
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" width="16" height="16" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 7a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12z" /><path d="M16 3v4" /><path d="M8 3v4" /><path d="M4 11h16" /><path d="M11 15h1" /><path d="M12 15v3" /></svg>
-                                        <span class="${app.textToneClass('brand')}">${app.escapeHtml(c.day || '-')}</span> &middot; <span class="font-mono tabular-nums">${app.escapeHtml(c.formattedTime)}</span>
-                                    </span>
-                                    <span class="inline-flex items-center gap-1">
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 19l18 0" /><path d="M5 6m0 1a1 1 0 0 1 1 -1h12a1 1 0 0 1 1 1v12a1 1 0 0 1 -1 1h-12a1 1 0 0 1 -1 -1z" /></svg>
-                                        ${app.escapeHtml(c.className)}
-                                    </span>
-                                    <span class="inline-flex items-center gap-1">
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 7l6 -3l6 3l6 -3l0 13l-6 3l-6 -3l-6 3l0 -13" /><path d="M9 4l0 13" /><path d="M15 7l0 13" /></svg>
-                                        ${app.escapeHtml(c.roomName)}
-                                    </span>
+                                <div class="flex shrink-0 flex-row flex-wrap gap-2">
+                                    ${c.classUrl ? `<a href="${c.classUrl}" class="${app.buttonClass('secondary', { small: true })}">Buka kelas</a>` : app.renderDisabledButton('Tidak tersedia')}
+                                    ${c.detailApiUrl ? `<button type="button" class="${app.buttonClass('secondary', { small: true })}" data-meeting-toggle data-detail-api="${c.detailApiUrl}">Lihat pertemuan</button>` : ''}
                                 </div>
                             </div>
-                            <div class="flex shrink-0 flex-row gap-2 md:flex-col">
-                                ${c.classUrl ? `<a href="${c.classUrl}" class="${app.buttonClass('primary', { small: true })}">Buka kelas</a>` : app.renderDisabledButton('Tidak tersedia')}
-                                ${c.detailApiUrl ? `<button type="button" class="${app.buttonClass('secondary', { small: true })}" data-meeting-toggle data-detail-api="${c.detailApiUrl}">Lihat pertemuan</button>` : ''}
+                            <div class="mt-3 hidden" data-meeting-panel>
+                                ${renderMeetingPanelNote('Memuat daftar pertemuan.')}
                             </div>
                         </div>
-                        <div class="mt-3 hidden" data-meeting-panel>
-                            ${app.renderEmptyState('Memuat daftar pertemuan.', 'secondary')}
-                        </div>
-                    </div>
+                    </li>
                 `;
             };
+
+            const renderClassList = (rows) => `
+                <div class="${app.ui.card} overflow-hidden" data-slot="card">
+                    <ul class="${app.ui.list}">${rows.map(renderCard).join('')}</ul>
+                </div>
+            `;
 
             const renderCardList = (classes, selectedDay, searchQuery = '') => {
                 let filtered = classes;
@@ -78,7 +92,7 @@
                     return (a.startMin ?? 9999) - (b.startMin ?? 9999);
                 });
 
-                listHost.innerHTML = sorted.map(renderCard).join('');
+                listHost.innerHTML = renderClassList(sorted);
                 bindMeetingPanels(listHost);
             };
 
@@ -91,15 +105,14 @@
 
                 unscheduledHost.classList.remove('hidden');
                 unscheduledHost.innerHTML = `
-                    <div class="mycic-card">
-                        <div class="mycic-card-header">
-                            <h3 class="mycic-card-title">Tanpa jadwal tetap (${unscheduled.length})</h3>
-                        </div>
-                        <div class="mycic-card-body">
-                            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                                ${unscheduled.map(renderCard).join('')}
+                    <div class="${app.ui.card} overflow-hidden" data-slot="card">
+                        <div class="${app.ui.cardHeader}">
+                            <div class="${app.ui.sectionTitleRow}">
+                                <h3 class="${app.ui.cardTitle}">Tanpa jadwal tetap</h3>
+                                <span class="${app.ui.sectionCount}">${unscheduled.length}</span>
                             </div>
                         </div>
+                        <ul class="${app.ui.list}">${unscheduled.map(renderCard).join('')}</ul>
                     </div>
                 `;
                 bindMeetingPanels(unscheduledHost);

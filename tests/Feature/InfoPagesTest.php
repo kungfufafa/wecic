@@ -120,7 +120,7 @@ class InfoPagesTest extends TestCase
         $this->assertSame('Saring kategori pengumuman', $crawler->filter('#announcement-categories')->attr('aria-label'));
         $this->assertStringContainsString('hidden', (string) $crawler->filter('#announcement-deadlines')->attr('class'));
         $this->assertSame('Tenggat mendatang', trim($crawler->filter('#announcement-deadlines-title')->text()));
-        $this->assertCount(3, $crawler->filter('#announcement-list .mycic-skeleton.w-4\\/5'));
+        $this->assertCount(3, $crawler->filter('#announcement-list [data-slot="skeleton"].w-4\\/5'));
 
         $response
             ->assertSee("app.request('/api/announcement', { fresh: force, background })", false)
@@ -153,7 +153,7 @@ class InfoPagesTest extends TestCase
             ->assertSee('app.safeHref(element.getAttribute(\'href\'))', false)
             ->assertSee("element.setAttribute('rel', 'noopener noreferrer');", false)
             ->assertSee("'text/calendar;charset=utf-8'", false)
-            ->assertSee('mycic-sticky-action md:hidden', false)
+            ->assertSee('<div class="${app.ui.stickyAction} lg:hidden" data-sticky-action>', false)
             ->assertSee('Pengumuman tidak ditemukan')
             ->assertSee('Langkah yang perlu dilakukan')
             ->assertSee('error?.status === 404', false);
@@ -173,7 +173,7 @@ class InfoPagesTest extends TestCase
         $this->assertStringContainsString('Tambah SKKM di portal', $add->text());
         $this->assertStringContainsString('membuka portal kampus di tab baru', $add->filter('.sr-only')->text());
         $this->assertStringContainsString('perlu masuk lagi', $crawler->filter('#'.$add->attr('aria-describedby'))->text());
-        $this->assertCount(1, $crawler->filter('.mycic-sticky-action a[data-skkm-add]'));
+        $this->assertCount(1, $crawler->filter('[data-sticky-action] a[data-skkm-add]'));
     }
 
     public function test_skkm_page_shows_points_status_filters_and_the_guide(): void
@@ -183,7 +183,7 @@ class InfoPagesTest extends TestCase
         $response = $this->page('/skkm');
         $crawler = new Crawler((string) $response->getContent());
 
-        $this->assertSame('group', $crawler->filter('#skkm-metrics')->attr('role'));
+        $this->assertCount(0, $crawler->filter('#skkm-metrics'), 'The list tabs are the one status filter.');
         $this->assertSame('group', $crawler->filter('#skkm-tabs')->attr('role'));
         $this->assertSame('polite', $crawler->filter('#skkm-filter-status')->attr('aria-live'));
         $this->assertSame('Pedoman SKKM', trim($crawler->filter('#skkm-guide-title')->text()));
@@ -198,7 +198,7 @@ class InfoPagesTest extends TestCase
             ->assertSee('Memenuhi syarat kelulusan')
             ->assertSee('Belum memenuhi syarat kelulusan')
             ->assertSee('Status kelulusan tidak diketahui')
-            ->assertSee('aria-pressed="${filter === metric.key ? \'true\' : \'false\'}"', false)
+            ->assertSee('aria-pressed="${active ? \'true\' : \'false\'}" data-skkm-filter="${option.key}"', false)
             ->assertSee('app.buildCampusDownloadUrl(path, String(path).split(\'/\').pop())', false)
             ->assertSee('app.buildCampusDownloadUrl(entry.attachment_path, attachmentName)', false)
             ->assertSee('app.renderContactButton(', false)

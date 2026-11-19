@@ -36,6 +36,27 @@
                 .filter((deadline) => deadline.days !== null && deadline.days >= 0)
                 .sort((first, second) => first.days - second.days)[0] || null;
 
+            /**
+             * The leading date tile (gray): month and day of the publication, or the
+             * announcement icon in the same gray square when the date is unknown.
+             */
+            const renderAnnouncementDate = (item) => {
+                const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(item.published_date || ''));
+
+                if (!match) {
+                    return `<span class="${app.ui.iconTile.neutral} size-11" aria-hidden="true">${app.renderIcon('announcement')}</span>`;
+                }
+
+                const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+
+                return `
+                    <span class="${app.ui.dateTile}" aria-hidden="true">
+                        <span class="${app.ui.dateTileMonth}">${esc(date.toLocaleDateString('id-ID', { month: 'short' }).replace('.', ''))}</span>
+                        <span class="${app.ui.dateTileDay}">${date.getDate()}</span>
+                    </span>
+                `;
+            };
+
             // Same rule as /announcement: unread on this device and published in the last 7 days.
             // A mark saved under an announcement's old wording-based id moves to its stable id.
             const readAnnouncementIds = (feedItems) => {
@@ -69,20 +90,28 @@
                 const deadlineLabel = deadline
                     ? `Tenggat ${deadline.days === 0 ? 'hari ini' : (deadline.days === 1 ? 'besok' : `${deadline.days} hari lagi`)}`
                     : '';
-                const deadlineTone = deadline ? (deadline.days <= 2 ? 'danger' : (deadline.days <= 7 ? 'warning' : 'info')) : null;
-                const meta = [describePublished(item), item.publisher_unit_short || item.publisher_unit].filter(Boolean).join(' · ');
+                const deadlineTone = deadline ? (deadline.days <= 2 ? 'danger' : (deadline.days <= 7 ? 'warning' : 'neutral')) : null;
+                // One badge at most: a near deadline, else "Baru". The category is plain text.
+                const badge = deadline
+                    ? app.renderBadge(deadlineLabel, deadlineTone)
+                    : (isNew ? app.renderBadge('Baru', 'brand') : '');
+                // The date tile shows the date; the meta line names it only when the tile cannot.
+                const hasDateTile = /^\d{4}-\d{2}-\d{2}/.test(String(item.published_date || ''));
+                const meta = [hasDateTile ? '' : describePublished(item), item.category_label || 'Umum', item.publisher_unit_short || item.publisher_unit].filter(Boolean).join(' · ');
 
                 return `
                     <li class="min-w-0">
-                        <a href="${esc(href)}" class="mycic-card-interactive flex h-full min-w-0 flex-col gap-2">
-                            <span class="flex flex-wrap items-center gap-2">
-                                ${app.renderBadge(item.category_label || 'Umum', ANNOUNCEMENT_TONES[item.category] || 'secondary')}
-                                ${isNew ? app.renderBadge('Baru', 'brand') : ''}
-                                ${deadline ? app.renderBadge(deadlineLabel, deadlineTone) : ''}
+                        <a href="${esc(href)}" class="${app.ui.cardInteractive} h-full min-w-0 p-4" data-slot="card">
+                            <span class="flex min-w-0 items-start gap-3">
+                            ${renderAnnouncementDate(item)}
+                            <span class="flex min-w-0 flex-1 flex-col gap-1.5">
+                                <span class="line-clamp-2 text-sm font-medium leading-snug text-ink">${esc(item.title || 'Pengumuman kampus')}</span>
+                                ${hasDateTile ? `<span class="sr-only">${esc(describePublished(item))}.</span>` : ''}
+                                ${meta ? `<span class="text-xs text-ink-muted">${esc(meta)}</span>` : ''}
+                                ${badge ? `<span class="flex">${badge}</span>` : ''}
+                                ${item.excerpt ? `<span class="line-clamp-2 text-[13px] text-ink-muted">${esc(item.excerpt)}</span>` : ''}
                             </span>
-                            <span class="line-clamp-2 text-sm font-medium leading-snug text-ink">${esc(item.title || 'Pengumuman kampus')}</span>
-                            ${meta ? `<span class="text-caption text-ink-subtle">${esc(meta)}</span>` : ''}
-                            ${item.excerpt ? `<span class="line-clamp-2 text-caption text-ink-muted">${esc(item.excerpt)}</span>` : ''}
+                            </span>
                         </a>
                     </li>
                 `;
@@ -110,7 +139,7 @@
 
                 announcementsHost.removeAttribute('aria-busy');
                 announcementsHost.innerHTML = items.length
-                    ? `<ul class="grid gap-3 sm:grid-cols-2">${items.map((item) => renderAnnouncementCard(item, readIds)).join('')}</ul>`
-                    : app.renderEmptyState('Belum ada pengumuman.', 'secondary', 'Pengumuman baru dari portal kampus akan muncul di sini.');
+                    ? `<ul class="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">${items.map((item) => renderAnnouncementCard(item, readIds)).join('')}</ul>`
+                    : app.renderEmptyState('Belum ada pengumuman.', 'secondary', 'Pengumuman baru dari portal kampus akan muncul di sini.', { icon: 'announcement' });
             };
 

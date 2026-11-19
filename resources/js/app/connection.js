@@ -1,3 +1,5 @@
+import { ui } from './ui.js';
+
 /**
  * Online/offline state and the sync strip: the connection chip, the sync
  * status line, the handlers a page registers to re-read itself, background
@@ -23,7 +25,7 @@ export class ConnectionFeature {
         this.onlineState = isOnline;
 
         document.querySelectorAll('[data-connection-chip]').forEach((element) => {
-            element.className = isOnline ? 'mycic-chip-online' : 'mycic-chip-offline';
+            element.className = isOnline ? ui.chipOnline : ui.chipOffline;
         });
 
         document.querySelectorAll('[data-connection-label]').forEach((element) => {
@@ -288,15 +290,15 @@ export class ConnectionFeature {
             element.dataset.tone = tone;
         });
 
-        const toneClass = {
-            success: 'mycic-sync-strip-success',
-            warning: 'mycic-sync-strip-warning',
-            error: 'mycic-sync-strip-danger',
-            danger: 'mycic-sync-strip-danger',
-        }[tone] || '';
+        const stripClass = {
+            success: ui.syncStrip.success,
+            warning: ui.syncStrip.warning,
+            error: ui.syncStrip.danger,
+            danger: ui.syncStrip.danger,
+        }[tone] || ui.syncStrip.base;
 
         document.querySelectorAll('[data-sync-alert]').forEach((element) => {
-            element.className = `mycic-sync-strip${toneClass ? ` ${toneClass}` : ''}`;
+            element.className = stripClass;
         });
     }
 

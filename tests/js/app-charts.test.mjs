@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { createPortalApp } from './support/browser.mjs';
+import { ui } from '../../resources/js/app/ui.js';
 
 /**
  * Charts drawn without a library (resources/js/app/charts.js): a value that
@@ -43,7 +44,7 @@ describe('renderProgressBar', () => {
         });
 
         assert.deepEqual(widths(html), [69.44, 30.56]);
-        assert.match(html, /mycic-progress-striped/);
+        assert.ok(html.includes(ui.progressStriped));
         assert.match(html, /Sisa<\/span>\s*<span class="font-medium tabular-nums text-ink">0<\/span>/);
         assert.doesNotMatch(html, /font-semibold/);
     });

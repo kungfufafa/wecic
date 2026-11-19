@@ -8,85 +8,87 @@
 @endphp
 
 @section('content')
-    <x-page-header title="Skripsi" subtitle="Status e-Skripsi, kesiapan kamu, serta syarat dan SOP Tugas Akhir dari SiMASITA di Portal Kampus.">
-        <p class="mt-1 min-h-4 text-caption text-ink-subtle" data-thesis-updated></p>
-    </x-page-header>
+    <x-page-hero title="Skripsi">
+        @if (str_starts_with($portalThesisUrl, 'https://') || str_starts_with($portalThesisUrl, 'http://'))
+            <x-slot:actions>
+                <x-button variant="secondary" size="sm" href="{{ $portalThesisUrl }}" target="_blank" rel="noopener noreferrer" data-online-required>
+                    <x-icon name="external-link" size="sm" />
+                    SiMASITA<span class="sr-only"> di Portal Kampus (tab baru)</span>
+                </x-button>
+            </x-slot:actions>
+        @endif
+        <x-slot:meta><span data-thesis-updated></span></x-slot:meta>
+    </x-page-hero>
 
-    <div class="grid items-start gap-5 lg:grid-cols-12" id="thesis-page" data-portal-thesis-url="{{ $portalThesisUrl }}">
-        <div class="flex min-w-0 flex-col gap-5 lg:col-span-7">
-            <section id="thesis-status" aria-labelledby="thesis-status-title" aria-busy="true">
-                <div class="mycic-card">
-                    <div class="mycic-card-body flex flex-col gap-3">
-                        <h2 class="sr-only" id="thesis-status-title">Status e-Skripsi</h2>
-                        <span class="sr-only">Memuat status skripsi…</span>
-                        <div class="mycic-skeleton h-5 w-40"></div>
-                        <div class="mycic-skeleton h-4 w-3/4"></div>
+    <x-split at="xl" id="thesis-page" data-portal-thesis-url="{{ $portalThesisUrl }}">
+        <section id="thesis-status" aria-labelledby="thesis-status-title" aria-busy="true">
+            <x-card>
+                <x-card.header class="flex-wrap">
+                    <x-card.title id="thesis-status-title">Status e-Skripsi</x-card.title>
+                    <x-skeleton class="h-5 w-24" />
+                </x-card.header>
+                <x-card.body class="flex flex-col gap-3">
+                    <span class="sr-only">Memuat status skripsi…</span>
+                    <x-skeleton class="h-4 w-3/4" />
+                    <x-skeleton class="h-4 w-1/2" />
+                </x-card.body>
+            </x-card>
+        </section>
+
+        <x-card as="section" class="scroll-mt-20" id="kesiapan" aria-labelledby="thesis-readiness-title">
+            <x-card.header class="flex-wrap">
+                <div class="min-w-0">
+                    <x-card.title id="thesis-readiness-title" tabindex="-1">Kesiapan skripsi</x-card.title>
+                    <x-card.subtitle id="thesis-readiness-caption">Dihitung dari nilai dan tagihan yang sudah tersinkron.</x-card.subtitle>
+                </div>
+                <span id="thesis-readiness-badge"></span>
+            </x-card.header>
+            <x-card.body class="flex flex-col gap-5" id="thesis-readiness" aria-busy="true">
+                <span class="sr-only">Memuat kesiapan skripsi…</span>
+                <div class="flex items-center gap-4 rounded-lg bg-surface p-4">
+                    <x-skeleton class="size-24 rounded-full!" />
+                    <div class="flex flex-1 flex-col gap-2">
+                        <x-skeleton class="h-5 w-32" />
+                        <x-skeleton class="h-4 w-48 max-w-full" />
                     </div>
                 </div>
-            </section>
+                @for ($i = 0; $i < 4; $i++)
+                    <x-skeleton class="h-11 w-full" />
+                @endfor
+            </x-card.body>
+        </x-card>
 
-            <section class="mycic-card scroll-mt-24" id="kesiapan" aria-labelledby="thesis-readiness-title">
-                <div class="mycic-card-header flex flex-wrap items-start justify-between gap-2">
-                    <div class="min-w-0">
-                        <h2 class="mycic-card-title" id="thesis-readiness-title" tabindex="-1">Kesiapan skripsi</h2>
-                        <p class="mycic-card-subtitle" id="thesis-readiness-caption">Dihitung dari nilai dan tagihan yang sudah tersinkron.</p>
-                    </div>
-                    <span id="thesis-readiness-badge"></span>
-                </div>
-                <div class="mycic-card-body flex flex-col gap-5" id="thesis-readiness" aria-busy="true">
-                    <span class="sr-only">Memuat kesiapan skripsi…</span>
-                    <div class="flex items-center gap-4">
-                        <div class="mycic-skeleton h-24 w-24 rounded-full"></div>
-                        <div class="flex flex-1 flex-col gap-2">
-                            <div class="mycic-skeleton h-5 w-32"></div>
-                            <div class="mycic-skeleton h-4 w-48"></div>
-                        </div>
-                    </div>
-                    @for ($i = 0; $i < 4; $i++)
-                        <div class="mycic-skeleton h-11 w-full"></div>
-                    @endfor
-                </div>
-            </section>
+        <x-card as="section" aria-labelledby="thesis-prep-title">
+            <details class="group" id="thesis-prep">
+                <summary class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 rounded-xl px-4 py-3.5 transition-colors hover:bg-surface/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 group-open:rounded-b-none group-open:border-b group-open:border-border-light sm:px-5 sm:py-4 [&::-webkit-details-marker]:hidden">
+                    <span class="min-w-0">
+                        <span class="block text-sm font-semibold tracking-tight text-ink" id="thesis-prep-title">Persiapan ujian TA</span>
+                        <span class="mt-0.5 block text-[13px] text-ink-muted" id="thesis-prep-caption">Centang sendiri; tersimpan di perangkat ini saja.</span>
+                    </span>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="size-5 shrink-0 text-ink-subtle transition-transform group-open:rotate-180" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6l6 -6" /></svg>
+                </summary>
+                <x-card.body class="flex flex-col gap-1" id="thesis-prep-list">
+                    <x-skeleton class="h-11 w-full" />
+                </x-card.body>
+            </details>
+        </x-card>
 
-            <section class="mycic-card" aria-labelledby="thesis-prep-title">
-                <details class="group" id="thesis-prep">
-                    <summary class="mycic-card-header flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">
-                        <span class="min-w-0">
-                            <span class="mycic-card-title block" id="thesis-prep-title">Persiapan ujian TA</span>
-                            <span class="mycic-card-subtitle block" id="thesis-prep-caption">Centang sendiri; tersimpan di perangkat ini saja.</span>
-                        </span>
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0 text-ink-subtle transition-transform group-open:rotate-180" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6l6 -6" /></svg>
-                    </summary>
-                    <div class="mycic-card-body flex flex-col gap-1" id="thesis-prep-list">
-                        <div class="mycic-skeleton h-11 w-full"></div>
-                    </div>
-                </details>
-            </section>
-        </div>
+        <x-slot:aside aria-label="Persyaratan dan SOP skripsi">
+            <x-card as="section" class="scroll-mt-20" id="persyaratan" aria-labelledby="thesis-requirements-title" title="Persyaratan & SOP" title-id="thesis-requirements-title" subtitle="Dari SiMASITA di Portal Kampus.">
+                <x-card.body class="flex flex-col gap-5" id="thesis-requirements" aria-busy="true">
+                    <x-skeleton class="h-4 w-2/3" />
+                    <x-skeleton class="h-4 w-full" />
+                    <x-skeleton class="h-4 w-5/6" />
+                </x-card.body>
+            </x-card>
 
-        <aside class="flex min-w-0 flex-col gap-5 lg:sticky lg:top-24 lg:col-span-5" aria-label="Persyaratan dan SOP skripsi">
-            <section class="mycic-card scroll-mt-24" id="persyaratan" aria-labelledby="thesis-requirements-title">
-                <div class="mycic-card-header">
-                    <h2 class="mycic-card-title" id="thesis-requirements-title">Persyaratan &amp; SOP</h2>
-                    <p class="mycic-card-subtitle">Dari SiMASITA di Portal Kampus.</p>
-                </div>
-                <div class="mycic-card-body flex flex-col gap-5" id="thesis-requirements" aria-busy="true">
-                    <div class="mycic-skeleton h-4 w-2/3"></div>
-                    <div class="mycic-skeleton h-4 w-full"></div>
-                    <div class="mycic-skeleton h-4 w-5/6"></div>
-                </div>
-            </section>
-
-            <section class="mycic-card" aria-labelledby="thesis-documents-title">
-                <div class="mycic-card-header">
-                    <h2 class="mycic-card-title" id="thesis-documents-title">Dokumen</h2>
-                </div>
-                <div class="mycic-card-body" id="thesis-documents">
-                    <div class="mycic-skeleton h-11 w-full"></div>
-                </div>
-            </section>
-        </aside>
-    </div>
+            <x-card as="section" aria-labelledby="thesis-documents-title" title="Dokumen" title-id="thesis-documents-title">
+                <x-card.body class="has-[>ul]:p-0" id="thesis-documents">
+                    <x-skeleton class="h-11 w-full" />
+                </x-card.body>
+            </x-card>
+        </x-slot:aside>
+    </x-split>
 @endsection
 
 @push('scripts')
@@ -111,7 +113,10 @@
                 failed: { tone: 'danger', label: 'Belum terpenuhi', icon: '<path d="M18 6l-12 12" /><path d="M6 6l12 12" />' },
                 unknown: { tone: 'secondary', label: 'Perlu dicek', icon: '<path d="M8 8a3.5 3 0 0 1 3.5 -3h1a3.5 3 0 0 1 3.5 3a3 3 0 0 1 -2 3a3 4 0 0 0 -2 4" /><path d="M12 19l0 .01" />' },
             };
-            const ICON_BG = { success: 'bg-success-soft text-success', danger: 'bg-danger-soft text-danger', secondary: 'bg-surface text-ink-subtle' };
+            // Round step markers of the readiness stepper, in each status's tone.
+            const STEP_TONE = { success: 'bg-success-soft text-success', danger: 'bg-danger-soft text-danger', secondary: 'bg-surface text-ink-muted' };
+            // Numbered step markers of the "Menuju ujian TA" list: neutral, the number is the information.
+            const STEP_NUMBER = 'relative z-10 flex size-7 shrink-0 items-center justify-center rounded-full border border-border bg-panel text-xs font-semibold text-ink-muted tabular-nums';
             const numberFormatter = new Intl.NumberFormat('id-ID', { maximumFractionDigits: 2 });
             // IPK is written with a dot decimal (3.45), as on Nilai, Transkrip and KRS.
             const formatIpk = (value) => (Number.isFinite(Number(value)) ? Number(value).toFixed(2) : '–');
@@ -191,7 +196,7 @@
             const statusIcon = (status) => {
                 const style = STATUS_STYLE[status] || STATUS_STYLE.unknown;
 
-                return `<span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${ICON_BG[style.tone]}" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${style.icon}</svg></span>`;
+                return `<span class="${app.ui.iconTileBaseFull} ${STEP_TONE[style.tone]} relative z-10 size-8 ring-2 ring-panel" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" class="size-4" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${style.icon}</svg></span>`;
             };
 
             const renderStatus = (data) => {
@@ -200,39 +205,41 @@
                 const hint = data?.krs_hint || {};
                 const awaiting = hint.awaiting_status === true;
                 const courseName = hint.course?.name || 'Skripsi';
+                let badge = '';
                 let body = '';
 
                 if (status.state === 'not_enrolled') {
+                    badge = app.renderBadge('Belum mengambil skripsi', 'secondary');
                     body = `
-                        <div class="flex flex-wrap items-center gap-2">
-                            ${app.renderBadge('Belum mengambil skripsi', 'secondary')}
-                        </div>
                         <p class="text-sm text-ink-muted">${app.escapeHtml(status.message || 'Portal mencatat kamu belum mengambil mata kuliah skripsi semester ini.')}</p>
-                        ${awaiting ? `<div class="${app.alertTone('warning')} mb-0" role="status">KRS-mu memuat <strong>${app.escapeHtml(courseName)}</strong>, tetapi status e-Skripsi belum aktif. Biasanya menunggu validasi KRS oleh DPA atau sinkron portal.</div>` : ''}
-                        <a href="#kesiapan" class="${app.buttonClass('secondary', { small: true })} self-start" data-thesis-jump>Cek kesiapan kamu</a>
+                        ${awaiting ? `<div class="${app.ui.alert.warning}" role="status">KRS-mu memuat <strong class="font-medium">${app.escapeHtml(courseName)}</strong>, tetapi status e-Skripsi belum aktif. Biasanya menunggu validasi KRS oleh DPA atau sinkron portal.</div>` : ''}
+                        <a href="#kesiapan" class="${app.ui.button.secondarySm} self-start" data-thesis-jump>Cek kesiapan kamu</a>
                     `;
                 } else if (status.state === 'active_unparsed') {
                     const fields = (Array.isArray(status.raw_sections) ? status.raw_sections : [])
                         .flatMap((section) => (Array.isArray(section?.fields) ? section.fields : []))
                         .slice(0, 12);
 
+                    badge = app.renderBadge('Skripsi aktif', 'brand');
                     body = `
-                        <div class="flex flex-wrap items-center gap-2">${app.renderBadge('Skripsi aktif', 'brand')}</div>
                         ${status.message ? `<p class="text-sm text-ink-muted">${app.escapeHtml(status.message)}</p>` : ''}
                         ${fields.length ? app.renderKeyValueList(fields.map((field) => ({ label: field.label, value: field.value }))) : '<p class="text-sm text-ink-muted">Portal menampilkan data skripsi yang belum bisa dibaca WeCIC. Detailnya ada di Portal Kampus.</p>'}
-                        <a href="${app.escapeHtml(portalThesisUrl)}" target="_blank" rel="noopener noreferrer" class="${app.buttonClass('secondary', { small: true })} self-start" data-online-required>Buka di Portal Kampus<span class="sr-only"> (tab baru)</span></a>
+                        <a href="${app.escapeHtml(portalThesisUrl)}" target="_blank" rel="noopener noreferrer" class="${app.ui.button.secondarySm} self-start" data-online-required>Buka di Portal Kampus<span class="sr-only"> (tab baru)</span></a>
                     `;
                 } else {
+                    badge = app.renderBadge('Status belum terbaca', 'secondary');
                     body = `
-                        <div class="flex flex-wrap items-center gap-2">${app.renderBadge('Status belum terbaca', 'secondary')}</div>
                         <p class="text-sm text-ink-muted">${status.available === false ? 'Halaman e-Skripsi portal belum bisa dibuka. Syarat dan kesiapan di bawah tetap bisa dipakai.' : 'Halaman e-Skripsi portal kosong.'}</p>
                     `;
                 }
 
                 statusHost.innerHTML = `
-                    <div class="mycic-card">
-                        <div class="mycic-card-header"><h2 class="mycic-card-title" id="thesis-status-title">Status e-Skripsi</h2></div>
-                        <div class="mycic-card-body flex flex-col gap-3">${body}</div>
+                    <div class="${app.ui.card}" data-slot="card">
+                        <div class="${app.ui.cardHeader} flex-wrap">
+                            <h2 class="${app.ui.cardTitle}" id="thesis-status-title">Status e-Skripsi</h2>
+                            ${badge}
+                        </div>
+                        <div class="${app.ui.cardBody} flex flex-col gap-3">${body}</div>
                     </div>
                 `;
             };
@@ -262,17 +269,17 @@
 
                 requirementsHost.innerHTML = `
                     ${summary.length ? `
-                        <div class="${app.statusPanelClass('brand')}">
-                            <p class="text-caption font-medium text-ink-subtle">Ambang untuk jenjang ${app.escapeHtml(jenjang || 'kamu')}</p>
+                        <div class="rounded-lg bg-surface p-3">
+                            <p class="text-xs font-medium text-ink-muted">Ambang untuk jenjang ${app.escapeHtml(jenjang || 'kamu')}</p>
                             <p class="mt-1 text-sm font-medium leading-snug text-ink">${app.escapeHtml(summary.join(' · '))}</p>
-                            ${isDefault ? '<p class="mt-1 text-caption text-ink-subtle">Sebagian ambang tidak tertulis di portal; WeCIC memakai nilai bawaan. Pastikan lagi di SOP.</p>' : ''}
+                            ${isDefault ? '<p class="mt-1 text-xs text-ink-subtle">Sebagian ambang tidak tertulis di portal; WeCIC memakai nilai bawaan. Pastikan lagi di SOP.</p>' : ''}
                         </div>
                     ` : ''}
                     ${thesisItems.length ? `
                         <div>
                             <h3 class="text-sm font-medium leading-snug text-ink">Syarat pengajuan skripsi</h3>
                             <ul class="mt-2 flex flex-col gap-2">
-                                ${thesisItems.map((item) => `<li class="flex gap-2 text-sm text-ink-muted"><span class="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-brand" aria-hidden="true"></span><span class="min-w-0">${app.escapeHtml(item)}</span></li>`).join('')}
+                                ${thesisItems.map((item) => `<li class="flex gap-2.5 text-sm text-ink-muted"><span class="mt-2 size-1.5 shrink-0 rounded-full ${app.ui.fill.neutral}" aria-hidden="true"></span><span class="min-w-0">${app.escapeHtml(item)}</span></li>`).join('')}
                             </ul>
                         </div>
                     ` : ''}
@@ -283,7 +290,7 @@
                                 ${examItems.map((item, index) => `
                                     <li class="relative flex gap-3 pb-4 last:pb-0">
                                         ${index < examItems.length - 1 ? '<span class="absolute start-3.5 top-7 bottom-0 w-px bg-border" aria-hidden="true"></span>' : ''}
-                                        <span class="relative z-10 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border bg-surface font-mono text-xs font-medium text-ink-muted" aria-hidden="true">${index + 1}</span>
+                                        <span class="${STEP_NUMBER}" aria-hidden="true">${index + 1}</span>
                                         <span class="min-w-0 pt-1 text-sm text-ink-muted"><span class="sr-only">Langkah ${index + 1}: </span>${app.escapeHtml(item)}</span>
                                     </li>
                                 `).join('')}
@@ -303,26 +310,24 @@
                 }
 
                 documentsHost.innerHTML = `
-                    <div class="flex flex-col">
+                    <ul class="${app.ui.list}">
                         ${documents.map((documentItem) => {
                             const href = app.buildCampusDownloadUrl(documentItem.path, documentItem.filename);
 
                             return href ? `
-                                <a href="${app.escapeHtml(href)}" target="_blank" rel="noopener" class="mycic-list-row mycic-list-row-interactive min-h-11 items-center" data-online-required>
-                                    <span class="flex min-w-0 items-center gap-3">
-                                        <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-surface-tint text-brand-text" aria-hidden="true">
-                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3v4a1 1 0 0 0 1 1h4" /><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z" /><path d="M9 17h6" /><path d="M9 13h6" /></svg>
-                                        </span>
-                                        <span class="min-w-0">
+                                <li>
+                                    <a href="${app.escapeHtml(href)}" target="_blank" rel="noopener" class="${app.ui.listRowFlushInteractive}" data-online-required>
+                                        <span class="${app.ui.iconTile.neutral} size-9" aria-hidden="true">${app.renderIcon('file', 'md')}</span>
+                                        <span class="${app.ui.listRowBody}">
                                             <span class="block text-sm font-medium leading-snug text-ink wrap-break-word">${app.escapeHtml(documentItem.label || documentItem.filename || 'Dokumen')}</span>
-                                            <span class="block text-caption text-ink-subtle">PDF · butuh koneksi internet</span>
+                                            <span class="mt-0.5 block text-xs text-ink-subtle">PDF · butuh koneksi internet</span>
                                         </span>
-                                    </span>
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 self-center text-ink-subtle" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 6h-6a2 2 0 0 0 -2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-6" /><path d="M11 13l9 -9" /><path d="M15 4h5v5" /></svg>
-                                </a>
+                                        ${app.renderIcon('external-link', 'sm', app.ui.listRowChevron)}
+                                    </a>
+                                </li>
                             ` : '';
                         }).join('')}
-                    </div>
+                    </ul>
                 `;
                 app.refreshOnlineRequiredState();
             };
@@ -355,14 +360,14 @@
                     : `SKS lulus belum tersinkron, minimal ${progress?.target ?? '–'}`;
 
                 return `
-                    <div class="relative h-24 w-24 shrink-0" role="img" aria-label="${app.escapeHtml(label)}">
-                        <svg viewBox="0 0 100 100" class="h-24 w-24 -rotate-90" aria-hidden="true">
-                            <circle cx="50" cy="50" r="42" fill="none" stroke="currentColor" stroke-width="10" class="text-surface"></circle>
+                    <div class="relative size-24 shrink-0" role="img" aria-label="${app.escapeHtml(label)}">
+                        <svg viewBox="0 0 100 100" class="size-24 -rotate-90" aria-hidden="true">
+                            <circle cx="50" cy="50" r="42" fill="none" stroke="currentColor" stroke-width="10" class="text-border"></circle>
                             ${known ? `<circle cx="50" cy="50" r="42" fill="none" stroke="currentColor" stroke-width="10" stroke-linecap="round" class="${tone}" stroke-dasharray="${circumference.toFixed(2)}" stroke-dashoffset="${(circumference * (1 - percent / 100)).toFixed(2)}"></circle>` : ''}
                         </svg>
                         <span class="absolute inset-0 flex flex-col items-center justify-center" aria-hidden="true">
-                            <span class="font-mono text-lg font-semibold leading-none text-ink tabular-nums">${known ? app.escapeHtml(String(progress.current)) : '–'}</span>
-                            <span class="mt-0.5 font-mono text-[11px] font-medium text-ink-subtle tabular-nums">/ ${app.escapeHtml(String(progress?.target ?? '–'))} SKS</span>
+                            <span class="text-lg font-semibold leading-none tracking-tight text-ink tabular-nums">${known ? app.escapeHtml(String(progress.current)) : '–'}</span>
+                            <span class="mt-0.5 text-[11px] font-medium text-ink-subtle tabular-nums">/ ${app.escapeHtml(String(progress?.target ?? '–'))} SKS</span>
                         </span>
                     </div>
                 `;
@@ -419,7 +424,7 @@
                 const warnings = Array.isArray(data.insights?.warnings) ? data.insights.warnings : [];
 
                 readinessHost.innerHTML = `
-                    <div class="flex items-center gap-4">
+                    <div class="flex items-center gap-4 rounded-lg bg-surface p-4">
                         ${sksRing(data.sks_progress)}
                         <div class="min-w-0">
                             <p class="text-sm font-medium leading-snug text-ink">SKS lulus</p>
@@ -427,42 +432,43 @@
                         </div>
                     </div>
                     ${gradesPending ? `
-                        <div class="${app.alertTone('info')} mb-0 flex flex-wrap items-center justify-between gap-3" role="status">
+                        <div class="${app.ui.alert.info} flex flex-wrap items-center justify-between gap-3" role="status">
                             <span>${sources.grades === 'failed'
                                 ? 'Nilai belum bisa dibaca dari portal.'
                                 : (sources.grades === 'synced' ? 'Portal belum mencatat nilai (KHS) untukmu.' : 'Nilai sedang disinkronkan dari portal.')}</span>
-                            <button type="button" class="${app.buttonClass('secondary', { small: true })}" data-thesis-sync-grades>Sinkronkan nilai</button>
+                            <button type="button" class="${app.ui.button.secondarySm}" data-thesis-sync-grades>Sinkronkan nilai</button>
                         </div>
                     ` : ''}
-                    <ul class="flex flex-col divide-y divide-border-light">
-                        ${rows.map((item) => {
+                    <ol class="flex flex-col" aria-label="Syarat kesiapan">
+                        ${rows.map((item, index) => {
                             const style = STATUS_STYLE[item.status] || STATUS_STYLE.unknown;
+                            const rail = index < rows.length - 1 ? '<span class="absolute start-4 top-8 -bottom-2 w-px bg-border" aria-hidden="true"></span>' : '';
                             const courseList = item.key === 'nilai_d' ? data.courses?.d : (item.key === 'nilai_e' ? data.courses?.e : null);
                             const interactive = Array.isArray(courseList) && courseList.length > 0;
                             const inner = `
                                 ${statusIcon(item.status)}
-                                <span class="min-w-0 flex-1">
+                                <span class="min-w-0 flex-1 pt-1.5">
                                     <span class="flex flex-wrap items-baseline justify-between gap-x-3">
                                         <span class="text-sm font-medium leading-snug text-ink">${app.escapeHtml(item.label)}</span>
                                         <span class="text-sm font-medium tabular-nums ${app.textToneClass(style.tone === 'secondary' ? 'muted' : style.tone)}">${app.escapeHtml(rowValue(item))}</span>
                                     </span>
                                     <span class="sr-only">${app.escapeHtml(style.label)}.</span>
-                                    ${item.hint ? `<span class="mt-0.5 block text-caption text-ink-subtle">${app.escapeHtml(item.hint)}</span>` : ''}
+                                    ${item.hint ? `<span class="mt-0.5 block text-xs text-ink-subtle">${app.escapeHtml(item.hint)}</span>` : ''}
                                 </span>
-                                ${interactive ? '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 self-center text-ink-subtle" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6l-6 6" /></svg>' : ''}
+                                ${interactive ? '<svg xmlns="http://www.w3.org/2000/svg" class="size-4 shrink-0 self-center text-ink-subtle" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6l-6 6" /></svg>' : ''}
                             `;
 
                             return interactive
-                                ? `<li><button type="button" class="flex min-h-11 w-full cursor-pointer items-start gap-3 py-3 text-start transition-colors hover:bg-surface/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand" data-thesis-courses="${app.escapeHtml(item.key)}" aria-haspopup="dialog">${inner}</button></li>`
-                                : `<li class="flex items-start gap-3 py-3">${inner}</li>`;
+                                ? `<li class="relative">${rail}<button type="button" class="-mx-2 flex min-h-11 w-[calc(100%+1rem)] cursor-pointer items-start gap-3 rounded-lg px-2 py-2 text-start transition-colors hover:bg-surface/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40" data-thesis-courses="${app.escapeHtml(item.key)}" aria-haspopup="dialog">${inner}</button></li>`
+                                : `<li class="relative flex items-start gap-3 py-2">${rail}${inner}</li>`;
                         }).join('')}
-                    </ul>
+                    </ol>
                     ${warnings.length ? `
-                        <div class="${app.alertTone('warning')} mb-0" role="status">
+                        <div class="${app.ui.alert.warning}" role="status">
                             <ul class="flex flex-col gap-1">${warnings.map((warning) => `<li>${app.escapeHtml(warning.message)}</li>`).join('')}</ul>
                         </div>
                     ` : ''}
-                    <p class="text-caption text-ink-subtle">Perkiraan dari data portal, bukan keputusan resmi program studi.</p>
+                    <p class="text-xs text-ink-subtle">Perkiraan dari data portal, bukan keputusan resmi program studi.</p>
                 `;
                 renderPrep();
             };
@@ -484,14 +490,14 @@
                                 <li class="flex items-start justify-between gap-3 py-3">
                                     <span class="min-w-0">
                                         <span class="block text-sm font-medium leading-snug text-ink">${app.escapeHtml(course.name || course.code || 'Mata kuliah')}</span>
-                                        <span class="block text-caption text-ink-subtle">${app.escapeHtml([course.code, course.sks ? `${course.sks} SKS` : null, course.semester ? `Semester ${course.semester}` : null].filter(Boolean).join(' · '))}</span>
+                                        <span class="block text-xs text-ink-subtle">${app.escapeHtml([course.code, course.sks ? `${course.sks} SKS` : null, course.semester ? `Semester ${course.semester}` : null].filter(Boolean).join(' · '))}</span>
                                     </span>
                                     ${app.renderBadge(course.letter || (isD ? 'D' : 'E'), isD ? 'warning' : 'danger')}
                                 </li>
                             `).join('')}
                         </ul>
                         <p class="mt-3 text-sm text-ink-muted">${isD ? 'Ulang di Semester Pendek atau semester berikutnya bila nilai D melebihi batas.' : 'Nilai E harus diulang sampai lulus sebelum mendaftar skripsi.'}</p>
-                        <a href="/transcript" class="${app.buttonClass('secondary', { small: true })} mt-4">Lihat transkrip</a>
+                        <a href="/transcript" class="${app.ui.button.secondarySm} mt-4">Lihat transkrip</a>
                     `,
                 });
             };
@@ -510,8 +516,8 @@
 
                 prepCaption.textContent = `${done} dari ${items.length} siap · tersimpan di perangkat ini saja.`;
                 prepList.innerHTML = items.map((item) => `
-                    <label class="flex min-h-11 cursor-pointer items-center gap-3 rounded-md px-1 py-2 hover:bg-surface/60">
-                        <input type="checkbox" class="h-5 w-5 shrink-0 cursor-pointer accent-brand" data-thesis-prep="${app.escapeHtml(item.key)}" ${checked[item.key] === true ? 'checked' : ''}>
+                    <label class="-mx-2 flex min-h-11 cursor-pointer items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-surface/60">
+                        <input type="checkbox" class="size-5 shrink-0 cursor-pointer rounded border-border accent-brand" data-thesis-prep="${app.escapeHtml(item.key)}" ${checked[item.key] === true ? 'checked' : ''}>
                         <span class="text-sm text-ink">${app.escapeHtml(item.label)}</span>
                     </label>
                 `).join('');

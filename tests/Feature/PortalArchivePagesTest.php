@@ -119,7 +119,7 @@ class PortalArchivePagesTest extends TestCase
         $css = (string) file_get_contents(resource_path('css/app.css'));
 
         $this->assertStringContainsString("@vite(['resources/css/app.css'", (string) file_get_contents(resource_path('views/layouts/app.blade.php')));
-        $this->assertMatchesRegularExpression("/\n@media print \{\s*html\[data-theme='dark'\] \{\s*color-scheme: light;.*?--color-ink: #171717;/s", $css);
+        $this->assertMatchesRegularExpression("/\n@media print \{\s*html\[data-theme='dark'\] \{\s*color-scheme: light;.*?--color-ink: #09090b;/s", $css);
     }
 
     public function test_a_refused_background_sync_choice_shows_the_status_that_applies(): void

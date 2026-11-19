@@ -3,69 +3,84 @@
 @section('title', 'Detail Kelas')
 @section('page_id', 'class-show')
 
+{{--
+    Detail Kelas: a loading header and KPI strip in #class-hero that the
+    script replaces with the class's own (app.ui.pageHero…, app.ui.statGridKpi),
+    then the meetings and materials beside a column with the attendance,
+    the submitted assignments and Arsip & belajar.
+--}}
 @section('content')
     <div id="class-hero">
-        <div class="mb-6 flex flex-col gap-2" aria-busy="true">
+        <x-page-hero title="Detail kelas" back="{{ route('class.index') }}" back-label="Kembali" aria-busy="true">
             <span class="sr-only">Memuat detail kelas…</span>
-            <div class="mycic-skeleton h-8 w-2/3 max-w-md"></div>
-            <div class="mycic-skeleton h-4 w-1/2 max-w-sm"></div>
-        </div>
+            <x-skeleton class="mt-2 h-4 w-64 max-w-full" />
+        </x-page-hero>
+        <x-stat-strip kpi class="mb-6" aria-hidden="true">
+            @for ($i = 0; $i < 4; $i++)
+                <div class="flex min-w-0 flex-col gap-2 bg-panel p-4 sm:p-5">
+                    <x-skeleton class="h-4 w-16" />
+                    <x-skeleton class="h-7 w-12" />
+                </div>
+            @endfor
+        </x-stat-strip>
     </div>
 
     {{-- Attendance or uploads queued for this class while offline: not at the portal yet. --}}
-    <div class="mb-4 hidden" data-outbox-list data-outbox-match="class:{{ e($id) }}{{ $courseId ? ' course:'.e($courseId) : '' }}" data-outbox-heading="Antrean offline kelas ini"></div>
+    <div class="mb-6 hidden" data-outbox-list data-outbox-match="class:{{ e($id) }}{{ $courseId ? ' course:'.e($courseId) : '' }}" data-outbox-heading="Antrean offline kelas ini"></div>
 
-    <div class="grid gap-4 lg:grid-cols-12">
-        <div class="lg:col-span-8" id="class-materials">
-            <div class="mycic-card" aria-busy="true">
-                <div class="mycic-card-header">
-                    <div class="mycic-skeleton h-5 w-40"></div>
-                </div>
-                <div class="mycic-card-body flex flex-col divide-y divide-border-light">
+    <x-split :sticky="false">
+        <div id="class-materials">
+            <x-card aria-busy="true">
+                <x-card.header>
+                    <x-skeleton class="h-5 w-40" />
+                </x-card.header>
+                <x-card.body class="flex flex-col divide-y divide-border-light">
                     @for ($i = 0; $i < 4; $i++)
                         <x-list-row>
                             <div class="flex flex-col gap-1.5">
-                                <div class="mycic-skeleton h-4 w-28"></div>
-                                <div class="mycic-skeleton h-4 w-56"></div>
+                                <x-skeleton class="h-4 w-28" />
+                                <x-skeleton class="h-4 w-56" />
                             </div>
-                            <div class="mycic-skeleton h-9 w-16"></div>
+                            <x-skeleton class="h-8 w-16" />
                         </x-list-row>
                     @endfor
-                </div>
-            </div>
+                </x-card.body>
+            </x-card>
         </div>
 
-        <div class="flex flex-col gap-4 lg:col-span-4">
+        <x-slot:aside aria-label="Presensi dan tugas kelas">
             <div id="class-attendance">
-                <div class="mycic-card" aria-busy="true">
-                    <div class="mycic-card-body flex flex-col gap-3">
-                        <div class="mycic-skeleton h-5 w-24"></div>
-                        <div class="mycic-skeleton h-20 w-full"></div>
-                    </div>
-                </div>
+                <x-card aria-busy="true">
+                    <x-card.body class="flex flex-col gap-3">
+                        <x-skeleton class="h-5 w-24" />
+                        <x-skeleton class="h-20 w-full" />
+                    </x-card.body>
+                </x-card>
             </div>
 
             <div id="class-assignments">
-                <div class="mycic-card" aria-busy="true">
-                    <div class="mycic-card-body flex flex-col gap-3">
-                        <div class="mycic-skeleton h-5 w-28"></div>
-                        <div class="mycic-skeleton h-14 w-full"></div>
-                    </div>
-                </div>
+                <x-card aria-busy="true">
+                    <x-card.body class="flex flex-col gap-3">
+                        <x-skeleton class="h-5 w-28" />
+                        <x-skeleton class="h-14 w-full" />
+                    </x-card.body>
+                </x-card>
             </div>
 
-            <section class="mycic-card" id="class-study" aria-labelledby="class-study-title">
-                <div class="mycic-card-header">
-                    <h2 class="mycic-card-title" id="class-study-title">Arsip & belajar</h2>
-                    <p class="mycic-card-subtitle">Setiap mata kuliah punya notebook sendiri. Pertemuan yang kamu buka masuk otomatis; dari notebook kamu bisa belajar mandiri atau menyusun kerangka tugas dari materinya.</p>
-                </div>
-                <div class="mycic-card-body flex flex-col gap-2">
-                    <button type="button" class="mycic-btn-primary" id="class-open-notebook">Buka notebook mata kuliah ini</button>
-                    <button type="button" class="mycic-btn-secondary" id="class-archive-materials" data-online-required>Arsipkan semua materi</button>
-                </div>
-            </section>
-        </div>
-    </div>
+            <x-card as="section" id="class-study" aria-labelledby="class-study-title">
+                <x-card.body class="flex flex-col gap-4">
+                    <div class="min-w-0">
+                        <h2 class="text-sm font-semibold text-ink" id="class-study-title">Arsip &amp; belajar</h2>
+                        <p class="mt-1 text-[13px] leading-relaxed text-ink-muted">Setiap mata kuliah punya notebook sendiri. Pertemuan yang kamu buka masuk otomatis; dari notebook kamu bisa belajar mandiri atau menyusun kerangka tugas dari materinya.</p>
+                    </div>
+                    <div class="flex flex-col gap-2">
+                        <x-button class="w-full" id="class-open-notebook">Buka notebook mata kuliah ini</x-button>
+                        <x-button variant="secondary" class="w-full" id="class-archive-materials" data-online-required>Arsipkan semua materi</x-button>
+                    </div>
+                </x-card.body>
+            </x-card>
+        </x-slot:aside>
+    </x-split>
 @endsection
 
 @push('scripts')
@@ -77,6 +92,28 @@
             const dosenId = @json($dosenId);
             const courseId = @json($courseId);
             const studyContext = { name: null, courseId };
+
+            // A KPI cell (app.ui.metric) of the divider strip (app.ui.statGridKpi).
+            const renderMetric = (label, value, note = '') => `
+                <div class="${app.ui.metric}" data-slot="metric">
+                    <div class="${app.ui.metricLabel}" data-slot="metric-label">${app.escapeHtml(label)}</div>
+                    <div class="${app.ui.metricValue}" data-slot="metric-value">${app.escapeHtml(value)}</div>
+                    ${note ? `<div class="${app.ui.metricNote}" data-slot="metric-note">${app.escapeHtml(note)}</div>` : ''}
+                </div>
+            `;
+
+            // An empty card section: quieter than the dashed empty box, which is for whole areas.
+            const renderCardEmpty = (title, message, subtitle = '') => `
+                <div class="${app.ui.card}" data-slot="card">
+                    <div class="${app.ui.cardHeader}">
+                        <h3 class="${app.ui.cardTitle}">${app.escapeHtml(title)}</h3>
+                    </div>
+                    <div class="${app.ui.cardBody} flex flex-col gap-1">
+                        <p class="text-sm text-ink-muted">${app.escapeHtml(message)}</p>
+                        ${subtitle ? `<p class="${app.ui.hint}">${app.escapeHtml(subtitle)}</p>` : ''}
+                    </div>
+                </div>
+            `;
 
             const endpoint = () => {
                 const query = new URLSearchParams();
@@ -106,64 +143,66 @@
                 const attendanceSummary = attendance.summary || {};
                 document.getElementById('class-study').classList.remove('hidden');
 
+                const heroDescription = [
+                    courseInfo.class_name,
+                    courseInfo.credits ? `${courseInfo.credits} SKS` : null,
+                    lecturerInfo.name,
+                ].filter(Boolean).join(' · ');
+
+                const submittedAssignments = (assignments.assignments || []).length;
+                const presentCount = Number(attendanceSummary.present ?? 0);
+
                 hero.innerHTML = `
-                    <div class="mb-4">
-                        ${app.renderPageHeader({
-                            title: courseInfo.name || 'Kelas',
-                            description: [
-                                courseInfo.class_name,
-                                courseInfo.credits ? `${courseInfo.credits} SKS` : null,
-                                lecturerInfo.name,
-                            ].filter(Boolean).join(' · '),
-                            actions: [
-                                `<a href="/class" class="${app.buttonClass('secondary')}">Kembali</a>`,
-                            ],
-                        })}
-                    </div>
-                    <div class="mb-5 mycic-stat-strip grid-cols-2">
-                        <div class="mycic-metric">
-                            <div class="mycic-metric-label">Materi</div>
-                            <div class="mycic-metric-value">${materials.length || '0'}</div>
+                    <header class="${app.ui.pageHero}" data-slot="page-hero">
+                        <a href="/class" class="${app.ui.backLink} mb-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="size-4 shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6l6 6" /></svg>
+                            <span>Kembali</span>
+                        </a>
+                        <div class="${app.ui.pageHeroRow}">
+                            <div class="min-w-0">
+                                <h1 class="${app.ui.pageHeroTitle}">${app.escapeHtml(courseInfo.name || 'Kelas')}</h1>
+                                ${heroDescription ? `<p class="${app.ui.pageHeroSubtitle}">${app.escapeHtml(heroDescription)}</p>` : ''}
+                            </div>
                         </div>
-                        <div class="mycic-metric">
-                            <div class="mycic-metric-label">Presensi</div>
-                            <div class="mycic-metric-value">${attendanceSummary.total_meetings ?? attendanceMeetings.length ?? 0}</div>
-                        </div>
+                    </header>
+                    <div class="${app.ui.statGridKpi} mb-6" data-slot="stat-strip">
+                        ${renderMetric('Materi', materials.length || '0')}
+                        ${renderMetric('Presensi', attendanceSummary.total_meetings ?? attendanceMeetings.length ?? 0, 'pertemuan')}
+                        ${renderMetric('Hadir', presentCount)}
+                        ${renderMetric('Tugas terkumpul', submittedAssignments)}
                     </div>
                 `;
 
                 if (materials.length) {
                     document.getElementById('class-materials').innerHTML = `
-                        <section class="mycic-card overflow-hidden" aria-labelledby="class-materials-title">
-                            <div class="mycic-card-header flex items-center justify-between gap-2">
-                                <h2 class="mycic-card-title" id="class-materials-title">Pertemuan &amp; materi</h2>
-                                <span class="font-mono text-caption text-ink-subtle tabular-nums">${materials.length} pertemuan</span>
+                        <section class="${app.ui.card} overflow-hidden" data-slot="card" aria-labelledby="class-materials-title">
+                            <div class="${app.ui.cardHeader}">
+                                <div class="${app.ui.sectionTitleRow}">
+                                    <h2 class="${app.ui.cardTitle}" id="class-materials-title">Pertemuan &amp; materi</h2>
+                                    <span class="${app.ui.sectionCount}">${materials.length}</span>
+                                </div>
                             </div>
-                            <ul class="divide-y divide-border-light">
+                            <ul class="${app.ui.list}">
                                 ${materials.map((material, index) => {
                                     const meetingUrl = app.buildMeetingUrlFromHref(material.join_link?.href);
                                     const materialLabel = `P${material.meeting_number || index + 1}`;
-
-                                    return `
-                                        <li class="flex flex-col gap-3 px-4 py-3.5 sm:flex-row sm:items-center md:px-5">
-                                            <div class="min-w-0 flex-1">
-                                                <div class="mb-1 flex items-center gap-2">
-                                                    <span class="mycic-badge-brand font-mono tabular-nums">${app.escapeHtml(materialLabel)}</span>
-                                                    <span class="font-mono text-caption text-ink-subtle tabular-nums">${app.escapeHtml([material.date, material.time].filter(Boolean).join(' · ') || '-')}</span>
-                                                </div>
-                                                <h3 class="text-sm font-medium leading-snug text-ink">${app.escapeHtml(material.title || 'Materi')}</h3>
-                                            </div>
-                                            <div class="shrink-0">
-                                                ${meetingUrl ? `<a href="${meetingUrl}" class="${app.buttonClass('secondary', { small: true })}">Buka</a>` : ''}
-                                            </div>
-                                        </li>
+                                    const rowBody = `
+                                        <span class="w-8 shrink-0 text-xs font-medium text-ink-subtle tabular-nums" aria-hidden="true">${app.escapeHtml(materialLabel)}</span>
+                                        <div class="${app.ui.listRowBody}">
+                                            <h3 class="text-sm font-medium leading-snug text-ink"><span class="sr-only">${app.escapeHtml(materialLabel)}: </span>${app.escapeHtml(material.title || 'Materi')}</h3>
+                                            <p class="${app.ui.listRowSubtitle} tabular-nums">${app.escapeHtml([material.date, material.time].filter(Boolean).join(' · ') || '-')}</p>
+                                        </div>
                                     `;
+
+                                    return meetingUrl
+                                        ? `<li><a href="${meetingUrl}" class="${app.ui.listRowFlushInteractive}">${rowBody}${app.renderIcon('chevron-right', 'sm', app.ui.listRowChevron)}</a></li>`
+                                        : `<li class="${app.ui.listRowFlush}">${rowBody}</li>`;
                                 }).join('')}
                             </ul>
                         </section>
                     `;
                 } else {
-                    document.getElementById('class-materials').innerHTML = app.renderEmptyState('Belum ada materi.', 'secondary');
+                    document.getElementById('class-materials').innerHTML = app.renderEmptyState('Belum ada materi.', 'secondary', '', { icon: 'file' });
                 }
 
                 if (attendance.summary || (attendance.meetings || []).length) {
@@ -185,28 +224,26 @@
                     };
 
                     document.getElementById('class-attendance').innerHTML = `
-                        <div class="mycic-card">
-                            <div class="mycic-card-header">
-                                <h3 class="mycic-card-title">Presensi</h3>
+                        <div class="${app.ui.card} overflow-hidden" data-slot="card">
+                            <div class="${app.ui.cardHeader}">
+                                <h3 class="${app.ui.cardTitle}">Presensi</h3>
                             </div>
-                            <div class="mycic-card-body pb-0">
-                                <div class="mb-3">
-                                    ${app.renderInlineStats([
-                                        { label: 'Berjalan', value: `${heldMeetings}/${totalMeetings}` },
-                                        { label: 'Hadir', value: presentMeetings },
-                                        { label: 'Absen', value: absentMeetings },
-                                    ])}
-                                    ${upcomingMeetings ? `<p class="mt-2 text-caption text-ink-subtle">${upcomingMeetings} pertemuan belum berlangsung.</p>` : ''}
-                                </div>
+                            <div class="${app.ui.cardBody}">
+                                ${app.renderInlineStats([
+                                    { label: 'Berjalan', value: `${heldMeetings}/${totalMeetings}` },
+                                    { label: 'Hadir', value: presentMeetings },
+                                    { label: 'Absen', value: absentMeetings },
+                                ])}
+                                ${upcomingMeetings ? `<p class="mt-3 text-xs text-ink-subtle">${upcomingMeetings} pertemuan belum berlangsung.</p>` : ''}
                             </div>
                             ${meetings.length ? `
-                                <div class="mycic-table-wrap">
-                                    <table class="mycic-table">
+                                <div class="overflow-x-auto border-t border-border-light">
+                                    <table class="${app.ui.table}">
                                         <thead>
                                             <tr>
-                                                <th>#</th>
-                                                <th>Status</th>
-                                                <th>Tanggal</th>
+                                                <th scope="col" class="${app.ui.th}">#</th>
+                                                <th scope="col" class="${app.ui.th}">Status</th>
+                                                <th scope="col" class="${app.ui.th}">Tanggal</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -217,10 +254,10 @@
                                                 const scheduleMeta = [details.attendance_date, details.attendance_time].filter(Boolean).join(' / ');
 
                                                 return `
-                                                    <tr class="${normalizedStatus === 'upcoming' ? 'opacity-60' : ''}">
-                                                        <td class="font-mono tabular-nums">P${app.escapeHtml(meeting.meeting_number)}</td>
-                                                        <td>${app.renderBadge(statusLabel, statusTone)}</td>
-                                                        <td class="font-mono text-caption text-ink-subtle tabular-nums">${app.escapeHtml(scheduleMeta || '-')}</td>
+                                                    <tr class="${app.ui.tr}${normalizedStatus === 'upcoming' ? ' opacity-60' : ''}">
+                                                        <td class="${app.ui.td} font-medium tabular-nums">P${app.escapeHtml(meeting.meeting_number)}</td>
+                                                        <td class="${app.ui.td}">${app.renderBadge(statusLabel, statusTone)}</td>
+                                                        <td class="${app.ui.td} whitespace-nowrap text-xs text-ink-subtle tabular-nums">${app.escapeHtml(scheduleMeta || '-')}</td>
                                                     </tr>
                                                 `;
                                             }).join('')}
@@ -231,22 +268,16 @@
                         </div>
                     `;
                 } else {
-                    document.getElementById('class-attendance').innerHTML = `
-                        <div class="mycic-card">
-                            <div class="mycic-card-body">
-                                ${app.renderEmptyState('Belum ada presensi.', 'secondary')}
-                            </div>
-                        </div>
-                    `;
+                    document.getElementById('class-attendance').innerHTML = renderCardEmpty('Presensi', 'Belum ada presensi.');
                 }
 
                 if ((assignments.assignments || []).length) {
                     document.getElementById('class-assignments').innerHTML = `
-                        <div class="mycic-card">
-                            <div class="mycic-card-header">
-                                <h3 class="mycic-card-title">Tugas terkumpul</h3>
+                        <div class="${app.ui.card}" data-slot="card">
+                            <div class="${app.ui.cardHeader}">
+                                <h3 class="${app.ui.cardTitle}">Tugas terkumpul</h3>
                             </div>
-                            <div class="mycic-card-body">
+                            <div class="${app.ui.cardBody}">
                                 ${(assignments.assignments || []).map((assignment) => {
                                     const fileInfo = assignment.file_info || {};
                                     const submissionUrl = app.absoluteCampusUrl(fileInfo.href);
@@ -255,15 +286,15 @@
                                     const isGraded = scoreText !== '' && !/belum/i.test(scoreText) && !/^0+([.,]0+)?$/.test(scoreText);
 
                                     return `
-                                        <div class="mycic-list-row">
+                                        <div class="${app.ui.listRow}">
                                             <div class="min-w-0 flex-1">
-                                                <div class="mb-1 text-caption text-ink-subtle">${app.escapeHtml(assignment.date || '-')}</div>
+                                                <div class="mb-1 text-xs text-ink-subtle tabular-nums">${app.escapeHtml(assignment.date || '-')}</div>
                                                 <div class="mb-2 text-sm font-medium leading-snug text-ink">${app.escapeHtml(assignment.meeting || `P${assignment.no}`)}</div>
-                                                <div class="flex flex-wrap items-center gap-2">
+                                                <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
                                                     ${isGraded
                                                         ? app.renderBadge(`Nilai ${scoreText}`, 'success')
                                                         : app.renderBadge('Belum dinilai', 'warning')}
-                                                    ${fileInfo.text ? app.renderBadge(fileInfo.text, 'neutral') : ''}
+                                                    ${fileInfo.text ? `<span class="min-w-0 truncate text-xs text-ink-subtle">${app.escapeHtml(fileInfo.text)}</span>` : ''}
                                                 </div>
                                             </div>
                                             <div class="shrink-0">
@@ -278,13 +309,7 @@
                         </div>
                     `;
                 } else {
-                    document.getElementById('class-assignments').innerHTML = `
-                        <div class="mycic-card">
-                            <div class="mycic-card-body">
-                                ${app.renderEmptyState('Belum ada tugas yang kamu kumpulkan.', 'secondary', 'Tugas yang belum dikumpulkan dan tenggatnya ada di halaman pertemuan.')}
-                            </div>
-                        </div>
-                    `;
+                    document.getElementById('class-assignments').innerHTML = renderCardEmpty('Tugas terkumpul', 'Belum ada tugas yang kamu kumpulkan.', 'Tugas yang belum dikumpulkan dan tenggatnya ada di halaman pertemuan.');
                 }
             };
 

@@ -5,64 +5,71 @@
 @section('hide_sync_refresh', '1')
 
 @section('content')
-    <x-page-header title="Notebook" subtitle="Setiap mata kuliah yang kamu ambil punya notebook sendiri. Pertemuan yang kamu buka masuk sendiri ke notebooknya, sisanya bisa ditambahkan kapan saja. Lalu tanya apa saja, buat bahan belajar, atau susun kerangka tugas. Jawabannya hanya dari sumbermu, lengkap dengan rujukan ke halaman materinya." />
+    <x-page-hero title="Notebook" subtitle="Tanya materi kuliahmu dan buat bahan belajar. Jawabannya hanya dari sumbermu.">
+        <x-slot:actions>
+            <x-button size="sm" href="#notebook-create">
+                <x-icon name="plus" size="sm" />
+                Notebook baru
+            </x-button>
+        </x-slot:actions>
+    </x-page-hero>
 
     <div class="flex min-w-0 flex-col gap-6">
         {{-- One banner per reason the AI cannot answer (`ai_status` of /api/notebooks). --}}
-        <div class="mycic-alert-warning mb-0 hidden" data-ai-status-banner="disabled" role="status">
+        <x-alert tone="warning" icon class="hidden" data-ai-status-banner="disabled" role="status">
             Fitur AI Notebook dimatikan di server WeCIC. Kamu tetap bisa memasukkan pertemuan dan sumber teks, DOCX, dan PPTX; tanya jawab aktif lagi setelah AI dinyalakan.
-        </div>
-        <div class="mycic-alert-warning mb-0 hidden" data-ai-status-banner="missing_key" role="status">
+        </x-alert>
+        <x-alert tone="warning" icon class="hidden" data-ai-status-banner="missing_key" role="status">
             Fitur AI belum diaktifkan di server WeCIC (GEMINI_API_KEY kosong). Kamu tetap bisa memasukkan pertemuan dan sumber teks, DOCX, dan PPTX; tanya jawab aktif setelah AI dinyalakan.
-        </div>
-        <div class="mycic-alert-warning mb-0 hidden" data-ai-status-banner="invalid_key" role="status">
+        </x-alert>
+        <x-alert tone="warning" icon class="hidden" data-ai-status-banner="invalid_key" role="status">
             Fitur AI sedang tidak bisa dipakai karena kunci API Gemini di server WeCIC ditolak. Pengelola WeCIC perlu memperbarui GEMINI_API_KEY. Pertemuan dan sumber teks, DOCX, dan PPTX tetap bisa dimasukkan.
-        </div>
-        <div class="mycic-alert-warning mb-0 hidden" data-ai-status-banner="model_misconfigured" role="status">
+        </x-alert>
+        <x-alert tone="warning" icon class="hidden" data-ai-status-banner="model_misconfigured" role="status">
             Fitur AI sedang tidak bisa dipakai karena pengaturan model AI di server WeCIC ditolak (model tidak dikenali, sudah tidak tersedia, atau pengaturannya tidak cocok). Pengelola WeCIC perlu memeriksa pengaturan model AI, misalnya GEMINI_MODEL atau NOTEBOOK_THINKING_BUDGET. Pertemuan dan sumber teks, DOCX, dan PPTX tetap bisa dimasukkan.
-        </div>
+        </x-alert>
 
-        <section aria-labelledby="notebook-courses-title">
-            <div class="mb-2 flex flex-wrap items-end justify-between gap-2">
-                <h2 class="mycic-section-title" id="notebook-courses-title">Mata kuliah semester ini</h2>
-                <span class="text-caption text-ink-subtle">Dibuat otomatis dari daftar kelasmu</span>
-            </div>
-            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3" id="notebook-courses" aria-busy="true">
+        <x-section title="Mata kuliah semester ini" title-id="notebook-courses-title" description="Dibuat otomatis dari daftar kelasmu. Pertemuan yang kamu buka masuk sendiri ke notebooknya.">
+            <x-slot:count id="notebook-courses-count"></x-slot:count>
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3" id="notebook-courses" aria-busy="true">
                 <span class="sr-only">Memuat notebook…</span>
                 @for ($i = 0; $i < 3; $i++)
-                    <div class="mycic-card p-4">
-                        <div class="mycic-skeleton h-5 w-2/3"></div>
-                        <div class="mycic-skeleton mt-2 h-3.5 w-1/2"></div>
-                    </div>
+                    <x-card class="flex min-h-36 flex-col gap-3 p-4 sm:p-5">
+                        <div class="flex min-w-0 flex-col gap-2">
+                            <x-skeleton class="h-4 w-2/3" />
+                            <x-skeleton class="h-3.5 w-1/2" />
+                        </div>
+                        <x-skeleton class="mt-auto h-3.5 w-3/4" />
+                    </x-card>
                 @endfor
             </div>
-        </section>
+        </x-section>
 
-        <section aria-labelledby="notebook-list-title">
-            <h2 class="mycic-section-title mb-2" id="notebook-list-title">Notebook lainnya</h2>
-            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3" id="notebook-list" aria-busy="true"></div>
-        </section>
+        <x-section title="Notebook lainnya" title-id="notebook-list-title">
+            <x-slot:count id="notebook-list-count"></x-slot:count>
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3" id="notebook-list" aria-busy="true"></div>
+        </x-section>
 
-        <section class="mycic-card" aria-labelledby="notebook-create-title">
-            <div class="mycic-card-header">
-                <h2 class="mycic-card-title" id="notebook-create-title">Notebook baru</h2>
-                <p class="mycic-card-subtitle">Untuk topik lintas mata kuliah, persiapan ujian, atau kumpulan materi pilihanmu sendiri.</p>
-            </div>
-            <div class="mycic-card-body">
-                <form class="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end" id="notebook-create-form">
-                    <label class="mycic-field">
-                        <span class="mycic-label">Judul</span>
-                        <input class="mycic-input" id="notebook-title" name="title" maxlength="120" required placeholder="Persiapan UTS Basis Data">
+        <section class="scroll-mt-20 rounded-xl border border-border bg-panel" id="notebook-create" aria-labelledby="notebook-create-title">
+            <x-card.body class="flex flex-col gap-5 lg:flex-row lg:items-end lg:gap-8">
+                <div class="min-w-0 lg:w-72 lg:shrink-0 lg:self-center">
+                    <h2 class="text-sm font-semibold tracking-tight text-ink" id="notebook-create-title">Notebook baru</h2>
+                    <p class="mt-0.5 text-[13px] text-ink-muted">Untuk topik lintas mata kuliah, persiapan ujian, atau kumpulan materi pilihanmu sendiri.</p>
+                </div>
+                <form class="grid min-w-0 flex-1 gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end sm:gap-3" id="notebook-create-form">
+                    <label class="flex min-w-0 flex-col gap-1.5">
+                        <span class="text-sm font-medium text-ink">Judul</span>
+                        <x-input id="notebook-title" name="title" maxlength="120" required placeholder="Persiapan UTS Basis Data" />
                     </label>
-                    <label class="mycic-field">
-                        <span class="mycic-label">Isi otomatis dengan materi (opsional)</span>
-                        <select class="mycic-input" id="notebook-course" name="course_key">
+                    <label class="flex min-w-0 flex-col gap-1.5">
+                        <span class="text-sm font-medium text-ink">Isi otomatis dengan materi (opsional)</span>
+                        <x-select id="notebook-course" name="course_key">
                             <option value="">Tanpa materi, tambah sendiri nanti</option>
-                        </select>
+                        </x-select>
                     </label>
-                    <button type="submit" class="mycic-btn-primary">Buat notebook</button>
+                    <x-button type="submit">Buat notebook</x-button>
                 </form>
-            </div>
+            </x-card.body>
         </section>
     </div>
 @endsection
@@ -92,18 +99,35 @@
                     `${notebook.messages_count} pesan`,
                     app.formatTimeAgo(notebook.updated_at),
                 ].filter(Boolean).join(' · ');
-                const badges = notebook.kind === 'course'
-                    ? [notebook.course_code ? app.renderBadge(notebook.course_code, 'brand') : '', notebook.meetings_count === 0 ? app.renderBadge('Belum ada pertemuan', 'neutral') : ''].filter(Boolean).join(' ')
-                    : (notebook.course_name ? app.renderBadge(notebook.course_name, 'brand') : '');
+                // Course code and lecturer, or the linked course of a custom notebook, as one muted line.
+                const subtitle = notebook.kind === 'course'
+                    ? [notebook.course_code, notebook.lecturer_name].filter(Boolean).join(' · ')
+                    : (notebook.course_name || '');
 
                 return `
-                    <a href="/notebook/${notebook.id}" class="mycic-card-interactive flex min-h-28 min-w-0 flex-col gap-2">
-                        <span class="line-clamp-2 text-[0.9375rem] font-medium leading-snug text-ink">${app.escapeHtml(notebook.title)}</span>
-                        ${badges ? `<span class="flex flex-wrap gap-1">${badges}</span>` : ''}
-                        ${notebook.kind === 'course' && notebook.lecturer_name ? `<span class="text-caption text-ink-muted">${app.escapeHtml(notebook.lecturer_name)}</span>` : ''}
-                        <span class="mt-auto text-caption text-ink-subtle">${app.escapeHtml(stats)}</span>
+                    <a href="/notebook/${notebook.id}" class="${app.ui.cardInteractive} group min-w-0" data-slot="card">
+                        <span class="flex h-full min-w-0 flex-col">
+                            <span class="flex min-h-28 min-w-0 flex-1 flex-col gap-3 p-4 sm:p-5">
+                                <span class="flex min-w-0 flex-col gap-0.5">
+                                    <span class="line-clamp-2 text-sm font-medium leading-snug text-ink">${app.escapeHtml(notebook.title)}</span>
+                                    ${subtitle ? `<span class="truncate text-xs text-ink-muted">${app.escapeHtml(subtitle)}</span>` : ''}
+                                </span>
+                                ${notebook.kind === 'course' && notebook.meetings_count === 0 ? `<span class="flex">${app.renderBadge('Belum ada pertemuan', 'neutral')}</span>` : ''}
+                            </span>
+                            <span class="flex min-w-0 items-center justify-between gap-3 border-t border-border-light px-4 py-2.5 sm:px-5">
+                                <span class="truncate text-xs text-ink-subtle tabular-nums">${app.escapeHtml(stats)}</span>
+                                ${app.renderIcon('arrow-right', 'sm', 'text-ink-subtle transition-transform group-hover:translate-x-0.5')}
+                            </span>
+                        </span>
                     </a>
                 `;
+            };
+
+            const renderCounts = (notebooks) => {
+                const courses = notebooks.filter((notebook) => notebook.kind === 'course');
+
+                document.getElementById('notebook-courses-count').textContent = courses.length ? String(courses.length) : '';
+                document.getElementById('notebook-list-count').textContent = notebooks.length - courses.length ? String(notebooks.length - courses.length) : '';
             };
 
             const renderCourses = (notebooks, enabled) => {
@@ -113,10 +137,10 @@
                     .sort((a, b) => String(a.course_name || a.title).localeCompare(String(b.course_name || b.title), 'id'));
 
                 if (!courses.length) {
-                    coursesHost.innerHTML = `<div class="sm:col-span-2 lg:col-span-3">${enabled === false
-                        ? app.renderEmptyState('Notebook mata kuliah dimatikan di server.', 'secondary')
-                        : app.renderEmptyState('Daftar kelasmu belum tersimpan.', 'secondary', 'Buka halaman Kuliah sekali, lalu notebook setiap mata kuliah muncul di sini.')}
-                        ${enabled === false ? '' : `<a href="/class" class="mycic-btn-primary mt-3">Buka halaman Kuliah</a>`}
+                    coursesHost.innerHTML = `<div class="flex flex-col gap-3 sm:col-span-2 xl:col-span-3">${enabled === false
+                        ? app.renderEmptyState('Notebook mata kuliah dimatikan di server.', 'secondary', '', { icon: 'notebook' })
+                        : app.renderEmptyState('Daftar kelasmu belum tersimpan.', 'secondary', 'Buka halaman Kuliah sekali, lalu notebook setiap mata kuliah muncul di sini.', { icon: 'class' })}
+                        ${enabled === false ? '' : `<div class="flex justify-center"><a href="/class" class="${app.ui.button.primary}">Buka halaman Kuliah</a></div>`}
                     </div>`;
 
                     return;
@@ -130,7 +154,7 @@
                 const custom = notebooks.filter((notebook) => notebook.kind !== 'course');
 
                 if (!custom.length) {
-                    listHost.innerHTML = `<p class="text-sm text-ink-subtle sm:col-span-2 lg:col-span-3">Belum ada notebook buatan sendiri. Buat satu di bawah bila perlu.</p>`;
+                    listHost.innerHTML = `<p class="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border px-4 py-6 text-center text-sm text-ink-subtle sm:col-span-2 xl:col-span-3"><span class="${app.ui.emptyIcon}" aria-hidden="true">${app.renderIcon('notebook', 'lg')}</span>Belum ada notebook buatan sendiri. Buat satu di bawah bila perlu.</p>`;
 
                     return;
                 }
@@ -164,6 +188,7 @@
                     const notebooks = Array.isArray(payload?.data?.notebooks) ? payload.data.notebooks : [];
                     renderCourses(notebooks, payload?.data?.course_notebooks);
                     renderList(notebooks);
+                    renderCounts(notebooks);
                     app.setSyncStatus('Notebook tersimpan di WeCIC, tidak bergantung pada portal.', 'info');
                 } catch (error) {
                     coursesHost.removeAttribute('aria-busy');

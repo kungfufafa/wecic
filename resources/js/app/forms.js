@@ -1,3 +1,5 @@
+import { ui } from './ui.js';
+
 /**
  * Form helpers: submitting a form the way a click would, a button that
  * shows it is busy, and running a submit handler once at a time.
@@ -35,7 +37,7 @@ export class FormFeature {
         if (originalWidth > 0) {
             button.style.minWidth = `${originalWidth}px`;
         }
-        button.innerHTML = '<span class="mycic-spinner" role="status" aria-hidden="true"></span>Memproses...';
+        button.innerHTML = `<span class="${ui.spinner}" role="status" aria-hidden="true"></span>Memproses...`;
         
         try {
             await callback();

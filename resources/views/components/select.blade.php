@@ -1,0 +1,2 @@
+{{-- A native select (app.ui.select); the options go in the slot. --}}
+<select {{ $attributes->class('h-11 w-full min-w-0 cursor-pointer rounded-lg border border-border bg-panel px-3 text-base text-ink shadow-xs transition-[color,box-shadow,border-color] focus-visible:border-brand focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand/20 disabled:cursor-not-allowed disabled:bg-surface disabled:opacity-60 aria-invalid:border-danger aria-invalid:ring-danger/20 sm:h-9 sm:text-sm dark:shadow-none') }}>{{ $slot }}</select>

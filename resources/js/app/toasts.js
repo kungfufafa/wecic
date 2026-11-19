@@ -1,3 +1,5 @@
+import { ui } from './ui.js';
+
 /**
  * Toasts (`app.showNotice()`), the notice kept across a navigation, and
  * the live regions that read them out.
@@ -86,13 +88,13 @@ export class ToastFeature {
 
         const notice = document.createElement('div');
 
-        notice.className = `mycic-toast mycic-toast-${tone}`;
+        notice.className = ui.toast;
         notice.dataset.message = text;
         notice.dataset.tone = tone;
         notice.innerHTML = `
-            <span class="mycic-toast-icon mycic-toast-icon-${tone}">${this.toastIcon(tone)}</span>
-            <span class="mycic-toast-message">${this.escapeHtml(text)}</span>
-            <button type="button" class="mycic-toast-close" aria-label="Tutup notifikasi">
+            <span class="${ui.toastIcon[tone] || ui.toastIcon.info}">${this.toastIcon(tone)}</span>
+            <span class="${ui.toastMessage}">${this.escapeHtml(text)}</span>
+            <button type="button" class="${ui.toastClose}" aria-label="Tutup notifikasi">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
                     <path d="M18 6l-12 12" />

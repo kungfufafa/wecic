@@ -4,110 +4,65 @@
 @section('page_id', 'profile')
 
 @section('content')
-    <div class="flex flex-col gap-5">
-        {{-- Profile Hero Banner --}}
-        <section class="mycic-hero" aria-label="Profil Mahasiswa">
-            <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div class="flex items-center gap-4">
-                    <div id="profile-avatar" class="flex h-16 w-16 sm:h-20 sm:w-20 shrink-0 items-center justify-center overflow-hidden rounded-[var(--radius-card)] border border-border bg-surface-tint text-2xl font-medium text-brand-text" aria-hidden="true">
-                        M
-                    </div>
-                    <div class="min-w-0">
-                        <div class="flex flex-wrap items-center gap-2">
-                            <h1 id="profile-name" class="break-words text-xl font-semibold leading-tight tracking-[-0.02em] text-ink sm:text-2xl">Memuat...</h1>
-                            <span id="profile-status" class="mycic-badge-success hidden"></span>
-                        </div>
-                        <div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-muted">
-                            <span class="inline-flex items-center gap-1 font-mono tabular-nums">
-                                <span id="profile-nim-display">-</span>
-                                <button type="button" id="copy-nim-btn" class="mycic-btn-icon" title="Salin NIM" aria-label="Salin NIM">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M8 8m0 2a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2z" /><path d="M16 8v-2a2 2 0 0 0 -2 -2h-8a2 2 0 0 0 -2 2v8a2 2 0 0 0 2 2h2" /></svg>
-                                </button>
-                            </span>
-                            <span class="text-ink-subtle">·</span>
-                            <span id="profile-meta" class="break-words text-ink-muted"></span>
-                        </div>
-                    </div>
-                </div>
-
-                {{-- Quick Actions --}}
+    {{-- The page header: the photo, the name (the h1) with its status, the NIM and prodi; the account actions on the right. --}}
+    <header class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between" aria-label="Profil Mahasiswa" data-slot="page-hero">
+        <div class="flex min-w-0 items-center gap-4">
+            <x-avatar size="lg" id="profile-avatar" aria-hidden="true">M</x-avatar>
+            <div class="min-w-0">
                 <div class="flex flex-wrap items-center gap-2">
-                    <x-button :href="route('password.edit')" variant="secondary" size="sm">Password</x-button>
-                    <x-button :href="config('portal.base_url')" target="_blank" rel="noopener noreferrer" variant="secondary" size="sm">Portal</x-button>
+                    <h1 id="profile-name" class="break-words text-2xl font-semibold tracking-tight text-ink">Memuat...</h1>
+                    {{-- The badge is inline-flex, which beats `hidden`: the script shows and hides this wrapper. --}}
+                    <span class="hidden" data-profile-status-wrap>
+                        <x-badge tone="success" id="profile-status"></x-badge>
+                    </span>
+                </div>
+                <div class="mt-1 flex flex-wrap items-center gap-x-1.5 text-sm text-ink-muted">
+                    <span class="inline-flex items-center gap-1">
+                        <span id="profile-nim-display" class="font-mono">-</span>
+                        <x-button variant="icon" id="copy-nim-btn" title="Salin NIM" aria-label="Salin NIM">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="size-4" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M8 8m0 2a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2z" /><path d="M16 8v-2a2 2 0 0 0 -2 -2h-8a2 2 0 0 0 -2 2v8a2 2 0 0 0 2 2h2" /></svg>
+                        </x-button>
+                    </span>
+                    <span id="profile-meta" class="break-words before:me-1.5 before:content-['·'] empty:hidden"></span>
                 </div>
             </div>
-        </section>
-
-        <div class="mycic-stat-strip grid-cols-2 sm:grid-cols-4">
-            <x-metric label="NIM">
-                <x-slot:value class="text-base sm:text-lg font-mono" id="quick-nim">
-                    <div class="mycic-skeleton h-6 w-24"></div>
-                </x-slot:value>
-            </x-metric>
-            <x-metric label="Prodi">
-                <x-slot:value class="font-sans text-base sm:text-lg line-clamp-2 leading-tight" id="quick-prodi">
-                    <div class="mycic-skeleton h-6 w-28"></div>
-                </x-slot:value>
-            </x-metric>
-            <x-metric label="Angkatan">
-                <x-slot:value class="font-mono text-base sm:text-lg" id="quick-angkatan">
-                    <div class="mycic-skeleton h-6 w-16"></div>
-                </x-slot:value>
-            </x-metric>
-            <x-metric label="Status">
-                <x-slot:value class="font-sans text-base sm:text-lg" id="quick-status">
-                    <div class="mycic-skeleton h-6 w-20"></div>
-                </x-slot:value>
-            </x-metric>
         </div>
-
-        <div class="grid grid-cols-1 gap-5 lg:grid-cols-2">
-            <div class="flex flex-col gap-5">
-                <x-card title="Data pribadi">
-                    <x-card.body id="profile-personal">
-                        <div class="flex flex-col gap-3">
-                            <div class="mycic-skeleton h-4 w-3/4"></div>
-                            <div class="mycic-skeleton h-4 w-1/2"></div>
-                            <div class="mycic-skeleton h-4 w-2/3"></div>
-                        </div>
-                    </x-card.body>
-                </x-card>
-
-                <x-card title="Pendidikan">
-                    <x-card.body id="profile-education">
-                        <div class="flex flex-col gap-3">
-                            <div class="mycic-skeleton h-4 w-3/4"></div>
-                            <div class="mycic-skeleton h-4 w-1/2"></div>
-                        </div>
-                    </x-card.body>
-                </x-card>
-            </div>
-
-            <div class="flex flex-col gap-5">
-                <x-card title="Kontak">
-                    <x-card.body id="profile-contact">
-                        <div class="flex flex-col gap-3">
-                            <div class="mycic-skeleton h-4 w-3/4"></div>
-                            <div class="mycic-skeleton h-4 w-1/2"></div>
-                            <div class="mycic-skeleton h-4 w-2/3"></div>
-                        </div>
-                    </x-card.body>
-                </x-card>
-
-                <x-card title="Keamanan">
-                    <x-card.body class="flex flex-col divide-y divide-border-light">
-                        <x-list-row class="gap-4">
-                            <div class="text-sm font-medium text-ink">Password</div>
-                            <x-button :href="route('password.edit')" variant="secondary" size="sm" class="shrink-0">Ubah</x-button>
-                        </x-list-row>
-                        <x-list-row class="gap-4">
-                            <div class="text-sm font-medium text-ink">Portal kampus</div>
-                            <x-button :href="config('portal.base_url')" target="_blank" rel="noopener noreferrer" variant="secondary" size="sm" class="shrink-0">Buka</x-button>
-                        </x-list-row>
-                    </x-card.body>
-                </x-card>
-            </div>
+        <div class="flex shrink-0 flex-wrap gap-2">
+            <x-button :href="route('password.edit')" variant="secondary" size="sm"><x-icon name="lock" size="sm" />Ubah password</x-button>
+            <x-button :href="config('portal.base_url')" target="_blank" rel="noopener noreferrer" variant="secondary" size="sm"><x-icon name="external-link" size="sm" />Portal kampus</x-button>
         </div>
+    </header>
+
+    {{-- The details the header does not show, in two columns from lg. --}}
+    <div class="grid items-start gap-6 lg:grid-cols-2">
+        <x-card as="section" title="Data pribadi" title-id="profile-personal-title" aria-labelledby="profile-personal-title">
+            <x-card.body id="profile-personal">
+                <div class="grid gap-x-6 gap-y-4 sm:grid-cols-2">
+                    <x-skeleton class="h-9 w-3/4" />
+                    <x-skeleton class="h-9 w-1/2" />
+                    <x-skeleton class="h-9 w-2/3" />
+                </div>
+            </x-card.body>
+        </x-card>
+
+        <x-card as="section" title="Kontak" title-id="profile-contact-title" aria-labelledby="profile-contact-title">
+            <x-card.body id="profile-contact">
+                <div class="grid gap-x-6 gap-y-4 sm:grid-cols-2">
+                    <x-skeleton class="h-9 w-3/4" />
+                    <x-skeleton class="h-9 w-1/2" />
+                    <x-skeleton class="h-9 w-2/3" />
+                </div>
+            </x-card.body>
+        </x-card>
+
+        <x-card as="section" title="Pendidikan" title-id="profile-education-title" aria-labelledby="profile-education-title">
+            <x-card.body id="profile-education">
+                <div class="grid gap-x-6 gap-y-4 sm:grid-cols-2">
+                    <x-skeleton class="h-9 w-3/4" />
+                    <x-skeleton class="h-9 w-1/2" />
+                </div>
+            </x-card.body>
+        </x-card>
     </div>
 @endsection
 
@@ -141,6 +96,23 @@
 
             let profileRendered = false;
 
+            // Labelled details in two columns; empty fields are left out, as app.renderKeyValueList does.
+            const renderDetails = (entries = []) => {
+                const rows = entries
+                    .filter((entry) => entry.value !== undefined && entry.value !== null && entry.value !== '')
+                    .map((entry) => `
+                        <div class="min-w-0">
+                            <dt class="text-xs text-ink-subtle">${app.escapeHtml(entry.label)}</dt>
+                            <dd class="mt-1 break-words text-sm font-medium text-ink">${app.escapeHtml(entry.value)}</dd>
+                        </div>
+                    `)
+                    .join('');
+
+                return rows
+                    ? `<dl class="grid gap-x-6 gap-y-4 sm:grid-cols-2">${rows}</dl>`
+                    : app.renderEmptyState('Tidak ada data.', 'secondary');
+            };
+
             const renderProfile = (payload) => {
                 profileRendered = true;
                 const profile = payload.profile || {};
@@ -158,30 +130,14 @@
                     nimDisplay.textContent = currentNim || '-';
                 }
 
-                // Quick metrics
-                const quickNim = document.getElementById('quick-nim');
-                const quickProdi = document.getElementById('quick-prodi');
-                const quickAngkatan = document.getElementById('quick-angkatan');
-                const quickStatus = document.getElementById('quick-status');
-
-                if (quickNim) quickNim.textContent = personal.nim || '-';
-                if (quickProdi) quickProdi.textContent = personal.program_studi || '-';
-                if (quickAngkatan) quickAngkatan.textContent = personal.angkatan || '-';
-                if (quickStatus) quickStatus.textContent = personal.status || '-';
-
-                // Data Pribadi
-                document.getElementById('profile-personal').innerHTML = app.renderKeyValueList([
-                    { label: 'Nama', value: personal.nama },
-                    { label: 'NIM', value: personal.nim },
-                    { label: 'Prodi', value: personal.program_studi },
-                    { label: 'Angkatan', value: personal.angkatan },
-                    { label: 'Status', value: personal.status },
+                // Data pribadi: the name, NIM, prodi, angkatan and status are in the header already.
+                document.getElementById('profile-personal').innerHTML = renderDetails([
                     { label: 'Tempat lahir', value: personal.tempat_lahir },
                     { label: 'Tgl lahir', value: personal.tanggal_lahir },
                     { label: 'Kelamin', value: personal.jenis_kelamin },
                 ]);
 
-                document.getElementById('profile-contact').innerHTML = app.renderKeyValueList([
+                document.getElementById('profile-contact').innerHTML = renderDetails([
                     { label: 'Email', value: contact.email },
                     { label: 'HP', value: contact.hp },
                     { label: 'Telepon', value: contact.telp },
@@ -191,7 +147,7 @@
                     { label: 'Kode pos', value: contact.kodepos },
                 ]);
 
-                document.getElementById('profile-education').innerHTML = app.renderKeyValueList([
+                document.getElementById('profile-education').innerHTML = renderDetails([
                     { label: 'NISN', value: education.nisn },
                     { label: 'Tingkat', value: education.tingkat_pendidikan },
                     { label: 'Asal sekolah', value: education.asal_sekolah },
@@ -205,7 +161,7 @@
 
                 if (avatarHost) {
                     if (photoUrl) {
-                        avatarHost.innerHTML = `<img src="${app.escapeHtml(photoUrl)}" alt="Foto profil mahasiswa" class="h-full w-full object-cover">`;
+                        avatarHost.innerHTML = `<img src="${app.escapeHtml(photoUrl)}" alt="Foto profil mahasiswa" class="size-full object-cover">`;
                     } else {
                         avatarHost.textContent = (fullName || 'M').charAt(0).toUpperCase();
                     }
@@ -220,11 +176,13 @@
                 }
 
                 if (statusHost) {
+                    const statusWrap = statusHost.closest('[data-profile-status-wrap]') || statusHost;
+
                     if (personal.status) {
                         statusHost.textContent = personal.status;
-                        statusHost.classList.remove('hidden');
+                        statusWrap.classList.remove('hidden');
                     } else {
-                        statusHost.classList.add('hidden');
+                        statusWrap.classList.add('hidden');
                     }
                 }
             };
@@ -252,9 +210,6 @@
 
                     // Nothing on screen yet: replace the skeletons instead of leaving them spinning.
                     document.getElementById('profile-name').textContent = 'Profil gagal dimuat';
-                    ['quick-nim', 'quick-prodi', 'quick-angkatan', 'quick-status'].forEach((id) => {
-                        document.getElementById(id).textContent = '-';
-                    });
                     ['profile-contact', 'profile-education'].forEach((id) => {
                         document.getElementById(id).innerHTML = app.renderEmptyState('Data belum termuat.', 'secondary');
                     });

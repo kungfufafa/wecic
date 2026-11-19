@@ -31,18 +31,18 @@
                     return '';
                 }
 
-                const tones = ['brand', 'info', 'success', 'accent', 'warning'];
+                const currentSemester = currentSemesterNumber();
                 const segments = Array.from(bySemester.entries())
                     .sort(([left], [right]) => (right ?? -1) - (left ?? -1))
-                    .map(([semester, sks], index) => ({
+                    .map(([semester, sks]) => ({
                         label: semester === null ? 'Smt ?' : `MK smt ${semester}`,
                         value: sks,
-                        tone: tones[index % tones.length],
+                        tone: semester !== null && semester === currentSemester ? 'brand' : 'neutral',
                     }));
 
                 return `
-                    <div class="border-t border-border-light px-4 py-3 md:px-5">
-                        <div class="mb-2 text-caption font-medium text-ink-subtle">SKS per semester kurikulum</div>
+                    <div class="border-t border-border-light px-4 py-4 sm:px-5">
+                        <div class="mb-2 text-xs font-medium text-ink-subtle">SKS per semester kurikulum</div>
                         ${app.renderStackedBar(segments, { label: 'Komposisi SKS per semester kurikulum', valueFormat: (value) => `${value} SKS`, size: 'sm' })}
                     </div>
                 `;
@@ -60,13 +60,14 @@
 
                 if (krs.found === false || !courses.length) {
                     hosts.courses.innerHTML = `
-                        <section class="mycic-card" aria-labelledby="krs-courses-title">
-                            <div class="mycic-card-header"><h2 class="mycic-card-title" id="krs-courses-title">Mata kuliah semester ini</h2></div>
-                            <div class="mycic-card-body">
+                        <section class="${app.ui.card}" data-slot="card" aria-labelledby="krs-courses-title">
+                            <div class="${app.ui.cardHeader}"><h2 class="${app.ui.cardTitle}" id="krs-courses-title">Mata kuliah semester ini</h2></div>
+                            <div class="${app.ui.cardBody}">
                                 ${app.renderEmptyState(
                                     krs.found === false ? 'Daftar mata kuliah belum terbaca.' : 'Belum ada mata kuliah di KRS semester ini.',
                                     'secondary',
-                                    'Isi KRS lewat portal kampus selama periode dibuka. Panduannya ada di menu Lainnya › Panduan.'
+                                    'Isi KRS lewat portal kampus selama periode dibuka. Panduannya ada di menu Lainnya › Panduan.',
+                                    { icon: 'list-check' }
                                 )}
                                 <div class="mt-3 flex justify-center"><a href="${esc(guideUrl)}" class="${app.buttonClass('secondary', { small: true })}">Buka panduan</a></div>
                             </div>
@@ -88,47 +89,44 @@
                 const printable = krs.print_available === true;
 
                 hosts.courses.innerHTML = `
-                    <section class="mycic-card" aria-labelledby="krs-courses-title">
-                        <div class="mycic-card-header flex flex-wrap items-center justify-between gap-2">
+                    <section class="${app.ui.card}" data-slot="card" aria-labelledby="krs-courses-title">
+                        <div class="${app.ui.cardHeader} flex-wrap">
                             <div class="min-w-0">
-                                <h2 class="mycic-card-title" id="krs-courses-title">Mata kuliah semester ini</h2>
-                                ${retakes ? `<p class="mycic-card-subtitle">${esc(retakes)} MK diulang</p>` : ''}
+                                <h2 class="${app.ui.cardTitle}" id="krs-courses-title">Mata kuliah semester ini</h2>
+                                ${retakes ? `<p class="${app.ui.cardSubtitle}">${esc(retakes)} MK diulang</p>` : ''}
                             </div>
-                            <span class="mycic-badge-brand tabular-nums">${esc(courseCount)} MK · ${esc(sksTotal)} SKS</span>
                         </div>
-                        <ul class="flex flex-col px-4 md:px-5" aria-label="Daftar mata kuliah KRS">
+                        <ul class="${app.ui.list}" aria-label="Daftar mata kuliah KRS">
                             ${courses.map((course) => {
                                 const detail = details.get(String(course.code || '').toUpperCase());
-                                const chips = [];
+                                const facts = [];
 
-                                if (detail?.is_retake) {
-                                    chips.push('<span class="mycic-badge-warning">Ulang</span>');
-                                } else if (detail?.status) {
-                                    chips.push(`<span class="mycic-badge-neutral">${esc(detail.status)}</span>`);
+                                if (!detail?.is_retake && detail?.status) {
+                                    facts.push(`<span>${esc(detail.status)}</span>`);
                                 }
 
                                 if (Number.isInteger(course.semester) && course.semester !== currentSemester) {
-                                    chips.push(`<span class="mycic-badge-neutral">MK smt ${esc(course.semester)}</span>`);
+                                    facts.push(`<span>MK smt ${esc(course.semester)}</span>`);
                                 }
 
                                 return `
-                                    <li class="mycic-list-row items-center">
-                                        <div class="min-w-0 flex-1">
-                                            <div class="font-mono text-caption text-ink-subtle">${esc(course.code || '–')}</div>
+                                    <li class="${app.ui.listRowFlush}">
+                                        <div class="${app.ui.listRowBody}">
+                                            <div class="font-mono text-xs text-ink-subtle">${esc(course.code || '–')}</div>
                                             <div class="text-sm font-medium leading-snug text-ink">${esc(course.name || 'Mata kuliah')}</div>
-                                            ${chips.length ? `<div class="mt-1 flex flex-wrap gap-1.5">${chips.join('')}</div>` : ''}
+                                            ${detail?.is_retake || facts.length ? `<div class="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-ink-subtle">${detail?.is_retake ? app.renderBadge('Ulang', 'warning') : ''}${facts.join('<span aria-hidden="true">·</span>')}</div>` : ''}
                                         </div>
-                                        <span class="shrink-0 text-sm font-medium tabular-nums text-ink">${course.sks === null || course.sks === undefined ? '–' : esc(course.sks)} <span class="text-caption font-normal text-ink-subtle">SKS</span></span>
+                                        <span class="shrink-0 text-end text-sm tabular-nums text-ink">${course.sks === null || course.sks === undefined ? '–' : esc(course.sks)} <span class="text-xs text-ink-muted">SKS</span></span>
                                     </li>
                                 `;
                             }).join('')}
                         </ul>
                         ${renderComposition(courses)}
-                        <div class="mycic-sticky-action md:border-t md:border-border-light md:px-5 md:py-3">
+                        <div class="${app.ui.stickyAction} lg:border-t! lg:border-border-light lg:px-5! lg:py-3!" data-sticky-action>
                             <div class="flex items-center justify-between gap-3">
-                                <div class="min-w-0 ps-2 md:ps-0">
-                                    <div class="font-mono text-sm font-medium tabular-nums text-ink">${esc(courseCount)} MK · ${esc(sksTotal)} SKS</div>
-                                    ${totalsNote ? `<div class="text-caption text-ink-subtle">${esc(totalsNote)}</div>` : '<div class="text-caption text-ink-subtle">Total KRS semester ini</div>'}
+                                <div class="min-w-0 ps-2 lg:ps-0">
+                                    <div class="text-sm font-semibold tabular-nums text-ink">${esc(courseCount)} MK · ${esc(sksTotal)} SKS</div>
+                                    ${totalsNote ? `<div class="text-xs text-ink-subtle">${esc(totalsNote)}</div>` : '<div class="text-xs text-ink-subtle">Total KRS semester ini</div>'}
                                 </div>
                                 ${printable ? `<button type="button" class="${app.buttonClass('secondary', { small: true })} shrink-0 print:hidden" data-krs-print>${icons.print}Cetak KRS</button>` : ''}
                             </div>
@@ -158,8 +156,8 @@
                     <div class="border-b border-border pb-3">
                         <div class="text-lg font-semibold text-ink">Kartu Rencana Studi (KRS) · ${esc(termLabel(krs.academic_period))}</div>
                         <div class="mt-1 text-sm text-ink-muted">${esc([me.name, me.nim, me.program].filter(Boolean).join(' · '))}</div>
-                        <div class="mt-2 inline-block rounded border border-ink px-2 py-0.5 font-mono text-xs font-medium tracking-wide text-ink">${esc(watermark)}</div>
-                        <p class="mt-2 text-caption text-ink-subtle">Dibuat WeCIC dari data portal per ${esc(stamp)} · bukan dokumen resmi. Versi resmi ada di menu Reg & KRS Online portal kampus.</p>
+                        <div class="mt-2 inline-block rounded-md border border-ink px-2 py-0.5 font-mono text-xs font-medium tracking-wide text-ink">${esc(watermark)}</div>
+                        <p class="mt-2 text-xs text-ink-subtle">Dibuat WeCIC dari data portal per ${esc(stamp)} · bukan dokumen resmi. Versi resmi ada di menu Reg & KRS Online portal kampus.</p>
                     </div>
                 `;
             };

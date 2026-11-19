@@ -10,12 +10,9 @@
                     const active = button.dataset.notebookTab === tab;
 
                     button.setAttribute('aria-selected', active ? 'true' : 'false');
-                    button.className = active
-                        ? 'mycic-segmented-item mycic-segmented-item-active'
-                        : 'mycic-segmented-item';
                 });
                 document.querySelectorAll('[data-notebook-panel]').forEach((panel) => {
-                    panel.classList.toggle('max-lg:hidden', panel.dataset.notebookPanel !== tab);
+                    panel.classList.toggle('max-xl:hidden', panel.dataset.notebookPanel !== tab);
                 });
             };
 

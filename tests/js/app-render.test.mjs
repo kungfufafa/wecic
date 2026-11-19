@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { createPortalApp } from './support/browser.mjs';
+import { ui } from '../../resources/js/app/ui.js';
 
 /**
  * The shared HTML the pages render with (resources/js/app/render.js): tone
@@ -19,39 +20,57 @@ afterEach(() => browser?.dispose());
 const squash = (html) => html.replace(/\s+/g, ' ').trim();
 
 describe('tone classes', () => {
+    it('reads every class from app.ui', () => {
+        assert.equal(app.ui, ui);
+        assert.ok(Object.isFrozen(ui));
+    });
+
     it('maps every tone a page uses, and an unknown one to neutral', () => {
-        assert.equal(app.alertTone('error'), 'mycic-alert-danger');
-        assert.equal(app.alertTone('primary'), 'mycic-alert-brand');
-        assert.equal(app.alertTone('anything'), 'mycic-alert-neutral');
-        assert.equal(app.badgeTone('primary'), 'mycic-badge-brand');
-        assert.equal(app.badgeTone('dark'), 'mycic-badge-neutral');
-        assert.equal(app.badgeTone('anything'), 'mycic-badge-neutral');
-        assert.equal(app.statusPanelClass('primary'), 'mycic-status-panel-brand');
-        assert.equal(app.statusPanelClass('danger'), 'mycic-status-panel-neutral');
+        assert.equal(app.alertTone('error'), ui.alert.danger);
+        assert.equal(app.alertTone('primary'), ui.alert.brand);
+        assert.equal(app.alertTone('anything'), ui.alert.neutral);
+        assert.equal(app.badgeTone('primary'), ui.badge.brand);
+        assert.equal(app.badgeTone('accent'), ui.badge.accent);
+        assert.equal(app.badgeTone('dark'), ui.badge.neutral);
+        assert.equal(app.badgeTone('anything'), ui.badge.neutral);
+        assert.equal(app.statusPanelClass('primary'), ui.panel.brand);
+        assert.equal(app.statusPanelClass('danger'), ui.panel.danger);
+        assert.equal(app.statusPanelClass('anything'), ui.panel.neutral);
         assert.equal(app.textToneClass('error'), 'text-danger');
         assert.equal(app.textToneClass('anything'), 'text-ink-muted');
         assert.equal(app.fillToneClass('anything'), 'bg-brand');
     });
 
     it('keeps the 44 px touch target of small buttons on phones', () => {
-        assert.equal(app.buttonClass('secondary', { small: true }), 'mycic-btn-secondary-sm min-h-11 sm:min-h-9');
-        assert.equal(app.buttonClass('primary'), 'mycic-btn-primary');
-        assert.equal(app.buttonClass('destructive'), 'mycic-btn-destructive');
-        assert.equal(app.buttonClass('destructive', { small: true }), 'mycic-btn-destructive-sm min-h-11 sm:min-h-9');
-        assert.equal(app.buttonClass('icon'), 'mycic-btn-icon');
-        assert.equal(app.buttonClass('icon', { small: true }), 'mycic-btn-icon-sm');
-        assert.equal(app.buttonClass('unknown'), 'mycic-btn-primary');
+        assert.equal(app.buttonClass('secondary', { small: true }), ui.button.secondarySm);
+        assert.match(ui.button.secondarySm, /(^| )min-h-11 .* sm:min-h-8( |$)/);
+        assert.equal(app.buttonClass('primary'), ui.button.primary);
+        assert.equal(app.buttonClass('destructive'), ui.button.destructive);
+        assert.equal(app.buttonClass('destructive', { small: true }), ui.button.destructiveSm);
+        assert.equal(app.buttonClass('icon'), ui.button.icon);
+        assert.equal(app.buttonClass('icon', { small: true }), ui.button.iconSm);
+        assert.equal(app.buttonClass('unknown'), ui.button.primary);
+    });
+
+    it('never puts a display class that beats `hidden` on what scripts hide', () => {
+        // Sorted after `hidden`, these would keep a hidden element on screen.
+        const beatsHidden = /(^| )(inline-flex|inline-block|inline|table|contents)( |$)/;
+
+        [
+            ui.spinner, ui.modal, ui.sheet, ui.navBadge, ui.navBadgeBottom, ui.navBadgeInline,
+            ui.dropdownPanel, ui.dropdownPanelUp, ...Object.values(ui.alert), ...Object.values(ui.syncStrip),
+        ].forEach((classes) => assert.doesNotMatch(classes, beatsHidden, classes));
     });
 });
 
 describe('renderBadge', () => {
     it('escapes its label', () => {
-        assert.equal(app.renderBadge('<b>Lulus</b>', 'success'), '<span class="mycic-badge-success">&lt;b&gt;Lulus&lt;/b&gt;</span>');
+        assert.equal(app.renderBadge('<b>Lulus</b>', 'success'), `<span class="${ui.badge.success}">&lt;b&gt;Lulus&lt;/b&gt;</span>`);
     });
 
     it('reads a severity as the action centre does', () => {
-        assert.equal(app.renderSeverityBadge('critical'), '<span class="mycic-badge-danger">Mendesak</span>');
-        assert.equal(app.renderSeverityBadge('info', 'Kabar'), '<span class="mycic-badge-info">Kabar</span>');
+        assert.equal(app.renderSeverityBadge('critical'), `<span class="${ui.badge.danger}">Mendesak</span>`);
+        assert.equal(app.renderSeverityBadge('info', 'Kabar'), `<span class="${ui.badge.info}">Kabar</span>`);
     });
 });
 
@@ -59,13 +78,67 @@ describe('renderEmptyState', () => {
     it('is a calm empty box with an optional subtitle', () => {
         const html = squash(app.renderEmptyState('Belum ada tugas.'));
 
-        assert.equal(html, '<div class="mycic-empty"> <p class="mycic-empty-title">Belum ada tugas.</p> </div>');
-        assert.match(app.renderEmptyState('Kosong', 'secondary', 'Coba <lagi>'), /<p class="mycic-empty-subtitle">Coba &lt;lagi&gt;<\/p>/);
+        assert.equal(html, `<div class="${ui.empty}"> <p class="${ui.emptyTitle}">Belum ada tugas.</p> </div>`);
+        assert.ok(app.renderEmptyState('Kosong', 'secondary', 'Coba <lagi>').includes(`<p class="${ui.emptySubtitle}">Coba &lt;lagi&gt;</p>`));
     });
 
     it('turns into an alert a screen reader announces for a warning or an error', () => {
-        assert.equal(app.renderEmptyState('Gagal & coba lagi', 'error'), '<div class="mycic-alert-danger mb-0" role="alert">Gagal &amp; coba lagi</div>');
-        assert.equal(app.renderEmptyState('Hati-hati', 'warning'), '<div class="mycic-alert-warning mb-0" role="alert">Hati-hati</div>');
+        assert.equal(app.renderEmptyState('Gagal & coba lagi', 'error'), `<div class="${ui.alert.danger}" role="alert">Gagal &amp; coba lagi</div>`);
+        assert.equal(app.renderEmptyState('Hati-hati', 'warning'), `<div class="${ui.alert.warning}" role="alert">Hati-hati</div>`);
+    });
+    it('puts a small neutral icon above the title and ignores an accent', () => {
+        const withIcon = app.renderEmptyState('Belum ada pengumuman.', 'secondary', '', { icon: 'announcement', accent: 'orange' });
+
+        assert.ok(withIcon.includes(`<div class="${ui.emptyIcon}" aria-hidden="true">${app.renderIcon('announcement', 'lg')}</div>`));
+        assert.doesNotMatch(ui.emptyIcon, /\b(bg-|rounded-|size-)/);
+        assert.ok(app.renderEmptyState('Kosong', 'secondary', '', { icon: 'inbox' }).includes(`<div class="${ui.emptyIcon}" aria-hidden="true">`));
+        assert.ok(!app.renderEmptyState('Kosong', 'secondary', '', { icon: 'no-such-icon' }).includes('aria-hidden'));
+    });
+});
+
+describe('accents and icons', () => {
+    it('has one colour and gray, each a complete set of class strings', () => {
+        const keys = ['tile', 'soft', 'text', 'ring', 'dot', 'glow', 'border', 'navIcon', 'tabMarker'];
+
+        for (const [name, accent] of Object.entries(ui.accents)) {
+            assert.deepEqual(Object.keys(accent), keys, name);
+            assert.ok(Object.isFrozen(accent), name);
+            assert.equal(accent.glow, '', name);
+
+            for (const value of Object.values(accent)) {
+                // Status colours stay for status: an accent never borrows them.
+                assert.doesNotMatch(value, /\b(success|warning|danger|info)\b/, name);
+                assert.doesNotMatch(value, /\b(violet|emerald|amber|rose|indigo|teal|orange|sky|fuchsia|slate|zinc)-\d/, name);
+            }
+        }
+
+        assert.deepEqual([...new Set(Object.values(ui.accents))].length, 2);
+        assert.equal(ui.sectionAccents, undefined);
+    });
+
+    it('reads the old section names as neutral', () => {
+        for (const name of ['violet', 'emerald', 'amber', 'rose', 'indigo', 'teal', 'orange', 'sky', 'fuchsia', 'slate', 'zinc']) {
+            assert.equal(ui.accents[name], ui.accents.neutral, name);
+        }
+    });
+
+    it('reads an accent class with a fallback to neutral', () => {
+        assert.equal(app.accentClass('brand'), ui.accents.brand.tile);
+        assert.equal(app.accentClass('teal'), ui.accents.neutral.tile);
+        assert.equal(app.accentClass('teal', 'dot'), ui.accents.neutral.dot);
+        assert.equal(app.accentClass('nope', 'tabMarker'), ui.accents.neutral.tabMarker);
+        assert.equal(app.accentClass('brand', 'nope'), '');
+    });
+
+    it('draws an icon as <x-icon> does, and nothing for an unknown name', () => {
+        const icon = app.renderIcon('calendar', 'sm', 'text-ink-subtle');
+
+        assert.ok(icon.startsWith(`<svg xmlns="http://www.w3.org/2000/svg" class="${ui.iconSize.sm} text-ink-subtle" width="16" height="16" viewBox="0 0 24 24"`));
+        assert.ok(icon.includes('aria-hidden="true" data-icon="calendar">'));
+        assert.ok(icon.endsWith(`${ui.icons.calendar}</svg>`));
+        assert.ok(app.renderIcon('home').includes(`class="${ui.iconSize.md}" width="18"`));
+        assert.ok(app.renderIcon('home', 'huge').includes('width="18"'));
+        assert.equal(app.renderIcon('no-such-icon'), '');
     });
 });
 
@@ -81,9 +154,9 @@ describe('renderStatCards and renderInlineStats', () => {
     it('leave out items without a value and show a dash for an empty one', () => {
         const html = app.renderStatCards([{ label: 'IPK', value: '' }, { label: 'SKS' }, null, { label: 'MK', value: 7, note: 'semester ini' }]);
 
-        assert.equal((html.match(/mycic-metric"/g) || []).length, 2);
-        assert.match(html, /mycic-metric-value">-<\/div>/);
-        assert.match(html, /mycic-metric-note">semester ini<\/div>/);
+        assert.equal(html.split(`class="${ui.metric}"`).length - 1, 2);
+        assert.ok(html.includes(`<div class="${ui.metricValue}">-</div>`));
+        assert.ok(html.includes(`<div class="${ui.metricNote}">semester ini</div>`));
         assert.equal(app.renderStatCards([]), '');
         assert.equal(app.renderInlineStats([{ label: 'x' }]), '');
     });
@@ -105,12 +178,12 @@ describe('renderPageHeader', () => {
         const html = app.renderPageHeader({ title: 'KRS <2026>', badges: [app.renderBadge('Aktif', 'success'), ''] });
 
         assert.match(html, /KRS &lt;2026&gt;/);
-        assert.match(html, /font-semibold leading-\[1\.2\] tracking-\[-0\.025em\]/);
-        assert.match(html, /mycic-badge-success/);
-        assert.doesNotMatch(html, /mt-1\.5 text-sm/);
+        assert.ok(html.includes(`<h2 class="${ui.pageTitle}">KRS &lt;2026&gt;</h2>`));
+        assert.ok(html.includes(ui.badge.success));
+        assert.ok(!html.includes(ui.pageSubtitle));
         assert.doesNotMatch(html, /shrink-0 flex-wrap gap-2 print:hidden/);
 
         const withDescription = app.renderPageHeader({ title: 'Kelas', description: 'Semester ganjil' });
-        assert.match(withDescription, /mt-1\.5 text-sm leading-relaxed text-ink-muted">Semester ganjil</);
+        assert.ok(withDescription.includes(`<div class="${ui.pageSubtitle}">Semester ganjil</div>`));
     });
 });

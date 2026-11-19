@@ -97,6 +97,8 @@
                     ? 'grid-template-columns: 64px 1fr;'
                     : `grid-template-columns: 64px repeat(${daysToRender.length}, minmax(140px, 1fr));`;
 
+                // Flush in its card: padding on the scroll container would leave a strip left of
+                // the sticky time axis where scrolled columns show through.
                 const containerWidthClass = daysToRender.length === 1 ? 'min-w-full' : 'min-w-[700px] md:min-w-full';
 
                 // Current time calculation for live time indicator
@@ -113,7 +115,7 @@
                 let html = `
                     <div class="${containerWidthClass}">
                         <!-- Header Row -->
-                        <div class="grid border-b border-border bg-surface sticky top-0 z-30 rounded-t-lg" style="${gridColsStyle}">
+                        <div class="grid border-b border-border bg-surface sticky top-0 z-30" style="${gridColsStyle}">
                             <div class="p-2 text-center text-xs font-medium text-ink-subtle border-r border-border flex items-center justify-center sticky left-0 z-40 bg-surface">
                                 Jam
                             </div>
@@ -123,14 +125,12 @@
                                 const count = group.classes.length;
 
                                 return `
-                                    <div class="p-2 text-center border-r border-border last:border-r-0 ${
-                                        isToday ? 'bg-surface-tint' : ''
-                                    }" ${isToday ? 'data-day-column-header="today"' : ''}>
+                                    <div class="p-2 text-center border-r border-border bg-surface last:border-r-0" ${isToday ? 'data-day-column-header="today"' : ''}>
                                         <div class="flex items-center justify-center gap-2">
                                             <span class="text-xs sm:text-sm font-medium text-ink">${d}</span>
-                                            ${isToday ? '<span class="rounded-md bg-brand px-1.5 py-0.5 text-[11px] font-medium text-brand-ink">Hari ini</span>' : ''}
+                                            ${isToday ? `<span class="${app.ui.badge.brand}">Hari ini</span>` : ''}
                                         </div>
-                                        <div class="font-mono text-[11px] text-ink-subtle mt-1 tabular-nums">
+                                        <div class="mt-1 text-[11px] text-ink-subtle tabular-nums">
                                             ${count > 0 ? `${count} kelas` : '<span class="text-ink-subtle">Libur</span>'}
                                         </div>
                                     </div>
@@ -144,7 +144,7 @@
                             <div class="relative border-r border-border bg-surface select-none sticky left-0 z-20">
                                 ${hoursArray.map((h, i) => {
                                     return `
-                                        <div class="absolute left-0 right-0 text-center font-mono text-[11px] font-medium text-ink-subtle tabular-nums pt-1 border-b border-border-light" style="top: ${i * hourHeightPx}px; height: ${hourHeightPx}px;">
+                                        <div class="absolute left-0 right-0 text-center text-[11px] font-medium text-ink-subtle tabular-nums pt-1 border-b border-border-light" style="top: ${i * hourHeightPx}px; height: ${hourHeightPx}px;">
                                             ${String(h).padStart(2, '0')}:00
                                         </div>
                                     `;
@@ -159,7 +159,7 @@
 
                                 return `
                                     <div class="relative border-r border-border last:border-r-0 ${
-                                        isToday ? 'bg-surface-tint/30' : ''
+                                        isToday ? 'bg-surface/40' : ''
                                     }">
                                         <!-- Background Hour Lines -->
                                         ${hoursArray.map((_, i) => {
@@ -182,7 +182,7 @@
                                             <div class="absolute left-0 right-0 z-30 pointer-events-none flex items-center" style="top: ${nowTopPct}%;">
                                                 <div class="h-2 w-2 -ml-1 rounded-full bg-danger ring-2 ring-danger/20"></div>
                                                 <div class="flex-1 border-b border-danger"></div>
-                                                <span class="rounded-md bg-danger px-1.5 py-0.5 font-mono text-[11px] font-medium text-white tabular-nums">
+                                                <span class="rounded-md bg-danger px-1.5 py-0.5 text-[11px] font-medium text-white tabular-nums">
                                                     ${nowFormattedTime}
                                                 </span>
                                             </div>
@@ -194,10 +194,10 @@
                                             const gapHeightPct = (gap.durationMinutes / totalGridMinutes) * 100;
 
                                             return `
-                                                <div class="absolute left-1 right-1 rounded-md border border-dashed border-warning/40 bg-warning-soft/50 p-1 flex items-center justify-center text-center transition-colors duration-150 hover:bg-warning-soft/80 z-10 overflow-hidden"
+                                                <div class="absolute left-1 right-1 rounded-md border border-dashed border-border bg-surface/60 p-1 flex items-center justify-center text-center z-10 overflow-hidden"
                                                      style="top: ${gapTopPct}%; height: ${gapHeightPct}%; min-height: 24px;"
                                                      title="${gap.startTime} – ${gap.endTime}">
-                                                    <span class="font-mono text-[11px] font-medium text-warning truncate tabular-nums">${gap.formattedDuration}</span>
+                                                    <span class="truncate text-[11px] text-ink-subtle tabular-nums">${gap.formattedDuration}</span>
                                                 </div>
                                             `;
                                         }).join('')}
@@ -223,19 +223,19 @@
                                             );
 
                                             return `
-                                                <div role="button" tabindex="0" aria-haspopup="dialog" aria-label="${app.escapeHtml(`${c.courseName}, ${c.day || ''} ${c.formattedTime}`)}" class="absolute rounded-lg border ${p.border} ${p.accent} border-l-[3px] ${p.bg} p-2 cursor-pointer transition-colors duration-150 hover:bg-surface/80 hover:z-20 focus-visible:z-20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand flex flex-col justify-between overflow-hidden group ${
+                                                <div role="button" tabindex="0" aria-haspopup="dialog" aria-label="${app.escapeHtml(`${c.courseName}, ${c.day || ''} ${c.formattedTime}`)}" class="absolute rounded-lg border ${p.border} ${p.bg} p-2 cursor-pointer transition-colors duration-150 hover:bg-surface/80 hover:z-20 focus-visible:z-20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand flex flex-col justify-between overflow-hidden group ${
                                                     matchesSearch ? 'opacity-100' : 'opacity-30 hover:opacity-100'
                                                 }"
                                                      style="top: ${topPct}%; height: ${heightPct}%; left: calc(${leftPct}% + 4px); width: calc(${widthPct}% - 8px); min-height: 52px;"
                                                      data-class-modal-trigger="${c.id}">
                                                     <div class="min-w-0 flex-1">
                                                         <div class="flex items-center justify-between gap-1 mb-1">
-                                                            <span class="rounded-md px-1.5 py-0.5 font-mono text-[11px] font-medium tabular-nums ${p.timeBadge}">
+                                                            <span class="shrink-0 whitespace-nowrap text-[11px] font-medium text-ink-muted tabular-nums">
                                                                 ${app.escapeHtml(c.formattedTime)}
                                                             </span>
                                                             ${hasConflict
-                                                                ? '<span class="rounded-md bg-danger px-1.5 py-0.5 text-[11px] font-medium text-white" title="Jadwal bentrok dengan kelas lain">Bentrok</span>'
-                                                                : (c.courseCode ? `<span class="font-mono text-[11px] font-medium text-ink-subtle truncate">${app.escapeHtml(c.courseCode)}</span>` : '')}
+                                                                ? '<span class="shrink-0 rounded-md bg-danger-soft px-1.5 py-0.5 text-[11px] font-medium text-danger ring-1 ring-inset ring-danger/20" title="Jadwal bentrok dengan kelas lain">Bentrok</span>'
+                                                                : (c.courseCode ? `<span class="min-w-0 truncate font-mono text-[11px] font-medium text-ink-subtle">${app.escapeHtml(c.courseCode)}</span>` : '')}
                                                         </div>
                                                         <div class="text-xs font-medium text-ink line-clamp-2 leading-tight group-hover:text-brand-text" title="${app.escapeHtml(c.courseName)}">
                                                             ${app.escapeHtml(c.courseName)}
@@ -273,6 +273,6 @@
                 }
 
                 const timeAxisWidth = 64;
-                blockingGridHost.scrollLeft = Math.max(0, header.offsetLeft - timeAxisWidth - 8);
+                blockingGridHost.scrollLeft = Math.max(0, header.offsetLeft - timeAxisWidth);
             };
 

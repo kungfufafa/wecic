@@ -15,10 +15,10 @@
 
                 if (!periods.length) {
                     hosts.schedule.innerHTML = `
-                        <section class="mycic-card" aria-labelledby="krs-schedule-title">
-                            <div class="mycic-card-header"><h2 class="mycic-card-title" id="krs-schedule-title">Jadwal KRS</h2></div>
-                            <div class="mycic-card-body">
-                                <p class="text-sm text-ink-muted">Jadwal belum terbaca dari portal. Cek <a class="mycic-link" href="/announcement">pengumuman</a> untuk periode her-registrasi dan KRS.</p>
+                        <section class="${app.ui.card}" data-slot="card" aria-labelledby="krs-schedule-title">
+                            <div class="${app.ui.cardHeader}"><h2 class="${app.ui.cardTitle}" id="krs-schedule-title">Jadwal KRS</h2></div>
+                            <div class="${app.ui.cardBody}">
+                                <p class="text-sm text-ink-muted">Jadwal belum terbaca dari portal. Cek <a class="${app.ui.link}" href="/announcement">pengumuman</a> untuk periode her-registrasi dan KRS.</p>
                             </div>
                         </section>
                     `;
@@ -27,25 +27,35 @@
                 }
 
                 hosts.schedule.innerHTML = `
-                    <section class="mycic-card" aria-labelledby="krs-schedule-title">
-                        <div class="mycic-card-header"><h2 class="mycic-card-title" id="krs-schedule-title">Jadwal KRS</h2></div>
-                        <ul class="mycic-card-body flex flex-col py-1">
+                    <section class="${app.ui.card}" data-slot="card" aria-labelledby="krs-schedule-title">
+                        <div class="${app.ui.cardHeader}">
+                            <h2 class="${app.ui.cardTitle}" id="krs-schedule-title">Jadwal KRS</h2>
+                        </div>
+                        <ul class="${app.ui.list}">
                             ${periods.map((period) => {
                                 const chip = period.isOpen
                                     ? app.renderBadge('Berlangsung', period === active ? 'brand' : 'info')
                                     : (period.isUpcoming ? app.renderBadge('Akan datang', 'info') : app.renderBadge('Selesai', 'secondary'));
                                 const source = period.source === 'announcement' && period.announcement_id
-                                    ? `<a class="mycic-link" href="/announcement/${esc(period.announcement_id)}">pengumuman</a>`
+                                    ? `<a class="${app.ui.link}" href="/announcement/${esc(period.announcement_id)}">pengumuman</a>`
                                     : esc(sourceLabel(period));
 
+                                const start = app.toDate(period.start);
+
                                 return `
-                                    <li class="mycic-list-row">
-                                        <div class="min-w-0 flex-1">
-                                            <div class="text-sm font-medium leading-snug text-ink">${esc(period.label)}</div>
-                                            <div class="text-caption text-ink-subtle">${esc(app.formatIndonesianDate(period.start))} s.d. ${esc(app.formatIndonesianDate(period.end))}</div>
-                                            <div class="text-caption text-ink-subtle">Sumber: ${source}</div>
+                                    <li class="${app.ui.listRowFlush} items-start">
+                                        <span class="${app.ui.dateTile}" aria-hidden="true">
+                                            <span class="${app.ui.dateTileMonth}">${start ? esc(start.toLocaleDateString('id-ID', { month: 'short' })) : '–'}</span>
+                                            <span class="${app.ui.dateTileDay}">${start ? esc(start.getDate()) : '–'}</span>
+                                        </span>
+                                        <div class="${app.ui.listRowBody}">
+                                            <div class="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+                                                <div class="text-sm font-medium leading-snug text-ink">${esc(period.label)}</div>
+                                                ${chip}
+                                            </div>
+                                            <div class="mt-0.5 text-xs tabular-nums text-ink-muted">${esc(app.formatIndonesianDate(period.start))} s.d. ${esc(app.formatIndonesianDate(period.end))}</div>
+                                            <div class="text-xs text-ink-subtle">Sumber: ${source}</div>
                                         </div>
-                                        <div class="shrink-0">${chip}</div>
                                     </li>
                                 `;
                             }).join('')}
@@ -64,14 +74,19 @@
                 const notes = [krs.notice_text, krs.notice?.text].filter((text) => typeof text === 'string' && text.trim() !== '');
 
                 hosts.notes.innerHTML = `
-                    <section class="mycic-card" aria-labelledby="krs-notes-title">
-                        <div class="mycic-card-header"><h2 class="mycic-card-title" id="krs-notes-title">Perlu diingat</h2></div>
-                        <div class="mycic-card-body flex flex-col gap-3 text-sm text-ink-muted">
+                    <section class="${app.ui.card}" data-slot="card" aria-labelledby="krs-notes-title">
+                        <div class="${app.ui.cardHeader}">
+                            <h2 class="${app.ui.cardTitle}" id="krs-notes-title">Perlu diingat</h2>
+                        </div>
+                        <div class="${app.ui.cardBody} flex flex-col gap-4 text-sm text-ink-muted">
                             <p>Pengisian dan perbaikan KRS dilakukan di portal kampus. WeCIC hanya menampilkan statusnya.</p>
                             ${notes.length ? `
-                                <details class="group rounded-[var(--radius-control)] border border-border-light bg-surface/40 p-3">
-                                    <summary class="cursor-pointer list-none text-sm font-medium text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">Catatan dari portal <span class="text-caption font-normal text-ink-subtle">(ketuk untuk membaca)</span></summary>
-                                    <div class="mt-2 flex flex-col gap-2 text-caption leading-relaxed text-ink-muted">
+                                <details class="group rounded-lg bg-surface">
+                                    <summary class="flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 sm:min-h-9">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="size-4 shrink-0 text-ink-subtle transition-transform group-open:rotate-90" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6l-6 6" /></svg>
+                                        Catatan dari portal <span class="text-xs font-normal text-ink-subtle">(ketuk untuk membaca)</span>
+                                    </summary>
+                                    <div class="flex flex-col gap-2 px-3 pb-3 text-xs leading-relaxed text-ink-muted">
                                         ${notes.map((text) => `<p>${esc(text)}</p>`).join('')}
                                     </div>
                                 </details>

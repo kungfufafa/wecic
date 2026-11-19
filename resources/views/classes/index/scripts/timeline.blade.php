@@ -1,8 +1,9 @@
 {{--
-    Jadwal & Kelas script, the Timeline view, day by day with the free hours
-    between classes. Part of the DOMContentLoaded handler opened in
-    classes/index.blade.php: it shares that scope (app, the elements,
-    constants and state in setup).
+    Jadwal & Kelas script, the Timeline view: a card per day with its
+    classes on a vertical rail (time on the left, a dot, the class) and
+    the free hours between them as hollow stops. Part of the
+    DOMContentLoaded handler opened in classes/index.blade.php: it shares
+    that scope (app, the elements, constants and state in setup).
 --}}
             const renderTimeline = (dayMap) => {
                 const daysToRender = selectedDayFilter === 'all'
@@ -25,78 +26,97 @@
 
                     const count = classesToRender.length;
 
-                    return `
-                        <div class="mycic-card overflow-hidden">
-                            <!-- Day Header -->
-                            <div class="mycic-card-header flex items-center justify-between gap-2 bg-surface/60">
-                                <div class="flex items-center gap-2">
-                                    <h3 class="mycic-card-title">${d}</h3>
-                                    ${isToday ? '<span class="inline-flex items-center rounded-md bg-brand px-2 py-0.5 text-xs font-medium text-brand-ink">Hari ini</span>' : ''}
-                                    <span class="mycic-badge-neutral font-mono tabular-nums">
-                                        ${count > 0 ? `${count} kelas` : 'Libur'}
-                                    </span>
+                    // Each class is a stop on the day's rail: its time on the left, a dot,
+                    // the class; a free hour is a hollow stop.
+                    const stops = [];
+
+                    classesToRender.forEach((c, index) => {
+                        stops.push({ type: 'class', c });
+                        const nextClass = classesToRender[index + 1];
+
+                        if (nextClass && c.endMin !== null && nextClass.startMin !== null && nextClass.startMin - c.endMin >= 15) {
+                            stops.push({ type: 'gap', from: c.endMin, to: nextClass.startMin });
+                        }
+                    });
+
+                    const renderStop = (stop, index) => {
+                        const isLast = index === stops.length - 1;
+                        const rail = isLast ? '' : '<span class="absolute top-4 -bottom-5 w-px bg-border" aria-hidden="true"></span>';
+
+                        if (stop.type === 'gap') {
+                            return `
+                                <li class="relative flex gap-3 pb-5 last:pb-0">
+                                    <div class="w-10 shrink-0 pt-0.5 text-end text-xs tabular-nums text-ink-subtle sm:w-12">${formatMinutesToTime(stop.from)}</div>
+                                    <div class="relative flex w-3 shrink-0 justify-center">
+                                        <span class="mt-1.5 size-2.5 rounded-full border border-dashed border-ink-subtle bg-panel ring-4 ring-panel" aria-hidden="true"></span>
+                                        ${rail}
+                                    </div>
+                                    <p class="min-w-0 flex-1 pt-0.5 text-xs text-ink-subtle tabular-nums">Jeda ${formatDuration(stop.to - stop.from)} · ${formatMinutesToTime(stop.from)}–${formatMinutesToTime(stop.to)}</p>
+                                </li>
+                            `;
+                        }
+
+                        const c = stop.c;
+
+                        return `
+                            <li class="relative flex gap-3 pb-5 last:pb-0">
+                                <div class="w-10 shrink-0 pt-0.5 text-end text-xs font-medium tabular-nums text-ink-muted sm:w-12">
+                                    ${app.escapeHtml(c.startTimeFormatted || '-')}
+                                    ${c.endTimeFormatted ? `<div class="font-normal text-ink-subtle">${app.escapeHtml(c.endTimeFormatted)}</div>` : ''}
                                 </div>
-                                ${count > 0 ? `<div class="font-mono text-caption text-ink-subtle tabular-nums">${formatDuration(group.totalMinutes)}</div>` : ''}
+                                <div class="relative flex w-3 shrink-0 justify-center">
+                                    <span class="mt-1.5 size-2.5 rounded-full ring-4 ring-panel ${c.palette.dot}" aria-hidden="true"></span>
+                                    ${rail}
+                                </div>
+                                <div class="min-w-0 flex-1" data-class-card>
+                                    <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                        <div class="min-w-0 flex-1">
+                                            <h4 class="text-sm font-medium leading-snug text-ink">
+                                                ${c.classUrl ? `<a href="${c.classUrl}" class="text-ink no-underline transition-colors hover:text-brand-text">${app.escapeHtml(c.courseName)}</a>` : app.escapeHtml(c.courseName)}
+                                            </h4>
+                                            <div class="mt-1 flex flex-wrap items-center gap-x-1.5 text-xs text-ink-subtle tabular-nums">
+                                                ${c.courseCode ? `<span class="font-mono">${app.escapeHtml(c.courseCode)}</span><span aria-hidden="true">&middot;</span>` : ''}
+                                                <span>${formatDuration(c.durationMinutes)}</span>
+                                            </div>
+                                            <div class="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-ink-subtle">
+                                                <span class="inline-flex items-center gap-1">${app.renderIcon('map-pin', 'sm')}${app.escapeHtml(c.roomName)}</span>
+                                                <span class="inline-flex items-center gap-1">${app.renderIcon('users', 'sm')}${app.escapeHtml(c.className)}</span>
+                                                <span class="inline-flex items-center gap-1">${app.renderIcon('user', 'sm')}${app.escapeHtml(c.lecturerName)}</span>
+                                            </div>
+                                        </div>
+                                        <div class="flex shrink-0 flex-wrap items-center gap-2">
+                                            ${c.classUrl ? `<a href="${c.classUrl}" class="${app.buttonClass('secondary', { small: true })}">Buka kelas</a>` : ''}
+                                            ${c.detailApiUrl ? `<button type="button" class="${app.buttonClass('secondary', { small: true })}" data-meeting-toggle data-detail-api="${c.detailApiUrl}">Lihat pertemuan</button>` : ''}
+                                        </div>
+                                    </div>
+                                    <div class="mt-3 hidden" data-meeting-panel>
+                                        ${renderMeetingPanelNote('Memuat daftar pertemuan.')}
+                                    </div>
+                                </div>
+                            </li>
+                        `;
+                    };
+
+                    return `
+                        <div class="${app.ui.card} overflow-hidden" data-slot="card">
+                            <!-- Day Header -->
+                            <div class="${app.ui.cardHeader}">
+                                <div class="flex min-w-0 flex-wrap items-center gap-2">
+                                    <div class="${app.ui.sectionTitleRow}">
+                                        <h3 class="${app.ui.cardTitle}">${d}</h3>
+                                        <span class="${app.ui.sectionCount}">${count > 0 ? `${count} kelas` : ''}</span>
+                                    </div>
+                                    ${isToday ? `<span class="${app.ui.badge.brand}">Hari ini</span>` : ''}
+                                </div>
+                                ${count > 0 ? `<div class="shrink-0 text-xs text-ink-subtle tabular-nums">${formatDuration(group.totalMinutes)}</div>` : ''}
                             </div>
 
-                            <div class="mycic-card-body flex flex-col gap-3">
+                            <div class="${app.ui.cardBody}">
                                 ${count === 0 ? `
                                     <div class="py-4 text-center text-sm text-ink-subtle">
                                         ${searchLower ? 'Tidak ada hasil.' : 'Libur'}
                                     </div>
-                                ` : ''}
-
-                                ${classesToRender.map((c, index) => {
-                                    const p = c.palette;
-                                    const nextClass = classesToRender[index + 1];
-                                    let gapHtml = '';
-
-                                    if (nextClass && c.endMin !== null && nextClass.startMin !== null && nextClass.startMin > c.endMin) {
-                                        const gapDur = nextClass.startMin - c.endMin;
-                                        if (gapDur >= 15) {
-                                            gapHtml = `
-                                                <div class="flex items-center gap-3 py-1 font-mono text-xs text-ink-subtle tabular-nums">
-                                                    <span class="h-px flex-1 border-t border-dashed border-border" aria-hidden="true"></span>
-                                                    <span>Jeda ${formatDuration(gapDur)} · ${formatMinutesToTime(c.endMin)}–${formatMinutesToTime(nextClass.startMin)}</span>
-                                                    <span class="h-px flex-1 border-t border-dashed border-border" aria-hidden="true"></span>
-                                                </div>
-                                            `;
-                                        }
-                                    }
-
-                                    return `
-                                        <div class="rounded-[var(--radius-control)] border ${p.border} ${p.accent} border-l-[3px] ${p.bg} p-4 transition-colors duration-150" data-class-card>
-                                            <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                                                <div class="min-w-0 flex-1">
-                                                    <div class="flex items-center gap-2 mb-1 text-caption">
-                                                        <span class="inline-flex items-center rounded-md px-2 py-0.5 font-mono text-xs font-medium tabular-nums ${p.timeBadge}">
-                                                            ${app.escapeHtml(c.formattedTime)}
-                                                        </span>
-                                                        ${c.courseCode ? `<span class="mycic-badge-neutral font-mono">${app.escapeHtml(c.courseCode)}</span>` : ''}
-                                                        <span class="font-mono text-ink-subtle tabular-nums">&middot; ${formatDuration(c.durationMinutes)}</span>
-                                                    </div>
-                                                    <h4 class="text-sm font-medium leading-snug text-ink">
-                                                        ${c.classUrl ? `<a href="${c.classUrl}" class="text-ink no-underline transition-colors hover:text-brand-text">${app.escapeHtml(c.courseName)}</a>` : app.escapeHtml(c.courseName)}
-                                                    </h4>
-                                                    <div class="mt-2 flex flex-wrap gap-3 text-caption text-ink-subtle">
-                                                        <span>${app.escapeHtml(c.roomName)}</span>
-                                                        <span>${app.escapeHtml(c.className)}</span>
-                                                        <span>${app.escapeHtml(c.lecturerName)}</span>
-                                                    </div>
-                                                </div>
-                                                <div class="flex items-center gap-2 shrink-0 mt-2 sm:mt-0">
-                                                    ${c.classUrl ? `<a href="${c.classUrl}" class="${app.buttonClass('primary', { small: true })}">Buka kelas</a>` : ''}
-                                                    ${c.detailApiUrl ? `<button type="button" class="${app.buttonClass('secondary', { small: true })}" data-meeting-toggle data-detail-api="${c.detailApiUrl}">Lihat pertemuan</button>` : ''}
-                                                </div>
-                                            </div>
-                                            <div class="mt-3 hidden" data-meeting-panel>
-                                                ${app.renderEmptyState('Memuat daftar pertemuan.', 'secondary')}
-                                            </div>
-                                        </div>
-                                        ${gapHtml}
-                                    `;
-                                }).join('')}
-
+                                ` : `<ol class="flex flex-col">${stops.map(renderStop).join('')}</ol>`}
                             </div>
                         </div>
                     `;

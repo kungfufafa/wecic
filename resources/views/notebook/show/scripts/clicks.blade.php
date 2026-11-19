@@ -39,12 +39,12 @@
                         const index = Number(option.dataset.quizOption);
 
                         option.disabled = true;
-                        option.classList.toggle('border-success', index === answer);
-                        option.classList.toggle('bg-success-soft', index === answer);
-                        option.classList.toggle('border-danger', index !== answer && option === quizOption);
+                        option.classList.toggle('border-success!', index === answer);
+                        option.classList.toggle('bg-success-soft!', index === answer);
+                        option.classList.toggle('border-danger!', index !== answer && option === quizOption);
 
                         if (index === answer || option === quizOption) {
-                            option.insertAdjacentHTML('beforeend', ` <span class="text-caption font-medium ${index === answer ? 'text-success' : 'text-danger'}">· ${index === answer ? 'Benar' : 'Pilihanmu, salah'}</span>`);
+                            option.insertAdjacentHTML('beforeend', ` <span class="text-xs font-medium ${index === answer ? 'text-success' : 'text-danger'}">· ${index === answer ? 'Benar' : 'Pilihanmu, salah'}</span>`);
                         }
                     });
 

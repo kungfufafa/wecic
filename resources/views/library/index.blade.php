@@ -4,59 +4,60 @@
 @section('page_id', 'library-index')
 
 @section('content')
-    <x-page-header title="Perpustakaan" subtitle="Repositori skripsi kampus yang bisa dicari, plus perpustakaan digital dari halaman e-Book Portal Kampus.">
-        <p class="mt-1 min-h-4 text-caption text-ink-subtle" data-library-updated></p>
-    </x-page-header>
+    <x-page-hero title="Perpustakaan">
+        <x-slot:meta><span data-library-updated></span></x-slot:meta>
+    </x-page-hero>
 
-    <div class="grid items-start gap-5 lg:grid-cols-12">
-        <div class="flex min-w-0 flex-col gap-5 lg:col-span-7">
-            <form action="{{ route('library.theses') }}" method="get" role="search" class="mycic-card" aria-labelledby="library-search-title">
-                <div class="mycic-card-body flex flex-col gap-3">
-                    <h2 class="mycic-card-title" id="library-search-title">Cari skripsi di Repositori UCIC</h2>
-                    <div class="flex flex-col gap-2 sm:flex-row">
-                        <div class="mycic-input-wrap min-w-0 flex-1">
-                            <label for="library-search" class="sr-only">Judul, topik, pembimbing, atau penulis</label>
-                            <span class="mycic-input-icon">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0 -14 0" /><path d="M21 21l-6 -6" /></svg>
-                            </span>
-                            <input type="search" id="library-search" name="q" maxlength="100" class="mycic-input mycic-input-with-icon" placeholder="Judul, topik, atau penulis" autocomplete="off" enterkeyhint="search">
-                        </div>
-                        <button type="submit" class="mycic-btn-primary">Cari</button>
-                    </div>
-                    <a href="{{ route('library.theses') }}?mode=cek" class="mycic-link inline-flex min-h-9 items-center self-start text-sm">Punya rencana judul? Cek kemiripannya</a>
+    <x-split at="xl" :sticky="false">
+        <form action="{{ route('library.theses') }}" method="get" role="search" aria-labelledby="library-search-title" class="rounded-xl border border-border bg-panel p-4 sm:p-5">
+            <h2 class="text-sm font-semibold tracking-tight text-ink" id="library-search-title">Cari skripsi di Repositori UCIC</h2>
+            <div class="mt-3 flex flex-col gap-2 sm:flex-row">
+                <div class="relative flex min-w-0 flex-1 items-center">
+                    <label for="library-search" class="sr-only">Judul, topik, pembimbing, atau penulis</label>
+                    <span class="pointer-events-none absolute start-3 top-1/2 z-10 -translate-y-1/2 text-ink-subtle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="size-4" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0 -14 0" /><path d="M21 21l-6 -6" /></svg>
+                    </span>
+                    <x-input icon type="search" id="library-search" name="q" maxlength="100" placeholder="Judul, topik, atau penulis" autocomplete="off" enterkeyhint="search" />
                 </div>
-            </form>
-
-            <section class="mycic-card" aria-labelledby="library-repository-title">
-                <div class="mycic-card-header flex flex-wrap items-center justify-between gap-2">
-                    <h2 class="mycic-card-title" id="library-repository-title">Repositori skripsi</h2>
-                    <a href="{{ route('library.theses') }}" class="mycic-btn-secondary-sm">Buka repositori</a>
-                </div>
-                <div class="mycic-card-body flex flex-col gap-4" id="library-repository" aria-busy="true">
-                    <span class="sr-only">Memuat ringkasan repositori…</span>
-                    <div class="grid grid-cols-2 gap-3">
-                        <div class="mycic-skeleton h-16 w-full"></div>
-                        <div class="mycic-skeleton h-16 w-full"></div>
-                    </div>
-                    <div class="mycic-skeleton h-4 w-2/3"></div>
-                </div>
-            </section>
-        </div>
-
-        <section class="mycic-card lg:col-span-5" aria-labelledby="library-links-title">
-            <div class="mycic-card-header">
-                <h2 class="mycic-card-title" id="library-links-title">Perpustakaan digital</h2>
-                <p class="mycic-card-subtitle">Dibuka di situs masing-masing, di luar WeCIC.</p>
+                <x-button type="submit">Cari</x-button>
             </div>
-            <div class="mycic-card-body" id="library-links" aria-busy="true">
-                <div class="flex flex-col gap-3">
-                    @for ($i = 0; $i < 4; $i++)
-                        <div class="mycic-skeleton h-12 w-full"></div>
+            <x-link href="{{ route('library.theses') }}?mode=cek" class="mt-2 inline-flex min-h-11 items-center gap-1.5 text-sm sm:min-h-9">
+                <svg xmlns="http://www.w3.org/2000/svg" class="size-4 shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5l10 -10" /></svg>
+                Punya rencana judul? Cek kemiripannya
+            </x-link>
+        </form>
+
+        <x-card as="section" aria-labelledby="library-repository-title" title="Repositori skripsi" title-id="library-repository-title">
+            <x-slot:actions>
+                <a href="{{ route('library.theses') }}" class="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-sm text-[13px] font-medium text-ink-muted transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 sm:min-h-0">Lihat semua</a>
+            </x-slot:actions>
+            <x-card.body class="flex flex-col gap-6" id="library-repository" aria-busy="true">
+                <span class="sr-only">Memuat ringkasan repositori…</span>
+                <div class="flex flex-wrap gap-2">
+                    @for ($i = 0; $i < 5; $i++)
+                        <x-skeleton class="h-9 w-24" />
                     @endfor
                 </div>
-            </div>
-        </section>
-    </div>
+                <div class="flex flex-col gap-3">
+                    @for ($i = 0; $i < 4; $i++)
+                        <x-skeleton class="h-10 w-full" />
+                    @endfor
+                </div>
+            </x-card.body>
+        </x-card>
+
+        <x-slot:aside>
+            <x-card as="section" aria-labelledby="library-links-title" title="Perpustakaan digital" title-id="library-links-title" subtitle="Dibuka di situs masing-masing, di luar WeCIC.">
+                <x-card.body class="has-[>ul]:p-0" id="library-links" aria-busy="true">
+                    <div class="flex flex-col gap-3">
+                        @for ($i = 0; $i < 4; $i++)
+                            <x-skeleton class="h-12 w-full" />
+                        @endfor
+                    </div>
+                </x-card.body>
+            </x-card>
+        </x-slot:aside>
+    </x-split>
 @endsection
 
 @push('scripts')
@@ -115,24 +116,37 @@
 
             const searchUrl = (params) => `/library/theses?${new URLSearchParams(params).toString()}`;
 
+            /** The repository's one-line count: total, new since the last visit, the latest academic year. */
+            const summaryLine = (count, newCount, seen, repository) => {
+                const facts = [
+                    `<span class="font-semibold tabular-nums text-ink">${numberFormatter.format(count)}</span> judul`,
+                    seen && newCount > 0 ? `<span class="tabular-nums">${numberFormatter.format(newCount)}</span> baru sejak kunjungan lalu` : '',
+                    repository.complete ? (repository.latest_academic_year ? `terbaru T.A. ${app.escapeHtml(repository.latest_academic_year)}` : '') : 'indeks sedang dilengkapi',
+                ].filter(Boolean);
+
+                return `<p class="text-sm text-ink-muted">${facts.join(' · ')}</p>`;
+            };
+
             const renderRepository = (repository) => {
                 repositoryHost.removeAttribute('aria-busy');
                 const count = Number(repository?.record_count) || 0;
                 const status = repository?.status || 'missing';
+                const allPrograms = Array.isArray(repository?.programs) ? repository.programs : [];
 
                 if (!count) {
                     const preparing = ['pending', 'missing', 'syncing'].includes(status);
 
                     repositoryHost.innerHTML = preparing
-                        ? `<div class="flex items-center gap-3 text-sm text-ink-muted" role="status"><span class="mycic-spinner h-5 w-5" aria-hidden="true"></span>Menyiapkan indeks repositori… Kamu sudah bisa mencari judul terbaru sekarang.</div>`
-                        : app.renderEmptyState(status === 'failed' ? 'Repositori belum bisa dibaca dari portal.' : 'Repositori portal masih kosong.', 'secondary', status === 'failed' ? 'Coba lagi nanti; pencarian tetap memakai halaman terbaru portal.' : '');
+                        ? `<div class="${app.ui.inset} flex items-center gap-3 text-sm text-ink-muted" role="status"><span class="${app.ui.spinner}" aria-hidden="true"></span><span>Menyiapkan indeks repositori… Kamu sudah bisa mencari judul terbaru sekarang.</span></div>`
+                        : app.renderEmptyState(status === 'failed' ? 'Repositori belum bisa dibaca dari portal.' : 'Repositori portal masih kosong.', 'secondary', status === 'failed' ? 'Coba lagi nanti; pencarian tetap memakai halaman terbaru portal.' : '', { icon: 'library' });
 
                     return;
                 }
 
                 const seen = previousSeen;
                 const newCount = seen && Number.isFinite(Number(seen.count)) ? Math.max(0, count - Number(seen.count)) : 0;
-                const programs = Array.isArray(repository.programs) ? repository.programs.slice(0, 5) : [];
+                const programs = allPrograms.slice(0, 6);
+                const topProgramCount = Math.max(1, ...programs.map((program) => Number(program.count) || 0));
                 const keywords = Array.isArray(repository.top_keywords) ? repository.top_keywords : [];
                 const advisors = Array.isArray(repository.top_advisors) ? repository.top_advisors : [];
 
@@ -141,38 +155,41 @@
                     seenRecorded = true;
                 }
 
+                if (!keywords.length && !programs.length && !advisors.length) {
+                    repositoryHost.innerHTML = `${summaryLine(count, newCount, seen, repository)}<p class="text-sm text-ink-muted">Topik dan program studi tampil setelah indeks selesai diringkas.</p>`;
+
+                    return;
+                }
+
                 repositoryHost.innerHTML = `
-                    <div class="grid grid-cols-2 gap-3">
-                        <div class="mycic-metric p-3 sm:p-4">
-                            <div class="mycic-metric-label">Judul terindeks</div>
-                            <div class="mycic-metric-value tabular-nums">${numberFormatter.format(count)}</div>
-                            ${repository.complete ? '' : '<div class="mycic-metric-note">Indeks sedang dilengkapi</div>'}
-                        </div>
-                        <div class="mycic-metric p-3 sm:p-4">
-                            <div class="mycic-metric-label">Baru sejak kunjungan lalu</div>
-                            <div class="mycic-metric-value tabular-nums">${seen ? numberFormatter.format(newCount) : '–'}</div>
-                            ${repository.latest_academic_year ? `<div class="mycic-metric-note">Terbaru T.A. ${app.escapeHtml(repository.latest_academic_year)}</div>` : ''}
-                        </div>
-                    </div>
+                    ${summaryLine(count, newCount, seen, repository)}
                     ${keywords.length ? `
                         <div>
-                            <h3 class="text-caption font-medium text-ink-subtle">Topik populer</h3>
+                            <h3 class="text-xs font-medium text-ink-subtle">Topik populer</h3>
                             <div class="mt-2 flex flex-wrap gap-2">
-                                ${keywords.map((keyword) => `<a href="${app.escapeHtml(searchUrl({ q: keyword.word }))}" class="mycic-chip min-h-9 hover:border-ink-subtle/40 hover:text-brand-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">${app.escapeHtml(keyword.word)} <span class="font-mono tabular-nums text-ink-subtle">${keyword.count}</span></a>`).join('')}
+                                ${keywords.map((keyword) => `<a href="${app.escapeHtml(searchUrl({ q: keyword.word }))}" class="inline-flex min-h-11 items-center gap-1.5 rounded-md border border-border bg-panel px-2.5 sm:min-h-9 text-xs font-medium text-ink-muted transition-colors hover:bg-surface hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40">${app.escapeHtml(keyword.word)} <span class="text-ink-subtle tabular-nums">${keyword.count}</span></a>`).join('')}
                             </div>
                         </div>
                     ` : ''}
                     ${programs.length ? `
                         <div>
-                            <h3 class="text-caption font-medium text-ink-subtle">Per program studi</h3>
-                            <ul class="mt-2 flex flex-col divide-y divide-border-light">
+                            <h3 class="text-xs font-medium text-ink-subtle">Per program studi</h3>
+                            <ul class="mt-1 ${app.ui.list}">
                                 ${programs.map((program) => `
-                                    <li><a href="${app.escapeHtml(searchUrl({ prodi: program.value }))}" class="flex min-h-11 items-center justify-between gap-3 py-2 text-sm hover:text-brand-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"><span class="min-w-0 truncate text-ink">${app.escapeHtml(program.value)}</span><span class="shrink-0 font-mono tabular-nums text-ink-subtle">${numberFormatter.format(program.count)}</span></a></li>
+                                    <li>
+                                        <a href="${app.escapeHtml(searchUrl({ prodi: program.value }))}" class="-mx-2 flex min-h-11 flex-col gap-1.5 rounded-lg px-2 py-2.5 transition-colors hover:bg-surface/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40">
+                                            <span class="flex items-baseline justify-between gap-3">
+                                                <span class="min-w-0 truncate text-sm font-medium text-ink">${app.escapeHtml(program.value)}</span>
+                                                <span class="shrink-0 text-xs text-ink-muted tabular-nums">${numberFormatter.format(program.count)}</span>
+                                            </span>
+                                            <span class="block h-1 overflow-hidden rounded-full bg-surface" aria-hidden="true"><span class="block h-1 rounded-full ${app.ui.fill.brand}" style="width: ${Math.max(4, Math.round(((Number(program.count) || 0) / topProgramCount) * 100))}%"></span></span>
+                                        </a>
+                                    </li>
                                 `).join('')}
                             </ul>
                         </div>
                     ` : ''}
-                    ${advisors.length ? `<p class="text-caption text-ink-subtle">Pembimbing paling aktif: ${advisors.slice(0, 3).map((advisor) => `<a class="mycic-link" href="${app.escapeHtml(searchUrl({ pembimbing: advisor.value }))}">${app.escapeHtml(advisor.value)}</a> (${advisor.count})`).join(', ')}</p>` : ''}
+                    ${advisors.length ? `<p class="text-xs leading-relaxed text-ink-subtle">Pembimbing paling aktif: ${advisors.slice(0, 3).map((advisor) => `<a class="${app.ui.link}" href="${app.escapeHtml(searchUrl({ pembimbing: advisor.value }))}">${app.escapeHtml(advisor.value)}</a> (${advisor.count})`).join(', ')}</p>` : ''}
                 `;
             };
 
@@ -181,23 +198,23 @@
                 const links = Array.isArray(data?.links) ? data.links : [];
 
                 if (!links.length) {
-                    linksHost.innerHTML = app.renderEmptyState('Belum ada tautan perpustakaan dari portal.', 'secondary');
+                    linksHost.innerHTML = app.renderEmptyState('Belum ada tautan perpustakaan dari portal.', 'secondary', '', { icon: 'world' });
 
                     return;
                 }
 
                 linksHost.innerHTML = `
-                    ${data.source === 'config' ? `<p class="mb-3 text-caption text-ink-subtle">Halaman e-Book portal belum terbaca; ini daftar bawaan WeCIC.</p>` : ''}
-                    <ul class="flex flex-col divide-y divide-border-light">
+                    ${data.source === 'config' ? `<p class="border-b border-border-light px-4 py-3 text-xs text-ink-subtle sm:px-5">Halaman e-Book portal belum terbaca; ini daftar bawaan WeCIC.</p>` : ''}
+                    <ul class="${app.ui.list}">
                         ${links.map((link) => {
                             if (link.is_internal) {
                                 return `
-                                    <li class="flex items-center justify-between gap-3 py-3">
-                                        <span class="min-w-0">
+                                    <li class="flex items-center gap-3 px-4 py-3.5 sm:px-5">
+                                        <span class="min-w-0 flex-1">
                                             <span class="block text-sm font-medium leading-snug text-ink">${app.escapeHtml(link.title)}</span>
-                                            <span class="mt-1 inline-flex">${app.renderBadge('Di WeCIC', 'brand')}</span>
+                                            <span class="mt-1 inline-flex">${app.renderBadge('Di WeCIC', 'secondary')}</span>
                                         </span>
-                                        <a href="${app.escapeHtml(link.internal_route || '/library/theses')}" class="${app.buttonClass('secondary', { small: true })} shrink-0">Buka</a>
+                                        <a href="${app.escapeHtml(link.internal_route || '/library/theses')}" class="${app.ui.button.secondarySm}">Buka</a>
                                     </li>
                                 `;
                             }
@@ -209,18 +226,15 @@
                             }
 
                             return `
-                                <li class="flex flex-wrap items-center justify-between gap-3 py-3">
+                                <li class="flex items-start gap-3 px-4 py-3.5 sm:px-5">
                                     <span class="min-w-0 flex-1">
                                         <span class="block text-sm font-medium leading-snug text-ink">${app.escapeHtml(link.title)}</span>
-                                        <span class="block truncate text-caption text-ink-subtle">${app.escapeHtml(link.host || '')}</span>
-                                        <span class="mt-1 flex flex-wrap gap-1.5">
-                                            ${app.renderBadge('Eksternal', 'secondary')}
-                                            ${link.requires_account ? app.renderBadge('Perlu akun terpisah', 'warning') : ''}
+                                        <span class="block truncate text-xs text-ink-subtle">${app.escapeHtml(link.host || '')}</span>
+                                        ${link.requires_account ? `<span class="mt-1.5 flex">${app.renderBadge('Perlu akun terpisah', 'warning')}</span>` : ''}
+                                        <span class="mt-2.5 flex flex-wrap gap-2">
+                                            <a href="${app.escapeHtml(href)}" target="_blank" rel="noopener noreferrer" class="${app.ui.button.secondarySm}" data-online-required>Buka<span class="sr-only"> ${app.escapeHtml(link.title)} (tab baru)</span></a>
+                                            <button type="button" class="${app.ui.button.ghostSm}" data-copy-link="${app.escapeHtml(href)}" aria-label="Salin tautan ${app.escapeHtml(link.title)}">Salin</button>
                                         </span>
-                                    </span>
-                                    <span class="flex shrink-0 gap-2">
-                                        <button type="button" class="${app.buttonClass('ghost', { small: true })}" data-copy-link="${app.escapeHtml(href)}" aria-label="Salin tautan ${app.escapeHtml(link.title)}">Salin</button>
-                                        <a href="${app.escapeHtml(href)}" target="_blank" rel="noopener noreferrer" class="${app.buttonClass('secondary', { small: true })}" data-online-required>Buka<span class="sr-only"> ${app.escapeHtml(link.title)} (tab baru)</span></a>
                                     </span>
                                 </li>
                             `;
@@ -290,7 +304,7 @@
                     });
                     linksHost.removeAttribute('aria-busy');
                     repositoryHost.removeAttribute('aria-busy');
-                    repositoryHost.innerHTML = app.renderEmptyState('Ringkasan repositori akan tampil setelah data termuat.', 'secondary', 'Pencarian skripsi tetap bisa dicoba.');
+                    repositoryHost.innerHTML = app.renderEmptyState('Ringkasan repositori akan tampil setelah data termuat.', 'secondary', 'Pencarian skripsi tetap bisa dicoba.', { icon: 'library' });
                     app.setSyncStatus('Perpustakaan gagal dimuat.', 'error');
                 }
             };

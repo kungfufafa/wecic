@@ -8,103 +8,112 @@
 @endphp
 
 @section('content')
-    <x-page-header title="Keuangan" subtitle="Tagihan aktif, tahap UKT, dan riwayat pembayaran dari portal kampus.">
-        <p class="mt-1 min-h-4 text-caption text-ink-subtle" data-finance-updated></p>
-    </x-page-header>
+    <x-page-hero title="Keuangan">
+        <x-slot:meta>
+            <span class="min-h-4" data-finance-updated></span>
+        </x-slot:meta>
+    </x-page-hero>
 
-    <div class="flex flex-col gap-5" id="finance-page" data-portal-finance-url="{{ $portalFinanceUrl }}">
-        <div class="grid items-start gap-5 lg:grid-cols-12">
-            <section id="tagihan" class="scroll-mt-24 lg:sticky lg:top-24 lg:col-span-5" aria-labelledby="finance-bills-title">
-                <div class="mycic-card">
-                    <div class="mycic-card-header">
-                        <h2 class="mycic-card-title" id="finance-bills-title">Status tagihan</h2>
-                    </div>
-                    <div class="mycic-card-body flex flex-col gap-4" id="finance-bills" aria-busy="true">
+    <div class="flex flex-col gap-6" id="finance-page" data-portal-finance-url="{{ $portalFinanceUrl }}">
+        <x-stat-strip class="grid-cols-2 sm:grid-cols-3" aria-label="Ringkasan riwayat pembayaran" role="group">
+            <x-metric label="Terbayar" class="col-span-2 sm:col-span-1">
+                <x-slot:value class="truncate max-sm:text-lg" data-finance-metric="total">
+                    <x-skeleton class="h-7 w-24" />
+                </x-slot:value>
+                <x-slot:note>total di histori portal</x-slot:note>
+            </x-metric>
+            <x-metric label="Transaksi">
+                <x-slot:value class="max-sm:text-lg" data-finance-metric="count">
+                    <x-skeleton class="h-7 w-12" />
+                </x-slot:value>
+            </x-metric>
+            <x-metric label="Pembayaran terakhir">
+                <x-slot:value class="truncate max-sm:text-lg" data-finance-metric="latest">
+                    <x-skeleton class="h-7 w-20" />
+                </x-slot:value>
+            </x-metric>
+        </x-stat-strip>
+
+        <div class="grid items-start gap-6 lg:grid-cols-12">
+            <section id="tagihan" class="scroll-mt-20 lg:col-span-5 xl:col-span-4" aria-labelledby="finance-bills-title">
+                <x-card class="overflow-hidden">
+                    <x-card.header>
+                        <div class="min-w-0">
+                            <x-card.title id="finance-bills-title">Status tagihan</x-card.title>
+                        </div>
+                    </x-card.header>
+                    <x-card.body class="flex flex-col gap-4" id="finance-bills" aria-busy="true">
                         <span class="sr-only">Memuat status tagihan…</span>
-                        <div class="mycic-skeleton h-3.5 w-28"></div>
-                        <div class="mycic-skeleton h-9 w-44"></div>
-                        <div class="mycic-skeleton h-4 w-full"></div>
-                        <div class="mycic-skeleton h-4 w-2/3"></div>
-                    </div>
-                </div>
+                        <x-skeleton class="h-3.5 w-28" />
+                        <x-skeleton class="h-9 w-44" />
+                        <x-skeleton class="h-4 w-full" />
+                        <x-skeleton class="h-4 w-2/3" />
+                    </x-card.body>
+                </x-card>
             </section>
 
-            <section id="tahap-ukt" class="scroll-mt-24 lg:col-span-7" aria-labelledby="finance-stages-title">
-                <div class="mycic-card">
-                    <div class="mycic-card-header">
-                        <h2 class="mycic-card-title" id="finance-stages-title">Progres UKT</h2>
-                        <p class="mycic-card-subtitle">Tahap pembayaran per tahun kuliah, dibaca dari histori dan tagihan portal.</p>
-                    </div>
-                    <div class="mycic-card-body flex flex-col gap-4" id="finance-stages" aria-busy="true">
+            <section id="tahap-ukt" class="scroll-mt-20 lg:col-span-7 xl:col-span-8" aria-labelledby="finance-stages-title">
+                <x-card>
+                    <x-card.header>
+                        <div class="min-w-0">
+                            <x-card.title id="finance-stages-title">Progres UKT</x-card.title>
+                            <p class="mt-0.5 text-[13px] text-ink-muted">Tahap pembayaran per tahun kuliah, dibaca dari histori dan tagihan portal.</p>
+                        </div>
+                    </x-card.header>
+                    <x-card.body class="flex flex-col gap-4" id="finance-stages" aria-busy="true">
                         <span class="sr-only">Memuat tahap UKT…</span>
-                        <div class="mycic-skeleton h-4 w-40"></div>
-                        <div class="grid grid-cols-4 gap-2">
+                        <x-skeleton class="h-4 w-40" />
+                        <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
                             @for ($i = 0; $i < 4; $i++)
-                                <div class="flex flex-col items-center gap-2">
-                                    <div class="mycic-skeleton h-9 w-9 rounded-full"></div>
-                                    <div class="mycic-skeleton h-3 w-12"></div>
+                                <div class="flex flex-col gap-2">
+                                    <x-skeleton class="h-1 w-full rounded-full!" />
+                                    <x-skeleton class="h-3 w-14" />
+                                    <x-skeleton class="h-3 w-10" />
                                 </div>
                             @endfor
                         </div>
-                    </div>
-                </div>
+                    </x-card.body>
+                </x-card>
             </section>
         </div>
 
-        <div class="mycic-stat-strip grid-cols-2 sm:grid-cols-3" aria-label="Ringkasan riwayat pembayaran" role="group">
-            <div class="mycic-metric col-span-2 sm:col-span-1">
-                <div class="mycic-metric-label">Terbayar</div>
-                <div class="mycic-metric-value truncate text-success" data-finance-metric="total">
-                    <div class="mycic-skeleton h-7 w-24"></div>
+        <x-card as="section" aria-labelledby="finance-history-title">
+            <x-card.header class="flex-col items-stretch! sm:flex-row sm:items-center!">
+                <div class="min-w-0">
+                    <x-card.title id="finance-history-title">Riwayat pembayaran</x-card.title>
                 </div>
-            </div>
-            <x-metric label="Transaksi">
-                <x-slot:value data-finance-metric="count">
-                    <div class="mycic-skeleton h-7 w-12"></div>
-                </x-slot:value>
-            </x-metric>
-            <x-metric label="Terakhir">
-                <x-slot:value class="truncate" data-finance-metric="latest">
-                    <div class="mycic-skeleton h-7 w-20"></div>
-                </x-slot:value>
-            </x-metric>
-        </div>
-
-        <section class="mycic-card" aria-labelledby="finance-history-title">
-            <div class="mycic-card-header flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <h2 class="mycic-card-title" id="finance-history-title">Riwayat pembayaran</h2>
-                <div class="mycic-input-wrap w-full sm:w-64">
+                <div class="relative flex w-full items-center sm:w-64">
                     <label for="finance-search" class="sr-only">Cari transaksi</label>
-                    <span class="mycic-input-icon">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0 -14 0" /><path d="M21 21l-6 -6" /></svg>
+                    <span class="pointer-events-none absolute start-3 top-1/2 z-10 -translate-y-1/2 text-ink-subtle">
+                        <x-icon name="search" size="sm" />
                     </span>
-                    <input
+                    <x-input
+                        icon
                         type="search"
                         id="finance-search"
-                        class="mycic-input mycic-input-with-icon"
                         placeholder="Cari transaksi"
                         autocomplete="off"
                         aria-describedby="finance-search-status"
                         disabled
-                    >
+                    />
                 </div>
-            </div>
+            </x-card.header>
             <p class="sr-only" aria-live="polite" id="finance-search-status"></p>
 
             <div id="finance-payments" aria-busy="true">
-                <div class="mycic-card-body flex flex-col divide-y divide-border-light">
+                <div class="divide-y divide-border-light">
                     @for ($i = 0; $i < 3; $i++)
-                        <div class="flex items-center justify-between py-3 first:pt-0 last:pb-0">
-                            <div class="space-y-1.5">
-                                <div class="mycic-skeleton h-4 w-36 sm:w-48"></div>
-                                <div class="mycic-skeleton h-3 w-24"></div>
+                        <div class="flex items-center gap-3 px-4 py-3 sm:px-5">
+                            <div class="flex min-w-0 flex-1 flex-col gap-1.5">
+                                <x-skeleton class="h-4 w-36 sm:w-48" />
+                                <x-skeleton class="h-3 w-24" />
                             </div>
-                            <div class="mycic-skeleton h-5 w-24"></div>
+                            <x-skeleton class="h-5 w-24" />
                         </div>
                     @endfor
                 </div>
             </div>
-        </section>
+        </x-card>
     </div>
 @endsection
 
@@ -130,30 +139,10 @@
             let lastPayload = null;
 
             const STAGE_STATUS = {
-                paid: {
-                    label: 'Lunas',
-                    circle: 'bg-success text-white',
-                    text: 'text-success',
-                    icon: '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5l10 -10" /></svg>',
-                },
-                unpaid: {
-                    label: 'Belum lunas',
-                    circle: 'bg-danger-soft text-danger ring-2 ring-danger/40',
-                    text: 'text-danger',
-                    icon: '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 8v4" /><path d="M12 16h.01" /></svg>',
-                },
-                upcoming: {
-                    label: 'Akan datang',
-                    circle: 'bg-surface-tint text-brand-text',
-                    text: 'text-brand-text',
-                    icon: '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" /><path d="M12 7v5l3 3" /></svg>',
-                },
-                unknown: {
-                    label: 'Belum pasti',
-                    circle: 'border border-dashed border-border bg-panel text-ink-subtle',
-                    text: 'text-ink-subtle',
-                    icon: '<span class="font-mono text-sm font-medium" aria-hidden="true">?</span>',
-                },
+                paid: { label: 'Lunas', text: app.ui.text.success },
+                unpaid: { label: 'Belum lunas', text: app.ui.text.danger },
+                upcoming: { label: 'Akan datang', text: app.ui.text.muted },
+                unknown: { label: 'Belum pasti', text: app.ui.text.subtle },
             };
             const REASONS = {
                 in_history: 'tercatat di histori portal',
@@ -227,7 +216,7 @@
                         <p class="font-medium">Batas bayar ${deadline.stage ? `UKT tahap ${app.escapeHtml(deadline.stage)}` : 'kuliah'}: ${app.escapeHtml(app.formatIndonesianDate(deadline.date, { weekday: true }))}</p>
                         <p class="mt-0.5 text-sm text-ink-muted">${app.escapeHtml(app.capitalize(app.formatRelativeDays(deadline.date)))}. Bayar sebelum tanggal ini supaya akses portal tidak terganggu.</p>
                         ${deadline.text ? `
-                            <details class="mt-2 text-caption">
+                            <details class="mt-2 text-xs">
                                 <summary class="cursor-pointer font-medium text-ink-muted">Lihat teks dari portal</summary>
                                 <p class="mt-1 text-ink-muted">${app.escapeHtml(deadline.text)}</p>
                             </details>
@@ -269,8 +258,8 @@
                     `);
                 } else if (status === 'clear') {
                     parts.push(`
-                        <div class="${app.alertTone('success')}" role="status" data-finance-bill-status="clear">
-                            <p class="font-medium">Tidak ada tagihan aktif</p>
+                        <div role="status" data-finance-bill-status="clear">
+                            <p class="flex items-center gap-2 text-sm font-medium text-ink"><span class="size-2 shrink-0 rounded-full bg-success" aria-hidden="true"></span>Tidak ada tagihan aktif</p>
                             <p class="mt-1 text-sm text-ink-muted">${app.escapeHtml(renderLatestPayment(summary.latest_payment))}</p>
                         </div>
                     `);
@@ -281,10 +270,10 @@
                     const urgent = deadline !== null && deadline.days <= 7;
 
                     parts.push(`
-                        <div class="${app.alertTone(urgent ? 'danger' : 'warning')}" role="status" data-finance-bill-status="outstanding">
-                            <p class="text-caption font-medium text-ink-subtle">Total tagihan aktif</p>
-                            <p class="mt-1 font-mono text-3xl font-semibold tracking-[-0.02em] text-ink tabular-nums">${app.escapeHtml(totalLabel)}</p>
-                            <p class="mt-0.5 text-sm text-ink-muted">${count} tagihan belum lunas</p>
+                        <div role="status" data-finance-bill-status="outstanding">
+                            <p class="text-xs font-medium text-ink-muted">Total tagihan aktif</p>
+                            <p class="mt-1 text-3xl font-semibold tracking-tight text-ink tabular-nums">${app.escapeHtml(totalLabel)}</p>
+                            <p class="mt-1 text-sm font-medium ${urgent ? app.ui.text.danger : app.ui.text.warning}">${count} tagihan belum lunas</p>
                         </div>
                     `);
 
@@ -292,12 +281,12 @@
                         parts.push(`
                             <ul class="flex flex-col" aria-label="Rincian tagihan">
                                 ${bills.map((bill) => `
-                                    <li class="mycic-list-row">
+                                    <li class="${app.ui.listRow}">
                                         <span class="min-w-0">
                                             <span class="block text-sm font-medium text-ink wrap-break-word">${app.escapeHtml(bill.name || 'Tagihan')}</span>
-                                            ${bill.description ? `<span class="mt-0.5 block text-caption text-ink-subtle">${app.escapeHtml(bill.description)}</span>` : ''}
+                                            ${bill.description ? `<span class="mt-0.5 block text-xs text-ink-subtle">${app.escapeHtml(bill.description)}</span>` : ''}
                                         </span>
-                                        <span class="shrink-0 font-mono text-sm font-medium text-ink tabular-nums">${app.escapeHtml(bill.amount_label || app.formatRupiah(bill.amount))}</span>
+                                        <span class="shrink-0 text-sm font-medium text-ink tabular-nums">${app.escapeHtml(bill.amount_label || app.formatRupiah(bill.amount))}</span>
                                     </li>
                                 `).join('')}
                             </ul>
@@ -305,7 +294,7 @@
                     }
 
                     if (outstanding.rows_sum_matches_total === false) {
-                        parts.push('<p class="text-caption text-ink-subtle">Jumlah rincian berbeda dengan total di portal. Pakai angka total di atas.</p>');
+                        parts.push('<p class="text-xs text-ink-subtle">Jumlah rincian berbeda dengan total di portal. Pakai angka total di atas.</p>');
                     }
 
                     parts.push(`
@@ -320,7 +309,7 @@
                     parts.push(`
                         <p class="${app.alertTone('info')}">
                             UKT tahap 1 tahun ini belum lunas. Pelunasan tahap 1 jadi syarat her-registrasi sebelum PIN KRS terbit.
-                            <a href="/krs" class="mycic-link">Cek status KRS</a>
+                            <a href="/krs" class="${app.ui.link}">Cek status KRS</a>
                         </p>
                     `);
                 }
@@ -380,31 +369,43 @@
                 return `Tahap ${stage.stage}: ${details.join(', ')}`;
             };
 
+            const STEP_COLUMNS = {
+                1: 'sm:grid-cols-1',
+                2: 'sm:grid-cols-2',
+                3: 'sm:grid-cols-3',
+                4: 'sm:grid-cols-4',
+                5: 'sm:grid-cols-5',
+                6: 'sm:grid-cols-6',
+            };
+            const STEP_BAR = {
+                paid: app.fillToneClass('success'),
+                unpaid: app.fillToneClass('danger'),
+                upcoming: 'bg-border',
+                unknown: 'bg-border',
+            };
+
             const renderStepper = (year, nextStage) => {
                 const stages = (Array.isArray(year.stages) ? year.stages : []).filter((stage) => Number.isInteger(stage?.stage));
-                const inset = `calc(50% / ${Math.max(1, stages.length)})`;
 
                 return `
-                    <div class="relative">
-                        <div class="absolute top-[1.125rem] h-0.5 bg-border-light" style="left: ${inset}; right: ${inset};" aria-hidden="true"></div>
-                        <ol class="relative grid gap-1" style="grid-template-columns: repeat(${Math.max(1, stages.length)}, minmax(0, 1fr));" aria-label="Tahap UKT tahun ke-${year.study_year}">
-                            ${stages.map((stage) => {
-                                const status = STAGE_STATUS[stage.status] || STAGE_STATUS.unknown;
-                                const isNext = nextStage && nextStage.study_year === year.study_year && nextStage.stage === stage.stage;
+                    <ol class="grid grid-cols-2 gap-x-3 gap-y-5 ${STEP_COLUMNS[stages.length] || STEP_COLUMNS[4]}" aria-label="Tahap UKT tahun ke-${year.study_year}">
+                        ${stages.map((stage) => {
+                            const status = STAGE_STATUS[stage.status] || STAGE_STATUS.unknown;
+                            const isNext = nextStage && nextStage.study_year === year.study_year && nextStage.stage === stage.stage;
+                            const bar = isNext && stage.status !== 'paid' && stage.status !== 'unpaid' ? app.ui.fill.brand : (STEP_BAR[stage.status] || STEP_BAR.unknown);
 
-                                return `
-                                    <li class="flex min-w-0 flex-col items-center gap-1 text-center" aria-label="${app.escapeHtml(stageSentence(stage))}" ${isNext ? 'aria-current="step"' : ''} title="${app.escapeHtml(stageSentence(stage))}">
-                                        <span class="flex h-9 w-9 items-center justify-center rounded-full ${status.circle} ${isNext && stage.status !== 'unpaid' ? 'ring-2 ring-brand/35' : ''}" aria-hidden="true">${status.icon}</span>
-                                        <span class="text-xs font-medium text-ink" aria-hidden="true">Tahap ${stage.stage}</span>
-                                        <span class="text-[11px] font-medium leading-tight ${status.text}" aria-hidden="true">${status.label}</span>
-                                        <span class="line-clamp-2 max-w-full font-mono text-[11px] leading-tight text-ink-subtle tabular-nums wrap-break-word" aria-hidden="true">${app.escapeHtml(stageDetail(stage))}</span>
-                                        ${stage.is_partial ? '<span class="mycic-badge-warning px-1.5 text-[11px]" aria-hidden="true">Sebagian</span>' : ''}
-                                        ${isNext ? '<span class="mycic-badge-brand px-1.5 text-[11px]" aria-hidden="true">Berikutnya</span>' : ''}
-                                    </li>
-                                `;
-                            }).join('')}
-                        </ol>
-                    </div>
+                            return `
+                                <li class="flex min-w-0 flex-col gap-2" aria-label="${app.escapeHtml(stageSentence(stage))}" ${isNext ? 'aria-current="step"' : ''} title="${app.escapeHtml(stageSentence(stage))}">
+                                    <span class="h-1 rounded-full ${bar}" aria-hidden="true"></span>
+                                    <span class="min-w-0" aria-hidden="true">
+                                        <span class="block text-xs font-medium text-ink">Tahap ${stage.stage}</span>
+                                        <span class="block truncate text-xs ${status.text}">${status.label}${stage.is_partial ? ' · sebagian' : ''}</span>
+                                        <span class="mt-0.5 line-clamp-2 max-w-full text-xs text-ink-subtle tabular-nums wrap-break-word">${app.escapeHtml(stageDetail(stage))}</span>
+                                    </span>
+                                </li>
+                            `;
+                        }).join('')}
+                    </ol>
                 `;
             };
 
@@ -434,7 +435,8 @@
                     stagesHost.innerHTML = app.renderEmptyState(
                         'Tahap UKT belum terbaca.',
                         'secondary',
-                        'Histori dan tagihan di portal belum mencantumkan tahap dan tahun kuliah.'
+                        'Histori dan tagihan di portal belum mencantumkan tahap dan tahun kuliah.',
+                        { icon: 'calendar' }
                     );
 
                     return;
@@ -459,27 +461,27 @@
                 stagesHost.innerHTML = `
                     <div class="flex flex-col gap-3">
                         <div class="flex flex-wrap items-baseline justify-between gap-2">
-                            <h3 class="text-sm font-medium leading-snug text-ink">${app.escapeHtml(heading(first))} ${first.is_current ? app.renderBadge('Berjalan', 'brand') : ''}</h3>
-                            <span class="text-caption text-ink-subtle">${app.escapeHtml(yearSummary(first))}</span>
+                            <h3 class="flex flex-wrap items-center gap-2 text-sm font-medium leading-snug text-ink">${app.escapeHtml(heading(first))} ${first.is_current ? app.renderBadge('Berjalan', 'brand') : ''}</h3>
+                            <span class="text-xs text-ink-subtle">${app.escapeHtml(yearSummary(first))}</span>
                         </div>
                         ${renderStepper(first, nextStage)}
                         ${nextLine}
-                        ${subtotal(first) ? `<p class="text-caption text-ink-subtle">Total dibayar tahun ini: <span class="font-mono font-medium text-ink tabular-nums">${app.escapeHtml(subtotal(first))}</span></p>` : ''}
+                        ${subtotal(first) ? `<p class="text-xs text-ink-subtle">Total dibayar tahun ini: <span class="font-medium text-ink tabular-nums">${app.escapeHtml(subtotal(first))}</span></p>` : ''}
                     </div>
-                    ${rest.map((year) => `
-                        <details class="group rounded-lg border border-border-light">
-                            <summary class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 [&::-webkit-details-marker]:hidden">
+                    ${rest.length ? `<div class="divide-y divide-border-light border-t border-border-light">${rest.map((year) => `
+                        <details class="group">
+                            <summary class="-mx-2 flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 rounded-md px-2 py-2.5 transition-colors hover:bg-surface/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 [&::-webkit-details-marker]:hidden">
                                 <span class="min-w-0">
                                     <span class="block text-sm font-medium text-ink">${app.escapeHtml(heading(year))}</span>
-                                    <span class="block text-caption text-ink-subtle">${app.escapeHtml([yearSummary(year), subtotal(year)].filter(Boolean).join(' · '))}</span>
+                                    <span class="block text-xs text-ink-subtle">${app.escapeHtml([yearSummary(year), subtotal(year)].filter(Boolean).join(' · '))}</span>
                                 </span>
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 text-ink-subtle transition-transform group-open:rotate-180" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6l6 -6" /></svg>
                             </summary>
-                            <div class="px-3 pb-3 pt-1">${renderStepper(year, nextStage)}</div>
+                            <div class="pb-3 pt-1">${renderStepper(year, nextStage)}</div>
                         </details>
-                    `).join('')}
-                    ${allStages.some((stage) => stage?.status === 'unknown') ? '<p class="text-caption text-ink-subtle"><span class="font-medium text-ink-muted">Belum pasti</span> berarti tahap itu tidak ada di histori maupun tagihan portal. Tahap yang dibayar saat pendaftaran (PMB) sering tidak tercatat di histori.</p>' : ''}
-                    ${allStages.some((stage) => stage?.is_partial) ? '<p class="text-caption text-ink-subtle"><span class="font-medium text-ink-muted">Sebagian</span> berarti nominal yang tercatat kurang dari nominal tahap.</p>' : ''}
+                    `).join('')}</div>` : ''}
+                    ${allStages.some((stage) => stage?.status === 'unknown') ? '<p class="text-xs text-ink-subtle"><span class="font-medium text-ink-muted">Belum pasti</span> berarti tahap itu tidak ada di histori maupun tagihan portal. Tahap yang dibayar saat pendaftaran (PMB) sering tidak tercatat di histori.</p>' : ''}
+                    ${allStages.some((stage) => stage?.is_partial) ? '<p class="text-xs text-ink-subtle"><span class="font-medium text-ink-muted">Sebagian</span> berarti nominal yang tercatat kurang dari nominal tahap.</p>' : ''}
                 `;
             };
 
@@ -503,12 +505,12 @@
                     title: paymentTitle(payment),
                     body: `
                         <div class="flex flex-col gap-4">
-                            <div class="rounded-[var(--radius-control)] border border-success/20 bg-success-soft p-4 text-center">
-                                <div class="font-mono text-2xl font-semibold text-success tabular-nums">${app.escapeHtml(amount)}</div>
-                                <span class="${partial ? 'mycic-badge-warning' : 'mycic-badge-success'} mt-2">${partial ? 'Dibayar sebagian' : 'Tercatat di histori portal'}</span>
+                            <div class="${app.ui.inset} flex flex-col items-center gap-2 text-center">
+                                <div class="text-2xl font-semibold tracking-tight text-ink tabular-nums">${app.escapeHtml(amount)}</div>
+                                <span class="${partial ? app.ui.badge.warning : app.ui.badge.success}">${partial ? 'Dibayar sebagian' : 'Tercatat di histori portal'}</span>
                             </div>
                             ${app.renderKeyValueList(entries)}
-                            <p class="text-caption text-ink-subtle">Ringkasan dari histori portal, bukan kwitansi resmi.</p>
+                            <p class="text-xs text-ink-subtle">Ringkasan dari histori portal, bukan kwitansi resmi.</p>
                         </div>
                     `,
                 });
@@ -525,10 +527,13 @@
                                 <li>Pakai tombol <span class="font-medium text-ink">Salin nominal</span> supaya jumlah yang kamu bayar pas.</li>
                                 <li>Simpan bukti bayar. Tagihan baru hilang dari portal setelah Bagian Keuangan mencatat pembayaranmu, jadi bisa butuh beberapa hari.</li>
                             </ol>
-                            <a href="/announcement?kategori=pembayaran" class="mycic-sheet-action">
+                            <a href="/announcement?kategori=pembayaran" class="${app.ui.sheetAction}">
+                                <span class="${app.ui.sheetActionIcon}">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="size-4" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a3 3 0 0 1 0 6" /><path d="M10 8v11a1 1 0 0 1 -1 1h-1a1 1 0 0 1 -1 -1v-5" /><path d="M12 8h0l4.524 -3.77a.9 .9 0 0 1 1.476 .692v12.156a.9 .9 0 0 1 -1.476 .692l-4.524 -3.77h-8a1 1 0 0 1 -1 -1v-4a1 1 0 0 1 1 -1h8" /></svg>
+                                </span>
                                 <span class="min-w-0 flex-1">
                                     <span class="block font-medium text-ink">Pengumuman keuangan</span>
-                                    <span class="block text-caption text-ink-subtle">Info rekening dan tenggat terbaru dari kampus</span>
+                                    <span class="block text-xs text-ink-subtle">Info rekening dan tenggat terbaru dari kampus</span>
                                 </span>
                             </a>
                         </div>
@@ -575,8 +580,8 @@
 
                 if (filtered.length === 0) {
                     container.innerHTML = `
-                        <div class="mycic-card-body">
-                            ${app.renderEmptyState(query ? 'Tidak ada hasil.' : 'Belum ada pembayaran tercatat.', 'secondary', query ? 'Coba kata kunci lain.' : 'Pembayaran yang sudah dicatat Bagian Keuangan akan muncul di sini.')}
+                        <div class="${app.ui.cardBody}">
+                            ${app.renderEmptyState(query ? 'Tidak ada hasil.' : 'Belum ada pembayaran tercatat.', 'secondary', query ? 'Coba kata kunci lain.' : 'Pembayaran yang sudah dicatat Bagian Keuangan akan muncul di sini.', { icon: query ? 'search' : 'receipt' })}
                         </div>
                     `;
 
@@ -587,20 +592,22 @@
                 const showStatus = filtered.some((payment) => payment.status);
                 const statusBadge = (status) => app.renderBadge(status, /lunas|sukses|berhasil|verified/i.test(status) ? 'success' : 'info');
 
+                const cellEmpty = '<span class="text-xs text-ink-subtle">–</span>';
+
                 const tableHtml = `
                     <div class="hidden md:block">
-                        <div class="mycic-table-wrap rounded-b-[var(--radius-card)] border-0">
-                            <table class="mycic-table">
+                        <div class="overflow-x-auto">
+                            <table class="${app.ui.table}">
                                 <caption class="sr-only">Riwayat pembayaran, pilih baris untuk melihat detail</caption>
                                 <thead>
                                     <tr>
-                                        <th scope="col" class="w-12 text-center">#</th>
-                                        <th scope="col">Tanggal</th>
-                                        <th scope="col">Uraian</th>
-                                        <th scope="col">Tahap</th>
-                                        ${showChannel ? '<th scope="col">Metode</th>' : ''}
-                                        ${showStatus ? '<th scope="col">Status</th>' : ''}
-                                        <th scope="col" class="text-end">Jumlah</th>
+                                        <th scope="col" class="${app.ui.th} w-12 text-center!">#</th>
+                                        <th scope="col" class="${app.ui.th}">Tanggal</th>
+                                        <th scope="col" class="${app.ui.th}">Uraian</th>
+                                        <th scope="col" class="${app.ui.th}">Tahap</th>
+                                        ${showChannel ? `<th scope="col" class="${app.ui.th}">Metode</th>` : ''}
+                                        ${showStatus ? `<th scope="col" class="${app.ui.th}">Status</th>` : ''}
+                                        <th scope="col" class="${app.ui.th} text-end!">Jumlah</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -609,20 +616,20 @@
                                         const ref = payment.reference || payment.raw?.Kwitansi || '';
 
                                         return `
-                                            <tr class="cursor-pointer transition-colors hover:bg-surface/60" data-payment-row="${index}">
-                                                <td class="text-center font-medium text-ink-subtle">${index + 1}</td>
-                                                <td class="whitespace-nowrap font-medium text-ink">${app.escapeHtml(payment.paid_at_label || '–')}</td>
-                                                <td>
-                                                    <button type="button" class="cursor-pointer rounded text-start font-medium text-ink hover:text-brand-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand" data-payment-open="${index}">
+                                            <tr class="${app.ui.tr} cursor-pointer" data-payment-row="${index}">
+                                                <td class="${app.ui.td} text-center text-ink-subtle tabular-nums">${index + 1}</td>
+                                                <td class="${app.ui.td} whitespace-nowrap text-ink-muted tabular-nums">${app.escapeHtml(payment.paid_at_label || '–')}</td>
+                                                <td class="${app.ui.td}">
+                                                    <button type="button" class="cursor-pointer rounded-sm text-start font-medium text-ink hover:text-brand-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand" data-payment-open="${index}">
                                                         ${app.escapeHtml(paymentTitle(payment))}
                                                         <span class="sr-only">, lihat detail</span>
                                                     </button>
-                                                    ${ref ? `<div class="font-mono text-caption text-ink-subtle">${app.escapeHtml(ref)}</div>` : ''}
+                                                    ${ref ? `<div class="mt-0.5 font-mono text-xs text-ink-subtle">${app.escapeHtml(ref)}</div>` : ''}
                                                 </td>
-                                                <td class="whitespace-nowrap">${stageLabel(payment) ? app.escapeHtml(stageLabel(payment)) : '<span class="text-caption text-ink-subtle">–</span>'}${isPartial(payment) ? ` ${app.renderBadge('Sebagian', 'warning')}` : ''}</td>
-                                                ${showChannel ? `<td>${channel ? app.renderBadge(channel, 'brand') : '<span class="text-caption text-ink-subtle">–</span>'}</td>` : ''}
-                                                ${showStatus ? `<td>${payment.status ? statusBadge(payment.status) : '<span class="text-caption text-ink-subtle">–</span>'}</td>` : ''}
-                                                <td class="whitespace-nowrap text-end font-mono text-base font-medium text-success tabular-nums">${app.escapeHtml(amountLabel(payment))}</td>
+                                                <td class="${app.ui.td} whitespace-nowrap text-ink-muted">${stageLabel(payment) ? app.escapeHtml(stageLabel(payment)) : cellEmpty}${isPartial(payment) ? `<span class="block text-xs ${app.ui.text.warning}">Sebagian</span>` : ''}</td>
+                                                ${showChannel ? `<td class="${app.ui.td} text-ink-muted">${channel ? app.escapeHtml(channel) : cellEmpty}</td>` : ''}
+                                                ${showStatus ? `<td class="${app.ui.td}">${payment.status ? statusBadge(payment.status) : cellEmpty}</td>` : ''}
+                                                <td class="${app.ui.td} whitespace-nowrap text-end font-medium text-ink tabular-nums">${app.escapeHtml(amountLabel(payment))}</td>
                                             </tr>
                                         `;
                                     }).join('')}
@@ -632,26 +639,33 @@
                     </div>
                 `;
 
-                const mobileBadges = (payment) => [
-                    stageLabel(payment) && !/tahap/i.test(paymentTitle(payment)) ? app.renderBadge(stageLabel(payment), 'secondary') : '',
-                    isPartial(payment) ? app.renderBadge('Sebagian', 'warning') : '',
-                    payment.payment_channel || payment.bank ? app.renderBadge(payment.payment_channel || payment.bank, 'brand') : '',
-                    payment.status ? statusBadge(payment.status) : '',
-                ].filter(Boolean).join('');
+                const mobileMeta = (payment) => [
+                    payment.paid_at_label || '–',
+                    stageLabel(payment) && !/tahap/i.test(paymentTitle(payment)) ? stageLabel(payment) : '',
+                    payment.payment_channel || payment.bank || '',
+                ].filter(Boolean).join(' · ');
+
+                const mobileBadge = (payment) => {
+                    if (isPartial(payment)) {
+                        return app.renderBadge('Sebagian', 'warning');
+                    }
+
+                    return payment.status ? statusBadge(payment.status) : '';
+                };
 
                 const mobileHtml = `
-                    <ul class="divide-y divide-border-light md:hidden">
+                    <ul class="divide-y divide-border-light md:hidden" data-payment-list>
                         ${filtered.map((payment, index) => `
                             <li>
-                                <button type="button" class="flex w-full cursor-pointer flex-col gap-2 p-4 text-start transition-colors hover:bg-surface/50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand active:bg-surface" data-payment-open="${index}">
-                                    <span class="flex w-full items-start justify-between gap-3">
-                                        <span class="min-w-0 flex-1">
-                                            <span class="block text-sm font-medium leading-snug text-ink">${app.escapeHtml(paymentTitle(payment))}</span>
-                                            <span class="mt-1 block text-caption text-ink-subtle">${app.escapeHtml(payment.paid_at_label || '–')}</span>
-                                        </span>
-                                        <span class="shrink-0 text-end font-mono text-sm font-medium text-success tabular-nums">${app.escapeHtml(amountLabel(payment))}</span>
+                                <button type="button" class="flex min-h-11 w-full cursor-pointer items-start justify-between gap-3 px-4 py-3 text-start transition-colors hover:bg-surface/60 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand active:bg-surface sm:px-5" data-payment-open="${index}">
+                                    <span class="min-w-0 flex-1">
+                                        <span class="block text-sm font-medium leading-snug text-ink">${app.escapeHtml(paymentTitle(payment))}</span>
+                                        <span class="mt-0.5 block text-xs text-ink-muted tabular-nums">${app.escapeHtml(mobileMeta(payment))}</span>
                                     </span>
-                                    ${mobileBadges(payment) ? `<span class="flex flex-wrap items-center gap-1.5">${mobileBadges(payment)}</span>` : ''}
+                                    <span class="flex shrink-0 flex-col items-end gap-1 text-end">
+                                        <span class="text-sm font-semibold text-ink tabular-nums">${app.escapeHtml(amountLabel(payment))}</span>
+                                        ${mobileBadge(payment)}
+                                    </span>
                                 </button>
                             </li>
                         `).join('')}
@@ -663,7 +677,7 @@
                 container.querySelectorAll('[data-payment-row]').forEach((row) => {
                     row.addEventListener('click', () => openDetail(filtered[Number(row.dataset.paymentRow)]));
                 });
-                container.querySelectorAll('.md\\:hidden [data-payment-open]').forEach((button) => {
+                container.querySelectorAll('[data-payment-list] [data-payment-open]').forEach((button) => {
                     button.addEventListener('click', () => openDetail(filtered[Number(button.dataset.paymentOpen)]));
                 });
             };
@@ -735,8 +749,8 @@
                 } else {
                     container.removeAttribute('aria-busy');
                     container.innerHTML = `
-                        <div class="mycic-card-body">
-                            ${app.renderEmptyState('Histori pembayaran tidak terbaca dari portal.', 'secondary', 'Coba sinkronkan lagi nanti. Riwayatmu tidak hilang.')}
+                        <div class="${app.ui.cardBody}">
+                            ${app.renderEmptyState('Histori pembayaran tidak terbaca dari portal.', 'secondary', 'Coba sinkronkan lagi nanti. Riwayatmu tidak hilang.', { icon: 'history' })}
                         </div>
                     `;
                 }

@@ -1,3 +1,5 @@
+import { ui } from './ui.js';
+
 /**
  * The bottom sheet (a dialog from md up): one host for the whole page,
  * focus kept inside, Escape and the backdrop close it.
@@ -13,23 +15,23 @@ export class SheetFeature {
 
         const host = document.createElement('div');
 
-        host.className = 'mycic-sheet hidden';
+        host.className = `${ui.sheet} hidden`;
         host.setAttribute('data-app-sheet', '');
         host.setAttribute('aria-hidden', 'true');
         host.innerHTML = `
-            <div class="mycic-sheet-backdrop" data-app-sheet-close></div>
-            <div class="mycic-sheet-panel" role="dialog" aria-modal="true" aria-labelledby="app-sheet-title" tabindex="-1" data-app-sheet-panel>
-                <div class="mycic-sheet-handle" aria-hidden="true"></div>
-                <div class="mycic-modal-header">
+            <div class="${ui.sheetBackdrop}" data-app-sheet-close></div>
+            <div class="${ui.sheetPanel}" role="dialog" aria-modal="true" aria-labelledby="app-sheet-title" tabindex="-1" data-app-sheet-panel>
+                <div class="${ui.sheetHandle}" aria-hidden="true"></div>
+                <div class="${ui.modalHeader}">
                     <div class="min-w-0">
-                        <div class="text-caption font-medium text-ink-subtle" data-app-sheet-pretitle></div>
-                        <h2 class="mycic-modal-title" id="app-sheet-title" data-app-sheet-title></h2>
+                        <div class="text-xs font-medium text-ink-subtle" data-app-sheet-pretitle></div>
+                        <h2 class="${ui.modalTitle}" id="app-sheet-title" data-app-sheet-title></h2>
                     </div>
-                    <button type="button" class="mycic-modal-close" aria-label="Tutup" data-app-sheet-close>
+                    <button type="button" class="${ui.modalClose}" aria-label="Tutup" data-app-sheet-close>
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-[18px] w-[18px]" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6l-12 12" /><path d="M6 6l12 12" /></svg>
                     </button>
                 </div>
-                <div class="mycic-modal-body" data-app-sheet-body></div>
+                <div class="${ui.modalBody}" data-app-sheet-body></div>
             </div>
         `;
 

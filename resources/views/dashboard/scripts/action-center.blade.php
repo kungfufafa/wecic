@@ -32,20 +32,6 @@
                 return { days, label: `${days} hari lagi${date}`, tone: days <= 3 ? 'text-warning' : 'text-ink-subtle' };
             };
 
-            const partOfDay = () => {
-                const hour = new Date().getHours();
-
-                if (hour < 11) {
-                    return 'pagi';
-                }
-
-                if (hour < 15) {
-                    return 'siang';
-                }
-
-                return hour < 18 ? 'sore' : 'malam';
-            };
-
             const dpaMessage = (item) => {
                 const student = studentInfo();
                 const name = student.name || student.nama || '';
@@ -73,19 +59,18 @@
                 const ctaVariant = tone === 'danger' ? 'primary' : 'secondary';
 
                 return `
-                    <li class="flex items-start gap-3 py-3 first:pt-0 last:pb-0" data-action-item="${esc(item.type || 'item')}">
-                        <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full ${app.fillToneClass(tone === 'neutral' ? 'secondary' : tone)}" aria-hidden="true"></span>
-                        <div class="flex min-w-0 flex-1 flex-col gap-1.5">
+                    <li class="py-3 first:pt-0 last:pb-0" data-action-item="${esc(item.type || 'item')}">
+                        <div class="flex min-w-0 flex-col gap-1.5">
                             <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
                                 ${app.renderSeverityBadge(item.severity)}
                                 ${due ? `
-                                    <span class="inline-flex items-center gap-1 font-mono text-caption font-medium tabular-nums ${due.tone}">
+                                    <span class="inline-flex items-center gap-1 text-xs font-medium tabular-nums ${due.tone}">
                                         ${ICONS.clock}<span class="sr-only">Tenggat:</span> ${esc(due.label)}
                                     </span>
                                 ` : ''}
                             </div>
                             <h3 class="text-sm font-medium leading-snug text-ink">${esc(title || 'Perlu dicek')}</h3>
-                            ${item.description ? `<p class="line-clamp-2 text-caption text-ink-subtle">${esc(item.description)}</p>` : ''}
+                            ${item.description ? `<p class="line-clamp-2 text-[13px] text-ink-muted">${esc(item.description)}</p>` : ''}
                             ${href || contact ? `
                                 <div class="mt-1 flex flex-wrap gap-2">
                                     ${href ? `
@@ -115,8 +100,8 @@
 
                 if (pending.length) {
                     notes.push(`
-                        <p class="flex items-start gap-2 text-caption text-ink-subtle" data-action-pending>
-                            <span class="mycic-spinner mt-0.5 h-3 w-3 shrink-0" aria-hidden="true"></span>
+                        <p class="flex items-start gap-2 text-xs text-ink-subtle" data-action-pending>
+                            <span class="${app.ui.spinner} mt-0.5 size-3!" aria-hidden="true"></span>
                             <span>Data ${esc(joinSourceLabels(pending))} sedang diperbarui dari portal. Daftar ini menyesuaikan sendiri setelah selesai.</span>
                         </p>
                     `);
@@ -124,7 +109,7 @@
 
                 if (failed.length) {
                     notes.push(`
-                        <p class="flex items-start gap-2 text-caption text-ink-muted" data-action-failed>
+                        <p class="flex items-start gap-2 text-xs text-ink-muted" data-action-failed>
                             <span class="mt-0.5 shrink-0 text-warning">${ICONS.alert}</span>
                             <span>Data ${esc(joinSourceLabels(failed))} tidak terbaca dari portal, jadi belum masuk daftar ini.</span>
                         </p>
@@ -132,13 +117,13 @@
                 }
 
                 if (Number.isFinite(total) && total > shownCount && shownCount > 0) {
-                    notes.push(`<p class="text-caption text-ink-subtle">Menampilkan ${shownCount} dari ${total} hal yang paling mendesak.</p>`);
+                    notes.push(`<p class="text-xs text-ink-subtle">Menampilkan ${shownCount} dari ${total} hal yang paling mendesak.</p>`);
                 }
 
                 if (meta.cache_is_stale) {
                     const updatedAgo = app.formatTimeAgo(meta.generated_at || meta.cached_at);
 
-                    notes.push(`<p class="text-caption text-ink-subtle">Data tersimpan di perangkat${updatedAgo ? `, diperbarui ${esc(updatedAgo)}` : ''}.</p>`);
+                    notes.push(`<p class="text-xs text-ink-subtle">Data tersimpan di perangkat${updatedAgo ? `, diperbarui ${esc(updatedAgo)}` : ''}.</p>`);
                 }
 
                 return notes.length ? `<div class="mt-3 flex flex-col gap-1.5" role="status">${notes.join('')}</div>` : '';
@@ -153,29 +138,23 @@
                     return app.renderEmptyState(
                         'Belum ada yang perlu diurus',
                         'secondary',
-                        'Sebagian data masih diambil dari portal, jadi daftar ini bisa bertambah.'
+                        'Sebagian data masih diambil dari portal, jadi daftar ini bisa bertambah.',
+                        { icon: 'inbox' }
                     );
                 }
 
                 return `
-                    <div class="mycic-empty" data-action-empty>
-                        <span class="flex h-10 w-10 items-center justify-center rounded-full bg-success-soft text-success">${ICONS.check}</span>
-                        <p class="mycic-empty-title">Semua beres</p>
-                        <p class="mycic-empty-subtitle">Tidak ada tenggat atau kewajiban yang perlu kamu urus sekarang.</p>
+                    <div class="${app.ui.empty}" data-slot="empty" data-action-empty>
+                        <span class="${app.ui.emptyIcon}" aria-hidden="true">${ICONS.check}</span>
+                        <p class="${app.ui.emptyTitle}">Semua beres</p>
+                        <p class="${app.ui.emptySubtitle}">Tidak ada tenggat atau kewajiban yang perlu kamu urus sekarang.</p>
                     </div>
                 `;
             };
 
-            const renderActionCount = (items) => {
-                const critical = items.filter((item) => app.severityTone(item.severity) === 'danger').length;
-                const warning = items.filter((item) => app.severityTone(item.severity) === 'warning').length;
-
-                if (critical) {
-                    return app.renderBadge(`${critical} mendesak`, 'danger');
-                }
-
-                return warning ? app.renderBadge(`${warning} segera`, 'warning') : '';
-            };
+            // The muted count after the heading ("Pusat tindakan · 3"): each row already
+            // carries its own severity badge, so the count repeats no colour.
+            const renderActionCount = (items) => (items.length ? String(items.length) : '');
 
             const renderActionCenter = (payload) => {
                 if (!payload || typeof payload !== 'object') {
@@ -204,11 +183,11 @@
                 const preview = items.slice(0, ACTION_PREVIEW_LIMIT);
 
                 actionsHost.removeAttribute('aria-busy');
-                actionsCountHost.innerHTML = renderActionCount(items);
+                actionsCountHost.textContent = renderActionCount(items);
                 actionsHost.innerHTML = items.length
                     ? `
-                        <div class="mycic-card">
-                            <div class="mycic-card-body">
+                        <div class="${app.ui.card}" data-slot="card">
+                            <div class="${app.ui.cardBody}">
                                 <ul class="flex flex-col divide-y divide-border-light" aria-label="Tindakan paling mendesak">
                                     ${preview.map(renderActionRow).join('')}
                                 </ul>

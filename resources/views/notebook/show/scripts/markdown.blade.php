@@ -4,7 +4,7 @@
     DOMContentLoaded handler opened in notebook/show.blade.php: it shares
     that scope (app, el, base, the elements, constants and state in setup).
 --}}
-            const citationButton = (number) => `<button type="button" class="mx-0.5 inline-flex h-5 min-w-5 cursor-pointer items-center justify-center rounded-full bg-surface-tint px-1 align-text-top font-mono text-[11px] font-medium text-brand-text transition-colors duration-150 hover:bg-brand hover:text-brand-ink focus-visible:outline-2 focus-visible:outline-brand" data-cite="${number}" aria-label="Rujukan ${number}">${number}</button>`;
+            const citationButton = (number) => `<button type="button" class="mx-0.5 inline-flex h-5 min-w-5 cursor-pointer items-center justify-center rounded-full bg-surface-tint px-1 align-text-top text-[11px] tabular-nums font-medium text-brand-text transition-colors duration-150 hover:bg-brand hover:text-brand-ink focus-visible:outline-2 focus-visible:outline-brand" data-cite="${number}" aria-label="Rujukan ${number}">${number}</button>`;
 
             // A run of citations ([3], [2][5]) right after a word or a bracket is code such as arr[0], as on the server.
             const formatProse = (text) => app.escapeHtml(text)
@@ -14,7 +14,7 @@
 
             // Safe Markdown subset: everything is escaped first; code spans keep their text as written.
             const inline = (text) => String(text ?? '').split(/(`[^`]+`)/).map((part, index) => (index % 2
-                ? `<code class="rounded bg-surface px-1">${app.escapeHtml(part.slice(1, -1))}</code>`
+                ? `<code class="rounded bg-surface px-1 font-mono text-[0.85em]">${app.escapeHtml(part.slice(1, -1))}</code>`
                 : formatProse(part))).join('');
 
             const renderMarkdown = (text) => {
@@ -30,7 +30,7 @@
                 };
 
                 const flushFence = () => {
-                    blocks.push(`<pre class="overflow-x-auto rounded-lg bg-surface p-2 text-caption"><code>${app.escapeHtml(fence.join('\n'))}</code></pre>`);
+                    blocks.push(`<pre class="overflow-x-auto rounded-lg border border-border-light bg-surface/60 p-3 font-mono text-xs"><code>${app.escapeHtml(fence.join('\n'))}</code></pre>`);
                     fence = null;
                 };
 
@@ -64,7 +64,7 @@
                             list = { tag: 'ul', items: [] };
                         }
 
-                        list.items.push(`<li class="list-none -ms-5"><label class="flex items-start gap-2"><input type="checkbox" class="mt-1"><span>${inline(checkbox[1])}</span></label></li>`);
+                        list.items.push(`<li class="list-none -ms-5"><label class="flex items-start gap-2"><input type="checkbox" class="mt-1 size-4 shrink-0 accent-brand"><span>${inline(checkbox[1])}</span></label></li>`);
 
                         return;
                     }
@@ -106,5 +106,5 @@
                 .replace(/\s+/g, ' ')
                 .trim();
 
-            const citationPanel = (message) => `<div class="hidden rounded-[var(--radius-control)] border border-border-light bg-surface p-3 text-caption text-ink-muted" data-cite-panel="${message.id}"></div>`;
+            const citationPanel = (message) => `<div class="hidden rounded-lg border border-border-light bg-surface/40 p-3 text-xs leading-relaxed text-ink-muted" data-cite-panel="${message.id}"></div>`;
 

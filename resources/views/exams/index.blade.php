@@ -3,23 +3,29 @@
 @section('title', 'Ujian')
 @section('page_id', 'exam-index')
 
+{{--
+    Ujian: the hero and the exams as rows of one list card, each a link to
+    its detail page; the heading counts them (and how many are submitted).
+--}}
 @section('content')
-    <x-page-header title="Ujian" />
+    <x-page-hero title="Ujian">
+        <x-slot:actions>
+            <x-button :href="route('class.index')" variant="secondary" size="sm">
+                <x-icon name="class" size="sm" />
+                Jadwal kelas
+            </x-button>
+        </x-slot:actions>
+    </x-page-hero>
 
     {{-- Exam answers queued while offline: not at the portal yet. --}}
-    <div class="mb-5 hidden" data-outbox-list data-outbox-match="action:exam_upload" data-outbox-heading="Antrean offline ujian"></div>
+    <div class="mb-6 hidden" data-outbox-list data-outbox-match="action:exam_upload" data-outbox-heading="Antrean offline ujian"></div>
 
-    <div id="exam-summary" class="mb-5 mycic-stat-strip grid-cols-3">
-        @foreach (['Total', 'Jadwal', 'Terkirim'] as $label)
-            <x-metric :label="$label">
-                <x-slot:value data-exam-metric="">-</x-slot:value>
-            </x-metric>
-        @endforeach
-    </div>
-
-    <div class="flex flex-col gap-3" id="exam-list">
-        <x-empty-state class="py-8" title="Memuat ujian..." title-class="text-ink-subtle" />
-    </div>
+    <x-section title="Daftar ujian" title-id="exam-list-title">
+        <x-slot:count id="exam-count" class="hidden">0</x-slot:count>
+        <div class="flex flex-col gap-3" id="exam-list">
+            <x-empty-state title="Memuat ujian..." title-class="font-normal! text-ink-subtle!" />
+        </div>
+    </x-section>
 @endsection
 
 @push('scripts')
@@ -28,7 +34,7 @@
             const app = window.portalApp;
 
             const listHost = document.getElementById('exam-list');
-            const metricNodes = document.querySelectorAll('[data-exam-metric]');
+            const countNode = document.getElementById('exam-count');
 
             const examDetailHref = (exam) => {
                 const examId = String(exam.id || '').trim();
@@ -36,7 +42,12 @@
                 return examId ? `/exam/${encodeURIComponent(examId)}` : '';
             };
 
-            const renderExamCard = (exam) => {
+            /**
+             * An exam as a row of the list card: a link to its detail page when it
+             * has an id, with the status (a badge only once submitted) and the
+             * course code on the right.
+             */
+            const renderExamCard = (exam, submitted = false) => {
                 const href = examDetailHref(exam);
                 const courseName = app.escapeHtml(exam.course_name || 'Tanpa judul');
                 const hasSchedule = Boolean(String(exam.schedule || '').trim() && exam.schedule !== '-');
@@ -44,50 +55,42 @@
                 const courseCode = app.escapeHtml(exam.course_code || '-');
                 const rawStatus = String(exam.status || '').trim();
                 const status = app.escapeHtml(rawStatus && rawStatus !== '-' ? rawStatus : 'Belum ada info');
-
-                return `
-                    <div class="mycic-card-interactive">
-                        <div class="flex flex-col gap-3 md:flex-row md:items-center">
-                            <div class="min-w-0 flex-1">
-                                <div class="mb-1 flex flex-wrap items-center gap-2 text-caption text-ink-subtle">
-                                    ${app.renderBadge(courseCode, 'brand')}
-                                    ${app.renderBadge(status, 'neutral')}
-                                </div>
-                                <h3 class="mb-1 text-sm font-medium leading-snug text-ink">
-                                    ${href
-                                        ? `<a href="${href}" class="text-ink no-underline transition-colors hover:text-brand-text">${courseName}</a>`
-                                        : courseName}
-                                </h3>
-                                <p class="text-caption text-ink-subtle">${schedule}</p>
-                            </div>
-                            <div class="shrink-0">
-                                ${href
-                                    ? `<a href="${href}" class="${app.buttonClass('primary', { small: true })}">Detail</a>`
-                                    : app.renderDisabledButton('—')}
-                            </div>
-                        </div>
+                const body = `
+                    <div class="${app.ui.listRowBody}">
+                        <p class="text-sm font-medium leading-snug text-ink">${courseName}</p>
+                        <p class="${app.ui.listRowSubtitle}">${schedule}</p>
+                    </div>
+                    <div class="${app.ui.listRowTrailing}">
+                        ${submitted ? `<span class="${app.ui.badge.success}">${status}</span>` : `<span class="text-ink-muted">${status}</span>`}
+                        <span class="font-mono">${courseCode}</span>
                     </div>
                 `;
+
+                return href
+                    ? `<li><a href="${href}" class="${app.ui.listRowFlushInteractive}">${body}${app.renderIcon('chevron-right', 'sm', app.ui.listRowChevron)}</a></li>`
+                    : `<li class="${app.ui.listRowFlush}">${body}</li>`;
             };
 
             const renderExams = (payload) => {
                 const exams = payload.data?.exams || [];
-                const scheduledCount = exams.filter((exam) => Boolean(String(exam.schedule || '').trim() && exam.schedule !== '-')).length;
                 // "Belum Upload" or "Belum dikumpulkan" are not submissions.
                 const isSubmittedStatus = (status) => !/belum|tidak|not/i.test(status) && /sudah|terkirim|telah|selesai|uploaded/i.test(status);
                 const submittedCount = exams.filter((exam) => isSubmittedStatus(String(exam.status || ''))).length;
 
-                metricNodes[0].textContent = exams.length || '0';
-                metricNodes[1].textContent = String(scheduledCount);
-                metricNodes[2].textContent = String(submittedCount);
+                countNode.textContent = submittedCount ? `${exams.length} · ${submittedCount} terkirim` : String(exams.length);
+                countNode.classList.toggle('hidden', !exams.length);
 
                 if (!exams.length) {
-                    listHost.innerHTML = app.renderEmptyState('Belum ada ujian.', 'secondary');
+                    listHost.innerHTML = app.renderEmptyState('Belum ada ujian.', 'secondary', '', { icon: 'exam' });
 
                     return;
                 }
 
-                listHost.innerHTML = exams.map((exam) => renderExamCard(exam)).join('');
+                listHost.innerHTML = `
+                    <div class="${app.ui.card} overflow-hidden" data-slot="card">
+                        <ul class="${app.ui.list}">${exams.map((exam) => renderExamCard(exam, isSubmittedStatus(String(exam.status || '')))).join('')}</ul>
+                    </div>
+                `;
             };
 
             app.primeCachedView('/api/exam', renderExams, 'daftar ujian');

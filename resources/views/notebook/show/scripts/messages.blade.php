@@ -21,20 +21,20 @@
                 const titles = (context.sources || []).map((source) => app.escapeHtml(source.meeting_number ? `P${source.meeting_number} · ${source.title}` : source.title)).join('<br>');
 
                 return `
-                    <details class="text-caption text-ink-subtle">
-                        <summary class="cursor-pointer">Konteks: ${app.escapeHtml(parts)}${context.focus ? ' · fokus tugas' : ''}</summary>
-                        <div class="mt-1 rounded-[var(--radius-control)] border border-border-light bg-surface p-2 text-ink-muted">${context.focus ? `<p class="mb-1"><span class="font-medium text-ink">Fokus:</span> ${app.escapeHtml(context.focus)}</p>` : ''}${titles || 'Tidak ada sumber.'}</div>
+                    <details class="text-xs text-ink-subtle">
+                        <summary class="cursor-pointer hover:text-ink-muted">Konteks: ${app.escapeHtml(parts)}${context.focus ? ' · fokus tugas' : ''}</summary>
+                        <div class="mt-1 rounded-lg border border-border-light bg-surface/40 p-2.5 leading-relaxed text-ink-muted">${context.focus ? `<p class="mb-1"><span class="font-medium text-ink">Fokus:</span> ${app.escapeHtml(context.focus)}</p>` : ''}${titles || 'Tidak ada sumber.'}</div>
                     </details>
                 `;
             };
 
             const renderAssistant = (message) => `
                 <li class="flex flex-col gap-2" data-message-id="${message.id}">
-                    <div class="rounded-[var(--radius-card)] rounded-tl-xs border border-border bg-panel p-3">${renderMarkdown(message.content)}</div>
+                    <div class="rounded-xl rounded-tl-xs border border-border bg-panel p-3 sm:p-4">${renderMarkdown(message.content)}</div>
                     ${citationPanel(message)}
-                    <div class="flex flex-wrap items-center gap-2 text-caption text-ink-subtle">
-                        ${message.citations.length ? `<span>${message.citations.length} rujukan</span>` : '<span>Tanpa rujukan</span>'}
-                        <button type="button" class="mycic-btn-ghost-sm" data-pin="${message.id}" aria-pressed="${message.pinned ? 'true' : 'false'}">${message.pinned ? 'Tersimpan di Catatan' : 'Simpan ke Catatan'}</button>
+                    <div class="flex flex-wrap items-center gap-2 text-xs text-ink-subtle">
+                        ${message.citations.length ? `<span class="tabular-nums">${message.citations.length} rujukan</span>` : '<span>Tanpa rujukan</span>'}
+                        <button type="button" class="${app.ui.button.ghostSm}" data-pin="${message.id}" aria-pressed="${message.pinned ? 'true' : 'false'}">${message.pinned ? 'Tersimpan di Catatan' : 'Simpan ke Catatan'}</button>
                     </div>
                     ${contextLine(message)}
                 </li>
@@ -47,7 +47,7 @@
                     messagesHost.innerHTML = `
                         <li class="flex flex-col gap-3">
                             <p class="text-sm text-ink-muted">Belum ada percakapan. Coba mulai dengan:</p>
-                            <div class="flex flex-wrap gap-2">${SUGGESTIONS.map((text) => `<button type="button" class="mycic-btn-secondary-sm" data-suggestion="${app.escapeHtml(text)}">${app.escapeHtml(text)}</button>`).join('')}</div>
+                            <div class="flex flex-wrap gap-2">${SUGGESTIONS.map((text) => `<button type="button" class="${app.ui.button.secondarySm} whitespace-normal! py-1.5 text-start" data-suggestion="${app.escapeHtml(text)}">${app.escapeHtml(text)}</button>`).join('')}</div>
                         </li>
                     `;
 
@@ -55,7 +55,7 @@
                 }
 
                 messagesHost.innerHTML = chat.map((message) => (message.role === 'user'
-                    ? `<li class="ms-auto max-w-[85%] rounded-[var(--radius-card)] rounded-tr-xs bg-brand px-3 py-2 text-sm text-white" data-message-id="${message.id}">${app.escapeHtml(message.content)}</li>`
+                    ? `<li class="ms-auto max-w-[85%] rounded-xl rounded-tr-xs bg-surface px-3 py-2 text-sm text-ink" data-message-id="${message.id}">${app.escapeHtml(message.content)}</li>`
                     : renderAssistant(message))).join('');
                 messagesHost.scrollTop = messagesHost.scrollHeight;
             };

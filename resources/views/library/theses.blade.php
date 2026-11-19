@@ -4,71 +4,75 @@
 @section('page_id', 'library-theses')
 
 @section('content')
-    <header class="mb-4">
-        <a href="{{ route('library.index') }}" class="mycic-back-link mb-2">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6l6 6" /></svg>
-            Perpustakaan
-        </a>
-        <h1 class="mycic-page-heading">Repositori skripsi</h1>
-        <p class="mycic-page-subheading">Semua skripsi di SiMASITA Repositori, bisa dicari dan disaring tanpa membuka halaman portal satu per satu.</p>
-        <p class="mt-1 min-h-4 text-caption text-ink-subtle" data-theses-updated></p>
-    </header>
-
-    <div class="mycic-segmented mb-4" role="group" aria-label="Mode repositori" id="theses-modes">
-        <button type="button" class="mycic-segmented-item mycic-segmented-item-active" data-theses-mode="search" aria-pressed="true">Cari</button>
-        <button type="button" class="mycic-segmented-item" data-theses-mode="check" aria-pressed="false">Cek judul</button>
-    </div>
+    <x-page-hero title="Repositori skripsi" subtitle="Semua skripsi di SiMASITA Repositori, bisa dicari dan disaring tanpa membuka halaman portal satu per satu." :back="route('library.index')" back-label="Perpustakaan">
+        <x-slot:meta><span data-theses-updated></span></x-slot:meta>
+        <x-slot:tabs>
+            <x-view-tabs as="div" underline role="group" aria-label="Mode repositori" id="theses-modes">
+                <button type="button" class="inline-flex min-h-11 shrink-0 cursor-pointer select-none items-center gap-1.5 whitespace-nowrap border-b-2 border-transparent px-1 text-sm font-medium text-ink-muted transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:ring-inset aria-selected:border-ink aria-selected:text-ink aria-pressed:border-ink aria-pressed:text-ink aria-[current=page]:border-ink aria-[current=page]:text-ink" data-theses-mode="search" aria-pressed="true">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="size-4 shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0 -14 0" /><path d="M21 21l-6 -6" /></svg>
+                    Cari
+                </button>
+                <button type="button" class="inline-flex min-h-11 shrink-0 cursor-pointer select-none items-center gap-1.5 whitespace-nowrap border-b-2 border-transparent px-1 text-sm font-medium text-ink-muted transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:ring-inset aria-selected:border-ink aria-selected:text-ink aria-pressed:border-ink aria-pressed:text-ink aria-[current=page]:border-ink aria-[current=page]:text-ink" data-theses-mode="check" aria-pressed="false">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="size-4 shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l3 3l8 -8" /><path d="M20 12v6a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h9" /></svg>
+                    Cek judul
+                </button>
+            </x-view-tabs>
+        </x-slot:tabs>
+    </x-page-hero>
 
     <section id="theses-search-panel" class="flex min-w-0 flex-col gap-3" aria-label="Cari skripsi">
-        <form role="search" id="theses-form" class="sticky top-16 z-20 -mx-1 flex flex-col gap-2 border-b border-border-light bg-canvas px-1 py-2">
-            <div class="mycic-input-wrap w-full">
+        <form role="search" id="theses-form" class="sticky top-14 z-20 -mx-4 flex flex-col gap-2 border-b border-border-light bg-panel/95 px-4 py-3 backdrop-blur md:-mx-6 md:px-6 lg:-mx-8 lg:px-8">
+            <div class="relative flex w-full items-center">
                 <label for="theses-q" class="sr-only">Cari judul, topik, pembimbing, atau penulis</label>
-                <span class="mycic-input-icon">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0 -14 0" /><path d="M21 21l-6 -6" /></svg>
+                <span class="pointer-events-none absolute start-3 top-1/2 z-10 -translate-y-1/2 text-ink-subtle">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="size-4" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0 -14 0" /><path d="M21 21l-6 -6" /></svg>
                 </span>
-                <input type="search" id="theses-q" name="q" maxlength="100" class="mycic-input mycic-input-with-icon" placeholder="Cari skripsi (tekan /)" autocomplete="off" enterkeyhint="search" aria-describedby="theses-result-status">
+                <x-input icon type="search" id="theses-q" name="q" maxlength="100" placeholder="Cari skripsi (tekan /)" autocomplete="off" enterkeyhint="search" aria-describedby="theses-result-status" />
             </div>
             <div class="grid grid-cols-2 gap-2 md:grid-cols-4">
                 <div>
                     <label for="theses-prodi" class="sr-only">Program studi</label>
-                    <select id="theses-prodi" class="mycic-input" data-theses-filter="prodi"><option value="">Semua prodi</option></select>
+                    <x-select id="theses-prodi" data-theses-filter="prodi"><option value="">Semua prodi</option></x-select>
                 </div>
                 <div>
                     <label for="theses-ta" class="sr-only">Tahun akademik</label>
-                    <select id="theses-ta" class="mycic-input" data-theses-filter="ta"><option value="">Semua T.A.</option></select>
+                    <x-select id="theses-ta" data-theses-filter="ta"><option value="">Semua T.A.</option></x-select>
                 </div>
                 <div>
                     <label for="theses-pembimbing" class="sr-only">Pembimbing</label>
-                    <select id="theses-pembimbing" class="mycic-input" data-theses-filter="pembimbing"><option value="">Semua pembimbing</option></select>
+                    <x-select id="theses-pembimbing" data-theses-filter="pembimbing"><option value="">Semua pembimbing</option></x-select>
                 </div>
                 <div>
                     <label for="theses-sort" class="sr-only">Urutkan</label>
-                    <select id="theses-sort" class="mycic-input" data-theses-filter="sort">
+                    <x-select id="theses-sort" data-theses-filter="sort">
                         <option value="">Urutan otomatis</option>
                         <option value="terbaru">Terbaru</option>
                         <option value="judul">Judul A–Z</option>
                         <option value="relevansi">Paling relevan</option>
-                    </select>
+                    </x-select>
                 </div>
             </div>
         </form>
 
         <div id="theses-index-status" class="empty:hidden"></div>
         <div class="flex min-h-5 flex-wrap items-center justify-between gap-2">
-            <p class="text-caption text-ink-subtle" id="theses-result-status" aria-live="polite"></p>
-            <button type="button" class="mycic-btn-ghost-sm hidden" id="theses-reset">Hapus filter</button>
+            <p class="text-xs text-ink-subtle tabular-nums" id="theses-result-status" aria-live="polite"></p>
+            <div class="hidden" data-theses-reset-wrap>
+                <x-button variant="ghost" size="sm" id="theses-reset">Hapus filter</x-button>
+            </div>
         </div>
 
-        <ul id="theses-results" class="flex flex-col gap-3" aria-busy="true">
+        <ul id="theses-results" class="grid gap-3 md:grid-cols-2 xl:grid-cols-3 [&>:not([data-slot=card])]:col-span-full" aria-busy="true">
             <li class="sr-only">Memuat repositori…</li>
-            @for ($i = 0; $i < 4; $i++)
-                <li class="mycic-card">
-                    <div class="mycic-card-body flex flex-col gap-2">
-                        <div class="mycic-skeleton h-5 w-5/6"></div>
-                        <div class="mycic-skeleton h-3.5 w-1/3"></div>
-                        <div class="mycic-skeleton h-3.5 w-1/2"></div>
-                    </div>
-                </li>
+            @for ($i = 0; $i < 6; $i++)
+                <x-card as="li">
+                    <x-card.body class="flex flex-col gap-2">
+                        <x-skeleton class="h-5 w-24" />
+                        <x-skeleton class="h-4 w-5/6" />
+                        <x-skeleton class="h-4 w-2/3" />
+                        <x-skeleton class="h-3.5 w-1/2" />
+                    </x-card.body>
+                </x-card>
             @endfor
         </ul>
 
@@ -76,19 +80,25 @@
     </section>
 
     <section id="theses-check-panel" class="hidden flex-col gap-3" aria-labelledby="theses-check-title">
-        <form id="theses-check-form" class="mycic-card">
-            <div class="mycic-card-body flex flex-col gap-3">
-                <h2 class="mycic-card-title" id="theses-check-title">Cek kemiripan rencana judul</h2>
-                <div class="mycic-field">
-                    <label for="theses-check-input" class="mycic-label">Rencana judul</label>
-                    <textarea id="theses-check-input" rows="3" maxlength="200" class="mycic-input" placeholder="Contoh: Sistem informasi inventaris berbasis web pada koperasi" aria-describedby="theses-check-hint"></textarea>
-                    <p class="mycic-field-hint" id="theses-check-hint">Judul ini hanya dibandingkan, tidak disimpan di server maupun di perangkat.</p>
-                </div>
-                <button type="submit" class="mycic-btn-primary self-start">Cek kemiripan</button>
+        <div class="grid gap-6 xl:grid-cols-[minmax(0,24rem)_minmax(0,1fr)] xl:items-start xl:gap-8">
+            <div class="flex min-w-0 flex-col gap-3 xl:sticky xl:top-20">
+                <x-card as="form" id="theses-check-form">
+                    <x-card.header>
+                        <x-card.title id="theses-check-title">Cek kemiripan rencana judul</x-card.title>
+                    </x-card.header>
+                    <x-card.body class="flex flex-col gap-4">
+                        <x-field label="Rencana judul" for="theses-check-input" hint="Judul ini hanya dibandingkan, tidak disimpan di server maupun di perangkat." hint-id="theses-check-hint">
+                            <x-textarea id="theses-check-input" rows="3" maxlength="200" placeholder="Contoh: Sistem informasi inventaris berbasis web pada koperasi" aria-describedby="theses-check-hint"></x-textarea>
+                        </x-field>
+                        <x-button type="submit" class="self-start">Cek kemiripan</x-button>
+                    </x-card.body>
+                </x-card>
+                <p class="text-xs text-ink-subtle">Bukan cek plagiasi resmi. Kemiripan dihitung dari kata dan susunan huruf judul saja.</p>
             </div>
-        </form>
-        <p class="text-caption text-ink-subtle">Bukan cek plagiasi resmi. Kemiripan dihitung dari kata dan susunan huruf judul saja.</p>
-        <div id="theses-check-results" aria-live="polite"></div>
+            <div class="min-w-0" id="theses-check-results" aria-live="polite">
+                <x-empty-state title="Hasil kemiripan tampil di sini" subtitle="Tulis rencana judul, lalu bandingkan dengan judul-judul di repositori." icon="search" />
+            </div>
+        </div>
     </section>
 @endsection
 
@@ -109,6 +119,7 @@
             const indexStatusHost = document.getElementById('theses-index-status');
             const resultStatus = document.getElementById('theses-result-status');
             const resetButton = document.getElementById('theses-reset');
+            const resetWrap = document.querySelector('[data-theses-reset-wrap]');
             const modesHost = document.getElementById('theses-modes');
             const searchPanel = document.getElementById('theses-search-panel');
             const checkPanel = document.getElementById('theses-check-panel');
@@ -241,8 +252,8 @@
                 const href = item.file_path ? app.buildCampusDownloadUrl(item.file_path, fileName(item)) : null;
 
                 return href
-                    ? `<a href="${app.escapeHtml(href)}" target="_blank" rel="noopener" class="${app.buttonClass('secondary', { small })}" data-online-required>Baca PDF<span class="sr-only"> ${app.escapeHtml(item.title)} (tab baru)</span></a>`
-                    : `<span class="text-caption text-ink-subtle">PDF tidak tersedia</span>`;
+                    ? `<a href="${app.escapeHtml(href)}" target="_blank" rel="noopener" class="${small ? app.ui.button.secondarySm : app.ui.button.secondary}" data-online-required>Baca PDF<span class="sr-only"> ${app.escapeHtml(item.title)} (tab baru)</span></a>`
+                    : `<span class="text-xs text-ink-subtle">PDF tidak tersedia</span>`;
             };
 
             const advisorsLine = (item, tokens) => {
@@ -253,17 +264,20 @@
                     : 'Pembimbing tidak tercatat';
             };
 
+            // "T.A. 2023/2024 · Teknik Informatika" as one muted line: the year is context, not a status.
+            const metaLine = (item) => `<p class="truncate text-xs text-ink-muted tabular-nums">${app.escapeHtml([item.academic_year ? `T.A. ${item.academic_year}` : null, displayName(item.program)].filter(Boolean).join(' · '))}</p>`;
+
             const renderItem = (item, tokens) => `
-                <li class="mycic-card">
-                    <div class="mycic-card-body flex flex-col gap-2">
+                <li class="${app.ui.card} flex flex-col" data-slot="card">
+                    <div class="${app.ui.cardBody} flex flex-1 flex-col gap-2">
+                        ${metaLine(item)}
                         <h3 class="line-clamp-3 text-sm font-medium leading-snug text-ink">${highlight(item.title, tokens)}</h3>
-                        <p class="text-caption text-ink-subtle">${app.escapeHtml([item.academic_year ? `T.A. ${item.academic_year}` : null, displayName(item.program)].filter(Boolean).join(' · '))}</p>
-                        <p class="text-sm text-ink-muted">${advisorsLine(item, tokens)}</p>
-                        ${item.author ? `<p class="text-caption text-ink-subtle">Oleh ${highlight(displayName(item.author), tokens)}</p>` : ''}
-                        <div class="mt-1 flex flex-wrap items-center gap-2">
-                            ${pdfLink(item)}
-                            <button type="button" class="${app.buttonClass('ghost', { small: true })}" data-theses-detail="${app.escapeHtml(item.record_key)}" aria-haspopup="dialog">Detail</button>
-                        </div>
+                        <p class="text-[13px] text-ink-muted">${advisorsLine(item, tokens)}</p>
+                        ${item.author ? `<p class="mt-auto pt-1 text-xs text-ink-subtle">Oleh ${highlight(displayName(item.author), tokens)}</p>` : ''}
+                    </div>
+                    <div class="${app.ui.cardFooter} gap-2!">
+                        ${pdfLink(item)}
+                        <button type="button" class="${app.ui.button.ghostSm}" data-theses-detail="${app.escapeHtml(item.record_key)}" aria-haspopup="dialog">Detail</button>
                     </div>
                 </li>
             `;
@@ -293,19 +307,19 @@
                 const index = meta?.index || {};
 
                 if (index.partial) {
-                    indexStatusHost.innerHTML = `<div class="${app.alertTone('info')} mb-0 flex items-start gap-3" role="status"><span class="mycic-spinner mt-0.5 h-4 w-4 shrink-0" aria-hidden="true"></span><span>Menyiapkan indeks repositori… Sementara ini hasil dari halaman terbaru portal${index.total ? ` (${numberFormatter.format(index.record_count)} dari ${numberFormatter.format(index.total)} judul)` : ''}. Halaman ini diperbarui otomatis.</span></div>`;
+                    indexStatusHost.innerHTML = `<div class="${app.ui.alert.info} flex items-start gap-3" role="status"><span class="${app.ui.spinner} mt-0.5 text-info" aria-hidden="true"></span><span>Menyiapkan indeks repositori… Sementara ini hasil dari halaman terbaru portal${index.total ? ` (${numberFormatter.format(index.record_count)} dari ${numberFormatter.format(index.total)} judul)` : ''}. Halaman ini diperbarui otomatis.</span></div>`;
 
                     return;
                 }
 
                 if (meta?.status === 'failed') {
-                    indexStatusHost.innerHTML = `<div class="${app.alertTone('warning')} mb-0" role="status">Portal belum bisa dihubungi. Pencarian memakai indeks terakhir.</div>`;
+                    indexStatusHost.innerHTML = `<div class="${app.ui.alert.warning}" role="status">Portal belum bisa dihubungi. Pencarian memakai indeks terakhir.</div>`;
 
                     return;
                 }
 
                 if (!index.complete && index.total) {
-                    indexStatusHost.innerHTML = `<div class="${app.alertTone('info')} mb-0" role="status">Indeks belum lengkap: ${numberFormatter.format(index.record_count)} dari ${numberFormatter.format(index.total)} judul. Sisanya disinkronkan berikutnya.</div>`;
+                    indexStatusHost.innerHTML = `<div class="${app.ui.alert.info}" role="status">Indeks belum lengkap: ${numberFormatter.format(index.record_count)} dari ${numberFormatter.format(index.total)} judul. Sisanya disinkronkan berikutnya.</div>`;
 
                     return;
                 }
@@ -333,7 +347,7 @@
 
                 selects.sort.value = state.sort;
                 renderIndexStatus(meta);
-                resetButton.classList.toggle('hidden', !hasFilters());
+                resetWrap.classList.toggle('hidden', !hasFilters());
                 updatedLabel.textContent = describeFreshness(payload);
 
                 const total = Number(meta.total) || 0;
@@ -357,8 +371,8 @@
                 }
 
                 moreHost.innerHTML = meta.has_more
-                    ? `<button type="button" class="${app.buttonClass('secondary')}" data-theses-more>Muat lagi</button><p class="text-caption text-ink-subtle">${numberFormatter.format(Math.max(0, total - state.items.length))} judul lagi</p>`
-                    : (state.items.length > PER_PAGE ? '<p class="text-caption text-ink-subtle">Semua hasil sudah ditampilkan.</p>' : '');
+                    ? `<button type="button" class="${app.ui.button.secondary}" data-theses-more>Muat lagi</button><p class="text-xs text-ink-subtle tabular-nums">${numberFormatter.format(Math.max(0, total - state.items.length))} judul lagi</p>`
+                    : (state.items.length > PER_PAGE ? '<p class="text-xs text-ink-subtle">Semua hasil sudah ditampilkan.</p>' : '');
                 app.refreshOnlineRequiredState();
             };
 
@@ -443,7 +457,7 @@
                         ? `<ul class="flex flex-col divide-y divide-border-light">${similar.map((candidate) => `
                             <li class="py-2.5">
                                 <p class="line-clamp-2 text-sm font-medium leading-snug text-ink">${app.escapeHtml(candidate.title)}</p>
-                                <p class="text-caption text-ink-subtle">${app.escapeHtml([candidate.academic_year ? `T.A. ${candidate.academic_year}` : null, displayName(candidate.program), `${candidate.similarity_percent}% mirip`].filter(Boolean).join(' · '))}</p>
+                                <p class="text-xs text-ink-subtle">${app.escapeHtml([candidate.academic_year ? `T.A. ${candidate.academic_year}` : null, displayName(candidate.program), `${candidate.similarity_percent}% mirip`].filter(Boolean).join(' · '))}</p>
                             </li>`).join('')}</ul>`
                         : '<p class="text-sm text-ink-muted">Belum ada skripsi lain yang mirip.</p>';
                 } catch (error) {
@@ -466,16 +480,16 @@
                             ])}
                             ${advisors.length ? `
                                 <div>
-                                    <h3 class="text-caption font-medium text-ink-subtle">Pembimbing</h3>
+                                    <h3 class="text-xs font-medium text-ink-subtle">Pembimbing</h3>
                                     <div class="mt-2 flex flex-col gap-2">
-                                        ${advisors.map((advisor, index) => `<button type="button" class="${app.buttonClass('ghost', { small: true })} justify-start text-start" data-filter-advisor="${app.escapeHtml(advisor.name)}">Pembimbing ${index + 1}: ${app.escapeHtml(advisor.name)}<span class="sr-only"> (saring skripsi bimbingannya)</span></button>`).join('')}
+                                        ${advisors.map((advisor, index) => `<button type="button" class="${app.ui.button.ghostSm} justify-start! whitespace-normal! py-2 text-start" data-filter-advisor="${app.escapeHtml(advisor.name)}">Pembimbing ${index + 1}: ${app.escapeHtml(advisor.name)}<span class="sr-only"> (saring skripsi bimbingannya)</span></button>`).join('')}
                                     </div>
                                 </div>
                             ` : ''}
                             <div>${pdfLink(item, { small: false })}</div>
                             <div>
-                                <h3 class="text-caption font-medium text-ink-subtle">Skripsi serupa</h3>
-                                <div class="mt-2" data-theses-similar><div class="mycic-skeleton h-10 w-full"></div></div>
+                                <h3 class="text-xs font-medium text-ink-subtle">Skripsi serupa</h3>
+                                <div class="mt-2" data-theses-similar><div class="${app.ui.skeleton} h-10 w-full" data-slot="skeleton"></div></div>
                             </div>
                         </div>
                     `,
@@ -511,7 +525,7 @@
                     return;
                 }
 
-                checkResults.innerHTML = '<div class="flex flex-col gap-2" aria-busy="true"><span class="sr-only">Membandingkan judul…</span><div class="mycic-skeleton h-16 w-full"></div><div class="mycic-skeleton h-16 w-full"></div></div>';
+                checkResults.innerHTML = `<div class="flex flex-col gap-3" aria-busy="true"><span class="sr-only">Membandingkan judul…</span><div class="${app.ui.skeleton} h-28 w-full rounded-xl!" data-slot="skeleton"></div><div class="${app.ui.skeleton} h-28 w-full rounded-xl!" data-slot="skeleton"></div></div>`;
 
                 try {
                     const payload = await app.request(`/api/library/theses?${new URLSearchParams({ similar_to: title }).toString()}`, { cache: false });
@@ -519,19 +533,19 @@
                     const partial = payload?.meta?.index?.partial === true;
 
                     checkResults.innerHTML = `
-                        ${partial ? `<div class="${app.alertTone('info')} mb-3" role="status">Indeks repositori masih disiapkan; perbandingan baru memakai judul-judul terbaru.</div>` : ''}
+                        ${partial ? `<div class="${app.ui.alert.info} mb-3" role="status">Indeks repositori masih disiapkan; perbandingan baru memakai judul-judul terbaru.</div>` : ''}
                         ${items.length ? `
-                            <ul class="flex flex-col gap-3">
+                            <ul class="grid gap-3 md:grid-cols-2">
                                 ${items.map((item) => {
                                     const percent = Number(item.similarity_percent) || 0;
                                     const tone = similarityTone(percent);
 
                                     return `
-                                        <li class="mycic-card">
-                                            <div class="mycic-card-body flex flex-col gap-2">
+                                        <li class="${app.ui.card}" data-slot="card">
+                                            <div class="${app.ui.cardBody} flex flex-col gap-2">
                                                 <h3 class="line-clamp-3 min-w-0 text-sm font-medium leading-snug text-ink">${app.escapeHtml(item.title)}</h3>
                                                 ${app.renderProgressBar({ value: percent, max: 100, tone, label: 'Kemiripan', valueLabel: `${percent}%`, size: 'sm' })}
-                                                <p class="text-caption text-ink-subtle">${app.escapeHtml([item.academic_year ? `T.A. ${item.academic_year}` : null, displayName(item.program)].filter(Boolean).join(' · '))}</p>
+                                                ${metaLine(item)}
                                                 <div>${pdfLink(item)}</div>
                                             </div>
                                         </li>
@@ -552,7 +566,6 @@
                     const active = button.dataset.thesesMode === state.mode;
 
                     button.setAttribute('aria-pressed', active ? 'true' : 'false');
-                    button.className = active ? 'mycic-segmented-item mycic-segmented-item-active' : 'mycic-segmented-item';
                 });
                 searchPanel.classList.toggle('hidden', state.mode !== 'search');
                 searchPanel.classList.toggle('flex', state.mode === 'search');

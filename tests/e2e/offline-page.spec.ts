@@ -75,7 +75,7 @@ test.describe('offline page while the server is unreachable', () => {
         const loadedAt = await log.startedAt();
 
         await expect(page.locator('#offline-status-label')).toHaveText('Mencoba menyambung lagi…');
-        await expect(page.locator('#offline-title')).toHaveText('myCIC belum bisa dihubungi');
+        await expect(page.locator('#offline-title')).toHaveText('WeCIC belum bisa dihubungi');
         await expect(page.locator('#retry-button')).toBeEnabled();
 
         // Ten minutes, a second at a time; each probe gets its answer before the clock moves on.

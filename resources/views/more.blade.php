@@ -3,134 +3,140 @@
 @section('title', 'Lainnya')
 @section('page_id', 'more-index')
 
+{{-- Each group is a divided list; a tile's icon names where it leads, as in the sidebar. --}}
 @php
-    $tileIcons = [
-        'class' => '<path d="M3 19a9 9 0 0 1 9 0a9 9 0 0 1 9 0" /><path d="M3 6a9 9 0 0 1 9 0a9 9 0 0 1 9 0" /><path d="M3 6l0 13" /><path d="M12 6l0 13" /><path d="M21 6l0 13" />',
-        'exam' => '<path d="M14 3v4a1 1 0 0 0 1 1h4" /><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z" /><path d="M9 15l2 2l4 -4" />',
-        'krs' => '<path d="M9 5h-2a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-12a2 2 0 0 0 -2 -2h-2" /><path d="M9 3m0 2a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v0a2 2 0 0 1 -2 2h-2a2 2 0 0 1 -2 -2z" /><path d="M9 14l2 2l4 -4" />',
-        'grades' => '<path d="M3 21l18 0" /><path d="M5 21v-8a1 1 0 0 1 1 -1h2a1 1 0 0 1 1 1v8" /><path d="M10 21v-12a1 1 0 0 1 1 -1h2a1 1 0 0 1 1 1v12" /><path d="M15 21v-16a1 1 0 0 1 1 -1h2a1 1 0 0 1 1 1v16" />',
-        'transcript' => '<path d="M22 9l-10 -4l-10 4l10 4l10 -4v6" /><path d="M6 10.6v5.4a6 3 0 0 0 12 0v-5.4" />',
-        'finance' => '<path d="M17 8v-3a1 1 0 0 0 -1 -1h-10a2 2 0 0 0 0 4h12a1 1 0 0 1 1 1v3m0 4v3a1 1 0 0 1 -1 1h-12a2 2 0 0 1 -2 -2v-12" /><path d="M20 12v4h-4a2 2 0 0 1 0 -4h4" />',
-        'skkm' => '<path d="M12 17.75l-6.172 3.245l1.179 -6.873l-5 -4.867l6.9 -1l3.086 -6.253l3.086 6.253l6.9 1l-5 4.867l1.179 6.873z" />',
-        'announcement' => '<path d="M18 8a3 3 0 0 1 0 6" /><path d="M10 8v11a1 1 0 0 1 -1 1h-1a1 1 0 0 1 -1 -1v-5" /><path d="M12 8h0l4.524 -3.77a.9 .9 0 0 1 1.476 .692v12.156a.9 .9 0 0 1 -1.476 .692l-4.524 -3.77h-8a1 1 0 0 1 -1 -1v-4a1 1 0 0 1 1 -1h8" />',
-        'thesis' => '<path d="M15 15m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" /><path d="M13 17.5v4.5l2 -1.5l2 1.5v-4.5" /><path d="M10 19h-5a2 2 0 0 1 -2 -2v-10c0 -1.1 .9 -2 2 -2h14a2 2 0 0 1 2 2v10a2 2 0 0 1 -1 1.73" /><path d="M6 9l12 0" /><path d="M6 12l3 0" /><path d="M6 15l2 0" />',
-        'library' => '<path d="M5 4m0 1a1 1 0 0 1 1 -1h2a1 1 0 0 1 1 1v14a1 1 0 0 1 -1 1h-2a1 1 0 0 1 -1 -1z" /><path d="M9 4m0 1a1 1 0 0 1 1 -1h2a1 1 0 0 1 1 1v14a1 1 0 0 1 -1 1h-2a1 1 0 0 1 -1 -1z" /><path d="M5 8h4" /><path d="M9 16h4" /><path d="M13.803 4.56l2.184 -.53c.562 -.135 1.133 .19 1.282 .732l3.695 13.418a1.02 1.02 0 0 1 -.634 1.219l-.133 .041l-2.184 .53c-.562 .135 -1.133 -.19 -1.282 -.732l-3.695 -13.418a1.02 1.02 0 0 1 .634 -1.219l.133 -.041z" /><path d="M14 9l4 -1" /><path d="M16 16l3.923 -.98" />',
-        'notebook' => '<path d="M6 4h11a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-11a1 1 0 0 1 -1 -1v-14a1 1 0 0 1 1 -1m3 0v18" /><path d="M13 8l2 0" /><path d="M13 12l2 0" />',
-        'archive' => '<path d="M3 4m0 2a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v0a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2z" /><path d="M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-10" /><path d="M10 12l4 0" />',
-        'profile' => '<path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0" /><path d="M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" />',
-        'password' => '<path d="M5 13a2 2 0 0 1 2 -2h10a2 2 0 0 1 2 2v6a2 2 0 0 1 -2 2h-10a2 2 0 0 1 -2 -2v-6z" /><path d="M11 16a1 1 0 1 0 2 0a1 1 0 0 0 -2 0" /><path d="M8 11v-4a4 4 0 1 1 8 0v4" />',
-        'portal' => '<path d="M12 6h-6a2 2 0 0 0 -2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-6" /><path d="M11 13l9 -9" /><path d="M15 4h5v5" />',
-        'logout' => '<path d="M14 8v-2a2 2 0 0 0 -2 -2h-7a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h7a2 2 0 0 0 2 -2v-2" /><path d="M9 12h12l-3 -3" /><path d="M18 15l3 -3" />',
-    ];
-
     $tileGroups = [
         [
             'title' => 'Kuliah',
             'tiles' => [
-                ['key' => 'class', 'label' => 'Jadwal & Kelas', 'caption' => 'Jadwal, materi, dan absensi', 'href' => route('class.index')],
-                ['key' => 'exam', 'label' => 'Ujian', 'caption' => 'Jadwal UTS/UAS dan upload jawaban', 'href' => route('exam.index')],
+                ['key' => 'class', 'label' => 'Jadwal & Kelas', 'caption' => 'Jadwal, materi, dan absensi', 'href' => route('class.index'), 'icon' => 'class'],
+                ['key' => 'exam', 'label' => 'Ujian', 'caption' => 'Jadwal UTS/UAS dan upload jawaban', 'href' => route('exam.index'), 'icon' => 'exam'],
             ],
         ],
         [
             'title' => 'Akademik',
             'tiles' => [
-                ['key' => 'krs', 'label' => 'KRS & Perwalian', 'caption' => 'Status KRS dan kontak DPA', 'href' => route('krs.index')],
-                ['key' => 'grades', 'label' => 'Nilai (KHS)', 'caption' => 'Nilai per semester', 'href' => route('grades.index')],
-                ['key' => 'transcript', 'label' => 'Transkrip', 'caption' => 'IPK dan progres studi', 'href' => route('transcript.index')],
+                ['key' => 'krs', 'label' => 'KRS & Perwalian', 'caption' => 'Status KRS dan kontak DPA', 'href' => route('krs.index'), 'icon' => 'list-check'],
+                ['key' => 'grades', 'label' => 'Nilai (KHS)', 'caption' => 'Nilai per semester', 'href' => route('grades.index'), 'icon' => 'chart'],
+                ['key' => 'transcript', 'label' => 'Transkrip', 'caption' => 'IPK dan progres studi', 'href' => route('transcript.index'), 'icon' => 'file'],
             ],
         ],
         [
             'title' => 'Keuangan & kegiatan',
             'tiles' => [
-                ['key' => 'finance', 'label' => 'Keuangan', 'caption' => 'Tagihan dan riwayat bayar', 'href' => route('finance.index')],
-                ['key' => 'skkm', 'label' => 'SKKM', 'caption' => 'Poin kegiatan mahasiswa', 'href' => route('skkm.index')],
-                ['key' => 'announcement', 'label' => 'Pengumuman', 'caption' => 'Info dan tenggat kampus', 'href' => route('announcement.index')],
+                ['key' => 'finance', 'label' => 'Keuangan', 'caption' => 'Tagihan dan riwayat bayar', 'href' => route('finance.index'), 'icon' => 'finance'],
+                ['key' => 'skkm', 'label' => 'SKKM', 'caption' => 'Poin kegiatan mahasiswa', 'href' => route('skkm.index'), 'icon' => 'skkm'],
+                ['key' => 'announcement', 'label' => 'Pengumuman', 'caption' => 'Info dan tenggat kampus', 'href' => route('announcement.index'), 'icon' => 'announcement'],
             ],
         ],
         [
             'title' => 'Skripsi & pustaka',
             'tiles' => [
-                ['key' => 'thesis', 'label' => 'Skripsi', 'caption' => 'Syarat, status, dan kesiapan', 'href' => route('thesis.index')],
-                ['key' => 'library', 'label' => 'Perpustakaan', 'caption' => 'Repositori skripsi dan e-Book', 'href' => route('library.index')],
+                ['key' => 'thesis', 'label' => 'Skripsi', 'caption' => 'Syarat, status, dan kesiapan', 'href' => route('thesis.index'), 'icon' => 'thesis'],
+                ['key' => 'library', 'label' => 'Perpustakaan', 'caption' => 'Repositori skripsi dan e-Book', 'href' => route('library.index'), 'icon' => 'library'],
             ],
         ],
         [
             'title' => 'Belajar & cadangan',
             'tiles' => [
-                ['key' => 'notebook', 'label' => 'Notebook', 'caption' => 'Tanya jawab dan ringkasan dari materi kuliah', 'href' => route('notebook.index')],
-                ['key' => 'archive', 'label' => 'Arsip WeCIC', 'caption' => 'Cadangan data portal dan materi', 'href' => route('archive.index')],
+                ['key' => 'notebook', 'label' => 'Notebook', 'caption' => 'Tanya jawab dan ringkasan dari materi kuliah', 'href' => route('notebook.index'), 'icon' => 'notebook'],
+                ['key' => 'archive', 'label' => 'Arsip WeCIC', 'caption' => 'Cadangan data portal dan materi', 'href' => route('archive.index'), 'icon' => 'archive'],
             ],
         ],
         [
             'title' => 'Akun',
             'tiles' => [
-                ['key' => 'profile', 'label' => 'Profil', 'caption' => 'Data diri di portal', 'href' => route('profile')],
-                ['key' => 'password', 'label' => 'Ubah password', 'caption' => 'Ganti password portal', 'href' => route('password.edit')],
-                ['key' => 'portal', 'label' => 'Portal kampus', 'caption' => 'Buka situs resmi', 'href' => config('portal.base_url'), 'external' => true],
+                ['key' => 'profile', 'label' => 'Profil', 'caption' => 'Data diri di portal', 'href' => route('profile'), 'icon' => 'user'],
+                ['key' => 'password', 'label' => 'Ubah password', 'caption' => 'Ganti password portal', 'href' => route('password.edit'), 'icon' => 'lock'],
+                ['key' => 'portal', 'label' => 'Portal kampus', 'caption' => 'Buka situs resmi', 'href' => config('portal.base_url'), 'icon' => 'world', 'external' => true],
             ],
         ],
     ];
 @endphp
 
 @section('content')
-    <x-page-header title="Lainnya" subtitle="Semua menu portal kampus di satu tempat. Angka merah atau kuning berarti ada yang perlu kamu urus." />
+    <x-page-hero title="Lainnya" subtitle="Semua menu portal kampus di satu tempat. Angka merah atau kuning berarti ada yang perlu kamu urus." />
 
-    <div class="flex flex-col gap-6">
-        @foreach ($tileGroups as $group)
-            <section aria-labelledby="more-group-{{ $loop->index }}">
-                <h2 class="mb-2 text-caption font-medium text-ink-subtle" id="more-group-{{ $loop->index }}">{{ $group['title'] }}</h2>
-                <div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                    @foreach ($group['tiles'] as $tile)
-                        <a
-                            href="{{ $tile['href'] }}"
-                            class="mycic-card-interactive flex min-h-24 min-w-0 flex-col gap-2.5"
-                            data-more-tile="{{ $tile['key'] }}"
-                            @if (! empty($tile['external'])) target="_blank" rel="noopener noreferrer" @endif
-                        >
-                            <span class="mycic-tile-icon relative h-9 w-9">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{!! $tileIcons[$tile['key']] !!}</svg>
-                                <span class="mycic-nav-badge hidden" data-nav-badge="{{ $tile['key'] }}"></span>
-                            </span>
-                            <span class="flex min-w-0 flex-col gap-0.5">
-                                <span class="text-sm font-medium leading-snug text-ink">{{ $tile['label'] }}</span>
-                                <span class="line-clamp-2 text-caption text-ink-subtle" data-more-status="{{ $tile['key'] }}" data-default-caption="{{ $tile['caption'] }}">{{ $tile['caption'] }}</span>
-                            </span>
-                        </a>
-                    @endforeach
-
-                    @if ($loop->last)
-                        <button
-                            type="button"
-                            class="mycic-card-interactive flex min-h-24 min-w-0 flex-col items-start gap-2.5 text-start hover:border-danger/40 hover:bg-danger-soft/40 focus-visible:outline-danger"
-                            data-logout
-                        >
-                            <span class="flex h-9 w-9 items-center justify-center rounded-[var(--radius-button)] bg-danger-soft text-danger">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{!! $tileIcons['logout'] !!}</svg>
-                            </span>
-                            <span class="flex min-w-0 flex-col gap-0.5">
-                                <span class="text-sm font-medium leading-snug text-danger">Keluar</span>
-                                <span class="line-clamp-2 text-caption text-ink-subtle">Keluar dari perangkat ini</span>
-                            </span>
-                        </button>
-                    @endif
-                </div>
-            </section>
-        @endforeach
-
-        <section class="mycic-card scroll-mt-20" id="panduan" aria-labelledby="more-guides-title">
-            <div class="mycic-card-header">
-                <h2 class="mycic-card-title" id="more-guides-title">Panduan</h2>
-                <p class="mycic-card-subtitle">Panduan resmi dari portal kampus, dibuka lewat WeCIC.</p>
-            </div>
-            <div class="mycic-card-body" id="more-guides">
-                <div class="flex flex-col gap-3" aria-busy="true">
-                    <span class="sr-only">Memuat panduan…</span>
-                    <div class="mycic-skeleton h-4 w-2/3"></div>
-                    <div class="mycic-skeleton h-4 w-1/2"></div>
+    <x-split at="xl">
+        {{-- Who is signed in (filled by session.js hydrateUser), with the way to the profile. --}}
+        <x-card as="section" class="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5" aria-label="Akun kamu">
+            <div class="flex min-w-0 items-center gap-3">
+                <span class="inline-flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-surface text-sm font-medium text-ink-muted ring-1 ring-border" aria-hidden="true" data-user-avatar>M</span>
+                <div class="min-w-0">
+                    <p class="truncate text-sm font-semibold text-ink" data-user-name>Mahasiswa</p>
+                    <p class="truncate text-xs text-ink-muted tabular-nums" data-user-identity>Portal kampus</p>
                 </div>
             </div>
-        </section>
-    </div>
+            <div class="flex shrink-0 flex-wrap items-center gap-2">
+                <x-button variant="secondary" size="sm" :href="route('profile')"><x-icon name="user" size="sm" />Lihat profil</x-button>
+                <x-button variant="ghost" size="sm" href="#panduan"><x-icon name="help" size="sm" />Panduan</x-button>
+            </div>
+        </x-card>
+
+        <div class="grid gap-6 md:grid-cols-2 md:items-start">
+            @foreach ($tileGroups as $group)
+                <x-section :title="$group['title']" title-id="more-group-{{ $loop->index }}" class="min-w-0">
+                    <x-card class="overflow-hidden">
+                        <x-list>
+                            @foreach ($group['tiles'] as $tile)
+                                <a
+                                    href="{{ $tile['href'] }}"
+                                    class="flex min-h-11 cursor-pointer items-center gap-3 px-4 py-3.5 transition-colors hover:bg-surface/60 focus-visible:bg-surface/60 focus-visible:outline-none sm:px-5"
+                                    data-more-tile="{{ $tile['key'] }}"
+                                    @if (! empty($tile['external'])) target="_blank" rel="noopener noreferrer" @endif
+                                >
+                                    <x-icon :name="$tile['icon']" class="text-ink-subtle" />
+                                    <span class="min-w-0 flex-1">
+                                        <span class="block truncate text-sm font-medium text-ink">{{ $tile['label'] }}</span>
+                                        <span class="mt-0.5 line-clamp-2 text-xs text-ink-subtle" data-more-status="{{ $tile['key'] }}" data-default-caption="{{ $tile['caption'] }}">{{ $tile['caption'] }}</span>
+                                    </span>
+                                    <span class="h-5 min-w-5 shrink-0 rounded-full bg-danger px-1.5 text-center text-[11px] font-medium leading-5 text-white tabular-nums data-[tone=brand]:bg-brand data-[tone=info]:bg-brand data-[tone=warning]:bg-warning data-[tone=warning]:text-amber-950 data-[variant=dot]:h-2 data-[variant=dot]:min-w-2 data-[variant=dot]:px-0 hidden" data-nav-badge="{{ $tile['key'] }}"></span>
+                                    <x-icon :name="empty($tile['external']) ? 'chevron-right' : 'external-link'" size="sm" class="text-ink-subtle" />
+                                </a>
+                            @endforeach
+
+                            @if ($loop->last)
+                                <button
+                                    type="button"
+                                    class="flex min-h-11 w-full cursor-pointer items-center gap-3 px-4 py-3.5 text-start transition-colors hover:bg-danger-soft/40 focus-visible:bg-danger-soft/40 focus-visible:outline-none sm:px-5"
+                                    data-logout
+                                >
+                                    <x-icon name="logout" class="text-danger" />
+                                    <span class="min-w-0 flex-1">
+                                        <span class="block truncate text-sm font-medium text-danger">Keluar</span>
+                                        <span class="mt-0.5 block truncate text-xs text-ink-subtle">Keluar dari perangkat ini</span>
+                                    </span>
+                                </button>
+                            @endif
+                        </x-list>
+                    </x-card>
+                </x-section>
+            @endforeach
+        </div>
+
+        <x-slot:aside aria-label="Panduan dan bantuan">
+            <x-card
+                as="section"
+                class="scroll-mt-20 overflow-hidden"
+                id="panduan"
+                aria-labelledby="more-guides-title"
+            >
+                <x-card.header>
+                    <div class="min-w-0">
+                        <h2 class="text-sm font-semibold tracking-tight text-ink" id="more-guides-title">Panduan</h2>
+                        <p class="mt-0.5 text-[13px] text-ink-muted">Panduan resmi dari portal kampus, dibuka lewat WeCIC.</p>
+                    </div>
+                </x-card.header>
+                <x-card.body id="more-guides">
+                    <div class="flex flex-col gap-3" aria-busy="true">
+                        <span class="sr-only">Memuat panduan…</span>
+                        <x-skeleton class="h-4 w-2/3" />
+                        <x-skeleton class="h-4 w-1/2" />
+                    </div>
+                </x-card.body>
+            </x-card>
+        </x-slot:aside>
+    </x-split>
 @endsection
 
 @push('scripts')
@@ -151,7 +157,8 @@
                     guidesHost.innerHTML = app.renderEmptyState(
                         'Panduan belum terbaca dari portal.',
                         'secondary',
-                        'Coba sinkronkan lagi nanti, atau buka langsung di Portal kampus.'
+                        'Coba sinkronkan lagi nanti, atau buka langsung di Portal kampus.',
+                        { icon: 'help' }
                     );
                     guidesRendered = context !== undefined;
 
@@ -159,29 +166,26 @@
                 }
 
                 if (!links.length) {
-                    guidesHost.innerHTML = app.renderEmptyState('Portal belum menyediakan panduan.', 'secondary');
+                    guidesHost.innerHTML = app.renderEmptyState('Portal belum menyediakan panduan.', 'secondary', '', { icon: 'help' });
                     guidesRendered = true;
 
                     return;
                 }
 
+                // Flush rows edge to edge: the list undoes the padding of the card body it lands in.
                 guidesHost.innerHTML = `
-                    <div class="flex flex-col">
+                    <div class="-m-4 sm:-m-5 ${app.ui.list}">
                         ${links.map((link) => {
                             const href = app.buildCampusDownloadUrl(link.path, link.filename);
 
                             return href ? `
-                                <a href="${app.escapeHtml(href)}" target="_blank" rel="noopener" class="mycic-list-row mycic-list-row-interactive min-h-11 items-center" data-online-required>
-                                    <span class="flex min-w-0 items-center gap-3">
-                                        <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-surface-tint text-brand-text" aria-hidden="true">
-                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3v4a1 1 0 0 0 1 1h4" /><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z" /><path d="M9 17h6" /><path d="M9 13h6" /></svg>
-                                        </span>
-                                        <span class="min-w-0">
-                                            <span class="block truncate text-sm font-medium leading-snug text-ink">${app.escapeHtml(link.label || link.filename || 'Panduan')}</span>
-                                            <span class="block text-caption text-ink-subtle">PDF · butuh koneksi internet</span>
-                                        </span>
+                                <a href="${app.escapeHtml(href)}" target="_blank" rel="noopener" class="${app.ui.listRowFlushInteractive}" data-online-required>
+                                    ${app.renderIcon('file', 'md', 'text-ink-subtle')}
+                                    <span class="${app.ui.listRowBody}">
+                                        <span class="block ${app.ui.listRowTitle}">${app.escapeHtml(link.label || link.filename || 'Panduan')}</span>
+                                        <span class="block ${app.ui.listRowSubtitle}">PDF · butuh koneksi internet</span>
                                     </span>
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 self-center text-ink-subtle" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6l-6 6" /></svg>
+                                    ${app.renderIcon('external-link', 'sm', app.ui.listRowChevron)}
                                 </a>
                             ` : '';
                         }).join('')}

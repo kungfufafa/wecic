@@ -126,7 +126,7 @@ class AppShellPagesTest extends TestCase
         $this->mockValidCampusSession('token-shell');
 
         $crawler = $this->crawl('/dashboard');
-        $slots = $crawler->filter('nav[aria-label="Navigasi mobile"] .mycic-bottom-nav-item');
+        $slots = $crawler->filter('nav[aria-label="Navigasi mobile"] [data-nav-slot]');
 
         $this->assertCount(5, $slots);
         $this->assertSame(
@@ -139,7 +139,7 @@ class AppShellPagesTest extends TestCase
         );
         $this->assertSame(['/dashboard', '/class', '/krs', '/more'], array_map(
             fn (string $href): string => (string) parse_url($href, PHP_URL_PATH),
-            $crawler->filter('nav[aria-label="Navigasi mobile"] a.mycic-bottom-nav-item')->extract(['href'])
+            $crawler->filter('nav[aria-label="Navigasi mobile"] a[data-nav-slot]')->extract(['href'])
         ));
         $this->assertCount(1, $crawler->filter('nav[aria-label="Navigasi mobile"] [data-qr-quick]'));
     }
@@ -149,22 +149,35 @@ class AppShellPagesTest extends TestCase
         $this->mockValidCampusSession('token-shell');
 
         $crawler = $this->crawl('/dashboard');
-        $links = $crawler->filter('nav[aria-label="Navigasi utama"] > a.mycic-top-nav-link');
+        $links = $crawler->filter('nav[aria-label="Navigasi utama"] > a[data-nav-slot]');
 
         $this->assertSame(
             ['Beranda', 'Kuliah', 'Akademik', 'Keuangan'],
             $links->each(fn (Crawler $link): string => trim($link->text()))
         );
-        $this->assertSame('Lainnya', trim($crawler->filter('nav[aria-label="Navigasi utama"] [data-dropdown-trigger]')->text()));
+        $this->assertSame(['beranda', 'kuliah', 'akademik', 'keuangan'], $links->extract(['data-nav-slot']));
 
-        $moreMenu = $crawler->filter('nav[aria-label="Navigasi utama"] [data-dropdown-panel] a')->extract(['href']);
-        $moreMenuPaths = array_map(fn (string $href): string => (string) parse_url($href, PHP_URL_PATH), $moreMenu);
+        // The sidebar lists the "Lainnya" menu as a labelled group, ending with the /more hub.
+        $group = $crawler->filter('nav[aria-label="Navigasi utama"] [role="group"]');
+        $this->assertCount(1, $group);
+        $this->assertSame('Lainnya', trim($crawler->filter('#'.$group->attr('aria-labelledby'))->text()));
 
-        $this->assertSame(['/skkm', '/thesis', '/library', '/announcement', '/notebook', '/archive', '/profile', '/password', '/more'], $moreMenuPaths);
+        $moreMenuPaths = array_map(fn (string $href): string => (string) parse_url($href, PHP_URL_PATH), $group->filter('a')->extract(['href']));
+
+        $this->assertSame(['/skkm', '/thesis', '/library', '/announcement', '/notebook', '/archive', '/more'], $moreMenuPaths);
+        $this->assertSame('Semua menu', trim($group->filter('a[data-nav-slot="more"]')->text()));
+
+        // Profil and Ubah password moved to the account menu at the foot of the sidebar.
+        $accountPaths = array_map(fn (string $href): string => (string) parse_url($href, PHP_URL_PATH), $crawler->filter('[data-account-menu-panel] a')->extract(['href']));
+        $this->assertContains('/profile', $accountPaths);
+        $this->assertContains('/password', $accountPaths);
     }
 
     /**
-     * @return array<string, array{0: string, 1: string, 2: string}>
+     * The path, the mobile slot marked current, and the sidebar slot marked
+     * current (null: a page of the account menu, which marks its own link).
+     *
+     * @return array<string, array{0: string, 1: string, 2: ?string}>
      */
     public static function activeSections(): array
     {
@@ -177,32 +190,105 @@ class AppShellPagesTest extends TestCase
             'grades' => ['/grades', 'akademik', 'akademik'],
             'transcript' => ['/transcript', 'akademik', 'akademik'],
             'finance' => ['/finance', 'lainnya', 'keuangan'],
-            'skkm' => ['/skkm', 'lainnya', 'lainnya'],
-            'announcement' => ['/announcement', 'lainnya', 'lainnya'],
-            'thesis' => ['/thesis', 'lainnya', 'lainnya'],
-            'library' => ['/library', 'lainnya', 'lainnya'],
-            'library theses' => ['/library/theses', 'lainnya', 'lainnya'],
-            'profile' => ['/profile', 'lainnya', 'lainnya'],
-            'password' => ['/password', 'lainnya', 'lainnya'],
-            'more' => ['/more', 'lainnya', 'lainnya'],
+            'skkm' => ['/skkm', 'lainnya', 'skkm'],
+            'announcement' => ['/announcement', 'lainnya', 'announcement'],
+            'thesis' => ['/thesis', 'lainnya', 'thesis'],
+            'library' => ['/library', 'lainnya', 'library'],
+            'library theses' => ['/library/theses', 'lainnya', 'library'],
+            'profile' => ['/profile', 'lainnya', null],
+            'password' => ['/password', 'lainnya', null],
+            'more' => ['/more', 'lainnya', 'more'],
         ];
     }
 
     #[DataProvider('activeSections')]
-    public function test_the_current_section_is_marked_active(string $path, string $mobileSlot, string $desktopSlot): void
+    public function test_the_current_section_is_marked_active(string $path, string $mobileSlot, ?string $desktopSlot): void
     {
         $this->mockValidCampusSession('token-shell');
 
         $crawler = $this->crawl($path);
 
-        $mobileActive = $crawler->filter('nav[aria-label="Navigasi mobile"] .mycic-bottom-nav-item-active');
+        $mobileActive = $crawler->filter('nav[aria-label="Navigasi mobile"] [data-nav-slot][aria-current="page"]');
         $this->assertCount(1, $mobileActive);
         $this->assertSame($mobileSlot, $mobileActive->attr('data-nav-slot'));
-        $this->assertSame('page', $mobileActive->attr('aria-current'));
 
-        $desktopActive = $crawler->filter('nav[aria-label="Navigasi utama"] .mycic-top-nav-link-active');
+        $desktopActive = $crawler->filter('nav[aria-label="Navigasi utama"] [aria-current="page"]');
+
+        if ($desktopSlot === null) {
+            $this->assertCount(0, $desktopActive);
+
+            // Both copies of the account menu (sidebar and top bar) mark the page's link.
+            foreach (['aside', 'header'] as $container) {
+                $accountActive = $crawler->filter($container.' [data-account-menu-panel] a[aria-current="page"]');
+                $this->assertCount(1, $accountActive, $container);
+                $this->assertSame(parse_url($path, PHP_URL_PATH), parse_url((string) $accountActive->attr('href'), PHP_URL_PATH), $container);
+            }
+
+            return;
+        }
+
         $this->assertCount(1, $desktopActive);
         $this->assertSame($desktopSlot, $desktopActive->attr('data-nav-slot'));
+        $this->assertCount(0, $crawler->filter('[data-account-menu-panel] [aria-current="page"]'));
+    }
+
+    /**
+     * The path and the crumbs the top bar shows for it (from lg up).
+     *
+     * @return array<string, array{0: string, 1: list<string>}>
+     */
+    public static function topBarBreadcrumbs(): array
+    {
+        return [
+            'dashboard' => ['/dashboard', ['Beranda']],
+            'class list' => ['/class', ['Kuliah', 'Jadwal & Kelas']],
+            'grades' => ['/grades', ['Akademik', 'Nilai']],
+            'skkm' => ['/skkm', ['Lainnya', 'SKKM']],
+            'notifications' => ['/notifications', ['Notifikasi']],
+        ];
+    }
+
+    /**
+     * @param  list<string>  $crumbs
+     */
+    #[DataProvider('topBarBreadcrumbs')]
+    public function test_the_top_bar_shows_where_the_page_sits(string $path, array $crumbs): void
+    {
+        $this->mockValidCampusSession('token-shell');
+
+        $crawler = $this->crawl($path);
+        $topBar = $crawler->filter('header [data-top-bar-crumbs]');
+        $breadcrumb = $topBar->filter('nav[aria-label="Lokasi halaman"]');
+
+        $this->assertStringContainsString('lg:flex', (string) $topBar->attr('class'));
+        $this->assertStringContainsString('hidden', (string) $topBar->attr('class'));
+        $this->assertSame($crumbs, $breadcrumb->filter('li > :not([aria-hidden])')->each(fn (Crawler $crumb): string => $crumb->text()));
+        $this->assertSame(end($crumbs), $breadcrumb->filter('[aria-current="page"]')->text());
+        // Text only: no accent tile or section icon before the crumbs.
+        $this->assertCount(0, $breadcrumb->filter('svg'));
+
+        // The top bar is the only breadcrumb: the page's own header repeats none.
+        $this->assertCount(0, $crawler->filter('main nav[aria-label="Lokasi halaman"]'));
+    }
+
+    public function test_the_sidebar_marks_the_current_section_without_a_colour(): void
+    {
+        $this->mockValidCampusSession('token-shell');
+
+        $crawler = $this->crawl('/krs');
+        $items = $crawler->filter('nav[aria-label="Navigasi utama"] a[data-nav-slot]');
+
+        // No coloured edge marker: the current item is raised (panel + ring) and its icon turns ink.
+        $this->assertCount(0, $items->filter('[data-slot="sidebar-marker"]'));
+        $this->assertDoesNotMatchRegularExpression('/\b(violet|emerald|rose|indigo|teal|orange|sky|fuchsia|slate|zinc)-\d/', (string) $crawler->filter('aside')->html());
+
+        $current = $crawler->filter('nav[aria-label="Navigasi utama"] a[aria-current="page"]');
+        $this->assertSame(['akademik'], $current->each(fn (Crawler $item): ?string => $item->attr('data-nav-slot')));
+        $this->assertStringContainsString('aria-[current=page]:ring-border', (string) $current->attr('class'));
+        $this->assertStringContainsString('group-aria-[current=page]:text-ink', (string) $current->filter('[data-slot="sidebar-icon"]')->attr('class'));
+
+        // Nothing wide scrolls the page sideways, and the panel is no scroll container (sticky asides still stick).
+        $this->assertContains('overflow-x-clip', explode(' ', (string) $crawler->filter('main')->attr('class')));
     }
 
     public function test_nav_slots_carry_badge_hooks(): void
@@ -215,9 +301,14 @@ class AppShellPagesTest extends TestCase
             $this->assertCount(1, $crawler->filter('nav[aria-label="Navigasi mobile"] [data-nav-badge="'.$slot.'"]'), $slot);
         }
 
-        // The desktop dropdown has its own key: Keuangan is a top-level link there.
+        // The sidebar's "Semua menu" has its own key: Keuangan is a top-level link there.
         foreach (['kuliah', 'akademik', 'keuangan', 'lainnya-desktop', 'skkm', 'announcement'] as $slot) {
             $this->assertCount(1, $crawler->filter('nav[aria-label="Navigasi utama"] [data-nav-badge="'.$slot.'"]'), $slot);
+        }
+
+        foreach (['profile', 'password'] as $slot) {
+            $this->assertCount(1, $crawler->filter('aside [data-account-menu-panel] [data-nav-badge="'.$slot.'"]'), $slot);
+            $this->assertCount(1, $crawler->filter('header [data-account-menu-panel] [data-nav-badge="'.$slot.'"]'), $slot);
         }
 
         $this->assertCount(0, $crawler->filter('[data-nav-badge]:not(.hidden)'));
@@ -258,20 +349,43 @@ class AppShellPagesTest extends TestCase
 
         $this->assertSame('polite', $crawler->filter('[data-live-polite]')->attr('aria-live'));
         $this->assertSame('assertive', $crawler->filter('[data-live-assertive]')->attr('aria-live'));
-        // Only the header avatar shows the student's initial; other avatars keep their own text.
-        $this->assertCount(1, $crawler->filter('[data-account-menu-trigger] .mycic-avatar[data-user-avatar]'));
+        // Two copies of the account menu: the sidebar's (lg+) and the top bar's avatar menu (below lg).
+        $this->assertCount(1, $crawler->filter('aside [data-account-menu-trigger] [data-user-avatar]'));
+        $this->assertCount(1, $crawler->filter('header [data-account-menu-trigger] [data-user-avatar]'));
+        $this->assertCount(1, $crawler->filter('header [data-account-menu-panel] [data-logout]'));
+        $this->assertStringContainsString('lg:hidden', (string) $crawler->filter('header [data-account-menu]')->attr('class'));
     }
 
-    public function test_desktop_nav_is_a_flex_row_instead_of_an_absolute_overlay(): void
+    public function test_desktop_nav_is_a_sidebar_beside_the_page_instead_of_an_overlay(): void
     {
         $this->mockValidCampusSession('token-shell');
 
-        $nav = $this->crawl('/dashboard')->filter('nav[aria-label="Navigasi utama"]');
+        $crawler = $this->crawl('/dashboard');
+        $nav = $crawler->filter('aside nav[aria-label="Navigasi utama"]');
         $classes = explode(' ', (string) $nav->attr('class'));
 
+        $this->assertCount(1, $nav);
+        $this->assertCount(0, $crawler->filter('main nav[aria-label="Navigasi utama"]'));
         $this->assertNotContains('absolute', $classes);
-        $this->assertNotContains('inset-x-0', $classes);
-        $this->assertContains('mycic-top-nav', $classes);
+        $this->assertContains('lg:flex', explode(' ', (string) $crawler->filter('aside')->attr('class')));
+        $this->assertContains('lg:hidden', explode(' ', (string) $crawler->filter('nav[aria-label="Navigasi mobile"]')->attr('class')));
+    }
+
+    public function test_sync_strip_sits_in_the_top_bar_from_lg_and_above_the_content_below(): void
+    {
+        $this->mockValidCampusSession('token-shell');
+
+        $crawler = $this->crawl('/dashboard');
+        $desktop = $crawler->filter('header [data-sync-alert]');
+        $mobile = $crawler->filter('main [data-sync-alert]');
+
+        $this->assertCount(1, $desktop);
+        $this->assertCount(1, $mobile);
+        // The strip's own class is rewritten by app.setSyncStatus(), so its wrapper does the showing.
+        $this->assertStringContainsString('lg:block', (string) $desktop->ancestors()->first()->attr('class'));
+        $this->assertStringContainsString('lg:hidden', (string) $mobile->ancestors()->first()->attr('class'));
+        $this->assertCount(1, $crawler->filter('[data-pull-indicator]'));
+        $this->assertCount(1, $crawler->filter('[data-operation-status]'));
     }
 
     public function test_layout_lists_only_refreshable_datasets(): void

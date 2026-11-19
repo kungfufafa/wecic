@@ -21,7 +21,7 @@
                                 app.showNotice(`${result?.message || 'Pertemuan masuk ke notebook.'}${queued ? ` ${queued} berkas diarsipkan di background.` : ''}`, 'success');
 
                                 if (notebook?.id) {
-                                    addNotebookButton.outerHTML = `<a href="/notebook/${notebook.id}" class="${app.buttonClass('primary')} mycic-btn-block">Buka di Notebook</a>`;
+                                    addNotebookButton.outerHTML = `<a href="/notebook/${notebook.id}" class="${app.buttonClass('primary')} w-full">Buka di Notebook</a>`;
                                 }
                             } catch (error) {
                                 app.showNotice(`Belum bisa dimasukkan ke notebook. ${app.describeError(error)}`, 'error');

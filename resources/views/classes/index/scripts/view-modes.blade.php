@@ -17,12 +17,8 @@
 
                 viewTabs.forEach((tab) => {
                     const isCurrent = tab.dataset.viewTarget === targetView;
+                    // aria-selected draws the active tab (app.ui.tab).
                     tab.setAttribute('aria-selected', isCurrent ? 'true' : 'false');
-                    if (isCurrent) {
-                        tab.className = 'mycic-view-tab mycic-segmented-item mycic-segmented-item-active';
-                    } else {
-                        tab.className = 'mycic-view-tab mycic-segmented-item';
-                    }
                 });
 
                 Object.keys(viewPanels).forEach((k) => {

@@ -1,3 +1,5 @@
+import { ui } from './ui.js';
+
 /**
  * Charts without a library: progress bars, sparklines, column and stacked
  * bars, each with a hidden data table behind it.
@@ -32,7 +34,7 @@ export class ChartFeature {
 
             used += width;
 
-            return `<div class="mycic-progress-fill ${this.fillToneClass(part.tone || tone)}${part.striped ? ' mycic-progress-striped' : ''}" style="width: ${width.toFixed(2)}%"${part.label ? ` title="${this.escapeHtml(part.label)}"` : ''}></div>`;
+            return `<div class="${ui.progressFill} ${this.fillToneClass(part.tone || tone)}${part.striped ? ` ${ui.progressStriped}` : ''}" style="width: ${width.toFixed(2)}%"${part.label ? ` title="${this.escapeHtml(part.label)}"` : ''}></div>`;
         }).join('');
 
         const total = parts.reduce((sum, part) => sum + (isNumber(part?.value) ? Number(part.value) : 0), 0);
@@ -41,14 +43,14 @@ export class ChartFeature {
             ? [
                 ...segments.filter((part) => part?.label).map((part) => `
                     <li class="inline-flex items-center gap-1.5">
-                        <span class="h-2.5 w-2.5 shrink-0 rounded-sm ${this.fillToneClass(part.tone || tone)}${part.striped ? ' mycic-progress-striped' : ''}" aria-hidden="true"></span>
+                        <span class="size-2.5 shrink-0 rounded-sm ${this.fillToneClass(part.tone || tone)}${part.striped ? ` ${ui.progressStriped}` : ''}" aria-hidden="true"></span>
                         <span>${this.escapeHtml(part.label)}</span>
                         ${isNumber(part.value) ? `<span class="font-medium tabular-nums text-ink">${this.escapeHtml(part.valueLabel ?? part.value)}</span>` : ''}
                     </li>
                 `),
                 remainderLabel ? `
                     <li class="inline-flex items-center gap-1.5">
-                        <span class="h-2.5 w-2.5 shrink-0 rounded-sm border border-border bg-surface" aria-hidden="true"></span>
+                        <span class="size-2.5 shrink-0 rounded-sm border border-border bg-surface" aria-hidden="true"></span>
                         <span>${this.escapeHtml(remainderLabel)}</span>
                         ${known ? `<span class="font-medium tabular-nums text-ink">${this.escapeHtml(Math.max(0, safeMax - total))}</span>` : ''}
                     </li>
@@ -65,7 +67,7 @@ export class ChartFeature {
                     </div>
                 ` : ''}
                 <div
-                    class="mycic-progress-track ${heights[size] || heights.md}"
+                    class="${ui.progressTrack} ${heights[size] || heights.md}"
                     role="progressbar"
                     aria-valuemin="0"
                     aria-valuemax="${safeMax}"
@@ -242,18 +244,18 @@ export class ChartFeature {
         const summary = label || 'Komposisi';
         const fills = total > 0
             ? rows.filter((row) => row.value > 0).map((row) => `
-                <div class="mycic-progress-fill ${this.fillToneClass(row.tone)}" style="width: ${((row.value / total) * 100).toFixed(2)}%" title="${this.escapeHtml(row.label)}: ${this.escapeHtml(format(row.value))}"></div>
+                <div class="${ui.progressFill} ${this.fillToneClass(row.tone)}" style="width: ${((row.value / total) * 100).toFixed(2)}%" title="${this.escapeHtml(row.label)}: ${this.escapeHtml(format(row.value))}"></div>
             `).join('')
             : '';
 
         return `
             <figure class="m-0 min-w-0">
-                <div class="mycic-progress-track ${heights[size] || heights.md}" role="img" aria-label="${this.escapeHtml(summary)}">${fills}</div>
+                <div class="${ui.progressTrack} ${heights[size] || heights.md}" role="img" aria-label="${this.escapeHtml(summary)}">${fills}</div>
                 ${legend && rows.length ? `
                     <ul class="mt-2 flex flex-wrap gap-x-4 gap-y-1.5 text-caption text-ink-muted">
                         ${rows.map((row) => `
                             <li class="inline-flex items-center gap-1.5">
-                                <span class="h-2.5 w-2.5 shrink-0 rounded-sm ${this.fillToneClass(row.tone)}" aria-hidden="true"></span>
+                                <span class="size-2.5 shrink-0 rounded-sm ${this.fillToneClass(row.tone)}" aria-hidden="true"></span>
                                 <span>${this.escapeHtml(row.label)}</span>
                                 <span class="font-medium tabular-nums text-ink">${this.escapeHtml(format(row.value))}</span>
                             </li>

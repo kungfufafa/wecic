@@ -8,14 +8,14 @@
                 const render = (data) => {
                     const meetings = Array.isArray(data?.meetings) ? data.meetings : [];
                     const classUrl = state.notebook?.class_url;
-                    const syncButton = classUrl ? '<button type="button" class="mycic-btn-secondary" data-meeting-sync data-online-required>Masukkan semua pertemuan (background)</button>' : '';
+                    const syncButton = classUrl ? `<button type="button" class="${app.ui.button.secondary}" data-meeting-sync data-online-required>Masukkan semua pertemuan (background)</button>` : '';
                     let body;
 
                     if (!meetings.length) {
                         body = `
                             <div class="flex flex-col gap-3">
                                 ${app.renderEmptyState(data?.available === false ? 'Daftar pertemuan belum tersimpan.' : 'Belum ada pertemuan di halaman kelas.', 'secondary', data?.available === false ? 'Buka halaman kelas ini sekali agar daftar pertemuannya tersimpan, atau buka pertemuan lalu pilih "Masukkan ke Notebook".' : 'Pertemuan muncul setelah dosen mengunggah materinya.')}
-                                ${classUrl ? `<a href="${app.escapeHtml(classUrl)}" class="mycic-btn-primary">Buka halaman kelas</a>` : ''}
+                                ${classUrl ? `<a href="${app.escapeHtml(classUrl)}" class="${app.ui.button.primary}">Buka halaman kelas</a>` : ''}
                                 ${syncButton}
                             </div>
                         `;
@@ -24,19 +24,19 @@
                             <form class="flex flex-col gap-3" data-meeting-picker>
                                 <div class="flex flex-col gap-1.5">
                                     ${meetings.map((meeting) => `
-                                        <label class="flex cursor-pointer items-start gap-2 rounded-[var(--radius-control)] border border-border p-2.5 text-sm transition-colors hover:bg-surface/40 ${meeting.added ? 'opacity-70' : ''}">
-                                            <input type="checkbox" class="mt-1 cursor-pointer accent-brand" value="${app.escapeHtml(meeting.meeting_id)}" data-courses-id="${app.escapeHtml(meeting.courses_id)}" ${meeting.added ? 'checked disabled' : ''}>
+                                        <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-border p-3 text-sm transition-colors hover:bg-surface/50 has-[:checked:not(:disabled)]:border-brand/40 has-[:checked:not(:disabled)]:bg-surface-tint/40 ${meeting.added ? 'opacity-70' : ''}">
+                                            <input type="checkbox" class="${app.ui.checkbox} mt-0.5" value="${app.escapeHtml(meeting.meeting_id)}" data-courses-id="${app.escapeHtml(meeting.courses_id)}" ${meeting.added ? 'checked disabled' : ''}>
                                             <span class="min-w-0 flex-1">
                                                 <span class="block font-medium leading-snug text-ink">${app.escapeHtml(meeting.meeting_number ? `P${meeting.meeting_number} · ` : '')}${app.escapeHtml(meeting.title)}</span>
-                                                <span class="block text-caption text-ink-subtle">${app.escapeHtml([meeting.date, meeting.time, meeting.archived_files ? `${meeting.archived_files} berkas di arsip` : null].filter(Boolean).join(' · '))}</span>
+                                                <span class="mt-0.5 block text-xs text-ink-subtle">${app.escapeHtml([meeting.date, meeting.time, meeting.archived_files ? `${meeting.archived_files} berkas di arsip` : null].filter(Boolean).join(' · '))}</span>
                                             </span>
                                             ${meeting.added ? app.renderBadge('Sudah masuk', 'success') : ''}
                                         </label>
                                     `).join('')}
                                 </div>
-                                <p class="text-caption text-ink-subtle">Pertemuan yang belum pernah dibuka diambil dari portal (butuh online). Berkasnya dibaca di background.</p>
+                                <p class="text-xs text-ink-subtle">Pertemuan yang belum pernah dibuka diambil dari portal (butuh online). Berkasnya dibaca di background.</p>
                                 <div class="flex flex-col gap-2 sm:flex-row">
-                                    <button type="submit" class="mycic-btn-primary">Tambahkan yang dipilih</button>
+                                    <button type="submit" class="${app.ui.button.primary}">Tambahkan yang dipilih</button>
                                     ${syncButton}
                                 </div>
                             </form>

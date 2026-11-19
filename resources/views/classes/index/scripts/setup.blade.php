@@ -11,6 +11,8 @@
             const summaryCards = document.querySelectorAll('[data-summary-value]');
             const activeDaysMetric = document.getElementById('summary-active-days');
             const totalHoursMetric = document.getElementById('summary-total-hours');
+            const todayMetric = document.getElementById('summary-today');
+            const todayNote = document.getElementById('summary-today-note');
             const dayStripHost = document.getElementById('day-summary-strip');
             const searchInput = document.getElementById('class-search-input');
             const blockingGridHost = document.getElementById('blocking-grid-container');
@@ -39,6 +41,8 @@
             const modalContacts = document.getElementById('modal-class-contacts');
             const modalOpenBtn = document.getElementById('modal-btn-open-class');
             const modalMeetingBtn = document.getElementById('modal-btn-toggle-meeting');
+            const modalOpenWrap = modalEl.querySelector('[data-modal-open-wrap]');
+            const modalMeetingWrap = modalEl.querySelector('[data-modal-meeting-wrap]');
             const modalMeetingPanel = document.getElementById('modal-meeting-panel');
 
             // Grid blocks and day tiles are role="button" divs: Enter and Space act like a click.

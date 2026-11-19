@@ -8,106 +8,104 @@
 @endphp
 
 @section('content')
-    <x-page-header title="SKKM" subtitle="Poin kegiatan mahasiswa (SIREKA) dari portal kampus, lengkap dengan status validasi DPA.">
-        <p class="mt-1 min-h-4 text-caption text-ink-subtle" data-skkm-updated></p>
-    </x-page-header>
-
-    <div class="grid items-start gap-5 lg:grid-cols-12" data-portal-url="{{ config('portal.base_url') }}" id="skkm-page">
-        <div class="flex min-w-0 flex-col gap-5 lg:col-span-8">
-            <div id="skkm-notice" class="empty:hidden"></div>
-
-            <section id="skkm-hero" aria-label="Ringkasan poin SKKM" aria-busy="true">
-                <div class="mycic-card">
-                    <div class="mycic-card-body flex flex-col gap-4">
-                        <h2 class="sr-only" id="skkm-hero-title">Poin SKKM valid</h2>
-                        <span class="sr-only">Memuat poin SKKM…</span>
-                        <div class="mycic-skeleton h-3.5 w-24"></div>
-                        <div class="mycic-skeleton h-10 w-40"></div>
-                        <div class="mycic-skeleton h-2.5 w-full"></div>
-                        <div class="mycic-skeleton h-3.5 w-2/3"></div>
-                    </div>
-                </div>
-            </section>
-
-            <div class="mycic-sticky-action">
-                <a
-                    href="{{ $skkmAddUrl }}"
+    {{-- The hero's isolate traps the floating Tambah bar below lg; z-29 keeps it above the content yet under the top bar (z-30). --}}
+    <x-page-hero class="max-lg:z-29" title="SKKM" subtitle="Poin kegiatan mahasiswa (SIREKA).">
+        <x-slot:meta>
+            <span class="min-h-4" data-skkm-updated></span>
+        </x-slot:meta>
+        <x-slot:actions class="max-sm:-mt-4 lg:max-w-64 lg:flex-col lg:items-end">
+            <x-sticky-action class="lg:text-end">
+                <x-button
+                    :href="$skkmAddUrl"
                     target="_blank"
                     rel="noopener noreferrer"
-                    class="mycic-btn-primary w-full md:w-auto"
+                    class="w-full lg:w-auto"
                     data-skkm-add
                     aria-describedby="skkm-add-hint"
                 >
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5l0 14" /><path d="M5 12l14 0" /></svg>
+                    <x-icon name="plus" size="sm" />
                     Tambah SKKM di portal
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 6h-6a2 2 0 0 0 -2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-6" /><path d="M11 13l9 -9" /><path d="M15 4h5v5" /></svg>
+                    <x-icon name="external-link" size="sm" class="opacity-80" />
                     <span class="sr-only">(membuka portal kampus di tab baru)</span>
-                </a>
-                <p class="mt-1.5 text-center text-caption text-ink-subtle md:text-start" id="skkm-add-hint">Dibuka di portal kampus. Kamu perlu masuk lagi di sana.</p>
-            </div>
+                </x-button>
+                <p class="mt-1.5 text-center text-xs text-ink-subtle lg:text-end" id="skkm-add-hint">Dibuka di portal kampus. Kamu perlu masuk lagi di sana.</p>
+            </x-sticky-action>
+        </x-slot:actions>
+    </x-page-hero>
 
-            <div id="skkm-metrics" class="mycic-stat-strip grid-cols-3" role="group" aria-label="Saring kegiatan berdasarkan status">
-                @foreach (['Valid', 'Menunggu', 'Ditolak'] as $label)
-                    <div class="mycic-metric p-3 sm:p-4 md:p-5">
-                        <div class="mycic-metric-label">{{ $label }}</div>
-                        <div class="mycic-metric-value"><div class="mycic-skeleton h-7 w-12"></div></div>
+    <div class="flex flex-col gap-6" data-portal-url="{{ config('portal.base_url') }}" id="skkm-page">
+        <div id="skkm-notice" class="empty:hidden"></div>
+
+        <div class="grid gap-6 lg:grid-cols-2 lg:has-[>.hidden]:grid-cols-1">
+            <section id="skkm-hero" class="min-w-0" aria-label="Ringkasan poin SKKM" aria-busy="true">
+                <x-card class="h-full">
+                    <x-card.body class="flex flex-col gap-3">
+                        <h2 class="sr-only" id="skkm-hero-title">Poin SKKM valid</h2>
+                        <span class="sr-only">Memuat poin SKKM…</span>
+                        <x-skeleton class="h-3.5 w-24" />
+                        <x-skeleton class="h-9 w-40" />
+                        <x-skeleton class="h-5 w-48" />
+                        <x-skeleton class="h-2.5 w-full rounded-full!" />
+                        <x-skeleton class="h-3.5 w-2/3" />
+                    </x-card.body>
+                </x-card>
+            </section>
+
+            <x-card as="section" class="hidden min-w-0" aria-labelledby="skkm-breakdown-title" id="skkm-breakdown">
+                <x-card.header>
+                    <x-card.title id="skkm-breakdown-title">Sebaran poin per kategori</x-card.title>
+                </x-card.header>
+                <x-card.body class="flex flex-col gap-4" id="skkm-breakdown-body"></x-card.body>
+            </x-card>
+        </div>
+
+        <div id="skkm-message" class="empty:hidden"></div>
+
+        <x-split>
+            <x-card as="section" aria-labelledby="skkm-list-title">
+                <x-card.header class="flex-col items-stretch! sm:flex-row sm:items-center!">
+                    <x-card.title id="skkm-list-title" tabindex="-1">Daftar kegiatan</x-card.title>
+                    <div class="min-w-0">
+                        <x-view-tabs as="div" class="[scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="group" aria-label="Saring status kegiatan" id="skkm-tabs" />
                     </div>
-                @endforeach
-            </div>
-
-            <div id="skkm-message" class="empty:hidden"></div>
-
-            <section class="mycic-card" aria-labelledby="skkm-list-title">
-                <div class="mycic-card-header flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <h2 class="mycic-card-title" id="skkm-list-title" tabindex="-1">Daftar kegiatan</h2>
-                    <div class="mycic-no-scrollbar min-w-0 overflow-x-auto">
-                        <div class="mycic-segmented" role="group" aria-label="Saring status kegiatan" id="skkm-tabs"></div>
-                    </div>
-                </div>
+                </x-card.header>
                 <p class="sr-only" aria-live="polite" id="skkm-filter-status"></p>
                 <div id="skkm-entries" aria-busy="true">
-                    <div class="mycic-card-body flex flex-col gap-4">
+                    <div class="divide-y divide-border-light">
                         @for ($i = 0; $i < 3; $i++)
-                            <div class="flex items-start justify-between gap-3">
+                            <div class="flex items-start gap-3 px-4 py-3 sm:px-5">
                                 <div class="flex flex-1 flex-col gap-2">
-                                    <div class="mycic-skeleton h-4 w-2/3"></div>
-                                    <div class="mycic-skeleton h-3.5 w-1/2"></div>
+                                    <x-skeleton class="h-4 w-2/3" />
+                                    <x-skeleton class="h-3.5 w-1/2" />
                                 </div>
-                                <div class="mycic-skeleton h-6 w-16"></div>
+                                <x-skeleton class="h-6 w-16" />
                             </div>
                         @endfor
                     </div>
                 </div>
-            </section>
-        </div>
+            </x-card>
 
-        <aside class="flex min-w-0 flex-col gap-5 lg:sticky lg:top-24 lg:col-span-4" aria-label="Pedoman dan validasi SKKM">
-            <section class="mycic-card" aria-labelledby="skkm-guide-title">
-                <div class="mycic-card-header">
-                    <h2 class="mycic-card-title" id="skkm-guide-title">Pedoman SKKM</h2>
-                </div>
-                <div class="mycic-card-body flex flex-col gap-3" id="skkm-guide">
-                    <div class="mycic-skeleton h-12 w-full"></div>
-                </div>
-            </section>
+            <x-slot:aside aria-label="Pedoman dan validasi SKKM">
+                <x-card as="section" aria-labelledby="skkm-guide-title">
+                    <x-card.header>
+                        <x-card.title id="skkm-guide-title">Pedoman SKKM</x-card.title>
+                    </x-card.header>
+                    <x-card.body class="flex flex-col gap-3" id="skkm-guide">
+                        <x-skeleton class="h-12 w-full" />
+                    </x-card.body>
+                </x-card>
 
-            <section class="mycic-card" aria-labelledby="skkm-dpa-title">
-                <div class="mycic-card-header">
-                    <h2 class="mycic-card-title" id="skkm-dpa-title">Validasi oleh DPA</h2>
-                </div>
-                <div class="mycic-card-body flex flex-col gap-3" id="skkm-dpa">
-                    <div class="mycic-skeleton h-4 w-full"></div>
-                    <div class="mycic-skeleton h-4 w-2/3"></div>
-                </div>
-            </section>
-
-            <section class="mycic-card hidden" aria-labelledby="skkm-breakdown-title" id="skkm-breakdown">
-                <div class="mycic-card-header">
-                    <h2 class="mycic-card-title" id="skkm-breakdown-title">Sebaran poin per kategori</h2>
-                </div>
-                <div class="mycic-card-body flex flex-col gap-4" id="skkm-breakdown-body"></div>
-            </section>
-        </aside>
+                <x-card as="section" aria-labelledby="skkm-dpa-title">
+                    <x-card.header>
+                        <x-card.title id="skkm-dpa-title">Validasi oleh DPA</x-card.title>
+                    </x-card.header>
+                    <x-card.body class="flex flex-col gap-3" id="skkm-dpa">
+                        <x-skeleton class="h-4 w-full" />
+                        <x-skeleton class="h-4 w-2/3" />
+                    </x-card.body>
+                </x-card>
+            </x-slot:aside>
+        </x-split>
     </div>
 @endsection
 
@@ -117,7 +115,6 @@
             const app = window.portalApp;
             const page = document.getElementById('skkm-page');
             const heroHost = document.getElementById('skkm-hero');
-            const metricsHost = document.getElementById('skkm-metrics');
             const tabsHost = document.getElementById('skkm-tabs');
             const entriesHost = document.getElementById('skkm-entries');
             const noticeHost = document.getElementById('skkm-notice');
@@ -210,8 +207,6 @@
                 return counts;
             };
 
-            const segmentClass = (active) => (active ? 'mycic-segmented-item mycic-segmented-item-active' : 'mycic-segmented-item');
-
             const syncQuery = () => {
                 try {
                     const url = new URL(window.location.href);
@@ -248,8 +243,8 @@
                             <p class="font-medium">Pesan dari SIREKA</p>
                             <p class="mt-1 text-sm text-ink-muted">${app.escapeHtml(notice.text)}</p>
                         </div>
-                        <button type="button" class="mycic-modal-close min-h-11 min-w-11 shrink-0 sm:min-h-9 sm:min-w-9" aria-label="Tutup pesan SIREKA" data-dismiss-notice>
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6l-12 12" /><path d="M6 6l12 12" /></svg>
+                        <button type="button" class="${app.ui.modalClose} -my-1 -me-2 min-h-11 min-w-11 sm:min-h-9 sm:min-w-9" aria-label="Tutup pesan SIREKA" data-dismiss-notice>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="size-4" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6l-12 12" /><path d="M6 6l12 12" /></svg>
                         </button>
                     </div>
                 `;
@@ -276,8 +271,8 @@
 
                 if (data.found === false) {
                     heroHost.innerHTML = `
-                        <div class="mycic-card">
-                            <div class="mycic-card-body">
+                        <div class="${app.ui.card} h-full" data-slot="card">
+                            <div class="${app.ui.cardBody}">
                                 <h2 class="sr-only" id="skkm-hero-title">Poin SKKM</h2>
                                 <div class="${app.alertTone('warning')}" role="status">
                                     <p class="font-medium">SIREKA tidak bisa diakses</p>
@@ -299,6 +294,11 @@
                 const counts = countEntries(data);
                 const valid = summary.valid_points ?? stats.total_points?.valid ?? null;
                 const pending = summary.pending_points ?? stats.total_points?.pending ?? null;
+                const invalid = summary.invalid_points ?? stats.total_points?.invalid ?? null;
+                const otherPoints = [
+                    isNumber(pending) && Number(pending) > 0 ? `${formatPoints(pending)} menunggu` : '',
+                    isNumber(invalid) && Number(invalid) > 0 ? `${formatPoints(invalid)} ditolak` : '',
+                ].filter(Boolean);
                 const required = isNumber(stats.required_points) && Number(stats.required_points) > 0 ? Number(stats.required_points) : null;
                 const remaining = isNumber(summary.remaining_points)
                     ? Number(summary.remaining_points)
@@ -343,17 +343,15 @@
                     : '';
 
                 heroHost.innerHTML = `
-                    <div class="mycic-card">
-                        <div class="mycic-card-body flex flex-col gap-4">
-                            <div class="flex flex-wrap items-start justify-between gap-3">
-                                <div class="min-w-0">
-                                    <h2 class="text-caption font-medium text-ink-subtle" id="skkm-hero-title">Poin SKKM valid</h2>
-                                    <p class="mt-1 flex flex-wrap items-baseline gap-x-2">
-                                        <span class="font-mono text-4xl font-semibold tracking-[-0.02em] text-ink tabular-nums">${formatPoints(valid)}</span>
-                                        <span class="text-sm font-medium text-ink-subtle">${required !== null ? `dari ${formatPoints(required)} poin` : 'poin'}</span>
-                                    </p>
-                                </div>
-                                ${graduationBadge}
+                    <div class="${app.ui.card} h-full" data-slot="card">
+                        <div class="${app.ui.cardBody} flex flex-col gap-5">
+                            <div class="min-w-0">
+                                <h2 class="text-xs font-medium text-ink-muted" id="skkm-hero-title">Poin SKKM valid</h2>
+                                <p class="mt-1 flex flex-wrap items-baseline gap-x-2">
+                                    <span class="text-4xl font-semibold tracking-tight text-ink tabular-nums">${formatPoints(valid)}</span>
+                                    <span class="text-sm font-medium text-ink-subtle tabular-nums">${required !== null ? `dari ${formatPoints(required)} poin` : 'poin'}${otherPoints.map((text) => ` · ${text}`).join('')}</span>
+                                </p>
+                                <div class="mt-3">${graduationBadge}</div>
                             </div>
                             ${progress}
                             ${graduation.text ? `<p class="text-sm text-ink-muted">Status di portal: <span class="font-medium text-ink">“${app.escapeHtml(graduation.text)}”</span></p>` : ''}
@@ -361,31 +359,6 @@
                         </div>
                     </div>
                 `;
-            };
-
-            const renderMetrics = (data) => {
-                const summary = data?.summary || {};
-                const counts = countEntries(data);
-                const unavailable = !data || data.found === false;
-                const metrics = [
-                    { key: 'valid', label: 'Valid', points: summary.valid_points, tone: 'text-success' },
-                    { key: 'pending', label: 'Menunggu', points: summary.pending_points, tone: 'text-warning' },
-                    { key: 'invalid', label: 'Ditolak', points: summary.invalid_points, tone: 'text-danger' },
-                ];
-
-                metricsHost.innerHTML = metrics.map((metric) => `
-                    <button
-                        type="button"
-                        class="mycic-metric min-w-0 cursor-pointer p-3 text-start transition-colors duration-150 sm:p-4 md:p-5 hover:bg-surface/50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand disabled:pointer-events-none disabled:opacity-60 aria-pressed:bg-surface-tint"
-                        aria-pressed="${filter === metric.key ? 'true' : 'false'}"
-                        data-skkm-filter="${metric.key}"
-                        ${unavailable ? 'disabled' : ''}
-                    >
-                        <span class="mycic-metric-label">${metric.label}</span>
-                        <span class="mycic-metric-value ${unavailable ? '' : metric.tone}">${unavailable ? '–' : formatPoints(metric.points)}</span>
-                        <span class="mycic-metric-note">${unavailable ? 'belum terbaca' : `poin · ${counts[metric.key]} kegiatan`}</span>
-                    </button>
-                `).join('');
             };
 
             const renderTabs = (data) => {
@@ -396,9 +369,9 @@
                     const count = option.key === 'all' ? counts.total : counts[option.key];
 
                     return `
-                        <button type="button" class="${segmentClass(active)}" aria-pressed="${active ? 'true' : 'false'}" data-skkm-filter="${option.key}" ${!data || data.found === false ? 'disabled' : ''}>
+                        <button type="button" class="${app.ui.tab} disabled:pointer-events-none disabled:opacity-50" aria-pressed="${active ? 'true' : 'false'}" data-skkm-filter="${option.key}" ${!data || data.found === false ? 'disabled' : ''}>
                             ${option.label}
-                            <span class="font-mono tabular-nums ${active ? 'text-brand-text' : 'text-ink-subtle'}">${count}</span>
+                            <span class="text-xs tabular-nums ${active ? 'text-ink-muted' : 'text-ink-subtle'}">${count}</span>
                         </button>
                     `;
                 }).join('');
@@ -430,27 +403,27 @@
                 const status = STATUS[entry.status] || STATUS.unknown;
                 const attachmentName = entry.attachment_path ? String(entry.attachment_path).split('/').pop() : null;
                 const attachmentUrl = entry.attachment_path ? app.buildCampusDownloadUrl(entry.attachment_path, attachmentName) : null;
-                const chip = [entry.activity, entry.level].filter(Boolean).join(' · ');
+                const category = [entry.activity, entry.level].filter(Boolean).join(' · ');
                 const hints = [statusHint(entry), actionHint(entry)].filter(Boolean).join(' ');
 
                 return `
-                    <li class="flex flex-col gap-2.5 border-b border-border-light p-4 last:border-b-0 md:px-5">
+                    <li class="flex flex-col gap-2.5 border-b border-border-light px-4 py-3 last:border-b-0 sm:px-5">
                         <div class="flex items-start justify-between gap-3">
                             <div class="min-w-0 flex-1">
                                 <h3 class="text-sm font-medium leading-snug text-ink wrap-break-word">${app.escapeHtml(entry.name || 'Kegiatan')}</h3>
-                                ${chip ? `<p class="mt-1.5"><span class="mycic-chip max-w-full whitespace-normal">${app.escapeHtml(chip)}</span></p>` : ''}
-                                ${entry.type ? `<p class="mt-1.5 line-clamp-2 text-caption text-ink-subtle">${app.escapeHtml(entry.type)}</p>` : ''}
+                                ${category ? `<p class="mt-0.5 text-xs text-ink-muted wrap-break-word">${app.escapeHtml(category)}</p>` : ''}
+                                ${entry.type ? `<p class="mt-0.5 line-clamp-2 text-xs text-ink-subtle">${app.escapeHtml(entry.type)}</p>` : ''}
                             </div>
                             <div class="flex shrink-0 flex-col items-end gap-1.5 text-end">
-                                <span class="font-mono text-base font-medium text-ink tabular-nums">${app.escapeHtml(entry.points_label || formatPoints(entry.points))} <span class="font-sans text-caption font-medium text-ink-subtle">poin</span></span>
+                                <span class="text-sm font-semibold text-ink tabular-nums">${app.escapeHtml(entry.points_label || formatPoints(entry.points))} <span class="text-xs font-medium text-ink-subtle">poin</span></span>
                                 ${app.renderBadge(status.label, status.tone)}
                             </div>
                         </div>
                         <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
                             ${attachmentUrl
                                 ? `<a href="${app.escapeHtml(attachmentUrl)}" target="_blank" rel="noopener" class="${app.buttonClass('secondary', { small: true })}" data-online-required>Lihat bukti<span class="sr-only"> ${app.escapeHtml(entry.name || '')} (tab baru)</span></a>`
-                                : `<span class="text-caption text-ink-subtle">${entry.has_attachment ? 'Bukti hanya bisa dibuka di portal.' : 'Tanpa lampiran bukti.'}</span>`}
-                            ${hints ? `<span class="min-w-0 text-caption text-ink-subtle">${app.escapeHtml(hints)}</span>` : ''}
+                                : `<span class="text-xs text-ink-subtle">${entry.has_attachment ? 'Bukti hanya bisa dibuka di portal.' : 'Tanpa lampiran bukti.'}</span>`}
+                            ${hints ? `<span class="min-w-0 text-xs text-ink-subtle">${app.escapeHtml(hints)}</span>` : ''}
                         </div>
                     </li>
                 `;
@@ -461,7 +434,7 @@
 
                 if (!data || data.found === false) {
                     filterStatus.textContent = '';
-                    entriesHost.innerHTML = `<div class="mycic-card-body">${app.renderEmptyState('Daftar kegiatan belum bisa dibaca.', 'secondary', 'Coba sinkronkan lagi nanti, atau buka SIREKA di portal kampus.')}</div>`;
+                    entriesHost.innerHTML = `<div class="${app.ui.cardBody}">${app.renderEmptyState('Daftar kegiatan belum bisa dibaca.', 'secondary', 'Coba sinkronkan lagi nanti, atau buka SIREKA di portal kampus.', { icon: 'skkm' })}</div>`;
 
                     return;
                 }
@@ -473,7 +446,7 @@
 
                 if (!entries.length) {
                     filterStatus.textContent = '';
-                    entriesHost.innerHTML = `<div class="mycic-card-body">${app.renderEmptyState('Belum ada kegiatan SKKM.', 'secondary', 'Unggah bukti kegiatanmu lewat portal, lalu minta DPA memvalidasinya.')}</div>`;
+                    entriesHost.innerHTML = `<div class="${app.ui.cardBody}">${app.renderEmptyState('Belum ada kegiatan SKKM.', 'secondary', 'Unggah bukti kegiatanmu lewat portal, lalu minta DPA memvalidasinya.', { icon: 'skkm' })}</div>`;
 
                     return;
                 }
@@ -485,7 +458,7 @@
                     : `Menampilkan ${shown.length} dari ${entries.length} kegiatan.`;
                 entriesHost.innerHTML = shown.length
                     ? `<ul class="flex flex-col">${shown.map(renderEntry).join('')}</ul>`
-                    : `<div class="mycic-card-body">${app.renderEmptyState('Tidak ada kegiatan dengan status ini.', 'secondary')}</div>`;
+                    : `<div class="${app.ui.cardBody}">${app.renderEmptyState('Tidak ada kegiatan dengan status ini.', 'secondary', '', { icon: 'filter' })}</div>`;
                 app.refreshOnlineRequiredState();
             };
 
@@ -495,18 +468,18 @@
 
                 guideHost.innerHTML = href
                     ? `
-                        <a href="${app.escapeHtml(href)}" target="_blank" rel="noopener" class="mycic-sheet-action" data-online-required data-skkm-guide>
-                            <span class="mycic-sheet-action-icon">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3v4a1 1 0 0 0 1 1h4" /><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z" /><path d="M9 17h6" /><path d="M9 13h6" /></svg>
+                        <a href="${app.escapeHtml(href)}" target="_blank" rel="noopener" class="${app.ui.sheetAction}" data-online-required data-skkm-guide>
+                            <span class="${app.ui.sheetActionIcon}">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="size-4" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3v4a1 1 0 0 0 1 1h4" /><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z" /><path d="M9 17h6" /><path d="M9 13h6" /></svg>
                             </span>
                             <span class="min-w-0 flex-1">
                                 <span class="block font-medium text-ink">Pedoman SKKM${data.guide_year ? ` ${app.escapeHtml(data.guide_year)}` : ''}</span>
-                                <span class="block text-caption text-ink-subtle">PDF · dibuka lewat WeCIC, butuh internet</span>
+                                <span class="block text-xs text-ink-subtle">PDF · dibuka lewat WeCIC, butuh internet</span>
                             </span>
                         </a>
-                        <p class="text-caption text-ink-subtle">Baca dulu jenis kegiatan dan bukti yang diterima sebelum mengunggah.</p>
+                        <p class="text-xs text-ink-subtle">Baca dulu jenis kegiatan dan bukti yang diterima sebelum mengunggah.</p>
                     `
-                    : app.renderEmptyState('Pedoman belum terbaca dari portal.', 'secondary', 'Pedoman SKKM juga ada di halaman SIREKA portal kampus.');
+                    : app.renderEmptyState('Pedoman belum terbaca dari portal.', 'secondary', 'Pedoman SKKM juga ada di halaman SIREKA portal kampus.', { icon: 'file' });
                 app.refreshOnlineRequiredState();
             };
 
@@ -540,12 +513,12 @@
                             <div class="flex flex-wrap items-center justify-between gap-3">
                                 <span class="min-w-0">
                                     <span class="block text-sm font-medium leading-snug text-ink">${app.escapeHtml(dpa.name)}</span>
-                                    <span class="block text-caption text-ink-subtle">DPA kamu</span>
+                                    <span class="block text-xs text-ink-subtle">DPA kamu</span>
                                 </span>
                                 ${app.renderContactButton({ name: dpa.name, role: 'Dosen Pembimbing Akademik', phone: dpa.phone, whatsapp: dpa.whatsapp, email: dpa.email, message }, { label: 'Hubungi DPA' })}
                             </div>
                         `
-                        : '<a href="/krs?tab=riwayat" class="mycic-link inline-flex min-h-11 items-center sm:min-h-9 text-sm">Lihat kontak DPA di halaman KRS</a>'}
+                        : `<a href="/krs?tab=riwayat" class="${app.ui.link} inline-flex min-h-11 items-center text-sm sm:min-h-9">Lihat kontak DPA di halaman KRS</a>`}
                 `;
             };
 
@@ -570,8 +543,8 @@
                 ].filter(([value]) => Number(value) > 0).map(([value, label]) => `${formatPoints(value)} ${label}`).join(' · ') || '0 poin';
 
                 breakdownHost.innerHTML = `
-                    <ul class="flex flex-wrap gap-x-4 gap-y-1.5 text-caption text-ink-muted" aria-hidden="true">
-                        ${legend.map(([tone, label]) => `<li class="inline-flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-sm ${app.fillToneClass(tone)}"></span>${label}</li>`).join('')}
+                    <ul class="flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-ink-muted" aria-hidden="true">
+                        ${legend.map(([tone, label]) => `<li class="flex items-center gap-1.5"><span class="size-2.5 rounded-sm ${app.fillToneClass(tone)}"></span>${label}</li>`).join('')}
                     </ul>
                     <ul class="flex flex-col gap-4">
                         ${rows.map((row) => {
@@ -586,10 +559,10 @@
                                 <li class="min-w-0">
                                     <div class="mb-1.5 flex items-baseline justify-between gap-3">
                                         <span class="min-w-0 text-sm font-medium leading-snug text-ink wrap-break-word">${app.escapeHtml(row.activity)}</span>
-                                        <span class="shrink-0 text-caption text-ink-subtle tabular-nums">${app.escapeHtml(pointsCaption(row))}</span>
+                                        <span class="shrink-0 text-xs text-ink-subtle tabular-nums">${app.escapeHtml(pointsCaption(row))}</span>
                                     </div>
-                                    <div class="mycic-progress-track h-2" role="img" aria-label="${app.escapeHtml(description)}">
-                                        ${parts.map(([tone, value]) => `<div class="mycic-progress-fill ${app.fillToneClass(tone)}" style="width: ${((value / max) * 100).toFixed(2)}%"></div>`).join('')}
+                                    <div class="${app.ui.progressTrack} h-2" role="img" aria-label="${app.escapeHtml(description)}">
+                                        ${parts.map(([tone, value]) => `<div class="${app.ui.progressFill} ${app.fillToneClass(tone)}" style="width: ${((value / max) * 100).toFixed(2)}%"></div>`).join('')}
                                     </div>
                                 </li>
                             `;
@@ -611,7 +584,6 @@
                 renderNotice(data.found === false ? null : data.notice);
                 renderMessage(data.message);
                 renderHero(data);
-                renderMetrics(data);
                 renderTabs(data);
                 renderEntries(data);
                 renderGuide(data);
@@ -623,23 +595,10 @@
             const setFilter = (next, source, focusKey) => {
                 filter = FILTERS.some((option) => option.key === next) ? next : 'all';
                 syncQuery();
-                renderMetrics(latest);
                 renderTabs(latest);
                 renderEntries(latest);
                 source.querySelector(`[data-skkm-filter="${focusKey}"]`)?.focus();
             };
-
-            metricsHost.addEventListener('click', (event) => {
-                const button = event.target instanceof Element ? event.target.closest('[data-skkm-filter]') : null;
-
-                if (!button || button.disabled || !latest) {
-                    return;
-                }
-
-                const key = button.dataset.skkmFilter;
-
-                setFilter(filter === key ? 'all' : key, metricsHost, key);
-            });
 
             tabsHost.addEventListener('click', (event) => {
                 const button = event.target instanceof Element ? event.target.closest('[data-skkm-filter]') : null;
@@ -690,10 +649,9 @@
                     app.mountErrorState(heroHost, 'Data SKKM gagal dimuat.', () => loadSkkm({ force }), {
                         subtitle: `${app.describeError(error)} Poinmu tidak hilang; data akan tampil lagi setelah portal bisa dibaca.`,
                     });
-                    renderMetrics(null);
                     renderTabs(null);
                     entriesHost.removeAttribute('aria-busy');
-                    entriesHost.innerHTML = `<div class="mycic-card-body">${app.renderEmptyState('Daftar kegiatan akan tampil setelah data termuat.', 'secondary')}</div>`;
+                    entriesHost.innerHTML = `<div class="${app.ui.cardBody}">${app.renderEmptyState('Daftar kegiatan akan tampil setelah data termuat.', 'secondary')}</div>`;
                     guideHost.innerHTML = app.renderEmptyState('Pedoman belum terbaca dari portal.', 'secondary');
                     renderDpa(null);
                     app.setSyncStatus('Data SKKM gagal dimuat.', 'error');

@@ -1,3 +1,5 @@
+import { ui } from './ui.js';
+
 /**
  * The MyCIC outbox: attendance and uploads queued in an offline session,
  * shown on every page with a [data-outbox-list] host, never read as sent.
@@ -103,12 +105,12 @@ export class OutboxFeature {
         const title = heading || 'Antrean offline';
 
         return `
-            <section class="mycic-card" aria-label="${this.escapeHtml(title)}">
-                <div class="mycic-card-header flex flex-wrap items-center justify-between gap-2">
-                    <h3 class="mycic-card-title">${this.escapeHtml(title)}</h3>
-                    <span class="text-caption text-ink-subtle">Disimpan di WeCIC, dikirim saat portal bisa diakses</span>
+            <section class="${ui.card}" aria-label="${this.escapeHtml(title)}">
+                <div class="${ui.cardHeader} flex-wrap">
+                    <h3 class="${ui.cardTitle}">${this.escapeHtml(title)}</h3>
+                    <span class="text-xs text-ink-subtle">Disimpan di WeCIC, dikirim saat portal bisa diakses</span>
                 </div>
-                <div class="mycic-card-body">
+                <div class="${ui.cardBody}">
                     ${items.map((item) => {
                         const isQueued = item.status === 'queued';
                         const deadlinePassed = isQueued && item.deadline_passed;
@@ -122,7 +124,7 @@ export class OutboxFeature {
                         ].filter(Boolean).join(' · ');
 
                         return `
-                            <div class="mycic-list-row" data-outbox-item="${this.escapeHtml(item.id)}" data-outbox-status="${this.escapeHtml(item.status)}">
+                            <div class="${ui.listRow}" data-outbox-item="${this.escapeHtml(item.id)}" data-outbox-status="${this.escapeHtml(item.status)}">
                                 <div class="min-w-0 flex-1">
                                     <div class="mb-1 flex flex-wrap items-center gap-2">
                                         ${this.renderBadge(item.action_label || item.action, 'brand')}

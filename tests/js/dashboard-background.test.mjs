@@ -2,6 +2,7 @@ import { afterEach, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { createPortalApp, json, settle } from './support/browser.mjs';
 import { viewSource } from './support/views.mjs';
+import { ui } from '../../resources/js/app/ui.js';
 
 /**
  * The Beranda re-reads it starts on its own (a snapshot still being built, a
@@ -253,7 +254,7 @@ describe('Beranda sync strip', () => {
                 : json(200, { status: 'success', data: {}, meta: meta[request.url.pathname] || {} })),
         });
 
-        browser.element('div', { 'data-sync-alert': '', class: 'mycic-sync-strip' });
+        browser.element('div', { 'data-sync-alert': '', class: ui.syncStrip.base });
         browser.element('span', { 'data-sync-status': '' });
 
         return page;

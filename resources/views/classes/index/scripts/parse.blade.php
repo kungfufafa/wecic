@@ -1,75 +1,16 @@
 {{--
-    Jadwal & Kelas script, the course colour palettes, the text and time
-    helpers, and GET /api/class parsed into classes grouped by day with the
-    free hours between them (parseClassItem, processDayGroups). Part of the
-    DOMContentLoaded handler opened in classes/index.blade.php: it shares
+    Jadwal & Kelas script, the one neutral look of a class block (an
+    opaque panel, so the grid lines stay hidden), the text and time
+    helpers, and GET /api/class parsed into classes grouped by day with
+    the free hours between them (parseClassItem, processDayGroups). Part
+    of the DOMContentLoaded handler opened in classes/index.blade.php: it shares
     that scope (app, the elements, constants and state in setup).
 --}}
-            const COURSE_PALETTES = [
-                {
-                    bg: 'bg-panel',
-                    border: 'border-border',
-                    accent: 'border-l-brand',
-                    badge: 'bg-surface-tint text-brand-text',
-                    timeBadge: 'bg-surface text-ink-muted',
-                    dot: 'bg-brand',
-                    ring: '',
-                },
-                {
-                    bg: 'bg-panel',
-                    border: 'border-border',
-                    accent: 'border-l-emerald-600/80',
-                    badge: 'bg-surface text-ink-muted',
-                    timeBadge: 'bg-surface text-ink-muted',
-                    dot: 'bg-emerald-600',
-                    ring: '',
-                },
-                {
-                    bg: 'bg-panel',
-                    border: 'border-border',
-                    accent: 'border-l-amber-600/80',
-                    badge: 'bg-surface text-ink-muted',
-                    timeBadge: 'bg-surface text-ink-muted',
-                    dot: 'bg-amber-600',
-                    ring: '',
-                },
-                {
-                    bg: 'bg-panel',
-                    border: 'border-border',
-                    accent: 'border-l-teal-600/80',
-                    badge: 'bg-surface text-ink-muted',
-                    timeBadge: 'bg-surface text-ink-muted',
-                    dot: 'bg-teal-600',
-                    ring: '',
-                },
-                {
-                    bg: 'bg-panel',
-                    border: 'border-border',
-                    accent: 'border-l-rose-600/80',
-                    badge: 'bg-surface text-ink-muted',
-                    timeBadge: 'bg-surface text-ink-muted',
-                    dot: 'bg-rose-600',
-                    ring: '',
-                },
-                {
-                    bg: 'bg-panel',
-                    border: 'border-border',
-                    accent: 'border-l-slate-500/80',
-                    badge: 'bg-surface text-ink-muted',
-                    timeBadge: 'bg-surface text-ink-muted',
-                    dot: 'bg-slate-500',
-                    ring: '',
-                },
-                {
-                    bg: 'bg-panel',
-                    border: 'border-border',
-                    accent: 'border-l-sky-600/80',
-                    badge: 'bg-surface text-ink-muted',
-                    timeBadge: 'bg-surface text-ink-muted',
-                    dot: 'bg-sky-600',
-                    ring: '',
-                },
-            ];
+            const COURSE_PALETTE = Object.freeze({
+                bg: 'bg-panel',
+                border: 'border-border',
+                dot: 'bg-ink-subtle',
+            });
 
             const cleanText = (str) => {
                 if (!str) return '';
@@ -118,16 +59,6 @@
                 return `${m} menit`;
             };
 
-            const getCoursePalette = (code, index) => {
-                if (!code) return COURSE_PALETTES[index % COURSE_PALETTES.length];
-                let hash = 0;
-                for (let i = 0; i < code.length; i++) {
-                    hash = (hash << 5) - hash + code.charCodeAt(i);
-                    hash |= 0;
-                }
-                return COURSE_PALETTES[Math.abs(hash) % COURSE_PALETTES.length];
-            };
-
             const parseClassItem = (klass, index) => {
                 const params = klass.join_link?.params || {};
                 const courseInfo = klass.course_info || {};
@@ -169,8 +100,6 @@
                 const classGroupClean = cleanText(classRoomInfo.class_name || courseInfo.class_name || '');
                 const lecturerClean = cleanText(lecturerInfo.name || 'Dosen tidak tertera');
 
-                const palette = getCoursePalette(code || rawName || `class-${index}`, index);
-
                 return {
                     id: index,
                     courseCode: code,
@@ -189,7 +118,7 @@
                     formattedTime,
                     classUrl,
                     detailApiUrl,
-                    palette,
+                    palette: COURSE_PALETTE,
                     original: klass,
                 };
             };

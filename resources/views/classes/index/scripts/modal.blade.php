@@ -61,21 +61,22 @@
                         }
                         modalContacts.innerHTML = contactsHtml;
 
+                        // The buttons are inline-flex: hide their wrappers, not them.
                         if (c.classUrl) {
                             modalOpenBtn.href = c.classUrl;
-                            modalOpenBtn.classList.remove('hidden');
+                            modalOpenWrap.classList.remove('hidden');
                         } else {
-                            modalOpenBtn.classList.add('hidden');
+                            modalOpenWrap.classList.add('hidden');
                         }
 
                         currentModalDetailApi = c.detailApiUrl;
                         if (currentModalDetailApi) {
-                            modalMeetingBtn.classList.remove('hidden');
+                            modalMeetingWrap.classList.remove('hidden');
                             modalMeetingBtn.textContent = 'Lihat pertemuan';
                             modalMeetingPanel.classList.add('hidden');
                             modalMeetingPanel.innerHTML = '';
                         } else {
-                            modalMeetingBtn.classList.add('hidden');
+                            modalMeetingWrap.classList.add('hidden');
                             modalMeetingPanel.classList.add('hidden');
                         }
 
@@ -100,7 +101,7 @@
 
                 // Keep Tab inside the open dialog.
                 if (e.key === 'Tab') {
-                    const focusable = app.focusableElements(modalEl.querySelector('.mycic-modal-panel'));
+                    const focusable = app.focusableElements(modalEl.querySelector('[data-modal-panel]'));
 
                     if (!focusable.length) {
                         return;
@@ -130,7 +131,7 @@
                     }
 
                     modalMeetingPanel.classList.remove('hidden');
-                    modalMeetingPanel.innerHTML = app.renderEmptyState('Memuat daftar pertemuan.', 'secondary');
+                    modalMeetingPanel.innerHTML = renderMeetingPanelNote('Memuat daftar pertemuan.');
                     modalMeetingBtn.textContent = 'Tutup pertemuan';
 
                     const cachedDetail = app.getCachedResponse(currentModalDetailApi);

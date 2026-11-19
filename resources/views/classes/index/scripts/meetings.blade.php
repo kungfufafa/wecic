@@ -4,17 +4,20 @@
     handler opened in classes/index.blade.php: it shares that scope (app,
     the elements, constants and state in setup).
 --}}
+            // A loading or empty note inside a card or the modal: quieter than the dashed empty box.
+            const renderMeetingPanelNote = (message) => `<div class="${app.ui.divider} pt-3"><p class="text-xs text-ink-subtle">${app.escapeHtml(message)}</p></div>`;
+
             const renderMeetingLinks = (panel, payload) => {
                 const materials = payload.class_detail?.course_materials || [];
 
                 if (!materials.length) {
-                    panel.innerHTML = app.renderEmptyState('Belum ada pertemuan yang tersedia.', 'secondary');
+                    panel.innerHTML = renderMeetingPanelNote('Belum ada pertemuan yang tersedia.');
                     return;
                 }
 
                 panel.innerHTML = `
-                    <div class="mycic-divider pt-3">
-                        <div class="mb-2 text-caption font-medium text-ink-subtle">Daftar Pertemuan</div>
+                    <div class="${app.ui.divider} pt-3">
+                        <div class="mb-2 text-xs font-medium text-ink-subtle">Daftar Pertemuan</div>
                         <div class="flex flex-wrap gap-2">
                             ${materials.map((material, index) => {
                                 const meetingUrl = app.buildMeetingUrlFromHref(material.join_link?.href);
@@ -22,14 +25,14 @@
 
                                 if (!meetingUrl) {
                                     return `
-                                        <span class="${app.buttonClass('secondary', { small: true })} pointer-events-none font-mono tabular-nums opacity-50" aria-disabled="true" title="Detail meeting belum tersedia">
+                                        <span class="${app.buttonClass('secondary', { small: true })} pointer-events-none tabular-nums opacity-50" aria-disabled="true" title="Detail meeting belum tersedia">
                                             P${app.escapeHtml(labelNumber)}
                                         </span>
                                     `;
                                 }
 
                                 return `
-                                    <a href="${meetingUrl}" class="${app.buttonClass('secondary', { small: true })} font-mono tabular-nums" title="Buka Pertemuan ${app.escapeHtml(labelNumber)}">
+                                    <a href="${meetingUrl}" class="${app.buttonClass('secondary', { small: true })} tabular-nums" title="Buka Pertemuan ${app.escapeHtml(labelNumber)}">
                                         P${app.escapeHtml(labelNumber)}
                                     </a>
                                 `;
@@ -55,7 +58,7 @@
                         }
 
                         panel.classList.remove('hidden');
-                        panel.innerHTML = app.renderEmptyState('Memuat daftar pertemuan.', 'secondary');
+                        panel.innerHTML = renderMeetingPanelNote('Memuat daftar pertemuan.');
                         button.textContent = 'Tutup pertemuan';
 
                         const detailUrl = button.dataset.detailApi;

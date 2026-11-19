@@ -21,7 +21,7 @@
                 el('notebook-delete').textContent = notebook.kind === 'course' ? 'Kosongkan' : 'Hapus';
 
                 const classLink = el('notebook-class-link');
-                classLink.classList.toggle('hidden', !notebook.class_url);
+                classLink.hidden = !notebook.class_url;
                 classLink.href = notebook.class_url || '#';
             };
 

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { createPortalApp } from './support/browser.mjs';
+import { ui } from '../../resources/js/app/ui.js';
 
 /**
  * The MyCIC outbox list (resources/js/app/outbox.js): what an offline
@@ -28,16 +29,16 @@ describe('renderOutboxItems', () => {
 
         assert.match(html, /Portal belum menerima ini\. WeCIC mengirimnya otomatis begitu portal bisa diakses, selama tenggatnya belum lewat\./);
         assert.match(html, /data-outbox-cancel="7">Batalkan<\/button>/);
-        assert.match(html, /<span class="mycic-badge-warning">Menunggu portal<\/span>/);
+        assert.ok(html.includes(`<span class="${ui.badge.warning}">Menunggu portal</span>`));
         assert.match(html, /aria-label="Antrean offline"/);
-        assert.match(html, /<div class="mycic-card-body">/);
+        assert.ok(html.includes(`<div class="${ui.cardBody}">`));
         assert.doesNotMatch(html, /divide-y divide-border-light/);
     });
 
     it('warns in words once the deadline of a queued item passed', () => {
         const html = app.renderOutboxItems([{ ...queued, deadline_passed: true }]);
 
-        assert.match(html, /<span class="mycic-badge-danger">Tenggat lewat, belum terkirim ke portal<\/span>/);
+        assert.ok(html.includes(`<span class="${ui.badge.danger}">Tenggat lewat, belum terkirim ke portal</span>`));
     });
 
     it('asks to check the portal before sending an unverified upload again', () => {

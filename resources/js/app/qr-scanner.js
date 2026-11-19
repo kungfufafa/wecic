@@ -333,7 +333,7 @@ export class QrScannerFeature {
 
         status.textContent = message;
         status.dataset.tone = tone;
-        status.className = `${this.alertTone(tone)} mb-0`;
+        status.className = this.alertTone(tone);
     }
 
     bindAttendanceQrTools(container, input, options = {}) {

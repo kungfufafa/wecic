@@ -3,130 +3,152 @@
 @section('title', 'Transkrip & Progres Studi')
 @section('page_id', 'transcript-index')
 
+{{--
+    Transkrip: the hero with the academic tabs, the KPI strip and the SKS
+    progress (both drawn into #transcript-hero), then the grades to fix, the
+    simulator and the full list beside a sticky aside with the IPS trend and
+    the grade spread.
+--}}
 @section('content')
-    <x-academic-menu active="transcript" />
+    <x-page-hero title="Akademik" subtitle="IPK, progres SKS menuju lulus, dan apa yang bisa kamu perbaiki.">
+        <x-slot:meta><span class="text-ink-subtle" data-transcript-updated></span></x-slot:meta>
+        <x-slot:tabs><x-academic-menu active="transcript" underline /></x-slot:tabs>
+    </x-page-hero>
 
-    <x-page-header title="Transkrip" subtitle="IPK, progres SKS menuju lulus, dan apa yang bisa kamu perbaiki.">
-        <p class="mt-1 text-caption text-ink-subtle" data-transcript-updated></p>
-    </x-page-header>
-
-    <div class="flex flex-col gap-5">
+    <div class="flex flex-col gap-6">
         <div id="transcript-alerts" class="flex flex-col gap-3 empty:hidden"></div>
 
-        <div id="transcript-hero">
-            <div class="mycic-card" aria-busy="true">
-                <div class="mycic-card-body grid gap-5 md:grid-cols-3 md:items-center">
-                    <span class="sr-only">Memuat transkrip…</span>
-                    <div class="flex flex-col gap-2">
-                        <div class="mycic-skeleton h-3 w-10"></div>
-                        <div class="mycic-skeleton h-12 w-28"></div>
-                    </div>
-                    <div class="flex flex-col gap-2 md:col-span-2">
-                        <div class="mycic-skeleton h-3.5 w-1/2"></div>
-                        <div class="mycic-skeleton h-3.5 w-full"></div>
-                        <div class="mycic-skeleton h-3 w-2/3"></div>
-                    </div>
-                </div>
-            </div>
+        <div id="transcript-hero" class="flex flex-col gap-6">
+            <x-stat-strip kpi aria-busy="true">
+                <span class="sr-only">Memuat transkrip…</span>
+                @foreach (['IPK', 'Sisa SKS', 'Perkiraan lulus', 'Sedang ditempuh'] as $label)
+                    <x-metric :label="$label">
+                        <x-slot:value><x-skeleton class="h-8 w-16" /></x-slot:value>
+                        <x-slot:note><x-skeleton as="span" class="block h-3 w-24" /></x-slot:note>
+                    </x-metric>
+                @endforeach
+            </x-stat-strip>
+            <x-card aria-busy="true">
+                <x-card.body class="flex flex-col gap-3">
+                    <x-skeleton class="h-3.5 w-1/3" />
+                    <x-skeleton class="h-3.5 w-full rounded-full!" />
+                    <x-skeleton class="h-3 w-1/2" />
+                </x-card.body>
+            </x-card>
         </div>
 
-        <div class="grid gap-5 md:grid-cols-2" id="transcript-charts">
-            <div id="transcript-trend" class="min-w-0">
-                <div class="mycic-card" aria-busy="true"><div class="mycic-card-body flex flex-col gap-3"><div class="mycic-skeleton h-4 w-24"></div><div class="mycic-skeleton h-20 w-full"></div></div></div>
-            </div>
-            <div id="transcript-letters" class="min-w-0">
-                <div class="mycic-card" aria-busy="true"><div class="mycic-card-body flex flex-col gap-3"><div class="mycic-skeleton h-4 w-24"></div><div class="mycic-skeleton h-3 w-full"></div><div class="mycic-skeleton h-3 w-2/3"></div></div></div>
-            </div>
-        </div>
+        <x-split>
+            <div id="transcript-low" class="empty:hidden"></div>
 
-        <div id="transcript-low"></div>
-
-        <section class="mycic-card" aria-labelledby="transcript-sim-title" id="transcript-simulator">
-            <div class="mycic-card-header">
-                <h2 class="mycic-card-title" id="transcript-sim-title">Simulasi target IPK</h2>
-                <p class="mycic-card-subtitle">Berapa rata-rata IPS yang kamu butuhkan supaya IPK mencapai target.</p>
-            </div>
-            <form class="mycic-card-body flex flex-col gap-4" id="transcript-sim-form" novalidate>
-                <div class="grid gap-4 sm:grid-cols-2">
-                    <div class="mycic-field">
-                        <label for="transcript-sim-target" class="mycic-label">Target IPK</label>
-                        <input
-                            type="number"
-                            id="transcript-sim-target"
-                            name="target_ipk"
-                            class="mycic-input tabular-nums"
-                            inputmode="decimal"
-                            min="0"
-                            max="4"
-                            step="0.01"
-                            aria-describedby="transcript-sim-target-hint transcript-sim-target-error"
-                            disabled
-                        >
-                        <p class="mycic-field-hint" id="transcript-sim-target-hint">Antara 0 dan 4, dua angka di belakang koma.</p>
-                        <p class="mycic-field-error hidden" id="transcript-sim-target-error"></p>
+            <x-card as="section" aria-labelledby="transcript-sim-title" id="transcript-simulator">
+                <x-card.header>
+                    <div class="min-w-0">
+                        <x-card.title id="transcript-sim-title">Simulasi target IPK</x-card.title>
+                        <x-card.subtitle>Berapa rata-rata IPS yang kamu butuhkan supaya IPK mencapai target.</x-card.subtitle>
                     </div>
-                    <div class="mycic-field">
-                        <label for="transcript-sim-sks" class="mycic-label">SKS yang akan ditempuh</label>
-                        <input
-                            type="number"
-                            id="transcript-sim-sks"
-                            name="next_sks"
-                            class="mycic-input tabular-nums"
-                            inputmode="numeric"
-                            min="1"
-                            max="200"
-                            step="1"
-                            aria-describedby="transcript-sim-sks-hint transcript-sim-sks-error"
+                </x-card.header>
+                <form class="flex flex-col gap-5 p-4 sm:p-5" id="transcript-sim-form" novalidate>
+                    <div class="grid gap-4 sm:grid-cols-2">
+                        <div class="flex flex-col gap-1.5">
+                            <x-label for="transcript-sim-target">Target IPK</x-label>
+                            <x-input
+                                type="number"
+                                id="transcript-sim-target"
+                                name="target_ipk"
+                                class="tabular-nums"
+                                inputmode="decimal"
+                                min="0"
+                                max="4"
+                                step="0.01"
+                                aria-describedby="transcript-sim-target-hint transcript-sim-target-error"
+                                disabled
+                            />
+                            <p class="text-xs leading-relaxed text-ink-subtle" id="transcript-sim-target-hint">Antara 0 dan 4, dua angka di belakang koma.</p>
+                            <p class="hidden text-xs font-medium leading-relaxed text-danger" id="transcript-sim-target-error"></p>
+                        </div>
+                        <div class="flex flex-col gap-1.5">
+                            <x-label for="transcript-sim-sks">SKS yang akan ditempuh</x-label>
+                            <x-input
+                                type="number"
+                                id="transcript-sim-sks"
+                                name="next_sks"
+                                class="tabular-nums"
+                                inputmode="numeric"
+                                min="1"
+                                max="200"
+                                step="1"
+                                aria-describedby="transcript-sim-sks-hint transcript-sim-sks-error"
+                                disabled
+                            />
+                            <p class="text-xs leading-relaxed text-ink-subtle" id="transcript-sim-sks-hint">Satu semester biasanya 18–24 SKS.</p>
+                            <p class="hidden text-xs font-medium leading-relaxed text-danger" id="transcript-sim-sks-error"></p>
+                        </div>
+                    </div>
+                    <div class="flex flex-col gap-3 empty:hidden" id="transcript-sim-presets"></div>
+                    <div id="transcript-sim-result" aria-live="polite">
+                        <p class="text-sm text-ink-subtle">Simulasi siap setelah transkrip dimuat.</p>
+                    </div>
+                    <p class="text-xs text-ink-subtle">Perkiraan dari IPK dan SKS saat ini. Perbaikan nilai MK yang diulang tidak ikut dihitung.</p>
+                </form>
+            </x-card>
+
+            <x-card as="section" aria-labelledby="transcript-table-title">
+                <x-card.header class="flex-col max-sm:items-stretch sm:flex-row">
+                    <div class="min-w-0">
+                        <x-card.title id="transcript-table-title">Daftar nilai</x-card.title>
+                        <x-card.subtitle id="transcript-table-caption" class="tabular-nums">Nilai terbaik tiap mata kuliah.</x-card.subtitle>
+                    </div>
+                    <div class="relative flex w-full items-center sm:w-64">
+                        <label for="transcript-search" class="sr-only">Cari mata kuliah, kode, atau nilai</label>
+                        <span class="pointer-events-none absolute start-3 top-1/2 z-10 -translate-y-1/2 text-ink-subtle">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="size-4" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0 -14 0" /><path d="M21 21l-6 -6" /></svg>
+                        </span>
+                        <x-input
+                            icon
+                            type="search"
+                            id="transcript-search"
+                            placeholder="Cari mata kuliah"
+                            autocomplete="off"
+                            aria-controls="transcript-table"
                             disabled
-                        >
-                        <p class="mycic-field-hint" id="transcript-sim-sks-hint">Satu semester biasanya 18–24 SKS.</p>
-                        <p class="mycic-field-error hidden" id="transcript-sim-sks-error"></p>
+                        />
+                    </div>
+                </x-card.header>
+                <div id="transcript-table">
+                    <x-card.body class="flex flex-col divide-y divide-border-light" aria-busy="true">
+                        @for ($i = 0; $i < 4; $i++)
+                            <x-list-row>
+                                <div class="flex flex-col gap-1.5">
+                                    <x-skeleton class="h-4 w-40 sm:w-56" />
+                                    <x-skeleton class="h-3 w-24" />
+                                </div>
+                                <x-skeleton class="size-8 rounded-lg!" />
+                            </x-list-row>
+                        @endfor
+                    </x-card.body>
+                </div>
+            </x-card>
+
+            <x-slot:aside aria-label="Grafik nilai" class="max-lg:order-first">
+                <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-1" id="transcript-charts">
+                    <div id="transcript-trend" class="min-w-0">
+                        <x-card aria-busy="true">
+                            <x-card.header><x-skeleton class="h-4 w-24" /></x-card.header>
+                            <x-card.body><x-skeleton class="h-20 w-full" /></x-card.body>
+                        </x-card>
+                    </div>
+                    <div id="transcript-letters" class="min-w-0">
+                        <x-card aria-busy="true">
+                            <x-card.header><x-skeleton class="h-4 w-24" /></x-card.header>
+                            <x-card.body class="flex flex-col gap-3">
+                                <x-skeleton class="h-3 w-full rounded-full!" />
+                                <x-skeleton class="h-3 w-2/3" />
+                            </x-card.body>
+                        </x-card>
                     </div>
                 </div>
-                <div class="flex flex-col gap-2" id="transcript-sim-presets"></div>
-                <div id="transcript-sim-result" aria-live="polite">
-                    <p class="text-sm text-ink-subtle">Simulasi siap setelah transkrip dimuat.</p>
-                </div>
-                <p class="text-caption text-ink-subtle">Perkiraan dari IPK dan SKS saat ini. Perbaikan nilai MK yang diulang tidak ikut dihitung.</p>
-            </form>
-        </section>
-
-        <section class="mycic-card" aria-labelledby="transcript-table-title">
-            <div class="mycic-card-header flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div class="min-w-0">
-                    <h2 class="mycic-card-title" id="transcript-table-title">Daftar nilai</h2>
-                    <p class="mycic-card-subtitle" id="transcript-table-caption">Nilai terbaik tiap mata kuliah.</p>
-                </div>
-                <div class="mycic-input-wrap w-full sm:w-64">
-                    <label for="transcript-search" class="sr-only">Cari mata kuliah, kode, atau nilai</label>
-                    <span class="mycic-input-icon">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0 -14 0" /><path d="M21 21l-6 -6" /></svg>
-                    </span>
-                    <input
-                        type="search"
-                        id="transcript-search"
-                        class="mycic-input mycic-input-with-icon"
-                        placeholder="Cari mata kuliah"
-                        autocomplete="off"
-                        aria-controls="transcript-table"
-                        disabled
-                    >
-                </div>
-            </div>
-            <div id="transcript-table">
-                <div class="mycic-card-body flex flex-col divide-y divide-border-light" aria-busy="true">
-                    @for ($i = 0; $i < 4; $i++)
-                        <x-list-row>
-                            <div class="flex flex-col gap-1.5">
-                                <div class="mycic-skeleton h-4 w-40 sm:w-56"></div>
-                                <div class="mycic-skeleton h-3 w-24"></div>
-                            </div>
-                            <div class="mycic-skeleton h-8 w-8"></div>
-                        </x-list-row>
-                    @endfor
-                </div>
-            </div>
-        </section>
+            </x-slot:aside>
+        </x-split>
     </div>
 @endsection
 
@@ -161,13 +183,6 @@
             const esc = (value) => app.escapeHtml(value);
             const maxWeight = 4;
             const letterOrder = ['A', 'A-', 'B+', 'B', 'B-', 'C+', 'C', 'C-', 'D+', 'D', 'E'];
-            const letterClasses = {
-                success: 'bg-success-soft text-success',
-                brand: 'bg-surface-tint text-brand-text',
-                warning: 'bg-warning-soft text-warning',
-                danger: 'bg-danger-soft text-danger',
-                neutral: 'bg-surface text-ink-subtle',
-            };
 
             const cachedData = (url) => {
                 try {
@@ -181,9 +196,9 @@
 
             const formatIp = (value) => (typeof value === 'number' && Number.isFinite(value) ? value.toFixed(2) : '–');
 
-            const letterBadge = (letter, size = 'h-9 w-9 text-sm') => `
-                <span class="flex ${size} shrink-0 items-center justify-center rounded-lg font-mono font-medium ${letterClasses[letterTone(letter)]}" aria-hidden="true">${esc(letter || '–')}</span>
-            `;
+            const letterTextClass = (letter) => (['D', 'E'].includes(String(letter || '').trim().toUpperCase().charAt(0)) ? 'text-danger' : 'text-ink');
+
+            const letterText = (letter) => `<span class="text-sm font-semibold tabular-nums ${letterTextClass(letter)}" aria-hidden="true">${esc(letter || '–')}</span>`;
 
             // Only graded SKS weigh in the IPK: conversion SKS (part of sks_passed) carry no grade.
             const ipkTotals = () => {
@@ -257,11 +272,17 @@
                 const currentLoad = data.current_load && Number(data.current_load.sks) > 0 ? data.current_load : null;
                 const projected = progress.projected_semesters_remaining;
                 const average = typeof progress.average_sks_per_semester === 'number' ? progress.average_sks_per_semester : null;
-                const badges = [
-                    summary.ipk === null || summary.ipk === undefined ? '' : app.renderBadge(summary.source === 'official' ? 'Resmi portal' : 'Dihitung WeCIC', summary.source === 'official' ? 'success' : 'info'),
-                    summary.predicate_estimate ? app.renderBadge(`Perkiraan predikat: ${summary.predicate_estimate}`, 'brand') : '',
-                ].filter(Boolean).join('');
+                const ipkSource = [
+                    summary.ipk === null || summary.ipk === undefined ? '' : (summary.source === 'official' ? 'Resmi portal' : 'Dihitung WeCIC'),
+                    summary.predicate_estimate ? `Perkiraan predikat: ${summary.predicate_estimate}` : '',
+                ].filter(Boolean).join(' · ');
                 const facts = [
+                    {
+                        label: 'IPK',
+                        value: formatIp(summary.ipk),
+                        note: `${summary.sks_total ?? summary.sks_passed ?? 0} SKS dinilai · mutu ${summary.quality_points_total ?? 0}`,
+                        source: ipkSource,
+                    },
                     { label: 'Sisa SKS', value: remaining === null ? '–' : `${remaining}`, note: target ? `dari target ${target} SKS` : '' },
                     {
                         label: 'Perkiraan lulus',
@@ -285,41 +306,37 @@
                         : '',
                 ].filter(Boolean).join(' ');
 
+                // The key numbers as the KPI strip (x-metric cells), then the SKS progress as a wide card.
                 hosts.hero.innerHTML = `
-                    <section class="mycic-card" aria-labelledby="transcript-ipk-label">
-                        <div class="mycic-card-body grid gap-5 md:grid-cols-3 md:items-center">
+                    <div class="${app.ui.statGridKpi}">
+                        ${facts.map((fact) => `
+                            <div class="${app.ui.metric}" data-slot="metric">
+                                <div class="${app.ui.metricLabel}" data-slot="metric-label">${esc(fact.label)}</div>
+                                <div class="${app.ui.metricValue}" data-slot="metric-value">${esc(fact.value)}</div>
+                                ${fact.note ? `<div class="${app.ui.metricNote} tabular-nums" data-slot="metric-note">${esc(fact.note)}</div>` : ''}
+                                ${fact.source ? `<div class="${app.ui.metricNote}">${esc(fact.source)}</div>` : ''}
+                            </div>
+                        `).join('')}
+                    </div>
+                    <section class="${app.ui.card}" data-slot="card" aria-labelledby="transcript-progress-title">
+                        <div class="${app.ui.cardBody} flex flex-col gap-4">
                             <div class="min-w-0">
-                                <div class="mycic-metric-label" id="transcript-ipk-label">IPK</div>
-                                <div class="font-mono text-4xl font-semibold tabular-nums tracking-[-0.02em] text-ink">${esc(formatIp(summary.ipk))}</div>
-                                <div class="mt-1 text-caption text-ink-subtle">${esc(summary.sks_total ?? summary.sks_passed ?? 0)} SKS dinilai · mutu ${esc(summary.quality_points_total ?? 0)}</div>
-                                ${badges ? `<div class="mt-2 flex flex-wrap gap-1.5">${badges}</div>` : ''}
+                                <h2 class="${app.ui.cardTitle}" id="transcript-progress-title">Progres menuju lulus</h2>
+                                <p class="${app.ui.cardSubtitle} tabular-nums">${target ? `${esc(earned)} dari ${esc(target)} SKS sudah lulus` : 'SKS lulus dan yang sedang ditempuh'}</p>
                             </div>
-                            <div class="flex min-w-0 flex-col gap-4 md:col-span-2">
-                                ${target ? app.renderProgressBar({
-                                    max: target,
-                                    label: 'SKS menuju lulus',
-                                    valueLabel: `${earned} dari ${target} SKS`,
-                                    segments: [
-                                        { value: earned - conversionSks, tone: 'success', label: 'Lulus', valueLabel: `${earned - conversionSks}` },
-                                        ...(conversionSks > 0 ? [{ value: conversionSks, tone: 'info', label: 'Konversi', valueLabel: `${conversionSks}` }] : []),
-                                        ...(currentLoad ? [{ value: currentLoad.sks, tone: 'brand', striped: true, label: 'Sedang ditempuh', valueLabel: `${currentLoad.sks}` }] : []),
-                                    ],
-                                    remainderLabel: 'Belum diambil',
-                                    caption,
-                                    size: 'lg',
-                                }) : '<p class="text-sm text-ink-muted">Target SKS belum terbaca.</p>'}
-                                <dl class="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                                    ${facts.map((fact) => `
-                                        <div class="min-w-0 rounded-[var(--radius-control)] bg-surface/60 px-3 py-2.5">
-                                            <div class="flex items-baseline justify-between gap-2 sm:flex-col sm:items-start sm:gap-0.5">
-                                                <dt class="mycic-metric-label">${esc(fact.label)}</dt>
-                                                <dd class="shrink-0 font-mono text-lg font-semibold tabular-nums text-ink">${esc(fact.value)}</dd>
-                                            </div>
-                                            ${fact.note ? `<dd class="text-caption text-ink-subtle">${esc(fact.note)}</dd>` : ''}
-                                        </div>
-                                    `).join('')}
-                                </dl>
-                            </div>
+                            ${target ? app.renderProgressBar({
+                                max: target,
+                                label: 'SKS menuju lulus',
+                                valueLabel: `${earned} dari ${target} SKS`,
+                                segments: [
+                                    { value: earned - conversionSks, tone: 'success', label: 'Lulus', valueLabel: `${earned - conversionSks}` },
+                                    ...(conversionSks > 0 ? [{ value: conversionSks, tone: 'info', label: 'Konversi', valueLabel: `${conversionSks}` }] : []),
+                                    ...(currentLoad ? [{ value: currentLoad.sks, tone: 'brand', striped: true, label: 'Sedang ditempuh', valueLabel: `${currentLoad.sks}` }] : []),
+                                ],
+                                remainderLabel: 'Belum diambil',
+                                caption,
+                                size: 'lg',
+                            }) : '<p class="text-sm text-ink-muted">Target SKS belum terbaca.</p>'}
                         </div>
                     </section>
                 `;
@@ -340,12 +357,14 @@
                 }
 
                 hosts.trend.innerHTML = `
-                    <section class="mycic-card h-full" aria-labelledby="transcript-trend-title">
-                        <div class="mycic-card-header">
-                            <h2 class="mycic-card-title" id="transcript-trend-title">Tren IPS</h2>
-                            <p class="mycic-card-subtitle">${esc(headline)}</p>
+                    <section class="${app.ui.card} h-full" data-slot="card" aria-labelledby="transcript-trend-title">
+                        <div class="${app.ui.cardHeader}">
+                            <div class="min-w-0">
+                                <h2 class="${app.ui.cardTitle}" id="transcript-trend-title">Tren IPS</h2>
+                                <p class="${app.ui.cardSubtitle} tabular-nums">${esc(headline)}</p>
+                            </div>
                         </div>
-                        <div class="mycic-card-body flex flex-col gap-4">
+                        <div class="${app.ui.cardBody} flex flex-col gap-4">
                             ${series.length ? app.renderSparkline(series.map((point) => ({ label: `Smt ${point.semester}`, value: point.ips })), {
                                 label: 'IPS per semester',
                                 min: 0,
@@ -355,7 +374,7 @@
                             ${series.length ? `
                                 <ul class="flex flex-wrap gap-2" aria-label="IPS tiap semester">
                                     ${series.map((point) => `
-                                        <li class="mycic-chip tabular-nums" title="${esc(point.sks)} SKS · ${esc(point.graded_count)} MK">
+                                        <li class="${app.ui.chip} tabular-nums" title="${esc(point.sks)} SKS · ${esc(point.graded_count)} MK">
                                             Smt ${esc(point.semester)} · <span class="text-ink">${esc(formatIp(point.ips))}</span>${point.is_complete === false ? ' <span class="text-warning">(sebagian)</span>' : ''}${point.ips_mismatch ? ' <span class="text-warning">(beda hitungan)</span>' : ''}
                                         </li>
                                     `).join('')}
@@ -379,12 +398,14 @@
                 const good = letters.filter((letter) => ['A', 'B'].includes(letter.charAt(0))).reduce((sum, letter) => sum + (Number(counts[letter]) || 0), 0);
 
                 hosts.letters.innerHTML = `
-                    <section class="mycic-card h-full" aria-labelledby="transcript-letters-title">
-                        <div class="mycic-card-header">
-                            <h2 class="mycic-card-title" id="transcript-letters-title">Sebaran nilai</h2>
-                            <p class="mycic-card-subtitle">${total ? `${esc(good)} dari ${esc(total)} MK bernilai A atau B` : 'Jumlah MK per huruf mutu'}</p>
+                    <section class="${app.ui.card} h-full" data-slot="card" aria-labelledby="transcript-letters-title">
+                        <div class="${app.ui.cardHeader}">
+                            <div class="min-w-0">
+                                <h2 class="${app.ui.cardTitle}" id="transcript-letters-title">Sebaran nilai</h2>
+                                <p class="${app.ui.cardSubtitle}">${total ? `${esc(good)} dari ${esc(total)} MK bernilai A atau B` : 'Jumlah MK per huruf mutu'}</p>
+                            </div>
                         </div>
-                        <div class="mycic-card-body">
+                        <div class="${app.ui.cardBody}">
                             ${total ? app.renderStackedBar(letters.map((letter) => ({
                                 label: letter,
                                 value: Number(counts[letter]) || 0,
@@ -405,14 +426,14 @@
 
                 if (!courses.length) {
                     hosts.low.innerHTML = `
-                        <section class="mycic-card" aria-labelledby="transcript-low-title">
-                            <div class="mycic-card-body flex items-start gap-3">
-                                <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-success-soft text-success" aria-hidden="true">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5l10 -10" /></svg>
+                        <section class="${app.ui.card}" data-slot="card" aria-labelledby="transcript-low-title">
+                            <div class="${app.ui.cardBody} flex items-start gap-3">
+                                <span class="flex shrink-0 text-success" aria-hidden="true">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="size-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5l10 -10" /></svg>
                                 </span>
                                 <div class="min-w-0">
                                     <h2 class="text-sm font-medium leading-snug text-ink" id="transcript-low-title">Tidak ada nilai D atau E</h2>
-                                    <p class="text-caption text-ink-subtle">${cCount ? `Ada ${esc(cCount)} MK bernilai C. Mengulangnya bisa menaikkan IPK.` : 'Pertahankan! Semua mata kuliah lulus dengan nilai minimal C.'}</p>
+                                    <p class="mt-0.5 text-xs text-ink-subtle">${cCount ? `Ada ${esc(cCount)} MK bernilai C. Mengulangnya bisa menaikkan IPK.` : 'Pertahankan! Semua mata kuliah lulus dengan nilai minimal C.'}</p>
                                 </div>
                             </div>
                         </section>
@@ -422,12 +443,14 @@
                 }
 
                 hosts.low.innerHTML = `
-                    <section class="mycic-card" aria-labelledby="transcript-low-title">
-                        <div class="mycic-card-header">
-                            <h2 class="mycic-card-title" id="transcript-low-title">Perlu diperbaiki</h2>
-                            <p class="mycic-card-subtitle">Nilai D dan E menurunkan IPK. Mengulang MK ini lewat KRS reguler atau Semester Pendek bisa menaikkannya.</p>
+                    <section class="${app.ui.card}" data-slot="card" aria-labelledby="transcript-low-title">
+                        <div class="${app.ui.cardHeader}">
+                            <div class="min-w-0">
+                                <h2 class="${app.ui.cardTitle}" id="transcript-low-title">Perlu diperbaiki</h2>
+                                <p class="${app.ui.cardSubtitle}">Nilai D dan E menurunkan IPK. Mengulang MK ini lewat KRS reguler atau Semester Pendek bisa menaikkannya.</p>
+                            </div>
                         </div>
-                        <ul class="flex flex-col px-4 md:px-5" aria-label="Mata kuliah bernilai D atau E">
+                        <ul class="${app.ui.list}" aria-label="Mata kuliah bernilai D atau E">
                             ${courses.map((course) => {
                                 const courseSks = Number(course.sks) || 0;
                                 const weight = Number(course.weight) || 0;
@@ -436,22 +459,22 @@
                                 const retaking = takingNow.has(String(course.code || '').toUpperCase());
 
                                 return `
-                                    <li class="mycic-list-row items-center">
-                                        ${letterBadge(course.letter)}
+                                    <li class="${app.ui.listRowFlush} items-start!">
                                         <div class="min-w-0 flex-1">
                                             <div class="text-sm font-medium leading-snug text-ink">${esc(course.name || 'Mata kuliah')}<span class="sr-only">, nilai ${esc(course.letter)}</span></div>
-                                            <div class="text-caption text-ink-subtle"><span class="font-mono">${esc(course.code || '–')}</span> · Smt ${esc(course.semester ?? '–')} · ${esc(courseSks)} SKS${course.attempt_count > 1 ? ` · sudah diambil ${esc(course.attempt_count)}×` : ''}</div>
-                                            <div class="mt-1 flex flex-wrap items-center gap-1.5">
-                                                ${retaking ? app.renderBadge('Sedang diulang semester ini', 'brand') : ''}
-                                                ${projected !== null && gain > 0 ? `<span class="text-caption text-ink-muted">Kalau diulang dan dapat B, IPK jadi <span class="font-medium tabular-nums text-success">${esc(formatIp(projected))}</span> (+${esc(gain.toFixed(2))})</span>` : ''}
-                                            </div>
+                                            <div class="mt-0.5 text-xs text-ink-subtle"><span class="font-mono">${esc(course.code || '–')}</span> · Smt ${esc(course.semester ?? '–')} · ${esc(courseSks)} SKS${course.attempt_count > 1 ? ` · sudah diambil ${esc(course.attempt_count)}×` : ''}</div>
+                                            <div class="mt-1.5 flex flex-wrap items-center gap-1.5 empty:hidden">${[
+                                                retaking ? app.renderBadge('Sedang diulang semester ini', 'brand') : '',
+                                                projected !== null && gain > 0 ? `<span class="text-xs text-ink-muted">Kalau diulang dan dapat B, IPK jadi <span class="font-medium tabular-nums text-success">${esc(formatIp(projected))}</span> (+${esc(gain.toFixed(2))})</span>` : '',
+                                            ].join('')}</div>
                                         </div>
+                                        <div class="w-8 shrink-0 text-end">${letterText(course.letter)}</div>
                                     </li>
                                 `;
                             }).join('')}
                         </ul>
-                        <div class="flex flex-wrap items-center gap-2 border-t border-border-light px-4 py-3 md:px-5">
-                            ${cCount ? `<span class="text-caption text-ink-subtle">Ada juga ${esc(cCount)} MK bernilai C.</span>` : ''}
+                        <div class="${app.ui.cardFooter}">
+                            ${cCount ? `<span class="text-xs text-ink-subtle">Ada juga ${esc(cCount)} MK bernilai C.</span>` : ''}
                             <a href="${esc(announcementUrl)}" class="${app.buttonClass('secondary', { small: true })}">Cek info Semester Pendek</a>
                         </div>
                     </section>
@@ -480,65 +503,64 @@
                     : 'Nilai terbaik tiap mata kuliah.';
 
                 if (!rows.length) {
-                    hosts.table.innerHTML = `<div class="mycic-card-body">${app.renderEmptyState('Belum ada nilai di transkrip.', 'secondary', 'Transkrip terisi setelah nilai semester pertama keluar.')}</div>`;
+                    hosts.table.innerHTML = `<div class="${app.ui.cardBody}">${app.renderEmptyState('Belum ada nilai di transkrip.', 'secondary', 'Transkrip terisi setelah nilai semester pertama keluar.', { icon: 'file' })}</div>`;
 
                     return;
                 }
 
                 if (!shown.length) {
-                    hosts.table.innerHTML = `<div class="mycic-card-body">${app.renderEmptyState('Tidak ada mata kuliah yang cocok.', 'secondary', 'Coba kata kunci lain, misalnya kode MK atau huruf nilai.')}</div>`;
+                    hosts.table.innerHTML = `<div class="${app.ui.cardBody}">${app.renderEmptyState('Tidak ada mata kuliah yang cocok.', 'secondary', 'Coba kata kunci lain, misalnya kode MK atau huruf nilai.', { icon: 'search' })}</div>`;
 
                     return;
                 }
 
                 const attempts = (row) => (row.attempt_count > 1
-                    ? `<span class="mycic-badge-neutral" title="${esc((row.attempts || []).map((attempt) => `Smt ${attempt.semester}: ${attempt.letter}`).join(', '))}">diulang ${esc(row.attempt_count)}×</span>`
+                    ? `<span class="${app.ui.badge.neutral} tabular-nums" title="${esc((row.attempts || []).map((attempt) => `Smt ${attempt.semester}: ${attempt.letter}`).join(', '))}">diulang ${esc(row.attempt_count)}×</span>`
                     : '');
 
                 hosts.table.innerHTML = `
-                    <div class="hidden md:block">
-                        <div class="mycic-table-wrap rounded-t-none border-0">
-                            <table class="mycic-table">
+                    <div class="hidden md:block lg:hidden xl:block">
+                        <div class="overflow-x-auto">
+                            <table class="${app.ui.table}">
                                 <caption class="sr-only">Transkrip nilai terbaik</caption>
                                 <thead>
                                     <tr>
-                                        <th scope="col" class="w-16">Smt</th>
-                                        <th scope="col">Kode</th>
-                                        <th scope="col">Mata kuliah</th>
-                                        <th scope="col" class="text-end">SKS</th>
-                                        <th scope="col" class="text-center">Nilai</th>
-                                        <th scope="col" class="text-end">Mutu</th>
+                                        <th scope="col" class="${app.ui.th} w-16 sm:ps-5">Smt</th>
+                                        <th scope="col" class="${app.ui.th}">Kode</th>
+                                        <th scope="col" class="${app.ui.th}">Mata kuliah</th>
+                                        <th scope="col" class="${app.ui.th} text-end!">SKS</th>
+                                        <th scope="col" class="${app.ui.th} text-end!">Nilai</th>
+                                        <th scope="col" class="${app.ui.th} text-end! sm:pe-5">Mutu</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     ${shown.map((row) => `
-                                        <tr>
-                                            <td class="tabular-nums">${esc(row.semester ?? '–')}</td>
-                                            <td class="whitespace-nowrap font-mono text-caption">${esc(row.code || '–')}</td>
-                                            <td><span class="font-medium text-ink">${esc(row.name || 'Mata kuliah')}</span> ${attempts(row)}</td>
-                                            <td class="text-end tabular-nums">${esc(row.sks ?? '–')}</td>
-                                            <td><div class="flex justify-center">${letterBadge(row.letter, 'h-8 w-8 text-xs')}<span class="sr-only">${esc(row.letter)}</span></div></td>
-                                            <td class="text-end tabular-nums">${esc(row.quality_points ?? '–')}</td>
+                                        <tr class="${app.ui.tr}">
+                                            <td class="${app.ui.td} tabular-nums text-ink-muted sm:ps-5">${esc(row.semester ?? '–')}</td>
+                                            <td class="${app.ui.td} whitespace-nowrap font-mono text-xs! text-ink-muted">${esc(row.code || '–')}</td>
+                                            <td class="${app.ui.td}"><span class="font-medium text-ink">${esc(row.name || 'Mata kuliah')}</span> ${attempts(row)}</td>
+                                            <td class="${app.ui.td} text-end tabular-nums">${esc(row.sks ?? '–')}</td>
+                                            <td class="${app.ui.td} text-end">${letterText(row.letter)}<span class="sr-only">${esc(row.letter)}</span></td>
+                                            <td class="${app.ui.td} text-end tabular-nums sm:pe-5">${esc(row.quality_points ?? '–')}</td>
                                         </tr>
                                     `).join('')}
                                 </tbody>
                             </table>
                         </div>
                     </div>
-                    <ul class="flex flex-col px-4 md:hidden" aria-label="Transkrip nilai terbaik">
+                    <ul class="${app.ui.list} md:hidden lg:block xl:hidden" aria-label="Transkrip nilai terbaik">
                         ${shown.map((row) => `
-                            <li class="mycic-list-row items-center">
-                                ${letterBadge(row.letter)}
+                            <li class="${app.ui.listRowFlush}">
                                 <div class="min-w-0 flex-1">
                                     <div class="text-sm font-medium leading-snug text-ink">${esc(row.name || 'Mata kuliah')}<span class="sr-only">, nilai ${esc(row.letter)}</span></div>
-                                    <div class="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-caption text-ink-subtle">
+                                    <div class="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-ink-subtle">
                                         <span class="font-mono">${esc(row.code || '–')}</span><span aria-hidden="true">·</span><span>Smt ${esc(row.semester ?? '–')}</span><span aria-hidden="true">·</span><span>${esc(row.sks ?? '–')} SKS</span>
                                         ${attempts(row)}
                                     </div>
                                 </div>
                                 <div class="shrink-0 text-end">
-                                    <div class="text-caption text-ink-subtle">Mutu</div>
-                                    <div class="font-mono text-sm font-medium tabular-nums text-ink">${esc(row.quality_points ?? '–')}</div>
+                                    <div>${letterText(row.letter)}</div>
+                                    <div class="text-xs tabular-nums text-ink-subtle">Mutu ${esc(row.quality_points ?? '–')}</div>
                                 </div>
                             </li>
                         `).join('')}
@@ -578,22 +600,22 @@
                     currentLoad ? { label: `Semester ini · ${currentLoad.sks} SKS`, value: currentLoad.sks } : null,
                     remaining ? { label: `Sampai lulus · ${remaining} SKS`, value: remaining } : null,
                 ].filter(Boolean);
-                const button = (attribute, value, label, note = '') => `<button type="button" class="mycic-chip cursor-pointer min-h-11 sm:min-h-9 transition-colors hover:border-ink-subtle/40 hover:text-brand-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand aria-pressed:border-brand aria-pressed:bg-surface-tint aria-pressed:text-brand-text" ${attribute}="${esc(value)}" aria-pressed="false">${esc(label)}${note ? ` <svg xmlns="http://www.w3.org/2000/svg" class="inline h-3.5 w-3.5 text-success" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5l10 -10" /></svg><span class="sr-only">, ${esc(note)}</span>` : ''}</button>`;
+                const button = (attribute, value, label, note = '') => `<button type="button" class="inline-flex min-h-11 cursor-pointer select-none items-center gap-1.5 whitespace-nowrap rounded-lg border border-border bg-panel px-3 text-xs font-medium text-ink-muted transition-colors hover:bg-surface hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 aria-pressed:border-brand aria-pressed:bg-surface-tint aria-pressed:text-brand-text sm:min-h-8" ${attribute}="${esc(value)}" aria-pressed="false">${esc(label)}${note ? `<svg xmlns="http://www.w3.org/2000/svg" class="size-3.5 shrink-0 text-success" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5l10 -10" /></svg><span class="sr-only">, ${esc(note)}</span>` : ''}</button>`;
 
                 hosts.simPresets.innerHTML = `
                     ${targets.length ? `
                         <div class="flex flex-wrap items-center gap-2" role="group" aria-label="Target predikat kelulusan">
-                            <span class="text-caption font-medium text-ink-subtle">Predikat:</span>
+                            <span class="text-xs font-medium text-ink-subtle">Predikat:</span>
                             ${targets.map((item) => button('data-sim-target', item.target_ipk, `${item.predicate} · ${Number(item.target_ipk).toFixed(2)}`, item.already_reached ? 'sudah tercapai' : '')).join('')}
                         </div>
                     ` : ''}
                     ${sksPresets.length ? `
                         <div class="flex flex-wrap items-center gap-2" role="group" aria-label="Jumlah SKS">
-                            <span class="text-caption font-medium text-ink-subtle">SKS:</span>
+                            <span class="text-xs font-medium text-ink-subtle">SKS:</span>
                             ${sksPresets.map((item) => button('data-sim-sks', item.value, item.label)).join('')}
                         </div>
                     ` : ''}
-                `;
+                `.trim();
 
                 hosts.simPresets.querySelectorAll('[data-sim-target]').forEach((chip) => {
                     chip.addEventListener('click', () => {
@@ -663,7 +685,7 @@
 
                 if (!result.achievable) {
                     hosts.simResult.innerHTML = `
-                        <div class="rounded-[var(--radius-control)] bg-danger-soft p-3" data-sim-outcome="unreachable">
+                        <div class="${app.statusPanelClass('danger')}" data-sim-outcome="unreachable">
                             <div class="text-sm font-medium leading-snug text-danger">${oneSemester ? 'Tidak tercapai semester ini' : `Tidak tercapai dengan ${esc(additionalSks)} SKS`}</div>
                             <p class="mt-0.5 text-sm text-ink">Butuh rata-rata IPS ${esc(result.required.toFixed(2))}, padahal nilai maksimal 4.00. Coba hitung dengan lebih banyak SKS atau turunkan target.</p>
                         </div>
@@ -682,13 +704,13 @@
                 hosts.simResult.innerHTML = `
                     <div class="${app.statusPanelClass(tone)} flex items-center gap-4" data-sim-outcome="reachable">
                         <div class="shrink-0 text-center">
-                            <div class="font-mono text-3xl font-semibold leading-none tabular-nums">${esc(result.required.toFixed(2))}</div>
+                            <div class="text-3xl font-semibold leading-none tracking-tight tabular-nums">${esc(result.required.toFixed(2))}</div>
                             <div class="mt-1 text-[11px] font-medium text-ink-subtle">IPS minimal</div>
                         </div>
                         <div class="min-w-0 text-sm text-ink">
                             <p>Rata-rata IPS yang kamu butuhkan di ${esc(additionalSks)} SKS berikutnya supaya IPK jadi ${esc(target)}.</p>
-                            ${result.alreadyReached ? `<p class="mt-1 text-caption text-ink-muted">IPK kamu sekarang (${esc(formatIp(result.currentIpk))}) sudah di atas target; jaga rata-rata ini supaya tidak turun.</p>` : ''}
-                            ${context ? `<p class="mt-1 text-caption text-ink-muted">${esc(context)}</p>` : ''}
+                            ${result.alreadyReached ? `<p class="mt-1 text-xs text-ink-muted">IPK kamu sekarang (${esc(formatIp(result.currentIpk))}) sudah di atas target; jaga rata-rata ini supaya tidak turun.</p>` : ''}
+                            ${context ? `<p class="mt-1 text-xs text-ink-muted">${esc(context)}</p>` : ''}
                         </div>
                     </div>
                 `;
@@ -765,7 +787,7 @@
                     });
                     hosts.charts.hidden = true;
                     hosts.simulator.hidden = true;
-                    hosts.table.innerHTML = `<div class="mycic-card-body">${app.renderEmptyState('Daftar nilai belum tersedia.', 'secondary')}</div>`;
+                    hosts.table.innerHTML = `<div class="${app.ui.cardBody}">${app.renderEmptyState('Daftar nilai belum tersedia.', 'secondary')}</div>`;
                 }
 
                 return;
@@ -790,7 +812,7 @@
                         });
                         hosts.charts.hidden = true;
                         hosts.simulator.hidden = true;
-                        hosts.table.innerHTML = `<div class="mycic-card-body">${app.renderEmptyState('Daftar nilai belum tersedia.', 'secondary')}</div>`;
+                        hosts.table.innerHTML = `<div class="${app.ui.cardBody}">${app.renderEmptyState('Daftar nilai belum tersedia.', 'secondary')}</div>`;
                     } else {
                         app.showNotice(`Transkrip gagal diperbarui. ${app.describeError(error)}`, 'warning');
                     }
