@@ -12,14 +12,14 @@
         <div class="flex min-w-0 flex-col gap-5 lg:col-span-7">
             <form action="{{ route('library.theses') }}" method="get" role="search" class="mycic-card" aria-labelledby="library-search-title">
                 <div class="mycic-card-body flex flex-col gap-3">
-                    <h2 class="text-base font-bold text-ink" id="library-search-title">Cari skripsi di Repositori UCIC</h2>
+                    <h2 class="mycic-card-title" id="library-search-title">Cari skripsi di Repositori UCIC</h2>
                     <div class="flex flex-col gap-2 sm:flex-row">
                         <div class="mycic-input-wrap min-w-0 flex-1">
                             <label for="library-search" class="sr-only">Judul, topik, pembimbing, atau penulis</label>
                             <span class="mycic-input-icon">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0 -14 0" /><path d="M21 21l-6 -6" /></svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0 -14 0" /><path d="M21 21l-6 -6" /></svg>
                             </span>
-                            <input type="search" id="library-search" name="q" maxlength="100" class="mycic-input mycic-input-with-icon" placeholder="Judul, topik, pembimbing, atau penulis" autocomplete="off" enterkeyhint="search">
+                            <input type="search" id="library-search" name="q" maxlength="100" class="mycic-input mycic-input-with-icon" placeholder="Judul, topik, atau penulis" autocomplete="off" enterkeyhint="search">
                         </div>
                         <button type="submit" class="mycic-btn-primary">Cari</button>
                     </div>
@@ -30,7 +30,7 @@
             <section class="mycic-card" aria-labelledby="library-repository-title">
                 <div class="mycic-card-header flex flex-wrap items-center justify-between gap-2">
                     <h2 class="mycic-card-title" id="library-repository-title">Repositori skripsi</h2>
-                    <a href="{{ route('library.theses') }}" class="mycic-btn-secondary-sm min-h-11 sm:min-h-9">Buka repositori</a>
+                    <a href="{{ route('library.theses') }}" class="mycic-btn-secondary-sm">Buka repositori</a>
                 </div>
                 <div class="mycic-card-body flex flex-col gap-4" id="library-repository" aria-busy="true">
                     <span class="sr-only">Memuat ringkasan repositori…</span>
@@ -46,7 +46,7 @@
         <section class="mycic-card lg:col-span-5" aria-labelledby="library-links-title">
             <div class="mycic-card-header">
                 <h2 class="mycic-card-title" id="library-links-title">Perpustakaan digital</h2>
-                <p class="mt-0.5 text-caption text-ink-subtle">Dibuka di situs masing-masing, di luar WeCIC.</p>
+                <p class="mycic-card-subtitle">Dibuka di situs masing-masing, di luar WeCIC.</p>
             </div>
             <div class="mycic-card-body" id="library-links" aria-busy="true">
                 <div class="flex flex-col gap-3">
@@ -156,18 +156,18 @@
                     </div>
                     ${keywords.length ? `
                         <div>
-                            <h3 class="text-caption font-semibold uppercase tracking-wide text-ink-subtle">Topik populer</h3>
+                            <h3 class="text-caption font-medium text-ink-subtle">Topik populer</h3>
                             <div class="mt-2 flex flex-wrap gap-2">
-                                ${keywords.map((keyword) => `<a href="${app.escapeHtml(searchUrl({ q: keyword.word }))}" class="mycic-chip min-h-9 hover:border-brand/40 hover:text-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">${app.escapeHtml(keyword.word)} <span class="tabular-nums text-ink-subtle">${keyword.count}</span></a>`).join('')}
+                                ${keywords.map((keyword) => `<a href="${app.escapeHtml(searchUrl({ q: keyword.word }))}" class="mycic-chip min-h-9 hover:border-ink-subtle/40 hover:text-brand-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">${app.escapeHtml(keyword.word)} <span class="font-mono tabular-nums text-ink-subtle">${keyword.count}</span></a>`).join('')}
                             </div>
                         </div>
                     ` : ''}
                     ${programs.length ? `
                         <div>
-                            <h3 class="text-caption font-semibold uppercase tracking-wide text-ink-subtle">Per program studi</h3>
+                            <h3 class="text-caption font-medium text-ink-subtle">Per program studi</h3>
                             <ul class="mt-2 flex flex-col divide-y divide-border-light">
                                 ${programs.map((program) => `
-                                    <li><a href="${app.escapeHtml(searchUrl({ prodi: program.value }))}" class="flex min-h-11 items-center justify-between gap-3 py-2 text-sm hover:text-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"><span class="min-w-0 truncate text-ink">${app.escapeHtml(program.value)}</span><span class="shrink-0 tabular-nums text-ink-subtle">${numberFormatter.format(program.count)}</span></a></li>
+                                    <li><a href="${app.escapeHtml(searchUrl({ prodi: program.value }))}" class="flex min-h-11 items-center justify-between gap-3 py-2 text-sm hover:text-brand-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"><span class="min-w-0 truncate text-ink">${app.escapeHtml(program.value)}</span><span class="shrink-0 font-mono tabular-nums text-ink-subtle">${numberFormatter.format(program.count)}</span></a></li>
                                 `).join('')}
                             </ul>
                         </div>
@@ -194,7 +194,7 @@
                                 return `
                                     <li class="flex items-center justify-between gap-3 py-3">
                                         <span class="min-w-0">
-                                            <span class="block text-sm font-semibold text-ink">${app.escapeHtml(link.title)}</span>
+                                            <span class="block text-sm font-medium leading-snug text-ink">${app.escapeHtml(link.title)}</span>
                                             <span class="mt-1 inline-flex">${app.renderBadge('Di WeCIC', 'brand')}</span>
                                         </span>
                                         <a href="${app.escapeHtml(link.internal_route || '/library/theses')}" class="${app.buttonClass('secondary', { small: true })} shrink-0">Buka</a>
@@ -211,7 +211,7 @@
                             return `
                                 <li class="flex flex-wrap items-center justify-between gap-3 py-3">
                                     <span class="min-w-0 flex-1">
-                                        <span class="block text-sm font-semibold text-ink">${app.escapeHtml(link.title)}</span>
+                                        <span class="block text-sm font-medium leading-snug text-ink">${app.escapeHtml(link.title)}</span>
                                         <span class="block truncate text-caption text-ink-subtle">${app.escapeHtml(link.host || '')}</span>
                                         <span class="mt-1 flex flex-wrap gap-1.5">
                                             ${app.renderBadge('Eksternal', 'secondary')}

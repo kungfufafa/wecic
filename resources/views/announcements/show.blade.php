@@ -5,8 +5,8 @@
 
 @section('content')
     <nav class="mb-3" aria-label="Navigasi pengumuman">
-        <a href="{{ route('announcement.index') }}" class="mycic-btn-ghost-sm" data-announcement-back>
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6l6 6" /></svg>
+        <a href="{{ route('announcement.index') }}" class="mycic-back-link" data-announcement-back>
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6l6 6" /></svg>
             Semua pengumuman
         </a>
     </nav>
@@ -59,12 +59,12 @@
             const ALLOWED_TAGS = new Set(['P', 'BR', 'B', 'STRONG', 'I', 'EM', 'U', 'UL', 'OL', 'LI', 'A', 'TABLE', 'THEAD', 'TBODY', 'TFOOT', 'TR', 'TD', 'TH', 'SPAN', 'SMALL']);
             const DROPPED_TAGS = new Set(['SCRIPT', 'STYLE', 'IFRAME', 'OBJECT', 'EMBED', 'FORM', 'INPUT', 'BUTTON', 'SELECT', 'TEXTAREA', 'IMG', 'SVG', 'MATH', 'LINK', 'META', 'TEMPLATE', 'VIDEO', 'AUDIO']);
             const ICONS = {
-                form: '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5h-2a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-12a2 2 0 0 0 -2 -2h-2" /><path d="M9 3m0 2a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v0a2 2 0 0 1 -2 2h-2a2 2 0 0 1 -2 -2z" /><path d="M9 12h6" /><path d="M9 16h6" /></svg>',
-                file: '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3v4a1 1 0 0 0 1 1h4" /><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z" /><path d="M12 11v6" /><path d="M9.5 14.5l2.5 2.5l2.5 -2.5" /></svg>',
-                link: '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 6h-6a2 2 0 0 0 -2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-6" /><path d="M11 13l9 -9" /><path d="M15 4h5v5" /></svg>',
-                mail: '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v10a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-10z" /><path d="M3 7l9 6l9 -6" /></svg>',
-                calendar: '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12z" /><path d="M16 3v4" /><path d="M8 3v4" /><path d="M4 11h16" /><path d="M12 15h1v3" /></svg>',
-                copy: '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7m0 2.667a2.667 2.667 0 0 1 2.667 -2.667h8.666a2.667 2.667 0 0 1 2.667 2.667v8.666a2.667 2.667 0 0 1 -2.667 2.667h-8.666a2.667 2.667 0 0 1 -2.667 -2.667z" /><path d="M4.012 16.737a2.005 2.005 0 0 1 -1.012 -1.737v-10c0 -1.1 .9 -2 2 -2h10c.75 0 1.158 .385 1.5 1" /></svg>',
+                form: '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5h-2a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-12a2 2 0 0 0 -2 -2h-2" /><path d="M9 3m0 2a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v0a2 2 0 0 1 -2 2h-2a2 2 0 0 1 -2 -2z" /><path d="M9 12h6" /><path d="M9 16h6" /></svg>',
+                file: '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3v4a1 1 0 0 0 1 1h4" /><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z" /><path d="M12 11v6" /><path d="M9.5 14.5l2.5 2.5l2.5 -2.5" /></svg>',
+                link: '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 6h-6a2 2 0 0 0 -2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-6" /><path d="M11 13l9 -9" /><path d="M15 4h5v5" /></svg>',
+                mail: '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v10a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-10z" /><path d="M3 7l9 6l9 -6" /></svg>',
+                calendar: '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12z" /><path d="M16 3v4" /><path d="M8 3v4" /><path d="M4 11h16" /><path d="M12 15h1v3" /></svg>',
+                copy: '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7m0 2.667a2.667 2.667 0 0 1 2.667 -2.667h8.666a2.667 2.667 0 0 1 2.667 2.667v8.666a2.667 2.667 0 0 1 -2.667 2.667h-8.666a2.667 2.667 0 0 1 -2.667 -2.667z" /><path d="M4.012 16.737a2.005 2.005 0 0 1 -1.012 -1.737v-10c0 -1.1 .9 -2 2 -2h10c.75 0 1.158 .385 1.5 1" /></svg>',
             };
             let rendered = false;
             let current = null;
@@ -220,7 +220,7 @@
                                 ${app.renderBadge(item.category_label || 'Umum', 'brand')}
                                 ${item.duplicate_of ? app.renderBadge('Mirip pengumuman lain', 'secondary') : ''}
                             </div>
-                            <h1 class="text-2xl font-extrabold tracking-tight text-ink wrap-break-word sm:text-3xl" id="announcement-title">${app.escapeHtml(item.title || 'Pengumuman')}</h1>
+                            <h1 class="mycic-page-heading wrap-break-word" id="announcement-title">${app.escapeHtml(item.title || 'Pengumuman')}</h1>
                             <dl class="flex flex-col gap-1 text-sm text-ink-muted">
                                 <div class="flex flex-wrap gap-x-1.5">
                                     <dt class="sr-only">Tanggal terbit</dt>
@@ -417,7 +417,7 @@
                 <a href="${app.escapeHtml(href)}" class="mycic-sheet-action"${external ? ' target="_blank" rel="noopener noreferrer"' : ''}${onlineRequired ? ' data-online-required' : ''}${attribute ? ` ${attribute}` : ''}>
                     <span class="mycic-sheet-action-icon">${icon}</span>
                     <span class="min-w-0 flex-1">
-                        <span class="block font-semibold text-ink">${app.escapeHtml(title)}</span>
+                        <span class="block font-medium text-ink">${app.escapeHtml(title)}</span>
                         ${detail ? `<span class="block truncate text-caption text-ink-subtle">${app.escapeHtml(detail)}</span>` : ''}
                     </span>
                 </a>
@@ -460,7 +460,7 @@
                         <button type="button" class="mycic-sheet-action" data-add-calendar>
                             <span class="mycic-sheet-action-icon">${ICONS.calendar}</span>
                             <span class="min-w-0 flex-1">
-                                <span class="block font-semibold text-ink">Tambah ke kalender</span>
+                                <span class="block font-medium text-ink">Tambah ke kalender</span>
                                 <span class="block truncate text-caption text-ink-subtle">${upcoming.length} tenggat · berkas .ics dengan pengingat H-1</span>
                             </span>
                         </button>
@@ -499,7 +499,7 @@
                             ${sorted.map((deadline) => `
                                 <li class="flex flex-col gap-1.5 border-b border-border-light py-3 first:pt-0 last:border-b-0 last:pb-0">
                                     <span class="flex flex-wrap items-center justify-between gap-2">
-                                        <span class="text-sm font-semibold text-ink">${app.escapeHtml(DEADLINE_TYPES[deadline.type] || 'Tenggat')}: ${app.escapeHtml(deadlineRange(deadline))}</span>
+                                        <span class="text-sm font-medium leading-snug text-ink">${app.escapeHtml(DEADLINE_TYPES[deadline.type] || 'Tenggat')}: ${app.escapeHtml(deadlineRange(deadline))}</span>
                                         ${app.renderBadge(app.capitalize(deadlineRelative(deadline)), deadlineTone(deadline))}
                                     </span>
                                     ${deadline.context ? `<span class="text-caption text-ink-subtle wrap-break-word">${app.escapeHtml(deadline.context)}</span>` : ''}
@@ -608,7 +608,7 @@
                                 <div class="mycic-card-header">
                                     <h2 class="mycic-card-title" id="announcement-body-title">Isi pengumuman</h2>
                                 </div>
-                                <div class="mycic-card-body text-sm leading-relaxed text-ink-muted wrap-break-word [&_a]:font-semibold [&_a]:text-brand-pressed [&_a]:underline [&_a]:underline-offset-2 [&_a]:wrap-anywhere [&_b]:font-semibold [&_b]:text-ink [&_li]:mb-1 [&_ol]:mb-3 [&_ol]:list-decimal [&_ol]:ps-5 [&_p]:mb-3 [&_p:last-child]:mb-0 [&_strong]:font-semibold [&_strong]:text-ink [&_table]:w-full [&_table]:border-collapse [&_td]:border-b [&_td]:border-border-light [&_td]:p-3 [&_td]:align-top [&_th]:border-b [&_th]:border-border-light [&_th]:bg-surface [&_th]:p-3 [&_th]:text-start [&_ul]:mb-3 [&_ul]:list-disc [&_ul]:ps-5" data-announcement-body></div>
+                                <div class="mycic-card-body text-sm leading-relaxed text-ink-muted wrap-break-word [&_a]:font-medium [&_a]:text-brand-text [&_a]:underline [&_a]:underline-offset-2 [&_a]:wrap-anywhere [&_b]:font-semibold [&_b]:text-ink [&_li]:mb-1 [&_ol]:mb-3 [&_ol]:list-decimal [&_ol]:ps-5 [&_p]:mb-3 [&_p:last-child]:mb-0 [&_strong]:font-semibold [&_strong]:text-ink [&_table]:w-full [&_table]:border-collapse [&_td]:border-b [&_td]:border-border-light [&_td]:p-3 [&_td]:align-top [&_th]:border-b [&_th]:border-border-light [&_th]:bg-surface [&_th]:p-3 [&_th]:text-start [&_ul]:mb-3 [&_ul]:list-disc [&_ul]:ps-5" data-announcement-body></div>
                             </section>
                         </div>
                         <aside class="flex min-w-0 flex-col gap-5 lg:sticky lg:top-24 lg:col-span-4 lg:self-start" aria-label="Tindakan dan tenggat">

@@ -5,7 +5,11 @@
 
 @section('content')
     <div id="class-hero">
-        {!! '<div class="mycic-alert-neutral mb-4">Memuat...</div>' !!}
+        <div class="mb-6 flex flex-col gap-2" aria-busy="true">
+            <span class="sr-only">Memuat detail kelas…</span>
+            <div class="mycic-skeleton h-8 w-2/3 max-w-md"></div>
+            <div class="mycic-skeleton h-4 w-1/2 max-w-sm"></div>
+        </div>
     </div>
 
     {{-- Attendance or uploads queued for this class while offline: not at the portal yet. --}}
@@ -13,22 +17,47 @@
 
     <div class="grid gap-4 lg:grid-cols-12">
         <div class="lg:col-span-8" id="class-materials">
-            {!! '<div class="mycic-alert-neutral mb-0">Memuat...</div>' !!}
+            <div class="mycic-card" aria-busy="true">
+                <div class="mycic-card-header">
+                    <div class="mycic-skeleton h-5 w-40"></div>
+                </div>
+                <div class="mycic-card-body flex flex-col divide-y divide-border-light">
+                    @for ($i = 0; $i < 4; $i++)
+                        <x-list-row>
+                            <div class="flex flex-col gap-1.5">
+                                <div class="mycic-skeleton h-4 w-28"></div>
+                                <div class="mycic-skeleton h-4 w-56"></div>
+                            </div>
+                            <div class="mycic-skeleton h-9 w-16"></div>
+                        </x-list-row>
+                    @endfor
+                </div>
+            </div>
         </div>
 
         <div class="flex flex-col gap-4 lg:col-span-4">
             <div id="class-attendance">
-                {!! '<div class="mycic-alert-neutral mb-0">Memuat...</div>' !!}
+                <div class="mycic-card" aria-busy="true">
+                    <div class="mycic-card-body flex flex-col gap-3">
+                        <div class="mycic-skeleton h-5 w-24"></div>
+                        <div class="mycic-skeleton h-20 w-full"></div>
+                    </div>
+                </div>
             </div>
 
             <div id="class-assignments">
-                {!! '<div class="mycic-alert-neutral mb-0">Memuat...</div>' !!}
+                <div class="mycic-card" aria-busy="true">
+                    <div class="mycic-card-body flex flex-col gap-3">
+                        <div class="mycic-skeleton h-5 w-28"></div>
+                        <div class="mycic-skeleton h-14 w-full"></div>
+                    </div>
+                </div>
             </div>
 
             <section class="mycic-card" id="class-study" aria-labelledby="class-study-title">
                 <div class="mycic-card-header">
                     <h2 class="mycic-card-title" id="class-study-title">Arsip & belajar</h2>
-                    <p class="mt-0.5 text-caption text-ink-subtle">Setiap mata kuliah punya notebook sendiri. Pertemuan yang kamu buka masuk otomatis; dari notebook kamu bisa belajar mandiri atau menyusun kerangka tugas dari materinya.</p>
+                    <p class="mycic-card-subtitle">Setiap mata kuliah punya notebook sendiri. Pertemuan yang kamu buka masuk otomatis; dari notebook kamu bisa belajar mandiri atau menyusun kerangka tugas dari materinya.</p>
                 </div>
                 <div class="mycic-card-body flex flex-col gap-2">
                     <button type="button" class="mycic-btn-primary" id="class-open-notebook">Buka notebook mata kuliah ini</button>
@@ -91,7 +120,7 @@
                             ],
                         })}
                     </div>
-                    <div class="mb-4 grid grid-cols-2 gap-3">
+                    <div class="mb-5 mycic-stat-strip grid-cols-2">
                         <div class="mycic-metric">
                             <div class="mycic-metric-label">Materi</div>
                             <div class="mycic-metric-value">${materials.length || '0'}</div>
@@ -105,31 +134,33 @@
 
                 if (materials.length) {
                     document.getElementById('class-materials').innerHTML = `
-                        <div class="mb-4 flex flex-col gap-3">
-                            ${materials.map((material, index) => {
-                                const meetingUrl = app.buildMeetingUrlFromHref(material.join_link?.href);
-                                const materialLabel = `P${material.meeting_number || index + 1}`;
+                        <section class="mycic-card overflow-hidden" aria-labelledby="class-materials-title">
+                            <div class="mycic-card-header flex items-center justify-between gap-2">
+                                <h2 class="mycic-card-title" id="class-materials-title">Pertemuan &amp; materi</h2>
+                                <span class="font-mono text-caption text-ink-subtle tabular-nums">${materials.length} pertemuan</span>
+                            </div>
+                            <ul class="divide-y divide-border-light">
+                                ${materials.map((material, index) => {
+                                    const meetingUrl = app.buildMeetingUrlFromHref(material.join_link?.href);
+                                    const materialLabel = `P${material.meeting_number || index + 1}`;
 
-                                return `
-                                    <div class="mycic-card">
-                                        <div class="mycic-card-body">
-                                            <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
-                                                <div class="min-w-0 flex-1">
-                                                    <div class="mb-1 flex items-center gap-2">
-                                                        ${app.renderBadge(materialLabel, 'brand')}
-                                                        <span class="text-caption text-ink-subtle">${app.escapeHtml([material.date, material.time].filter(Boolean).join(' · ') || '-')}</span>
-                                                    </div>
-                                                    <h3 class="text-subtitle font-bold text-ink">${app.escapeHtml(material.title || 'Materi')}</h3>
+                                    return `
+                                        <li class="flex flex-col gap-3 px-4 py-3.5 sm:flex-row sm:items-center md:px-5">
+                                            <div class="min-w-0 flex-1">
+                                                <div class="mb-1 flex items-center gap-2">
+                                                    <span class="mycic-badge-brand font-mono tabular-nums">${app.escapeHtml(materialLabel)}</span>
+                                                    <span class="font-mono text-caption text-ink-subtle tabular-nums">${app.escapeHtml([material.date, material.time].filter(Boolean).join(' · ') || '-')}</span>
                                                 </div>
-                                                <div class="shrink-0">
-                                                    ${meetingUrl ? `<a href="${meetingUrl}" class="${app.buttonClass('secondary', { small: true })}">Buka</a>` : ''}
-                                                </div>
+                                                <h3 class="text-sm font-medium leading-snug text-ink">${app.escapeHtml(material.title || 'Materi')}</h3>
                                             </div>
-                                        </div>
-                                    </div>
-                                `;
-                            }).join('')}
-                        </div>
+                                            <div class="shrink-0">
+                                                ${meetingUrl ? `<a href="${meetingUrl}" class="${app.buttonClass('secondary', { small: true })}">Buka</a>` : ''}
+                                            </div>
+                                        </li>
+                                    `;
+                                }).join('')}
+                            </ul>
+                        </section>
                     `;
                 } else {
                     document.getElementById('class-materials').innerHTML = app.renderEmptyState('Belum ada materi.', 'secondary');
@@ -187,9 +218,9 @@
 
                                                 return `
                                                     <tr class="${normalizedStatus === 'upcoming' ? 'opacity-60' : ''}">
-                                                        <td>P${app.escapeHtml(meeting.meeting_number)}</td>
+                                                        <td class="font-mono tabular-nums">P${app.escapeHtml(meeting.meeting_number)}</td>
                                                         <td>${app.renderBadge(statusLabel, statusTone)}</td>
-                                                        <td class="text-caption text-ink-subtle">${app.escapeHtml(scheduleMeta || '-')}</td>
+                                                        <td class="font-mono text-caption text-ink-subtle tabular-nums">${app.escapeHtml(scheduleMeta || '-')}</td>
                                                     </tr>
                                                 `;
                                             }).join('')}
@@ -227,7 +258,7 @@
                                         <div class="mycic-list-row">
                                             <div class="min-w-0 flex-1">
                                                 <div class="mb-1 text-caption text-ink-subtle">${app.escapeHtml(assignment.date || '-')}</div>
-                                                <div class="mb-2 font-medium text-ink">${app.escapeHtml(assignment.meeting || `P${assignment.no}`)}</div>
+                                                <div class="mb-2 text-sm font-medium leading-snug text-ink">${app.escapeHtml(assignment.meeting || `P${assignment.no}`)}</div>
                                                 <div class="flex flex-wrap items-center gap-2">
                                                     ${isGraded
                                                         ? app.renderBadge(`Nilai ${scoreText}`, 'success')

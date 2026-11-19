@@ -36,7 +36,10 @@ describe('tone classes', () => {
     it('keeps the 44 px touch target of small buttons on phones', () => {
         assert.equal(app.buttonClass('secondary', { small: true }), 'mycic-btn-secondary-sm min-h-11 sm:min-h-9');
         assert.equal(app.buttonClass('primary'), 'mycic-btn-primary');
-        assert.equal(app.buttonClass('destructive', { small: true }), 'mycic-btn-destructive');
+        assert.equal(app.buttonClass('destructive'), 'mycic-btn-destructive');
+        assert.equal(app.buttonClass('destructive', { small: true }), 'mycic-btn-destructive-sm min-h-11 sm:min-h-9');
+        assert.equal(app.buttonClass('icon'), 'mycic-btn-icon');
+        assert.equal(app.buttonClass('icon', { small: true }), 'mycic-btn-icon-sm');
         assert.equal(app.buttonClass('unknown'), 'mycic-btn-primary');
     });
 });
@@ -68,7 +71,7 @@ describe('renderEmptyState', () => {
 
 describe('renderErrorState', () => {
     it('offers a retry button only when the page can try again', () => {
-        assert.match(app.renderErrorState('Gagal dimuat.'), /data-error-retry>Coba lagi<\/button>/);
+        assert.match(app.renderErrorState('Gagal dimuat.'), /<div class="font-medium">Gagal dimuat\.<\/div>.*data-error-retry>Coba lagi<\/button>/s);
         assert.doesNotMatch(app.renderErrorState('Gagal dimuat.', { retry: false }), /data-error-retry/);
         assert.match(app.renderErrorState('Gagal', { subtitle: 'Server <lambat>', retryLabel: 'Ulangi' }), /Server &lt;lambat&gt;.*Ulangi/s);
     });
@@ -102,8 +105,12 @@ describe('renderPageHeader', () => {
         const html = app.renderPageHeader({ title: 'KRS <2026>', badges: [app.renderBadge('Aktif', 'success'), ''] });
 
         assert.match(html, /KRS &lt;2026&gt;/);
+        assert.match(html, /font-semibold leading-\[1\.2\] tracking-\[-0\.025em\]/);
         assert.match(html, /mycic-badge-success/);
         assert.doesNotMatch(html, /mt-1\.5 text-sm/);
         assert.doesNotMatch(html, /shrink-0 flex-wrap gap-2 print:hidden/);
+
+        const withDescription = app.renderPageHeader({ title: 'Kelas', description: 'Semester ganjil' });
+        assert.match(withDescription, /mt-1\.5 text-sm leading-relaxed text-ink-muted">Semester ganjil</);
     });
 });

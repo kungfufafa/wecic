@@ -78,21 +78,21 @@
     <div class="flex flex-col gap-6">
         @foreach ($tileGroups as $group)
             <section aria-labelledby="more-group-{{ $loop->index }}">
-                <h2 class="mb-2 text-caption font-semibold uppercase tracking-wide text-ink-subtle" id="more-group-{{ $loop->index }}">{{ $group['title'] }}</h2>
+                <h2 class="mb-2 text-caption font-medium text-ink-subtle" id="more-group-{{ $loop->index }}">{{ $group['title'] }}</h2>
                 <div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
                     @foreach ($group['tiles'] as $tile)
                         <a
                             href="{{ $tile['href'] }}"
-                            class="mycic-card flex min-h-28 min-w-0 flex-col gap-3 p-4 transition-colors hover:border-brand/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand active:scale-[0.99]"
+                            class="mycic-card-interactive flex min-h-24 min-w-0 flex-col gap-2.5"
                             data-more-tile="{{ $tile['key'] }}"
                             @if (! empty($tile['external'])) target="_blank" rel="noopener noreferrer" @endif
                         >
-                            <span class="mycic-tile-icon relative h-10 w-10">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{!! $tileIcons[$tile['key']] !!}</svg>
+                            <span class="mycic-tile-icon relative h-9 w-9">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{!! $tileIcons[$tile['key']] !!}</svg>
                                 <span class="mycic-nav-badge hidden" data-nav-badge="{{ $tile['key'] }}"></span>
                             </span>
                             <span class="flex min-w-0 flex-col gap-0.5">
-                                <span class="text-sm font-bold text-ink">{{ $tile['label'] }}</span>
+                                <span class="text-sm font-medium leading-snug text-ink">{{ $tile['label'] }}</span>
                                 <span class="line-clamp-2 text-caption text-ink-subtle" data-more-status="{{ $tile['key'] }}" data-default-caption="{{ $tile['caption'] }}">{{ $tile['caption'] }}</span>
                             </span>
                         </a>
@@ -101,14 +101,14 @@
                     @if ($loop->last)
                         <button
                             type="button"
-                            class="mycic-card flex min-h-28 min-w-0 flex-col items-start gap-3 p-4 text-start transition-colors hover:border-danger/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger active:scale-[0.99]"
+                            class="mycic-card-interactive flex min-h-24 min-w-0 flex-col items-start gap-2.5 text-start hover:border-danger/40 hover:bg-danger-soft/40 focus-visible:outline-danger"
                             data-logout
                         >
-                            <span class="flex h-10 w-10 items-center justify-center rounded-lg bg-danger-soft text-danger">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{!! $tileIcons['logout'] !!}</svg>
+                            <span class="flex h-9 w-9 items-center justify-center rounded-[var(--radius-button)] bg-danger-soft text-danger">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{!! $tileIcons['logout'] !!}</svg>
                             </span>
                             <span class="flex min-w-0 flex-col gap-0.5">
-                                <span class="text-sm font-bold text-danger">Keluar</span>
+                                <span class="text-sm font-medium leading-snug text-danger">Keluar</span>
                                 <span class="line-clamp-2 text-caption text-ink-subtle">Keluar dari perangkat ini</span>
                             </span>
                         </button>
@@ -120,7 +120,7 @@
         <section class="mycic-card scroll-mt-20" id="panduan" aria-labelledby="more-guides-title">
             <div class="mycic-card-header">
                 <h2 class="mycic-card-title" id="more-guides-title">Panduan</h2>
-                <p class="mt-0.5 text-caption text-ink-subtle">Panduan resmi dari portal kampus, dibuka lewat WeCIC.</p>
+                <p class="mycic-card-subtitle">Panduan resmi dari portal kampus, dibuka lewat WeCIC.</p>
             </div>
             <div class="mycic-card-body" id="more-guides">
                 <div class="flex flex-col gap-3" aria-busy="true">
@@ -171,17 +171,17 @@
                             const href = app.buildCampusDownloadUrl(link.path, link.filename);
 
                             return href ? `
-                                <a href="${app.escapeHtml(href)}" target="_blank" rel="noopener" class="mycic-list-row min-h-11 items-center rounded-md transition-colors hover:bg-surface/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand" data-online-required>
+                                <a href="${app.escapeHtml(href)}" target="_blank" rel="noopener" class="mycic-list-row mycic-list-row-interactive min-h-11 items-center" data-online-required>
                                     <span class="flex min-w-0 items-center gap-3">
-                                        <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-surface-tint text-brand-pressed" aria-hidden="true">
-                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3v4a1 1 0 0 0 1 1h4" /><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z" /><path d="M9 17h6" /><path d="M9 13h6" /></svg>
+                                        <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-surface-tint text-brand-text" aria-hidden="true">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3v4a1 1 0 0 0 1 1h4" /><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z" /><path d="M9 17h6" /><path d="M9 13h6" /></svg>
                                         </span>
                                         <span class="min-w-0">
-                                            <span class="block truncate text-sm font-semibold text-ink">${app.escapeHtml(link.label || link.filename || 'Panduan')}</span>
+                                            <span class="block truncate text-sm font-medium leading-snug text-ink">${app.escapeHtml(link.label || link.filename || 'Panduan')}</span>
                                             <span class="block text-caption text-ink-subtle">PDF · butuh koneksi internet</span>
                                         </span>
                                     </span>
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 self-center text-ink-subtle" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6l-6 6" /></svg>
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 self-center text-ink-subtle" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6l-6 6" /></svg>
                                 </a>
                             ` : '';
                         }).join('')}
@@ -207,10 +207,10 @@
 
                     element.textContent = item?.title || element.dataset.defaultCaption || '';
                     element.classList.toggle('text-ink-subtle', !item);
-                    element.classList.toggle('font-semibold', Boolean(item));
+                    element.classList.toggle('font-medium', Boolean(item));
                     element.classList.toggle('text-danger', tone === 'danger');
                     element.classList.toggle('text-warning', tone === 'warning');
-                    element.classList.toggle('text-brand-pressed', Boolean(item) && tone !== 'danger' && tone !== 'warning');
+                    element.classList.toggle('text-brand-text', Boolean(item) && tone !== 'danger' && tone !== 'warning');
                 });
             };
 

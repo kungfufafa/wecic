@@ -14,12 +14,12 @@
 
                 const attendanceExpired = attendanceView === 'closed';
                 const attendanceBadgeMarkup = attendanceRecorded
-                    ? `<span class="inline-flex items-center rounded-full border border-emerald-400/30 bg-emerald-500/20 px-2.5 py-0.5 text-xs font-semibold text-emerald-200">Hadir</span>`
+                    ? app.renderBadge('Hadir', 'success')
                     : (attendanceExpired
-                        ? `<span class="inline-flex items-center rounded-full border border-rose-400/30 bg-rose-500/20 px-2.5 py-0.5 text-xs font-semibold text-rose-200">Ditutup</span>`
+                        ? app.renderBadge('Ditutup', 'danger')
                         : (attendanceState === 'past'
-                            ? `<span class="inline-flex items-center rounded-full border border-rose-400/30 bg-rose-500/20 px-2.5 py-0.5 text-xs font-semibold text-rose-200">Lewat</span>`
-                            : `<span class="inline-flex items-center rounded-full border border-amber-400/30 bg-amber-500/20 px-2.5 py-0.5 text-xs font-semibold text-amber-200">${attendanceNotOpen || attendanceState === 'upcoming' ? 'Belum dibuka' : 'Belum'}</span>`));
+                            ? app.renderBadge('Lewat', 'danger')
+                            : app.renderBadge(attendanceNotOpen || attendanceState === 'upcoming' ? 'Belum dibuka' : 'Belum', 'warning')));
 
                 hero.innerHTML = `
                     <div class="mycic-hero">
@@ -27,17 +27,17 @@
                             <div class="flex flex-wrap items-center justify-between gap-2">
                                 <div class="flex flex-wrap items-center gap-2">
                                     <a href="${app.escapeHtml(backHref(detail.class_url))}" class="mycic-hero-pill">Kembali</a>
-                                    <span class="inline-flex items-center rounded-lg border border-white/20 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white/90">${app.escapeHtml(courseName)}</span>
-                                    <span class="inline-flex items-center rounded-lg bg-accent px-2.5 py-1 text-xs font-bold text-slate-900">${app.escapeHtml(meetingLabel)}</span>
+                                    <span class="mycic-badge-neutral">${app.escapeHtml(courseName)}</span>
+                                    <span class="mycic-badge-brand font-mono tabular-nums">${app.escapeHtml(meetingLabel)}</span>
                                 </div>
                                 ${attendanceBadgeMarkup}
                             </div>
                             <div>
-                                <h1 class="text-xl font-extrabold tracking-tight text-white sm:text-2xl">
+                                <h1 class="mycic-page-heading">
                                     ${app.escapeHtml(mainTopicClean)}
                                 </h1>
-                                <div class="mt-1.5 text-sm text-white/80">
-                                    ${safeLecturer} · ${safeDate}${safeTime !== '-' ? ` · ${safeTime}` : ''}${attendanceRecorded && attendanceInfo.time ? ` · ${app.escapeHtml(attendanceInfo.time)}` : ''}
+                                <div class="mycic-page-subheading">
+                                    ${safeLecturer} · <span class="font-mono tabular-nums">${safeDate}${safeTime !== '-' ? ` · ${safeTime}` : ''}${attendanceRecorded && attendanceInfo.time ? ` · ${app.escapeHtml(attendanceInfo.time)}` : ''}</span>
                                 </div>
                             </div>
                         </div>

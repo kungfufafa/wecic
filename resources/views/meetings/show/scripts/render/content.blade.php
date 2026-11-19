@@ -20,14 +20,14 @@
                                 ${outlineItems.map(item => `
                                     <div class="mycic-outline-item">
                                         <span class="mycic-outline-badge">${app.escapeHtml(item.num || '•')}</span>
-                                        <span class="min-w-0 flex-1 text-sm font-medium text-ink">${app.escapeHtml(item.text)}</span>
+                                        <span class="min-w-0 flex-1 text-sm font-medium leading-snug text-ink">${app.escapeHtml(item.text)}</span>
                                     </div>
                                 `).join('')}
                             </div>
                         `;
                     } else if (materials.main_description) {
                         outlineMarkup = `
-                            <div class="mt-3 rounded-xl border border-border-light bg-surface/40 p-4 text-sm leading-relaxed text-ink">
+                            <div class="mt-3 rounded-[var(--radius-control)] border border-border-light bg-surface/40 p-4 text-sm leading-relaxed text-ink">
                                 ${app.escapeHtml(materials.main_description)}
                             </div>
                         `;
@@ -39,19 +39,19 @@
                         const downloadUrl = app.buildCampusDownloadUrl(materials.main_material_iframe);
 
                         mainResourceMarkup = `
-                            <div class="mt-4 rounded-xl border border-border bg-panel p-3">
+                            <div class="mt-4 rounded-[var(--radius-control)] border border-border bg-panel p-3">
                                 <div class="flex flex-wrap items-center justify-between gap-2">
-                                    <div class="text-sm font-bold text-ink">Modul PDF</div>
+                                    <div class="text-sm font-medium leading-snug text-ink">Modul PDF</div>
                                     <div class="flex flex-wrap items-center gap-2">
                                         <button type="button" class="${app.buttonClass('secondary', { small: true })}" data-toggle-preview="preview-main-modul">Pratinjau</button>
                                         <a href="${fileUrl}" target="_blank" rel="noreferrer" class="${app.buttonClass('secondary', { small: true })}">Buka</a>
                                         ${downloadUrl ? `<a href="${downloadUrl}" class="${app.buttonClass('primary', { small: true })}">Download</a>` : ''}
                                     </div>
                                 </div>
-                                <div id="preview-main-modul" class="mt-4 hidden overflow-hidden rounded-lg border border-border bg-slate-900">
+                                <div id="preview-main-modul" class="mt-4 hidden overflow-hidden rounded-lg border border-border bg-panel">
                                     <div class="flex items-center justify-between border-b border-border bg-surface px-3 py-2 text-xs">
                                         <span class="font-medium text-ink-muted">Pratinjau</span>
-                                        <button type="button" class="text-ink-subtle hover:text-ink font-semibold" data-close-preview="preview-main-modul">Tutup</button>
+                                        <button type="button" class="cursor-pointer font-medium text-ink-subtle transition-colors hover:text-ink" data-close-preview="preview-main-modul">Tutup</button>
                                     </div>
                                     <iframe src="${fileUrl}" class="h-[540px] w-full border-0" loading="lazy"></iframe>
                                 </div>
@@ -65,7 +65,7 @@
                                 <h2 class="mycic-card-title">Materi</h2>
                             </div>
                             <div class="mycic-card-body">
-                                <div class="text-base font-bold text-ink">${app.escapeHtml(mainTopicClean)}</div>
+                                <div class="text-sm font-medium leading-snug text-ink">${app.escapeHtml(mainTopicClean)}</div>
                                 ${outlineMarkup}
                                 ${mainResourceMarkup}
                             </div>
@@ -86,19 +86,19 @@
                         const downloadUrl = app.buildCampusDownloadUrl(materials.assignment_material_iframe);
 
                         assignmentResourceMarkup = `
-                            <div class="mt-4 rounded-xl border border-border bg-panel p-3">
+                            <div class="mt-4 rounded-[var(--radius-control)] border border-border bg-panel p-3">
                                 <div class="flex flex-wrap items-center justify-between gap-2">
-                                    <div class="text-sm font-bold text-ink">Soal PDF</div>
+                                    <div class="text-sm font-medium leading-snug text-ink">Soal PDF</div>
                                     <div class="flex flex-wrap items-center gap-2">
                                         <button type="button" class="${app.buttonClass('secondary', { small: true })}" data-toggle-preview="preview-assignment-modul">Pratinjau</button>
                                         <a href="${fileUrl}" target="_blank" rel="noreferrer" class="${app.buttonClass('secondary', { small: true })}">Buka</a>
                                         ${downloadUrl ? `<a href="${downloadUrl}" class="${app.buttonClass('primary', { small: true })}">Download</a>` : ''}
                                     </div>
                                 </div>
-                                <div id="preview-assignment-modul" class="mt-4 hidden overflow-hidden rounded-lg border border-border bg-slate-900">
+                                <div id="preview-assignment-modul" class="mt-4 hidden overflow-hidden rounded-lg border border-border bg-panel">
                                     <div class="flex items-center justify-between border-b border-border bg-surface px-3 py-2 text-xs">
                                         <span class="font-medium text-ink-muted">Pratinjau</span>
-                                        <button type="button" class="text-ink-subtle hover:text-ink font-semibold" data-close-preview="preview-assignment-modul">Tutup</button>
+                                        <button type="button" class="cursor-pointer font-medium text-ink-subtle transition-colors hover:text-ink" data-close-preview="preview-assignment-modul">Tutup</button>
                                     </div>
                                     <iframe src="${fileUrl}" class="h-[540px] w-full border-0" loading="lazy"></iframe>
                                 </div>
@@ -112,11 +112,11 @@
                                 <h2 class="mycic-card-title">Tugas</h2>
                             </div>
                             <div class="mycic-card-body">
-                                <div class="text-base font-bold text-ink">${assignmentTitle}</div>
+                                <div class="text-sm font-medium leading-snug text-ink">${assignmentTitle}</div>
                                 ${hasDeadline ? `
-                                    <div class="mt-3 rounded-xl border border-warning/30 bg-warning-soft/60 px-3 py-2 text-sm">
+                                    <div class="mt-3 rounded-[var(--radius-control)] border border-warning/30 bg-warning-soft/60 px-3 py-2 text-sm">
                                         <span class="text-ink-subtle">Deadline:</span>
-                                        <span class="font-bold text-warning">${app.escapeHtml(deadlineText)}</span>
+                                        <span class="font-medium text-warning tabular-nums">${app.escapeHtml(deadlineText)}</span>
                                     </div>
                                 ` : ''}
                                 ${assignmentResourceMarkup}

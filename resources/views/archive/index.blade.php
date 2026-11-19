@@ -31,7 +31,7 @@
             <div class="mycic-card-header flex flex-wrap items-start justify-between gap-3">
                 <div class="min-w-0">
                     <h2 class="mycic-card-title" id="archive-files-title">Materi kuliah</h2>
-                    <p class="mt-0.5 text-caption text-ink-subtle">Modul, latihan, dan RPS tersimpan otomatis setiap kali kamu membuka pertemuan, dan sinkronisasi di background mengarsipkan semua kelasmu secara berkala. Bisa dibuka tanpa portal dan dijadikan sumber Notebook.</p>
+                    <p class="mycic-card-subtitle">Modul, latihan, dan RPS tersimpan otomatis setiap kali kamu membuka pertemuan, dan sinkronisasi di background mengarsipkan semua kelasmu secara berkala. Bisa dibuka tanpa portal dan dijadikan sumber Notebook.</p>
                 </div>
                 <form class="flex w-full flex-wrap items-end gap-2 sm:w-auto" id="archive-class-form">
                     <label class="mycic-field min-w-0 flex-1 sm:w-64 sm:flex-none">
@@ -66,10 +66,10 @@
                 </ul>
                 <div class="mycic-alert-info mb-0 flex flex-wrap items-center justify-between gap-3" id="archive-background-sync" hidden>
                     <span class="min-w-0">
-                        <span class="block font-bold text-ink">Sinkronisasi di background</span>
+                        <span class="block font-medium text-ink">Sinkronisasi di background</span>
                         <span class="block text-sm" id="archive-background-sync-caption"></span>
                     </span>
-                    <label class="flex min-h-11 shrink-0 cursor-pointer items-center gap-2 text-sm font-semibold text-ink">
+                    <label class="flex min-h-11 shrink-0 cursor-pointer items-center gap-2 text-sm font-medium text-ink">
                         <input type="checkbox" class="h-5 w-5 cursor-pointer accent-brand" id="archive-background-sync-toggle">
                         <span>Aktif</span>
                     </label>
@@ -110,12 +110,12 @@
                 const pending = datasets.filter((dataset) => dataset.open_suspects > 0);
                 attentionSection.classList.toggle('hidden', pending.length === 0);
                 attentionList.innerHTML = pending.map((dataset) => `
-                    <a href="/archive/${encodeURIComponent(dataset.dataset)}" class="mycic-alert-warning mb-0 flex items-center justify-between gap-3 transition-colors hover:border-warning/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">
+                    <a href="/archive/${encodeURIComponent(dataset.dataset)}" class="mycic-alert-warning mb-0 flex cursor-pointer items-center justify-between gap-3 transition-colors hover:border-warning/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">
                         <span class="min-w-0">
-                            <span class="block font-bold">${app.escapeHtml(dataset.label)}: ${dataset.open_suspects} perubahan janggal</span>
+                            <span class="block font-medium">${app.escapeHtml(dataset.label)}: ${dataset.open_suspects} perubahan janggal</span>
                             <span class="block text-caption">WeCIC menahan data dari portal dan tetap menampilkan versi tersimpan. Buka untuk memeriksa.</span>
                         </span>
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6l-6 6" /></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6l-6 6" /></svg>
                     </a>
                 `).join('');
 
@@ -129,9 +129,9 @@
                         : 'Belum ada arsip. Tersimpan saat halamannya dibuka.';
 
                     return `
-                        <a href="/archive/${encodeURIComponent(dataset.dataset)}" class="mycic-card flex min-h-24 min-w-0 flex-col gap-2 p-4 transition-colors hover:border-brand/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">
+                        <a href="/archive/${encodeURIComponent(dataset.dataset)}" class="mycic-card-interactive flex min-h-24 min-w-0 flex-col gap-2">
                             <span class="flex flex-wrap items-center justify-between gap-2">
-                                <span class="text-sm font-bold text-ink">${app.escapeHtml(dataset.label)}</span>
+                                <span class="text-sm font-medium leading-snug text-ink">${app.escapeHtml(dataset.label)}</span>
                                 ${dataset.open_suspects > 0 ? app.renderBadge(`${dataset.open_suspects} janggal`, 'warning') : (dataset.versions > 0 ? app.renderBadge('Tersimpan', 'success') : '')}
                             </span>
                             <span class="text-caption text-ink-subtle">${app.escapeHtml(caption)}</span>
@@ -159,23 +159,21 @@
                     <div class="flex flex-col gap-5">
                         ${courses.map((course) => `
                             <section class="flex flex-col gap-1">
-                                <h3 class="text-sm font-bold text-ink">${app.escapeHtml(course.course_name || 'Mata kuliah')}</h3>
-                                <ul class="flex flex-col">
+                                <h3 class="text-sm font-medium leading-snug text-ink">${app.escapeHtml(course.course_name || 'Mata kuliah')}</h3>
+                                <div class="flex flex-col">
                                     ${course.files.map((file) => `
-                                        <li>
-                                            <a href="${app.escapeHtml(file.download_url)}" target="_blank" rel="noopener" class="mycic-list-row min-h-11 items-center rounded-md transition-colors hover:bg-surface/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">
-                                                <span class="flex min-w-0 items-center gap-3">
-                                                    ${app.renderBadge(file.kind_label || file.kind, file.kind === 'rps' ? 'info' : (file.kind === 'latihan' ? 'warning' : 'brand'))}
-                                                    <span class="min-w-0">
-                                                        <span class="block truncate text-sm font-semibold text-ink">${app.escapeHtml(file.title || file.filename)}</span>
-                                                        <span class="block text-caption text-ink-subtle">${app.escapeHtml([file.meeting_number ? `Pertemuan ${file.meeting_number}` : '', file.filename, formatBytes(file.size)].filter(Boolean).join(' · '))}</span>
-                                                    </span>
+                                        <a href="${app.escapeHtml(file.download_url)}" target="_blank" rel="noopener" class="mycic-list-row mycic-list-row-interactive min-h-11 items-center">
+                                            <span class="flex min-w-0 items-center gap-3">
+                                                ${app.renderBadge(file.kind_label || file.kind, file.kind === 'rps' ? 'info' : (file.kind === 'latihan' ? 'warning' : 'brand'))}
+                                                <span class="min-w-0">
+                                                    <span class="block truncate text-sm font-medium leading-snug text-ink">${app.escapeHtml(file.title || file.filename)}</span>
+                                                    <span class="block text-caption text-ink-subtle">${app.escapeHtml([file.meeting_number ? `Pertemuan ${file.meeting_number}` : '', file.filename, formatBytes(file.size)].filter(Boolean).join(' · '))}</span>
                                                 </span>
-                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 self-center text-ink-subtle" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6l-6 6" /></svg>
-                                            </a>
-                                        </li>
+                                            </span>
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 self-center text-ink-subtle" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6l-6 6" /></svg>
+                                        </a>
                                     `).join('')}
-                                </ul>
+                                </div>
                             </section>
                         `).join('')}
                     </div>

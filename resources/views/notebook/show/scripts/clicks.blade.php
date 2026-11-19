@@ -44,12 +44,12 @@
                         option.classList.toggle('border-danger', index !== answer && option === quizOption);
 
                         if (index === answer || option === quizOption) {
-                            option.insertAdjacentHTML('beforeend', ` <span class="text-caption font-bold ${index === answer ? 'text-success' : 'text-danger'}">· ${index === answer ? 'Benar' : 'Pilihanmu, salah'}</span>`);
+                            option.insertAdjacentHTML('beforeend', ` <span class="text-caption font-medium ${index === answer ? 'text-success' : 'text-danger'}">· ${index === answer ? 'Benar' : 'Pilihanmu, salah'}</span>`);
                         }
                     });
 
                     if (explanation) {
-                        explanation.insertAdjacentHTML('afterbegin', `<span class="font-bold text-ink">${app.escapeHtml(verdict)}</span> `);
+                        explanation.insertAdjacentHTML('afterbegin', `<span class="font-medium text-ink">${app.escapeHtml(verdict)}</span> `);
                         explanation.classList.remove('hidden');
                         // The chosen option is now disabled; keep the keyboard on the result.
                         explanation.setAttribute('tabindex', '-1');

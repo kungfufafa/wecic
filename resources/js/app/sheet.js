@@ -22,11 +22,11 @@ export class SheetFeature {
                 <div class="mycic-sheet-handle" aria-hidden="true"></div>
                 <div class="mycic-modal-header">
                     <div class="min-w-0">
-                        <div class="text-caption uppercase tracking-wide text-ink-subtle" data-app-sheet-pretitle></div>
-                        <h2 class="text-subtitle font-bold text-ink" id="app-sheet-title" data-app-sheet-title></h2>
+                        <div class="text-caption font-medium text-ink-subtle" data-app-sheet-pretitle></div>
+                        <h2 class="mycic-modal-title" id="app-sheet-title" data-app-sheet-title></h2>
                     </div>
                     <button type="button" class="mycic-modal-close" aria-label="Tutup" data-app-sheet-close>
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6l-12 12" /><path d="M6 6l12 12" /></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-[18px] w-[18px]" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6l-12 12" /><path d="M6 6l12 12" /></svg>
                     </button>
                 </div>
                 <div class="mycic-modal-body" data-app-sheet-body></div>

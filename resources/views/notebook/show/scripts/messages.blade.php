@@ -23,14 +23,14 @@
                 return `
                     <details class="text-caption text-ink-subtle">
                         <summary class="cursor-pointer">Konteks: ${app.escapeHtml(parts)}${context.focus ? ' · fokus tugas' : ''}</summary>
-                        <div class="mt-1 rounded-lg border border-border/40 bg-surface p-2 text-ink-muted">${context.focus ? `<p class="mb-1"><span class="font-semibold">Fokus:</span> ${app.escapeHtml(context.focus)}</p>` : ''}${titles || 'Tidak ada sumber.'}</div>
+                        <div class="mt-1 rounded-[var(--radius-control)] border border-border-light bg-surface p-2 text-ink-muted">${context.focus ? `<p class="mb-1"><span class="font-medium text-ink">Fokus:</span> ${app.escapeHtml(context.focus)}</p>` : ''}${titles || 'Tidak ada sumber.'}</div>
                     </details>
                 `;
             };
 
             const renderAssistant = (message) => `
                 <li class="flex flex-col gap-2" data-message-id="${message.id}">
-                    <div class="rounded-2xl rounded-tl-sm border border-border/40 bg-panel p-3">${renderMarkdown(message.content)}</div>
+                    <div class="rounded-[var(--radius-card)] rounded-tl-xs border border-border bg-panel p-3">${renderMarkdown(message.content)}</div>
                     ${citationPanel(message)}
                     <div class="flex flex-wrap items-center gap-2 text-caption text-ink-subtle">
                         ${message.citations.length ? `<span>${message.citations.length} rujukan</span>` : '<span>Tanpa rujukan</span>'}
@@ -55,7 +55,7 @@
                 }
 
                 messagesHost.innerHTML = chat.map((message) => (message.role === 'user'
-                    ? `<li class="ms-auto max-w-[85%] rounded-2xl rounded-tr-sm bg-brand px-3 py-2 text-sm text-white" data-message-id="${message.id}">${app.escapeHtml(message.content)}</li>`
+                    ? `<li class="ms-auto max-w-[85%] rounded-[var(--radius-card)] rounded-tr-xs bg-brand px-3 py-2 text-sm text-white" data-message-id="${message.id}">${app.escapeHtml(message.content)}</li>`
                     : renderAssistant(message))).join('');
                 messagesHost.scrollTop = messagesHost.scrollHeight;
             };

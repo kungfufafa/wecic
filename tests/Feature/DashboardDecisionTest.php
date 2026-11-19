@@ -31,7 +31,7 @@ class DashboardDecisionTest extends TestCase
         $this->assertCount(1, $hero);
         $this->assertSame('dashboard-greeting', $hero->attr('aria-labelledby'));
         $this->assertCount(1, $hero->filter('h1#dashboard-greeting [data-user-name]'));
-        $this->assertStringContainsString('Halo,', $hero->filter('h1#dashboard-greeting')->text());
+        $this->assertStringContainsString('Beranda', $hero->filter('h1#dashboard-greeting')->text());
 
         $period = $hero->filter('ul#dashboard-period');
         $this->assertCount(1, $period);

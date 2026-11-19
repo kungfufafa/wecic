@@ -37,22 +37,22 @@
                     const hasClasses = count > 0;
                     const isSelected = selectedDayFilter === d;
                     const gapNote = group.gaps.length > 0
-                        ? `<div class="text-[10px] mt-1 text-amber-700 dark:text-amber-400 font-medium">${group.gaps.length} jeda</div>`
+                        ? `<div class="mt-1 font-mono text-caption font-medium text-warning tabular-nums">${group.gaps.length} jeda</div>`
                         : '';
 
                     return `
-                        <div role="button" tabindex="0" aria-pressed="${isSelected ? 'true' : 'false'}" class="rounded-lg border p-3 transition-all duration-150 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand ${
+                        <div role="button" tabindex="0" aria-pressed="${isSelected ? 'true' : 'false'}" class="rounded-[var(--radius-control)] border p-3 transition-colors duration-150 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand ${
                             isSelected
-                                ? 'border-brand bg-brand/5 shadow-xs ring-2 ring-brand/20'
+                                ? 'border-brand bg-surface-tint text-brand-text'
                                 : isToday
-                                ? 'border-brand/40 bg-surface/70'
-                                : 'border-border bg-panel hover:border-brand/30 hover:bg-surface/40'
+                                ? 'border-ink-subtle/40 bg-surface/60'
+                                : 'border-border bg-panel hover:border-ink-subtle/35 hover:bg-surface/40'
                         }" data-day-trigger="${d}" title="${isSelected ? 'Tampilkan semua hari' : `Filter ${d}`}">
-                            <div class="flex items-center justify-between gap-1 mb-1">
-                                <span class="text-xs font-bold text-ink">${d}</span>
-                                ${isToday ? '<span class="rounded bg-brand px-1.5 py-0.5 text-[10px] font-bold text-white uppercase tracking-tight">Hari Ini</span>' : ''}
+                            <div class="flex items-center justify-between gap-1.5 mb-1">
+                                <span class="text-caption font-medium text-ink">${d}</span>
+                                ${isToday ? '<span class="inline-flex h-1.5 w-1.5 shrink-0 rounded-full bg-brand" aria-hidden="true"></span><span class="sr-only">Hari ini</span>' : ''}
                             </div>
-                            <div class="text-sm font-extrabold ${hasClasses ? 'text-brand' : 'text-ink-subtle'}">
+                            <div class="font-mono text-sm font-medium tabular-nums ${hasClasses ? 'text-brand-text' : 'text-ink-subtle'}">
                                 ${hasClasses ? `${count} kelas` : 'Libur'}
                             </div>
                             ${gapNote}

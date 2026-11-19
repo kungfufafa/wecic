@@ -113,8 +113,8 @@
                 let html = `
                     <div class="${containerWidthClass}">
                         <!-- Header Row -->
-                        <div class="grid border-b border-border bg-surface/90 sticky top-0 z-30 backdrop-blur-sm rounded-t-lg" style="${gridColsStyle}">
-                            <div class="p-2.5 text-center text-xs font-bold uppercase text-ink-subtle border-r border-border flex items-center justify-center sticky left-0 z-40 bg-surface/95 backdrop-blur-sm">
+                        <div class="grid border-b border-border bg-surface sticky top-0 z-30 rounded-t-lg" style="${gridColsStyle}">
+                            <div class="p-2 text-center text-xs font-medium text-ink-subtle border-r border-border flex items-center justify-center sticky left-0 z-40 bg-surface">
                                 Jam
                             </div>
                             ${daysToRender.map((d) => {
@@ -123,15 +123,15 @@
                                 const count = group.classes.length;
 
                                 return `
-                                    <div class="p-2.5 text-center border-r border-border last:border-r-0 ${
-                                        isToday ? 'bg-brand/10 font-bold' : ''
+                                    <div class="p-2 text-center border-r border-border last:border-r-0 ${
+                                        isToday ? 'bg-surface-tint' : ''
                                     }" ${isToday ? 'data-day-column-header="today"' : ''}>
-                                        <div class="flex items-center justify-center gap-1.5">
-                                            <span class="text-xs sm:text-sm font-bold text-ink">${d}</span>
-                                            ${isToday ? '<span class="rounded bg-brand px-1 py-0.5 text-[9px] font-bold text-white uppercase tracking-tight">Hari Ini</span>' : ''}
+                                        <div class="flex items-center justify-center gap-2">
+                                            <span class="text-xs sm:text-sm font-medium text-ink">${d}</span>
+                                            ${isToday ? '<span class="rounded-md bg-brand px-1.5 py-0.5 text-[11px] font-medium text-brand-ink">Hari ini</span>' : ''}
                                         </div>
-                                        <div class="text-[11px] text-ink-subtle mt-0.5">
-                                            ${count > 0 ? `${count} Kelas` : '<span class="text-ink-subtle/80">Libur</span>'}
+                                        <div class="font-mono text-[11px] text-ink-subtle mt-1 tabular-nums">
+                                            ${count > 0 ? `${count} kelas` : '<span class="text-ink-subtle">Libur</span>'}
                                         </div>
                                     </div>
                                 `;
@@ -141,10 +141,10 @@
                         <!-- Grid Body -->
                         <div class="grid relative" style="height: ${totalGridHeightPx}px; ${gridColsStyle}">
                             <!-- Time Axis (Sticky on left for effortless mobile horizontal scrolling) -->
-                            <div class="relative border-r border-border bg-surface/85 backdrop-blur-sm select-none sticky left-0 z-20">
+                            <div class="relative border-r border-border bg-surface select-none sticky left-0 z-20">
                                 ${hoursArray.map((h, i) => {
                                     return `
-                                        <div class="absolute left-0 right-0 text-center text-[11px] font-medium text-ink-subtle pt-1 border-b border-border/40" style="top: ${i * hourHeightPx}px; height: ${hourHeightPx}px;">
+                                        <div class="absolute left-0 right-0 text-center font-mono text-[11px] font-medium text-ink-subtle tabular-nums pt-1 border-b border-border-light" style="top: ${i * hourHeightPx}px; height: ${hourHeightPx}px;">
                                             ${String(h).padStart(2, '0')}:00
                                         </div>
                                     `;
@@ -159,14 +159,14 @@
 
                                 return `
                                     <div class="relative border-r border-border last:border-r-0 ${
-                                        isToday ? 'bg-brand/[0.02]' : ''
+                                        isToday ? 'bg-surface-tint/30' : ''
                                     }">
                                         <!-- Background Hour Lines -->
                                         ${hoursArray.map((_, i) => {
                                             if (i === hoursArray.length - 1) return '';
                                             return `
-                                                <div class="absolute inset-x-0 border-b border-border/40 pointer-events-none" style="top: ${i * hourHeightPx}px; height: ${hourHeightPx}px;">
-                                                    <div class="w-full border-b border-dashed border-border/20" style="margin-top: ${hourHeightPx / 2}px;"></div>
+                                                <div class="absolute inset-x-0 border-b border-border-light pointer-events-none" style="top: ${i * hourHeightPx}px; height: ${hourHeightPx}px;">
+                                                    <div class="w-full border-b border-dashed border-border-light/60" style="margin-top: ${hourHeightPx / 2}px;"></div>
                                                 </div>
                                             `;
                                         }).join('')}
@@ -180,9 +180,9 @@
                                         <!-- Live Current Time Indicator Line (on Today's Column) -->
                                         ${isToday && nowTopPct !== null ? `
                                             <div class="absolute left-0 right-0 z-30 pointer-events-none flex items-center" style="top: ${nowTopPct}%;">
-                                                <div class="h-2.5 w-2.5 -ml-1 rounded-full bg-red-600 ring-4 ring-red-500/20 shadow-xs"></div>
-                                                <div class="flex-1 border-b-2 border-red-500 dark:border-red-400"></div>
-                                                <span class="rounded bg-red-600 px-1 py-0.5 text-[9px] font-bold text-white shadow-xs">
+                                                <div class="h-2 w-2 -ml-1 rounded-full bg-danger ring-2 ring-danger/20"></div>
+                                                <div class="flex-1 border-b border-danger"></div>
+                                                <span class="rounded-md bg-danger px-1.5 py-0.5 font-mono text-[11px] font-medium text-white tabular-nums">
                                                     ${nowFormattedTime}
                                                 </span>
                                             </div>
@@ -194,10 +194,10 @@
                                             const gapHeightPct = (gap.durationMinutes / totalGridMinutes) * 100;
 
                                             return `
-                                                <div class="absolute left-1 right-1 rounded-md border border-dashed border-amber-500/50 bg-amber-500/10 dark:bg-amber-500/15 p-1 flex items-center justify-center text-center transition-all duration-150 hover:bg-amber-500/20 z-10 overflow-hidden"
+                                                <div class="absolute left-1 right-1 rounded-md border border-dashed border-warning/40 bg-warning-soft/50 p-1 flex items-center justify-center text-center transition-colors duration-150 hover:bg-warning-soft/80 z-10 overflow-hidden"
                                                      style="top: ${gapTopPct}%; height: ${gapHeightPct}%; min-height: 24px;"
                                                      title="${gap.startTime} – ${gap.endTime}">
-                                                    <span class="text-[11px] font-bold text-amber-900 dark:text-amber-200 truncate">${gap.formattedDuration}</span>
+                                                    <span class="font-mono text-[11px] font-medium text-warning truncate tabular-nums">${gap.formattedDuration}</span>
                                                 </div>
                                             `;
                                         }).join('')}
@@ -223,25 +223,25 @@
                                             );
 
                                             return `
-                                                <div role="button" tabindex="0" aria-haspopup="dialog" aria-label="${app.escapeHtml(`${c.courseName}, ${c.day || ''} ${c.formattedTime}`)}" class="absolute rounded-lg border ${p.border} ${p.accent} border-l-4 ${p.bg} p-2 cursor-pointer transition-all duration-150 hover:shadow-md hover:scale-[1.01] hover:z-20 focus-visible:z-20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand flex flex-col justify-between overflow-hidden shadow-xs group ${
-                                                    matchesSearch ? 'opacity-100 ring-1 ring-border/20' : 'opacity-30 hover:opacity-100'
+                                                <div role="button" tabindex="0" aria-haspopup="dialog" aria-label="${app.escapeHtml(`${c.courseName}, ${c.day || ''} ${c.formattedTime}`)}" class="absolute rounded-lg border ${p.border} ${p.accent} border-l-[3px] ${p.bg} p-2 cursor-pointer transition-colors duration-150 hover:bg-surface/80 hover:z-20 focus-visible:z-20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand flex flex-col justify-between overflow-hidden group ${
+                                                    matchesSearch ? 'opacity-100' : 'opacity-30 hover:opacity-100'
                                                 }"
                                                      style="top: ${topPct}%; height: ${heightPct}%; left: calc(${leftPct}% + 4px); width: calc(${widthPct}% - 8px); min-height: 52px;"
                                                      data-class-modal-trigger="${c.id}">
                                                     <div class="min-w-0 flex-1">
-                                                        <div class="flex items-center justify-between gap-1 mb-0.5">
-                                                            <span class="rounded px-1.5 py-0.5 text-[10px] font-extrabold ${p.timeBadge}">
+                                                        <div class="flex items-center justify-between gap-1 mb-1">
+                                                            <span class="rounded-md px-1.5 py-0.5 font-mono text-[11px] font-medium tabular-nums ${p.timeBadge}">
                                                                 ${app.escapeHtml(c.formattedTime)}
                                                             </span>
                                                             ${hasConflict
-                                                                ? '<span class="rounded bg-red-600 px-1 py-0.5 text-[9px] font-bold uppercase tracking-tight text-white" title="Jadwal bentrok dengan kelas lain">Bentrok</span>'
-                                                                : (c.courseCode ? `<span class="text-[9px] font-semibold text-ink-subtle uppercase truncate">${app.escapeHtml(c.courseCode)}</span>` : '')}
+                                                                ? '<span class="rounded-md bg-danger px-1.5 py-0.5 text-[11px] font-medium text-white" title="Jadwal bentrok dengan kelas lain">Bentrok</span>'
+                                                                : (c.courseCode ? `<span class="font-mono text-[11px] font-medium text-ink-subtle truncate">${app.escapeHtml(c.courseCode)}</span>` : '')}
                                                         </div>
-                                                        <div class="text-xs font-bold text-ink line-clamp-2 leading-tight group-hover:text-brand" title="${app.escapeHtml(c.courseName)}">
+                                                        <div class="text-xs font-medium text-ink line-clamp-2 leading-tight group-hover:text-brand-text" title="${app.escapeHtml(c.courseName)}">
                                                             ${app.escapeHtml(c.courseName)}
                                                         </div>
                                                     </div>
-                                                    <div class="mt-1 flex items-center justify-between gap-1 text-[10px] text-ink-subtle truncate pt-1 border-t border-black/5 dark:border-white/5">
+                                                    <div class="mt-1 flex items-center justify-between gap-1 text-[11px] text-ink-subtle truncate pt-1 border-t border-border-light">
                                                         <span class="truncate font-medium">${app.escapeHtml(c.roomName)}</span>
                                                         <span class="truncate hidden sm:inline">${app.escapeHtml((c.lecturerName || '').split(',')[0])}</span>
                                                     </div>

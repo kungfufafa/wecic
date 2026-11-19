@@ -4,7 +4,7 @@
     DOMContentLoaded handler opened in notebook/show.blade.php: it shares
     that scope (app, el, base, the elements, constants and state in setup).
 --}}
-            const citationButton = (number) => `<button type="button" class="mx-0.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-surface-tint px-1 align-text-top text-[11px] font-bold text-brand-pressed hover:bg-brand hover:text-white focus-visible:outline-2 focus-visible:outline-brand" data-cite="${number}" aria-label="Rujukan ${number}">${number}</button>`;
+            const citationButton = (number) => `<button type="button" class="mx-0.5 inline-flex h-5 min-w-5 cursor-pointer items-center justify-center rounded-full bg-surface-tint px-1 align-text-top font-mono text-[11px] font-medium text-brand-text transition-colors duration-150 hover:bg-brand hover:text-brand-ink focus-visible:outline-2 focus-visible:outline-brand" data-cite="${number}" aria-label="Rujukan ${number}">${number}</button>`;
 
             // A run of citations ([3], [2][5]) right after a word or a bracket is code such as arr[0], as on the server.
             const formatProse = (text) => app.escapeHtml(text)
@@ -85,7 +85,7 @@
                     flushList();
 
                     if (heading) {
-                        blocks.push(`<h4 class="mt-1 text-sm font-bold text-ink">${inline(heading[2])}</h4>`);
+                        blocks.push(`<h4 class="mt-1 text-sm font-medium leading-snug text-ink">${inline(heading[2])}</h4>`);
                     } else if (line.trim() !== '') {
                         blocks.push(`<p>${inline(line)}</p>`);
                     }
@@ -106,5 +106,5 @@
                 .replace(/\s+/g, ' ')
                 .trim();
 
-            const citationPanel = (message) => `<div class="hidden rounded-lg border border-border/40 bg-surface p-3 text-caption text-ink-muted" data-cite-panel="${message.id}"></div>`;
+            const citationPanel = (message) => `<div class="hidden rounded-[var(--radius-control)] border border-border-light bg-surface p-3 text-caption text-ink-muted" data-cite-panel="${message.id}"></div>`;
 

@@ -250,9 +250,9 @@ export class OperationFeature {
             <div class="${this.alertTone(tone)}">
                 <div class="flex items-center justify-between gap-3">
                     <span>${this.escapeHtml(operation.message)}</span>
-                    <span>${operation.percent}%</span>
+                    <span class="font-mono text-xs tabular-nums">${operation.percent}%</span>
                 </div>
-                <div class="mt-2 h-2 overflow-hidden rounded-full bg-surface-muted">
+                <div class="mt-2 h-2 overflow-hidden rounded-full bg-surface">
                     <div class="h-full rounded-full bg-brand" style="width: ${operation.percent}%"></div>
                 </div>
                 ${operation.detail ? `<p class="mt-2 text-caption text-ink-subtle">${this.escapeHtml(operation.detail)}</p>` : ''}

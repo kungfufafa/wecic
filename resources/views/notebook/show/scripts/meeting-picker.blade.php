@@ -24,10 +24,10 @@
                             <form class="flex flex-col gap-3" data-meeting-picker>
                                 <div class="flex flex-col gap-1.5">
                                     ${meetings.map((meeting) => `
-                                        <label class="flex items-start gap-2 rounded-lg border border-border/40 p-2 text-sm ${meeting.added ? 'opacity-70' : ''}">
-                                            <input type="checkbox" class="mt-1" value="${app.escapeHtml(meeting.meeting_id)}" data-courses-id="${app.escapeHtml(meeting.courses_id)}" ${meeting.added ? 'checked disabled' : ''}>
+                                        <label class="flex cursor-pointer items-start gap-2 rounded-[var(--radius-control)] border border-border p-2.5 text-sm transition-colors hover:bg-surface/40 ${meeting.added ? 'opacity-70' : ''}">
+                                            <input type="checkbox" class="mt-1 cursor-pointer accent-brand" value="${app.escapeHtml(meeting.meeting_id)}" data-courses-id="${app.escapeHtml(meeting.courses_id)}" ${meeting.added ? 'checked disabled' : ''}>
                                             <span class="min-w-0 flex-1">
-                                                <span class="block font-semibold text-ink">${app.escapeHtml(meeting.meeting_number ? `P${meeting.meeting_number} · ` : '')}${app.escapeHtml(meeting.title)}</span>
+                                                <span class="block font-medium leading-snug text-ink">${app.escapeHtml(meeting.meeting_number ? `P${meeting.meeting_number} · ` : '')}${app.escapeHtml(meeting.title)}</span>
                                                 <span class="block text-caption text-ink-subtle">${app.escapeHtml([meeting.date, meeting.time, meeting.archived_files ? `${meeting.archived_files} berkas di arsip` : null].filter(Boolean).join(' · '))}</span>
                                             </span>
                                             ${meeting.added ? app.renderBadge('Sudah masuk', 'success') : ''}

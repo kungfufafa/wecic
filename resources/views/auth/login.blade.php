@@ -6,44 +6,66 @@
 @section('content')
     <div class="mycic-auth-page">
         <aside class="mycic-auth-showcase">
-            <svg class="mycic-auth-paths" viewBox="0 0 800 800" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
-                <path class="mycic-auth-path" d="M-120 80C80 80 200 420 420 520C620 620 760 760 900 900" />
-                <path class="mycic-auth-path" d="M-80 140C120 140 240 460 460 560C660 660 800 800 940 940" />
-                <path class="mycic-auth-path" d="M-40 200C160 200 280 500 500 600C700 700 840 840 980 980" />
-                <path class="mycic-auth-path" d="M0 260C200 260 320 540 540 640C740 740 880 880 1020 1020" />
-                <path class="mycic-auth-path" d="M40 320C240 320 360 580 580 680C780 780 920 920 1060 1060" />
-                <path class="mycic-auth-path" d="M80 380C280 380 400 620 620 720C820 820 960 960 1100 1100" />
-            </svg>
-
             <div class="mycic-auth-showcase-content">
                 <div class="flex flex-col items-start gap-2">
-                    <x-brand-logo :on-dark="true" class="h-16" />
-                    <div class="text-[0.68rem] font-semibold uppercase tracking-wider text-white/80">Aplikasi tidak resmi untuk MyCIC</div>
+                    <x-brand-logo class="h-9" />
+                    <div class="text-caption font-medium text-ink-subtle">Aplikasi tidak resmi untuk MyCIC</div>
+                </div>
+
+                <div class="my-auto w-full max-w-md">
+                    <div class="mycic-card overflow-hidden">
+                        <div class="mycic-card-header flex items-center justify-between gap-3">
+                            <span class="text-sm font-medium text-ink">Hari ini</span>
+                            <span class="inline-flex items-center gap-2 text-caption font-medium text-ink-subtle">
+                                <span class="h-1.5 w-1.5 rounded-full bg-success" aria-hidden="true"></span>
+                                <span>Terhubung</span>
+                            </span>
+                        </div>
+                        <div class="divide-y divide-border-light">
+                            <div class="flex items-center justify-between gap-4 px-4 py-3">
+                                <div class="min-w-0">
+                                    <div class="font-mono text-caption text-ink-subtle tabular-nums">08:00 · Lab 2</div>
+                                    <div class="truncate text-sm font-medium text-ink">Pemrograman Web</div>
+                                </div>
+                                <span class="inline-flex shrink-0 items-center gap-1.5 text-caption font-medium text-success">
+                                    <span class="h-1.5 w-1.5 rounded-full bg-success" aria-hidden="true"></span>
+                                    <span>Hadir</span>
+                                </span>
+                            </div>
+                            <div class="flex items-center justify-between gap-4 px-4 py-3">
+                                <div class="min-w-0">
+                                    <div class="font-mono text-caption text-ink-subtle tabular-nums">10:30 · R.304</div>
+                                    <div class="truncate text-sm font-medium text-ink">Basis Data</div>
+                                </div>
+                                <span class="mycic-badge-brand shrink-0">Absensi dibuka</span>
+                            </div>
+                        </div>
+                        <div class="flex items-center justify-between border-t border-border-light bg-surface/60 px-4 py-2 font-mono text-caption text-ink-muted tabular-nums">
+                            <span>IPK 3.74</span>
+                            <span>108/144 SKS</span>
+                        </div>
+                    </div>
                 </div>
 
                 <div>
-                    <div class="mb-4 inline-flex items-center gap-2 rounded-lg border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold text-white/90 backdrop-blur-sm">
-                        <span class="h-2 w-2 rounded-full bg-[#ffc300]"></span>
-                        <span>Aplikasi tidak resmi buatan mahasiswa</span>
-                    </div>
                     <p class="mycic-auth-quote">
-                        Jadwal, absensi, tugas, dan nilai dari MyCIC, dalam tampilan yang lebih mudah dipakai.
+                        Jadwal, absensi, tugas, dan nilai MyCIC dalam satu tempat yang tenang
                     </p>
-                    <p class="mycic-auth-quote-author">Data tetap bersumber dari MyCIC (my.cic.ac.id). WeCIC tidak berafiliasi dengan UCIC.</p>
+                    <p class="mycic-auth-quote-author">Data tetap bersumber dari MyCIC (my.cic.ac.id) · WeCIC tidak berafiliasi dengan UCIC</p>
                 </div>
             </div>
         </aside>
 
         <main class="mycic-auth-form-panel">
             <div class="mycic-auth-form-inner">
-                <div class="mb-6 flex flex-col items-start gap-2 lg:hidden">
-                    <x-brand-logo class="h-14" />
-                    <div class="text-[0.65rem] font-semibold uppercase tracking-wider text-ink-subtle">Aplikasi tidak resmi untuk MyCIC</div>
+                <div class="mb-8 flex flex-col items-start gap-2 lg:hidden">
+                    <x-brand-logo class="h-9" />
+                    <div class="text-caption font-medium text-ink-subtle">Aplikasi tidak resmi untuk MyCIC</div>
                 </div>
 
                 <header>
                     <h1 class="mycic-page-heading">Masuk ke WeCIC</h1>
-                    <p class="mycic-page-subheading">Gunakan NIM dan password MyCIC (portal kampus) Anda.</p>
+                    <p class="mycic-page-subheading">Gunakan NIM dan password MyCIC kamu</p>
                     {{-- Present from page load so a failed login is read out; stays on screen unlike a toast. --}}
                     <div id="login-error" role="alert" data-login-error></div>
                 </header>
@@ -53,7 +75,7 @@
                     <div class="mycic-field">
                         <label for="username" class="mycic-label">NIM atau username</label>
                         <div class="mycic-input-wrap">
-                            <svg class="mycic-input-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <svg class="mycic-input-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                 <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
                                 <path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0" />
                                 <path d="M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" />
@@ -64,7 +86,7 @@
                                 type="text"
                                 class="mycic-input mycic-input-with-icon"
                                 autocomplete="username"
-                                placeholder="12345678"
+                                placeholder="2023102001"
                                 autocapitalize="off"
                                 spellcheck="false"
                                 inputmode="text"
@@ -77,7 +99,7 @@
                     <div class="mycic-field">
                         <label for="password" class="mycic-label">Password</label>
                         <div class="mycic-input-wrap">
-                            <svg class="mycic-input-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <svg class="mycic-input-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                 <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
                                 <path d="M5 13a2 2 0 0 1 2 -2h10a2 2 0 0 1 2 2v6a2 2 0 0 1 -2 2h-10a2 2 0 0 1 -2 -2v-6z" />
                                 <path d="M11 16a1 1 0 1 0 2 0a1 1 0 0 0 -2 0" />
@@ -89,6 +111,7 @@
                                 type="password"
                                 class="mycic-input mycic-input-with-icon mycic-input-with-toggle"
                                 autocomplete="current-password"
+                                placeholder="Masukkan password"
                                 aria-describedby="login-error"
                                 required
                             >
@@ -99,7 +122,7 @@
                                 aria-label="Tampilkan password"
                                 aria-pressed="false"
                             >
-                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                     <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
                                     <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
                                     <path d="M21 12c-2.4 4 -5.4 6 -9 6c-3.6 0 -6.6 -2 -9 -6c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6" />
@@ -108,7 +131,7 @@
                         </div>
                     </div>
 
-                    <button id="login-submit" type="submit" class="mycic-btn-primary mycic-btn-block mt-2 min-h-12" data-online-required>
+                    <button id="login-submit" type="submit" class="mycic-btn-primary mycic-btn-block mt-2" data-online-required>
                         Masuk
                     </button>
                 </form>
@@ -118,16 +141,16 @@
                     {{-- Local demo mode (PORTAL_DEMO=true): a session on the fixture pages, without the portal. --}}
                     <form id="demo-login-form" class="mt-4" method="post" action="{{ $demoSignInUrl }}">
                         @csrf
-                        <button id="demo-login-submit" type="submit" class="mycic-btn-secondary mycic-btn-block min-h-12">
+                        <button id="demo-login-submit" type="submit" class="mycic-btn-secondary mycic-btn-block">
                             Masuk sebagai mahasiswa demo
                         </button>
-                        <p class="mt-2 text-center text-xs text-ink-subtle">
+                        <p class="mt-2 text-center text-caption text-ink-subtle">
                             Mode demo lokal: data dari <code>tests/Fixtures/portal</code>, tidak menghubungi portal kampus.
                         </p>
                     </form>
                 @endif
 
-                <p class="mycic-legal-text mt-8">
+                <p class="mycic-legal-text mt-8 lg:hidden">
                     WeCIC adalah aplikasi tidak resmi buatan mahasiswa dan tidak berafiliasi dengan UCIC. Data tetap bersumber dari MyCIC.
                 </p>
             </div>
@@ -176,8 +199,8 @@
                 [usernameInput, passwordInput].forEach((input) => input.removeAttribute('aria-invalid'));
             };
 
-            const eyeOpen = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" /><path d="M21 12c-2.4 4 -5.4 6 -9 6c-3.6 0 -6.6 -2 -9 -6c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6" /></svg>';
-            const eyeClosed = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M10.585 10.587a2 2 0 0 0 2.829 2.828" /><path d="M16.681 16.673a8.717 8.717 0 0 1 -4.681 1.327c-3.6 0 -6.6 -2 -9 -6c1.272 -2.12 2.712 -3.678 4.32 -4.674m2.86 -1.146a9.055 9.055 0 0 1 1.82 -.18c3.6 0 6.6 2 9 6c-.666 1.11 -1.379 2.067 -2.138 2.87" /><path d="M3 3l18 18" /></svg>';
+            const eyeOpen = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" /><path d="M21 12c-2.4 4 -5.4 6 -9 6c-3.6 0 -6.6 -2 -9 -6c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6" /></svg>';
+            const eyeClosed = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M10.585 10.587a2 2 0 0 0 2.829 2.828" /><path d="M16.681 16.673a8.717 8.717 0 0 1 -4.681 1.327c-3.6 0 -6.6 -2 -9 -6c1.272 -2.12 2.712 -3.678 4.32 -4.674m2.86 -1.146a9.055 9.055 0 0 1 1.82 -.18c3.6 0 6.6 2 9 6c-.666 1.11 -1.379 2.067 -2.138 2.87" /><path d="M3 3l18 18" /></svg>';
 
             const syncPasswordToggle = (isVisible) => {
                 passwordInput.type = isVisible ? 'text' : 'password';

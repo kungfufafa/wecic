@@ -5,6 +5,6 @@
 --}}
 @props(['as' => 'ul'])
 
-<{{ $as }} {{ $attributes->class('inline-flex max-w-full items-center gap-1 overflow-x-auto rounded-xl border border-border/40 bg-surface p-1') }}>
+<{{ $as }} {{ $attributes->class('mycic-segmented') }}>
     {{ $slot }}
 </{{ $as }}>

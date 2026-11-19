@@ -51,7 +51,7 @@
                 aria-selected="{{ $activeTab === $key ? 'true' : 'false' }}"
                 tabindex="{{ $activeTab === $key ? '0' : '-1' }}"
                 data-krs-tab="{{ $key }}"
-                class="-mb-px inline-flex min-h-11 shrink-0 items-center gap-2 whitespace-nowrap border-b-2 border-transparent px-3 text-sm font-semibold text-ink-muted transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand aria-selected:border-brand aria-selected:text-brand"
+                class="-mb-px inline-flex min-h-11 shrink-0 cursor-pointer items-center gap-2 whitespace-nowrap border-b-2 border-transparent px-3 text-sm font-medium text-ink-muted transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand aria-selected:border-brand aria-selected:text-brand-text"
             >{{ $label }}</button>
         @endforeach
     </div>

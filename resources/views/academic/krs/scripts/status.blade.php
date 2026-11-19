@@ -26,7 +26,7 @@
                 const stateLabels = { done: 'Selesai', current: 'Sedang berjalan', todo: 'Belum', unknown: 'Belum diketahui' };
                 const circles = {
                     done: 'border-success bg-success text-white',
-                    current: 'border-brand bg-panel text-brand ring-4 ring-brand/15',
+                    current: 'border-brand bg-surface-tint text-brand-text ring-2 ring-brand/20',
                     todo: 'border-border bg-panel text-ink-subtle',
                     unknown: 'border-dashed border-border bg-panel text-ink-subtle',
                 };
@@ -40,9 +40,9 @@
                             return `
                                 <li class="group relative flex min-w-0 gap-3 pb-5 last:pb-0 md:flex-1 md:flex-col md:items-center md:gap-2 md:pb-0 md:text-center"${stepState === 'current' ? ' aria-current="step"' : ''}>
                                     <span class="absolute start-3.5 top-8 bottom-1 w-0.5 -translate-x-1/2 rounded-full ${stepState === 'done' ? 'bg-success' : 'bg-border'} group-last:hidden md:start-[calc(50%+1.25rem)] md:top-3.5 md:bottom-auto md:h-0.5 md:w-[calc(100%-1.75rem)] md:translate-x-0" aria-hidden="true"></span>
-                                    <span class="relative z-10 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 text-xs font-bold ${circles[stepState]}" aria-hidden="true">${mark}</span>
+                                    <span class="relative z-10 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border font-mono text-xs font-medium ${circles[stepState]}" aria-hidden="true">${mark}</span>
                                     <span class="min-w-0 pt-0.5 md:pt-0">
-                                        <span class="block text-sm font-semibold ${stepState === 'current' ? 'text-brand-pressed' : 'text-ink'}">${esc(step.label)}</span>
+                                        <span class="block text-sm font-medium leading-snug ${stepState === 'current' ? 'text-brand-text' : 'text-ink'}">${esc(step.label)}</span>
                                         <span class="block text-caption text-ink-subtle">${esc(stateLabels[stepState])}</span>
                                     </span>
                                 </li>
@@ -59,17 +59,17 @@
                     const days = active.daysLeft ?? 0;
                     const calm = statusCode === 'validated';
                     const tone = calm ? 'neutral' : (days <= 3 ? 'danger' : (days <= 7 ? 'warning' : 'brand'));
-                    const toneText = { danger: 'text-danger', warning: 'text-warning', brand: 'text-brand-pressed', neutral: 'text-ink' }[tone];
+                    const toneText = { danger: 'text-danger', warning: 'text-warning', brand: 'text-brand-text', neutral: 'text-ink' }[tone];
                     const panel = tone === 'danger' ? 'rounded-[var(--radius-control)] bg-danger-soft p-3' : app.statusPanelClass(tone);
 
                     return `
                         <div class="${panel} flex items-center gap-3" data-krs-countdown>
                             <div class="shrink-0 text-center">
-                                <div class="text-3xl font-bold leading-none tabular-nums ${toneText}">${days === 0 ? 'H-0' : esc(days)}</div>
-                                <div class="mt-1 text-[0.65rem] font-semibold uppercase tracking-wide ${toneText}">${days === 0 ? 'tutup hari ini' : 'hari lagi'}</div>
+                                <div class="font-mono text-3xl font-semibold leading-none tabular-nums ${toneText}">${days === 0 ? 'H-0' : esc(days)}</div>
+                                <div class="mt-1 text-[11px] font-medium ${toneText}">${days === 0 ? 'tutup hari ini' : 'hari lagi'}</div>
                             </div>
                             <div class="min-w-0 text-ink">
-                                <div class="text-sm font-semibold">${days === 0 ? 'Periode ditutup hari ini' : `${calm ? 'Masih bisa diperbaiki' : `Sisa ${esc(days)} hari`} · tutup ${esc(app.formatIndonesianDate(active.end, { weekday: true }))}`}</div>
+                                <div class="text-sm font-medium leading-snug">${days === 0 ? 'Periode ditutup hari ini' : `${calm ? 'Masih bisa diperbaiki' : `Sisa ${esc(days)} hari`} · tutup ${esc(app.formatIndonesianDate(active.end, { weekday: true }))}`}</div>
                                 <div class="mt-0.5 text-caption text-ink-muted">${esc(active.label)} · ${esc(shortRange(active.start, active.end))} · sumber: ${esc(sourceLabel(active))}</div>
                             </div>
                         </div>
@@ -79,7 +79,7 @@
                 if (upcoming) {
                     return `
                         <div class="${app.statusPanelClass('info')} text-ink" data-krs-countdown>
-                            <div class="text-sm font-semibold">${esc(upcoming.label)} dibuka ${esc(app.formatRelativeDays(upcoming.start))}</div>
+                            <div class="text-sm font-medium leading-snug">${esc(upcoming.label)} dibuka ${esc(app.formatRelativeDays(upcoming.start))}</div>
                             <div class="mt-0.5 text-caption text-ink-muted">${esc(app.formatIndonesianDate(upcoming.start, { weekday: true }))} s.d. ${esc(app.formatIndonesianDate(upcoming.end))} · sumber: ${esc(sourceLabel(upcoming))}</div>
                         </div>
                     `;
@@ -88,7 +88,7 @@
                 if (past) {
                     return `
                         <div class="${app.statusPanelClass('neutral')}" data-krs-countdown>
-                            <div class="text-sm font-semibold text-ink">Periode KRS sudah ditutup ${esc(app.formatIndonesianDate(past.end))}</div>
+                            <div class="text-sm font-medium leading-snug text-ink">Periode KRS sudah ditutup ${esc(app.formatIndonesianDate(past.end))}</div>
                             <div class="mt-0.5 text-caption">${esc(past.label)} · ${esc(shortRange(past.start, past.end))}</div>
                         </div>
                     `;
@@ -96,7 +96,7 @@
 
                 return `
                     <div class="${app.statusPanelClass('neutral')}" data-krs-countdown>
-                        <div class="text-sm font-semibold text-ink">Periode KRS belum terbaca dari portal</div>
+                        <div class="text-sm font-medium leading-snug text-ink">Periode KRS belum terbaca dari portal</div>
                         <div class="mt-0.5 text-caption">Cek pengumuman kampus untuk jadwal her-registrasi dan KRS.</div>
                     </div>
                 `;
@@ -186,10 +186,10 @@
                         <div class="mycic-card-body flex flex-col gap-4">
                             <div class="min-w-0">
                                 <div class="flex flex-wrap items-center justify-between gap-2">
-                                    <div class="text-caption font-semibold uppercase tracking-wide text-ink-subtle">${esc(['KRS', termLabel(krs.academic_period)].filter(Boolean).join(' '))}</div>
+                                    <div class="text-caption font-medium text-ink-subtle">${esc(['KRS', termLabel(krs.academic_period)].filter(Boolean).join(' '))}</div>
                                     ${statusBadge(code, Boolean(active))}
                                 </div>
-                                <h2 class="mt-1 text-title font-bold text-ink" id="krs-status-title">${esc(copy.title)}</h2>
+                                <h2 class="mycic-section-title mt-1" id="krs-status-title">${esc(copy.title)}</h2>
                                 <p class="mt-1 text-sm text-ink-muted">${esc(copy.body)}</p>
                             </div>
                             ${renderCountdown(code)}

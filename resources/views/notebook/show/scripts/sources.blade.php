@@ -47,7 +47,7 @@
                 sourcesHost.innerHTML = state.sources.map((source) => {
                     const details = [SOURCE_KIND[source.kind] || source.kind, source.page_count ? `${source.page_count} hlm.` : '', source.truncated ? 'sebagian' : ''].filter(Boolean).join(' · ');
                     const group = sourceGroup(source);
-                    const header = hasMeetings && group !== lastGroup ? `<li class="mt-1 text-caption font-bold uppercase tracking-wide text-ink-subtle">${app.escapeHtml(group)}</li>` : '';
+                    const header = hasMeetings && group !== lastGroup ? `<li class="mt-1 text-caption font-medium text-ink-subtle">${app.escapeHtml(group)}</li>` : '';
                     lastGroup = group;
                     const ready = source.status === 'ready';
                     const checked = ready && !state.excluded.has(source.id);
@@ -61,12 +61,12 @@
                         : 'Pembacaannya terhenti. Hapus sumber ini, lalu tambahkan lagi.';
 
                     return `${header}
-                        <li class="rounded-xl border ${checked ? 'border-border/40' : 'border-dashed border-border/40 opacity-75'} p-3" data-source-id="${source.id}">
+                        <li class="rounded-[var(--radius-control)] border ${checked ? 'border-border' : 'border-dashed border-border opacity-75'} p-3" data-source-id="${source.id}">
                             <div class="flex items-start justify-between gap-2">
-                                <label class="flex min-w-0 items-start gap-2">
-                                    <input type="checkbox" class="mt-1 shrink-0" data-source-select="${source.id}" ${checked ? 'checked' : ''} ${ready ? '' : 'disabled'} aria-label="Pakai ${app.escapeHtml(source.title)} sebagai konteks">
+                                <label class="flex min-w-0 cursor-pointer items-start gap-2">
+                                    <input type="checkbox" class="mt-1 shrink-0 cursor-pointer accent-brand" data-source-select="${source.id}" ${checked ? 'checked' : ''} ${ready ? '' : 'disabled'} aria-label="Pakai ${app.escapeHtml(source.title)} sebagai konteks">
                                     <span class="min-w-0">
-                                        <span class="block break-words text-sm font-semibold text-ink">${app.escapeHtml(source.title)}</span>
+                                        <span class="block break-words text-sm font-medium leading-snug text-ink">${app.escapeHtml(source.title)}</span>
                                         <span class="block text-caption text-ink-subtle">${app.escapeHtml(details)}</span>
                                     </span>
                                 </label>
@@ -75,10 +75,10 @@
                             ${source.error ? `<p class="mt-2 text-caption ${source.status === 'failed' ? 'text-danger' : 'text-ink-muted'}">${app.escapeHtml(source.error)}</p>` : ''}
                             ${source.stalled ? `<p class="mt-2 text-caption text-ink-muted">${stalledHint}</p>` : ''}
                             ${source.waiting && !source.error ? '<p class="mt-2 text-caption text-ink-muted">Menunggu giliran dibaca. Beberapa berkas dibaca sekaligus; sisanya menyusul otomatis.</p>' : ''}
-                            ${source.summary ? `<details class="mt-2"><summary class="cursor-pointer text-caption font-semibold text-brand-pressed">Ringkasan sumber</summary><p class="mt-1 whitespace-pre-line text-caption text-ink-muted">${app.escapeHtml(source.summary)}</p></details>` : ''}
+                            ${source.summary ? `<details class="mt-2"><summary class="cursor-pointer text-caption font-medium text-brand-text">Ringkasan sumber</summary><p class="mt-1 whitespace-pre-line text-caption text-ink-muted">${app.escapeHtml(source.summary)}</p></details>` : ''}
                             <div class="mt-2 flex gap-2">
                                 ${canRetry || canReadNow ? `<button type="button" class="mycic-btn-ghost-sm" data-retry-source="${source.id}">${canReadNow ? 'Baca sekarang' : 'Baca ulang'}</button>` : ''}
-                                <button type="button" class="mycic-btn-ghost-sm text-danger" data-delete-source="${source.id}">Hapus</button>
+                                <button type="button" class="mycic-btn-ghost-sm text-danger hover:bg-danger-soft hover:text-danger" data-delete-source="${source.id}">Hapus</button>
                             </div>
                         </li>
                     `;

@@ -58,21 +58,21 @@ export class ActionItemFeature {
             <span class="flex min-w-0 flex-1 flex-col gap-1">
                 <span class="flex flex-wrap items-center gap-2">
                     ${this.renderSeverityBadge(item.severity)}
-                    ${dueText ? `<span class="text-caption font-semibold ${dueTone}">${this.escapeHtml(dueText)}</span>` : ''}
+                    ${dueText ? `<span class="text-caption font-medium ${dueTone}">${this.escapeHtml(dueText)}</span>` : ''}
                 </span>
-                <span class="text-sm font-semibold text-ink">${this.escapeHtml(item.title || 'Perlu dicek')}</span>
+                <span class="text-sm font-medium leading-snug text-ink">${this.escapeHtml(item.title || 'Perlu dicek')}</span>
                 ${item.description ? `<span class="line-clamp-2 text-caption text-ink-subtle">${this.escapeHtml(item.description)}</span>` : ''}
             </span>
             ${href ? `
-                <span class="inline-flex shrink-0 items-center gap-1 self-center text-xs font-semibold text-brand-pressed">
+                <span class="inline-flex shrink-0 items-center gap-1 self-center text-xs font-medium text-brand-text">
                     ${this.escapeHtml(item.cta_label || 'Buka')}
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6l-6 6" /></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6l-6 6" /></svg>
                 </span>
             ` : ''}
         `;
 
         return href
-            ? `<a href="${this.escapeHtml(href)}" class="mycic-list-row min-h-11 rounded-md transition-colors hover:bg-surface/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"${external}>${content}</a>`
+            ? `<a href="${this.escapeHtml(href)}" class="mycic-list-row mycic-list-row-interactive min-h-11"${external}>${content}</a>`
             : `<div class="mycic-list-row">${content}</div>`;
     }
 

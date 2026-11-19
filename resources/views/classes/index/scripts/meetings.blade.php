@@ -22,14 +22,14 @@
 
                                 if (!meetingUrl) {
                                     return `
-                                        <span class="${app.buttonClass('secondary', { small: true })} pointer-events-none cursor-help opacity-50" title="Detail meeting belum tersedia">
+                                        <span class="${app.buttonClass('secondary', { small: true })} pointer-events-none font-mono tabular-nums opacity-50" aria-disabled="true" title="Detail meeting belum tersedia">
                                             P${app.escapeHtml(labelNumber)}
                                         </span>
                                     `;
                                 }
 
                                 return `
-                                    <a href="${meetingUrl}" class="${app.buttonClass('ghost', { small: true })}" title="Buka Pertemuan ${app.escapeHtml(labelNumber)}">
+                                    <a href="${meetingUrl}" class="${app.buttonClass('secondary', { small: true })} font-mono tabular-nums" title="Buka Pertemuan ${app.escapeHtml(labelNumber)}">
                                         P${app.escapeHtml(labelNumber)}
                                     </a>
                                 `;

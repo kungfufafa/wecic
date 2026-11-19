@@ -6,60 +6,56 @@
 @section('content')
     <div class="flex flex-col gap-5">
         {{-- Profile Hero Banner --}}
-        <section class="mycic-hero relative overflow-hidden" aria-label="Profil Mahasiswa">
+        <section class="mycic-hero" aria-label="Profil Mahasiswa">
             <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div class="flex items-center gap-4">
-                    <div id="profile-avatar" class="flex h-16 w-16 sm:h-20 sm:w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border-2 border-white/25 bg-white/15 text-2xl font-extrabold text-white shadow-md backdrop-blur-sm" aria-hidden="true">
+                    <div id="profile-avatar" class="flex h-16 w-16 sm:h-20 sm:w-20 shrink-0 items-center justify-center overflow-hidden rounded-[var(--radius-card)] border border-border bg-surface-tint text-2xl font-medium text-brand-text" aria-hidden="true">
                         M
                     </div>
                     <div class="min-w-0">
                         <div class="flex flex-wrap items-center gap-2">
-                            <h1 id="profile-name" class="break-words text-xl font-bold leading-tight text-white sm:text-2xl">Memuat...</h1>
-                            <span id="profile-status" class="inline-flex items-center rounded-md bg-emerald-400/20 border border-emerald-300/30 px-2.5 py-0.5 text-xs font-semibold text-emerald-100 hidden"></span>
+                            <h1 id="profile-name" class="break-words text-xl font-semibold leading-tight tracking-[-0.02em] text-ink sm:text-2xl">Memuat...</h1>
+                            <span id="profile-status" class="mycic-badge-success hidden"></span>
                         </div>
-                        <div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-white/80">
-                            <span class="inline-flex items-center gap-1 font-mono">
+                        <div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-muted">
+                            <span class="inline-flex items-center gap-1 font-mono tabular-nums">
                                 <span id="profile-nim-display">-</span>
-                                <button type="button" id="copy-nim-btn" class="-my-2 inline-flex h-10 w-10 items-center justify-center rounded-lg text-white/70 transition-colors hover:bg-white/15 hover:text-white" title="Salin NIM" aria-label="Salin NIM">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M8 8m0 2a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2z" /><path d="M16 8v-2a2 2 0 0 0 -2 -2h-8a2 2 0 0 0 -2 2v8a2 2 0 0 0 2 2h2" /></svg>
+                                <button type="button" id="copy-nim-btn" class="mycic-btn-icon" title="Salin NIM" aria-label="Salin NIM">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M8 8m0 2a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2z" /><path d="M16 8v-2a2 2 0 0 0 -2 -2h-8a2 2 0 0 0 -2 2v8a2 2 0 0 0 2 2h2" /></svg>
                                 </button>
                             </span>
-                            <span class="text-white/40">·</span>
-                            <span id="profile-meta" class="break-words text-white/85"></span>
+                            <span class="text-ink-subtle">·</span>
+                            <span id="profile-meta" class="break-words text-ink-muted"></span>
                         </div>
                     </div>
                 </div>
 
                 {{-- Quick Actions --}}
                 <div class="flex flex-wrap items-center gap-2">
-                    <a href="{{ route('password.edit') }}" class="inline-flex items-center gap-1.5 rounded-lg border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-sm transition-colors hover:bg-white/20">
-                        Password
-                    </a>
-                    <a href="{{ config('portal.base_url') }}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 rounded-lg border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-sm transition-colors hover:bg-white/20">
-                        Portal
-                    </a>
+                    <x-button :href="route('password.edit')" variant="secondary" size="sm">Password</x-button>
+                    <x-button :href="config('portal.base_url')" target="_blank" rel="noopener noreferrer" variant="secondary" size="sm">Portal</x-button>
                 </div>
             </div>
         </section>
 
-        <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div class="mycic-stat-strip grid-cols-2 sm:grid-cols-4">
             <x-metric label="NIM">
                 <x-slot:value class="text-base sm:text-lg font-mono" id="quick-nim">
                     <div class="mycic-skeleton h-6 w-24"></div>
                 </x-slot:value>
             </x-metric>
             <x-metric label="Prodi">
-                <x-slot:value class="text-base sm:text-lg line-clamp-2 leading-tight" id="quick-prodi">
+                <x-slot:value class="font-sans text-base sm:text-lg line-clamp-2 leading-tight" id="quick-prodi">
                     <div class="mycic-skeleton h-6 w-28"></div>
                 </x-slot:value>
             </x-metric>
             <x-metric label="Angkatan">
-                <x-slot:value class="text-base sm:text-lg" id="quick-angkatan">
+                <x-slot:value class="font-mono text-base sm:text-lg" id="quick-angkatan">
                     <div class="mycic-skeleton h-6 w-16"></div>
                 </x-slot:value>
             </x-metric>
             <x-metric label="Status">
-                <x-slot:value class="text-base sm:text-lg" id="quick-status">
+                <x-slot:value class="font-sans text-base sm:text-lg" id="quick-status">
                     <div class="mycic-skeleton h-6 w-20"></div>
                 </x-slot:value>
             </x-metric>
@@ -99,15 +95,15 @@
                 </x-card>
 
                 <x-card title="Keamanan">
-                    <x-card.body class="flex flex-col gap-3">
-                        <div class="flex items-center justify-between gap-4 py-2 border-b border-border-light">
-                            <div class="text-sm font-semibold text-ink">Password</div>
+                    <x-card.body class="flex flex-col divide-y divide-border-light">
+                        <x-list-row class="gap-4">
+                            <div class="text-sm font-medium text-ink">Password</div>
                             <x-button :href="route('password.edit')" variant="secondary" size="sm" class="shrink-0">Ubah</x-button>
-                        </div>
-                        <div class="flex items-center justify-between gap-4 py-2">
-                            <div class="text-sm font-semibold text-ink">Portal kampus</div>
+                        </x-list-row>
+                        <x-list-row class="gap-4">
+                            <div class="text-sm font-medium text-ink">Portal kampus</div>
                             <x-button :href="config('portal.base_url')" target="_blank" rel="noopener noreferrer" variant="secondary" size="sm" class="shrink-0">Buka</x-button>
-                        </div>
+                        </x-list-row>
                     </x-card.body>
                 </x-card>
             </div>

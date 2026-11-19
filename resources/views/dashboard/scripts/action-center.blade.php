@@ -73,23 +73,23 @@
                 const ctaVariant = tone === 'danger' ? 'primary' : 'secondary';
 
                 return `
-                    <li class="flex gap-3 py-3 first:pt-0 last:pb-0" data-action-item="${esc(item.type || 'item')}">
-                        <span class="w-1 shrink-0 self-stretch rounded-full ${app.fillToneClass(tone === 'neutral' ? 'secondary' : tone)}" aria-hidden="true"></span>
+                    <li class="flex items-start gap-3 py-3 first:pt-0 last:pb-0" data-action-item="${esc(item.type || 'item')}">
+                        <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full ${app.fillToneClass(tone === 'neutral' ? 'secondary' : tone)}" aria-hidden="true"></span>
                         <div class="flex min-w-0 flex-1 flex-col gap-1.5">
                             <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
                                 ${app.renderSeverityBadge(item.severity)}
                                 ${due ? `
-                                    <span class="inline-flex items-center gap-1 text-caption font-semibold tabular-nums ${due.tone}">
+                                    <span class="inline-flex items-center gap-1 font-mono text-caption font-medium tabular-nums ${due.tone}">
                                         ${ICONS.clock}<span class="sr-only">Tenggat:</span> ${esc(due.label)}
                                     </span>
                                 ` : ''}
                             </div>
-                            <h3 class="text-sm font-semibold text-ink">${esc(title || 'Perlu dicek')}</h3>
+                            <h3 class="text-sm font-medium leading-snug text-ink">${esc(title || 'Perlu dicek')}</h3>
                             ${item.description ? `<p class="line-clamp-2 text-caption text-ink-subtle">${esc(item.description)}</p>` : ''}
                             ${href || contact ? `
                                 <div class="mt-1 flex flex-wrap gap-2">
                                     ${href ? `
-                                        <a href="${esc(href)}" class="${app.buttonClass(ctaVariant, { small: true })} min-h-11 sm:min-h-9"${external ? ' target="_blank" rel="noopener noreferrer"' : ''}>
+                                        <a href="${esc(href)}" class="${app.buttonClass(ctaVariant, { small: true })}"${external ? ' target="_blank" rel="noopener noreferrer"' : ''}>
                                             ${esc(item.cta_label || 'Buka')}
                                             ${external ? `${ICONS.external}<span class="sr-only">(membuka tab baru)</span>` : ''}
                                         </a>
@@ -98,7 +98,7 @@
                                         ...contact,
                                         role: 'Dosen Pembimbing Akademik (DPA)',
                                         message: dpaMessage(item),
-                                    }, { label: 'Hubungi DPA', className: 'min-h-11 sm:min-h-9' }) : ''}
+                                    }, { label: 'Hubungi DPA' }) : ''}
                                 </div>
                             ` : ''}
                         </div>
@@ -214,7 +214,7 @@
                                 </ul>
                                 ${renderActionNotes(payload, items.length)}
                                 ${items.length > ACTION_PREVIEW_LIMIT ? `
-                                    <button type="button" class="${app.buttonClass('ghost', { small: true })} mt-3 w-full min-h-11 sm:min-h-9" data-action-center-all aria-haspopup="dialog">
+                                    <button type="button" class="${app.buttonClass('ghost', { small: true })} mt-3 w-full" data-action-center-all aria-haspopup="dialog">
                                         Lihat semua ${items.length} tindakan
                                     </button>
                                 ` : ''}

@@ -9,7 +9,7 @@
     {{-- Exam answers queued while offline: not at the portal yet. --}}
     <div class="mb-5 hidden" data-outbox-list data-outbox-match="action:exam_upload" data-outbox-heading="Antrean offline ujian"></div>
 
-    <div id="exam-summary" class="mb-5 grid grid-cols-3 gap-3">
+    <div id="exam-summary" class="mb-5 mycic-stat-strip grid-cols-3">
         @foreach (['Total', 'Jadwal', 'Terkirim'] as $label)
             <x-metric :label="$label">
                 <x-slot:value data-exam-metric="">-</x-slot:value>
@@ -53,9 +53,9 @@
                                     ${app.renderBadge(courseCode, 'brand')}
                                     ${app.renderBadge(status, 'neutral')}
                                 </div>
-                                <h3 class="mb-1 text-subtitle font-bold text-ink">
+                                <h3 class="mb-1 text-sm font-medium leading-snug text-ink">
                                     ${href
-                                        ? `<a href="${href}" class="text-ink no-underline hover:text-brand">${courseName}</a>`
+                                        ? `<a href="${href}" class="text-ink no-underline transition-colors hover:text-brand-text">${courseName}</a>`
                                         : courseName}
                                 </h3>
                                 <p class="text-caption text-ink-subtle">${schedule}</p>

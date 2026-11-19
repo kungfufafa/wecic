@@ -62,8 +62,8 @@ export class RenderFeature {
             primary: small ? 'mycic-btn-primary-sm min-h-11 sm:min-h-9' : 'mycic-btn-primary',
             secondary: small ? 'mycic-btn-secondary-sm min-h-11 sm:min-h-9' : 'mycic-btn-secondary',
             ghost: small ? 'mycic-btn-ghost-sm min-h-11 sm:min-h-9' : 'mycic-btn-ghost',
-            destructive: 'mycic-btn-destructive',
-            icon: 'mycic-btn-icon',
+            destructive: small ? 'mycic-btn-destructive-sm min-h-11 sm:min-h-9' : 'mycic-btn-destructive',
+            icon: small ? 'mycic-btn-icon-sm' : 'mycic-btn-icon',
         };
 
         return variants[variant] || variants.primary;
@@ -71,8 +71,8 @@ export class RenderFeature {
 
     textToneClass(tone = 'muted') {
         const tones = {
-            brand: 'text-brand',
-            primary: 'text-brand',
+            brand: 'text-brand-text',
+            primary: 'text-brand-text',
             success: 'text-success',
             warning: 'text-warning',
             danger: 'text-danger',
@@ -114,9 +114,9 @@ export class RenderFeature {
             <div class="mb-6 print:hidden">
                 <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div class="min-w-0 flex-1">
-                        ${pretitle ? `<div class="text-caption font-semibold uppercase tracking-wide text-ink-subtle">${this.escapeHtml(pretitle)}</div>` : ''}
-                        <h2 class="text-2xl font-extrabold tracking-tight text-ink sm:text-3xl">${this.escapeHtml(title)}</h2>
-                        ${description ? `<div class="mt-1.5 text-sm text-ink-muted">${this.escapeHtml(description)}</div>` : ''}
+                        ${pretitle ? `<div class="text-caption font-medium text-ink-subtle">${this.escapeHtml(pretitle)}</div>` : ''}
+                        <h2 class="text-2xl font-semibold leading-[1.2] tracking-[-0.025em] text-ink sm:text-[1.75rem]">${this.escapeHtml(title)}</h2>
+                        ${description ? `<div class="mt-1.5 text-sm leading-relaxed text-ink-muted">${this.escapeHtml(description)}</div>` : ''}
                         ${safeBadges ? `<div class="mt-3 flex flex-wrap gap-2">${safeBadges}</div>` : ''}
                     </div>
                     ${safeActions ? `
@@ -137,7 +137,7 @@ export class RenderFeature {
         }
 
         return `
-            <div class="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <div class="mb-4 mycic-stat-strip grid-cols-2 xl:grid-cols-4">
                 ${safeItems.map((item) => `
                     <div class="mycic-metric">
                         <div class="mycic-metric-label">${this.escapeHtml(item.label || '')}</div>
@@ -160,8 +160,8 @@ export class RenderFeature {
             <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
                 ${safeItems.map((item) => `
                     <div>
-                        <div class="mb-1 text-caption uppercase tracking-wide text-ink-subtle">${this.escapeHtml(item.label || '')}</div>
-                        <div class="font-medium text-ink">${this.escapeHtml(item.value === null || item.value === '' ? '-' : item.value)}</div>
+                        <div class="mb-1 text-caption font-medium text-ink-subtle">${this.escapeHtml(item.label || '')}</div>
+                        <div class="font-mono font-medium text-ink tabular-nums">${this.escapeHtml(item.value === null || item.value === '' ? '-' : item.value)}</div>
                         ${item.note ? `<div class="mt-1 text-caption text-ink-subtle">${this.escapeHtml(item.note)}</div>` : ''}
                     </div>
                 `).join('')}
@@ -178,7 +178,7 @@ export class RenderFeature {
             <div class="mycic-card">
                 <div class="mycic-card-body">
                     <div class="${this.alertTone('error')} mb-0" role="alert">
-                        <div class="font-semibold">${this.escapeHtml(message)}</div>
+                        <div class="font-medium">${this.escapeHtml(message)}</div>
                         ${subtitle ? `<p class="mt-1 text-sm">${this.escapeHtml(subtitle)}</p>` : ''}
                         ${retry ? `<div class="mt-3"><button type="button" class="${this.buttonClass('secondary', { small: true })}" data-error-retry>${this.escapeHtml(retryLabel)}</button></div>` : ''}
                     </div>
@@ -222,7 +222,7 @@ export class RenderFeature {
             .map((entry) => `
                 <div class="flex items-start justify-between gap-6 py-3 first:pt-0 last:pb-0">
                     <div class="shrink-0 text-sm text-ink-subtle">${this.escapeHtml(entry.label)}</div>
-                    <div class="min-w-0 text-end text-sm font-semibold text-ink">${this.escapeHtml(entry.value)}</div>
+                    <div class="min-w-0 text-end text-sm font-medium text-ink tabular-nums">${this.escapeHtml(entry.value)}</div>
                 </div>
             `)
             .join('');

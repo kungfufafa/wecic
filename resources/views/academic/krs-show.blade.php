@@ -16,14 +16,14 @@
 
     <x-academic-menu active="krs" class="print:hidden" />
 
-    <a href="{{ route('krs.index', ['tab' => 'riwayat']) }}" class="mb-3 inline-flex min-h-11 items-center gap-1 text-sm font-semibold text-brand-pressed hover:text-brand-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand print:hidden">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6l6 6" /></svg>
+    <a href="{{ route('krs.index', ['tab' => 'riwayat']) }}" class="mycic-back-link mb-3 print:hidden">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6l6 6" /></svg>
         Riwayat KRS
     </a>
 
     <div data-krs-id="{{ $id }}" id="krs-show-root">
         <header class="mb-4">
-            <div class="text-caption font-semibold uppercase tracking-wide text-ink-subtle" id="krs-show-pretitle">Kartu Rencana Studi</div>
+            <div class="text-caption font-medium text-ink-subtle" id="krs-show-pretitle">Kartu Rencana Studi</div>
             <h1 class="mycic-page-heading" id="krs-show-title">Detail KRS</h1>
             <p class="mycic-page-subheading" id="krs-show-subtitle">Rencana studi satu semester beserta nilainya bila sudah keluar.</p>
             <div class="mt-2 flex flex-wrap gap-2" id="krs-show-chips"></div>
@@ -95,12 +95,12 @@
             const esc = (value) => app.escapeHtml(value);
             const letterClasses = {
                 success: 'bg-success-soft text-success',
-                brand: 'bg-surface-tint text-brand-pressed',
+                brand: 'bg-surface-tint text-brand-text',
                 warning: 'bg-warning-soft text-warning',
                 danger: 'bg-danger-soft text-danger',
                 neutral: 'bg-surface text-ink-subtle',
             };
-            const printIcon = '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 17h2a2 2 0 0 0 2 -2v-4a2 2 0 0 0 -2 -2h-14a2 2 0 0 0 -2 2v4a2 2 0 0 0 2 2h2" /><path d="M17 9v-4a2 2 0 0 0 -2 -2h-6a2 2 0 0 0 -2 2v4" /><path d="M7 13m0 2a2 2 0 0 1 2 -2h6a2 2 0 0 1 2 2v4a2 2 0 0 1 -2 2h-6a2 2 0 0 1 -2 -2z" /></svg>';
+            const printIcon = '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 17h2a2 2 0 0 0 2 -2v-4a2 2 0 0 0 -2 -2h-14a2 2 0 0 0 -2 2v4a2 2 0 0 0 2 2h2" /><path d="M17 9v-4a2 2 0 0 0 -2 -2h-6a2 2 0 0 0 -2 2v4" /><path d="M7 13m0 2a2 2 0 0 1 2 -2h6a2 2 0 0 1 2 2v4a2 2 0 0 1 -2 2h-6a2 2 0 0 1 -2 -2z" /></svg>';
 
             const cachedData = (url) => {
                 try {
@@ -196,7 +196,7 @@
                 if (!isRegular()) {
                     alerts.push(`
                         <div class="${app.alertTone('neutral')}">
-                            <div class="font-semibold text-ink">KRS semester T berisi mata kuliah konversi</div>
+                            <div class="font-medium text-ink">KRS semester T berisi mata kuliah konversi</div>
                             <p class="mt-1">Mata kuliah ini diakui dari studi sebelumnya, misalnya D3 ke S1 lanjutan. SKS-nya dihitung sebagai SKS lulus dan mengurangi sisa SKS, tetapi bukan beban studi semester ini dan tidak masuk IPK karena portal tidak mencantumkan nilainya.</p>
                         </div>
                     `);
@@ -205,7 +205,7 @@
                 if (status?.code === 'pending_dpa') {
                     alerts.push(`
                         <div class="${app.alertTone('warning')}">
-                            <div class="font-semibold">KRS ini belum divalidasi DPA</div>
+                            <div class="font-medium">KRS ini belum divalidasi DPA</div>
                             <p class="mt-1">Nilai semester ini tidak akan tampil sampai DPA memvalidasi KRS. <a class="mycic-link" href="${esc(krsUrl)}">Lihat status & hubungi DPA</a></p>
                         </div>
                     `);
@@ -265,14 +265,14 @@
                                     <li class="mycic-list-row items-center">
                                         <div class="min-w-0 flex-1">
                                             <div class="font-mono text-caption text-ink-subtle">${esc(course.code || '–')}</div>
-                                            <div class="text-sm font-semibold text-ink">${esc(course.name || 'Mata kuliah')}</div>
+                                            <div class="text-sm font-medium leading-snug text-ink">${esc(course.name || 'Mata kuliah')}</div>
                                             <div class="mt-1 flex flex-wrap items-center gap-1.5">
                                                 <span class="text-caption tabular-nums text-ink-muted">${course.sks === null || course.sks === undefined ? '–' : esc(course.sks)} SKS</span>
                                                 ${chips.join('')}
                                             </div>
                                         </div>
                                         ${showLetters ? `
-                                            <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-sm font-bold ${letterClasses[tone]}" title="${letter ? `Nilai ${esc(letter)}` : 'Nilai belum keluar'}">
+                                            <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg font-mono text-sm font-medium ${letterClasses[tone]}" title="${letter ? `Nilai ${esc(letter)}` : 'Nilai belum keluar'}">
                                                 <span aria-hidden="true">${letter ? esc(letter) : '–'}</span>
                                                 <span class="sr-only">${letter ? `Nilai ${esc(letter)}` : 'Nilai belum keluar'}</span>
                                             </span>
@@ -301,9 +301,9 @@
                 } else if (khs && ['graded', 'partial'].includes(khs.status) && khs.graded_count > 0) {
                     result = `
                         <div class="grid grid-cols-3 gap-3">
-                            <div><div class="mycic-metric-label">IPS</div><div class="text-2xl font-bold tabular-nums text-ink">${typeof khs.ips === 'number' ? esc(khs.ips.toFixed(2)) : '–'}</div></div>
-                            <div><div class="mycic-metric-label">SKS</div><div class="text-2xl font-bold tabular-nums text-ink">${esc(khs.total_sks ?? '–')}</div></div>
-                            <div><div class="mycic-metric-label">Mutu</div><div class="text-2xl font-bold tabular-nums text-ink">${esc(khs.total_quality_points ?? '–')}</div></div>
+                            <div><div class="mycic-metric-label">IPS</div><div class="mycic-metric-value">${typeof khs.ips === 'number' ? esc(khs.ips.toFixed(2)) : '–'}</div></div>
+                            <div><div class="mycic-metric-label">SKS</div><div class="mycic-metric-value">${esc(khs.total_sks ?? '–')}</div></div>
+                            <div><div class="mycic-metric-label">Mutu</div><div class="mycic-metric-value">${esc(khs.total_quality_points ?? '–')}</div></div>
                         </div>
                         ${khs.status === 'partial' ? `<p class="text-caption text-warning">Baru ${esc(khs.graded_count)} dari ${esc(khs.course_count)} nilai yang keluar.</p>` : ''}
                     `;
@@ -312,7 +312,7 @@
                         ? 'Nilai baru tampil setelah DPA memvalidasi KRS dan dosen mengisi nilai.'
                         : 'Nilai muncul setelah dosen mengisi nilai di SIPANDAI.';
 
-                    result = `<p class="text-sm font-semibold text-ink">Nilai semester ini belum keluar</p><p class="text-caption text-ink-subtle">${esc(reason)}</p>`;
+                    result = `<p class="text-sm font-medium leading-snug text-ink">Nilai semester ini belum keluar</p><p class="text-caption text-ink-subtle">${esc(reason)}</p>`;
                 }
 
                 hosts.aside.innerHTML = `
@@ -336,7 +336,7 @@
                 const navigation = state.detail.navigation || {};
                 const link = (id, label, align) => (id ? `
                     <a href="/krs/${esc(id)}" class="${app.buttonClass('secondary')} w-full ${align === 'end' ? 'justify-end text-end' : 'justify-start'}" aria-label="KRS semester ${align === 'end' ? 'berikutnya' : 'sebelumnya'}">
-                        ${align === 'end' ? `${esc(label)}<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6l-6 6" /></svg>` : `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6l6 6" /></svg>${esc(label)}`}
+                        ${align === 'end' ? `${esc(label)}<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6l-6 6" /></svg>` : `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6l6 6" /></svg>${esc(label)}`}
                     </a>
                 ` : '<span></span>');
 

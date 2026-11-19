@@ -36,7 +36,10 @@ describe('renderActionItem', () => {
     });
 
     it('links a safe target, in a new tab when it leaves MyCIC', () => {
-        assert.match(app.renderActionItem({ title: 'Bayar', cta_url: '/finance', cta_label: 'Lihat' }), /^<a href="\/finance" class="mycic-list-row[^"]*">/);
+        const html = app.renderActionItem({ title: 'Bayar', cta_url: '/finance', cta_label: 'Lihat' });
+
+        assert.match(html, /^<a href="\/finance" class="mycic-list-row mycic-list-row-interactive[^"]*">/);
+        assert.doesNotMatch(html, /font-semibold/);
         assert.match(app.renderActionItem({ title: 'Portal', cta_url: 'https://portal.invalid/x' }), /target="_blank" rel="noopener noreferrer"/);
     });
 

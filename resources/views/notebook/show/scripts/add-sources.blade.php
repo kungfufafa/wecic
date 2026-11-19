@@ -16,10 +16,10 @@
                             ${room === null ? '' : `<p class="text-caption text-ink-subtle">Notebook ini bisa menambah ${room} sumber lagi (batas ${state.sourceLimit}).</p>`}
                             ${courses.map((course) => `
                                 <fieldset class="flex flex-col gap-1">
-                                    <legend class="mb-1 text-sm font-bold text-ink">${app.escapeHtml(course.course_name || 'Mata kuliah')}</legend>
+                                    <legend class="mb-1 text-sm font-medium leading-snug text-ink">${app.escapeHtml(course.course_name || 'Mata kuliah')}</legend>
                                     ${course.files.map((file) => `
-                                        <label class="flex items-start gap-2 text-sm ${used.has(file.id) ? 'opacity-60' : ''}">
-                                            <input type="checkbox" class="mt-1" value="${file.id}" ${used.has(file.id) ? 'checked disabled' : ''}>
+                                        <label class="flex cursor-pointer items-start gap-2 text-sm ${used.has(file.id) ? 'opacity-60' : ''}">
+                                            <input type="checkbox" class="mt-1 cursor-pointer accent-brand" value="${file.id}" ${used.has(file.id) ? 'checked disabled' : ''}>
                                             <span>${app.escapeHtml([file.meeting_number ? `P${file.meeting_number}` : '', file.kind_label, file.title || file.filename].filter(Boolean).join(' · '))}</span>
                                         </label>
                                     `).join('')}

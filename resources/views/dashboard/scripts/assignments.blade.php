@@ -52,55 +52,55 @@
                 const hiddenCount = Math.max(0, pendingAssignments.length - ASSIGNMENT_PREVIEW_LIMIT);
 
                 assignmentHost.innerHTML = `
-                    <div id="dashboard-assignment-list">
+                    <div class="flex flex-col gap-3" id="dashboard-assignment-list">
                     ${pendingAssignments.map((assignment, index) => {
                         const deadline = describeDeadline(assignment);
                         const statusColor = deadline.tone;
                         const isExtra = index >= ASSIGNMENT_PREVIEW_LIMIT;
 
                         return `
-                        <div class="mycic-card mb-3${isExtra && !assignmentsExpanded ? ' hidden' : ''}"${isExtra ? ' data-assignment-extra' : ''}>
+                        <div class="mycic-card overflow-hidden${isExtra && !assignmentsExpanded ? ' hidden' : ''}"${isExtra ? ' data-assignment-extra' : ''}>
                             <div class="mycic-card-body">
                                 <div class="mb-3 flex flex-wrap items-start gap-2">
                                     <div class="me-auto min-w-0">
-                                        <div class="mb-1 text-sm font-medium uppercase text-ink-subtle">${esc([assignment.course_code, assignment.lecturer_name].filter(Boolean).join(' · ') || '')}</div>
-                                        <h3 class="mb-1 text-title font-bold text-ink">${esc(assignment.course_name || 'Tugas')}</h3>
+                                        <div class="mb-1 font-mono text-caption font-medium text-ink-subtle">${esc([assignment.course_code, assignment.lecturer_name].filter(Boolean).join(' · ') || '')}</div>
+                                        <h3 class="mycic-card-title mb-1">${esc(assignment.course_name || 'Tugas')}</h3>
                                         ${assignment.material_title && assignment.material_title !== assignment.course_name ? `
-                                            <p class="mb-0 text-sm text-ink-subtle">${esc(assignment.material_title)}</p>
+                                            <p class="mb-0 text-sm text-ink-muted">${esc(assignment.material_title)}</p>
                                         ` : ''}
                                     </div>
                                     ${deadline.label ? `
-                                        <div class="text-sm font-semibold ${textTone(statusColor)}">${esc(deadline.label)}</div>
+                                        <div class="font-mono text-caption font-medium tabular-nums ${textTone(statusColor)}">${esc(deadline.label)}</div>
                                     ` : ''}
                                 </div>
 
-                                <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+                                <div class="flex flex-wrap items-center justify-between gap-2">
                                     ${assignment.assignment_file_url
                                         ? `<a href="${esc(app.absoluteCampusUrl(assignment.assignment_file_url))}" target="_blank" rel="noreferrer" class="${app.buttonClass('secondary', { small: true })}">Lampiran</a>`
                                         : '<span></span>'}
                                     <a href="${esc(assignment.meeting_url)}" class="${app.buttonClass('secondary', { small: true })}">Detail</a>
                                 </div>
+                            </div>
 
-                                <div class="rounded-[var(--radius-control)] border border-border bg-surface/75 p-3.5">
-                                    ${assignment.can_submit_directly ? `
-                                        <form class="flex flex-col gap-2 sm:flex-row sm:items-center" data-assignment-card="${index}">
-                                            <div class="min-w-0 flex-1">
-                                                <label class="sr-only" for="dashboard-assignment-file-${index}">File tugas ${esc(assignment.course_name || '')} (PDF, maks. 10 MB)</label>
-                                                <input type="file" class="mycic-input bg-panel" id="dashboard-assignment-file-${index}" data-field="attachment" accept=".pdf,application/pdf" required>
-                                            </div>
-                                            <button type="submit" class="${app.buttonClass('primary')}" data-online-required>Kirim</button>
-                                        </form>
-                                    ` : `
-                                        <div class="text-sm text-ink-subtle">${assignment.upload_status_text ? esc(assignment.upload_status_text) : 'Portal sedang tidak membuka upload tugas ini. Buka detail untuk melihat statusnya.'}</div>
-                                    `}
-                                </div>
+                            <div class="border-t border-border-light bg-surface/40 px-4 py-3 md:px-5">
+                                ${assignment.can_submit_directly ? `
+                                    <form class="flex flex-col gap-2 sm:flex-row sm:items-center" data-assignment-card="${index}">
+                                        <div class="min-w-0 flex-1">
+                                            <label class="sr-only" for="dashboard-assignment-file-${index}">File tugas ${esc(assignment.course_name || '')} (PDF, maks. 10 MB)</label>
+                                            <input type="file" class="mycic-input bg-panel" id="dashboard-assignment-file-${index}" data-field="attachment" accept=".pdf,application/pdf" required>
+                                        </div>
+                                        <button type="submit" class="${app.buttonClass('primary')}" data-online-required>Kirim</button>
+                                    </form>
+                                ` : `
+                                    <div class="text-sm text-ink-subtle">${assignment.upload_status_text ? esc(assignment.upload_status_text) : 'Portal sedang tidak membuka upload tugas ini. Buka detail untuk melihat statusnya.'}</div>
+                                `}
                             </div>
                         </div>
                         `;
                     }).join('')}
                     </div>
                     ${hiddenCount ? `
-                        <button type="button" class="${app.buttonClass('secondary')} w-full" data-assignment-toggle aria-controls="dashboard-assignment-list" aria-expanded="${assignmentsExpanded ? 'true' : 'false'}">
+                        <button type="button" class="${app.buttonClass('secondary')} mt-3 w-full" data-assignment-toggle aria-controls="dashboard-assignment-list" aria-expanded="${assignmentsExpanded ? 'true' : 'false'}">
                             ${assignmentsExpanded ? 'Tampilkan lebih sedikit' : `Lihat ${hiddenCount} tugas lainnya`}
                         </button>
                     ` : ''}

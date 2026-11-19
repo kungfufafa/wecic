@@ -38,15 +38,15 @@
                     data-skkm-add
                     aria-describedby="skkm-add-hint"
                 >
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5l0 14" /><path d="M5 12l14 0" /></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5l0 14" /><path d="M5 12l14 0" /></svg>
                     Tambah SKKM di portal
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 6h-6a2 2 0 0 0 -2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-6" /><path d="M11 13l9 -9" /><path d="M15 4h5v5" /></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 6h-6a2 2 0 0 0 -2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-6" /><path d="M11 13l9 -9" /><path d="M15 4h5v5" /></svg>
                     <span class="sr-only">(membuka portal kampus di tab baru)</span>
                 </a>
                 <p class="mt-1.5 text-center text-caption text-ink-subtle md:text-start" id="skkm-add-hint">Dibuka di portal kampus. Kamu perlu masuk lagi di sana.</p>
             </div>
 
-            <div id="skkm-metrics" class="grid grid-cols-3 gap-3" role="group" aria-label="Saring kegiatan berdasarkan status">
+            <div id="skkm-metrics" class="mycic-stat-strip grid-cols-3" role="group" aria-label="Saring kegiatan berdasarkan status">
                 @foreach (['Valid', 'Menunggu', 'Ditolak'] as $label)
                     <div class="mycic-metric p-3 sm:p-4 md:p-5">
                         <div class="mycic-metric-label">{{ $label }}</div>
@@ -61,7 +61,7 @@
                 <div class="mycic-card-header flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <h2 class="mycic-card-title" id="skkm-list-title" tabindex="-1">Daftar kegiatan</h2>
                     <div class="mycic-no-scrollbar min-w-0 overflow-x-auto">
-                        <div class="inline-flex items-center gap-1 rounded-xl border border-border/40 bg-surface p-1" role="group" aria-label="Saring status kegiatan" id="skkm-tabs"></div>
+                        <div class="mycic-segmented" role="group" aria-label="Saring status kegiatan" id="skkm-tabs"></div>
                     </div>
                 </div>
                 <p class="sr-only" aria-live="polite" id="skkm-filter-status"></p>
@@ -210,9 +210,7 @@
                 return counts;
             };
 
-            const segmentClass = (active) => `inline-flex min-h-11 shrink-0 items-center sm:min-h-10 gap-1.5 whitespace-nowrap rounded-lg px-3 text-xs transition-all focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand sm:text-sm ${active
-                ? 'border border-border/40 bg-panel font-bold text-brand shadow-xs'
-                : 'border border-transparent font-semibold text-ink-muted hover:text-ink'}`;
+            const segmentClass = (active) => (active ? 'mycic-segmented-item mycic-segmented-item-active' : 'mycic-segmented-item');
 
             const syncQuery = () => {
                 try {
@@ -247,11 +245,11 @@
                 noticeHost.innerHTML = `
                     <div class="${app.alertTone('info')} flex items-start gap-3" role="note">
                         <div class="min-w-0 flex-1">
-                            <p class="font-semibold">Pesan dari SIREKA</p>
+                            <p class="font-medium">Pesan dari SIREKA</p>
                             <p class="mt-1 text-sm text-ink-muted">${app.escapeHtml(notice.text)}</p>
                         </div>
                         <button type="button" class="mycic-modal-close min-h-11 min-w-11 shrink-0 sm:min-h-9 sm:min-w-9" aria-label="Tutup pesan SIREKA" data-dismiss-notice>
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6l-12 12" /><path d="M6 6l12 12" /></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6l-12 12" /><path d="M6 6l12 12" /></svg>
                         </button>
                     </div>
                 `;
@@ -282,7 +280,7 @@
                             <div class="mycic-card-body">
                                 <h2 class="sr-only" id="skkm-hero-title">Poin SKKM</h2>
                                 <div class="${app.alertTone('warning')}" role="status">
-                                    <p class="font-semibold">SIREKA tidak bisa diakses</p>
+                                    <p class="font-medium">SIREKA tidak bisa diakses</p>
                                     <p class="mt-1 text-sm text-ink-muted">Halaman SKKM di portal tidak terbaca, jadi poinmu belum bisa ditampilkan. Ini bukan berarti poinmu nol.</p>
                                     <div class="mt-3 flex flex-wrap gap-2">
                                         <button type="button" class="${app.buttonClass('secondary', { small: true })}" data-skkm-retry data-online-required>Coba lagi</button>
@@ -315,12 +313,12 @@
 
                 if (required !== null && remaining !== null) {
                     insights.push(remaining > 0
-                        ? `Kurang <strong class="font-semibold text-ink tabular-nums">${formatPoints(remaining)} poin</strong> lagi untuk mencapai target.`
+                        ? `Kurang <strong class="font-medium text-ink tabular-nums">${formatPoints(remaining)} poin</strong> lagi untuk mencapai target.`
                         : 'Target poin sudah tercapai.');
                 }
 
                 if (isNumber(pending) && Number(pending) > 0) {
-                    insights.push(`Bisa jadi <strong class="font-semibold text-ink tabular-nums">${formatPoints(Number(valid || 0) + Number(pending))} poin</strong> bila ${counts.pending || 'semua'} kegiatan yang menunggu disetujui DPA.`);
+                    insights.push(`Bisa jadi <strong class="font-medium text-ink tabular-nums">${formatPoints(Number(valid || 0) + Number(pending))} poin</strong> bila ${counts.pending || 'semua'} kegiatan yang menunggu disetujui DPA.`);
                 }
 
                 if (counts.invalid > 0) {
@@ -349,16 +347,16 @@
                         <div class="mycic-card-body flex flex-col gap-4">
                             <div class="flex flex-wrap items-start justify-between gap-3">
                                 <div class="min-w-0">
-                                    <h2 class="text-caption font-semibold uppercase tracking-wide text-ink-subtle" id="skkm-hero-title">Poin SKKM valid</h2>
+                                    <h2 class="text-caption font-medium text-ink-subtle" id="skkm-hero-title">Poin SKKM valid</h2>
                                     <p class="mt-1 flex flex-wrap items-baseline gap-x-2">
-                                        <span class="text-4xl font-extrabold tracking-tight text-ink tabular-nums">${formatPoints(valid)}</span>
-                                        <span class="text-base font-semibold text-ink-subtle">${required !== null ? `dari ${formatPoints(required)} poin` : 'poin'}</span>
+                                        <span class="font-mono text-4xl font-semibold tracking-[-0.02em] text-ink tabular-nums">${formatPoints(valid)}</span>
+                                        <span class="text-sm font-medium text-ink-subtle">${required !== null ? `dari ${formatPoints(required)} poin` : 'poin'}</span>
                                     </p>
                                 </div>
                                 ${graduationBadge}
                             </div>
                             ${progress}
-                            ${graduation.text ? `<p class="text-sm text-ink-muted">Status di portal: <span class="font-semibold text-ink">“${app.escapeHtml(graduation.text)}”</span></p>` : ''}
+                            ${graduation.text ? `<p class="text-sm text-ink-muted">Status di portal: <span class="font-medium text-ink">“${app.escapeHtml(graduation.text)}”</span></p>` : ''}
                             ${insights.length ? `<ul class="flex list-disc flex-col gap-1 ps-5 text-sm text-ink-muted">${insights.map((text) => `<li>${text}</li>`).join('')}</ul>` : ''}
                         </div>
                     </div>
@@ -378,7 +376,7 @@
                 metricsHost.innerHTML = metrics.map((metric) => `
                     <button
                         type="button"
-                        class="mycic-metric min-w-0 p-3 text-start transition-colors sm:p-4 md:p-5 hover:border-brand/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:pointer-events-none disabled:opacity-60 aria-pressed:border-brand aria-pressed:bg-surface-tint"
+                        class="mycic-metric min-w-0 cursor-pointer p-3 text-start transition-colors duration-150 sm:p-4 md:p-5 hover:bg-surface/50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand disabled:pointer-events-none disabled:opacity-60 aria-pressed:bg-surface-tint"
                         aria-pressed="${filter === metric.key ? 'true' : 'false'}"
                         data-skkm-filter="${metric.key}"
                         ${unavailable ? 'disabled' : ''}
@@ -400,7 +398,7 @@
                     return `
                         <button type="button" class="${segmentClass(active)}" aria-pressed="${active ? 'true' : 'false'}" data-skkm-filter="${option.key}" ${!data || data.found === false ? 'disabled' : ''}>
                             ${option.label}
-                            <span class="tabular-nums ${active ? 'text-brand' : 'text-ink-subtle'}">${count}</span>
+                            <span class="font-mono tabular-nums ${active ? 'text-brand-text' : 'text-ink-subtle'}">${count}</span>
                         </button>
                     `;
                 }).join('');
@@ -439,12 +437,12 @@
                     <li class="flex flex-col gap-2.5 border-b border-border-light p-4 last:border-b-0 md:px-5">
                         <div class="flex items-start justify-between gap-3">
                             <div class="min-w-0 flex-1">
-                                <h3 class="text-sm font-bold text-ink wrap-break-word">${app.escapeHtml(entry.name || 'Kegiatan')}</h3>
+                                <h3 class="text-sm font-medium leading-snug text-ink wrap-break-word">${app.escapeHtml(entry.name || 'Kegiatan')}</h3>
                                 ${chip ? `<p class="mt-1.5"><span class="mycic-chip max-w-full whitespace-normal">${app.escapeHtml(chip)}</span></p>` : ''}
                                 ${entry.type ? `<p class="mt-1.5 line-clamp-2 text-caption text-ink-subtle">${app.escapeHtml(entry.type)}</p>` : ''}
                             </div>
                             <div class="flex shrink-0 flex-col items-end gap-1.5 text-end">
-                                <span class="text-base font-bold text-ink tabular-nums">${app.escapeHtml(entry.points_label || formatPoints(entry.points))} <span class="text-caption font-semibold text-ink-subtle">poin</span></span>
+                                <span class="font-mono text-base font-medium text-ink tabular-nums">${app.escapeHtml(entry.points_label || formatPoints(entry.points))} <span class="font-sans text-caption font-medium text-ink-subtle">poin</span></span>
                                 ${app.renderBadge(status.label, status.tone)}
                             </div>
                         </div>
@@ -499,10 +497,10 @@
                     ? `
                         <a href="${app.escapeHtml(href)}" target="_blank" rel="noopener" class="mycic-sheet-action" data-online-required data-skkm-guide>
                             <span class="mycic-sheet-action-icon">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3v4a1 1 0 0 0 1 1h4" /><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z" /><path d="M9 17h6" /><path d="M9 13h6" /></svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3v4a1 1 0 0 0 1 1h4" /><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z" /><path d="M9 17h6" /><path d="M9 13h6" /></svg>
                             </span>
                             <span class="min-w-0 flex-1">
-                                <span class="block font-semibold text-ink">Pedoman SKKM${data.guide_year ? ` ${app.escapeHtml(data.guide_year)}` : ''}</span>
+                                <span class="block font-medium text-ink">Pedoman SKKM${data.guide_year ? ` ${app.escapeHtml(data.guide_year)}` : ''}</span>
                                 <span class="block text-caption text-ink-subtle">PDF · dibuka lewat WeCIC, butuh internet</span>
                             </span>
                         </a>
@@ -536,12 +534,12 @@
                     : 'Halo Bapak/Ibu, saya ingin bertanya tentang SKKM saya di SIREKA. Terima kasih.';
 
                 dpaHost.innerHTML = `
-                    <p class="text-sm text-ink-muted">Kegiatan yang kamu unggah divalidasi oleh Dosen Pembimbing Akademik (DPA).${pending > 0 ? ` Saat ini <strong class="font-semibold text-ink">${pending} kegiatan</strong> masih menunggu.` : ''}</p>
+                    <p class="text-sm text-ink-muted">Kegiatan yang kamu unggah divalidasi oleh Dosen Pembimbing Akademik (DPA).${pending > 0 ? ` Saat ini <strong class="font-medium text-ink">${pending} kegiatan</strong> masih menunggu.` : ''}</p>
                     ${dpa
                         ? `
                             <div class="flex flex-wrap items-center justify-between gap-3">
                                 <span class="min-w-0">
-                                    <span class="block text-sm font-semibold text-ink">${app.escapeHtml(dpa.name)}</span>
+                                    <span class="block text-sm font-medium leading-snug text-ink">${app.escapeHtml(dpa.name)}</span>
                                     <span class="block text-caption text-ink-subtle">DPA kamu</span>
                                 </span>
                                 ${app.renderContactButton({ name: dpa.name, role: 'Dosen Pembimbing Akademik', phone: dpa.phone, whatsapp: dpa.whatsapp, email: dpa.email, message }, { label: 'Hubungi DPA' })}
@@ -587,7 +585,7 @@
                             return `
                                 <li class="min-w-0">
                                     <div class="mb-1.5 flex items-baseline justify-between gap-3">
-                                        <span class="min-w-0 text-sm font-semibold text-ink wrap-break-word">${app.escapeHtml(row.activity)}</span>
+                                        <span class="min-w-0 text-sm font-medium leading-snug text-ink wrap-break-word">${app.escapeHtml(row.activity)}</span>
                                         <span class="shrink-0 text-caption text-ink-subtle tabular-nums">${app.escapeHtml(pointsCaption(row))}</span>
                                     </div>
                                     <div class="mycic-progress-track h-2" role="img" aria-label="${app.escapeHtml(description)}">

@@ -108,7 +108,7 @@ export class OutboxFeature {
                     <h3 class="mycic-card-title">${this.escapeHtml(title)}</h3>
                     <span class="text-caption text-ink-subtle">Disimpan di WeCIC, dikirim saat portal bisa diakses</span>
                 </div>
-                <div class="divide-y divide-border-light">
+                <div class="mycic-card-body">
                     ${items.map((item) => {
                         const isQueued = item.status === 'queued';
                         const deadlinePassed = isQueued && item.deadline_passed;
@@ -128,7 +128,7 @@ export class OutboxFeature {
                                         ${this.renderBadge(item.action_label || item.action, 'brand')}
                                         ${this.renderBadge(statusLabel, tone)}
                                     </div>
-                                    <div class="font-medium text-ink">${this.escapeHtml(item.subject || item.action_label || 'Aksi portal')}</div>
+                                    <div class="text-sm font-medium leading-snug text-ink">${this.escapeHtml(item.subject || item.action_label || 'Aksi portal')}</div>
                                     ${meta ? `<div class="text-caption text-ink-subtle">${this.escapeHtml(meta)}</div>` : ''}
                                     ${item.status === 'failed' || item.status === 'expired' || item.status === 'unverified'
                                         ? `<div class="mt-1 text-caption ${this.textToneClass(tone)}">${this.escapeHtml(item.last_error || statusLabel)}</div>`

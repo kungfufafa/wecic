@@ -9,41 +9,43 @@
 @endphp
 
 <x-section title="Ringkasan studi" title-id="dashboard-metrics-title" class="min-w-0" data-dashboard-widget="metrics">
-    <div class="grid grid-cols-2 gap-3">
-        @foreach ($metricTiles as $tile)
-            <a
-                href="{{ $tile['href'] }}"
-                class="mycic-metric min-w-0 transition-colors hover:border-brand/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand active:scale-[0.99]"
-                data-dashboard-metric="{{ $tile['key'] }}"
-                aria-busy="true"
-            >
-                <span class="mycic-metric-label whitespace-normal">{{ $tile['label'] }}</span>
-                <span class="mycic-metric-value break-words" data-metric-value>
-                    <span class="mycic-skeleton block h-7 w-16" aria-hidden="true"></span>
+    <div class="mycic-card overflow-hidden">
+        <div class="grid grid-cols-2 gap-px bg-border-light">
+            @foreach ($metricTiles as $tile)
+                <a
+                    href="{{ $tile['href'] }}"
+                    class="mycic-metric min-w-0 rounded-none border-0 transition-colors duration-150 hover:bg-surface/50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand"
+                    style="box-shadow: none;"
+                    data-dashboard-metric="{{ $tile['key'] }}"
+                    aria-busy="true"
+                >
+                    <span class="mycic-metric-label whitespace-normal">{{ $tile['label'] }}</span>
+                    <span class="mycic-metric-value break-words" data-metric-value>
+                        <span class="mycic-skeleton block h-7 w-16" aria-hidden="true"></span>
+                    </span>
+                    <span class="mycic-metric-note flex items-center gap-1.5" data-metric-note>Memuat…</span>
+                    @if ($tile['bar'])
+                        <span class="mt-auto block pt-1" data-metric-bar aria-hidden="true"></span>
+                    @endif
+                </a>
+            @endforeach
+        </div>
+        <a
+            href="{{ route('skkm.index') }}"
+            class="flex min-w-0 flex-col gap-2 border-t border-border-light bg-panel p-4 transition-colors duration-150 hover:bg-surface/50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand md:p-5"
+            data-dashboard-metric="skkm"
+            aria-busy="true"
+        >
+            <span class="flex items-baseline justify-between gap-3">
+                <span class="mycic-metric-label">Poin SKKM</span>
+                <span class="shrink-0 font-mono text-sm font-medium tabular-nums" data-metric-value>
+                    <span class="mycic-skeleton block h-4 w-16" aria-hidden="true"></span>
                 </span>
-                <span class="mycic-metric-note flex items-center gap-1.5" data-metric-note>Memuat…</span>
-                @if ($tile['bar'])
-                    <span class="mt-auto block pt-1" data-metric-bar aria-hidden="true"></span>
-                @endif
-            </a>
-        @endforeach
-    </div>
-    <x-card
-        as="a"
-        :href="route('skkm.index')"
-        class="mt-3 flex min-w-0 flex-col gap-2 p-4 transition-colors hover:border-brand/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand active:scale-[0.99] md:p-5"
-        data-dashboard-metric="skkm"
-        aria-busy="true"
-    >
-        <span class="flex items-baseline justify-between gap-3">
-            <span class="mycic-metric-label">Poin SKKM</span>
-            <span class="shrink-0 text-sm font-bold tabular-nums" data-metric-value>
-                <span class="mycic-skeleton block h-4 w-16" aria-hidden="true"></span>
             </span>
-        </span>
-        <span class="block" data-metric-bar aria-hidden="true">
-            <span class="mycic-progress-track h-1.5"></span>
-        </span>
-        <span class="mycic-metric-note flex items-center gap-1.5" data-metric-note>Memuat…</span>
-    </x-card>
+            <span class="block" data-metric-bar aria-hidden="true">
+                <span class="mycic-progress-track h-1.5"></span>
+            </span>
+            <span class="mycic-metric-note flex items-center gap-1.5" data-metric-note>Memuat…</span>
+        </a>
+    </div>
 </x-section>

@@ -13,20 +13,20 @@
                                     ${app.renderBadge(c.courseCode || '-', 'brand')}
                                     <span>${app.escapeHtml(c.lecturerName)}</span>
                                 </div>
-                                <h3 class="mb-2 text-subtitle font-bold text-ink">
-                                    ${c.classUrl ? `<a href="${c.classUrl}" class="text-ink no-underline hover:text-brand">${app.escapeHtml(c.courseName)}</a>` : app.escapeHtml(c.courseName)}
+                                <h3 class="mb-2 text-sm font-medium leading-snug text-ink">
+                                    ${c.classUrl ? `<a href="${c.classUrl}" class="text-ink no-underline transition-colors hover:text-brand-text">${app.escapeHtml(c.courseName)}</a>` : app.escapeHtml(c.courseName)}
                                 </h3>
                                 <div class="flex flex-wrap gap-3 text-caption text-ink-subtle">
                                     <span class="inline-flex items-center gap-1">
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 7a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12z" /><path d="M16 3v4" /><path d="M8 3v4" /><path d="M4 11h16" /><path d="M11 15h1" /><path d="M12 15v3" /></svg>
-                                        <span class="${app.textToneClass('brand')}">${app.escapeHtml(c.day || '-')}</span> &middot; ${app.escapeHtml(c.formattedTime)}
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" width="16" height="16" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 7a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12z" /><path d="M16 3v4" /><path d="M8 3v4" /><path d="M4 11h16" /><path d="M11 15h1" /><path d="M12 15v3" /></svg>
+                                        <span class="${app.textToneClass('brand')}">${app.escapeHtml(c.day || '-')}</span> &middot; <span class="font-mono tabular-nums">${app.escapeHtml(c.formattedTime)}</span>
                                     </span>
                                     <span class="inline-flex items-center gap-1">
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 19l18 0" /><path d="M5 6m0 1a1 1 0 0 1 1 -1h12a1 1 0 0 1 1 1v12a1 1 0 0 1 -1 1h-12a1 1 0 0 1 -1 -1z" /></svg>
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 19l18 0" /><path d="M5 6m0 1a1 1 0 0 1 1 -1h12a1 1 0 0 1 1 1v12a1 1 0 0 1 -1 1h-12a1 1 0 0 1 -1 -1z" /></svg>
                                         ${app.escapeHtml(c.className)}
                                     </span>
                                     <span class="inline-flex items-center gap-1">
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 7l6 -3l6 3l6 -3l0 13l-6 3l-6 -3l-6 3l0 -13" /><path d="M9 4l0 13" /><path d="M15 7l0 13" /></svg>
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 7l6 -3l6 3l6 -3l0 13l-6 3l-6 -3l-6 3l0 -13" /><path d="M9 4l0 13" /><path d="M15 7l0 13" /></svg>
                                         ${app.escapeHtml(c.roomName)}
                                     </span>
                                 </div>
@@ -91,10 +91,14 @@
 
                 unscheduledHost.classList.remove('hidden');
                 unscheduledHost.innerHTML = `
-                    <div class="mycic-card p-4">
-                        <h3 class="text-subtitle font-bold text-ink mb-3">Tanpa jadwal tetap (${unscheduled.length})</h3>
-                        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                            ${unscheduled.map(renderCard).join('')}
+                    <div class="mycic-card">
+                        <div class="mycic-card-header">
+                            <h3 class="mycic-card-title">Tanpa jadwal tetap (${unscheduled.length})</h3>
+                        </div>
+                        <div class="mycic-card-body">
+                            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                ${unscheduled.map(renderCard).join('')}
+                            </div>
                         </div>
                     </div>
                 `;

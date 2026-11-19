@@ -74,13 +74,13 @@
 
                 return `
                     <li class="min-w-0">
-                        <a href="${esc(href)}" class="mycic-card flex h-full min-w-0 flex-col gap-2 p-4 transition-colors hover:border-brand/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand active:scale-[0.99]">
+                        <a href="${esc(href)}" class="mycic-card-interactive flex h-full min-w-0 flex-col gap-2">
                             <span class="flex flex-wrap items-center gap-2">
                                 ${app.renderBadge(item.category_label || 'Umum', ANNOUNCEMENT_TONES[item.category] || 'secondary')}
                                 ${isNew ? app.renderBadge('Baru', 'brand') : ''}
                                 ${deadline ? app.renderBadge(deadlineLabel, deadlineTone) : ''}
                             </span>
-                            <span class="line-clamp-2 text-sm font-semibold text-ink">${esc(item.title || 'Pengumuman kampus')}</span>
+                            <span class="line-clamp-2 text-sm font-medium leading-snug text-ink">${esc(item.title || 'Pengumuman kampus')}</span>
                             ${meta ? `<span class="text-caption text-ink-subtle">${esc(meta)}</span>` : ''}
                             ${item.excerpt ? `<span class="line-clamp-2 text-caption text-ink-muted">${esc(item.excerpt)}</span>` : ''}
                         </a>

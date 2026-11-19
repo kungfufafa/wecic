@@ -4,8 +4,20 @@
 @section('page_id', 'exam-show')
 
 @section('content')
-    <div id="exam-hero">
-        {!! '<div class="mycic-alert-neutral mb-4">Menunggu ringkasan ujian.</div>' !!}
+    <div id="exam-hero" class="mb-5">
+        <div class="mb-4 flex flex-col gap-2" aria-busy="true">
+            <span class="sr-only">Memuat detail ujian…</span>
+            <div class="mycic-skeleton h-8 w-2/3 max-w-md"></div>
+            <div class="mycic-skeleton h-4 w-1/2 max-w-sm"></div>
+        </div>
+        <div class="mycic-stat-strip grid-cols-2 xl:grid-cols-4" aria-hidden="true">
+            @for ($i = 0; $i < 4; $i++)
+                <div class="mycic-metric">
+                    <div class="mycic-skeleton h-3 w-16"></div>
+                    <div class="mycic-skeleton mt-1 h-7 w-20"></div>
+                </div>
+            @endfor
+        </div>
     </div>
 
     {{-- An answer queued for this exam while offline: not at the portal yet. --}}
@@ -13,11 +25,25 @@
 
     <div class="grid items-start gap-4 lg:grid-cols-12">
         <div class="lg:col-span-8" id="exam-content">
-            {!! '<div class="mycic-alert-neutral mb-0">Menunggu konten ujian.</div>' !!}
+            <x-card aria-busy="true">
+                <x-card.body class="flex flex-col gap-3">
+                    <div class="mycic-skeleton h-5 w-36"></div>
+                    <div class="mycic-skeleton h-4 w-full"></div>
+                    <div class="mycic-skeleton h-4 w-3/4"></div>
+                </x-card.body>
+            </x-card>
         </div>
 
         <div class="flex flex-col gap-4 lg:col-span-4" id="exam-actions">
-            {!! '<div class="mycic-alert-neutral mb-0">Form unggah akan muncul jika tersedia.</div>' !!}
+            <x-card aria-busy="true">
+                <x-card.header>
+                    <div class="mycic-skeleton h-5 w-32"></div>
+                </x-card.header>
+                <x-card.body class="flex flex-col gap-3">
+                    <div class="mycic-skeleton h-14 w-full rounded-[var(--radius-control)]"></div>
+                    <div class="mycic-skeleton h-11 w-full rounded-lg"></div>
+                </x-card.body>
+            </x-card>
         </div>
     </div>
 @endsection
@@ -69,7 +95,7 @@
                 return `
                     <p class="mb-2 text-caption text-ink-subtle">Isian tambahan dari form portal (opsional).</p>
                     ${entries.map(([name, value], index) => `
-                        <div class="mb-3">
+                        <div class="mycic-field mb-3">
                             <label class="mycic-label" for="exam-field-${index}">${app.escapeHtml(FIELD_LABELS[name] || name.replace(/^data\[(.+)\]$/, '$1'))}</label>
                             <input id="exam-field-${index}" class="mycic-input" data-override-field="${app.escapeHtml(name)}" value="${app.escapeHtml(value)}">
                         </div>
@@ -137,13 +163,13 @@
                                                 ${app.renderBadge(badge, 'brand')}
                                                 <span class="text-caption text-ink-subtle">${app.escapeHtml(filename)}</span>
                                             </div>
-                                            <h3 class="mb-1 text-subtitle font-bold text-ink">${app.escapeHtml(title)}</h3>
+                                            <h3 class="mb-1 text-sm font-medium leading-snug text-ink">${app.escapeHtml(title)}</h3>
                                             <div class="break-all text-caption text-ink-subtle">${app.escapeHtml(link.url || '')}</div>
                                         </div>
                                         <div class="shrink-0">
                                             <div class="flex flex-wrap justify-end gap-2">
-                                                ${absoluteUrl ? `<a href="${app.escapeHtml(absoluteUrl)}" target="_blank" rel="noreferrer" class="${app.buttonClass('primary')}">Buka</a>` : ''}
-                                                ${downloadUrl ? `<a href="${app.escapeHtml(downloadUrl)}" class="${app.buttonClass('secondary')}">Download</a>` : ''}
+                                                ${absoluteUrl ? `<a href="${app.escapeHtml(absoluteUrl)}" target="_blank" rel="noreferrer" class="${app.buttonClass('primary', { small: true })}">Buka</a>` : ''}
+                                                ${downloadUrl ? `<a href="${app.escapeHtml(downloadUrl)}" class="${app.buttonClass('secondary', { small: true })}">Download</a>` : ''}
                                             </div>
                                         </div>
                                     </div>
@@ -176,7 +202,7 @@
                                         <div class="mb-1 flex flex-wrap items-center gap-2">
                                             ${app.renderBadge(item.label, item.tone)}
                                         </div>
-                                        <div class="text-ink">${app.escapeHtml(item.text)}</div>
+                                        <div class="text-sm leading-relaxed text-ink">${app.escapeHtml(item.text)}</div>
                                     </div>
                                 </div>
                             `).join('')}
@@ -200,9 +226,9 @@
                                 const absoluteUrl = app.absoluteCampusUrl(link.url);
 
                                 return `
-                                    <a href="${app.escapeHtml(absoluteUrl || link.url)}" target="_blank" rel="noreferrer" class="block px-4 py-3 transition-colors hover:bg-surface md:px-5">
-                                        <div class="font-medium text-ink">${app.escapeHtml(linkLabel(link, 'Buka portal'))}</div>
-                                        <div class="break-all text-caption text-ink-subtle">${app.escapeHtml(link.url || '')}</div>
+                                    <a href="${app.escapeHtml(absoluteUrl || link.url)}" target="_blank" rel="noreferrer" class="block px-4 py-3 transition-colors duration-150 hover:bg-surface/60 md:px-5">
+                                        <div class="text-sm font-medium leading-snug text-ink">${app.escapeHtml(linkLabel(link, 'Buka portal'))}</div>
+                                        <div class="mt-0.5 break-all text-caption text-ink-subtle">${app.escapeHtml(link.url || '')}</div>
                                     </a>
                                 `;
                             }).join('')}
@@ -221,15 +247,15 @@
                     </div>
                     <div class="mycic-card-body">
                         <div class="${app.alertTone(uploadTone)} mb-3">
-                            <div class="font-medium">${isUploadReady ? 'Jawaban bisa dikirim dari sini.' : 'Portal tidak menampilkan form upload saat ini.'}</div>
-                            <div class="text-caption ${app.textToneClass(uploadTone)}">${app.escapeHtml(statusBadge(detail.status)[0])}</div>
+                            <div class="text-sm font-medium leading-snug text-ink">${isUploadReady ? 'Jawaban bisa dikirim dari sini.' : 'Portal tidak menampilkan form upload saat ini.'}</div>
+                            <div class="mt-0.5 text-caption ${app.textToneClass(uploadTone)}">${app.escapeHtml(statusBadge(detail.status)[0])}</div>
                         </div>
                         ${isUploadReady ? `
                             <form id="exam-upload-form">
-                                <div class="mb-3">
+                                <div class="mycic-field mb-3">
                                     <label for="exam-file" class="mycic-label">Lampiran jawaban</label>
                                     <input id="exam-file" type="file" class="mycic-input" accept=".pdf,.zip,.rar" aria-describedby="exam-file-hint" required>
-                                    <p id="exam-file-hint" class="mt-1 text-caption text-ink-subtle">PDF, ZIP, atau RAR, maks. 20 MB.</p>
+                                    <p id="exam-file-hint" class="mycic-field-hint">PDF, ZIP, atau RAR, maks. 20 MB.</p>
                                 </div>
                                 ${buildOverrideInputs(form)}
                                 <div class="mycic-sticky-action">
@@ -266,8 +292,8 @@
                             <div class="flex flex-col gap-3">
                                 ${fields.map((item) => `
                                     <div>
-                                        <div class="mb-1 text-caption uppercase tracking-wide text-ink-subtle">${app.escapeHtml(item.label)}</div>
-                                        <div class="break-all font-medium text-ink">${app.escapeHtml(item.value)}</div>
+                                        <div class="mb-1 text-caption font-medium text-ink-subtle">${app.escapeHtml(item.label)}</div>
+                                        <div class="break-all text-sm font-medium leading-snug text-ink">${app.escapeHtml(item.value)}</div>
                                     </div>
                                 `).join('')}
                             </div>

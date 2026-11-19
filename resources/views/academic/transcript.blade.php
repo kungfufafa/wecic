@@ -44,7 +44,7 @@
         <section class="mycic-card" aria-labelledby="transcript-sim-title" id="transcript-simulator">
             <div class="mycic-card-header">
                 <h2 class="mycic-card-title" id="transcript-sim-title">Simulasi target IPK</h2>
-                <p class="mt-0.5 text-caption text-ink-subtle">Berapa rata-rata IPS yang kamu butuhkan supaya IPK mencapai target.</p>
+                <p class="mycic-card-subtitle">Berapa rata-rata IPS yang kamu butuhkan supaya IPK mencapai target.</p>
             </div>
             <form class="mycic-card-body flex flex-col gap-4" id="transcript-sim-form" novalidate>
                 <div class="grid gap-4 sm:grid-cols-2">
@@ -95,18 +95,18 @@
             <div class="mycic-card-header flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div class="min-w-0">
                     <h2 class="mycic-card-title" id="transcript-table-title">Daftar nilai</h2>
-                    <p class="mt-0.5 text-caption text-ink-subtle" id="transcript-table-caption">Nilai terbaik tiap mata kuliah.</p>
+                    <p class="mycic-card-subtitle" id="transcript-table-caption">Nilai terbaik tiap mata kuliah.</p>
                 </div>
                 <div class="mycic-input-wrap w-full sm:w-64">
                     <label for="transcript-search" class="sr-only">Cari mata kuliah, kode, atau nilai</label>
                     <span class="mycic-input-icon">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0 -14 0" /><path d="M21 21l-6 -6" /></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0 -14 0" /><path d="M21 21l-6 -6" /></svg>
                     </span>
                     <input
                         type="search"
                         id="transcript-search"
-                        class="mycic-input mycic-input-with-icon text-sm"
-                        placeholder="Cari mata kuliah…"
+                        class="mycic-input mycic-input-with-icon"
+                        placeholder="Cari mata kuliah"
                         autocomplete="off"
                         aria-controls="transcript-table"
                         disabled
@@ -163,7 +163,7 @@
             const letterOrder = ['A', 'A-', 'B+', 'B', 'B-', 'C+', 'C', 'C-', 'D+', 'D', 'E'];
             const letterClasses = {
                 success: 'bg-success-soft text-success',
-                brand: 'bg-surface-tint text-brand-pressed',
+                brand: 'bg-surface-tint text-brand-text',
                 warning: 'bg-warning-soft text-warning',
                 danger: 'bg-danger-soft text-danger',
                 neutral: 'bg-surface text-ink-subtle',
@@ -182,7 +182,7 @@
             const formatIp = (value) => (typeof value === 'number' && Number.isFinite(value) ? value.toFixed(2) : '–');
 
             const letterBadge = (letter, size = 'h-9 w-9 text-sm') => `
-                <span class="flex ${size} shrink-0 items-center justify-center rounded-lg font-bold ${letterClasses[letterTone(letter)]}" aria-hidden="true">${esc(letter || '–')}</span>
+                <span class="flex ${size} shrink-0 items-center justify-center rounded-lg font-mono font-medium ${letterClasses[letterTone(letter)]}" aria-hidden="true">${esc(letter || '–')}</span>
             `;
 
             // Only graded SKS weigh in the IPK: conversion SKS (part of sks_passed) carry no grade.
@@ -226,13 +226,13 @@
                 const fieldLabels = { ipk: 'IPK', sks_total: 'jumlah SKS', quality_points_total: 'total mutu' };
 
                 if (summary.source === 'computed') {
-                    alerts.push(`<div class="${app.alertTone('info')}">Ringkasan resmi portal belum terbaca. Angka di halaman ini <strong class="font-semibold">dihitung WeCIC</strong> dari KHS.</div>`);
+                    alerts.push(`<div class="${app.alertTone('info')}">Ringkasan resmi portal belum terbaca. Angka di halaman ini <strong class="font-medium text-ink">dihitung WeCIC</strong> dari KHS.</div>`);
                 } else if (summary.mismatch) {
                     const fields = (summary.mismatch_fields || []).map((field) => fieldLabels[field] || field).join(', ');
 
                     alerts.push(`
                         <div class="${app.alertTone('warning')}">
-                            <div class="font-semibold">Angka resmi portal berbeda dengan hitungan WeCIC</div>
+                            <div class="font-medium">Angka resmi portal berbeda dengan hitungan WeCIC</div>
                             <p class="mt-1">Yang berbeda: ${esc(fields || 'ringkasan nilai')}. WeCIC memakai angka resmi portal. Kalau ragu, cocokkan dengan KHS di portal kampus.</p>
                         </div>
                     `);
@@ -290,7 +290,7 @@
                         <div class="mycic-card-body grid gap-5 md:grid-cols-3 md:items-center">
                             <div class="min-w-0">
                                 <div class="mycic-metric-label" id="transcript-ipk-label">IPK</div>
-                                <div class="text-5xl font-extrabold tabular-nums tracking-tight text-ink">${esc(formatIp(summary.ipk))}</div>
+                                <div class="font-mono text-4xl font-semibold tabular-nums tracking-[-0.02em] text-ink">${esc(formatIp(summary.ipk))}</div>
                                 <div class="mt-1 text-caption text-ink-subtle">${esc(summary.sks_total ?? summary.sks_passed ?? 0)} SKS dinilai · mutu ${esc(summary.quality_points_total ?? 0)}</div>
                                 ${badges ? `<div class="mt-2 flex flex-wrap gap-1.5">${badges}</div>` : ''}
                             </div>
@@ -313,7 +313,7 @@
                                         <div class="min-w-0 rounded-[var(--radius-control)] bg-surface/60 px-3 py-2.5">
                                             <div class="flex items-baseline justify-between gap-2 sm:flex-col sm:items-start sm:gap-0.5">
                                                 <dt class="mycic-metric-label">${esc(fact.label)}</dt>
-                                                <dd class="shrink-0 text-lg font-bold tabular-nums text-ink">${esc(fact.value)}</dd>
+                                                <dd class="shrink-0 font-mono text-lg font-semibold tabular-nums text-ink">${esc(fact.value)}</dd>
                                             </div>
                                             ${fact.note ? `<dd class="text-caption text-ink-subtle">${esc(fact.note)}</dd>` : ''}
                                         </div>
@@ -343,7 +343,7 @@
                     <section class="mycic-card h-full" aria-labelledby="transcript-trend-title">
                         <div class="mycic-card-header">
                             <h2 class="mycic-card-title" id="transcript-trend-title">Tren IPS</h2>
-                            <p class="mt-0.5 text-caption text-ink-subtle">${esc(headline)}</p>
+                            <p class="mycic-card-subtitle">${esc(headline)}</p>
                         </div>
                         <div class="mycic-card-body flex flex-col gap-4">
                             ${series.length ? app.renderSparkline(series.map((point) => ({ label: `Smt ${point.semester}`, value: point.ips })), {
@@ -382,7 +382,7 @@
                     <section class="mycic-card h-full" aria-labelledby="transcript-letters-title">
                         <div class="mycic-card-header">
                             <h2 class="mycic-card-title" id="transcript-letters-title">Sebaran nilai</h2>
-                            <p class="mt-0.5 text-caption text-ink-subtle">${total ? `${esc(good)} dari ${esc(total)} MK bernilai A atau B` : 'Jumlah MK per huruf mutu'}</p>
+                            <p class="mycic-card-subtitle">${total ? `${esc(good)} dari ${esc(total)} MK bernilai A atau B` : 'Jumlah MK per huruf mutu'}</p>
                         </div>
                         <div class="mycic-card-body">
                             ${total ? app.renderStackedBar(letters.map((letter) => ({
@@ -408,10 +408,10 @@
                         <section class="mycic-card" aria-labelledby="transcript-low-title">
                             <div class="mycic-card-body flex items-start gap-3">
                                 <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-success-soft text-success" aria-hidden="true">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5l10 -10" /></svg>
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5l10 -10" /></svg>
                                 </span>
                                 <div class="min-w-0">
-                                    <h2 class="text-sm font-bold text-ink" id="transcript-low-title">Tidak ada nilai D atau E</h2>
+                                    <h2 class="text-sm font-medium leading-snug text-ink" id="transcript-low-title">Tidak ada nilai D atau E</h2>
                                     <p class="text-caption text-ink-subtle">${cCount ? `Ada ${esc(cCount)} MK bernilai C. Mengulangnya bisa menaikkan IPK.` : 'Pertahankan! Semua mata kuliah lulus dengan nilai minimal C.'}</p>
                                 </div>
                             </div>
@@ -425,7 +425,7 @@
                     <section class="mycic-card" aria-labelledby="transcript-low-title">
                         <div class="mycic-card-header">
                             <h2 class="mycic-card-title" id="transcript-low-title">Perlu diperbaiki</h2>
-                            <p class="mt-0.5 text-caption text-ink-subtle">Nilai D dan E menurunkan IPK. Mengulang MK ini lewat KRS reguler atau Semester Pendek bisa menaikkannya.</p>
+                            <p class="mycic-card-subtitle">Nilai D dan E menurunkan IPK. Mengulang MK ini lewat KRS reguler atau Semester Pendek bisa menaikkannya.</p>
                         </div>
                         <ul class="flex flex-col px-4 md:px-5" aria-label="Mata kuliah bernilai D atau E">
                             ${courses.map((course) => {
@@ -439,11 +439,11 @@
                                     <li class="mycic-list-row items-center">
                                         ${letterBadge(course.letter)}
                                         <div class="min-w-0 flex-1">
-                                            <div class="text-sm font-semibold text-ink">${esc(course.name || 'Mata kuliah')}<span class="sr-only">, nilai ${esc(course.letter)}</span></div>
+                                            <div class="text-sm font-medium leading-snug text-ink">${esc(course.name || 'Mata kuliah')}<span class="sr-only">, nilai ${esc(course.letter)}</span></div>
                                             <div class="text-caption text-ink-subtle"><span class="font-mono">${esc(course.code || '–')}</span> · Smt ${esc(course.semester ?? '–')} · ${esc(courseSks)} SKS${course.attempt_count > 1 ? ` · sudah diambil ${esc(course.attempt_count)}×` : ''}</div>
                                             <div class="mt-1 flex flex-wrap items-center gap-1.5">
                                                 ${retaking ? app.renderBadge('Sedang diulang semester ini', 'brand') : ''}
-                                                ${projected !== null && gain > 0 ? `<span class="text-caption text-ink-muted">Kalau diulang dan dapat B, IPK jadi <span class="font-semibold tabular-nums text-success">${esc(formatIp(projected))}</span> (+${esc(gain.toFixed(2))})</span>` : ''}
+                                                ${projected !== null && gain > 0 ? `<span class="text-caption text-ink-muted">Kalau diulang dan dapat B, IPK jadi <span class="font-medium tabular-nums text-success">${esc(formatIp(projected))}</span> (+${esc(gain.toFixed(2))})</span>` : ''}
                                             </div>
                                         </div>
                                     </li>
@@ -515,7 +515,7 @@
                                         <tr>
                                             <td class="tabular-nums">${esc(row.semester ?? '–')}</td>
                                             <td class="whitespace-nowrap font-mono text-caption">${esc(row.code || '–')}</td>
-                                            <td><span class="font-semibold text-ink">${esc(row.name || 'Mata kuliah')}</span> ${attempts(row)}</td>
+                                            <td><span class="font-medium text-ink">${esc(row.name || 'Mata kuliah')}</span> ${attempts(row)}</td>
                                             <td class="text-end tabular-nums">${esc(row.sks ?? '–')}</td>
                                             <td><div class="flex justify-center">${letterBadge(row.letter, 'h-8 w-8 text-xs')}<span class="sr-only">${esc(row.letter)}</span></div></td>
                                             <td class="text-end tabular-nums">${esc(row.quality_points ?? '–')}</td>
@@ -530,7 +530,7 @@
                             <li class="mycic-list-row items-center">
                                 ${letterBadge(row.letter)}
                                 <div class="min-w-0 flex-1">
-                                    <div class="text-sm font-semibold text-ink">${esc(row.name || 'Mata kuliah')}<span class="sr-only">, nilai ${esc(row.letter)}</span></div>
+                                    <div class="text-sm font-medium leading-snug text-ink">${esc(row.name || 'Mata kuliah')}<span class="sr-only">, nilai ${esc(row.letter)}</span></div>
                                     <div class="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-caption text-ink-subtle">
                                         <span class="font-mono">${esc(row.code || '–')}</span><span aria-hidden="true">·</span><span>Smt ${esc(row.semester ?? '–')}</span><span aria-hidden="true">·</span><span>${esc(row.sks ?? '–')} SKS</span>
                                         ${attempts(row)}
@@ -538,7 +538,7 @@
                                 </div>
                                 <div class="shrink-0 text-end">
                                     <div class="text-caption text-ink-subtle">Mutu</div>
-                                    <div class="text-sm font-bold tabular-nums text-ink">${esc(row.quality_points ?? '–')}</div>
+                                    <div class="font-mono text-sm font-medium tabular-nums text-ink">${esc(row.quality_points ?? '–')}</div>
                                 </div>
                             </li>
                         `).join('')}
@@ -578,18 +578,18 @@
                     currentLoad ? { label: `Semester ini · ${currentLoad.sks} SKS`, value: currentLoad.sks } : null,
                     remaining ? { label: `Sampai lulus · ${remaining} SKS`, value: remaining } : null,
                 ].filter(Boolean);
-                const button = (attribute, value, label, note = '') => `<button type="button" class="mycic-chip min-h-11 sm:min-h-9 transition-colors hover:border-brand/40 hover:text-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand aria-pressed:border-brand aria-pressed:bg-surface-tint aria-pressed:text-brand-pressed" ${attribute}="${esc(value)}" aria-pressed="false">${esc(label)}${note ? ` <span class="text-success" aria-hidden="true">✓</span><span class="sr-only">, ${esc(note)}</span>` : ''}</button>`;
+                const button = (attribute, value, label, note = '') => `<button type="button" class="mycic-chip cursor-pointer min-h-11 sm:min-h-9 transition-colors hover:border-ink-subtle/40 hover:text-brand-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand aria-pressed:border-brand aria-pressed:bg-surface-tint aria-pressed:text-brand-text" ${attribute}="${esc(value)}" aria-pressed="false">${esc(label)}${note ? ` <svg xmlns="http://www.w3.org/2000/svg" class="inline h-3.5 w-3.5 text-success" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5l10 -10" /></svg><span class="sr-only">, ${esc(note)}</span>` : ''}</button>`;
 
                 hosts.simPresets.innerHTML = `
                     ${targets.length ? `
                         <div class="flex flex-wrap items-center gap-2" role="group" aria-label="Target predikat kelulusan">
-                            <span class="text-caption font-semibold text-ink-subtle">Predikat:</span>
+                            <span class="text-caption font-medium text-ink-subtle">Predikat:</span>
                             ${targets.map((item) => button('data-sim-target', item.target_ipk, `${item.predicate} · ${Number(item.target_ipk).toFixed(2)}`, item.already_reached ? 'sudah tercapai' : '')).join('')}
                         </div>
                     ` : ''}
                     ${sksPresets.length ? `
                         <div class="flex flex-wrap items-center gap-2" role="group" aria-label="Jumlah SKS">
-                            <span class="text-caption font-semibold text-ink-subtle">SKS:</span>
+                            <span class="text-caption font-medium text-ink-subtle">SKS:</span>
                             ${sksPresets.map((item) => button('data-sim-sks', item.value, item.label)).join('')}
                         </div>
                     ` : ''}
@@ -653,7 +653,7 @@
                 if (result.required === 0) {
                     hosts.simResult.innerHTML = `
                         <div class="${app.statusPanelClass('success')}" data-sim-outcome="safe">
-                            <div class="text-sm font-bold">Target aman</div>
+                            <div class="text-sm font-medium leading-snug">Target aman</div>
                             <p class="mt-0.5 text-sm text-ink">IPK kamu tetap minimal ${esc(target)} berapa pun nilai di ${esc(additionalSks)} SKS berikutnya.</p>
                         </div>
                     `;
@@ -664,7 +664,7 @@
                 if (!result.achievable) {
                     hosts.simResult.innerHTML = `
                         <div class="rounded-[var(--radius-control)] bg-danger-soft p-3" data-sim-outcome="unreachable">
-                            <div class="text-sm font-bold text-danger">${oneSemester ? 'Tidak tercapai semester ini' : `Tidak tercapai dengan ${esc(additionalSks)} SKS`}</div>
+                            <div class="text-sm font-medium leading-snug text-danger">${oneSemester ? 'Tidak tercapai semester ini' : `Tidak tercapai dengan ${esc(additionalSks)} SKS`}</div>
                             <p class="mt-0.5 text-sm text-ink">Butuh rata-rata IPS ${esc(result.required.toFixed(2))}, padahal nilai maksimal 4.00. Coba hitung dengan lebih banyak SKS atau turunkan target.</p>
                         </div>
                     `;
@@ -682,8 +682,8 @@
                 hosts.simResult.innerHTML = `
                     <div class="${app.statusPanelClass(tone)} flex items-center gap-4" data-sim-outcome="reachable">
                         <div class="shrink-0 text-center">
-                            <div class="text-3xl font-bold leading-none tabular-nums">${esc(result.required.toFixed(2))}</div>
-                            <div class="mt-1 text-[0.65rem] font-semibold uppercase tracking-wide">IPS minimal</div>
+                            <div class="font-mono text-3xl font-semibold leading-none tabular-nums">${esc(result.required.toFixed(2))}</div>
+                            <div class="mt-1 text-[11px] font-medium text-ink-subtle">IPS minimal</div>
                         </div>
                         <div class="min-w-0 text-sm text-ink">
                             <p>Rata-rata IPS yang kamu butuhkan di ${esc(additionalSks)} SKS berikutnya supaya IPK jadi ${esc(target)}.</p>

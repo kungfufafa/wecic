@@ -71,7 +71,7 @@
                     }
                 });
 
-                summaryHost.innerHTML = todayClasses.map((klass, index) => {
+                summaryHost.innerHTML = `<div class="flex flex-col gap-3">${todayClasses.map((klass, index) => {
                     const attendance = klass.attendance || {};
                     const targetReliable = attendance.target_reliable !== false;
                     // Only today's schedule takes attendance: an older day's form would
@@ -81,6 +81,13 @@
                     if (actionable) statusColor = 'primary';
                     else if (attendance.status?.already_marked && targetReliable) statusColor = 'success';
                     else if (snapshotIsToday && attendance.available && targetReliable) statusColor = 'warning';
+
+                    const bandTone = {
+                        primary: 'border-brand/20 bg-surface-tint/45',
+                        success: 'border-success/20 bg-success-soft/45',
+                        warning: 'border-warning/20 bg-warning-soft/45',
+                        danger: 'border-danger/20 bg-danger-soft/45',
+                    }[statusColor] || 'border-border-light bg-surface/40';
 
                     const materialTitle = attendance.today_material?.title;
                     const materialIsToday = attendance.today_material?.is_today !== false;
@@ -92,16 +99,16 @@
                     const attendanceNote = targetReliable ? app.todayAttendanceNote(attendance.status) : null;
 
                     return `
-                    <div class="mycic-card mb-3">
+                    <div class="mycic-card overflow-hidden">
                         <div class="mycic-card-body">
-                            <div class="mb-3 flex flex-wrap items-center gap-3">
+                            <div class="flex flex-wrap items-center gap-3">
                                 <div class="min-w-0 flex-1">
-                                    <div class="mb-1 flex flex-wrap items-center gap-2 text-sm text-ink-subtle">
-                                        <span class="font-medium">${esc(klass.schedule?.time || '-')}</span>
+                                    <div class="mb-1 flex flex-wrap items-center gap-2 text-caption text-ink-subtle">
+                                        <span class="font-mono font-medium tabular-nums">${esc(klass.schedule?.time || '-')}</span>
                                         <span>·</span>
-                                        <span class="font-medium uppercase">${esc([klass.course_code, klass.class_name].filter(Boolean).join(' · ') || 'Kelas')}</span>
+                                        <span class="font-mono font-medium">${esc([klass.course_code, klass.class_name].filter(Boolean).join(' · ') || 'Kelas')}</span>
                                     </div>
-                                    <h3 class="mb-1 text-title font-bold text-ink">${esc(klass.course_name || 'Kelas')}</h3>
+                                    <h3 class="mycic-card-title mb-1">${esc(klass.course_name || 'Kelas')}</h3>
                                     <div class="text-sm text-ink-muted">
                                         ${esc(klass.lecturer_name || '-')} · ${esc(klass.room || '-')}
                                     </div>
@@ -114,57 +121,61 @@
                             </div>
 
                             ${(attendance.meeting_number || materialLabel) && (materialIsToday || materialLabel) ? `
-                                <div class="mb-3 flex flex-wrap gap-x-3 gap-y-1 text-sm text-ink-subtle">
-                                    ${materialIsToday && attendance.meeting_number ? `<span>P${esc(attendance.meeting_number)}</span>` : ''}
-                                    ${materialLabel ? `<span class="italic">${materialIsToday ? '' : 'Materi terakhir: '}${esc(materialLabel)}</span>` : ''}
+                                <div class="mt-3 flex flex-wrap gap-x-3 gap-y-1 border-t border-border-light pt-3 text-sm text-ink-subtle">
+                                    ${materialIsToday && attendance.meeting_number ? `<span class="font-mono tabular-nums">P${esc(attendance.meeting_number)}</span>` : ''}
+                                    ${materialLabel ? `<span class="text-ink-muted">${materialIsToday ? '' : 'Materi terakhir: '}${esc(materialLabel)}</span>` : ''}
                                 </div>
                             ` : ''}
+                        </div>
 
-                            <div class="${panelTone(statusColor)}">
-                                ${!snapshotIsToday && !attendance.status?.already_marked ? `
-                                    <div class="text-sm text-ink-subtle">Absensi dibuka di sini setelah jadwal hari ini selesai dimuat.</div>
-                                ` : attendance.state === 'checking' ? `
-                                    <div class="flex items-center gap-2 text-sm text-ink-subtle" role="status">
-                                        <span class="mycic-spinner shrink-0" aria-hidden="true"></span>
-                                        <span>Mengecek status absensi di portal kampus...</span>
+                        <div class="border-t px-4 py-3 md:px-5 ${bandTone}">
+                            ${!snapshotIsToday && !attendance.status?.already_marked ? `
+                                <div class="text-sm text-ink-subtle">Absensi dibuka di sini setelah jadwal hari ini selesai dimuat.</div>
+                            ` : attendance.state === 'checking' ? `
+                                <div class="flex items-center gap-2 text-sm text-ink-subtle" role="status">
+                                    <span class="mycic-spinner shrink-0" aria-hidden="true"></span>
+                                    <span>Mengecek status absensi di portal kampus...</span>
+                                </div>
+                            ` : attendance.state === 'unavailable' ? `
+                                <div class="text-sm text-ink-subtle">Status absensi belum bisa dibaca dari portal. Buka kelasnya untuk absen.</div>
+                            ` : !targetReliable ? `
+                                <div class="text-sm text-ink-subtle">Materi hari ini belum diunggah dosen, jadi absensi belum bisa dibuka dari sini.</div>
+                            ` : attendanceNote && !actionable ? `
+                                <div class="text-sm font-medium ${textTone(statusColor)}">${esc(attendanceNote)}</div>
+                            ` : actionable ? `
+                                ${attendanceNote ? `<div class="mb-2 text-xs text-ink-subtle">${esc(attendanceNote)}</div>` : ''}
+                                <form class="flex flex-wrap items-center gap-2" data-attendance-card="${index}" data-attendance-key="${esc(attendanceKey)}">
+                                    <div class="w-full min-w-0 md:w-auto md:min-w-[12rem] md:flex-1">
+                                        <label class="sr-only" for="dashboard-attendance-code-${index}">Kode absen ${esc(klass.course_name || 'kelas ini')}</label>
+                                        <input type="text" class="mycic-input bg-panel" id="dashboard-attendance-code-${index}" data-field="kode" placeholder="Kode absen" autocomplete="off" autocapitalize="off" spellcheck="false" required>
                                     </div>
-                                ` : attendance.state === 'unavailable' ? `
-                                    <div class="text-sm text-ink-subtle">Status absensi belum bisa dibaca dari portal. Buka kelasnya untuk absen.</div>
-                                ` : !targetReliable ? `
-                                    <div class="text-sm text-ink-subtle">Materi hari ini belum diunggah dosen, jadi absensi belum bisa dibuka dari sini.</div>
-                                ` : attendanceNote && !actionable ? `
-                                    <div class="text-sm font-medium ${textTone(statusColor)}">${esc(attendanceNote)}</div>
-                                ` : actionable ? `
-                                    ${attendanceNote ? `<div class="mb-2 text-xs text-ink-subtle">${esc(attendanceNote)}</div>` : ''}
-                                    <form class="flex flex-wrap items-center gap-2" data-attendance-card="${index}" data-attendance-key="${esc(attendanceKey)}">
-                                        <div class="w-full min-w-0 md:w-auto md:min-w-[12rem] md:flex-1">
-                                            <label class="sr-only" for="dashboard-attendance-code-${index}">Kode absen ${esc(klass.course_name || 'kelas ini')}</label>
-                                            <input type="text" class="mycic-input bg-panel" id="dashboard-attendance-code-${index}" data-field="kode" placeholder="Kode absen" autocomplete="off" autocapitalize="off" spellcheck="false" required>
-                                        </div>
-                                        <button type="button" class="${app.buttonClass('secondary')} bg-panel" data-qr-scan>Scan QR</button>
-                                        <div class="shrink-0">
-                                            <input type="file" class="peer sr-only" id="qr-file-${index}" data-qr-file accept="image/*">
-                                            <label class="${app.buttonClass('secondary')} mb-0 cursor-pointer bg-panel peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-brand" for="qr-file-${index}">Upload QR</label>
-                                        </div>
-                                        <button type="submit" class="${app.buttonClass('primary')} md:ms-auto" data-online-required data-outbox-capable>Kirim</button>
-                                    </form>
-                                ` : attendance.status?.already_marked ? `
-                                    <div class="text-sm font-medium ${textTone(statusColor)}">
-                                        ${esc(attendance.status?.label || 'Hadir')}${attendance.status?.time ? ` · ${esc(attendance.status.time)}` : ''}
+                                    <button type="button" class="${app.buttonClass('secondary')} bg-panel" data-qr-scan>Scan QR</button>
+                                    <div class="shrink-0">
+                                        <input type="file" class="peer sr-only" id="qr-file-${index}" data-qr-file accept="image/*">
+                                        <label class="${app.buttonClass('secondary')} mb-0 cursor-pointer bg-panel peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-brand" for="qr-file-${index}">Upload QR</label>
                                     </div>
-                                ` : attendance.available ? `
-                                    <div class="flex flex-wrap items-center justify-between gap-2 ${textTone(statusColor)}">
-                                        <span class="text-sm font-medium">Absensi tersedia</span>
-                                        <a href="${esc(attendance.meeting_url || '/class')}" class="text-xs font-bold underline">Buka</a>
-                                    </div>
-                                ` : `
-                                    <div class="text-sm text-ink-subtle">Belum ada absensi.</div>
-                                `}
-                            </div>
+                                    <button type="submit" class="${app.buttonClass('primary')} md:ms-auto" data-online-required data-outbox-capable>Kirim</button>
+                                </form>
+                            ` : attendance.status?.already_marked ? `
+                                <div class="flex items-center gap-2 text-sm font-medium ${textTone(statusColor)}">
+                                    <span class="h-1.5 w-1.5 shrink-0 rounded-full bg-success" aria-hidden="true"></span>
+                                    <span>${esc(attendance.status?.label || 'Hadir')}${attendance.status?.time ? ` · ${esc(attendance.status.time)}` : ''}</span>
+                                </div>
+                            ` : attendance.available ? `
+                                <div class="flex flex-wrap items-center justify-between gap-2 ${textTone(statusColor)}">
+                                    <span class="flex items-center gap-2 text-sm font-medium">
+                                        <span class="h-1.5 w-1.5 shrink-0 rounded-full bg-warning" aria-hidden="true"></span>
+                                        <span>Absensi tersedia</span>
+                                    </span>
+                                    <a href="${esc(attendance.meeting_url || '/class')}" class="text-xs font-medium underline">Buka</a>
+                                </div>
+                            ` : `
+                                <div class="text-sm text-ink-subtle">Belum ada absensi.</div>
+                            `}
                         </div>
                     </div>
                     `;
-                }).join('');
+                }).join('')}</div>`;
 
                 summaryHost.querySelectorAll('[data-attendance-card]').forEach((form) => {
                     const classIndex = Number(form.dataset.attendanceCard);

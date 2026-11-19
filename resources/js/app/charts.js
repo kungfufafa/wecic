@@ -43,14 +43,14 @@ export class ChartFeature {
                     <li class="inline-flex items-center gap-1.5">
                         <span class="h-2.5 w-2.5 shrink-0 rounded-sm ${this.fillToneClass(part.tone || tone)}${part.striped ? ' mycic-progress-striped' : ''}" aria-hidden="true"></span>
                         <span>${this.escapeHtml(part.label)}</span>
-                        ${isNumber(part.value) ? `<span class="font-semibold tabular-nums text-ink">${this.escapeHtml(part.valueLabel ?? part.value)}</span>` : ''}
+                        ${isNumber(part.value) ? `<span class="font-medium tabular-nums text-ink">${this.escapeHtml(part.valueLabel ?? part.value)}</span>` : ''}
                     </li>
                 `),
                 remainderLabel ? `
                     <li class="inline-flex items-center gap-1.5">
                         <span class="h-2.5 w-2.5 shrink-0 rounded-sm border border-border bg-surface" aria-hidden="true"></span>
                         <span>${this.escapeHtml(remainderLabel)}</span>
-                        ${known ? `<span class="font-semibold tabular-nums text-ink">${this.escapeHtml(Math.max(0, safeMax - total))}</span>` : ''}
+                        ${known ? `<span class="font-medium tabular-nums text-ink">${this.escapeHtml(Math.max(0, safeMax - total))}</span>` : ''}
                     </li>
                 ` : '',
             ].join('')
@@ -60,7 +60,7 @@ export class ChartFeature {
             <div class="min-w-0">
                 ${label || valueLabel ? `
                     <div class="mb-1.5 flex items-baseline justify-between gap-3 text-sm">
-                        <span class="min-w-0 truncate font-semibold text-ink">${this.escapeHtml(label)}</span>
+                        <span class="min-w-0 truncate font-medium text-ink">${this.escapeHtml(label)}</span>
                         <span class="shrink-0 tabular-nums text-ink-muted">${this.escapeHtml(shownValue)}</span>
                     </div>
                 ` : ''}
@@ -116,6 +116,7 @@ export class ChartFeature {
         const padX = 8;
         const padY = 8;
         const baseline = height - padY;
+        const midY = (padY + baseline) / 2;
         const coords = valid.map((point, index) => ({
             ...point,
             x: valid.length === 1 ? width / 2 : padX + (index * (width - padX * 2)) / (valid.length - 1),
@@ -131,7 +132,7 @@ export class ChartFeature {
 
             return `
                 <g>
-                    ${showDot ? `<circle cx="${point.x.toFixed(1)}" cy="${point.y.toFixed(1)}" r="4" fill="currentColor" stroke="var(--color-panel)" stroke-width="2"></circle>` : ''}
+                    ${showDot ? `<circle cx="${point.x.toFixed(1)}" cy="${point.y.toFixed(1)}" r="4" fill="currentColor" stroke="var(--color-panel)" stroke-width="1.5"></circle>` : ''}
                     <circle cx="${point.x.toFixed(1)}" cy="${point.y.toFixed(1)}" r="12" fill="transparent"><title>${this.escapeHtml(point.label)}: ${this.escapeHtml(format(point.value))}</title></circle>
                 </g>
             `;
@@ -141,15 +142,17 @@ export class ChartFeature {
         return `
             <figure class="m-0 min-w-0">
                 <svg class="block h-auto w-full overflow-visible ${this.textToneClass(tone)}" viewBox="0 0 ${width} ${height}" role="img" aria-label="${this.escapeHtml(summary)}">
+                    <line x1="${padX}" y1="${padY}" x2="${width - padX}" y2="${padY}" stroke="var(--color-border-light)" stroke-width="1" stroke-dasharray="2 3"></line>
+                    <line x1="${padX}" y1="${midY.toFixed(1)}" x2="${width - padX}" y2="${midY.toFixed(1)}" stroke="var(--color-border-light)" stroke-width="1" stroke-dasharray="2 3"></line>
                     <line x1="${padX}" y1="${baseline}" x2="${width - padX}" y2="${baseline}" stroke="var(--color-border-light)" stroke-width="1"></line>
-                    ${areaPath ? `<path d="${areaPath}" fill="currentColor" fill-opacity="0.1" stroke="none"></path>` : ''}
-                    ${coords.length > 1 ? `<path d="${line}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>` : ''}
+                    ${areaPath ? `<path d="${areaPath}" fill="currentColor" fill-opacity="0.06" stroke="none"></path>` : ''}
+                    ${coords.length > 1 ? `<path d="${line}" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"></path>` : ''}
                     ${marks}
                 </svg>
                 ${axisLabels ? `
-                    <figcaption class="mt-1 flex items-baseline justify-between gap-3 text-caption text-ink-subtle">
+                    <figcaption class="mt-2 flex items-baseline justify-between gap-3 font-mono text-caption text-ink-subtle tabular-nums">
                         <span class="truncate">${coords.length > 1 ? this.escapeHtml(coords[0].label) : ''}</span>
-                        <span class="shrink-0 tabular-nums">${this.escapeHtml(last.label)} · <span class="font-semibold text-ink">${this.escapeHtml(format(last.value))}</span></span>
+                        <span class="shrink-0">${this.escapeHtml(last.label)} · <span class="font-medium text-ink">${this.escapeHtml(format(last.value))}</span></span>
                     </figcaption>
                 ` : ''}
                 ${this.renderChartTable(summary, coords, format)}
@@ -197,15 +200,17 @@ export class ChartFeature {
         const columns = rows.map((row, index) => {
             const percent = row.value === null ? 0 : Math.max(0, Math.min(100, (row.value / top) * 100));
             const muted = emphasised !== -1 && index !== emphasised;
+            const barClass = muted ? 'bg-border' : this.fillToneClass(row.tone || tone);
             const valueText = row.value === null ? emptyLabel : format(row.value);
 
             return `
                 <div class="flex min-w-0 flex-1 flex-col items-center gap-1" title="${this.escapeHtml(row.label)}: ${this.escapeHtml(valueText)}">
-                    <span class="text-caption font-semibold tabular-nums ${row.value === null ? 'text-ink-subtle' : 'text-ink'}">${this.escapeHtml(valueText)}</span>
-                    <div class="flex w-full flex-1 items-end justify-center border-b border-border px-0.5 sm:px-1.5">
-                        ${row.value === null ? '' : `<div class="w-full max-w-6 rounded-t ${this.fillToneClass(row.tone || tone)}${muted ? ' opacity-40' : ''}" style="height: ${percent.toFixed(1)}%"></div>`}
+                    <span class="font-mono text-xs font-medium tabular-nums ${row.value === null ? 'text-ink-subtle' : 'text-ink'}">${this.escapeHtml(valueText)}</span>
+                    <div class="relative flex w-full flex-1 items-end justify-center border-b border-border px-1 sm:px-2">
+                        <span class="pointer-events-none absolute inset-x-0 top-1/2 border-t border-dashed border-border-light" aria-hidden="true"></span>
+                        ${row.value === null ? '' : `<div class="relative z-10 w-full max-w-6 rounded-t ${barClass}" style="height: ${percent.toFixed(1)}%"></div>`}
                     </div>
-                    <span class="w-full truncate text-center text-[0.65rem] font-medium text-ink-subtle">${this.escapeHtml(row.label)}</span>
+                    <span class="w-full truncate text-center font-mono text-xs font-medium text-ink-subtle">${this.escapeHtml(row.label)}</span>
                 </div>
             `;
         }).join('');
@@ -250,7 +255,7 @@ export class ChartFeature {
                             <li class="inline-flex items-center gap-1.5">
                                 <span class="h-2.5 w-2.5 shrink-0 rounded-sm ${this.fillToneClass(row.tone)}" aria-hidden="true"></span>
                                 <span>${this.escapeHtml(row.label)}</span>
-                                <span class="font-semibold tabular-nums text-ink">${this.escapeHtml(format(row.value))}</span>
+                                <span class="font-medium tabular-nums text-ink">${this.escapeHtml(format(row.value))}</span>
                             </li>
                         `).join('')}
                     </ul>

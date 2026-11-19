@@ -33,7 +33,7 @@
                 <div class="mycic-card">
                     <div class="mycic-card-header">
                         <h2 class="mycic-card-title" id="finance-stages-title">Progres UKT</h2>
-                        <p class="mt-0.5 text-caption text-ink-subtle">Tahap pembayaran per tahun kuliah, dibaca dari histori dan tagihan portal.</p>
+                        <p class="mycic-card-subtitle">Tahap pembayaran per tahun kuliah, dibaca dari histori dan tagihan portal.</p>
                     </div>
                     <div class="mycic-card-body flex flex-col gap-4" id="finance-stages" aria-busy="true">
                         <span class="sr-only">Memuat tahap UKT…</span>
@@ -51,7 +51,7 @@
             </section>
         </div>
 
-        <div class="grid grid-cols-2 gap-3 sm:grid-cols-3" aria-label="Ringkasan riwayat pembayaran" role="group">
+        <div class="mycic-stat-strip grid-cols-2 sm:grid-cols-3" aria-label="Ringkasan riwayat pembayaran" role="group">
             <div class="mycic-metric col-span-2 sm:col-span-1">
                 <div class="mycic-metric-label">Terbayar</div>
                 <div class="mycic-metric-value truncate text-success" data-finance-metric="total">
@@ -64,7 +64,7 @@
                 </x-slot:value>
             </x-metric>
             <x-metric label="Terakhir">
-                <x-slot:value class="truncate text-lg font-bold sm:text-xl" data-finance-metric="latest">
+                <x-slot:value class="truncate" data-finance-metric="latest">
                     <div class="mycic-skeleton h-7 w-20"></div>
                 </x-slot:value>
             </x-metric>
@@ -76,13 +76,13 @@
                 <div class="mycic-input-wrap w-full sm:w-64">
                     <label for="finance-search" class="sr-only">Cari transaksi</label>
                     <span class="mycic-input-icon">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0 -14 0" /><path d="M21 21l-6 -6" /></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0 -14 0" /><path d="M21 21l-6 -6" /></svg>
                     </span>
                     <input
                         type="search"
                         id="finance-search"
                         class="mycic-input mycic-input-with-icon"
-                        placeholder="Cari transaksi..."
+                        placeholder="Cari transaksi"
                         autocomplete="off"
                         aria-describedby="finance-search-status"
                         disabled
@@ -134,25 +134,25 @@
                     label: 'Lunas',
                     circle: 'bg-success text-white',
                     text: 'text-success',
-                    icon: '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5l10 -10" /></svg>',
+                    icon: '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5l10 -10" /></svg>',
                 },
                 unpaid: {
                     label: 'Belum lunas',
                     circle: 'bg-danger-soft text-danger ring-2 ring-danger/40',
                     text: 'text-danger',
-                    icon: '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 8v4" /><path d="M12 16h.01" /></svg>',
+                    icon: '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 8v4" /><path d="M12 16h.01" /></svg>',
                 },
                 upcoming: {
                     label: 'Akan datang',
-                    circle: 'bg-surface-tint text-brand-pressed',
-                    text: 'text-brand-pressed',
-                    icon: '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" /><path d="M12 7v5l3 3" /></svg>',
+                    circle: 'bg-surface-tint text-brand-text',
+                    text: 'text-brand-text',
+                    icon: '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" /><path d="M12 7v5l3 3" /></svg>',
                 },
                 unknown: {
                     label: 'Belum pasti',
                     circle: 'border border-dashed border-border bg-panel text-ink-subtle',
                     text: 'text-ink-subtle',
-                    icon: '<span class="text-sm font-bold" aria-hidden="true">?</span>',
+                    icon: '<span class="font-mono text-sm font-medium" aria-hidden="true">?</span>',
                 },
             };
             const REASONS = {
@@ -224,11 +224,11 @@
 
                 return `
                     <div class="${app.alertTone(tone)}" role="status" data-finance-deadline>
-                        <p class="font-semibold">Batas bayar ${deadline.stage ? `UKT tahap ${app.escapeHtml(deadline.stage)}` : 'kuliah'}: ${app.escapeHtml(app.formatIndonesianDate(deadline.date, { weekday: true }))}</p>
+                        <p class="font-medium">Batas bayar ${deadline.stage ? `UKT tahap ${app.escapeHtml(deadline.stage)}` : 'kuliah'}: ${app.escapeHtml(app.formatIndonesianDate(deadline.date, { weekday: true }))}</p>
                         <p class="mt-0.5 text-sm text-ink-muted">${app.escapeHtml(app.capitalize(app.formatRelativeDays(deadline.date)))}. Bayar sebelum tanggal ini supaya akses portal tidak terganggu.</p>
                         ${deadline.text ? `
                             <details class="mt-2 text-caption">
-                                <summary class="cursor-pointer font-semibold text-ink-muted">Lihat teks dari portal</summary>
+                                <summary class="cursor-pointer font-medium text-ink-muted">Lihat teks dari portal</summary>
                                 <p class="mt-1 text-ink-muted">${app.escapeHtml(deadline.text)}</p>
                             </details>
                         ` : ''}
@@ -259,7 +259,7 @@
                 if (status === 'unknown') {
                     parts.push(`
                         <div class="${app.alertTone('neutral')}" role="status" data-finance-bill-status="unknown">
-                            <p class="font-semibold text-ink">Status tagihan tidak terbaca</p>
+                            <p class="font-medium text-ink">Status tagihan tidak terbaca</p>
                             <p class="mt-1 text-sm">Tabel tagihan di portal tidak bisa dibaca, jadi WeCIC belum tahu ada tagihan atau tidak. Bukan berarti kamu tidak punya tagihan.</p>
                             <div class="mt-3 flex flex-wrap gap-2">
                                 <button type="button" class="${app.buttonClass('secondary', { small: true })}" data-finance-retry data-online-required>Coba lagi</button>
@@ -270,7 +270,7 @@
                 } else if (status === 'clear') {
                     parts.push(`
                         <div class="${app.alertTone('success')}" role="status" data-finance-bill-status="clear">
-                            <p class="font-semibold">Tidak ada tagihan aktif</p>
+                            <p class="font-medium">Tidak ada tagihan aktif</p>
                             <p class="mt-1 text-sm text-ink-muted">${app.escapeHtml(renderLatestPayment(summary.latest_payment))}</p>
                         </div>
                     `);
@@ -282,8 +282,8 @@
 
                     parts.push(`
                         <div class="${app.alertTone(urgent ? 'danger' : 'warning')}" role="status" data-finance-bill-status="outstanding">
-                            <p class="text-caption font-semibold uppercase tracking-wide text-ink-subtle">Total tagihan aktif</p>
-                            <p class="mt-1 text-3xl font-extrabold tracking-tight text-ink tabular-nums">${app.escapeHtml(totalLabel)}</p>
+                            <p class="text-caption font-medium text-ink-subtle">Total tagihan aktif</p>
+                            <p class="mt-1 font-mono text-3xl font-semibold tracking-[-0.02em] text-ink tabular-nums">${app.escapeHtml(totalLabel)}</p>
                             <p class="mt-0.5 text-sm text-ink-muted">${count} tagihan belum lunas</p>
                         </div>
                     `);
@@ -294,10 +294,10 @@
                                 ${bills.map((bill) => `
                                     <li class="mycic-list-row">
                                         <span class="min-w-0">
-                                            <span class="block text-sm font-bold text-ink wrap-break-word">${app.escapeHtml(bill.name || 'Tagihan')}</span>
+                                            <span class="block text-sm font-medium text-ink wrap-break-word">${app.escapeHtml(bill.name || 'Tagihan')}</span>
                                             ${bill.description ? `<span class="mt-0.5 block text-caption text-ink-subtle">${app.escapeHtml(bill.description)}</span>` : ''}
                                         </span>
-                                        <span class="shrink-0 text-sm font-bold text-ink tabular-nums">${app.escapeHtml(bill.amount_label || app.formatRupiah(bill.amount))}</span>
+                                        <span class="shrink-0 font-mono text-sm font-medium text-ink tabular-nums">${app.escapeHtml(bill.amount_label || app.formatRupiah(bill.amount))}</span>
                                     </li>
                                 `).join('')}
                             </ul>
@@ -394,12 +394,12 @@
 
                                 return `
                                     <li class="flex min-w-0 flex-col items-center gap-1 text-center" aria-label="${app.escapeHtml(stageSentence(stage))}" ${isNext ? 'aria-current="step"' : ''} title="${app.escapeHtml(stageSentence(stage))}">
-                                        <span class="flex h-9 w-9 items-center justify-center rounded-full ${status.circle} ${isNext && stage.status !== 'unpaid' ? 'ring-2 ring-brand ring-offset-2 ring-offset-panel' : ''}" aria-hidden="true">${status.icon}</span>
-                                        <span class="text-xs font-bold text-ink" aria-hidden="true">Tahap ${stage.stage}</span>
-                                        <span class="text-[0.7rem] font-semibold leading-tight ${status.text}" aria-hidden="true">${status.label}</span>
-                                        <span class="line-clamp-2 max-w-full text-[0.7rem] leading-tight text-ink-subtle tabular-nums wrap-break-word" aria-hidden="true">${app.escapeHtml(stageDetail(stage))}</span>
-                                        ${stage.is_partial ? '<span class="mycic-badge-warning px-1.5 text-[0.65rem]" aria-hidden="true">Sebagian</span>' : ''}
-                                        ${isNext ? '<span class="mycic-badge-brand px-1.5 text-[0.65rem]" aria-hidden="true">Berikutnya</span>' : ''}
+                                        <span class="flex h-9 w-9 items-center justify-center rounded-full ${status.circle} ${isNext && stage.status !== 'unpaid' ? 'ring-2 ring-brand/35' : ''}" aria-hidden="true">${status.icon}</span>
+                                        <span class="text-xs font-medium text-ink" aria-hidden="true">Tahap ${stage.stage}</span>
+                                        <span class="text-[11px] font-medium leading-tight ${status.text}" aria-hidden="true">${status.label}</span>
+                                        <span class="line-clamp-2 max-w-full font-mono text-[11px] leading-tight text-ink-subtle tabular-nums wrap-break-word" aria-hidden="true">${app.escapeHtml(stageDetail(stage))}</span>
+                                        ${stage.is_partial ? '<span class="mycic-badge-warning px-1.5 text-[11px]" aria-hidden="true">Sebagian</span>' : ''}
+                                        ${isNext ? '<span class="mycic-badge-brand px-1.5 text-[11px]" aria-hidden="true">Berikutnya</span>' : ''}
                                     </li>
                                 `;
                             }).join('')}
@@ -450,7 +450,7 @@
                 const nextLine = first.is_current && nextStage && nextStage.study_year === first.study_year
                     ? `
                         <p class="text-sm text-ink-muted">
-                            <span class="font-semibold text-ink">Berikutnya: tahap ${app.escapeHtml(nextStage.stage)}</span>
+                            <span class="font-medium text-ink">Berikutnya: tahap ${app.escapeHtml(nextStage.stage)}</span>
                             · ${app.escapeHtml((STAGE_STATUS[nextStage.status] || STAGE_STATUS.unknown).label.toLowerCase())}${nextStage.deadline ? `, jatuh tempo ${app.escapeHtml(app.formatIndonesianDate(nextStage.deadline))}` : ''}
                         </p>
                     `
@@ -459,27 +459,27 @@
                 stagesHost.innerHTML = `
                     <div class="flex flex-col gap-3">
                         <div class="flex flex-wrap items-baseline justify-between gap-2">
-                            <h3 class="text-sm font-bold text-ink">${app.escapeHtml(heading(first))} ${first.is_current ? app.renderBadge('Berjalan', 'brand') : ''}</h3>
+                            <h3 class="text-sm font-medium leading-snug text-ink">${app.escapeHtml(heading(first))} ${first.is_current ? app.renderBadge('Berjalan', 'brand') : ''}</h3>
                             <span class="text-caption text-ink-subtle">${app.escapeHtml(yearSummary(first))}</span>
                         </div>
                         ${renderStepper(first, nextStage)}
                         ${nextLine}
-                        ${subtotal(first) ? `<p class="text-caption text-ink-subtle">Total dibayar tahun ini: <span class="font-semibold text-ink tabular-nums">${app.escapeHtml(subtotal(first))}</span></p>` : ''}
+                        ${subtotal(first) ? `<p class="text-caption text-ink-subtle">Total dibayar tahun ini: <span class="font-mono font-medium text-ink tabular-nums">${app.escapeHtml(subtotal(first))}</span></p>` : ''}
                     </div>
                     ${rest.map((year) => `
                         <details class="group rounded-lg border border-border-light">
                             <summary class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 [&::-webkit-details-marker]:hidden">
                                 <span class="min-w-0">
-                                    <span class="block text-sm font-bold text-ink">${app.escapeHtml(heading(year))}</span>
+                                    <span class="block text-sm font-medium text-ink">${app.escapeHtml(heading(year))}</span>
                                     <span class="block text-caption text-ink-subtle">${app.escapeHtml([yearSummary(year), subtotal(year)].filter(Boolean).join(' · '))}</span>
                                 </span>
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 text-ink-subtle transition-transform group-open:rotate-180" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6l6 -6" /></svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 text-ink-subtle transition-transform group-open:rotate-180" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6l6 -6" /></svg>
                             </summary>
                             <div class="px-3 pb-3 pt-1">${renderStepper(year, nextStage)}</div>
                         </details>
                     `).join('')}
-                    ${allStages.some((stage) => stage?.status === 'unknown') ? '<p class="text-caption text-ink-subtle"><span class="font-semibold text-ink-muted">Belum pasti</span> berarti tahap itu tidak ada di histori maupun tagihan portal. Tahap yang dibayar saat pendaftaran (PMB) sering tidak tercatat di histori.</p>' : ''}
-                    ${allStages.some((stage) => stage?.is_partial) ? '<p class="text-caption text-ink-subtle"><span class="font-semibold text-ink-muted">Sebagian</span> berarti nominal yang tercatat kurang dari nominal tahap.</p>' : ''}
+                    ${allStages.some((stage) => stage?.status === 'unknown') ? '<p class="text-caption text-ink-subtle"><span class="font-medium text-ink-muted">Belum pasti</span> berarti tahap itu tidak ada di histori maupun tagihan portal. Tahap yang dibayar saat pendaftaran (PMB) sering tidak tercatat di histori.</p>' : ''}
+                    ${allStages.some((stage) => stage?.is_partial) ? '<p class="text-caption text-ink-subtle"><span class="font-medium text-ink-muted">Sebagian</span> berarti nominal yang tercatat kurang dari nominal tahap.</p>' : ''}
                 `;
             };
 
@@ -503,8 +503,8 @@
                     title: paymentTitle(payment),
                     body: `
                         <div class="flex flex-col gap-4">
-                            <div class="rounded-xl border border-success/20 bg-success-soft p-4 text-center">
-                                <div class="text-2xl font-extrabold text-success tabular-nums">${app.escapeHtml(amount)}</div>
+                            <div class="rounded-[var(--radius-control)] border border-success/20 bg-success-soft p-4 text-center">
+                                <div class="font-mono text-2xl font-semibold text-success tabular-nums">${app.escapeHtml(amount)}</div>
                                 <span class="${partial ? 'mycic-badge-warning' : 'mycic-badge-success'} mt-2">${partial ? 'Dibayar sebagian' : 'Tercatat di histori portal'}</span>
                             </div>
                             ${app.renderKeyValueList(entries)}
@@ -522,12 +522,12 @@
                         <div class="flex flex-col gap-3 text-sm text-ink-muted">
                             <ol class="flex list-decimal flex-col gap-2 ps-5">
                                 <li>Portal kampus tidak punya tombol bayar atau virtual account. Bayar di luar portal sesuai petunjuk resmi Bagian Keuangan.</li>
-                                <li>Pakai tombol <span class="font-semibold text-ink">Salin nominal</span> supaya jumlah yang kamu bayar pas.</li>
+                                <li>Pakai tombol <span class="font-medium text-ink">Salin nominal</span> supaya jumlah yang kamu bayar pas.</li>
                                 <li>Simpan bukti bayar. Tagihan baru hilang dari portal setelah Bagian Keuangan mencatat pembayaranmu, jadi bisa butuh beberapa hari.</li>
                             </ol>
                             <a href="/announcement?kategori=pembayaran" class="mycic-sheet-action">
                                 <span class="min-w-0 flex-1">
-                                    <span class="block font-semibold text-ink">Pengumuman keuangan</span>
+                                    <span class="block font-medium text-ink">Pengumuman keuangan</span>
                                     <span class="block text-caption text-ink-subtle">Info rekening dan tenggat terbaru dari kampus</span>
                                 </span>
                             </a>
@@ -613,7 +613,7 @@
                                                 <td class="text-center font-medium text-ink-subtle">${index + 1}</td>
                                                 <td class="whitespace-nowrap font-medium text-ink">${app.escapeHtml(payment.paid_at_label || '–')}</td>
                                                 <td>
-                                                    <button type="button" class="rounded text-start font-bold text-ink hover:text-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand" data-payment-open="${index}">
+                                                    <button type="button" class="cursor-pointer rounded text-start font-medium text-ink hover:text-brand-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand" data-payment-open="${index}">
                                                         ${app.escapeHtml(paymentTitle(payment))}
                                                         <span class="sr-only">, lihat detail</span>
                                                     </button>
@@ -622,7 +622,7 @@
                                                 <td class="whitespace-nowrap">${stageLabel(payment) ? app.escapeHtml(stageLabel(payment)) : '<span class="text-caption text-ink-subtle">–</span>'}${isPartial(payment) ? ` ${app.renderBadge('Sebagian', 'warning')}` : ''}</td>
                                                 ${showChannel ? `<td>${channel ? app.renderBadge(channel, 'brand') : '<span class="text-caption text-ink-subtle">–</span>'}</td>` : ''}
                                                 ${showStatus ? `<td>${payment.status ? statusBadge(payment.status) : '<span class="text-caption text-ink-subtle">–</span>'}</td>` : ''}
-                                                <td class="whitespace-nowrap text-end text-base font-bold text-success tabular-nums">${app.escapeHtml(amountLabel(payment))}</td>
+                                                <td class="whitespace-nowrap text-end font-mono text-base font-medium text-success tabular-nums">${app.escapeHtml(amountLabel(payment))}</td>
                                             </tr>
                                         `;
                                     }).join('')}
@@ -643,13 +643,13 @@
                     <ul class="divide-y divide-border-light md:hidden">
                         ${filtered.map((payment, index) => `
                             <li>
-                                <button type="button" class="flex w-full flex-col gap-2 p-4 text-start transition-colors hover:bg-surface/50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand active:bg-surface" data-payment-open="${index}">
+                                <button type="button" class="flex w-full cursor-pointer flex-col gap-2 p-4 text-start transition-colors hover:bg-surface/50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand active:bg-surface" data-payment-open="${index}">
                                     <span class="flex w-full items-start justify-between gap-3">
                                         <span class="min-w-0 flex-1">
-                                            <span class="block text-sm font-bold leading-snug text-ink">${app.escapeHtml(paymentTitle(payment))}</span>
+                                            <span class="block text-sm font-medium leading-snug text-ink">${app.escapeHtml(paymentTitle(payment))}</span>
                                             <span class="mt-1 block text-caption text-ink-subtle">${app.escapeHtml(payment.paid_at_label || '–')}</span>
                                         </span>
-                                        <span class="shrink-0 text-end text-sm font-bold text-success tabular-nums">${app.escapeHtml(amountLabel(payment))}</span>
+                                        <span class="shrink-0 text-end font-mono text-sm font-medium text-success tabular-nums">${app.escapeHtml(amountLabel(payment))}</span>
                                     </span>
                                     ${mobileBadges(payment) ? `<span class="flex flex-wrap items-center gap-1.5">${mobileBadges(payment)}</span>` : ''}
                                 </button>

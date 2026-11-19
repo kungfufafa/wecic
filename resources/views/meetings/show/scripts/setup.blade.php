@@ -43,8 +43,10 @@
                     <div class="mycic-hero">
                         <div class="flex flex-col gap-3">
                             <div><a href="${app.escapeHtml(backHref())}" class="mycic-hero-pill">Kembali</a></div>
-                            <h1 class="text-xl font-extrabold tracking-tight text-white sm:text-2xl">Pertemuan tidak ditemukan</h1>
-                            <p class="text-sm text-white/80">${app.escapeHtml(message)}</p>
+                            <div>
+                                <h1 class="mycic-page-heading">Pertemuan tidak ditemukan</h1>
+                                <p class="mycic-page-subheading">${app.escapeHtml(message)}</p>
+                            </div>
                         </div>
                     </div>
                 `;

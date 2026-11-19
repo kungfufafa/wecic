@@ -39,7 +39,7 @@
                 panel.classList.toggle('hidden', alreadyShown);
                 panel.dataset.shown = String(citation.n);
                 panel.innerHTML = `
-                    <p class="mb-1 font-bold text-ink">[${citation.n}] ${app.escapeHtml(citation.source_title)}${citation.page ? ` · hlm. ${citation.page}` : ''}</p>
+                    <p class="mb-1 font-medium text-ink">[${citation.n}] ${app.escapeHtml(citation.source_title)}${citation.page ? ` · hlm. ${citation.page}` : ''}</p>
                     <p class="whitespace-pre-line">${app.escapeHtml(citation.excerpt)}</p>
                 `;
             };
@@ -60,7 +60,7 @@
                 const pending = document.createElement('li');
                 pending.className = 'flex flex-col gap-2';
                 pending.innerHTML = `
-                    <div class="ms-auto max-w-[85%] rounded-2xl rounded-tr-sm bg-brand px-3 py-2 text-sm text-white">${app.escapeHtml(question)}</div>
+                    <div class="ms-auto max-w-[85%] rounded-[var(--radius-card)] rounded-tr-xs bg-brand px-3 py-2 text-sm text-white">${app.escapeHtml(question)}</div>
                     <div class="flex items-center gap-2 text-sm text-ink-subtle"><span class="mycic-spinner" aria-hidden="true"></span> Membaca ${contextSources().length} sumber…</div>
                 `;
 

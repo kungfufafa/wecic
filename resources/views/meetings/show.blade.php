@@ -15,14 +15,14 @@
             <div class="flex flex-col gap-4">
                 <div class="flex flex-wrap items-center justify-between gap-3">
                     <div class="flex items-center gap-2">
-                        <div class="mycic-skeleton h-8 w-28 rounded-lg bg-white/20"></div>
-                        <div class="mycic-skeleton h-6 w-20 rounded-md bg-white/20"></div>
+                        <div class="mycic-skeleton h-8 w-28 rounded-lg"></div>
+                        <div class="mycic-skeleton h-6 w-20 rounded-md"></div>
                     </div>
-                    <div class="mycic-skeleton h-6 w-32 rounded-full bg-white/20"></div>
+                    <div class="mycic-skeleton h-6 w-32 rounded-md"></div>
                 </div>
                 <div class="space-y-2">
-                    <div class="mycic-skeleton h-7 w-3/4 max-w-md rounded-lg bg-white/20"></div>
-                    <div class="mycic-skeleton h-4 w-1/2 max-w-sm rounded bg-white/20"></div>
+                    <div class="mycic-skeleton h-7 w-3/4 max-w-md rounded-lg"></div>
+                    <div class="mycic-skeleton h-4 w-1/2 max-w-sm rounded"></div>
                 </div>
             </div>
         </div>
@@ -44,7 +44,7 @@
                         <div class="mycic-skeleton h-4 w-5/6"></div>
                         <div class="mycic-skeleton h-4 w-4/6"></div>
                     </div>
-                    <div class="mycic-skeleton h-20 w-full rounded-xl"></div>
+                    <div class="mycic-skeleton h-20 w-full rounded-[var(--radius-control)]"></div>
                 </x-card.body>
             </x-card>
 
@@ -54,7 +54,7 @@
                         <div class="mycic-skeleton h-6 w-48"></div>
                         <div class="mycic-skeleton h-6 w-32 rounded-md"></div>
                     </div>
-                    <div class="mycic-skeleton h-16 w-full rounded-xl"></div>
+                    <div class="mycic-skeleton h-16 w-full rounded-[var(--radius-control)]"></div>
                 </x-card.body>
             </x-card>
         </div>
@@ -79,7 +79,7 @@
                     <div class="mycic-skeleton h-5 w-24"></div>
                 </x-card.header>
                 <x-card.body class="flex flex-col gap-3">
-                    <div class="mycic-skeleton h-24 w-full rounded-xl"></div>
+                    <div class="mycic-skeleton h-24 w-full rounded-[var(--radius-control)]"></div>
                     <div class="mycic-skeleton h-11 w-full rounded-lg"></div>
                 </x-card.body>
             </x-card>

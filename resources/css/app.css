@@ -16,60 +16,62 @@
 }
 
 @theme {
-    --font-sans: 'Plus Jakarta Sans', 'Inter', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
+    --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
+    --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
-    --color-canvas: #f4f7fb;
+    --color-canvas: #fafafa;
     --color-panel: #ffffff;
-    --color-surface: #ebf2f9;
-    --color-surface-tint: #e3edf8;
-    --color-ink: #0a233f;
-    --color-ink-muted: #3b5571;
-    --color-ink-subtle: #627c97;
+    --color-surface: #f4f4f5;
+    --color-surface-tint: #eef3fa;
+    --color-ink: #171717;
+    --color-ink-muted: #525252;
+    --color-ink-subtle: #6e6e73;
     --color-brand: #0352a1;
     --color-brand-hover: #024182;
     --color-brand-pressed: #02366c;
     --color-brand-deep: #012850;
+    --color-brand-text: #0352a1;
     --color-brand-ink: #ffffff;
     --color-accent: #ffc300;
-    --color-accent-soft: #fff7d6;
-    --color-success: #16a34a;
-    --color-success-soft: #dcfce7;
-    --color-warning: #d97706;
-    --color-warning-soft: #fef3c7;
+    --color-accent-soft: #fef9e7;
+    --color-success: #15803d;
+    --color-success-soft: #ecfdf3;
+    --color-warning: #b45309;
+    --color-warning-soft: #fef6e7;
     --color-danger: #dc2626;
-    --color-danger-soft: #fee2e2;
-    --color-info: #0284c7;
-    --color-info-soft: #e0f2fe;
-    --color-border: #d4e1ef;
-    --color-border-light: #e4edf7;
+    --color-danger-soft: #fef2f2;
+    --color-info: #0369a1;
+    --color-info-soft: #f0f7ff;
+    --color-border: #e4e4e7;
+    --color-border-light: #ededef;
 
     --radius-control: 0.5rem;
     --radius-button: 0.5rem;
     --radius-card: 0.75rem;
-    --radius-modal: 0.875rem;
-    --radius-sheet: 0.875rem;
+    --radius-modal: 1rem;
+    --radius-sheet: 1rem;
 
     --shadow-brand: none;
-    --shadow-card: none;
-    --shadow-elevated: none;
-    --shadow-float: none;
+    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.04);
+    --shadow-elevated: 0 4px 12px rgba(0, 0, 0, 0.06);
+    --shadow-float: 0 8px 24px rgba(0, 0, 0, 0.08);
 
-    --ease-snappy: cubic-bezier(0.2, 0, 0, 1);
+    --ease-snappy: cubic-bezier(0.22, 1, 0.36, 1);
 
-    --text-display: clamp(1.5rem, 1.25rem + 1vw, 2rem);
-    --text-display--line-height: 1.2;
-    --text-display--font-weight: 700;
+    --text-display: clamp(1.75rem, 1.4rem + 1vw, 2.25rem);
+    --text-display--line-height: 1.15;
+    --text-display--font-weight: 500;
 
-    --text-title: clamp(1.125rem, 1rem + 0.5vw, 1.5rem);
-    --text-title--line-height: 1.25;
-    --text-title--font-weight: 700;
+    --text-title: clamp(1.125rem, 1.05rem + 0.3vw, 1.25rem);
+    --text-title--line-height: 1.3;
+    --text-title--font-weight: 500;
 
-    --text-subtitle: 1.125rem;
-    --text-subtitle--line-height: 1.3;
-    --text-subtitle--font-weight: 600;
+    --text-subtitle: 1rem;
+    --text-subtitle--line-height: 1.35;
+    --text-subtitle--font-weight: 500;
 
-    --text-body: 1rem;
-    --text-body--line-height: 1.5;
+    --text-body: 0.9375rem;
+    --text-body--line-height: 1.47;
 
     --text-caption: 0.75rem;
     --text-caption--line-height: 1.4;
@@ -78,35 +80,36 @@
 html[data-theme='dark'] {
     color-scheme: dark;
 
-    --color-canvas: #091019;
-    --color-panel: #111a26;
-    --color-surface: #182434;
-    --color-surface-tint: #13273e;
-    --color-ink: #edf4fb;
-    --color-ink-muted: #a6bbd0;
-    --color-ink-subtle: #7189a2;
-    --color-brand: #2679db;
-    --color-brand-hover: #458fe4;
-    --color-brand-pressed: #1b68c5;
-    --color-brand-deep: #10488f;
+    --color-canvas: #111113;
+    --color-panel: #18181b;
+    --color-surface: #222226;
+    --color-surface-tint: #1a2332;
+    --color-ink: #ededee;
+    --color-ink-muted: #a1a1a8;
+    --color-ink-subtle: #82828a;
+    --color-brand: #2a6fd1;
+    --color-brand-hover: #387ee0;
+    --color-brand-pressed: #1f5fb9;
+    --color-brand-deep: #154385;
+    --color-brand-text: #7ab3f5;
     --color-brand-ink: #ffffff;
     --color-accent: #ffc300;
-    --color-accent-soft: #382c06;
-    --color-success: #22c55e;
-    --color-success-soft: #0f2e1b;
-    --color-warning: #f59e0b;
-    --color-warning-soft: #30210b;
-    --color-danger: #ef4444;
-    --color-danger-soft: #341417;
-    --color-info: #38bdf8;
-    --color-info-soft: #0d273a;
-    --color-border: #1e3044;
-    --color-border-light: #172535;
+    --color-accent-soft: #2b230b;
+    --color-success: #4cc38a;
+    --color-success-soft: #12261e;
+    --color-warning: #f0b429;
+    --color-warning-soft: #271f0f;
+    --color-danger: #e5484d;
+    --color-danger-soft: #2b1517;
+    --color-info: #5eb0ef;
+    --color-info-soft: #122230;
+    --color-border: #28282c;
+    --color-border-light: #202024;
 
     --shadow-brand: none;
     --shadow-card: none;
     --shadow-elevated: none;
-    --shadow-float: none;
+    --shadow-float: 0 8px 24px rgba(0, 0, 0, 0.38);
 }
 
 /* Paper is white: a page printed (or saved as PDF) in dark mode uses the light tokens. */
@@ -116,28 +119,29 @@ html[data-theme='dark'] {
 
         --color-canvas: #ffffff;
         --color-panel: #ffffff;
-        --color-surface: #ebf2f9;
-        --color-surface-tint: #e3edf8;
-        --color-ink: #0a233f;
-        --color-ink-muted: #3b5571;
-        --color-ink-subtle: #627c97;
+        --color-surface: #f4f4f5;
+        --color-surface-tint: #eef3fa;
+        --color-ink: #171717;
+        --color-ink-muted: #525252;
+        --color-ink-subtle: #6e6e73;
         --color-brand: #0352a1;
         --color-brand-hover: #024182;
         --color-brand-pressed: #02366c;
         --color-brand-deep: #012850;
+        --color-brand-text: #0352a1;
         --color-brand-ink: #ffffff;
         --color-accent: #ffc300;
-        --color-accent-soft: #fff7d6;
-        --color-success: #16a34a;
-        --color-success-soft: #dcfce7;
-        --color-warning: #d97706;
-        --color-warning-soft: #fef3c7;
+        --color-accent-soft: #fef9e7;
+        --color-success: #15803d;
+        --color-success-soft: #ecfdf3;
+        --color-warning: #b45309;
+        --color-warning-soft: #fef6e7;
         --color-danger: #dc2626;
-        --color-danger-soft: #fee2e2;
-        --color-info: #0284c7;
-        --color-info-soft: #e0f2fe;
-        --color-border: #d4e1ef;
-        --color-border-light: #e4edf7;
+        --color-danger-soft: #fef2f2;
+        --color-info: #0369a1;
+        --color-info-soft: #f0f7ff;
+        --color-border: #e4e4e7;
+        --color-border-light: #ededef;
     }
 }
 
@@ -148,6 +152,7 @@ html[data-theme='dark'] {
 
     body {
         @apply bg-canvas font-sans text-ink antialiased;
+        font-feature-settings: 'cv01', 'ss03';
     }
 
     * {
@@ -210,11 +215,12 @@ html[data-theme='dark'] {
 
     .mycic-page {
         @apply min-h-dvh bg-canvas md:pb-8;
-        padding-bottom: calc(7.5rem + env(safe-area-inset-bottom, 0px));
+        padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px));
     }
 
     .mycic-card {
         @apply rounded-[var(--radius-card)] border border-border bg-panel;
+        box-shadow: var(--shadow-card);
     }
 
     .mycic-card-body {
@@ -222,15 +228,20 @@ html[data-theme='dark'] {
     }
 
     .mycic-card-header {
-        @apply border-b border-border-light px-4 py-3 md:px-5;
+        @apply border-b border-border-light px-4 py-3.5 md:px-5;
     }
 
     .mycic-card-title {
-        @apply text-subtitle font-semibold text-ink;
+        @apply text-[0.9375rem] font-semibold leading-snug tracking-[-0.01em] text-ink;
+    }
+
+    .mycic-card-subtitle {
+        @apply mt-0.5 text-caption leading-normal text-ink-subtle;
     }
 
     .mycic-card-interactive {
-        @apply cursor-pointer rounded-[var(--radius-card)] border border-border bg-panel p-4 transition duration-150 ease-[var(--ease-snappy)] hover:border-brand/40 active:scale-[0.99] md:p-5;
+        @apply cursor-pointer rounded-[var(--radius-card)] border border-border bg-panel p-4 transition-colors duration-150 ease-[var(--ease-snappy)] hover:border-ink-subtle/40 hover:bg-surface/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand md:p-5;
+        box-shadow: var(--shadow-card);
     }
 
     .mycic-brand-wordmark {
@@ -238,15 +249,19 @@ html[data-theme='dark'] {
     }
 
     .mycic-page-heading {
-        @apply text-3xl font-extrabold tracking-tight text-ink sm:text-4xl;
+        @apply text-[1.5rem] font-semibold leading-[1.2] tracking-[-0.025em] text-ink sm:text-[1.75rem];
     }
 
     .mycic-page-subheading {
-        @apply mt-2 text-sm text-ink-muted sm:text-base;
+        @apply mt-1.5 text-sm leading-relaxed text-ink-muted;
     }
 
     .mycic-section-title {
-        @apply text-title font-bold text-ink;
+        @apply text-base font-semibold leading-snug tracking-[-0.015em] text-ink;
+    }
+
+    .mycic-modal-title {
+        @apply text-base font-semibold leading-snug tracking-[-0.015em] text-ink;
     }
 
     .mycic-field {
@@ -270,11 +285,11 @@ html[data-theme='dark'] {
     }
 
     .mycic-input-icon {
-        @apply pointer-events-none absolute start-3.5 top-1/2 z-10 -translate-y-1/2 text-ink-subtle;
+        @apply pointer-events-none absolute start-3 top-1/2 z-10 -translate-y-1/2 text-ink-subtle;
     }
 
     .mycic-input-toggle {
-        @apply absolute end-1.5 top-1/2 z-10 flex min-h-9 min-w-9 -translate-y-1/2 items-center justify-center rounded-md text-ink-subtle transition-colors hover:bg-surface hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand;
+        @apply absolute end-2 top-1/2 z-10 flex min-h-9 min-w-9 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md text-ink-subtle transition-colors duration-150 ease-[var(--ease-snappy)] hover:bg-surface hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand;
     }
 
     .mycic-legal-text {
@@ -282,59 +297,94 @@ html[data-theme='dark'] {
     }
 
     .mycic-btn {
-        @apply inline-flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-[var(--radius-button)] px-5 text-sm font-semibold transition-all duration-150 ease-[var(--ease-snappy)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50;
+        @apply inline-flex min-h-11 sm:min-h-10 min-w-10 cursor-pointer select-none items-center justify-center gap-2 whitespace-nowrap rounded-[var(--radius-button)] border border-transparent px-4 text-sm font-medium leading-none transition-[color,background-color,border-color,box-shadow,transform] duration-150 ease-[var(--ease-snappy)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50;
     }
 
     .mycic-btn-sm {
-        @apply inline-flex min-h-9 items-center justify-center gap-1.5 rounded-md px-3.5 text-xs font-semibold transition-all duration-150 ease-[var(--ease-snappy)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50;
+        @apply inline-flex min-h-11 sm:min-h-9 cursor-pointer select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-[var(--radius-button)] border border-transparent px-3 text-[0.8125rem] font-medium leading-none transition-[color,background-color,border-color,box-shadow,transform] duration-150 ease-[var(--ease-snappy)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50;
     }
 
     .mycic-btn-primary {
-        @apply inline-flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-[var(--radius-button)] bg-brand px-5 text-sm font-bold text-brand-ink transition-all duration-150 ease-[var(--ease-snappy)] hover:bg-brand-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand active:scale-[0.98] active:bg-brand-pressed disabled:pointer-events-none disabled:opacity-50;
+        @apply inline-flex min-h-11 sm:min-h-10 min-w-10 cursor-pointer select-none items-center justify-center gap-2 whitespace-nowrap rounded-[var(--radius-button)] border border-transparent bg-brand px-4 text-sm font-medium leading-none text-brand-ink shadow-[inset_0_1px_0_rgba(255,255,255,0.14)] transition-[color,background-color,border-color,box-shadow,transform] duration-150 ease-[var(--ease-snappy)] hover:bg-brand-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand active:scale-[0.98] active:bg-brand-pressed disabled:pointer-events-none disabled:opacity-50;
     }
 
     .mycic-btn-primary-sm {
-        @apply inline-flex min-h-9 items-center justify-center gap-1.5 rounded-md bg-brand px-3.5 text-xs font-bold text-brand-ink transition-all duration-150 hover:bg-brand-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand active:scale-[0.98] active:bg-brand-pressed disabled:pointer-events-none disabled:opacity-50;
+        @apply inline-flex min-h-11 sm:min-h-9 cursor-pointer select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-[var(--radius-button)] border border-transparent bg-brand px-3 text-[0.8125rem] font-medium leading-none text-brand-ink shadow-[inset_0_1px_0_rgba(255,255,255,0.14)] transition-[color,background-color,border-color,box-shadow,transform] duration-150 ease-[var(--ease-snappy)] hover:bg-brand-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand active:scale-[0.98] active:bg-brand-pressed disabled:pointer-events-none disabled:opacity-50;
     }
 
     .mycic-btn-secondary {
-        @apply inline-flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-[var(--radius-button)] border border-border bg-panel px-5 text-sm font-semibold text-ink-muted transition-all duration-150 hover:border-brand/30 hover:text-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand active:scale-[0.98] active:bg-surface disabled:pointer-events-none disabled:opacity-50;
+        @apply inline-flex min-h-11 sm:min-h-10 min-w-10 cursor-pointer select-none items-center justify-center gap-2 whitespace-nowrap rounded-[var(--radius-button)] border border-border bg-panel px-4 text-sm font-medium leading-none text-ink transition-[color,background-color,border-color,box-shadow,transform] duration-150 ease-[var(--ease-snappy)] hover:border-ink-subtle/35 hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand active:scale-[0.98] active:bg-surface disabled:pointer-events-none disabled:opacity-50;
     }
 
     .mycic-btn-secondary-sm {
-        @apply inline-flex min-h-9 items-center justify-center gap-1.5 rounded-md border border-border bg-panel px-3.5 text-xs font-semibold text-ink-muted transition-all duration-150 hover:border-brand/30 hover:text-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand active:scale-[0.98] active:bg-surface disabled:pointer-events-none disabled:opacity-50;
+        @apply inline-flex min-h-11 sm:min-h-9 cursor-pointer select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-[var(--radius-button)] border border-border bg-panel px-3 text-[0.8125rem] font-medium leading-none text-ink transition-[color,background-color,border-color,box-shadow,transform] duration-150 ease-[var(--ease-snappy)] hover:border-ink-subtle/35 hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand active:scale-[0.98] active:bg-surface disabled:pointer-events-none disabled:opacity-50;
     }
 
     .mycic-btn-ghost {
-        @apply inline-flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-[var(--radius-button)] bg-transparent px-5 text-sm font-semibold text-brand transition-all duration-150 hover:bg-surface-tint focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50;
+        @apply inline-flex min-h-11 sm:min-h-10 min-w-10 cursor-pointer select-none items-center justify-center gap-2 whitespace-nowrap rounded-[var(--radius-button)] border border-transparent bg-transparent px-4 text-sm font-medium leading-none text-ink-muted transition-[color,background-color,border-color,box-shadow,transform] duration-150 ease-[var(--ease-snappy)] hover:bg-surface hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand active:scale-[0.98] active:bg-surface disabled:pointer-events-none disabled:opacity-50;
     }
 
     .mycic-btn-ghost-sm {
-        @apply inline-flex min-h-9 items-center justify-center gap-1.5 rounded-md bg-surface-tint px-3.5 text-xs font-semibold text-brand transition-all duration-150 hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50;
+        @apply inline-flex min-h-11 sm:min-h-9 cursor-pointer select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-[var(--radius-button)] border border-transparent bg-transparent px-3 text-[0.8125rem] font-medium leading-none text-ink-muted transition-[color,background-color,border-color,box-shadow,transform] duration-150 ease-[var(--ease-snappy)] hover:bg-surface hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand active:scale-[0.98] active:bg-surface disabled:pointer-events-none disabled:opacity-50;
     }
 
     .mycic-btn-destructive {
-        @apply inline-flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-[var(--radius-button)] bg-danger px-5 text-sm font-bold text-white transition-all duration-150 hover:bg-danger/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50;
+        @apply inline-flex min-h-11 sm:min-h-10 min-w-10 cursor-pointer select-none items-center justify-center gap-2 whitespace-nowrap rounded-[var(--radius-button)] border border-transparent bg-danger px-4 text-sm font-medium leading-none text-white transition-[color,background-color,border-color,box-shadow,transform] duration-150 ease-[var(--ease-snappy)] hover:bg-danger/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50;
+    }
+
+    .mycic-btn-destructive-sm {
+        @apply inline-flex min-h-11 sm:min-h-9 cursor-pointer select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-[var(--radius-button)] border border-transparent bg-danger px-3 text-[0.8125rem] font-medium leading-none text-white transition-[color,background-color,border-color,box-shadow,transform] duration-150 ease-[var(--ease-snappy)] hover:bg-danger/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50;
     }
 
     .mycic-btn-icon {
-        @apply inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-border bg-panel text-ink-muted transition-all duration-150 hover:border-brand/30 hover:text-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand active:scale-[0.98];
+        @apply inline-flex h-9 w-9 shrink-0 cursor-pointer select-none items-center justify-center whitespace-nowrap rounded-[var(--radius-button)] border border-transparent bg-transparent leading-none text-ink-muted transition-[color,background-color,border-color,box-shadow,transform] duration-150 ease-[var(--ease-snappy)] hover:border-border hover:bg-surface hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50;
+    }
+
+    .mycic-btn-icon-sm {
+        @apply inline-flex h-8 w-8 shrink-0 cursor-pointer select-none items-center justify-center whitespace-nowrap rounded-[var(--radius-button)] border border-transparent bg-transparent leading-none text-ink-muted transition-[color,background-color,border-color,box-shadow,transform] duration-150 ease-[var(--ease-snappy)] hover:border-border hover:bg-surface hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50;
     }
 
     .mycic-btn-block {
         @apply w-full;
     }
 
+    .mycic-back-link {
+        @apply inline-flex min-h-9 cursor-pointer items-center gap-1 -ms-1.5 rounded-[var(--radius-button)] px-1.5 text-sm font-medium text-ink-muted transition-colors duration-150 ease-[var(--ease-snappy)] hover:bg-surface hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand;
+    }
+
+    .mycic-segmented {
+        @apply inline-flex max-w-full items-center gap-1 overflow-x-auto rounded-[var(--radius-control)] border border-border bg-surface p-1;
+    }
+
+    .mycic-segmented-item {
+        @apply inline-flex min-h-10 sm:min-h-9 shrink-0 cursor-pointer select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-[calc(var(--radius-control)-2px)] border border-transparent px-3 py-1.5 text-xs font-medium leading-none text-ink-muted transition-[color,background-color,border-color,box-shadow] duration-150 ease-[var(--ease-snappy)] hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand sm:text-sm;
+    }
+
+    .mycic-segmented-item-active,
+    .mycic-segmented-item[aria-selected='true'],
+    .mycic-segmented-item[aria-pressed='true'],
+    .mycic-segmented-item[aria-current='page'] {
+        @apply border-border/80 bg-panel text-ink shadow-[0_1px_2px_rgba(0,0,0,0.05)] dark:border-border dark:shadow-none;
+    }
+
     .mycic-input {
-        @apply min-h-11 w-full rounded-[var(--radius-control)] border border-border bg-panel px-3.5 text-sm text-ink transition-all duration-150 placeholder:text-ink-subtle/80 focus:border-brand focus:outline-none focus:ring-4 focus:ring-brand/15;
+        @apply min-h-11 sm:min-h-10 w-full rounded-[var(--radius-control)] border border-border bg-panel px-3.5 text-sm text-ink transition-[border-color,box-shadow] duration-150 ease-[var(--ease-snappy)] placeholder:text-ink-subtle focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20 disabled:cursor-not-allowed disabled:bg-surface disabled:opacity-60;
+    }
+
+    textarea.mycic-input {
+        @apply py-2.5 leading-relaxed;
+    }
+
+    select.mycic-input {
+        @apply cursor-pointer;
     }
 
     .mycic-input[aria-invalid='true'] {
-        @apply border-danger focus:border-danger focus:ring-danger/15;
+        @apply border-danger focus:border-danger focus:ring-danger/20;
     }
 
     .mycic-input[type='file'] {
-        @apply cursor-pointer py-1.5 pe-3 ps-2.5 text-xs text-ink-subtle file:me-3 file:cursor-pointer file:rounded-md file:border-0 file:bg-brand/15 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-brand hover:file:bg-brand/25;
+        @apply cursor-pointer py-2 pe-3 ps-2 text-xs text-ink-subtle file:me-3 file:cursor-pointer file:rounded-md file:border-0 file:bg-surface file:px-3 file:py-1 file:text-xs file:font-medium file:text-ink hover:file:bg-surface-tint;
     }
 
     .mycic-input-with-icon {
@@ -346,51 +396,61 @@ html[data-theme='dark'] {
     }
 
     .mycic-label {
-        @apply text-sm font-semibold text-ink;
+        @apply text-[0.8125rem] font-medium leading-snug text-ink;
     }
 
     .mycic-badge {
-        @apply inline-flex items-center rounded-md px-2.5 py-0.5 text-xs font-semibold;
+        @apply inline-flex items-center gap-1 whitespace-nowrap rounded-md px-2 py-0.5 text-xs font-medium leading-tight ring-1 ring-inset ring-border/80;
     }
 
     .mycic-badge-brand {
-        @apply inline-flex items-center rounded-md bg-surface-tint px-2.5 py-0.5 text-xs font-semibold text-brand-pressed;
+        @apply inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-surface-tint px-2 py-0.5 text-xs font-medium leading-tight text-brand-text ring-1 ring-inset ring-brand/15;
     }
 
     .mycic-badge-accent {
-        @apply inline-flex items-center rounded-md bg-accent-soft px-2.5 py-0.5 text-xs font-semibold text-amber-900 dark:text-amber-200;
+        @apply inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-accent-soft px-2 py-0.5 text-xs font-medium leading-tight text-amber-900 ring-1 ring-inset ring-amber-500/25 dark:text-amber-200;
     }
 
     .mycic-badge-success {
-        @apply inline-flex items-center rounded-md bg-success-soft px-2.5 py-0.5 text-xs font-semibold text-success;
+        @apply inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-success-soft px-2 py-0.5 text-xs font-medium leading-tight text-success ring-1 ring-inset ring-success/20;
     }
 
     .mycic-badge-warning {
-        @apply inline-flex items-center rounded-md bg-warning-soft px-2.5 py-0.5 text-xs font-semibold text-warning;
+        @apply inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-warning-soft px-2 py-0.5 text-xs font-medium leading-tight text-warning ring-1 ring-inset ring-warning/20;
     }
 
     .mycic-badge-danger {
-        @apply inline-flex items-center rounded-md bg-danger-soft px-2.5 py-0.5 text-xs font-semibold text-danger;
+        @apply inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-danger-soft px-2 py-0.5 text-xs font-medium leading-tight text-danger ring-1 ring-inset ring-danger/20;
     }
 
     .mycic-badge-info {
-        @apply inline-flex items-center rounded-md bg-info-soft px-2.5 py-0.5 text-xs font-semibold text-info;
+        @apply inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-info-soft px-2 py-0.5 text-xs font-medium leading-tight text-info ring-1 ring-inset ring-info/20;
     }
 
     .mycic-badge-neutral {
-        @apply inline-flex items-center rounded-md bg-surface px-2.5 py-0.5 text-xs font-semibold text-ink-muted;
+        @apply inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-surface px-2 py-0.5 text-xs font-medium leading-tight text-ink-muted ring-1 ring-inset ring-border/80;
     }
 
     .mycic-chip {
-        @apply inline-flex items-center gap-1.5 rounded-md border border-border-light bg-panel px-2.5 py-1 text-xs font-semibold text-ink-muted;
+        @apply inline-flex items-center gap-2 rounded-md border border-border-light bg-panel px-2 py-1 text-xs font-medium text-ink-muted;
     }
 
     .mycic-chip-online {
-        @apply inline-flex items-center gap-1.5 rounded-md bg-success-soft px-2.5 py-0.5 text-xs font-semibold text-success;
+        @apply inline-flex items-center gap-2 text-xs font-medium text-ink-muted;
+    }
+
+    .mycic-chip-online::before {
+        content: '';
+        @apply h-1.5 w-1.5 shrink-0 rounded-full bg-success;
     }
 
     .mycic-chip-offline {
-        @apply inline-flex items-center gap-1.5 rounded-md bg-warning-soft px-2.5 py-0.5 text-xs font-semibold text-warning;
+        @apply inline-flex items-center gap-2 rounded-md bg-warning-soft px-2 py-0.5 text-xs font-medium text-warning;
+    }
+
+    .mycic-chip-offline::before {
+        content: '';
+        @apply h-1.5 w-1.5 shrink-0 rounded-full bg-warning;
     }
 
     .mycic-alert {
@@ -398,19 +458,19 @@ html[data-theme='dark'] {
     }
 
     .mycic-alert-info {
-        @apply rounded-[var(--radius-control)] border border-info/15 border-s-[3px] border-s-info bg-info-soft/60 px-4 py-3 text-sm text-ink;
+        @apply rounded-[var(--radius-control)] border border-info/20 border-s-[3px] border-s-info bg-info-soft/70 px-4 py-3 text-sm text-ink;
     }
 
     .mycic-alert-warning {
-        @apply rounded-[var(--radius-control)] border border-warning/15 border-s-[3px] border-s-warning bg-warning-soft/60 px-4 py-3 text-sm text-ink;
+        @apply rounded-[var(--radius-control)] border border-warning/20 border-s-[3px] border-s-warning bg-warning-soft/70 px-4 py-3 text-sm text-ink;
     }
 
     .mycic-alert-danger {
-        @apply rounded-[var(--radius-control)] border border-danger/15 border-s-[3px] border-s-danger bg-danger-soft/60 px-4 py-3 text-sm text-ink;
+        @apply rounded-[var(--radius-control)] border border-danger/20 border-s-[3px] border-s-danger bg-danger-soft/70 px-4 py-3 text-sm text-ink;
     }
 
     .mycic-alert-success {
-        @apply rounded-[var(--radius-control)] border border-success/15 border-s-[3px] border-s-success bg-success-soft/60 px-4 py-3 text-sm text-ink;
+        @apply rounded-[var(--radius-control)] border border-success/20 border-s-[3px] border-s-success bg-success-soft/70 px-4 py-3 text-sm text-ink;
     }
 
     .mycic-alert-neutral {
@@ -418,23 +478,23 @@ html[data-theme='dark'] {
     }
 
     .mycic-alert-brand {
-        @apply rounded-[var(--radius-control)] border border-brand/15 border-s-[3px] border-s-brand bg-surface-tint/70 px-4 py-3 text-sm text-ink;
+        @apply rounded-[var(--radius-control)] border border-brand/20 border-s-[3px] border-s-brand bg-surface-tint/70 px-4 py-3 text-sm text-ink;
     }
 
     .mycic-sync-strip {
-        @apply mb-3 rounded-[var(--radius-control)] border border-border bg-panel px-3 py-2.5 text-sm text-ink-muted md:mb-4;
+        @apply mb-5 border-b border-border-light bg-transparent px-0 py-2 text-xs text-ink-subtle;
     }
 
     .mycic-sync-strip-success {
-        @apply bg-success-soft/50 text-ink;
+        @apply text-ink-muted;
     }
 
     .mycic-sync-strip-warning {
-        @apply bg-warning-soft/60 text-ink;
+        @apply rounded-[var(--radius-control)] border border-warning/25 bg-warning-soft/70 px-3 py-2 text-ink;
     }
 
     .mycic-sync-strip-danger {
-        @apply bg-danger-soft/60 text-ink;
+        @apply rounded-[var(--radius-control)] border border-danger/25 bg-danger-soft/70 px-3 py-2 text-ink;
     }
 
     .mycic-skeleton {
@@ -442,19 +502,23 @@ html[data-theme='dark'] {
     }
 
     .mycic-empty {
-        @apply flex flex-col items-center gap-2 rounded-[var(--radius-card)] border border-dashed border-border bg-panel/70 px-6 py-10 text-center;
+        @apply flex flex-col items-center gap-2 rounded-[var(--radius-card)] border border-dashed border-border bg-panel px-6 py-10 text-center;
+    }
+
+    .mycic-card .mycic-empty {
+        @apply rounded-none border-0 bg-transparent px-4 py-8;
     }
 
     .mycic-empty-title {
-        @apply text-sm font-semibold text-ink;
+        @apply text-sm font-medium text-ink;
     }
 
     .mycic-empty-subtitle {
-        @apply text-sm text-ink-subtle;
+        @apply max-w-sm text-xs leading-relaxed text-ink-subtle;
     }
 
     .mycic-page-header {
-        @apply sticky top-0 z-30 bg-canvas/85 backdrop-blur-md;
+        @apply sticky top-0 z-30 border-b border-border bg-panel;
     }
 
     .mycic-top-nav {
@@ -462,11 +526,11 @@ html[data-theme='dark'] {
     }
 
     .mycic-top-nav-link {
-        @apply inline-flex min-h-10 shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-ink-muted transition-colors hover:bg-surface hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand lg:px-3.5;
+        @apply inline-flex min-h-9 shrink-0 cursor-pointer items-center gap-2 rounded-[var(--radius-button)] px-3 py-2 text-sm font-medium text-ink-muted transition-colors duration-150 ease-[var(--ease-snappy)] hover:bg-surface hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand lg:px-3;
     }
 
     .mycic-nav-badge {
-        @apply pointer-events-none absolute -end-1.5 -top-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 text-[0.6rem] font-bold leading-none text-white tabular-nums ring-2 ring-panel;
+        @apply pointer-events-none absolute -end-2 -top-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 font-mono text-[11px] font-medium leading-none text-white tabular-nums ring-2 ring-panel;
     }
 
     .mycic-bottom-nav-item .mycic-nav-badge {
@@ -491,7 +555,7 @@ html[data-theme='dark'] {
     }
 
     .mycic-nav-badge-inline {
-        @apply inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-danger px-1.5 text-[0.65rem] font-bold leading-none text-white tabular-nums;
+        @apply inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-danger px-1.5 font-mono text-[11px] font-medium leading-none text-white tabular-nums;
     }
 
     .mycic-nav-badge-inline[data-variant='dot'] {
@@ -499,32 +563,32 @@ html[data-theme='dark'] {
     }
 
     .mycic-top-nav-link-active {
-        @apply bg-surface-tint text-brand-pressed;
+        @apply bg-surface-tint text-brand-text;
     }
 
     .mycic-bottom-nav {
-        @apply fixed inset-x-3 z-40 md:hidden;
-        bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
+        @apply fixed inset-x-0 bottom-0 z-40 border-t border-border bg-panel md:hidden;
+        padding-bottom: env(safe-area-inset-bottom, 0px);
     }
 
     .mycic-bottom-nav>div {
-        @apply flex items-end rounded-2xl border border-border bg-panel/95 p-2 backdrop-blur-md;
+        @apply mx-auto flex max-w-lg items-center px-2 py-1.5;
     }
 
     .mycic-bottom-nav-item {
-        @apply flex flex-1 flex-col items-center gap-1 rounded-lg px-1 py-1.5 text-[0.65rem] font-semibold transition-all duration-150;
+        @apply flex flex-1 flex-col items-center gap-1 rounded-[var(--radius-button)] px-1 py-1 text-[11px] font-medium transition-colors duration-150 ease-[var(--ease-snappy)];
     }
 
     .mycic-bottom-nav-item .mycic-nav-icon {
-        @apply relative flex h-8 w-14 items-center justify-center rounded-lg transition-colors duration-150;
+        @apply relative flex h-7 w-11 items-center justify-center rounded-[var(--radius-button)] transition-colors duration-150 ease-[var(--ease-snappy)];
     }
 
     .mycic-bottom-nav-item-active {
-        @apply text-brand;
+        @apply text-brand-text;
     }
 
     .mycic-bottom-nav-item-active .mycic-nav-icon {
-        @apply bg-brand text-brand-ink;
+        @apply bg-surface-tint text-brand-text;
     }
 
     .mycic-bottom-nav-item-inactive {
@@ -532,11 +596,11 @@ html[data-theme='dark'] {
     }
 
     .mycic-bottom-nav-item-center {
-        @apply relative justify-end;
+        @apply justify-center;
     }
 
     .mycic-bottom-nav-action {
-        @apply absolute -top-7 left-1/2 flex h-14 w-14 -translate-x-1/2 items-center justify-center rounded-2xl bg-brand text-brand-ink ring-4 ring-panel transition-all duration-150 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand active:scale-95;
+        @apply flex h-8 w-11 cursor-pointer items-center justify-center rounded-[var(--radius-button)] bg-brand text-brand-ink shadow-[inset_0_1px_0_rgba(255,255,255,0.14)] transition-[background-color,transform] duration-150 ease-[var(--ease-snappy)] hover:bg-brand-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand active:scale-95;
     }
 
     .mycic-no-scrollbar {
@@ -553,14 +617,15 @@ html[data-theme='dark'] {
 
     .mycic-dropdown-panel {
         @apply absolute end-0 z-50 mt-2 min-w-48 overflow-hidden rounded-[var(--radius-card)] border border-border bg-panel py-1.5;
+        box-shadow: var(--shadow-float);
     }
 
     .mycic-dropdown-item {
-        @apply block w-full px-4 py-2 text-start text-sm font-medium text-ink-muted transition-colors hover:bg-surface;
+        @apply block w-full cursor-pointer px-4 py-2 text-start text-sm font-normal text-ink-muted transition-colors duration-150 ease-[var(--ease-snappy)] hover:bg-surface hover:text-ink;
     }
 
     .mycic-dropdown-item-danger {
-        @apply block w-full px-4 py-2 text-start text-sm font-medium text-danger transition-colors hover:bg-danger-soft;
+        @apply block w-full cursor-pointer px-4 py-2 text-start text-sm font-medium text-danger transition-colors duration-150 ease-[var(--ease-snappy)] hover:bg-danger-soft;
     }
 
     .mycic-dropdown-divider {
@@ -568,11 +633,11 @@ html[data-theme='dark'] {
     }
 
     .mycic-avatar {
-        @apply inline-flex h-9 w-9 items-center justify-center rounded-full bg-linear-to-br from-brand to-brand-deep text-sm font-bold text-brand-ink;
+        @apply inline-flex h-8 w-8 items-center justify-center rounded-full border border-border bg-surface-tint text-xs font-medium text-brand-text;
     }
 
     .mycic-avatar-lg {
-        @apply inline-flex h-16 w-16 items-center justify-center overflow-hidden rounded-xl bg-linear-to-br from-brand to-brand-deep text-xl font-bold text-brand-ink;
+        @apply inline-flex h-16 w-16 items-center justify-center overflow-hidden rounded-[var(--radius-card)] border border-border bg-surface-tint text-xl font-medium text-brand-text;
     }
 
     .mycic-avatar-lg img {
@@ -584,11 +649,12 @@ html[data-theme='dark'] {
     }
 
     .mycic-modal-backdrop {
-        @apply absolute inset-0 bg-black/55 backdrop-blur-sm;
+        @apply absolute inset-0 bg-black/45;
     }
 
     .mycic-modal-panel {
         @apply relative z-10 w-full max-w-md overflow-hidden rounded-[var(--radius-modal)] border border-border bg-panel;
+        box-shadow: var(--shadow-float);
     }
 
     .mycic-modal-header {
@@ -600,7 +666,7 @@ html[data-theme='dark'] {
     }
 
     .mycic-modal-close {
-        @apply inline-flex min-h-9 min-w-9 items-center justify-center rounded-lg text-ink-subtle transition-colors hover:bg-surface hover:text-ink;
+        @apply inline-flex min-h-9 min-w-9 cursor-pointer items-center justify-center rounded-[var(--radius-button)] text-ink-subtle transition-colors duration-150 ease-[var(--ease-snappy)] hover:bg-surface hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand;
     }
 
     .mycic-sheet {
@@ -608,12 +674,13 @@ html[data-theme='dark'] {
     }
 
     .mycic-sheet-backdrop {
-        @apply absolute inset-0 bg-black/55 backdrop-blur-sm;
+        @apply absolute inset-0 bg-black/45;
     }
 
     .mycic-sheet-panel {
         @apply relative z-10 max-h-[85dvh] w-full overflow-y-auto rounded-t-[var(--radius-sheet)] border border-b-0 border-border bg-panel focus:outline-none md:max-w-md md:rounded-[var(--radius-modal)] md:border-b;
         padding-bottom: env(safe-area-inset-bottom, 0px);
+        box-shadow: var(--shadow-float);
         animation: mycic-sheet-in 200ms var(--ease-snappy);
     }
 
@@ -622,17 +689,17 @@ html[data-theme='dark'] {
     }
 
     .mycic-sheet-action {
-        @apply flex min-h-12 w-full items-center gap-3 rounded-[var(--radius-control)] border border-border-light bg-panel px-3 py-2.5 text-start text-sm transition-colors hover:border-brand/30 hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand active:scale-[0.99];
+        @apply flex min-h-12 w-full cursor-pointer items-center gap-3 rounded-[var(--radius-control)] border border-border-light bg-panel px-3 py-2 text-start text-sm transition-colors duration-150 ease-[var(--ease-snappy)] hover:border-ink-subtle/35 hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand active:scale-[0.99];
     }
 
     .mycic-sheet-action-icon {
-        @apply flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-surface-tint text-brand-pressed;
+        @apply flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--radius-button)] bg-surface-tint text-brand-text;
     }
 
     @keyframes mycic-sheet-in {
         from {
             opacity: 0;
-            transform: translateY(1rem);
+            transform: translateY(0.75rem);
         }
 
         to {
@@ -646,7 +713,7 @@ html[data-theme='dark'] {
     }
 
     .mycic-progress-fill {
-        @apply h-full shrink-0 transition-[width] duration-300 ease-[var(--ease-snappy)] first:rounded-s-full last:rounded-e-full;
+        @apply h-full shrink-0 first:rounded-s-full last:rounded-e-full;
     }
 
     .mycic-progress-striped {
@@ -655,7 +722,7 @@ html[data-theme='dark'] {
 
     .mycic-toast-host {
         @apply pointer-events-none fixed inset-x-0 z-[60] flex flex-col items-center gap-2 px-4;
-        bottom: calc(6rem + env(safe-area-inset-bottom, 0px));
+        bottom: calc(4.75rem + env(safe-area-inset-bottom, 0px));
     }
 
     body[data-auth='guest'] .mycic-toast-host {
@@ -670,7 +737,8 @@ html[data-theme='dark'] {
     }
 
     .mycic-toast {
-        @apply pointer-events-auto flex w-full max-w-sm items-center gap-2.5 rounded-[var(--radius-control)] border border-border bg-panel px-3 py-2.5 text-sm;
+        @apply pointer-events-auto flex w-full max-w-sm items-center gap-3 rounded-[var(--radius-control)] border border-border bg-panel px-3 py-2.5 text-sm;
+        box-shadow: var(--shadow-float);
         animation: mycic-toast-in 180ms var(--ease-snappy);
     }
 
@@ -711,22 +779,22 @@ html[data-theme='dark'] {
     }
 
     .mycic-toast-message {
-        @apply m-0 min-w-0 flex-1 self-center text-sm font-semibold leading-normal text-ink;
+        @apply m-0 min-w-0 flex-1 self-center text-sm font-medium leading-normal text-ink;
     }
 
     .mycic-toast-close {
-        @apply inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-ink-subtle transition-colors hover:bg-surface hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand;
+        @apply inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-[var(--radius-button)] text-ink-subtle transition-colors duration-150 ease-[var(--ease-snappy)] hover:bg-surface hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand;
     }
 
     @keyframes mycic-toast-in {
         from {
             opacity: 0;
-            transform: translateY(0.35rem) scale(0.98);
+            transform: translateY(0.35rem);
         }
 
         to {
             opacity: 1;
-            transform: translateY(0) scale(1);
+            transform: translateY(0);
         }
     }
 
@@ -735,100 +803,89 @@ html[data-theme='dark'] {
     }
 
     .mycic-sticky-action {
-        @apply fixed inset-x-3 z-30 rounded-2xl border border-border bg-panel/95 p-2 backdrop-blur-md md:static md:rounded-none md:border-0 md:bg-transparent md:p-0 md:backdrop-blur-none;
-        bottom: calc(6.5rem + env(safe-area-inset-bottom, 0px));
+        @apply fixed inset-x-3 z-30 rounded-[var(--radius-card)] border border-border bg-panel p-2.5 md:static md:rounded-none md:border-0 md:bg-transparent md:p-0;
+        bottom: calc(4.75rem + env(safe-area-inset-bottom, 0px));
+        box-shadow: var(--shadow-float);
+    }
+
+    @media (min-width: 768px) {
+        .mycic-sticky-action {
+            box-shadow: none;
+        }
     }
 
     @media (max-width: 767.98px) {
         .mycic-page:has(.mycic-sticky-action) {
-            padding-bottom: calc(12rem + env(safe-area-inset-bottom, 0px));
+            padding-bottom: calc(10rem + env(safe-area-inset-bottom, 0px));
         }
     }
 
     .mycic-list-row {
-        @apply flex items-start justify-between gap-3 border-b border-border-light py-3 last:border-b-0;
+        @apply flex items-start justify-between gap-3 border-b border-border-light py-3 first:pt-0 last:border-b-0 last:pb-0;
+    }
+
+    .mycic-list-row-interactive {
+        @apply cursor-pointer -mx-2 px-2 rounded-[var(--radius-control)] transition-colors duration-150 ease-[var(--ease-snappy)] hover:bg-surface/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand;
     }
 
     .mycic-metric {
         @apply flex h-full flex-col gap-1 rounded-[var(--radius-card)] border border-border bg-panel p-4 md:p-5;
+        box-shadow: var(--shadow-card);
     }
 
     .mycic-metric-value {
-        @apply text-2xl font-bold text-ink tabular-nums;
+        @apply font-mono text-2xl font-semibold leading-none tracking-[-0.025em] text-ink tabular-nums;
     }
 
     .mycic-metric-label {
-        @apply overflow-hidden text-ellipsis whitespace-nowrap text-caption font-semibold uppercase tracking-wide text-ink-subtle;
+        @apply overflow-hidden text-ellipsis whitespace-nowrap text-xs font-medium text-ink-subtle;
     }
 
     .mycic-metric-note {
-        @apply text-caption text-ink-subtle;
+        @apply text-caption leading-normal text-ink-subtle;
+    }
+
+    .mycic-stat-strip {
+        @apply grid gap-px overflow-hidden rounded-[var(--radius-card)] border border-border bg-border-light;
+        box-shadow: var(--shadow-card);
+    }
+
+    .mycic-stat-strip > .mycic-metric {
+        @apply rounded-none border-0;
+        box-shadow: none;
     }
 
     .mycic-hero {
-        position: relative;
-        overflow: hidden;
-        isolation: isolate;
-        border-radius: var(--radius-sheet);
-        padding: 1.25rem;
-        color: #ffffff;
-        background: linear-gradient(132deg, #012850 0%, #034588 36%, #0352a1 72%, #0b67c6 100%);
-        border: 1px solid rgb(255 255 255 / 15%);
-    }
-
-    .mycic-hero::before {
-        content: '';
-        position: absolute;
-        inset: 0;
-        z-index: -1;
-        background: radial-gradient(circle at 85% 20%, rgb(255 195 0 / 18%) 0%, transparent 45%),
-                    repeating-linear-gradient(115deg, rgb(255 255 255 / 5%) 0 2px, transparent 2px 28px);
-    }
-
-    .mycic-hero::after {
-        content: '';
-        position: absolute;
-        z-index: -1;
-        top: -5rem;
-        inset-inline-end: -3rem;
-        width: 14rem;
-        height: 14rem;
-        border-radius: 9999px;
-        background: radial-gradient(circle, rgb(255 255 255 / 15%) 0%, transparent 70%);
-    }
-
-    @media (min-width: 768px) {
-        .mycic-hero {
-            padding: 1.75rem;
-        }
+        @apply rounded-[var(--radius-card)] border border-border bg-panel p-4 text-ink md:p-6;
+        box-shadow: var(--shadow-card);
     }
 
     .mycic-hero-icon-btn {
-        @apply flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white/12 text-white backdrop-blur-sm transition-colors hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white active:scale-95 disabled:pointer-events-none disabled:opacity-50;
+        @apply flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-[var(--radius-button)] border border-border bg-surface text-ink-muted transition-colors duration-150 ease-[var(--ease-snappy)] hover:bg-surface-tint hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand active:scale-95 disabled:pointer-events-none disabled:opacity-50;
     }
 
     .mycic-hero-tile {
-        @apply flex w-16 shrink-0 flex-col items-center justify-center gap-1.5 rounded-xl bg-white/12 px-1 py-3 text-[0.68rem] font-semibold text-white backdrop-blur-sm transition-all duration-150 hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white active:scale-95 disabled:pointer-events-none disabled:opacity-50;
+        @apply flex w-16 shrink-0 cursor-pointer flex-col items-center justify-center gap-2 rounded-[var(--radius-control)] border border-border bg-surface px-1 py-3 text-xs font-medium text-ink transition-colors duration-150 ease-[var(--ease-snappy)] hover:bg-surface-tint focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand active:scale-95 disabled:pointer-events-none disabled:opacity-50;
     }
 
     .mycic-hero-pill {
-        @apply inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-white/30 bg-white/10 px-3.5 py-1.5 text-xs font-semibold text-white backdrop-blur-sm transition-colors hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white active:scale-[0.98];
+        @apply inline-flex min-h-11 sm:min-h-9 shrink-0 cursor-pointer select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-[var(--radius-button)] border border-border bg-panel px-3 text-[0.8125rem] font-medium leading-none text-ink-muted transition-[color,background-color,border-color,box-shadow,transform] duration-150 ease-[var(--ease-snappy)] hover:border-ink-subtle/35 hover:bg-surface hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand active:scale-[0.98];
     }
 
     .mycic-tile {
-        @apply flex flex-col items-center gap-2 rounded-xl p-2 text-center transition-colors duration-150 hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand active:scale-[0.97];
+        @apply flex cursor-pointer flex-col items-center gap-2 rounded-[var(--radius-control)] p-2 text-center transition-colors duration-150 ease-[var(--ease-snappy)] hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand active:scale-[0.97];
     }
 
     .mycic-tile-icon {
-        @apply flex h-12 w-12 items-center justify-center rounded-lg bg-surface-tint text-brand-pressed;
+        @apply flex h-12 w-12 items-center justify-center rounded-[var(--radius-button)] bg-surface text-ink-muted;
     }
 
     .mycic-tile-label {
-        @apply text-[0.7rem] font-semibold leading-tight text-ink-muted;
+        @apply text-[11px] font-medium leading-tight text-ink-muted;
     }
 
     .mycic-status-panel-brand {
-        @apply rounded-[var(--radius-control)] bg-surface-tint p-3 text-brand-pressed;
+        @apply rounded-[var(--radius-control)] bg-surface-tint p-3 text-brand-text;
     }
 
     .mycic-status-panel-success {
@@ -849,10 +906,12 @@ html[data-theme='dark'] {
 
     .mycic-table-wrap {
         @apply overflow-x-auto rounded-[var(--radius-card)] border border-border bg-panel;
+        box-shadow: var(--shadow-card);
     }
 
     .mycic-card>.mycic-table-wrap {
         @apply rounded-[var(--radius-card)] border-0;
+        box-shadow: none;
     }
 
     .mycic-table {
@@ -860,11 +919,15 @@ html[data-theme='dark'] {
     }
 
     .mycic-table thead th {
-        @apply border-b border-border-light bg-surface px-4 py-3 text-xs font-bold uppercase tracking-wide text-ink-subtle first:rounded-tl-[var(--radius-card)] last:rounded-tr-[var(--radius-card)];
+        @apply whitespace-nowrap border-b border-border bg-surface/60 px-4 py-3 text-xs font-medium text-ink-subtle first:rounded-tl-[var(--radius-card)] last:rounded-tr-[var(--radius-card)];
+    }
+
+    .mycic-table tbody tr {
+        @apply transition-colors duration-150 ease-[var(--ease-snappy)] hover:bg-surface/50 focus-within:bg-surface/70;
     }
 
     .mycic-table tbody td {
-        @apply border-b border-border-light px-4 py-3 text-ink-muted last:border-b-0;
+        @apply border-b border-border-light px-4 py-3 text-ink-muted;
     }
 
     .mycic-table tbody tr:last-child td {
@@ -876,27 +939,27 @@ html[data-theme='dark'] {
     }
 
     .mycic-link {
-        @apply font-semibold text-brand-pressed hover:text-brand-hover;
+        @apply font-medium text-brand-text hover:underline;
     }
 
     .mycic-dropzone {
-        @apply relative flex flex-col items-center justify-center rounded-[var(--radius-card)] border-2 border-dashed border-border bg-surface/40 p-6 text-center transition-all duration-150 hover:border-brand hover:bg-surface-tint/30 cursor-pointer;
+        @apply relative flex cursor-pointer flex-col items-center justify-center rounded-[var(--radius-card)] border border-dashed border-border bg-surface/40 p-6 text-center transition-colors duration-150 ease-[var(--ease-snappy)] hover:border-brand hover:bg-surface-tint/40;
     }
 
     .mycic-dropzone.dragover {
-        @apply border-brand bg-surface-tint/50 ring-2 ring-brand/20;
+        @apply border-brand bg-surface-tint/60 ring-2 ring-brand/20;
     }
 
     .mycic-outline-item {
-        @apply flex items-start gap-3 rounded-xl border border-border-light bg-surface/30 p-3.5 transition-colors hover:bg-surface/70;
+        @apply flex items-start gap-3 rounded-[var(--radius-control)] border border-border-light bg-surface/40 p-4 transition-colors duration-150 ease-[var(--ease-snappy)] hover:bg-surface/80;
     }
 
     .mycic-outline-badge {
-        @apply flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-surface-tint text-xs font-bold text-brand-pressed;
+        @apply flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-surface-tint font-mono text-xs font-medium text-brand-text tabular-nums;
     }
 
     .mycic-guest-shell {
-        @apply min-h-dvh bg-panel;
+        @apply min-h-dvh bg-canvas;
     }
 
     .mycic-auth-page {
@@ -904,60 +967,26 @@ html[data-theme='dark'] {
     }
 
     .mycic-auth-showcase {
-        @apply relative hidden overflow-hidden bg-linear-to-br from-brand-deep via-brand to-brand-hover text-white lg:flex lg:flex-col lg:justify-between;
-    }
-
-    .mycic-auth-paths {
-        @apply pointer-events-none absolute inset-0 opacity-40;
-    }
-
-    .mycic-auth-path {
-        fill: none;
-        stroke: rgb(255 255 255 / 18%);
-        stroke-width: 1;
-        animation: mycic-auth-path-drift 18s ease-in-out infinite alternate;
-    }
-
-    .mycic-auth-path:nth-child(odd) {
-        animation-duration: 22s;
-        animation-direction: alternate-reverse;
-    }
-
-    @keyframes mycic-auth-path-drift {
-        0% {
-            transform: translateY(0) translateX(0);
-            opacity: 0.35;
-        }
-
-        100% {
-            transform: translateY(-12px) translateX(8px);
-            opacity: 0.7;
-        }
+        @apply relative hidden border-e border-border bg-surface text-ink lg:flex lg:flex-col lg:justify-between;
     }
 
     .mycic-auth-showcase-content {
-        @apply relative z-10 flex h-full flex-col justify-between p-10 xl:p-14;
+        @apply relative z-10 flex h-full flex-col justify-between gap-8 p-10 xl:p-14;
     }
 
     .mycic-auth-quote {
-        @apply max-w-md text-2xl font-bold leading-snug tracking-tight text-white/95 xl:text-3xl;
+        @apply max-w-md text-2xl font-medium leading-snug tracking-[-0.02em] text-ink;
     }
 
     .mycic-auth-quote-author {
-        @apply mt-6 text-sm text-white/60;
+        @apply mt-3 text-xs leading-relaxed text-ink-subtle;
     }
 
     .mycic-auth-form-panel {
-        @apply relative flex flex-col px-6 py-8 sm:px-10 sm:py-10 lg:px-14 lg:py-12 xl:px-20;
+        @apply relative flex flex-col bg-panel px-6 py-8 sm:px-10 sm:py-10 lg:px-14 lg:py-12 xl:px-20;
     }
 
     .mycic-auth-form-inner {
         @apply mx-auto flex w-full max-w-md flex-1 flex-col justify-center;
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-        .mycic-auth-path {
-            animation: none;
-        }
     }
 }

@@ -29,7 +29,7 @@
                 <div class="mycic-card-header flex flex-wrap items-start justify-between gap-2">
                     <div class="min-w-0">
                         <h2 class="mycic-card-title" id="thesis-readiness-title" tabindex="-1">Kesiapan skripsi</h2>
-                        <p class="mt-0.5 text-caption text-ink-subtle" id="thesis-readiness-caption">Dihitung dari nilai dan tagihan yang sudah tersinkron.</p>
+                        <p class="mycic-card-subtitle" id="thesis-readiness-caption">Dihitung dari nilai dan tagihan yang sudah tersinkron.</p>
                     </div>
                     <span id="thesis-readiness-badge"></span>
                 </div>
@@ -53,9 +53,9 @@
                     <summary class="mycic-card-header flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">
                         <span class="min-w-0">
                             <span class="mycic-card-title block" id="thesis-prep-title">Persiapan ujian TA</span>
-                            <span class="mt-0.5 block text-caption text-ink-subtle" id="thesis-prep-caption">Centang sendiri; tersimpan di perangkat ini saja.</span>
+                            <span class="mycic-card-subtitle block" id="thesis-prep-caption">Centang sendiri; tersimpan di perangkat ini saja.</span>
                         </span>
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0 text-ink-subtle transition-transform group-open:rotate-180" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6l6 -6" /></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0 text-ink-subtle transition-transform group-open:rotate-180" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6l6 -6" /></svg>
                     </summary>
                     <div class="mycic-card-body flex flex-col gap-1" id="thesis-prep-list">
                         <div class="mycic-skeleton h-11 w-full"></div>
@@ -68,7 +68,7 @@
             <section class="mycic-card scroll-mt-24" id="persyaratan" aria-labelledby="thesis-requirements-title">
                 <div class="mycic-card-header">
                     <h2 class="mycic-card-title" id="thesis-requirements-title">Persyaratan &amp; SOP</h2>
-                    <p class="mt-0.5 text-caption text-ink-subtle">Dari SiMASITA di Portal Kampus.</p>
+                    <p class="mycic-card-subtitle">Dari SiMASITA di Portal Kampus.</p>
                 </div>
                 <div class="mycic-card-body flex flex-col gap-5" id="thesis-requirements" aria-busy="true">
                     <div class="mycic-skeleton h-4 w-2/3"></div>
@@ -191,7 +191,7 @@
             const statusIcon = (status) => {
                 const style = STATUS_STYLE[status] || STATUS_STYLE.unknown;
 
-                return `<span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${ICON_BG[style.tone]}" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">${style.icon}</svg></span>`;
+                return `<span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${ICON_BG[style.tone]}" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${style.icon}</svg></span>`;
             };
 
             const renderStatus = (data) => {
@@ -263,14 +263,14 @@
                 requirementsHost.innerHTML = `
                     ${summary.length ? `
                         <div class="${app.statusPanelClass('brand')}">
-                            <p class="text-caption font-semibold uppercase tracking-wide text-ink-subtle">Ambang untuk jenjang ${app.escapeHtml(jenjang || 'kamu')}</p>
-                            <p class="mt-1 text-sm font-semibold text-ink">${app.escapeHtml(summary.join(' · '))}</p>
+                            <p class="text-caption font-medium text-ink-subtle">Ambang untuk jenjang ${app.escapeHtml(jenjang || 'kamu')}</p>
+                            <p class="mt-1 text-sm font-medium leading-snug text-ink">${app.escapeHtml(summary.join(' · '))}</p>
                             ${isDefault ? '<p class="mt-1 text-caption text-ink-subtle">Sebagian ambang tidak tertulis di portal; WeCIC memakai nilai bawaan. Pastikan lagi di SOP.</p>' : ''}
                         </div>
                     ` : ''}
                     ${thesisItems.length ? `
                         <div>
-                            <h3 class="text-sm font-bold text-ink">Syarat pengajuan skripsi</h3>
+                            <h3 class="text-sm font-medium leading-snug text-ink">Syarat pengajuan skripsi</h3>
                             <ul class="mt-2 flex flex-col gap-2">
                                 ${thesisItems.map((item) => `<li class="flex gap-2 text-sm text-ink-muted"><span class="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-brand" aria-hidden="true"></span><span class="min-w-0">${app.escapeHtml(item)}</span></li>`).join('')}
                             </ul>
@@ -278,12 +278,12 @@
                     ` : ''}
                     ${examItems.length ? `
                         <div>
-                            <h3 class="text-sm font-bold text-ink">Menuju ujian TA</h3>
+                            <h3 class="text-sm font-medium leading-snug text-ink">Menuju ujian TA</h3>
                             <ol class="mt-3 flex flex-col">
                                 ${examItems.map((item, index) => `
                                     <li class="relative flex gap-3 pb-4 last:pb-0">
                                         ${index < examItems.length - 1 ? '<span class="absolute start-3.5 top-7 bottom-0 w-px bg-border" aria-hidden="true"></span>' : ''}
-                                        <span class="relative z-10 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 border-brand/40 bg-panel text-xs font-bold text-brand" aria-hidden="true">${index + 1}</span>
+                                        <span class="relative z-10 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border bg-surface font-mono text-xs font-medium text-ink-muted" aria-hidden="true">${index + 1}</span>
                                         <span class="min-w-0 pt-1 text-sm text-ink-muted"><span class="sr-only">Langkah ${index + 1}: </span>${app.escapeHtml(item)}</span>
                                     </li>
                                 `).join('')}
@@ -308,17 +308,17 @@
                             const href = app.buildCampusDownloadUrl(documentItem.path, documentItem.filename);
 
                             return href ? `
-                                <a href="${app.escapeHtml(href)}" target="_blank" rel="noopener" class="mycic-list-row min-h-11 items-center rounded-md transition-colors hover:bg-surface/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand" data-online-required>
+                                <a href="${app.escapeHtml(href)}" target="_blank" rel="noopener" class="mycic-list-row mycic-list-row-interactive min-h-11 items-center" data-online-required>
                                     <span class="flex min-w-0 items-center gap-3">
-                                        <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-surface-tint text-brand-pressed" aria-hidden="true">
-                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3v4a1 1 0 0 0 1 1h4" /><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z" /><path d="M9 17h6" /><path d="M9 13h6" /></svg>
+                                        <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-surface-tint text-brand-text" aria-hidden="true">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3v4a1 1 0 0 0 1 1h4" /><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z" /><path d="M9 17h6" /><path d="M9 13h6" /></svg>
                                         </span>
                                         <span class="min-w-0">
-                                            <span class="block text-sm font-semibold text-ink wrap-break-word">${app.escapeHtml(documentItem.label || documentItem.filename || 'Dokumen')}</span>
+                                            <span class="block text-sm font-medium leading-snug text-ink wrap-break-word">${app.escapeHtml(documentItem.label || documentItem.filename || 'Dokumen')}</span>
                                             <span class="block text-caption text-ink-subtle">PDF · butuh koneksi internet</span>
                                         </span>
                                     </span>
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 self-center text-ink-subtle" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 6h-6a2 2 0 0 0 -2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-6" /><path d="M11 13l9 -9" /><path d="M15 4h5v5" /></svg>
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 self-center text-ink-subtle" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 6h-6a2 2 0 0 0 -2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-6" /><path d="M11 13l9 -9" /><path d="M15 4h5v5" /></svg>
                                 </a>
                             ` : '';
                         }).join('')}
@@ -361,8 +361,8 @@
                             ${known ? `<circle cx="50" cy="50" r="42" fill="none" stroke="currentColor" stroke-width="10" stroke-linecap="round" class="${tone}" stroke-dasharray="${circumference.toFixed(2)}" stroke-dashoffset="${(circumference * (1 - percent / 100)).toFixed(2)}"></circle>` : ''}
                         </svg>
                         <span class="absolute inset-0 flex flex-col items-center justify-center" aria-hidden="true">
-                            <span class="text-lg font-extrabold leading-none text-ink tabular-nums">${known ? app.escapeHtml(String(progress.current)) : '–'}</span>
-                            <span class="mt-0.5 text-[0.7rem] font-semibold text-ink-subtle tabular-nums">/ ${app.escapeHtml(String(progress?.target ?? '–'))} SKS</span>
+                            <span class="font-mono text-lg font-semibold leading-none text-ink tabular-nums">${known ? app.escapeHtml(String(progress.current)) : '–'}</span>
+                            <span class="mt-0.5 font-mono text-[11px] font-medium text-ink-subtle tabular-nums">/ ${app.escapeHtml(String(progress?.target ?? '–'))} SKS</span>
                         </span>
                     </div>
                 `;
@@ -422,7 +422,7 @@
                     <div class="flex items-center gap-4">
                         ${sksRing(data.sks_progress)}
                         <div class="min-w-0">
-                            <p class="text-sm font-bold text-ink">SKS lulus</p>
+                            <p class="text-sm font-medium leading-snug text-ink">SKS lulus</p>
                             <p class="mt-0.5 text-sm text-ink-muted">${app.escapeHtml(sksHint)}</p>
                         </div>
                     </div>
@@ -443,17 +443,17 @@
                                 ${statusIcon(item.status)}
                                 <span class="min-w-0 flex-1">
                                     <span class="flex flex-wrap items-baseline justify-between gap-x-3">
-                                        <span class="text-sm font-semibold text-ink">${app.escapeHtml(item.label)}</span>
-                                        <span class="text-sm font-semibold tabular-nums ${app.textToneClass(style.tone === 'secondary' ? 'muted' : style.tone)}">${app.escapeHtml(rowValue(item))}</span>
+                                        <span class="text-sm font-medium leading-snug text-ink">${app.escapeHtml(item.label)}</span>
+                                        <span class="text-sm font-medium tabular-nums ${app.textToneClass(style.tone === 'secondary' ? 'muted' : style.tone)}">${app.escapeHtml(rowValue(item))}</span>
                                     </span>
                                     <span class="sr-only">${app.escapeHtml(style.label)}.</span>
                                     ${item.hint ? `<span class="mt-0.5 block text-caption text-ink-subtle">${app.escapeHtml(item.hint)}</span>` : ''}
                                 </span>
-                                ${interactive ? '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 self-center text-ink-subtle" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6l-6 6" /></svg>' : ''}
+                                ${interactive ? '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 self-center text-ink-subtle" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6l-6 6" /></svg>' : ''}
                             `;
 
                             return interactive
-                                ? `<li><button type="button" class="flex min-h-11 w-full items-start gap-3 py-3 text-start transition-colors hover:bg-surface/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand" data-thesis-courses="${app.escapeHtml(item.key)}" aria-haspopup="dialog">${inner}</button></li>`
+                                ? `<li><button type="button" class="flex min-h-11 w-full cursor-pointer items-start gap-3 py-3 text-start transition-colors hover:bg-surface/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand" data-thesis-courses="${app.escapeHtml(item.key)}" aria-haspopup="dialog">${inner}</button></li>`
                                 : `<li class="flex items-start gap-3 py-3">${inner}</li>`;
                         }).join('')}
                     </ul>
@@ -483,7 +483,7 @@
                             ${courses.map((course) => `
                                 <li class="flex items-start justify-between gap-3 py-3">
                                     <span class="min-w-0">
-                                        <span class="block text-sm font-semibold text-ink">${app.escapeHtml(course.name || course.code || 'Mata kuliah')}</span>
+                                        <span class="block text-sm font-medium leading-snug text-ink">${app.escapeHtml(course.name || course.code || 'Mata kuliah')}</span>
                                         <span class="block text-caption text-ink-subtle">${app.escapeHtml([course.code, course.sks ? `${course.sks} SKS` : null, course.semester ? `Semester ${course.semester}` : null].filter(Boolean).join(' · '))}</span>
                                     </span>
                                     ${app.renderBadge(course.letter || (isD ? 'D' : 'E'), isD ? 'warning' : 'danger')}

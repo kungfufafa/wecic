@@ -11,7 +11,7 @@
     </x-page-header>
 
     <div class="flex flex-col gap-5">
-        <div class="grid grid-cols-3 gap-3" id="grades-summary">
+        <div class="mycic-stat-strip grid-cols-3" id="grades-summary">
             @foreach (['IPK', 'IPS', 'SKS lulus'] as $label)
                 <x-metric :label="$label">
                     <x-slot:value><div class="mycic-skeleton h-7 w-14"></div></x-slot:value>
@@ -55,12 +55,12 @@
             </div>
         </section>
 
-        <a href="{{ route('transcript.index') }}" class="mycic-card flex min-h-11 items-center justify-between gap-3 p-4 transition-colors hover:border-brand/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">
+        <a href="{{ route('transcript.index') }}" class="mycic-card flex min-h-11 cursor-pointer items-center justify-between gap-3 p-4 transition-colors hover:border-ink-subtle/40 hover:bg-surface/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">
             <span class="min-w-0">
-                <span class="block text-sm font-bold text-ink">Transkrip & progres studi</span>
+                <span class="block text-sm font-medium leading-snug text-ink">Transkrip & progres studi</span>
                 <span class="block text-caption text-ink-subtle">IPK, sisa SKS, tren IPS, dan simulasi target IPK</span>
             </span>
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 text-ink-subtle" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6l-6 6" /></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 text-ink-subtle" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6l-6 6" /></svg>
         </a>
     </div>
 @endsection
@@ -82,7 +82,7 @@
             const esc = (value) => app.escapeHtml(value);
             const letterClasses = {
                 success: 'bg-success-soft text-success',
-                brand: 'bg-surface-tint text-brand-pressed',
+                brand: 'bg-surface-tint text-brand-text',
                 warning: 'bg-warning-soft text-warning',
                 danger: 'bg-danger-soft text-danger',
                 neutral: 'bg-surface text-ink-subtle',
@@ -150,7 +150,7 @@
                         <div class="mycic-metric-value">${esc(formatIp(latest?.ips ?? null))}</div>
                         <div class="mycic-metric-note">
                             ${latest ? `Semester ${esc(latest.semester)}${latest.is_complete === false ? ' · sebagian' : ''}` : 'Belum ada'}
-                            ${deltaText ? `<span class="font-semibold ${deltaTone}" aria-hidden="true">${esc(deltaText)}</span>` : ''}
+                            ${deltaText ? `<span class="font-medium ${deltaTone}" aria-hidden="true">${esc(deltaText)}</span>` : ''}
                             ${deltaLabel ? `<span class="sr-only">${esc(deltaLabel)}</span>` : ''}
                         </div>
                     </div>
@@ -169,7 +169,7 @@
                 if (data.sources?.is_partial) {
                     alerts.push(`
                         <div class="${app.alertTone('warning')}">
-                            <div class="flex flex-wrap items-center gap-2 font-semibold">${app.renderBadge('Data sebagian', 'warning')} Halaman nilai SIPANDAI gagal dibaca</div>
+                            <div class="flex flex-wrap items-center gap-2 font-medium">${app.renderBadge('Data sebagian', 'warning')} Halaman nilai SIPANDAI gagal dibaca</div>
                             <p class="mt-1">WeCIC memakai nilai dari halaman KRS, jadi komponen absen dan tugas tidak tampil. Coba sinkronkan lagi nanti.</p>
                         </div>
                     `);
@@ -218,9 +218,9 @@
                             aria-selected="${selected ? 'true' : 'false'}"
                             tabindex="${selected ? '0' : '-1'}"
                             data-grades-semester="${esc(key)}"
-                            class="flex min-h-11 shrink-0 flex-col items-start justify-center rounded-lg border border-border bg-panel px-3 py-1.5 text-start transition-colors hover:border-brand/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand aria-selected:border-brand aria-selected:bg-surface-tint"
+                            class="flex min-h-11 shrink-0 cursor-pointer flex-col items-start justify-center rounded-[var(--radius-control)] border border-border bg-panel px-3 py-1.5 text-start transition-colors hover:border-ink-subtle/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand aria-selected:border-brand aria-selected:bg-surface-tint"
                         >
-                            <span class="text-sm font-bold text-ink">${esc(semesterName(semester))}</span>
+                            <span class="text-sm font-medium text-ink">${esc(semesterName(semester))}</span>
                             <span class="text-caption tabular-nums ${hasGrades(semester) ? 'text-ink-muted' : 'text-ink-subtle'}">${esc(chipCaption(semester))}</span>
                         </button>
                     `;
@@ -262,7 +262,7 @@
                 if (semester.is_regular === false || !Number.isInteger(semester.semester)) {
                     return `
                         <div class="${app.alertTone('neutral')}">
-                            <div class="font-semibold text-ink">Semester T berisi mata kuliah konversi</div>
+                            <div class="font-medium text-ink">Semester T berisi mata kuliah konversi</div>
                             <p class="mt-1">Portal tidak mencantumkan nilai MK konversi, jadi kartu nilai semester T selalu kosong dan tidak masuk IPK. SKS-nya tetap dihitung sebagai SKS lulus dari KRS semester T.</p>
                         </div>
                     `;
@@ -277,7 +277,7 @@
                 if (validation === 'pending_dpa') {
                     return `
                         <div class="${app.alertTone('warning')}" role="status">
-                            <div class="font-semibold">Nilai belum bisa tampil: KRS kamu belum divalidasi DPA</div>
+                            <div class="font-medium">Nilai belum bisa tampil: KRS kamu belum divalidasi DPA</div>
                             <p class="mt-1">Nilai semester ini baru keluar setelah DPA memvalidasi KRS dan dosen mengisi nilai di SIPANDAI.</p>
                             <div class="mt-3"><a href="${esc(krsUrl)}" class="${app.buttonClass('secondary', { small: true })}">Cek KRS & hubungi DPA</a></div>
                         </div>
@@ -287,7 +287,7 @@
                 if (validation === 'not_submitted') {
                     return `
                         <div class="${app.alertTone('warning')}" role="status">
-                            <div class="font-semibold">KRS semester ini belum diajukan</div>
+                            <div class="font-medium">KRS semester ini belum diajukan</div>
                             <p class="mt-1">Tanpa KRS yang divalidasi DPA, nilai semester ini tidak akan keluar.</p>
                             <div class="mt-3"><a href="${esc(krsUrl)}" class="${app.buttonClass('secondary', { small: true })}">Lihat status KRS</a></div>
                         </div>
@@ -297,7 +297,7 @@
                 if (validation === 'validated') {
                     return `
                         <div class="${app.alertTone('info')}" role="status">
-                            <div class="font-semibold">Nilai semester ini belum keluar</div>
+                            <div class="font-medium">Nilai semester ini belum keluar</div>
                             <p class="mt-1">KRS kamu sudah divalidasi DPA. Nilai muncul setelah dosen mengisi nilai di SIPANDAI, biasanya setelah UAS.</p>
                         </div>
                     `;
@@ -305,7 +305,7 @@
 
                 return `
                     <div class="${app.alertTone('info')}" role="status">
-                        <div class="font-semibold">Nilai semester ini belum keluar</div>
+                        <div class="font-medium">Nilai semester ini belum keluar</div>
                         <p class="mt-1">Nilai baru tampil setelah KRS divalidasi DPA dan dosen mengisi nilai di SIPANDAI.</p>
                         <div class="mt-3"><a href="${esc(krsUrl)}" class="${app.buttonClass('secondary', { small: true })}">Cek status KRS</a></div>
                     </div>
@@ -332,7 +332,7 @@
                                 <div class="min-w-0">
                                     <dt class="text-caption text-ink-subtle">${esc(label)}</dt>
                                     <dd class="flex flex-col gap-1">
-                                        <span class="text-sm font-semibold tabular-nums text-ink">${value === null ? '–' : esc(Number.isInteger(value) ? value : value.toFixed(1))}</span>
+                                        <span class="text-sm font-medium tabular-nums text-ink">${value === null ? '–' : esc(Number.isInteger(value) ? value : value.toFixed(1))}</span>
                                         <span class="mycic-progress-track h-1.5" aria-hidden="true">${value === null ? '' : `<span class="mycic-progress-fill block bg-brand" style="width: ${width.toFixed(1)}%"></span>`}</span>
                                     </dd>
                                 </div>
@@ -354,15 +354,15 @@
                 return `
                     <article class="mycic-card flex min-w-0 flex-col gap-3 p-4" aria-labelledby="grades-course-${index}">
                         <div class="flex items-start gap-3">
-                            <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg text-lg font-bold ${letterClasses[tone]}" aria-hidden="true">${graded ? esc(course.letter) : '–'}</span>
+                            <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg font-mono text-lg font-semibold ${letterClasses[tone]}" aria-hidden="true">${graded ? esc(course.letter) : '–'}</span>
                             <div class="min-w-0 flex-1">
-                                <h3 class="text-sm font-bold text-ink" id="grades-course-${index}">${esc(course.name || 'Mata kuliah')}</h3>
+                                <h3 class="text-sm font-medium leading-snug text-ink" id="grades-course-${index}">${esc(course.name || 'Mata kuliah')}</h3>
                                 <p class="text-caption text-ink-subtle">${facts}</p>
                                 <p class="sr-only">${graded ? `Nilai ${esc(course.letter)}` : 'Nilai belum keluar'}</p>
                             </div>
                             <div class="shrink-0 text-end">
                                 <div class="text-caption text-ink-subtle">Mutu</div>
-                                <div class="text-sm font-bold tabular-nums text-ink">${graded && course.quality_points !== null && course.quality_points !== undefined ? esc(course.quality_points) : '–'}</div>
+                                <div class="font-mono text-sm font-medium tabular-nums text-ink">${graded && course.quality_points !== null && course.quality_points !== undefined ? esc(course.quality_points) : '–'}</div>
                             </div>
                         </div>
                         ${graded ? '' : '<p class="text-caption text-ink-subtle">Nilai belum keluar.</p>'}
@@ -404,20 +404,20 @@
                         <div class="mycic-card-body flex flex-wrap items-center justify-between gap-3">
                             <div class="min-w-0">
                                 <div class="flex flex-wrap items-center gap-2">
-                                    <h3 class="text-subtitle font-bold text-ink" id="grades-panel-title">${esc(semesterName(semester))}</h3>
+                                    <h3 class="mycic-card-title" id="grades-panel-title">${esc(semesterName(semester))}</h3>
                                     ${statusBadge}
                                 </div>
-                                ${facts ? `<p class="mt-0.5 text-caption text-ink-subtle">${facts}</p>` : ''}
+                                ${facts ? `<p class="mycic-card-subtitle">${facts}</p>` : ''}
                             </div>
                             <div class="shrink-0 text-end">
                                 <div class="mycic-metric-label">IPS</div>
-                                <div class="text-2xl font-bold tabular-nums text-ink">${esc(formatIp(hasGrades(semester) ? semester.ips : null))}</div>
+                                <div class="mycic-metric-value">${esc(formatIp(hasGrades(semester) ? semester.ips : null))}</div>
                             </div>
                         </div>
                         ${semester.status === 'partial' ? `<p class="border-t border-border-light px-4 py-3 text-caption text-ink-muted md:px-5">Baru ${esc(semester.graded_count)} dari ${esc(semester.course_count)} nilai yang keluar. IPS bisa berubah setelah semua nilai masuk.</p>` : ''}
                         ${lowCourses.length ? `
                             <div class="border-t border-border-light px-4 py-3 md:px-5">
-                                <button type="button" class="${app.buttonClass('secondary', { small: true })} aria-pressed:border-brand aria-pressed:text-brand" aria-pressed="${state.lowOnly ? 'true' : 'false'}" data-grades-low-toggle>
+                                <button type="button" class="${app.buttonClass('secondary', { small: true })} aria-pressed:border-brand aria-pressed:text-brand-text" aria-pressed="${state.lowOnly ? 'true' : 'false'}" data-grades-low-toggle>
                                     ${state.lowOnly ? 'Tampilkan semua nilai' : `Hanya nilai C ke bawah (${esc(lowCourses.length)})`}
                                 </button>
                             </div>

@@ -41,7 +41,7 @@
                                 return `
                                     <li class="mycic-list-row">
                                         <div class="min-w-0 flex-1">
-                                            <div class="text-sm font-semibold text-ink">${esc(period.label)}</div>
+                                            <div class="text-sm font-medium leading-snug text-ink">${esc(period.label)}</div>
                                             <div class="text-caption text-ink-subtle">${esc(app.formatIndonesianDate(period.start))} s.d. ${esc(app.formatIndonesianDate(period.end))}</div>
                                             <div class="text-caption text-ink-subtle">Sumber: ${source}</div>
                                         </div>
@@ -70,7 +70,7 @@
                             <p>Pengisian dan perbaikan KRS dilakukan di portal kampus. WeCIC hanya menampilkan statusnya.</p>
                             ${notes.length ? `
                                 <details class="group rounded-[var(--radius-control)] border border-border-light bg-surface/40 p-3">
-                                    <summary class="cursor-pointer list-none text-sm font-semibold text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">Catatan dari portal <span class="text-caption font-normal text-ink-subtle">(ketuk untuk membaca)</span></summary>
+                                    <summary class="cursor-pointer list-none text-sm font-medium text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">Catatan dari portal <span class="text-caption font-normal text-ink-subtle">(ketuk untuk membaca)</span></summary>
                                     <div class="mt-2 flex flex-col gap-2 text-caption leading-relaxed text-ink-muted">
                                         ${notes.map((text) => `<p>${esc(text)}</p>`).join('')}
                                     </div>

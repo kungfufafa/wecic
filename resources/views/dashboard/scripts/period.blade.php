@@ -6,7 +6,7 @@
             // ---- Hero: academic period chip (K1, K2) ----------------------------------------
 
             const periodHost = document.getElementById('dashboard-period');
-            const periodChipClass = 'inline-flex items-center rounded-lg border border-white/25 bg-white/10 px-3 py-1 text-xs font-semibold text-white';
+            const periodChipClass = 'inline-flex items-center rounded-md border border-border bg-panel px-2.5 py-1 text-xs font-medium text-ink-muted';
 
             const renderPeriod = (context, pendingSources) => {
                 const period = context?.academic_period || null;
@@ -42,7 +42,7 @@
 
                 if (pendingSources.includes('portal_context')) {
                     periodHost.innerHTML = `
-                        <li class="h-7 w-44 animate-pulse rounded-lg bg-white/15" aria-hidden="true"></li>
+                        <li class="mycic-skeleton h-7 w-44 rounded-md" aria-hidden="true"></li>
                         <li class="sr-only">Periode akademik sedang diambil dari portal.</li>
                     `;
                     periodHost.classList.remove('hidden');

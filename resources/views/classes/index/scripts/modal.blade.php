@@ -51,10 +51,10 @@
 
                         let contactsHtml = '';
                         if (c.lecturerContact) {
-                            contactsHtml += `<span>📞 Telepon/WA: ${app.escapeHtml(c.lecturerContact)}</span>`;
+                            contactsHtml += `<span>Telepon/WA: <span class="font-mono text-ink">${app.escapeHtml(c.lecturerContact)}</span></span>`;
                         }
                         if (c.lecturerEmail && c.lecturerEmail !== '-') {
-                            contactsHtml += `<span>✉️ Email: ${app.escapeHtml(c.lecturerEmail)}</span>`;
+                            contactsHtml += `<span>Email: <span class="text-ink">${app.escapeHtml(c.lecturerEmail)}</span></span>`;
                         }
                         if (!contactsHtml) {
                             contactsHtml = '<span class="text-ink-subtle">Kontak dosen tidak tersedia</span>';

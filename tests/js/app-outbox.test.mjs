@@ -30,6 +30,8 @@ describe('renderOutboxItems', () => {
         assert.match(html, /data-outbox-cancel="7">Batalkan<\/button>/);
         assert.match(html, /<span class="mycic-badge-warning">Menunggu portal<\/span>/);
         assert.match(html, /aria-label="Antrean offline"/);
+        assert.match(html, /<div class="mycic-card-body">/);
+        assert.doesNotMatch(html, /divide-y divide-border-light/);
     });
 
     it('warns in words once the deadline of a queued item passed', () => {

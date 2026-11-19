@@ -35,7 +35,7 @@ export class FormFeature {
         if (originalWidth > 0) {
             button.style.minWidth = `${originalWidth}px`;
         }
-        button.innerHTML = '<span class="mycic-spinner me-2" role="status" aria-hidden="true"></span>Memproses...';
+        button.innerHTML = '<span class="mycic-spinner" role="status" aria-hidden="true"></span>Memproses...';
         
         try {
             await callback();

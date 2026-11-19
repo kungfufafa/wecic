@@ -44,7 +44,8 @@ describe('renderProgressBar', () => {
 
         assert.deepEqual(widths(html), [69.44, 30.56]);
         assert.match(html, /mycic-progress-striped/);
-        assert.match(html, /Sisa<\/span>\s*<span class="font-semibold tabular-nums text-ink">0<\/span>/);
+        assert.match(html, /Sisa<\/span>\s*<span class="font-medium tabular-nums text-ink">0<\/span>/);
+        assert.doesNotMatch(html, /font-semibold/);
     });
 
     it('falls back to a 100 maximum when the maximum is missing', () => {
@@ -55,10 +56,10 @@ describe('renderProgressBar', () => {
 describe('renderBarChart', () => {
     it('shows a missing value as a dash without a bar and stresses the last known value', () => {
         const html = app.renderBarChart([{ label: 'Smt 1', value: 3.2 }, { label: 'Smt 2', value: null }, { label: 'Smt 3', value: 3.6 }], { max: 4, valueFormat: (value) => value.toFixed(2) });
-        const bars = [...html.matchAll(/rounded-t (bg-\S+)( opacity-40)?" style="height: ([\d.]+)%"/g)];
+        const bars = [...html.matchAll(/rounded-t (bg-\S+)" style="height: ([\d.]+)%"/g)];
 
         assert.equal(bars.length, 2);
-        assert.deepEqual(bars.map((bar) => [Number(bar[3]), Boolean(bar[2])]), [[80, true], [90, false]]);
+        assert.deepEqual(bars.map((bar) => [Number(bar[2]), bar[1]]), [[80, 'bg-border'], [90, 'bg-brand']]);
         assert.match(html, /title="Smt 2: –"/);
         assert.match(html, /<th scope="row">Smt 3<\/th><td>3\.60<\/td>/);
     });
@@ -74,6 +75,8 @@ describe('renderStackedBar', () => {
 
         assert.deepEqual(widths(html), [75, 25]);
         assert.match(html, /<span>E<\/span>/);
+        assert.match(html, /<span class="font-medium tabular-nums text-ink">3<\/span>/);
+        assert.doesNotMatch(html, /font-semibold/);
     });
 });
 

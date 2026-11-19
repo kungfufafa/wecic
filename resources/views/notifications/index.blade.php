@@ -10,9 +10,9 @@
         <h2 class="sr-only" id="notification-list-title" tabindex="-1">Daftar notifikasi</h2>
 
         <div class="flex flex-wrap items-center justify-between gap-2">
-            <div class="inline-flex items-center gap-1 rounded-xl border border-border/40 bg-surface p-1" role="group" aria-label="Saring notifikasi" id="notification-filters">
-                <button type="button" class="inline-flex min-h-11 items-center rounded-lg border border-border/40 bg-panel px-3 text-sm font-bold text-brand shadow-xs focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand sm:min-h-10" aria-pressed="true" data-notification-filter="all">Semua</button>
-                <button type="button" class="inline-flex min-h-11 items-center rounded-lg border border-transparent px-3 text-sm font-semibold text-ink-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand sm:min-h-10" aria-pressed="false" data-notification-filter="unread">Belum dibaca</button>
+            <div class="mycic-segmented" role="group" aria-label="Saring notifikasi" id="notification-filters">
+                <button type="button" class="mycic-segmented-item mycic-segmented-item-active" aria-pressed="true" data-notification-filter="all">Semua</button>
+                <button type="button" class="mycic-segmented-item" aria-pressed="false" data-notification-filter="unread">Belum dibaca</button>
             </div>
             <button type="button" class="mycic-btn-ghost-sm hidden" id="notification-mark-all">Tandai semua sudah dibaca</button>
         </div>
@@ -155,9 +155,7 @@
 
             const maxKnownId = () => state.items.reduce((max, item) => Math.max(max, item.id), 0);
 
-            const segmentClass = (active) => `inline-flex min-h-11 items-center rounded-lg px-3 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand sm:min-h-10 ${active
-                ? 'border border-border/40 bg-panel font-bold text-brand shadow-xs'
-                : 'border border-transparent font-semibold text-ink-muted hover:text-ink'}`;
+            const segmentClass = (active) => (active ? 'mycic-segmented-item mycic-segmented-item-active' : 'mycic-segmented-item');
 
             const startOfDay = (date) => new Date(date.getFullYear(), date.getMonth(), date.getDate());
 
@@ -191,16 +189,16 @@
 
                 return `
                     <li>
-                        <${tag} ${href ? `href="${app.escapeHtml(href)}"` : ''} class="mycic-card flex min-w-0 gap-3 p-4 ${href ? 'transition-colors hover:border-brand/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand' : ''} ${unread ? 'border-brand/30 bg-surface-tint/40' : ''} md:p-5" data-notification-id="${item.id}">
-                            <span class="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${unread ? 'bg-brand' : 'bg-transparent'}" aria-hidden="true"></span>
+                        <${tag} ${href ? `href="${app.escapeHtml(href)}"` : ''} class="${href ? 'mycic-card-interactive' : 'mycic-card p-4 md:p-5'} flex min-w-0 gap-3 ${unread ? `border-brand/40 bg-surface-tint/25 ${href ? 'hover:border-brand/60 hover:bg-surface-tint/40' : ''}` : ''}" data-notification-id="${item.id}">
+                            <span class="mt-2 h-1.5 w-1.5 shrink-0 rounded-full ${unread ? 'bg-brand' : 'bg-transparent'}" aria-hidden="true"></span>
                             <span class="flex min-w-0 flex-1 flex-col gap-1.5">
                                 <span class="flex flex-wrap items-center gap-2">
                                     ${app.renderBadge(TYPE_LABELS[item.type] || 'Info', URGENCY_BADGES[item.urgency] || 'brand')}
                                     ${unread ? '<span class="sr-only">Belum dibaca.</span>' : ''}
                                     <span class="text-caption text-ink-subtle">${app.escapeHtml(meta)}</span>
                                 </span>
-                                <span class="text-base ${unread ? 'font-bold' : 'font-semibold'} text-ink">${app.escapeHtml(item.title || 'Notifikasi')}</span>
-                                ${item.body ? `<span class="line-clamp-3 text-sm text-ink-muted">${app.escapeHtml(item.body)}</span>` : ''}
+                                <span class="text-sm font-medium leading-snug ${unread ? 'text-ink' : 'text-ink-muted'}">${app.escapeHtml(item.title || 'Notifikasi')}</span>
+                                ${item.body ? `<span class="line-clamp-3 text-sm leading-relaxed text-ink-muted">${app.escapeHtml(item.body)}</span>` : ''}
                             </span>
                         </${tag}>
                     </li>

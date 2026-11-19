@@ -5,8 +5,8 @@
 
 @section('content')
     <header class="mb-4">
-        <a href="{{ route('library.index') }}" class="mycic-link mb-1 inline-flex min-h-9 items-center gap-1 text-sm">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6l6 6" /></svg>
+        <a href="{{ route('library.index') }}" class="mycic-back-link mb-2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6l6 6" /></svg>
             Perpustakaan
         </a>
         <h1 class="mycic-page-heading">Repositori skripsi</h1>
@@ -14,19 +14,19 @@
         <p class="mt-1 min-h-4 text-caption text-ink-subtle" data-theses-updated></p>
     </header>
 
-    <div class="mb-4 inline-flex items-center gap-1 rounded-xl border border-border/40 bg-surface p-1" role="group" aria-label="Mode repositori" id="theses-modes">
-        <button type="button" class="inline-flex min-h-11 items-center rounded-lg px-4 text-sm font-semibold sm:min-h-10" data-theses-mode="search" aria-pressed="true">Cari</button>
-        <button type="button" class="inline-flex min-h-11 items-center rounded-lg px-4 text-sm font-semibold sm:min-h-10" data-theses-mode="check" aria-pressed="false">Cek judul</button>
+    <div class="mycic-segmented mb-4" role="group" aria-label="Mode repositori" id="theses-modes">
+        <button type="button" class="mycic-segmented-item mycic-segmented-item-active" data-theses-mode="search" aria-pressed="true">Cari</button>
+        <button type="button" class="mycic-segmented-item" data-theses-mode="check" aria-pressed="false">Cek judul</button>
     </div>
 
     <section id="theses-search-panel" class="flex min-w-0 flex-col gap-3" aria-label="Cari skripsi">
-        <form role="search" id="theses-form" class="sticky top-16 z-20 -mx-1 flex flex-col gap-2 bg-canvas/95 px-1 py-2 backdrop-blur-md">
+        <form role="search" id="theses-form" class="sticky top-16 z-20 -mx-1 flex flex-col gap-2 border-b border-border-light bg-canvas px-1 py-2">
             <div class="mycic-input-wrap w-full">
                 <label for="theses-q" class="sr-only">Cari judul, topik, pembimbing, atau penulis</label>
                 <span class="mycic-input-icon">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0 -14 0" /><path d="M21 21l-6 -6" /></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0 -14 0" /><path d="M21 21l-6 -6" /></svg>
                 </span>
-                <input type="search" id="theses-q" name="q" maxlength="100" class="mycic-input mycic-input-with-icon" placeholder="Cari judul, topik, pembimbing, atau penulis (tekan /)" autocomplete="off" enterkeyhint="search" aria-describedby="theses-result-status">
+                <input type="search" id="theses-q" name="q" maxlength="100" class="mycic-input mycic-input-with-icon" placeholder="Cari skripsi (tekan /)" autocomplete="off" enterkeyhint="search" aria-describedby="theses-result-status">
             </div>
             <div class="grid grid-cols-2 gap-2 md:grid-cols-4">
                 <div>
@@ -78,10 +78,10 @@
     <section id="theses-check-panel" class="hidden flex-col gap-3" aria-labelledby="theses-check-title">
         <form id="theses-check-form" class="mycic-card">
             <div class="mycic-card-body flex flex-col gap-3">
-                <h2 class="text-base font-bold text-ink" id="theses-check-title">Cek kemiripan rencana judul</h2>
+                <h2 class="mycic-card-title" id="theses-check-title">Cek kemiripan rencana judul</h2>
                 <div class="mycic-field">
                     <label for="theses-check-input" class="mycic-label">Rencana judul</label>
-                    <textarea id="theses-check-input" rows="3" maxlength="200" class="mycic-input py-2.5" placeholder="Contoh: Sistem informasi inventaris berbasis web pada koperasi" aria-describedby="theses-check-hint"></textarea>
+                    <textarea id="theses-check-input" rows="3" maxlength="200" class="mycic-input" placeholder="Contoh: Sistem informasi inventaris berbasis web pada koperasi" aria-describedby="theses-check-hint"></textarea>
                     <p class="mycic-field-hint" id="theses-check-hint">Judul ini hanya dibandingkan, tidak disimpan di server maupun di perangkat.</p>
                 </div>
                 <button type="submit" class="mycic-btn-primary self-start">Cek kemiripan</button>
@@ -256,7 +256,7 @@
             const renderItem = (item, tokens) => `
                 <li class="mycic-card">
                     <div class="mycic-card-body flex flex-col gap-2">
-                        <h3 class="line-clamp-3 text-sm font-bold text-ink">${highlight(item.title, tokens)}</h3>
+                        <h3 class="line-clamp-3 text-sm font-medium leading-snug text-ink">${highlight(item.title, tokens)}</h3>
                         <p class="text-caption text-ink-subtle">${app.escapeHtml([item.academic_year ? `T.A. ${item.academic_year}` : null, displayName(item.program)].filter(Boolean).join(' · '))}</p>
                         <p class="text-sm text-ink-muted">${advisorsLine(item, tokens)}</p>
                         ${item.author ? `<p class="text-caption text-ink-subtle">Oleh ${highlight(displayName(item.author), tokens)}</p>` : ''}
@@ -442,7 +442,7 @@
                     host.innerHTML = similar.length
                         ? `<ul class="flex flex-col divide-y divide-border-light">${similar.map((candidate) => `
                             <li class="py-2.5">
-                                <p class="line-clamp-2 text-sm font-semibold text-ink">${app.escapeHtml(candidate.title)}</p>
+                                <p class="line-clamp-2 text-sm font-medium leading-snug text-ink">${app.escapeHtml(candidate.title)}</p>
                                 <p class="text-caption text-ink-subtle">${app.escapeHtml([candidate.academic_year ? `T.A. ${candidate.academic_year}` : null, displayName(candidate.program), `${candidate.similarity_percent}% mirip`].filter(Boolean).join(' · '))}</p>
                             </li>`).join('')}</ul>`
                         : '<p class="text-sm text-ink-muted">Belum ada skripsi lain yang mirip.</p>';
@@ -466,7 +466,7 @@
                             ])}
                             ${advisors.length ? `
                                 <div>
-                                    <h3 class="text-caption font-semibold uppercase tracking-wide text-ink-subtle">Pembimbing</h3>
+                                    <h3 class="text-caption font-medium text-ink-subtle">Pembimbing</h3>
                                     <div class="mt-2 flex flex-col gap-2">
                                         ${advisors.map((advisor, index) => `<button type="button" class="${app.buttonClass('ghost', { small: true })} justify-start text-start" data-filter-advisor="${app.escapeHtml(advisor.name)}">Pembimbing ${index + 1}: ${app.escapeHtml(advisor.name)}<span class="sr-only"> (saring skripsi bimbingannya)</span></button>`).join('')}
                                     </div>
@@ -474,7 +474,7 @@
                             ` : ''}
                             <div>${pdfLink(item, { small: false })}</div>
                             <div>
-                                <h3 class="text-caption font-semibold uppercase tracking-wide text-ink-subtle">Skripsi serupa</h3>
+                                <h3 class="text-caption font-medium text-ink-subtle">Skripsi serupa</h3>
                                 <div class="mt-2" data-theses-similar><div class="mycic-skeleton h-10 w-full"></div></div>
                             </div>
                         </div>
@@ -529,7 +529,7 @@
                                     return `
                                         <li class="mycic-card">
                                             <div class="mycic-card-body flex flex-col gap-2">
-                                                <h3 class="line-clamp-3 min-w-0 text-sm font-bold text-ink">${app.escapeHtml(item.title)}</h3>
+                                                <h3 class="line-clamp-3 min-w-0 text-sm font-medium leading-snug text-ink">${app.escapeHtml(item.title)}</h3>
                                                 ${app.renderProgressBar({ value: percent, max: 100, tone, label: 'Kemiripan', valueLabel: `${percent}%`, size: 'sm' })}
                                                 <p class="text-caption text-ink-subtle">${app.escapeHtml([item.academic_year ? `T.A. ${item.academic_year}` : null, displayName(item.program)].filter(Boolean).join(' · '))}</p>
                                                 <div>${pdfLink(item)}</div>
@@ -552,7 +552,7 @@
                     const active = button.dataset.thesesMode === state.mode;
 
                     button.setAttribute('aria-pressed', active ? 'true' : 'false');
-                    button.className = `inline-flex min-h-11 items-center rounded-lg px-4 text-sm sm:min-h-10 transition-all focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand ${active ? 'border border-border/40 bg-panel font-bold text-brand shadow-xs' : 'border border-transparent font-semibold text-ink-muted hover:text-ink'}`;
+                    button.className = active ? 'mycic-segmented-item mycic-segmented-item-active' : 'mycic-segmented-item';
                 });
                 searchPanel.classList.toggle('hidden', state.mode !== 'search');
                 searchPanel.classList.toggle('flex', state.mode === 'search');

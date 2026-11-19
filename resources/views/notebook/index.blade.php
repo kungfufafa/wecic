@@ -46,7 +46,7 @@
         <section class="mycic-card" aria-labelledby="notebook-create-title">
             <div class="mycic-card-header">
                 <h2 class="mycic-card-title" id="notebook-create-title">Notebook baru</h2>
-                <p class="mt-0.5 text-caption text-ink-subtle">Untuk topik lintas mata kuliah, persiapan ujian, atau kumpulan materi pilihanmu sendiri.</p>
+                <p class="mycic-card-subtitle">Untuk topik lintas mata kuliah, persiapan ujian, atau kumpulan materi pilihanmu sendiri.</p>
             </div>
             <div class="mycic-card-body">
                 <form class="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end" id="notebook-create-form">
@@ -97,8 +97,8 @@
                     : (notebook.course_name ? app.renderBadge(notebook.course_name, 'brand') : '');
 
                 return `
-                    <a href="/notebook/${notebook.id}" class="mycic-card flex min-h-28 min-w-0 flex-col gap-2 p-4 transition-colors hover:border-brand/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">
-                        <span class="line-clamp-2 text-base font-bold text-ink">${app.escapeHtml(notebook.title)}</span>
+                    <a href="/notebook/${notebook.id}" class="mycic-card-interactive flex min-h-28 min-w-0 flex-col gap-2">
+                        <span class="line-clamp-2 text-[0.9375rem] font-medium leading-snug text-ink">${app.escapeHtml(notebook.title)}</span>
                         ${badges ? `<span class="flex flex-wrap gap-1">${badges}</span>` : ''}
                         ${notebook.kind === 'course' && notebook.lecturer_name ? `<span class="text-caption text-ink-muted">${app.escapeHtml(notebook.lecturer_name)}</span>` : ''}
                         <span class="mt-auto text-caption text-ink-subtle">${app.escapeHtml(stats)}</span>

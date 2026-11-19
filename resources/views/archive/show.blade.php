@@ -4,8 +4,14 @@
 @section('page_id', 'archive-show')
 
 @section('content')
+    <nav class="mb-2" aria-label="Navigasi arsip">
+        <a href="{{ route('archive.index') }}" class="mycic-back-link">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6l6 6" /></svg>
+            Arsip WeCIC
+        </a>
+    </nav>
+
     <header class="mb-4">
-        <a href="{{ route('archive.index') }}" class="mycic-link text-sm">Arsip WeCIC</a>
         <h1 class="mycic-page-heading">Riwayat {{ $label }}</h1>
         <p class="mycic-page-subheading">Setiap versi berbeda yang pernah ditampilkan portal kampus, dari yang terbaru. Versi bertanda "Dipakai" adalah yang sedang ditampilkan WeCIC.</p>
     </header>
@@ -87,13 +93,13 @@
 
                     return `
                         <li>
-                            <button type="button" class="mycic-card flex w-full min-w-0 flex-col gap-1.5 p-4 text-start transition-colors hover:border-brand/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand ${selected ? 'border-brand/60 bg-surface-tint/40' : ''}" data-version-id="${version.id}" aria-pressed="${selected ? 'true' : 'false'}">
+                            <button type="button" class="mycic-card-interactive flex w-full min-w-0 flex-col gap-1.5 text-start ${selected ? 'border-brand bg-surface-tint/50 hover:border-brand hover:bg-surface-tint/60' : ''}" data-version-id="${version.id}" aria-pressed="${selected ? 'true' : 'false'}">
                                 <span class="flex flex-wrap items-center gap-2">
                                     ${app.renderBadge(status.label, status.tone)}
                                     ${version.is_current ? app.renderBadge('Dipakai', 'brand') : ''}
                                     <span class="text-caption text-ink-subtle">${app.escapeHtml(`${version.seen_count}× terlihat`)}</span>
                                 </span>
-                                <span class="text-sm font-semibold text-ink">${app.escapeHtml(formatMoment(version.first_seen_at))}</span>
+                                <span class="text-sm font-medium leading-snug text-ink">${app.escapeHtml(formatMoment(version.first_seen_at))}</span>
                                 <span class="text-caption text-ink-subtle">Terakhir terlihat ${app.escapeHtml(app.formatTimeAgo(version.last_seen_at))}</span>
                                 ${version.findings.length ? `<span class="line-clamp-2 text-caption text-warning">${app.escapeHtml(version.findings[0].message)}</span>` : ''}
                             </button>
@@ -180,7 +186,7 @@
                         ])}
                         ${version.findings.length ? `
                             <div class="mycic-alert-warning mb-0">
-                                <p class="font-bold">Kenapa ditahan</p>
+                                <p class="font-medium">Kenapa ditahan</p>
                                 <ul class="mt-1 flex list-disc flex-col gap-1 ps-5">${version.findings.map((finding) => `<li>${app.escapeHtml(finding.message)}</li>`).join('')}</ul>
                                 ${version.status === 'suspect' ? '<p class="mt-2">Kalau perubahan ini memang benar (misalnya nilai direvisi resmi), terima versinya. Kalau salah, tolak dan simpan bukti untuk dilaporkan ke kampus.</p>' : ''}
                             </div>

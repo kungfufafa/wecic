@@ -42,7 +42,7 @@
 
                 return `
                     <div class="border-t border-border-light px-4 py-3 md:px-5">
-                        <div class="mb-2 text-caption font-semibold uppercase tracking-wide text-ink-subtle">SKS per semester kurikulum</div>
+                        <div class="mb-2 text-caption font-medium text-ink-subtle">SKS per semester kurikulum</div>
                         ${app.renderStackedBar(segments, { label: 'Komposisi SKS per semester kurikulum', valueFormat: (value) => `${value} SKS`, size: 'sm' })}
                     </div>
                 `;
@@ -92,7 +92,7 @@
                         <div class="mycic-card-header flex flex-wrap items-center justify-between gap-2">
                             <div class="min-w-0">
                                 <h2 class="mycic-card-title" id="krs-courses-title">Mata kuliah semester ini</h2>
-                                ${retakes ? `<p class="text-caption text-ink-subtle">${esc(retakes)} MK diulang</p>` : ''}
+                                ${retakes ? `<p class="mycic-card-subtitle">${esc(retakes)} MK diulang</p>` : ''}
                             </div>
                             <span class="mycic-badge-brand tabular-nums">${esc(courseCount)} MK · ${esc(sksTotal)} SKS</span>
                         </div>
@@ -115,10 +115,10 @@
                                     <li class="mycic-list-row items-center">
                                         <div class="min-w-0 flex-1">
                                             <div class="font-mono text-caption text-ink-subtle">${esc(course.code || '–')}</div>
-                                            <div class="text-sm font-semibold text-ink">${esc(course.name || 'Mata kuliah')}</div>
+                                            <div class="text-sm font-medium leading-snug text-ink">${esc(course.name || 'Mata kuliah')}</div>
                                             ${chips.length ? `<div class="mt-1 flex flex-wrap gap-1.5">${chips.join('')}</div>` : ''}
                                         </div>
-                                        <span class="shrink-0 text-sm font-semibold tabular-nums text-ink">${course.sks === null || course.sks === undefined ? '–' : esc(course.sks)} <span class="text-caption font-normal text-ink-subtle">SKS</span></span>
+                                        <span class="shrink-0 text-sm font-medium tabular-nums text-ink">${course.sks === null || course.sks === undefined ? '–' : esc(course.sks)} <span class="text-caption font-normal text-ink-subtle">SKS</span></span>
                                     </li>
                                 `;
                             }).join('')}
@@ -127,7 +127,7 @@
                         <div class="mycic-sticky-action md:border-t md:border-border-light md:px-5 md:py-3">
                             <div class="flex items-center justify-between gap-3">
                                 <div class="min-w-0 ps-2 md:ps-0">
-                                    <div class="text-sm font-bold tabular-nums text-ink">${esc(courseCount)} MK · ${esc(sksTotal)} SKS</div>
+                                    <div class="font-mono text-sm font-medium tabular-nums text-ink">${esc(courseCount)} MK · ${esc(sksTotal)} SKS</div>
                                     ${totalsNote ? `<div class="text-caption text-ink-subtle">${esc(totalsNote)}</div>` : '<div class="text-caption text-ink-subtle">Total KRS semester ini</div>'}
                                 </div>
                                 ${printable ? `<button type="button" class="${app.buttonClass('secondary', { small: true })} shrink-0 print:hidden" data-krs-print>${icons.print}Cetak KRS</button>` : ''}
@@ -156,9 +156,9 @@
 
                 hosts.printHeader.innerHTML = `
                     <div class="border-b border-border pb-3">
-                        <div class="text-lg font-bold text-ink">Kartu Rencana Studi (KRS) · ${esc(termLabel(krs.academic_period))}</div>
+                        <div class="text-lg font-semibold text-ink">Kartu Rencana Studi (KRS) · ${esc(termLabel(krs.academic_period))}</div>
                         <div class="mt-1 text-sm text-ink-muted">${esc([me.name, me.nim, me.program].filter(Boolean).join(' · '))}</div>
-                        <div class="mt-2 inline-block rounded border-2 border-ink px-2 py-0.5 text-sm font-bold tracking-wide text-ink">${esc(watermark)}</div>
+                        <div class="mt-2 inline-block rounded border border-ink px-2 py-0.5 font-mono text-xs font-medium tracking-wide text-ink">${esc(watermark)}</div>
                         <p class="mt-2 text-caption text-ink-subtle">Dibuat WeCIC dari data portal per ${esc(stamp)} · bukan dokumen resmi. Versi resmi ada di menu Reg & KRS Online portal kampus.</p>
                     </div>
                 `;

@@ -29,23 +29,23 @@
                 <div class="mycic-input-wrap w-full lg:w-80 lg:shrink-0">
                     <label for="announcement-search" class="sr-only">Cari pengumuman</label>
                     <span class="mycic-input-icon">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0 -14 0" /><path d="M21 21l-6 -6" /></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0 -14 0" /><path d="M21 21l-6 -6" /></svg>
                     </span>
                     <input
                         type="search"
                         id="announcement-search"
                         class="mycic-input mycic-input-with-icon"
-                        placeholder="Cari judul, isi, atau unit…"
+                        placeholder="Cari pengumuman"
                         autocomplete="off"
                         enterkeyhint="search"
                         aria-describedby="announcement-result-status"
                     >
                 </div>
                 <div class="mycic-no-scrollbar min-w-0 overflow-x-auto">
-                    <div class="inline-flex items-center gap-1 rounded-xl border border-border/40 bg-surface p-1" role="group" aria-label="Saring kategori pengumuman" id="announcement-categories">
-                        <span class="mycic-skeleton h-10 w-20"></span>
-                        <span class="mycic-skeleton h-10 w-24"></span>
-                        <span class="mycic-skeleton h-10 w-20"></span>
+                    <div class="mycic-segmented" role="group" aria-label="Saring kategori pengumuman" id="announcement-categories">
+                        <span class="mycic-skeleton h-9 w-20"></span>
+                        <span class="mycic-skeleton h-9 w-24"></span>
+                        <span class="mycic-skeleton h-9 w-20"></span>
                     </div>
                 </div>
             </div>
@@ -322,12 +322,12 @@
                 noticeHost.innerHTML = `
                     <div class="${app.alertTone(isPayment ? 'warning' : 'info')} flex items-start gap-3" role="status">
                         <div class="min-w-0 flex-1">
-                            <p class="font-semibold">${isPayment ? 'Pengingat pembayaran dari portal' : 'Info dari portal'} · ${app.escapeHtml(app.formatRelativeDays(lastDate))}</p>
+                            <p class="font-medium">${isPayment ? 'Pengingat pembayaran dari portal' : 'Info dari portal'} · ${app.escapeHtml(app.formatRelativeDays(lastDate))}</p>
                             <p class="mt-1 text-sm text-ink-muted">${app.escapeHtml(notice.text)}</p>
                             ${isPayment ? '<a href="/finance#tagihan" class="mycic-link mt-2 inline-flex min-h-9 items-center text-sm">Cek status tagihan</a>' : ''}
                         </div>
                         <button type="button" class="mycic-modal-close min-h-11 min-w-11 shrink-0 sm:min-h-9 sm:min-w-9" aria-label="Tutup pengingat ini" data-dismiss-notice>
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6l-12 12" /><path d="M6 6l12 12" /></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6l-12 12" /><path d="M6 6l12 12" /></svg>
                         </button>
                     </div>
                 `;
@@ -371,19 +371,19 @@
 
                     return `
                         <li class="w-64 shrink-0 snap-start md:w-auto">
-                            <a href="/announcement/${encodeURIComponent(deadline.announcement_id)}" class="mycic-card flex h-full min-w-0 flex-col gap-2.5 p-4 transition-colors hover:border-brand/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">
+                            <a href="/announcement/${encodeURIComponent(deadline.announcement_id)}" class="mycic-card flex h-full min-w-0 cursor-pointer flex-col gap-2.5 p-4 transition-colors hover:border-ink-subtle/40 hover:bg-surface/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">
                                 <span class="flex min-w-0 items-center gap-3">
                                     <span class="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-lg ${TILE_TONES[tone]}" aria-hidden="true">
-                                        <span class="text-lg font-extrabold leading-none tabular-nums">${date ? date.getDate() : '–'}</span>
-                                        <span class="mt-0.5 text-[0.65rem] font-bold uppercase">${date ? app.escapeHtml(monthFormatter.format(date)) : ''}</span>
+                                        <span class="font-mono text-lg font-semibold leading-none tabular-nums">${date ? date.getDate() : '–'}</span>
+                                        <span class="mt-0.5 text-[11px] font-medium">${date ? app.escapeHtml(monthFormatter.format(date)) : ''}</span>
                                     </span>
                                     <span class="min-w-0">
-                                        <span class="block text-sm font-bold ${app.textToneClass(tone)}">${app.escapeHtml(headline)}</span>
+                                        <span class="block text-sm font-medium leading-snug ${app.textToneClass(tone)}">${app.escapeHtml(headline)}</span>
                                         <span class="block truncate text-caption text-ink-subtle">${app.escapeHtml(DEADLINE_TYPES[deadline.type] || 'Tenggat')} · ${app.escapeHtml(range)}</span>
                                         <span class="sr-only">${app.escapeHtml(app.formatIndonesianDate(deadline.date, { weekday: true }))}.</span>
                                     </span>
                                 </span>
-                                <span class="line-clamp-2 text-sm font-semibold text-ink">${app.escapeHtml(deadline.title || 'Pengumuman')}</span>
+                                <span class="line-clamp-2 text-sm font-medium leading-snug text-ink">${app.escapeHtml(deadline.title || 'Pengumuman')}</span>
                                 <span class="mt-auto">${app.renderBadge(deadline.category_label || CATEGORY_LABELS[deadline.category] || 'Umum', 'secondary')}</span>
                             </a>
                         </li>
@@ -391,9 +391,7 @@
                 }).join('');
             };
 
-            const categoryButtonClass = (active) => `inline-flex min-h-11 shrink-0 items-center sm:min-h-10 gap-1.5 whitespace-nowrap rounded-lg px-3 text-xs transition-all focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand sm:text-sm ${active
-                ? 'border border-border/40 bg-panel font-bold text-brand shadow-xs'
-                : 'border border-transparent font-semibold text-ink-muted hover:text-ink'}`;
+            const categoryButtonClass = (active) => (active ? 'mycic-segmented-item mycic-segmented-item-active' : 'mycic-segmented-item');
 
             const renderCategories = (items) => {
                 const counts = new Map();
@@ -414,7 +412,7 @@
                     return `
                         <button type="button" class="${categoryButtonClass(active)}" aria-pressed="${active ? 'true' : 'false'}" data-category="${app.escapeHtml(key)}">
                             ${app.escapeHtml(label)}
-                            <span class="tabular-nums ${active ? 'text-brand' : 'text-ink-subtle'}">${count}</span>
+                            <span class="tabular-nums ${active ? 'text-brand-text' : 'text-ink-subtle'}">${count}</span>
                         </button>
                     `;
                 };
@@ -465,15 +463,15 @@
                 }
 
                 return `
-                    <a href="/announcement/${encodeURIComponent(item.id)}" class="mycic-card flex min-w-0 flex-col gap-2 p-4 transition-colors hover:border-brand/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand md:p-5" data-announcement-card="${app.escapeHtml(item.id)}">
+                    <a href="/announcement/${encodeURIComponent(item.id)}" class="mycic-card-interactive flex min-w-0 flex-col gap-2" data-announcement-card="${app.escapeHtml(item.id)}">
                         <span class="flex flex-wrap items-center gap-2">
-                            ${unread ? '<span class="h-2.5 w-2.5 shrink-0 rounded-full bg-brand" aria-hidden="true" data-unread-dot></span><span class="sr-only">Belum dibaca.</span>' : ''}
+                            ${unread ? '<span class="h-1.5 w-1.5 shrink-0 rounded-full bg-brand" aria-hidden="true" data-unread-dot></span><span class="sr-only">Belum dibaca.</span>' : ''}
                             ${app.renderBadge(item.category_label || CATEGORY_LABELS[item.category] || 'Umum', 'brand')}
                             ${unread && isRecent(item) ? '<span class="mycic-badge-accent">Baru</span>' : ''}
                             ${deadlineBadge}
                             ${item.duplicate_of ? app.renderBadge('Mirip pengumuman lain', 'secondary') : ''}
                         </span>
-                        <span class="line-clamp-2 text-base ${unread ? 'font-bold' : 'font-semibold'} text-ink">${app.escapeHtml(item.title || 'Pengumuman')}</span>
+                        <span class="line-clamp-2 text-[0.9375rem] font-medium leading-snug ${unread ? 'text-ink' : 'text-ink-muted'}">${app.escapeHtml(item.title || 'Pengumuman')}</span>
                         <span class="text-caption text-ink-subtle">${app.escapeHtml([publishedLabel(item), unit].filter(Boolean).join(' · '))}</span>
                         ${item.excerpt ? `<span class="line-clamp-2 text-sm text-ink-muted">${app.escapeHtml(item.excerpt)}</span>` : ''}
                     </a>

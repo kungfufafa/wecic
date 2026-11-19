@@ -19,9 +19,9 @@
                     const isCurrent = tab.dataset.viewTarget === targetView;
                     tab.setAttribute('aria-selected', isCurrent ? 'true' : 'false');
                     if (isCurrent) {
-                        tab.className = 'mycic-view-tab inline-flex items-center gap-1.5 min-h-10 whitespace-nowrap px-3 py-2 text-xs sm:text-sm font-bold rounded-lg transition-all bg-panel text-brand shadow-xs border border-border/40';
+                        tab.className = 'mycic-view-tab mycic-segmented-item mycic-segmented-item-active';
                     } else {
-                        tab.className = 'mycic-view-tab inline-flex items-center gap-1.5 min-h-10 whitespace-nowrap px-3 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all text-ink-muted hover:text-ink';
+                        tab.className = 'mycic-view-tab mycic-segmented-item';
                     }
                 });
 

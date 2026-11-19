@@ -43,8 +43,9 @@ class BladeComponentsTest extends TestCase
         $this->assertSame(['KRS & Perwalian', 'Nilai', 'Transkrip'], $menu->filter('ul > li.shrink-0 > a')->each(fn (Crawler $link): string => $link->text()));
         $this->assertSame([route('krs.index'), route('grades.index'), route('transcript.index')], $menu->filter('a')->each(fn (Crawler $link): ?string => $link->attr('href')));
         $this->assertSame(['Nilai'], $menu->filter('a[aria-current="page"]')->each(fn (Crawler $link): string => $link->text()));
-        $this->assertStringContainsString('bg-panel font-bold text-brand shadow-xs', (string) $menu->filter('a[aria-current="page"]')->attr('class'));
-        $this->assertStringContainsString('text-ink-muted hover:text-ink', (string) $menu->filter('a')->first()->attr('class'));
+        $this->assertSame('mycic-segmented', $menu->filter('ul')->attr('class'));
+        $this->assertSame('mycic-segmented-item mycic-segmented-item-active', $menu->filter('a[aria-current="page"]')->attr('class'));
+        $this->assertSame('mycic-segmented-item', $menu->filter('a')->first()->attr('class'));
     }
 
     public function test_view_tab_buttons_carry_the_classes_the_class_page_switches_between(): void
@@ -53,7 +54,9 @@ class BladeComponentsTest extends TestCase
         $switchView = (string) file_get_contents(resource_path('views/classes/index/scripts/view-modes.blade.php'));
 
         $this->assertSame('tablist', $tabs->filter('div')->attr('role'));
-        $this->assertStringStartsWith('inline-flex max-w-full items-center gap-1 overflow-x-auto', (string) $tabs->filter('div')->attr('class'));
+        $this->assertSame('mycic-segmented', $tabs->filter('div')->attr('class'));
+        $this->assertSame('mycic-view-tab mycic-segmented-item mycic-segmented-item-active', $tabs->filter('#a')->attr('class'));
+        $this->assertSame('mycic-view-tab mycic-segmented-item', $tabs->filter('#b')->attr('class'));
 
         foreach (['a' => 'true', 'b' => 'false'] as $id => $selected) {
             $tab = $tabs->filter("#{$id}");
@@ -129,6 +132,8 @@ class BladeComponentsTest extends TestCase
         $this->assertSame('mycic-btn-primary', $button->attr('class'));
         $this->assertSame('', $button->attr('data-logout'), 'A data attribute passed empty stays empty.');
         $this->assertSame('submit', $this->render('<x-button type="submit">Kirim</x-button>')->filter('button')->attr('type'));
+        $this->assertSame('mycic-btn-destructive-sm', $this->render('<x-button variant="destructive" size="sm">Hapus</x-button>')->filter('button')->attr('class'));
+        $this->assertSame('mycic-btn-icon-sm', $this->render('<x-button variant="icon" size="sm" aria-label="Segarkan">R</x-button>')->filter('button')->attr('class'));
     }
 
     public function test_list_row_spaces_a_divided_list(): void

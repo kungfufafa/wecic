@@ -21,7 +21,7 @@
     <article class="mx-auto flex max-w-3xl flex-col gap-5">
         <header class="flex flex-wrap items-start justify-between gap-3">
             <div class="min-w-0">
-                <p class="text-caption uppercase tracking-wide text-ink-subtle">Bukti arsip WeCIC</p>
+                <p class="text-caption font-medium text-ink-subtle">Bukti arsip WeCIC</p>
                 <h1 class="mycic-page-heading">{{ $label }}{{ $version->subject ? ' · '.$version->subject : '' }}</h1>
                 <p class="mycic-page-subheading">Salinan data yang ditampilkan portal kampus kepada mahasiswa, disimpan otomatis oleh WeCIC.</p>
             </div>
@@ -32,16 +32,16 @@
             <div class="mycic-card-body">
                 <dl class="grid grid-cols-1 gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
                     @if ($studentName)
-                        <div><dt class="text-ink-subtle">Nama</dt><dd class="font-semibold text-ink">{{ $studentName }}</dd></div>
+                        <div><dt class="text-ink-subtle">Nama</dt><dd class="font-medium text-ink">{{ $studentName }}</dd></div>
                     @endif
                     @if ($studentId)
-                        <div><dt class="text-ink-subtle">NIM</dt><dd class="font-semibold text-ink">{{ $studentId }}</dd></div>
+                        <div><dt class="text-ink-subtle">NIM</dt><dd class="font-medium text-ink">{{ $studentId }}</dd></div>
                     @endif
-                    <div><dt class="text-ink-subtle">Status versi</dt><dd class="font-semibold text-ink">{{ $statusLabels[$version->status] ?? $version->status }}</dd></div>
-                    <div><dt class="text-ink-subtle">Terlihat</dt><dd class="font-semibold text-ink">{{ $version->seen_count }} kali sinkronisasi</dd></div>
-                    <div><dt class="text-ink-subtle">Pertama terlihat di portal</dt><dd class="font-semibold text-ink">{{ $formatMoment($version->first_seen_at) }}</dd></div>
-                    <div><dt class="text-ink-subtle">Terakhir terlihat di portal</dt><dd class="font-semibold text-ink">{{ $formatMoment($version->last_seen_at) }}</dd></div>
-                    <div><dt class="text-ink-subtle">Dicetak</dt><dd class="font-semibold text-ink">{{ $formatMoment(now()) }}</dd></div>
+                    <div><dt class="text-ink-subtle">Status versi</dt><dd class="font-medium text-ink">{{ $statusLabels[$version->status] ?? $version->status }}</dd></div>
+                    <div><dt class="text-ink-subtle">Terlihat</dt><dd class="font-medium text-ink">{{ $version->seen_count }} kali sinkronisasi</dd></div>
+                    <div><dt class="text-ink-subtle">Pertama terlihat di portal</dt><dd class="font-medium text-ink">{{ $formatMoment($version->first_seen_at) }}</dd></div>
+                    <div><dt class="text-ink-subtle">Terakhir terlihat di portal</dt><dd class="font-medium text-ink">{{ $formatMoment($version->last_seen_at) }}</dd></div>
+                    <div><dt class="text-ink-subtle">Dicetak</dt><dd class="font-medium text-ink">{{ $formatMoment(now()) }}</dd></div>
                     <div><dt class="text-ink-subtle">Kode versi</dt><dd class="break-all font-mono text-caption text-ink">#{{ $version->id }} · {{ substr($version->content_hash, 0, 16) }}</dd></div>
                 </dl>
             </div>
@@ -49,7 +49,7 @@
 
         @if (! empty($version->findings))
             <section class="mycic-alert-warning mb-0">
-                <h2 class="font-bold">Perubahan janggal yang terdeteksi</h2>
+                <h2 class="mycic-card-title">Perubahan janggal yang terdeteksi</h2>
                 <ul class="mt-1 flex list-disc flex-col gap-1 ps-5">
                     @foreach ($version->findings as $finding)
                         <li>{{ $finding['message'] ?? '' }}</li>

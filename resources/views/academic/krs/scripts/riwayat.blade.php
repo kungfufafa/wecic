@@ -33,13 +33,13 @@
                     <section class="mycic-card" aria-labelledby="krs-dpa-title">
                         <div class="mycic-card-header">
                             <h2 class="mycic-card-title" id="krs-dpa-title">Dosen Pembimbing Akademik</h2>
-                            <p class="mt-0.5 text-caption text-ink-subtle">Sumber: ${esc(source)}</p>
+                            <p class="mycic-card-subtitle">Sumber: ${esc(source)}</p>
                         </div>
                         <div class="mycic-card-body flex flex-col gap-4">
                             <div class="flex min-w-0 items-center gap-3">
                                 <span class="mycic-avatar shrink-0" aria-hidden="true">${esc(initials)}</span>
                                 <div class="min-w-0">
-                                    <div class="font-semibold text-ink">${esc(dpa.name || 'Dosen Pembimbing Akademik')}</div>
+                                    <div class="text-sm font-medium leading-snug text-ink">${esc(dpa.name || 'Dosen Pembimbing Akademik')}</div>
                                     ${dpa.nidn ? `<div class="text-caption text-ink-subtle">NIDN ${esc(dpa.nidn)}</div>` : ''}
                                 </div>
                             </div>
@@ -107,7 +107,7 @@
                     <section class="mycic-card" aria-labelledby="krs-history-title">
                         <div class="mycic-card-header">
                             <h2 class="mycic-card-title" id="krs-history-title">Riwayat KRS</h2>
-                            ${facts.length ? `<p class="mt-0.5 text-caption text-ink-subtle">${esc(facts.join(' · '))}</p>` : ''}
+                            ${facts.length ? `<p class="mycic-card-subtitle">${esc(facts.join(' · '))}</p>` : ''}
                         </div>
                         <ol class="flex flex-col px-2 py-1 md:px-3" aria-label="Riwayat KRS per semester">
                             ${rows.map((row) => {
@@ -139,10 +139,10 @@
 
                                 return `
                                     <li class="border-b border-border-light last:border-b-0">
-                                        <a href="/krs/${esc(row.krs_id)}" class="flex min-h-11 items-center gap-3 rounded-md px-2 py-3 transition-colors hover:bg-surface/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">
-                                            <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${regular ? 'bg-surface-tint text-brand-pressed' : 'bg-surface text-ink-subtle'} text-sm font-bold" aria-hidden="true">${esc(regular ? row.semester : 'T')}</span>
+                                        <a href="/krs/${esc(row.krs_id)}" class="flex min-h-11 cursor-pointer items-center gap-3 rounded-[var(--radius-control)] px-2 py-3 transition-colors duration-150 ease-[var(--ease-snappy)] hover:bg-surface/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">
+                                            <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${regular ? 'bg-surface-tint text-brand-text' : 'bg-surface text-ink-subtle'} font-mono text-sm font-medium" aria-hidden="true">${esc(regular ? row.semester : 'T')}</span>
                                             <span class="min-w-0 flex-1">
-                                                <span class="block text-sm font-semibold text-ink">${esc(title)}${row.academic_year ? ` · T.A ${esc(row.academic_year)}` : ''}</span>
+                                                <span class="block text-sm font-medium leading-snug text-ink">${esc(title)}${row.academic_year ? ` · T.A ${esc(row.academic_year)}` : ''}</span>
                                                 <span class="block text-caption text-ink-subtle">${row.date ? `Diajukan ${esc(app.formatIndonesianDate(row.date))}` : 'Tanggal tidak tercatat'}</span>
                                                 ${chips.length ? `<span class="mt-1.5 flex flex-wrap gap-1.5">${chips.join('')}</span>` : ''}
                                             </span>

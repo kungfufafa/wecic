@@ -7,8 +7,8 @@
         <x-card>
             <x-card.body class="flex flex-col divide-y divide-border-light" aria-hidden="true">
                 @for ($i = 0; $i < 3; $i++)
-                    <div class="flex gap-3 py-3 first:pt-0 last:pb-0">
-                        <div class="mycic-skeleton w-1 self-stretch"></div>
+                    <div class="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
+                        <div class="mycic-skeleton mt-1.5 h-2 w-2 shrink-0 rounded-full"></div>
                         <div class="flex flex-1 flex-col gap-2">
                             <div class="mycic-skeleton h-4 w-20"></div>
                             <div class="mycic-skeleton h-4 w-3/4"></div>
