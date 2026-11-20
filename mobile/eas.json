@@ -11,13 +11,15 @@
     "preview": {
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://wecic.rizqis.com"
+        "EXPO_PUBLIC_API_URL": "https://wecic.rizqis.com",
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
       }
     },
     "production": {
       "autoIncrement": true,
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://wecic.rizqis.com"
+        "EXPO_PUBLIC_API_URL": "https://wecic.rizqis.com",
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
       }
     }
   },

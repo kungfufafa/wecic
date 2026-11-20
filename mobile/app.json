@@ -166,6 +166,9 @@
         "android.permission.USE_BIOMETRIC",
         "android.permission.USE_FINGERPRINT",
         "android.permission.RECORD_AUDIO"
+      ],
+      "permissions": [
+        "android.permission.CAMERA"
       ]
     },
     "web": {
@@ -225,6 +228,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "834bcdc5-37d1-4a58-b72a-c98cbc74c0a5"
+      }
+    },
+    "owner": "apriansyahrs"
   }
 }
