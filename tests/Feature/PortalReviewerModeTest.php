@@ -6,7 +6,9 @@ namespace Tests\Feature;
 
 use App\Models\PortalOfflineAccount;
 use App\Services\PortalAuthService;
+use App\Services\PortalDemoFixtures;
 use App\Services\PortalHttpClientOptions;
+use App\Services\PortalOperationTracker;
 use App\Services\PortalReviewerAccount;
 use App\Services\PortalSessionManager;
 use GuzzleHttp\Cookie\CookieJar;
@@ -17,6 +19,7 @@ use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Bootstrap\LoadConfiguration;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Testing\TestResponse;
@@ -296,6 +299,156 @@ class PortalReviewerModeTest extends TestCase
             ->assertJsonPath('profile.personal_data.nama', 'Mahasiswa Contoh');
 
         $this->assertTrue((new PortalAuthService)->isSessionAlive(app(PortalSessionManager::class)->getSessionCookieJar((string) session('campus_session_token'))));
+    }
+
+    /**
+     * Attendance with any code is answered with the portal's success page:
+     * the reviewer sees it marked, and nothing reaches the portal.
+     */
+    public function test_the_reviewer_marks_attendance_without_the_portal(): void
+    {
+        Queue::fake();
+        $this->webLogin(self::REVIEWER_USERNAME, self::REVIEWER_PASSWORD)->assertOk();
+
+        $this->postJson('/api/attendance', ['courseid' => 9496, 'modulesid' => 36365, 'kode' => 'KODE-APA-SAJA'], $this->csrf())
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.status', 'marked');
+    }
+
+    /**
+     * An uploaded assignment completes, shows on its meeting with a delete
+     * link, and the delete takes it away again; the portal is never asked.
+     */
+    public function test_the_reviewer_uploads_and_deletes_an_assignment_without_the_portal(): void
+    {
+        Queue::fake();
+        $this->webLogin(self::REVIEWER_USERNAME, self::REVIEWER_PASSWORD)->assertOk();
+
+        $operationId = (string) $this->post('/api/assignment', [
+            'courses_id' => 9496,
+            'id' => 36365,
+            'pertemuan' => 3,
+            'attachment' => UploadedFile::fake()->create('tugas.pdf', 64, 'application/pdf'),
+        ], ['Accept' => 'application/json', ...$this->csrf()])
+            ->assertStatus(202)
+            ->json('data.operation_id');
+
+        $this->runQueuedJobs();
+
+        $this->assertOperationCompleted($operationId);
+
+        $this->assertTrue(Cache::has(PortalDemoFixtures::UPLOADED_ASSIGNMENT_CACHE_PREFIX.'9496:36365:3'));
+
+        $this->deleteJson('/api/assignment', ['id' => 9496, 'idx' => 36365, 'pertemuan' => 3, 'courses_id' => 9496], $this->csrf())
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.status', 'deleted');
+
+        $this->assertFalse(Cache::has(PortalDemoFixtures::UPLOADED_ASSIGNMENT_CACHE_PREFIX.'9496:36365:3'));
+    }
+
+    /**
+     * The demo exam is open: the reviewer can upload an answer to it.
+     */
+    public function test_the_reviewer_uploads_an_exam_answer_without_the_portal(): void
+    {
+        Queue::fake();
+        $this->webLogin(self::REVIEWER_USERNAME, self::REVIEWER_PASSWORD)->assertOk();
+
+        $this->getJson('/api/exam/99001')->assertOk();
+
+        $operationId = (string) $this->post('/api/exam', [
+            'id' => 99001,
+            'attachment' => UploadedFile::fake()->create('jawaban.pdf', 64, 'application/pdf'),
+        ], ['Accept' => 'application/json', ...$this->csrf()])
+            ->assertStatus(202)
+            ->json('data.operation_id');
+
+        $this->runQueuedJobs();
+
+        $this->assertOperationCompleted($operationId);
+    }
+
+    /**
+     * A password change is simulated: it says so, keeps nothing for offline
+     * login, and the reviewer password keeps working.
+     */
+    public function test_a_reviewer_password_change_is_simulated(): void
+    {
+        Queue::fake();
+        $this->webLogin(self::REVIEWER_USERNAME, self::REVIEWER_PASSWORD)->assertOk();
+        $sessionToken = (string) session('campus_session_token');
+
+        $this->postJson('/api/auth/password', [
+            'current_password' => 'apa-saja',
+            'new_password' => 'sandi-baru-123',
+            'new_password_confirmation' => 'sandi-baru-123',
+        ], $this->csrf())
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('meta.simulated', true)
+            ->assertJsonPath('message', 'Password berhasil diubah (mode demo: password akun ini tetap sama)');
+
+        $this->assertSame(0, PortalOfflineAccount::query()->count());
+        $this->assertTrue(app(PortalSessionManager::class)->validateSession($sessionToken));
+
+        $this->postJson('/api/v1/auth/token', [
+            'username' => self::REVIEWER_USERNAME,
+            'password' => self::REVIEWER_PASSWORD,
+            'device_name' => 'App Review',
+        ])->assertOk();
+    }
+
+    /**
+     * A course file opens as a generated PDF instead of the portal's file.
+     */
+    public function test_the_reviewer_downloads_a_course_file_without_the_portal(): void
+    {
+        Queue::fake();
+        $this->webLogin(self::REVIEWER_USERNAME, self::REVIEWER_PASSWORD)->assertOk();
+
+        $response = $this->get('/api/support/download?path='.rawurlencode('/portal/files/modul/IF101-mod-1.pdf'));
+
+        $response->assertOk();
+        $this->assertStringStartsWith('application/pdf', (string) $response->headers->get('Content-Type'));
+        $this->assertStringStartsWith('%PDF-1.4', $response->streamedContent());
+    }
+
+    /**
+     * Nothing the reviewer sees links to the real portal: no SKKM add button
+     * and no questionnaire item.
+     */
+    public function test_the_reviewer_gets_no_link_to_the_real_portal(): void
+    {
+        Queue::fake();
+        $this->webLogin(self::REVIEWER_USERNAME, self::REVIEWER_PASSWORD)->assertOk();
+
+        $this->getJson('/api/skkm')
+            ->assertOk()
+            ->assertJsonPath('data.add_available', false);
+
+        $items = $this->getJson('/api/action-items')->assertOk()->json('data.items');
+        $this->assertIsArray($items);
+        $this->assertSame([], array_values(array_filter($items, static fn (array $item): bool => $item['cta_external'] === true)));
+
+        $this->get('/skkm')->assertOk()->assertDontSee('data-skkm-add', false);
+    }
+
+    private function assertOperationCompleted(string $operationId): void
+    {
+        $operation = app(PortalOperationTracker::class)->get($operationId);
+
+        $this->assertIsArray($operation);
+        $this->assertSame('completed', $operation['stage'] ?? null, (string) ($operation['message'] ?? ''));
+    }
+
+    /**
+     * @return array{X-CSRF-TOKEN: string}
+     */
+    private function csrf(): array
+    {
+        return ['X-CSRF-TOKEN' => (string) session()->token()];
     }
 
     private function webLogin(string $username, string $password): TestResponse

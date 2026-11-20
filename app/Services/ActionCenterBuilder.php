@@ -136,7 +136,7 @@ class ActionCenterBuilder
             }
         }
 
-        $items = $this->sortItems($this->dedupe($items));
+        $items = $this->sortItems($this->dedupe($this->withoutPortalLinksForSandbox($items, $sessionToken)));
         $shown = array_slice($items, 0, self::MAX_ITEMS);
         $pendingSources = array_keys(array_filter($sources, static fn (array $source): bool => $source['status'] === 'pending'));
         $failedSources = array_values(array_unique($failedSources));
@@ -498,6 +498,22 @@ class ActionCenterBuilder
         }
 
         return $items;
+    }
+
+    /**
+     * A sandbox session (the store reviewer or the local demo) never gets an
+     * item that opens the real campus portal: its portal is the fixtures.
+     *
+     * @param  list<ActionItem>  $items
+     * @return list<ActionItem>
+     */
+    private function withoutPortalLinksForSandbox(array $items, string $sessionToken): array
+    {
+        if (! PortalReviewerAccount::isSandboxSession($sessionToken)) {
+            return $items;
+        }
+
+        return array_values(array_filter($items, static fn (array $item): bool => ($item['cta_external'] ?? false) !== true));
     }
 
     /**

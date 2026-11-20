@@ -21,6 +21,7 @@ use App\Services\PortalEndpointRegistry;
 use App\Services\PortalFetchPolicy;
 use App\Services\PortalFinanceStatusResolver;
 use App\Services\PortalOfflineAccess;
+use App\Services\PortalReviewerAccount;
 use Carbon\CarbonImmutable;
 use Dedoc\Scramble\Attributes\Group;
 use Dedoc\Scramble\Attributes\PathParameter;
@@ -250,9 +251,14 @@ class PortalDataController extends CampusApiController
     {
         return $this->withCampusSession('SKKM extraction failed', 'Gagal memuat data SKKM', function (string $sessionToken) use ($request): JsonResponse {
             $skkm = $this->readDataset($request, $sessionToken, 'skkm');
+            $data = $this->withoutWriteEffectLinks($skkm['data']);
+
+            if (PortalReviewerAccount::isSandboxSession($sessionToken)) {
+                $data['add_available'] = false;
+            }
 
             return $this->statusSuccess('SKKM data retrieved successfully', [
-                'data' => $this->withoutWriteEffectLinks($skkm['data']),
+                'data' => $data,
             ], meta: $skkm['meta'], campusSessionValid: true);
         });
     }

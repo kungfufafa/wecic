@@ -11,6 +11,8 @@ export type ApiMeta = {
   timestamp?: string;
   campus_session_valid?: boolean;
   offline?: boolean;
+  /** True when a write was simulated (reviewer or demo account): nothing changed on the portal. */
+  simulated?: boolean;
 };
 
 /** Every answer: `status` and `message`, plus endpoint fields. */

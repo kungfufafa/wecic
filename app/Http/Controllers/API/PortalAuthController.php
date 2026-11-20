@@ -441,7 +441,9 @@ class PortalAuthController extends CampusApiController
                 $request->newPasswordConfirmation()
             );
 
-            if (($result['success'] ?? false) === true) {
+            $simulated = PortalReviewerAccount::isSandboxSession($sessionToken);
+
+            if (($result['success'] ?? false) === true && ! $simulated) {
                 $this->forgetOldPasswordCopies($sessionToken);
                 $this->rememberNewPassword($sessionToken, $request->newPassword());
             }
@@ -450,7 +452,8 @@ class PortalAuthController extends CampusApiController
                 (bool) $result['success'],
                 (string) $result['message'],
                 $result['data'] ?? null,
-                $result['success'] ? 200 : 422
+                $result['success'] ? 200 : 422,
+                $simulated ? ['simulated' => true] : []
             );
         } catch (\Throwable $throwable) {
             if ($this->isCampusSessionExpiredException($throwable)) {

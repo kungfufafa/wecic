@@ -3,8 +3,10 @@
 @section('title', 'SKKM')
 @section('page_id', 'skkm-index')
 
+{{-- The reviewer and demo accounts never get a link to the real portal: their portal is the fixtures. --}}
 @php
     $skkmAddUrl = \App\Services\PortalEndpointRegistry::url('student_skkm_add_form');
+    $showSkkmAdd = ! \App\Services\PortalReviewerAccount::isSandboxSession(session('campus_session_token'));
 @endphp
 
 @section('content')
@@ -13,6 +15,7 @@
         <x-slot:meta>
             <span class="min-h-4" data-skkm-updated></span>
         </x-slot:meta>
+        @if ($showSkkmAdd)
         <x-slot:actions class="max-sm:-mt-4 lg:max-w-64 lg:flex-col lg:items-end">
             <x-sticky-action class="lg:text-end">
                 <x-button
@@ -31,6 +34,7 @@
                 <p class="mt-1.5 text-center text-xs text-ink-subtle lg:text-end" id="skkm-add-hint">Dibuka di portal kampus. Kamu perlu masuk lagi di sana.</p>
             </x-sticky-action>
         </x-slot:actions>
+        @endif
     </x-page-hero>
 
     <div class="flex flex-col gap-6" data-portal-url="{{ config('portal.base_url') }}" id="skkm-page">

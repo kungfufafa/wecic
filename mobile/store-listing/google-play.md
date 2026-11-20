@@ -104,7 +104,7 @@ Lalu **Add instructions** (maksimal 5 set). Isi satu set dengan akun **mode revi
 | Password | `[isi dari PORTAL_REVIEWER_PASSWORD di server]`. Jangan tulis di repo atau di chat |
 | Any other instructions | Teks di bawah (bahasa Inggris, karena reviewer membaca Inggris) |
 
-1.661 karakter (dihitung 2026-11-20):
+Versi panjang (untuk catatan; kolom "informasi lain" di Console maksimal 500 karakter, pakai versi pendek di bawahnya):
 ```text
 WeCIC is an unofficial companion app for students who use the campus academic portal my.cic.ac.id. It is not affiliated with the university. Every screen except sign-in needs an account.
 
@@ -112,7 +112,7 @@ This is a dedicated reviewer account on our production server (https://wecic.riz
 
 1. Open the app. On the "Masuk" (Sign in) screen, enter the username and password above, then tap "Masuk". Leave "Nyalakan sinkronisasi di background" off; it is not available for this account.
 2. Bottom tabs: Beranda (Home), Absensi (Attendance), Kelas (Classes), Akademik (Academics), Lainnya (More).
-3. Attendance: Absensi tab > scan any QR code or pick one from the gallery. With this account the check-in is not sent; the app reports that the portal cannot be reached ("portal tidak dapat diakses"). Uploads, portal password change and file downloads behave the same way.
+3. Attendance: Absensi tab > scan any QR code, pick one from the gallery, or type any code. The check-in is simulated and reported as recorded. Assignment upload and delete, exam answer upload (the open sample exam), portal password change and file downloads are simulated the same way; nothing is sent to the university.
 4. AI Notebook: Lainnya > Notebook AI. Asking a question first opens the consent screen for Google Gemini ("Setuju" / "Tidak sekarang"). Nothing is sent to Google before consent. Consent can be withdrawn under Lainnya > Privasi > Izin Notebook AI.
 5. Account deletion: Lainnya > Privasi > "Hapus akun & data WeCIC". You may test it: it signs out only your own session (other reviewers stay signed in) and resets the shared sample notebooks and consent; signing in again afterwards works. Public page: https://wecic.rizqis.com/hapus-data
 6. Push notifications are optional. The app works if notification permission is denied.
@@ -120,9 +120,15 @@ This is a dedicated reviewer account on our production server (https://wecic.riz
 All reviewers share the same sample data. If sign-in fails, contact developer@rizqis.com.
 ```
 
+Versi pendek yang diisi di Console (500 karakter maksimal):
+```text
+Unofficial companion app for the campus portal my.cic.ac.id. This reviewer account uses sanitized sample data, never contacts the university, does not expire and has no OTP. Sign in on the "Masuk" screen; leave background sync off. Attendance (any code), assignment and exam uploads, password change and downloads are simulated and succeed. AI Notebook asks for Gemini consent first. Delete account: Lainnya > Privasi. Help: developer@rizqis.com
+```
+
 Tentang mode reviewer:
 - Login reviewer membuka sesi `store-reviewer` yang dijawab dari fixture di `tests/Fixtures/portal`. Password yang salah ditolak (401) tanpa menghubungi portal. Akun mahasiswa lain berjalan seperti biasa.
-- Aksi tulis dan unduhan tidak punya fixture, sehingga ditolak seperti portal yang tidak bisa dihubungi. Ini disebut di instruksi supaya reviewer tidak menganggapnya fungsi rusak.
+- Aksi tulis yang bisa dicapai dari aplikasi disimulasikan oleh `PortalDemoFixtures` dengan halaman sukses portal dari `tests/Fixtures/portal/demo`, apa pun yang dikirim: absensi QR (kode apa saja), upload dan hapus tugas (tugas yang diunggah tampil dengan file dan tombol hapus sampai dihapus, disimpan di cache 1 hari dan dibagi semua sesi sandbox), upload jawaban ujian (ujian contoh 99001 yang masih terbuka), dan ganti sandi (pesan menyebut mode demo, sandi akun reviewer tidak berubah, tidak ada hash offline yang disimpan). Unduhan `/portal/files/...` dijawab dengan berkas buatan sesuai tipenya (PDF satu halaman, GIF 1x1, dst.). Tidak ada request yang keluar ke my.cic.ac.id.
+- Tautan keluar ke portal asli disembunyikan untuk sesi reviewer dan demo: tombol "Tambah SKKM di portal" (web dan aplikasi) dan tugas "Isi Kuesioner VMTS" di pusat tindakan.
 - Sinkronisasi di background tidak tersedia untuk akun ini (409, `available: false`), dan tidak ada password atau hash yang disimpan.
 - Semua reviewer berbagi satu pemilik data, jadi persetujuan AI, notebook, dan hapus akun dari satu reviewer terlihat oleh reviewer berikutnya.
 - Syarat kredensial reviewer (dari ringkasan hasil pencarian halaman bantuan Google; halaman lengkapnya **[BELUM TERVERIFIKASI]**): selalu bisa dipakai, bisa dipakai berulang, berlaku dari lokasi mana pun, bebas error, dan tidak terhalang verifikasi 2 langkah atau OTP. Server harus menyala selama review.

@@ -37,7 +37,8 @@ export default function PasswordScreen() {
         new_password: next,
         new_password_confirmation: confirmation,
       });
-      setResult({ ok: true, message: `${response.message || 'Kata sandi berhasil diganti.'} Jika "Tetap masuk" aktif, masuk ulang dengan sandi baru.` });
+      const message = response.message || 'Kata sandi berhasil diganti.';
+      setResult({ ok: true, message: response.meta?.simulated ? message : `${message} Jika "Tetap masuk" aktif, masuk ulang dengan sandi baru.` });
       setCurrent('');
       setNext('');
       setConfirmation('');

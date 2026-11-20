@@ -240,11 +240,11 @@ class PortalDemoModeTest extends TestCase
         $this->assertStringEqualsFile(base_path('tests/Fixtures/portal/profile.html'), $fetcher->fetch(PortalEndpointRegistry::url('profile')));
 
         try {
-            $fetcher->fetch(PortalEndpointRegistry::url('password_form'));
+            $fetcher->fetch(PortalEndpointRegistry::url('sipandai_transcript_print'));
             $this->fail('A page without a fixture was answered.');
         } catch (PortalConnectionException $exception) {
             $this->assertStringContainsString('The demo mode has no fixture for', $exception->getMessage());
-            $this->assertStringContainsString('[password_form]', $exception->getMessage());
+            $this->assertStringContainsString('[sipandai_transcript_print]', $exception->getMessage());
         }
 
         $this->assertTrue(app(PortalSessionManager::class)->validateSession($token), 'a refused page does not end the demo session');

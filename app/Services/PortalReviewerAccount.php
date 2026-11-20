@@ -131,6 +131,37 @@ class PortalReviewerAccount
     }
 
     /**
+     * Whether a session username is a sandbox student's (the reviewer's or
+     * the local demo's), whose portal is the fixtures: what it "changes" on
+     * the portal is simulated, so nothing may follow it (offline password
+     * hashes, dropped credentials, links to the real portal).
+     */
+    public static function isSandboxUsername(mixed $username): bool
+    {
+        return in_array($username, [self::SESSION_USERNAME, PortalDemoFixtures::USERNAME], true);
+    }
+
+    /**
+     * Whether a portal session (by its token) is a sandbox student's. A
+     * session that cannot be read counts as a real student's, which only
+     * keeps the usual behaviour.
+     */
+    public static function isSandboxSession(mixed $sessionToken): bool
+    {
+        if (! is_string($sessionToken) || $sessionToken === '') {
+            return false;
+        }
+
+        try {
+            $session = app(PortalSessionManager::class)->getSession($sessionToken);
+        } catch (\Throwable) {
+            return false;
+        }
+
+        return self::isSandboxUsername(is_array($session) ? ($session['username'] ?? null) : null);
+    }
+
+    /**
      * Whether a cookie jar (a request's `cookies` option) is a reviewer
      * session's: it holds the marker cookie.
      */

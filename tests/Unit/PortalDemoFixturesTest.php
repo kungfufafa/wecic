@@ -41,7 +41,8 @@ class PortalDemoFixturesTest extends TestCase
             'meeting that was not captured' => ['GET', 'discussion', ['id' => '30061', 'courses_id' => '8987'], 'real/meeting_36342_9521.html'],
             'assignment form that was captured' => ['GET', 'assignment_form', ['courses_id' => '9496', 'id' => '36365', 'pertemuan' => '3'], 'real/assignment_form_36365_9496_3.html'],
             'assignment form that was not captured' => ['GET', 'assignment_form', ['courses_id' => '8987', 'id' => '30061', 'pertemuan' => '9'], 'real/assignment_form_36342_9521_3.html'],
-            'exam list' => ['GET', 'exam_list', [], 'real/exam_list.html'],
+            'exam list, with the open demo exam' => ['GET', 'exam_list', [], 'demo/exam_list.html'],
+            'the open demo exam' => ['GET', 'exam_upload_form', ['id' => '99001'], 'demo/exam_detail_99001.html'],
             'exam that was captured' => ['GET', 'exam_upload_form', ['id' => '9519'], 'real/exam_detail_9519.html'],
             'exam that was not captured' => ['GET', 'exam_upload_form', ['id' => '1'], 'real/exam_detail_9496.html'],
             'announcements, first page' => ['GET', 'student_announcement', [], 'student_announcement_page1_raw.html'],
@@ -57,6 +58,13 @@ class PortalDemoFixturesTest extends TestCase
             'thesis repository, first page' => ['GET', 'student_repository', [], 'student_repository_page1_raw.html'],
             'thesis repository, last page' => ['GET', 'student_repository', ['page' => 2], 'student_repository_last_raw.html'],
             'grades' => ['GET', 'sipandai_score', [], 'sipandai_score_raw.html'],
+            'password form' => ['GET', 'password_form', [], 'demo/password_form.html'],
+            'password change' => ['POST', 'password_submit', [], 'demo/password_success.html'],
+            'QR attendance page' => ['GET', 'qr_attendance_page', ['course_id' => '9496', 'id' => '36365'], 'demo/attendance_qr_page.html'],
+            'attendance' => ['POST', 'attendance_submit', ['modulesid' => '36365', 'courseid' => '9496'], 'demo/attendance_success.html'],
+            'assignment upload' => ['POST', 'assignment_submit', ['courses_id' => '9496', 'id' => '36365', 'pertemuan' => '3'], 'demo/assignment_upload_success.html'],
+            'assignment delete' => ['GET', 'assignment_delete', ['id' => '1', 'idx' => '2', 'pertemuan' => '3'], 'demo/assignment_delete_success.html'],
+            'exam upload' => ['POST', 'exam_submit', [], 'demo/exam_upload_success.html'],
         ];
     }
 
@@ -82,11 +90,10 @@ class PortalDemoFixturesTest extends TestCase
             'login page' => ['GET', 'login_page', []],
             'login' => ['POST', 'login', []],
             'logout' => ['GET', 'student_logout', []],
-            'password form' => ['GET', 'password_form', []],
-            'attendance' => ['POST', 'attendance_submit', ['modulesid' => '36365', 'courseid' => '9496']],
-            'assignment upload' => ['POST', 'assignment_submit', ['courses_id' => '9496', 'id' => '36365', 'pertemuan' => '3']],
-            'assignment delete' => ['GET', 'assignment_delete', ['id' => '1', 'idx' => '2', 'pertemuan' => '3']],
-            'exam upload' => ['POST', 'exam_submit', []],
+            'meeting conformity' => ['GET', 'meeting_conformity', ['subject' => 'SI101', 'pertemuan' => '3', 'courses' => '9496', 'dosen' => '1', 'sesuai' => 'ya', 'modules' => '36365']],
+            'exam answer delete' => ['GET', 'exam_submission_delete', ['id' => '1']],
+            'exam card' => ['GET', 'exam_card', []],
+            'printable KRS' => ['GET', 'student_krs_print', []],
             'SKKM form' => ['GET', 'student_skkm_add_form', []],
             'SKKM upload' => ['POST', 'student_skkm_submit', []],
             'printable transcript' => ['GET', 'sipandai_transcript_print', []],
@@ -94,8 +101,8 @@ class PortalDemoFixturesTest extends TestCase
     }
 
     /**
-     * Write actions, the login pages and the pages never captured are
-     * refused at once, naming the endpoint; nothing is sent anywhere. The
+     * The login pages, the write actions no flow of the app sends and the
+     * pages never captured are refused at once, naming the endpoint; nothing is sent anywhere. The
      * SKKM form (GET) and its upload (POST) share one URL: the method tells
      * them apart.
      *
@@ -115,7 +122,9 @@ class PortalDemoFixturesTest extends TestCase
     public function test_a_url_of_no_endpoint_is_refused_too(): void
     {
         $unknown = [
-            new PsrRequest('GET', config('portal.base_url').'/portal/files/modul/materi.pdf'),
+            new PsrRequest('GET', config('portal.base_url').'/portal/files/modul/materi.php'),
+            new PsrRequest('GET', config('portal.base_url').'/portal/files/modul/materi.pdf?download=1'),
+            new PsrRequest('POST', config('portal.base_url').'/portal/files/modul/materi.pdf'),
             // The schedule page, asked for with the wrong method.
             new PsrRequest('POST', PortalEndpointRegistry::url('student_course')),
             new PsrRequest('GET', 'https://example.test/'),
@@ -186,7 +195,100 @@ class PortalDemoFixturesTest extends TestCase
         $this->expectException(ConnectException::class);
         $this->expectExceptionMessage(self::NO_FIXTURE);
 
-        $client->post(PortalEndpointRegistry::url('attendance_submit', ['modulesid' => '1', 'courseid' => '2']));
+        $client->get(PortalEndpointRegistry::url('login_page'));
+    }
+
+    /**
+     * An uploaded assignment shows on its meeting's upload form (its file
+     * and a delete link naming the meeting) until that link deletes it; the
+     * other meetings keep their plain page.
+     */
+    public function test_an_uploaded_assignment_shows_until_it_is_deleted(): void
+    {
+        $meeting = ['courses_id' => '9496', 'id' => '36365', 'pertemuan' => '3'];
+        $formUrl = PortalEndpointRegistry::url('assignment_form', $meeting);
+        $plain = (string) file_get_contents($this->fixture('real/assignment_form_36365_9496_3.html'));
+
+        $this->assertSame($plain, (string) $this->answer(new PsrRequest('GET', $formUrl))->getBody());
+
+        $this->answer(new PsrRequest('POST', self::assignmentUploadUrl(), ['Referer' => $formUrl]));
+
+        $uploaded = (string) $this->answer(new PsrRequest('GET', $formUrl))->getBody();
+        $this->assertStringContainsString('href="../files/tugasmhs/9496-3-20990000001-demo.pdf"', $uploaded);
+        $this->assertStringContainsString('href="?mod=sipandai&amp;act=jobdel&amp;id=9496&amp;idx=36365&amp;pertemuan=3"', $uploaded);
+
+        $other = PortalEndpointRegistry::url('assignment_form', ['courses_id' => '9525', 'id' => '37082', 'pertemuan' => '5']);
+        $this->assertStringEqualsFile($this->fixture('real/assignment_form_37082_9525_5.html'), (string) $this->answer(new PsrRequest('GET', $other))->getBody());
+
+        $this->answer(new PsrRequest('GET', PortalEndpointRegistry::url('assignment_delete', ['id' => '9496', 'idx' => '36365', 'pertemuan' => '3'])));
+
+        $this->assertSame($plain, (string) $this->answer(new PsrRequest('GET', $formUrl))->getBody());
+    }
+
+    /**
+     * Without the form's URL in the Referer, the meeting is read from the
+     * multipart fields of the upload; an upload naming no meeting shows
+     * nowhere.
+     */
+    public function test_an_upload_without_a_referer_is_read_from_its_fields(): void
+    {
+        $body = "--b\r\nContent-Disposition: form-data; name=\"data[courses_id]\"\r\n\r\n9525\r\n"
+            ."--b\r\nContent-Disposition: form-data; name=\"data[id]\"\r\n\r\n37082\r\n"
+            ."--b\r\nContent-Disposition: form-data; name=\"data[pertemuan]\"\r\n\r\n5\r\n--b--\r\n";
+
+        $this->answer(new PsrRequest('POST', self::assignmentUploadUrl(), ['Content-Type' => 'multipart/form-data; boundary=b'], $body));
+        $this->answer(new PsrRequest('POST', self::assignmentUploadUrl(), [], 'nothing'));
+
+        $page = (string) $this->answer(new PsrRequest('GET', PortalEndpointRegistry::url('assignment_form', ['courses_id' => '9525', 'id' => '37082', 'pertemuan' => '5'])))->getBody();
+
+        $this->assertStringContainsString('9525-5-20990000001-demo.pdf', $page);
+        $this->assertSame(1, substr_count($page, 'act=jobdel'));
+    }
+
+    /**
+     * @return array<string, array{string, string}>
+     */
+    public static function campusFiles(): array
+    {
+        return [
+            'course material' => ['/portal/files/modul/IF101-mod-1.pdf', 'application/pdf'],
+            'thesis colloquium with spaces' => ['/portal/files/skripsi/kolokium/TUGAS%20AKHIR-SIDANG-a1b2c.pdf', 'application/pdf'],
+            'guide in the files root' => ['/portal/files/Panduan_Penulisan_Skripsi.pdf', 'application/pdf'],
+            'student photo' => ['/portal/files/fotostudent/nopic.gif', 'image/gif'],
+            'archive' => ['/portal/files/tugasmhs/9496-3-20990000001-demo.zip', 'application/zip'],
+            'unknown type' => ['/portal/files/latihan/soal.xyz', 'application/octet-stream'],
+        ];
+    }
+
+    /**
+     * A campus file is a generated file of its type, never an HTML page; a
+     * PDF is a well-formed one naming the file.
+     */
+    #[DataProvider('campusFiles')]
+    public function test_a_campus_file_is_answered_with_a_generated_file(string $path, string $type): void
+    {
+        $response = $this->answer(new PsrRequest('GET', config('portal.base_url').$path));
+        $body = (string) $response->getBody();
+
+        $this->assertSame(200, $response->getStatusCode());
+        $this->assertSame($type, $response->getHeaderLine('Content-Type'));
+        $this->assertSame((string) strlen($body), $response->getHeaderLine('Content-Length'));
+        $this->assertNotSame('', $body);
+        $this->assertStringContainsString('attachment; filename="'.rawurldecode(basename($path)).'"', $response->getHeaderLine('Content-Disposition'));
+
+        if ($type === 'application/pdf') {
+            $this->assertStringStartsWith('%PDF-1.4', $body);
+            $this->assertStringContainsString('startxref', $body);
+            $this->assertStringContainsString(preg_replace('/[^A-Za-z0-9 ._-]/', '', rawurldecode(basename($path))), $body);
+        }
+    }
+
+    public function test_a_head_request_for_a_campus_file_gets_its_headers_only(): void
+    {
+        $response = $this->answer(new PsrRequest('HEAD', config('portal.base_url').'/portal/files/modul/IF101-mod-1.pdf'));
+
+        $this->assertSame('application/pdf', $response->getHeaderLine('Content-Type'));
+        $this->assertSame('', (string) $response->getBody());
     }
 
     /**
@@ -247,6 +349,15 @@ class PortalDemoFixturesTest extends TestCase
         }
 
         $this->fail('The request was answered: '.$request->getMethod().' '.$request->getUri());
+    }
+
+    /**
+     * Where an upload is posted: the upload form's action, which carries no
+     * meeting.
+     */
+    private static function assignmentUploadUrl(): string
+    {
+        return config('portal.base_url').'/portal/sipandai/?mod=sipandai&act=sent';
     }
 
     private function fixture(string $relative): string
