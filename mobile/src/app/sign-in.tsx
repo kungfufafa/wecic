@@ -142,7 +142,7 @@ export default function SignInScreen() {
                 </ThemedText>
               </View>
               <ThemedText type="caption" themeColor="textQuaternary" style={styles.centered}>
-                Aplikasi tidak resmi, tidak berafiliasi dengan UCIC.
+                Aplikasi unofficial, tidak berafiliasi dengan UCIC.
               </ThemedText>
             </View>
           </ScrollView>

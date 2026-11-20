@@ -1,7 +1,7 @@
 {
     "name": "WeCIC",
     "short_name": "WeCIC",
-    "description": "Aplikasi tidak resmi untuk MyCIC, portal akademik mahasiswa CIC",
+    "description": "Aplikasi unofficial untuk MyCIC, portal akademik mahasiswa CIC",
     "start_url": "/dashboard",
     "display": "standalone",
     "orientation": "portrait",

@@ -9,7 +9,7 @@
             <div class="relative z-10 flex h-full flex-col justify-between gap-8 p-10 xl:p-14">
                 <div class="flex flex-col items-start gap-2">
                     <x-brand-logo class="h-9" />
-                    <p class="text-xs font-medium text-ink-subtle">Aplikasi tidak resmi untuk MyCIC</p>
+                    <p class="text-xs font-medium text-ink-subtle">Aplikasi unofficial untuk MyCIC</p>
                 </div>
 
                 <p class="text-xs leading-relaxed text-ink-subtle">Data tetap bersumber dari MyCIC (my.cic.ac.id) · WeCIC tidak berafiliasi dengan UCIC</p>
@@ -20,7 +20,7 @@
             <div class="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center">
                 <div class="mb-8 flex flex-col items-start gap-2 lg:hidden">
                     <x-brand-logo class="h-9" />
-                    <p class="text-xs font-medium text-ink-subtle">Aplikasi tidak resmi untuk MyCIC</p>
+                    <p class="text-xs font-medium text-ink-subtle">Aplikasi unofficial untuk MyCIC</p>
                 </div>
 
                 <x-page-header title="Masuk ke WeCIC" subtitle="Gunakan NIM dan password MyCIC kamu">
@@ -108,7 +108,7 @@
                 @endif
 
                 <p class="mt-8 text-center text-xs leading-relaxed text-ink-subtle lg:hidden">
-                    WeCIC adalah aplikasi tidak resmi buatan mahasiswa dan tidak berafiliasi dengan UCIC. Data tetap bersumber dari MyCIC.
+                    WeCIC adalah aplikasi unofficial buatan mahasiswa dan tidak berafiliasi dengan UCIC. Data tetap bersumber dari MyCIC.
                 </p>
             </div>
         </main>

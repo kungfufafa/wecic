@@ -166,7 +166,7 @@ export default function MoreScreen() {
       <View style={styles.footer}>
         <BrandLogo width={132} color={theme.text} />
         <ThemedText type="caption" themeColor="textQuaternary" style={styles.centered}>
-          WeCIC · aplikasi tidak resmi untuk MyCIC, tidak berafiliasi dengan UCIC
+          WeCIC · aplikasi unofficial untuk MyCIC, tidak berafiliasi dengan UCIC
         </ThemedText>
       </View>
     </Screen>
