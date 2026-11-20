@@ -73,15 +73,18 @@ class PortalSessionManager
 
         try {
             $loginResult = $this->authService->login($username, $password);
+            $isReviewer = ($loginResult['reviewer'] ?? false) === true;
+            $username = $this->sessionUsername($username, $loginResult);
             $sessionToken = $this->generateSessionToken();
             $sessionData = [...$this->buildSessionData($sessionToken, $username, $loginResult), self::IDLE_EXPIRY_WATCHED => true];
-            $keepsPassword = config('portal.auto_relogin', false) && $this->mayKeepPassword($username);
+            $keepsPassword = ! $isReviewer && config('portal.auto_relogin', false) && $this->mayKeepPassword($username);
 
             if ($keepsPassword) {
                 $sessionData['encrypted_credentials'] = $this->encryptCredentials($username, $password);
             }
 
             $this->storeSession($sessionToken, $sessionData);
+            $this->trackOwnerSession($sessionToken, $username);
 
             if ($keepsPassword) {
                 $this->trackPasswordCopy($sessionToken, $username);
@@ -129,10 +132,12 @@ class PortalSessionManager
 
         try {
             $loginResult = $this->authService->login($username, $password);
+            $username = $this->sessionUsername($username, $loginResult);
             $sessionToken = $this->generateSessionToken();
             $sessionData = [...$this->buildSessionData($sessionToken, $username, $loginResult), 'background' => true, self::IDLE_EXPIRY_WATCHED => true];
 
             $this->storeSession($sessionToken, $sessionData);
+            $this->trackOwnerSession($sessionToken, $username);
             $this->scheduleIdleExpiry($sessionToken);
             $this->logSessionEvent('background_login_succeeded', sessionToken: $sessionToken, username: $username, session: $sessionData, context: [
                 'duration_ms' => $this->durationMs($startedAt),
@@ -214,6 +219,7 @@ class PortalSessionManager
         ];
 
         $this->storeSession($sessionToken, $sessionData);
+        $this->trackOwnerSession($sessionToken, $username);
 
         if ($canResume) {
             $this->trackPasswordCopy($sessionToken, $username);
@@ -621,6 +627,7 @@ class PortalSessionManager
         $this->deleteSession($sessionToken);
         $this->dataOwner->forget($sessionToken);
         $this->forgetOwnerSession($sessionToken, $session);
+        $this->untrackOwnerSession($sessionToken, $session);
 
         if (isset($session['encrypted_credentials'])) {
             $this->untrackPasswordCopy($sessionToken, $session);
@@ -725,6 +732,38 @@ class PortalSessionManager
         });
 
         return $indexed && $forgotten;
+    }
+
+    /**
+     * Every session the student still has (online, offline or background),
+     * for ending them all at once (PortalAccountEraser). Sessions opened
+     * before they were listed are found through the owner's online slot and
+     * password copy list.
+     *
+     * @return list<string>
+     */
+    public function sessionTokensForOwner(string $ownerKey): array
+    {
+        $candidates = [];
+
+        foreach ([$this->ownerSessionsKey($ownerKey), $this->passwordCopiesKey($ownerKey)] as $key) {
+            $listed = Cache::get($key);
+
+            if (is_array($listed)) {
+                array_push($candidates, ...array_filter($listed, 'is_string'));
+            }
+        }
+
+        $current = Cache::get($this->ownerSessionKey($ownerKey));
+
+        if (is_string($current) && $current !== '') {
+            $candidates[] = $current;
+        }
+
+        return array_values(array_filter(
+            array_unique($candidates),
+            fn (string $sessionToken): bool => $this->loadSession($sessionToken) !== null
+        ));
     }
 
     /**
@@ -961,10 +1000,10 @@ class PortalSessionManager
     }
 
     /**
-     * Whether the student switched background sync off
-     * (PortalOfflineAccount::isBackgroundSyncEnabled()), null when that
-     * could not be checked. MyCIC then keeps no copy of their password,
-     * sessions included.
+     * Whether background sync is off for the student (opt-in: off until
+     * they switch it on, PortalOfflineAccount::isBackgroundSyncEnabled()),
+     * null when that could not be checked. MyCIC then keeps no copy of
+     * their password, sessions included.
      */
     private function optedOutOfBackgroundSync(string $username): ?bool
     {
@@ -973,7 +1012,7 @@ class PortalSessionManager
         }
 
         try {
-            return app(PortalOfflineAccess::class)->findForOwner($this->dataOwner->keyForUsername($username))?->isBackgroundSyncEnabled() === false;
+            return app(PortalOfflineAccess::class)->findForOwner($this->dataOwner->keyForUsername($username))?->isBackgroundSyncEnabled() !== true;
         } catch (\Throwable $throwable) {
             $this->logSessionEvent('background_sync_choice_unreadable', level: 'warning', username: $username, context: [
                 'error' => $throwable->getMessage(),
@@ -984,8 +1023,8 @@ class PortalSessionManager
     }
 
     /**
-     * A session stores a copy of the password only for a student known not
-     * to have switched background sync off.
+     * A session stores a copy of the password only for a student known to
+     * have switched background sync on.
      */
     private function mayKeepPassword(string $username): bool
     {
@@ -1219,6 +1258,48 @@ class PortalSessionManager
     }
 
     /**
+     * List a new session under its student, so sessionTokensForOwner()
+     * reaches it. Each addition drops the listed sessions that are gone.
+     */
+    private function trackOwnerSession(string $sessionToken, string $username): void
+    {
+        $this->mutateOwnerIndex($this->ownerSessionsKey($this->dataOwner->keyForUsername($username)), function (array $sessionTokens) use ($sessionToken): array {
+            $listed = array_filter(
+                $sessionTokens,
+                fn (string $listedToken): bool => $listedToken !== $sessionToken && Cache::has($this->cacheKey($listedToken))
+            );
+
+            return [...array_values($listed), $sessionToken];
+        }, 'owner_session_index_lock_timeout');
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $session
+     */
+    private function untrackOwnerSession(string $sessionToken, ?array $session): void
+    {
+        $username = $session['username'] ?? null;
+
+        if (! is_string($username) || $username === '') {
+            return;
+        }
+
+        $this->mutateOwnerIndex($this->ownerSessionsKey($this->dataOwner->keyForUsername($username)), static function (array $sessionTokens) use ($sessionToken): array {
+            return array_values(array_diff($sessionTokens, [$sessionToken]));
+        }, 'owner_session_index_lock_timeout');
+    }
+
+    private function ownerSessionsKey(string $ownerKey): string
+    {
+        return 'portal_owner_sessions_'.hash('sha256', $ownerKey);
+    }
+
+    private function passwordCopiesKey(string $ownerKey): string
+    {
+        return 'portal_owner_password_copies_'.hash('sha256', $ownerKey);
+    }
+
+    /**
      * List a session that keeps a copy of the student's password, so
      * forgetStoredCredentialsForOwner() reaches it. The list has no expiry,
      * since activity keeps a session alive for as long as the student uses
@@ -1263,8 +1344,17 @@ class PortalSessionManager
      */
     private function mutatePasswordCopyIndex(string $ownerKey, callable $mutator): bool
     {
-        $key = 'portal_owner_password_copies_'.hash('sha256', $ownerKey);
+        return $this->mutateOwnerIndex($this->passwordCopiesKey($ownerKey), $mutator, 'password_copy_index_lock_timeout');
+    }
 
+    /**
+     * Rewrite one of the student's session lists under its own lock; false
+     * when the lock stayed busy (nothing written).
+     *
+     * @param  callable(list<string>): list<string>  $mutator
+     */
+    private function mutateOwnerIndex(string $key, callable $mutator, string $lockTimeoutEvent): bool
+    {
         try {
             Cache::lock($key.'_lock', self::SESSION_LOCK_SECONDS)->block(self::SESSION_LOCK_SECONDS, static function () use ($key, $mutator): void {
                 $stored = Cache::get($key);
@@ -1279,7 +1369,7 @@ class PortalSessionManager
 
             return true;
         } catch (LockTimeoutException $exception) {
-            $this->logSessionEvent('password_copy_index_lock_timeout', level: 'warning', context: [
+            $this->logSessionEvent($lockTimeoutEvent, level: 'warning', context: [
                 'error' => $exception->getMessage(),
             ]);
 
@@ -1591,6 +1681,20 @@ class PortalSessionManager
             // Cache::forget is atomic; a missed lock must not keep a session alive
             Cache::forget($this->cacheKey($sessionToken));
         }
+    }
+
+    /**
+     * The username a new session is stored under: the one the login answer
+     * names (the store reviewer's fixed student, PortalReviewerAccount),
+     * else the one typed.
+     *
+     * @param  array<string, mixed>  $loginResult
+     */
+    private function sessionUsername(string $username, array $loginResult): string
+    {
+        $named = $loginResult['username'] ?? null;
+
+        return is_string($named) && $named !== '' ? $named : $username;
     }
 
     private function buildSessionData(string $sessionToken, string $username, array $loginResult): array

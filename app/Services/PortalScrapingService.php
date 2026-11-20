@@ -102,7 +102,7 @@ abstract class PortalScrapingService
                 'referer' => true,
                 'track_redirects' => true,
             ],
-        ], PortalHttpClientOptions::shared()));
+        ], PortalHttpClientOptions::forClient()));
     }
 
     /**
@@ -182,7 +182,7 @@ abstract class PortalScrapingService
      */
     private function requestUpstream(string $method, string $url, array $options = []): string
     {
-        $maxRetries = $this->isWebContext()
+        $maxRetries = $this->isWebContext() || PortalReviewerAccount::isReviewerCookieJar($this->cookieJar)
             ? 1
             : (int) config('portal.scraping.max_retries', 3);
         $retryDelay = (int) config('portal.scraping.retry_delay', 1000);
@@ -243,13 +243,15 @@ abstract class PortalScrapingService
      * Wait between requests to be respectful to the campus server.
      *
      * Web requests skip it: the politeness delay belongs to the queue
-     * workers, while interactive requests race PHP-FPM's time limit.
+     * workers, while interactive requests race PHP-FPM's time limit. The
+     * store reviewer's session (PortalReviewerAccount) skips it too, and
+     * gets no retries: its pages come from the fixtures, not the portal.
      */
     protected function pauseBetweenRequests(): void
     {
         $delay = $this->fetchPolicy()->requestDelayMs();
 
-        if ($delay > 0 && ! $this->isWebContext()) {
+        if ($delay > 0 && ! $this->isWebContext() && ! PortalReviewerAccount::isReviewerCookieJar($this->cookieJar)) {
             usleep($delay * 1000);
         }
     }

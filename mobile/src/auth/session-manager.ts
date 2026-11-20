@@ -1,5 +1,6 @@
 import { ApiError, createApiClient, type ApiClient } from '@/api/client';
 import type { SessionResponse, TokenLoginResponse, UserInfo } from '@/api/types';
+import { deleteAccount } from '@/lib/privacy';
 import { realtimeTargetFrom, sessionNoticeAction, type RealtimeTarget } from '@/lib/realtime';
 
 /**
@@ -146,8 +147,9 @@ export class SessionManager {
   /**
    * @throws ApiError with the server's message (wrong password, portal down)
    */
-  async signIn(username: string, password: string, remember: boolean): Promise<void> {
-    const login = await this.login(username, password);
+  /** `backgroundSync` is the sign-in switch: true opts in, false opts out of an earlier opt-in; left out, the server keeps the earlier choice. */
+  async signIn(username: string, password: string, remember: boolean, backgroundSync?: boolean): Promise<void> {
+    const login = await this.login(username, password, backgroundSync);
     await this.rememberOwner(username);
 
     if (remember) {
@@ -161,9 +163,12 @@ export class SessionManager {
 
   /**
    * Logs out on the server (best effort: the device forgets the session
-   * either way) and stops this install's pushes.
+   * either way) and stops this install's pushes. Resolves false when the
+   * server did not confirm the logout, so background sync and the password
+   * it keeps may still be on there.
    */
-  async signOut(): Promise<void> {
+  async signOut(): Promise<boolean> {
+    let loggedOutOnServer = false;
     this.signingOut = true;
     const pushToken = await this.storage.getItem(STORAGE_KEYS.pushToken);
     await this.storage.deleteItem(STORAGE_KEYS.credentials);
@@ -172,11 +177,37 @@ export class SessionManager {
       if (this.token !== null) {
         try {
           await this.api.post('auth/logout', pushToken !== null ? { push_token: pushToken } : {}, { reauthenticate: false });
+          loggedOutOnServer = true;
         } catch {
           // Already ended on the server, or no network: the token is forgotten below.
         }
       }
 
+      await this.storage.deleteItem(STORAGE_KEYS.pushToken);
+      await this.end(null);
+    } finally {
+      this.signingOut = false;
+    }
+
+    return loggedOutOnServer;
+  }
+
+  /**
+   * Erases the student's WeCIC account and every piece of data the server
+   * keeps for them, then forgets the session on this device as a logout
+   * does. Neither the server's own logout notice that follows nor a request
+   * that fails meanwhile (the sessions end before the answer arrives) is
+   * answered with a new login, which would store a fresh session and
+   * password hash after the erase.
+   *
+   * @throws ApiError with the server's message; the student stays signed in
+   */
+  async deleteAccount(): Promise<void> {
+    this.signingOut = true;
+
+    try {
+      await deleteAccount(this.api);
+      await this.storage.deleteItem(STORAGE_KEYS.credentials);
       await this.storage.deleteItem(STORAGE_KEYS.pushToken);
       await this.end(null);
     } finally {
@@ -222,6 +253,10 @@ export class SessionManager {
   }
 
   private async reauthenticate(): Promise<boolean> {
+    if (this.signingOut) {
+      return false;
+    }
+
     const credentials = await this.storedCredentials();
 
     if (credentials === null) {
@@ -256,10 +291,16 @@ export class SessionManager {
     this.onOwner?.(owner);
   }
 
-  private async login(username: string, password: string): Promise<TokenLoginResponse> {
+  /** `backgroundSync` true opts in to background sync and false opts out; left out (automatic logins), the server keeps the student's earlier choice (off by default). */
+  private async login(username: string, password: string, backgroundSync?: boolean): Promise<TokenLoginResponse> {
     const login = await this.api.post<TokenLoginResponse>(
       'auth/token',
-      { username, password, ...(this.deviceName ? { device_name: this.deviceName } : {}) },
+      {
+        username,
+        password,
+        ...(this.deviceName ? { device_name: this.deviceName } : {}),
+        ...(backgroundSync !== undefined ? { background_sync: backgroundSync } : {}),
+      },
       { auth: false },
     );
 

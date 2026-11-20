@@ -2,8 +2,10 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\API\NotebookAiConsentController;
 use App\Http\Controllers\API\NotebookController;
 use App\Http\Controllers\API\PortalAcademicController;
+use App\Http\Controllers\API\PortalAccountController;
 use App\Http\Controllers\API\PortalActionCenterController;
 use App\Http\Controllers\API\PortalActionController;
 use App\Http\Controllers\API\PortalAnnouncementController;
@@ -149,10 +151,15 @@ Route::middleware($sessionMiddleware)->group(function () {
             Route::delete('{item}', 'destroy')->whereNumber('item');
         });
 
+        // Deletes everything WeCIC keeps for the student and ends all their sessions;
+        // works in offline mode too.
+        Route::delete('account', [PortalAccountController::class, 'destroy'])->middleware('throttle:portal-action');
+
         Route::prefix('archive')->controller(PortalArchiveController::class)->group(function (): void {
             Route::get('', 'index');
             Route::delete('', 'destroy')->middleware('throttle:portal-action');
-            // Local bookkeeping: switches the stored credentials on or off.
+            Route::get('background-sync', 'backgroundSyncStatus');
+            // Switches the stored credentials on (password checked, see the controller) or off.
             Route::patch('background-sync', 'backgroundSync')->middleware('throttle:portal-action');
             Route::get('files', 'files');
             Route::post('files/sync', 'archiveClass')->middleware(['portal.online', 'throttle:portal-action']);
@@ -163,6 +170,14 @@ Route::middleware($sessionMiddleware)->group(function () {
             Route::post('versions/{version}/accept', 'accept')->whereNumber('version');
             Route::post('versions/{version}/reject', 'reject')->whereNumber('version');
             Route::get('{dataset}', 'versions')->where('dataset', '[a-z_]+');
+        });
+
+        // Consent to send Notebook content to Google Gemini: the AI parts of the
+        // notebook refuse with `ai_consent_required` until it is given.
+        Route::prefix('ai-consent')->controller(NotebookAiConsentController::class)->group(function (): void {
+            Route::get('', 'show');
+            Route::post('', 'store')->middleware('throttle:portal-action');
+            Route::delete('', 'destroy')->middleware('throttle:portal-action');
         });
 
         // The notebook reads stored portal data, so it also works in offline mode

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Models\Notebook;
+use App\Models\NotebookAiConsent;
 use App\Models\PortalArchivedFile;
 use App\Models\PortalArchiveVersion;
 use App\Models\PortalNotification;
@@ -17,14 +18,14 @@ use Illuminate\Support\Facades\DB;
 /**
  * Moves everything MyCIC keeps for a student from an owner key made with an
  * earlier secret to the current one (see PortalDataOwner), so the archive,
- * archived files, offline access, notifications, notebooks, push tokens and
- * the outbox survive a change of the owner secret instead of being orphaned.
+ * archived files, offline access, notifications, notebooks, the Notebook AI
+ * consent, push tokens and the outbox survive a change of the owner secret
+ * instead of being orphaned.
  *
  * A row the current key already has an equivalent of (the same unique key)
  * is dropped instead of moved: it was stored before the student logged in
- * under the current key, so the current one is newer. Only a background
- * sync opt-out carries over, so a student who switched it off is not synced
- * again because of the move.
+ * under the current key, so the current one is newer, background sync
+ * choice included.
  */
 class PortalOwnerRekeyer
 {
@@ -41,33 +42,42 @@ class PortalOwnerRekeyer
             + $this->moveUnique(PortalArchiveVersion::class, ['dataset', 'params_hash', 'content_hash', 'sighting'], $from, $to)
             + $this->moveUnique(PortalArchivedFile::class, ['source_url'], $from, $to)
             + $this->moveUnique(PortalNotification::class, ['dedupe_key'], $from, $to)
+            + $this->moveAiConsent($from, $to)
             + Notebook::query()->where('owner_hash', $from)->toBase()->update(['owner_hash' => $to])
             + PortalPushToken::query()->where('owner_hash', $from)->toBase()->update(['owner_hash' => $to])
             + PortalOutboxItem::query()->where('owner_hash', $from)->toBase()->update(['owner_hash' => $to]));
     }
 
+    /**
+     * The row the current key holds already comes from the newer login, so
+     * its background sync choice wins and the legacy row is dropped.
+     */
     private function moveOfflineAccount(string $from, string $to): int
     {
-        $legacy = PortalOfflineAccount::query()->where('owner_hash', $from)->toBase()->first(['id', 'background_sync_disabled_at']);
+        $legacy = PortalOfflineAccount::query()->where('owner_hash', $from)->toBase()->first(['id']);
 
         if ($legacy === null) {
             return 0;
         }
 
-        $current = PortalOfflineAccount::query()->where('owner_hash', $to)->toBase()->first(['id', 'background_sync_disabled_at']);
-
-        if ($current === null) {
+        if (! PortalOfflineAccount::query()->where('owner_hash', $to)->exists()) {
             return PortalOfflineAccount::query()->whereKey($legacy->id)->toBase()->update(['owner_hash' => $to]);
         }
 
-        if ($legacy->background_sync_disabled_at !== null && $current->background_sync_disabled_at === null) {
-            PortalOfflineAccount::query()->whereKey($current->id)->toBase()->update([
-                'background_sync_disabled_at' => $legacy->background_sync_disabled_at,
-                'credentials' => null,
-            ]);
+        return PortalOfflineAccount::query()->whereKey($legacy->id)->toBase()->delete();
+    }
+
+    /**
+     * A consent (or withdrawal) the current key holds already is the newer
+     * choice, so the legacy one is dropped.
+     */
+    private function moveAiConsent(string $from, string $to): int
+    {
+        if (NotebookAiConsent::query()->where('owner_hash', $to)->exists()) {
+            return NotebookAiConsent::query()->where('owner_hash', $from)->delete();
         }
 
-        return PortalOfflineAccount::query()->whereKey($legacy->id)->toBase()->delete();
+        return NotebookAiConsent::query()->where('owner_hash', $from)->toBase()->update(['owner_hash' => $to]);
     }
 
     /**

@@ -20,7 +20,9 @@ use Illuminate\Support\Facades\Log;
 /**
  * Keeps the archive current while the student is away.
  *
- * Every online login stores the credentials encrypted (PortalOfflineAccess);
+ * Opt-in, off by default: only a student who switched it on (at login, or
+ * later with their password) has their credentials stored encrypted
+ * (PortalOfflineAccess), and every online login refreshes them;
  * the scheduler then picks the accounts whose last sync is older than
  * `portal.background_sync.interval` and runs one SyncPortalArchiveJob each.
  * The credentials are dropped `credential_days` after the last online login
@@ -46,7 +48,7 @@ use Illuminate\Support\Facades\Log;
  *
  * Logging in resolves the student's owner key (PortalDataOwner), which may
  * move the account row to the current key or drop it in favour of the row
- * that key already had, with that row's background sync opt-out. The
+ * that key already had, with that row's background sync choice. The
  * account is therefore re-read after the login and before every later use
  * of its owner key: a sync whose account is gone, or now switched off,
  * stops there.
@@ -72,7 +74,7 @@ class PortalBackgroundSync
 
     /**
      * Whether the deployment stores credentials and syncs in the background
-     * at all; each student can still switch it off for themselves.
+     * at all; each student still has to switch it on for themselves.
      */
     public static function configured(): bool
     {
@@ -102,16 +104,17 @@ class PortalBackgroundSync
     public function status(string $ownerHash): array
     {
         $account = $this->offlineAccess->findForOwner($ownerHash);
-        $enabled = $this->enabled() && ($account === null || $account->isBackgroundSyncEnabled());
-        $active = $account !== null && $this->enabled() && $this->hasUsableCredentials($account);
+        $available = $this->availableFor($ownerHash);
+        $enabled = $available && $account !== null && $account->isBackgroundSyncEnabled();
+        $active = $account !== null && $available && $this->hasUsableCredentials($account);
         [$lastStatus, $lastError] = $this->lastOutcome($account);
 
         return [
-            'available' => $this->enabled(),
+            'available' => $available,
             'enabled' => $enabled,
             'active' => $active,
             // Switched on, but the credentials only arrive with the next online login.
-            'pending_login' => $enabled && ! $active && ($account === null || $this->readableCredentials($account) === null) && $account?->credentials_rejected_at === null,
+            'pending_login' => $enabled && ! $active && $this->readableCredentials($account) === null && $account->credentials_rejected_at === null,
             'rejected' => $account?->credentials_rejected_at !== null,
             'interval_minutes' => $this->intervalMinutes(),
             'credential_days' => $this->credentialDays(),
@@ -125,36 +128,77 @@ class PortalBackgroundSync
     }
 
     /**
-     * Switching off drops the stored credentials at once, and is remembered
-     * even when MyCIC keeps nothing else for the student yet; switching on
-     * takes effect with the next online login, which stores them again.
-     * Either way a class crawl cut short starts over: the archive may have
-     * been deleted meanwhile, files of the classes it had done included.
+     * Switch background sync on with the student's portal password, which
+     * the caller has verified: it is stored encrypted right away, so syncs
+     * start without waiting for the next login. False when it is not
+     * available to this student (availableFor()).
      */
-    public function setEnabled(string $ownerHash, bool $enabled): void
+    public function enable(string $ownerHash, string $username, string $password): bool
+    {
+        if (! $this->availableFor($ownerHash)) {
+            return false;
+        }
+
+        $account = PortalOfflineAccount::query()->firstOrNew(['owner_hash' => $ownerHash]);
+        $account->forgetUnreadableEncryptedAttributes();
+
+        if (! $account->exists) {
+            $account->forceFill(['password_hash' => '', 'last_online_login_at' => now()]);
+        }
+
+        $account->forceFill([
+            'background_sync_enabled_at' => $account->background_sync_enabled_at ?? now(),
+            'credentials' => ['username' => $username, 'password' => $password],
+            'credentials_rejected_at' => null,
+        ])->save();
+
+        Cache::forget($this->courseCrawlKey($account));
+
+        return true;
+    }
+
+    /**
+     * Switch background sync off: the stored credentials, and every copy a
+     * session keeps of the password, are dropped at once. A class crawl cut
+     * short starts over if it is switched on again.
+     */
+    public function disable(string $ownerHash): void
     {
         $account = $this->offlineAccess->findForOwner($ownerHash);
 
-        if ($account === null) {
-            if (! $enabled) {
-                $this->offlineAccess->rememberBackgroundSyncOptOut($ownerHash);
-                $this->sessionManager->forgetStoredCredentialsForOwner($ownerHash);
-            }
+        if ($account !== null) {
+            $account->forceFill([
+                'background_sync_enabled_at' => null,
+                'credentials' => null,
+                'credentials_rejected_at' => null,
+            ])->save();
 
-            return;
+            Cache::forget($this->courseCrawlKey($account));
         }
 
-        $account->forceFill($enabled
-            ? ['background_sync_disabled_at' => null]
-            : ['background_sync_disabled_at' => now(), 'credentials' => null, 'credentials_rejected_at' => null]
-        )->save();
+        // A busy session keeps its copy until its next keep-alive drops it.
+        $this->sessionManager->forgetStoredCredentialsForOwner($ownerHash);
+    }
 
-        if (! $enabled) {
-            // A busy session keeps its copy until its next keep-alive drops it.
-            $this->sessionManager->forgetStoredCredentialsForOwner($ownerHash);
-        }
+    /**
+     * Whether stored credentials are ready for background syncs.
+     */
+    public function hasStoredCredentials(string $ownerHash): bool
+    {
+        $account = $this->offlineAccess->findForOwner($ownerHash);
 
-        Cache::forget($this->courseCrawlKey($account));
+        return $account !== null && $this->availableFor($ownerHash) && $this->hasUsableCredentials($account);
+    }
+
+    /**
+     * Whether the student can switch background sync on: the deployment
+     * syncs in the background, and this is not the store reviewer account,
+     * whose sessions only ever read fixtures (PortalReviewerAccount).
+     */
+    public function availableFor(string $ownerHash): bool
+    {
+        return $this->enabled()
+            && $ownerHash !== app(PortalDataOwner::class)->keyForUsername(PortalReviewerAccount::SESSION_USERNAME);
     }
 
     public function intervalMinutes(): int

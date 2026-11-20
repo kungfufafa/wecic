@@ -53,6 +53,10 @@ Route::get('/login', function (PortalSessionManager $sessionManager) {
     return view('auth.login');
 })->name('login');
 
+Route::view('/privasi', 'legal.privacy')->name('legal.privacy');
+Route::view('/bantuan', 'legal.support')->name('legal.support');
+Route::view('/hapus-data', 'legal.data-deletion')->name('legal.data-deletion');
+
 Route::middleware('portal.web')->group(function (): void {
     Route::view('/dashboard', 'dashboard')->name('dashboard');
     Route::view('/profile', 'profile')->name('profile');
@@ -112,6 +116,7 @@ Route::middleware('portal.web')->group(function (): void {
     Route::view('/library', 'library.index')->name('library.index');
     Route::view('/library/theses', 'library.theses')->name('library.theses');
     Route::view('/more', 'more')->name('more');
+    Route::view('/account/delete', 'account.delete')->name('account.delete');
     Route::view('/notifications', 'notifications.index')->name('notifications.index');
 
     Route::view('/notebook', 'notebook.index')->name('notebook.index');

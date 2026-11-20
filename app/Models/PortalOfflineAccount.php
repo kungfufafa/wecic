@@ -12,14 +12,15 @@ use Illuminate\Database\Eloquent\Prunable;
 /**
  * What lets MyCIC act for a student while they are away or the portal is
  * unreachable: a hash of the password of their last successful portal login
- * (offline login) and, with background sync on, that login's credentials
+ * (offline login) and, only once the student switched background sync on
+ * (opt-in, `background_sync_enabled_at`), that login's credentials
  * encrypted (background sync and resuming an offline session).
  *
  * Nothing is kept longer than it can be used (`model:prune`, see
  * prunable()): the credentials go `credential_days` after the last online
  * login or as soon as the portal refuses them, the password hash and user
  * info after `offline_login_days`, and the row itself once both have
- * passed, unless it carries the student's background sync opt-out.
+ * passed, unless it carries the student's background sync opt-in.
  *
  * @property int $id
  * @property string $owner_hash
@@ -27,7 +28,7 @@ use Illuminate\Database\Eloquent\Prunable;
  * @property array<string, mixed>|null $user_info
  * @property array{username: string, password: string}|null $credentials
  * @property \Illuminate\Support\Carbon|null $credentials_rejected_at
- * @property \Illuminate\Support\Carbon|null $background_sync_disabled_at
+ * @property \Illuminate\Support\Carbon|null $background_sync_enabled_at
  * @property \Illuminate\Support\Carbon $last_online_login_at
  * @property \Illuminate\Support\Carbon|null $last_offline_login_at
  * @property \Illuminate\Support\Carbon|null $last_background_sync_at
@@ -57,7 +58,7 @@ class PortalOfflineAccount extends Model
         'user_info',
         'credentials',
         'credentials_rejected_at',
-        'background_sync_disabled_at',
+        'background_sync_enabled_at',
         'last_online_login_at',
         'last_offline_login_at',
         'last_background_sync_at',
@@ -99,7 +100,7 @@ class PortalOfflineAccount extends Model
             'user_info' => 'encrypted:array',
             'credentials' => 'encrypted:array',
             'credentials_rejected_at' => 'datetime',
-            'background_sync_disabled_at' => 'datetime',
+            'background_sync_enabled_at' => 'datetime',
             'last_online_login_at' => 'datetime',
             'last_offline_login_at' => 'datetime',
             'last_background_sync_at' => 'datetime',
@@ -108,8 +109,9 @@ class PortalOfflineAccount extends Model
     }
 
     /**
-     * Accounts MyCIC may log in for: credentials stored, not rejected by the
-     * portal, and an online login within `$credentialDays`.
+     * Accounts MyCIC may log in for: background sync switched on,
+     * credentials stored, not rejected by the portal, and an online login
+     * within `$credentialDays`.
      *
      * @param  Builder<static>  $query
      * @return Builder<static>
@@ -119,7 +121,7 @@ class PortalOfflineAccount extends Model
         return $query
             ->whereNotNull('credentials')
             ->whereNull('credentials_rejected_at')
-            ->whereNull('background_sync_disabled_at')
+            ->whereNotNull('background_sync_enabled_at')
             ->where('last_online_login_at', '>=', now()->subDays(max(1, $credentialDays)));
     }
 
@@ -127,13 +129,13 @@ class PortalOfflineAccount extends Model
     {
         return is_array($this->credentials)
             && $this->credentials_rejected_at === null
-            && $this->background_sync_disabled_at === null
+            && $this->background_sync_enabled_at !== null
             && $this->last_online_login_at->addDays(max(1, $credentialDays))->isFuture();
     }
 
     public function isBackgroundSyncEnabled(): bool
     {
-        return $this->background_sync_disabled_at === null;
+        return $this->background_sync_enabled_at !== null;
     }
 
     /**
@@ -156,7 +158,7 @@ class PortalOfflineAccount extends Model
 
     /**
      * Days after the last online login past which an account keeps nothing
-     * but a background sync opt-out: both windows above have passed.
+     * but a background sync opt-in: both windows above have passed.
      */
     public static function retentionDays(): int
     {
@@ -165,7 +167,7 @@ class PortalOfflineAccount extends Model
 
     /**
      * Everything an account holds to act for the student, emptied: only the
-     * owner, the background sync opt-out and the last online login remain.
+     * owner, the background sync opt-in and the last online login remain.
      *
      * @return array<string, string|null>
      */
@@ -188,7 +190,7 @@ class PortalOfflineAccount extends Model
      * Accounts holding something past its use (`model:prune`): credentials
      * the portal refused or older than credentialDays(), a password hash or
      * user info older than offlineLoginDays(), and past retentionDays() any
-     * row but an emptied background sync opt-out. Ages count from the last
+     * row but an emptied background sync opt-in. Ages count from the last
      * online login.
      *
      * @return Builder<static>
@@ -212,7 +214,7 @@ class PortalOfflineAccount extends Model
                 ->orWhere(static function (Builder $query): void {
                     $query->where('last_online_login_at', '<', now()->subDays(self::retentionDays()))
                         ->where(static function (Builder $query): void {
-                            $query->whereNull('background_sync_disabled_at')
+                            $query->whereNull('background_sync_enabled_at')
                                 ->orWhereNotNull('credentials_rejected_at')
                                 ->orWhereNotNull('last_offline_login_at')
                                 ->orWhereNotNull('last_background_sync_at')
@@ -226,7 +228,7 @@ class PortalOfflineAccount extends Model
 
     /**
      * Past retentionDays() the row goes, unless it carries a background sync
-     * opt-out: that is kept, emptied, so the next online login still honours
+     * opt-in: that is kept, emptied, so the next online login still honours
      * it. Before that only what has expired is emptied, which also takes the
      * account out of background sync. An online login that lands meanwhile
      * renewed the account, which is then left alone.
@@ -239,7 +241,7 @@ class PortalOfflineAccount extends Model
         $lastOnlineLogin = $this->last_online_login_at;
 
         if ($lastOnlineLogin->lessThan(now()->subDays(self::retentionDays()))) {
-            if ($unchanged->clone()->whereNull('background_sync_disabled_at')->delete() === 1) {
+            if ($unchanged->clone()->whereNull('background_sync_enabled_at')->delete() === 1) {
                 return true;
             }
 

@@ -5,6 +5,10 @@
     the elements, constants and state in setup).
 --}}
             const runStudio = async (button, kind, focus = null) => {
+                if (needsAiConsent()) {
+                    return;
+                }
+
                 await app.withSubmitLoading(button, async () => {
                     try {
                         const payload = await app.request(`${base}/studio`, { method: 'POST', json: { kind, source_ids: contextSourceIds(), focus }, timeout: 180000 });
@@ -23,6 +27,10 @@
 
             // The assignment outline asks what the task is, so the outline fits the brief and the chosen sources.
             const openAssignmentPlanner = (button) => {
+                if (needsAiConsent()) {
+                    return;
+                }
+
                 const meetingsWithTasks = state.sources.filter((source) => source.kind === 'meeting' && source.status === 'ready');
                 const chosen = contextSources();
                 const panel = app.openSheet({

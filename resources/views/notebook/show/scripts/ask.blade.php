@@ -45,7 +45,7 @@
             };
 
             const ask = async (question) => {
-                if (state.busy || question.trim() === '') {
+                if (state.busy || question.trim() === '' || needsAiConsent()) {
                     return;
                 }
 

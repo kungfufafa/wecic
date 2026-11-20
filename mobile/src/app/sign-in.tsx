@@ -1,3 +1,4 @@
+import * as WebBrowser from 'expo-web-browser';
 import { useEffect, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Switch, View, type TextInputInstance } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -13,11 +14,14 @@ import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
 import { MaxContentWidth, Radius, Spacing } from '@/constants/theme';
 import { useResolvedColorScheme, useTheme } from '@/hooks/use-theme';
+import { BACKGROUND_SYNC_EXPLANATION, legalPageUrl, SIGN_IN_DISCLOSURE } from '@/lib/privacy';
 
 /**
  * The login: the WeCIC wordmark on a soft blue glow, two fields, one light
- * button. WeCIC is unofficial, so it never shows the university's logo and
- * says it is not affiliated with UCIC.
+ * button. Before the button it says what the WeCIC server does with the
+ * password and offers background sync, off by default. WeCIC is
+ * unofficial, so it never shows the university's logo and says it is not
+ * affiliated with the campus.
  */
 export default function SignInScreen() {
   const theme = useTheme();
@@ -27,10 +31,12 @@ export default function SignInScreen() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [remember, setRemember] = useState(true);
+  const [backgroundSync, setBackgroundSync] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const notice = state.status === 'signedOut' ? state.notice : null;
+  const privacyUrl = legalPageUrl('privacy');
 
   useEffect(() => {
     void rememberedUsername().then((nim) => {
@@ -61,7 +67,7 @@ export default function SignInScreen() {
     setSubmitting(true);
 
     try {
-      await signIn(username.trim(), password, remember);
+      await signIn(username.trim(), password, remember, backgroundSync);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : String(caught));
       setFieldErrors(caught instanceof ApiError ? caught.fieldErrors : {});
@@ -80,7 +86,7 @@ export default function SignInScreen() {
               <View style={styles.heading}>
                 <ThemedText type="display">Selamat datang</ThemedText>
                 <ThemedText type="default" themeColor="textSecondary">
-                  Masuk dengan akun MyCIC kamu.
+                  Masuk dengan akun portal kampus kamu.
                 </ThemedText>
               </View>
             </View>
@@ -122,7 +128,7 @@ export default function SignInScreen() {
               <Pressable
                 accessibilityRole="switch"
                 accessibilityState={{ checked: remember }}
-                accessibilityHint="Masuk lagi otomatis saat sesi kampus berakhir. Kata sandi disimpan aman di perangkat ini."
+                accessibilityHint="Masuk lagi otomatis saat sesi kampus berakhir. Kata sandi juga disimpan terenkripsi di penyimpanan aman perangkat ini."
                 onPress={() => setRemember((current) => !current)}
                 style={styles.remember}>
                 <ThemedText type="bodyMedium" style={styles.flex}>
@@ -131,6 +137,46 @@ export default function SignInScreen() {
                 <Switch value={remember} onValueChange={setRemember} trackColor={{ true: theme.success, false: theme.elevated }} />
               </Pressable>
 
+              <Pressable
+                accessibilityRole="switch"
+                accessibilityState={{ checked: backgroundSync }}
+                accessibilityLabel="Nyalakan sinkronisasi di background"
+                accessibilityHint={BACKGROUND_SYNC_EXPLANATION}
+                onPress={() => setBackgroundSync((current) => !current)}
+                style={styles.remember}>
+                <View style={styles.optionText}>
+                  <ThemedText type="bodyMedium">Nyalakan sinkronisasi di background</ThemedText>
+                  <ThemedText type="caption" themeColor="textTertiary">
+                    {BACKGROUND_SYNC_EXPLANATION}
+                  </ThemedText>
+                </View>
+                <Switch value={backgroundSync} onValueChange={setBackgroundSync} trackColor={{ true: theme.success, false: theme.elevated }} />
+              </Pressable>
+
+              <View style={[styles.disclosure, { backgroundColor: theme.section }]} accessibilityRole="summary">
+                {SIGN_IN_DISCLOSURE.map((line) => (
+                  <View key={line} style={styles.disclosureRow}>
+                    <Icon name="info" size={14} color={theme.textTertiary} />
+                    <ThemedText type="caption" themeColor="textSecondary" style={styles.flex}>
+                      {line}
+                    </ThemedText>
+                  </View>
+                ))}
+                {privacyUrl ? (
+                  <Pressable
+                    accessibilityRole="link"
+                    accessibilityHint="Buka kebijakan privasi WeCIC di browser"
+                    hitSlop={8}
+                    onPress={() => void WebBrowser.openBrowserAsync(privacyUrl)}
+                    style={styles.disclosureRow}>
+                    <Icon name="arrowUpRight" size={14} color={theme.brand} />
+                    <ThemedText type="smallBold" themeColor="brand">
+                      Kebijakan privasi
+                    </ThemedText>
+                  </Pressable>
+                ) : null}
+              </View>
+
               <Button label={submitting ? 'Memeriksa ke portal…' : 'Masuk'} loading={submitting} onPress={submit} />
             </View>
 
@@ -138,11 +184,11 @@ export default function SignInScreen() {
               <View style={styles.footerRow}>
                 <Icon name="lock" size={13} color={theme.textQuaternary} />
                 <ThemedText type="caption" themeColor="textQuaternary">
-                  Data langsung dari MyCIC (my.cic.ac.id)
+                  Data dari portal akademik kampus (my.cic.ac.id)
                 </ThemedText>
               </View>
               <ThemedText type="caption" themeColor="textQuaternary" style={styles.centered}>
-                Aplikasi unofficial, tidak berafiliasi dengan UCIC.
+                Aplikasi unofficial, tidak berafiliasi dengan kampus mana pun.
               </ThemedText>
             </View>
           </ScrollView>
@@ -196,6 +242,20 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.two,
     paddingHorizontal: Spacing.one,
     borderRadius: Radius.medium,
+  },
+  optionText: {
+    flex: 1,
+    gap: Spacing.half,
+  },
+  disclosure: {
+    gap: Spacing.two,
+    padding: Spacing.three - Spacing.one,
+    borderRadius: Radius.large,
+  },
+  disclosureRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.two,
   },
   footer: {
     alignItems: 'center',

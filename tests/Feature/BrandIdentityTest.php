@@ -50,7 +50,15 @@ class BrandIdentityTest extends TestCase
         $this->assertCount(1, $page->filter('main img[alt="WeCIC"]'));
         $this->assertCount(1, $page->filter('link[rel="icon"][href="/favicon.svg"][type="image/svg+xml"]'));
         $this->assertCount(1, $page->filter('link[rel="icon"][href="/favicon.ico"]'));
-        $this->assertStringContainsString('Aplikasi unofficial untuk MyCIC', $page->text());
+        $this->assertStringContainsString('Aplikasi unofficial untuk portal akademik kampus', $page->text());
+        $this->assertStringContainsString('tidak berafiliasi dengan kampus mana pun', $page->text());
+        $this->assertStringNotContainsString('UCIC', $page->text());
+        $this->assertStringNotContainsString('password MyCIC', $page->text());
+
+        $disclosure = $page->filter('#login-form [data-sign-in-disclosure]');
+        $this->assertCount(1, $disclosure);
+        $this->assertStringContainsString('hash password dan info profilmu selama 30 hari', $disclosure->text());
+        $this->assertSame(route('legal.privacy'), $disclosure->filter('a')->attr('href'));
     }
 
     public function test_authenticated_header_uses_the_same_logo_and_favicon(): void

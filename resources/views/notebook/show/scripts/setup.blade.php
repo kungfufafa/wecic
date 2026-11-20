@@ -48,6 +48,8 @@
                 aiAvailable: true,
                 // ok, disabled, missing_key, invalid_key or model_misconfigured (NotebookAssistant::aiStatus()).
                 aiStatus: 'ok',
+                // Whether the student agreed to send Notebook content to Google Gemini (`ai_consent`); null until a response says.
+                aiConsent: null,
                 busy: false,
                 pollTimer: null,
                 pollStartedAt: null,
@@ -75,8 +77,48 @@
                 });
             };
 
-            // A question the server could not answer because of its AI settings says which, so the banner follows.
+            const setAiConsent = (data) => {
+                if (data?.ai_consent && typeof data.ai_consent === 'object') {
+                    state.aiConsent = Boolean(data.ai_consent.granted);
+                }
+            };
+
+            const renderAiConsent = () => {
+                el('notebook-ai-consent').classList.toggle('hidden', state.aiConsent !== false);
+                el('notebook-ai-consent-granted').classList.toggle('hidden', state.aiConsent !== true);
+            };
+
+            const showAiConsent = () => {
+                const panel = el('notebook-ai-consent');
+
+                renderAiConsent();
+                panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                panel.focus({ preventScroll: true });
+            };
+
+            // An AI action before the student agreed shows the consent step instead of sending anything.
+            const needsAiConsent = () => {
+                if (state.aiConsent !== false) {
+                    return false;
+                }
+
+                showAiConsent();
+                app.showNotice('Setujui dulu pengiriman data ke Google Gemini untuk memakai AI Notebook.', 'warning');
+
+                return true;
+            };
+
+            // A question the server could not answer because of its AI settings says which, so the banner follows;
+            // one refused for a missing consent brings the consent step back.
             const noteAiStatus = (error) => {
+                if (error?.payload?.reason === 'ai_consent_required') {
+                    setAiConsent(error.payload.data);
+                    state.aiConsent = false;
+                    showAiConsent();
+
+                    return;
+                }
+
                 if (!error?.payload?.data?.ai_status) {
                     return;
                 }

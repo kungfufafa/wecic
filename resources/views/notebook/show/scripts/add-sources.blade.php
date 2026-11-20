@@ -7,6 +7,10 @@
             el('source-add-meeting').addEventListener('click', () => openMeetingPicker());
 
             el('source-add-archive').addEventListener('click', () => {
+                if (needsAiConsent()) {
+                    return;
+                }
+
                 const used = new Set(state.sources.map((source) => source.archived_file_id).filter(Boolean));
                 const courses = state.archivedCourses;
                 const room = state.sourceLimit === null ? null : Math.max(0, state.sourceLimit - state.sources.length);
@@ -54,6 +58,7 @@
                             await addSources({ json: { type: 'archived_file', archived_file_ids: ids } });
                             app.closeSheet();
                         } catch (error) {
+                            noteAiStatus(error);
                             app.showNotice(`Sumber gagal ditambahkan. ${app.describeError(error)}`, 'error');
                         }
                     });
@@ -67,6 +72,12 @@
                     return;
                 }
 
+                if (needsAiConsent()) {
+                    event.target.value = '';
+
+                    return;
+                }
+
                 const formData = new FormData();
                 formData.append('type', 'upload');
                 formData.append('file', file);
@@ -75,6 +86,7 @@
                     app.showNotice(`Mengunggah ${file.name}…`, 'info');
                     await addSources({ formData });
                 } catch (error) {
+                    noteAiStatus(error);
                     app.showNotice(`Berkas gagal diunggah. ${app.describeError(error)}`, 'error');
                 } finally {
                     event.target.value = '';

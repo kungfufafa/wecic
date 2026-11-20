@@ -90,7 +90,7 @@ class PortalSessionIdleExpiryTest extends TestCase
             });
         }));
 
-        app(PortalOfflineAccess::class)->remember(self::USERNAME, self::PASSWORD, ['name' => 'Mahasiswa Idle', 'student_id' => self::USERNAME]);
+        app(PortalOfflineAccess::class)->remember(self::USERNAME, self::PASSWORD, ['name' => 'Mahasiswa Idle', 'student_id' => self::USERNAME], true);
     }
 
     protected function tearDown(): void

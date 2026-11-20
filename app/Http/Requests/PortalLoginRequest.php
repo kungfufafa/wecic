@@ -26,6 +26,14 @@ class PortalLoginRequest extends ApiFormRequest
              * @example "********"
              */
             'password' => ['required', 'string', 'max:255'],
+            /**
+             * Nyalakan (`true`) atau matikan (`false`) sinkronisasi di background dengan login ini.
+             * Hanya saat menyala password disimpan terenkripsi di server. Jika tidak dikirim, pilihan
+             * sebelumnya tetap berlaku (bawaan: mati).
+             *
+             * @example false
+             */
+            'background_sync' => ['sometimes', 'boolean'],
         ];
     }
 
@@ -34,6 +42,7 @@ class PortalLoginRequest extends ApiFormRequest
         return [
             'username.required' => 'Username dan password harus diisi',
             'password.required' => 'Username dan password harus diisi',
+            'background_sync.boolean' => 'Pilihan sinkronisasi background tidak valid.',
         ];
     }
 }

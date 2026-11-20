@@ -55,7 +55,7 @@ class PortalOfflineAccountRetentionTest extends TestCase
 
     public function test_an_account_past_retention_is_deleted(): void
     {
-        $this->account(['last_online_login_at' => now()->subDays(31)]);
+        $this->account(['background_sync_enabled_at' => null, 'last_online_login_at' => now()->subDays(31)]);
 
         $this->prune();
 
@@ -75,12 +75,11 @@ class PortalOfflineAccountRetentionTest extends TestCase
         $this->assertSame(0, (new PortalOfflineAccount)->prunable()->count());
     }
 
-    public function test_an_opted_out_account_past_retention_keeps_only_its_opt_out(): void
+    public function test_an_opted_in_account_past_retention_keeps_only_its_opt_in(): void
     {
-        $optedOutAt = now()->subDays(40)->startOfSecond();
+        $optedInAt = now()->subDays(40)->startOfSecond();
         $this->account([
-            'credentials' => null,
-            'background_sync_disabled_at' => $optedOutAt,
+            'background_sync_enabled_at' => $optedInAt,
             'last_online_login_at' => now()->subDays(31),
             'last_offline_login_at' => now()->subDays(32),
             'last_background_sync_at' => now()->subDays(41),
@@ -91,7 +90,7 @@ class PortalOfflineAccountRetentionTest extends TestCase
         $this->prune();
 
         $account = PortalOfflineAccount::query()->sole();
-        $this->assertTrue($optedOutAt->equalTo($account->background_sync_disabled_at));
+        $this->assertTrue($optedInAt->equalTo($account->background_sync_enabled_at));
         $this->assertSame('', $account->password_hash);
         $this->assertNull($account->user_info);
         $this->assertNull($account->credentials);
@@ -99,14 +98,15 @@ class PortalOfflineAccountRetentionTest extends TestCase
         $this->assertNull($account->last_background_sync_at);
         $this->assertNull($account->last_background_sync_status);
         $this->assertNull($account->last_course_sync_at);
-        // An emptied opt-out is not picked up again by every later prune.
+        $this->assertCount(0, app(PortalBackgroundSync::class)->dueAccounts());
+        // An emptied opt-in is not picked up again by every later prune.
         $this->assertSame(0, (new PortalOfflineAccount)->prunable()->count());
 
-        // The next online login still honours the opt-out.
+        // The next online login still honours the opt-in.
         app(PortalOfflineAccess::class)->remember(self::USERNAME, self::PASSWORD, ['name' => 'Mahasiswa Arsip']);
 
-        $this->assertNull(PortalOfflineAccount::query()->sole()->credentials);
-        $this->assertFalse(app(PortalBackgroundSync::class)->status($this->ownerHash)['enabled']);
+        $this->assertSame(self::PASSWORD, PortalOfflineAccount::query()->sole()->credentials['password']);
+        $this->assertTrue(app(PortalBackgroundSync::class)->status($this->ownerHash)['active']);
     }
 
     public function test_credentials_go_once_their_shorter_window_has_passed(): void
@@ -166,7 +166,7 @@ class PortalOfflineAccountRetentionTest extends TestCase
 
     public function test_a_password_refused_when_an_offline_session_resumes_is_not_kept(): void
     {
-        app(PortalOfflineAccess::class)->remember(self::USERNAME, self::PASSWORD, ['name' => 'Mahasiswa Arsip']);
+        app(PortalOfflineAccess::class)->remember(self::USERNAME, self::PASSWORD, ['name' => 'Mahasiswa Arsip'], true);
         $this->assertSame(self::PASSWORD, PortalOfflineAccount::query()->sole()->credentials['password']);
 
         app(PortalOfflineAccess::class)->markPasswordRejected(self::USERNAME, now());
@@ -267,6 +267,7 @@ class PortalOfflineAccountRetentionTest extends TestCase
             'password_hash' => Hash::make(self::PASSWORD),
             'user_info' => ['name' => 'Mahasiswa Arsip'],
             'credentials' => ['username' => self::USERNAME, 'password' => self::PASSWORD],
+            'background_sync_enabled_at' => now()->subDays(2),
             'last_online_login_at' => now()->subDay(),
             ...$overrides,
         ]);

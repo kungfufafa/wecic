@@ -1,6 +1,6 @@
 import { SESSION_EXPIRED_NOTICE, SessionManager, STORAGE_KEYS, type SecureStorage } from '@/auth/session-manager';
 
-type Route = { method: string; path: string; status: number; body: unknown };
+type Route = { method: string; path: string; status: number; body: unknown; until?: Promise<void> };
 
 /** Secure storage in memory, remembering which values were stored as sensitive. */
 function memoryStorage(initial: Record<string, string> = {}) {
@@ -37,6 +37,7 @@ function fakeServer(routes: Route[]) {
     }
 
     const [route] = routes.splice(index, 1);
+    await route.until;
 
     return { status: route.status, ok: route.status < 300, json: async () => route.body } as Response;
   });
@@ -101,6 +102,37 @@ describe('SessionManager', () => {
     await session.signIn('20990000501', 'rahasia', false);
 
     expect(values.has(STORAGE_KEYS.credentials)).toBe(false);
+  });
+
+  it('opts in to background sync only when the student asks, and never on an automatic login', async () => {
+    const { session, server } = manager([
+      tokenLogin('token-1'),
+      expired,
+      tokenLogin('token-2'),
+      { method: 'GET', path: 'dashboard', status: 200, body: success({ data: {} }) },
+    ]);
+
+    await session.signIn('20990000501', 'rahasia', true, true);
+    await session.api.get('dashboard');
+
+    expect(server.requests[0].body).toEqual({ username: '20990000501', password: 'rahasia', device_name: 'Pixel 8', background_sync: true });
+    expect(server.requests[2].body).toEqual({ username: '20990000501', password: 'rahasia', device_name: 'Pixel 8' });
+  });
+
+  it('sends the switch turned off, so a sign-in opts out of an earlier opt-in', async () => {
+    const { session, server } = manager([tokenLogin('token-1')]);
+
+    await session.signIn('20990000501', 'rahasia', false, false);
+
+    expect(server.requests[0].body).toEqual({ username: '20990000501', password: 'rahasia', device_name: 'Pixel 8', background_sync: false });
+  });
+
+  it('leaves background sync out of a sign-in that does not say', async () => {
+    const { session, server } = manager([tokenLogin('token-1')]);
+
+    await session.signIn('20990000501', 'rahasia', false);
+
+    expect(server.requests[0].body).not.toHaveProperty('background_sync');
   });
 
   it('reports an offline login (portal down) as an offline session', async () => {
@@ -214,7 +246,7 @@ describe('SessionManager', () => {
     await session.signIn('20990000501', 'rahasia', true);
     await session.rememberPushToken('ExponentPushToken[abc]');
 
-    await session.signOut();
+    await expect(session.signOut()).resolves.toBe(false);
 
     expect(server.requests.map((request) => `${request.method} ${request.path}`)).toEqual(['POST auth/token', 'POST auth/logout']);
     expect(server.requests[1].body).toEqual({ push_token: 'ExponentPushToken[abc]' });
@@ -278,6 +310,62 @@ describe('SessionManager session notices', () => {
     expect(server.requests.map((request) => `${request.method} ${request.path}`)).toEqual(['POST auth/token', 'POST auth/logout']);
   });
 
+  it('deletes the account with a confirmation, then forgets everything without logging in again', async () => {
+    const { session, values, server, ends } = manager(
+      [tokenLogin('token-1'), { method: 'DELETE', path: 'account', status: 200, body: success({ data: { notebooks: 2 } }) }],
+      { [STORAGE_KEYS.pushToken]: 'ExponentPushToken[x]' },
+    );
+    await session.signIn('20990000501', 'rahasia', true);
+
+    const deleting = session.deleteAccount();
+    await session.applySessionNotice('logged_out');
+    await deleting;
+
+    expect(server.requests.map((request) => `${request.method} ${request.path}`)).toEqual(['POST auth/token', 'DELETE account']);
+    expect(server.requests[1].body).toEqual({ confirm: true });
+    expect(server.requests[1].headers.Authorization).toBe('Bearer token-1');
+    expect(session.getState()).toEqual({ status: 'signedOut', notice: null });
+    expect(ends).toHaveLength(1);
+    expect([STORAGE_KEYS.token, STORAGE_KEYS.credentials, STORAGE_KEYS.pushToken, STORAGE_KEYS.owner, STORAGE_KEYS.user].some((key) => values.has(key))).toBe(false);
+  });
+
+  it('never logs in again with the kept password while the account is being deleted', async () => {
+    let answerDeletion: () => void = () => undefined;
+    const until = new Promise<void>((resolve) => {
+      answerDeletion = resolve;
+    });
+    const { session, server, values } = manager([
+      tokenLogin('token-1'),
+      { method: 'DELETE', path: 'account', status: 200, body: success({ data: {} }), until },
+      expired,
+    ]);
+    await session.signIn('20990000501', 'rahasia', true);
+
+    const deleting = session.deleteAccount();
+    await expect(session.api.get('dashboard')).rejects.toMatchObject({ status: 401 });
+    answerDeletion();
+    await deleting;
+
+    expect(server.requests.map((request) => `${request.method} ${request.path}`)).toEqual(['POST auth/token', 'DELETE account', 'GET dashboard']);
+    expect(values.has(STORAGE_KEYS.credentials)).toBe(false);
+    expect(session.getState()).toEqual({ status: 'signedOut', notice: null });
+  });
+
+  it('stays signed in, with the kept password, when the server refuses the deletion', async () => {
+    const { session, values, ends } = manager([
+      tokenLogin('token-1'),
+      { method: 'DELETE', path: 'account', status: 422, body: { status: 'error', message: 'Konfirmasi dulu sebelum menghapus akun.' } },
+    ]);
+    await session.signIn('20990000501', 'rahasia', true);
+
+    await expect(session.deleteAccount()).rejects.toMatchObject({ status: 422, message: 'Konfirmasi dulu sebelum menghapus akun.' });
+
+    expect(session.getState()).toMatchObject({ status: 'signedIn' });
+    expect(values.get(STORAGE_KEYS.token)).toBe('token-1');
+    expect(values.has(STORAGE_KEYS.credentials)).toBe(true);
+    expect(ends).toHaveLength(0);
+  });
+
   it('follows an offline session back online, and takes the rest as news', async () => {
     const { session } = manager([tokenLogin('token-1', true)]);
     await session.signIn('20990000501', 'rahasia', true);
@@ -320,7 +408,7 @@ describe('SessionManager device data', () => {
     const { session, values, ends } = manager([tokenLogin('token-1'), { method: 'POST', path: 'auth/logout', status: 200, body: success({}) }]);
 
     await session.signIn('20990000501', 'rahasia', false);
-    await session.signOut();
+    await expect(session.signOut()).resolves.toBe(true);
 
     expect(ends).toHaveLength(1);
     expect(values.has(STORAGE_KEYS.owner)).toBe(false);

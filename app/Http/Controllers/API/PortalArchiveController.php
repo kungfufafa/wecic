@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\API;
 
+use App\Exceptions\PortalAuthenticationException;
+use App\Exceptions\PortalConnectionException;
+use App\Exceptions\PortalScrapingException;
 use App\Http\Requests\PortalArchiveClassRequest;
 use App\Http\Requests\PortalArchiveDestroyRequest;
 use App\Http\Requests\PortalArchiveVersionIndexRequest;
@@ -11,11 +14,13 @@ use App\Http\Requests\PortalBackgroundSyncRequest;
 use App\Jobs\ArchiveCourseMaterialsJob;
 use App\Models\PortalArchiveVersion;
 use App\Services\PortalArchivedFileStore;
+use App\Services\PortalAuthService;
 use App\Services\PortalBackgroundSync;
 use App\Services\PortalClassCatalog;
 use App\Services\PortalDataArchive;
 use App\Services\PortalDataOwner;
 use App\Services\PortalOfflineAccess;
+use App\Services\PortalSessionManager;
 use Dedoc\Scramble\Attributes\Group;
 use Dedoc\Scramble\Attributes\PathParameter;
 use Dedoc\Scramble\Attributes\Response;
@@ -29,7 +34,7 @@ class PortalArchiveController extends CampusApiController
 {
     private const VERSION_ITEM = "array{id: int, dataset: string, params: array<string, mixed>, subject: string|null, status: 'trusted'|'suspect'|'rejected'|'dismissed', findings: list<array{rule: string, label: string, message: string}>, first_seen_at: string|null, last_seen_at: string|null, seen_count: int, trusted_at: string|null, resolved_at: string|null}";
 
-    private const BACKGROUND_SYNC_STATUS = 'array{available: bool, enabled: bool, active: bool, pending_login: bool, rejected: bool, interval_minutes: int, credential_days: int, last_synced_at: string|null, last_status: string|null, last_error: string|null, courses_enabled: bool, courses_interval_minutes: int, last_course_sync_at: string|null}';
+    public const BACKGROUND_SYNC_STATUS = 'array{available: bool, enabled: bool, active: bool, pending_login: bool, rejected: bool, interval_minutes: int, credential_days: int, last_synced_at: string|null, last_status: string|null, last_error: string|null, courses_enabled: bool, courses_interval_minutes: int, last_course_sync_at: string|null}';
 
     private const SUMMARY_RESPONSE = "array{status: 'success', message: string, data: array{datasets: list<array{dataset: string, label: string, versions: int, groups: int, open_suspects: int, last_seen_at: string|null}>, files: array{count: int, bytes: int}, background_sync: ".self::BACKGROUND_SYNC_STATUS.'}, meta: array{timestamp: string, campus_session_valid: true}}';
 
@@ -55,7 +60,8 @@ class PortalArchiveController extends CampusApiController
         private readonly PortalOfflineAccess $offlineAccess,
         private readonly PortalDataOwner $owner,
         private readonly PortalClassCatalog $classCatalog,
-        private readonly PortalBackgroundSync $backgroundSync
+        private readonly PortalBackgroundSync $backgroundSync,
+        private readonly PortalSessionManager $sessionManager
     ) {}
 
     /**
@@ -83,46 +89,68 @@ class PortalArchiveController extends CampusApiController
     }
 
     /**
+     * Status sinkronisasi arsip di background untuk mahasiswa ini.
+     *
+     * Opt-in: mati sampai mahasiswa menyalakannya. `available: false` berarti
+     * fitur ini tidak tersedia (dimatikan di server ini, atau akun demo
+     * peninjau toko aplikasi).
+     */
+    #[Response(description: 'Status sinkronisasi background.', type: "array{status: 'success', message: string, data: ".self::BACKGROUND_SYNC_STATUS.', meta: array{timestamp: string, campus_session_valid: true}}')]
+    #[Response(401, description: 'Endpoint ini membutuhkan sesi kampus yang aktif.', type: CampusApiController::SCRAMBLE_SESSION_ERROR_RESPONSE)]
+    public function backgroundSyncStatus(): JsonResponse
+    {
+        return $this->withCampusSession('Background sync status failed', 'Gagal memuat status sinkronisasi background', function (string $sessionToken): JsonResponse {
+            return $this->statusSuccess('Background sync status retrieved', [
+                'data' => $this->backgroundSync->status($this->owner->key($sessionToken)),
+            ], campusSessionValid: true);
+        });
+    }
+
+    /**
      * Nyalakan atau matikan sinkronisasi arsip di background.
      *
-     * Mematikannya langsung menghapus password yang tersimpan, dan pilihan itu
-     * tetap berlaku meski MyCIC belum menyimpan apa pun untuk mahasiswa ini
-     * (misalnya setelah arsipnya dihapus). Menyalakannya berlaku sejak login
-     * online berikutnya, karena password baru disimpan saat itu.
+     * Opt-in, mati secara bawaan. Menyalakannya menyimpan password portal
+     * terenkripsi supaya WeCIC bisa masuk sendiri dan memperbarui arsip; kirim
+     * `password` saat belum ada password tersimpan (dicocokkan dengan login
+     * online terakhir, atau langsung ke portal jika tidak ada pembandingnya).
+     * Mematikannya langsung menghapus password tersimpan, termasuk salinan di
+     * sesi yang masih aktif. Keluar (logout) juga mematikannya.
      */
     #[Response(description: 'Status sinkronisasi background setelah diubah.', type: "array{status: 'success', message: string, data: ".self::BACKGROUND_SYNC_STATUS.', meta: array{timestamp: string, campus_session_valid: true}}')]
-    #[Response(409, description: 'Pilihan tidak bisa diterapkan (mis. sinkronisasi background tidak tersedia); `data` berisi status yang berlaku.', type: "array{status: 'error', message: string, data: ".self::BACKGROUND_SYNC_STATUS.', meta: array{timestamp: string, campus_session_valid: true}}')]
-    #[Response(422, description: 'Nilai `enabled` tidak valid.', type: CampusApiController::SCRAMBLE_VALIDATION_ERROR_RESPONSE)]
+    #[Response(409, description: 'Pilihan tidak bisa diterapkan (mis. sinkronisasi background tidak tersedia, atau portal harus dihubungi saat mode offline); `data` berisi status yang berlaku.', type: "array{status: 'error', message: string, data: ".self::BACKGROUND_SYNC_STATUS.', meta: array{timestamp: string, campus_session_valid: true}}')]
+    #[Response(422, description: 'Nilai `enabled` tidak valid, atau `password` kosong atau salah saat menyalakan.', type: CampusApiController::SCRAMBLE_VALIDATION_ERROR_RESPONSE)]
+    #[Response(503, description: 'Portal kampus tidak bisa dihubungi untuk memeriksa password.', type: CampusApiController::SCRAMBLE_STATUS_ERROR_RESPONSE)]
     #[Response(401, description: 'Endpoint ini membutuhkan sesi kampus yang aktif.', type: CampusApiController::SCRAMBLE_SESSION_ERROR_RESPONSE)]
     public function backgroundSync(PortalBackgroundSyncRequest $request): JsonResponse
     {
         return $this->withCampusSession('Background sync toggle failed', 'Gagal mengubah sinkronisasi background', function (string $sessionToken) use ($request): JsonResponse {
             $ownerHash = $this->owner->key($sessionToken);
-            $enabled = $request->boolean('enabled');
 
-            if (! $enabled && $this->offlineAccess->findForOwner($ownerHash) === null) {
-                $this->offlineAccess->rememberBackgroundSyncOptOut($ownerHash);
-            }
+            if (! $request->boolean('enabled')) {
+                $this->backgroundSync->disable($ownerHash);
 
-            $this->backgroundSync->setEnabled($ownerHash, $enabled);
-            $status = $this->backgroundSync->status($ownerHash);
-
-            if ($status['enabled'] !== $enabled) {
-                return $this->statusError(
-                    $status['available']
-                        ? 'Pengaturan sinkronisasi background belum tersimpan. Coba lagi beberapa saat.'
-                        : 'Sinkronisasi background tidak tersedia di WeCIC ini.',
-                    409,
-                    ['data' => $status],
+                return $this->statusSuccess(
+                    'Sinkronisasi background dimatikan dan password tersimpan sudah dihapus.',
+                    ['data' => $this->backgroundSync->status($ownerHash)],
                     campusSessionValid: true
                 );
             }
 
+            if (! $this->backgroundSync->availableFor($ownerHash)) {
+                return $this->backgroundSyncUnavailable($ownerHash);
+            }
+
+            if (! $this->backgroundSync->hasStoredCredentials($ownerHash)) {
+                $refusal = $this->storeVerifiedPassword($sessionToken, $ownerHash, (string) $request->validated('password'));
+
+                if ($refusal !== null) {
+                    return $refusal;
+                }
+            }
+
             return $this->statusSuccess(
-                $enabled
-                    ? 'Sinkronisasi background dinyalakan. Berlaku sejak kamu masuk lagi saat portal online.'
-                    : 'Sinkronisasi background dimatikan dan password tersimpan sudah dihapus.',
-                ['data' => $status],
+                'Sinkronisasi background dinyalakan. Password portalmu disimpan terenkripsi dan bisa dihapus kapan saja dengan mematikannya.',
+                ['data' => $this->backgroundSync->status($ownerHash)],
                 campusSessionValid: true
             );
         });
@@ -372,6 +400,82 @@ class PortalArchiveController extends CampusApiController
 
             return $this->statusSuccess('Arsip WeCIC kamu sudah dihapus.', ['data' => $deleted], campusSessionValid: true);
         });
+    }
+
+    /**
+     * Switch background sync on with `$password` once it is known to be the
+     * student's portal password: checked against the hash of their last
+     * online login, or, without one, by logging in to the portal. Null when
+     * it is stored, otherwise the response refusing it.
+     */
+    private function storeVerifiedPassword(string $sessionToken, string $ownerHash, string $password): ?JsonResponse
+    {
+        if ($password === '') {
+            return $this->passwordRefused('Masukkan password portal untuk menyalakan sinkronisasi background.');
+        }
+
+        $username = $this->sessionManager->getSession($sessionToken)['username'] ?? null;
+
+        if (! is_string($username) || $username === '') {
+            return $this->statusError('Sesi kampus tidak ditemukan. Silakan masuk lagi.', 401, campusSessionValid: false);
+        }
+
+        $matches = $this->offlineAccess->matchesLastOnlinePassword($ownerHash, $password);
+
+        if ($matches === false) {
+            return $this->passwordRefused('Password tidak cocok dengan password login terakhirmu.');
+        }
+
+        if ($matches === null) {
+            if ($this->offlineAccess->isOfflineSession($sessionToken)) {
+                return $this->statusError(
+                    'Password belum bisa diperiksa selama mode offline. Coba lagi saat portal kampus bisa diakses.',
+                    409,
+                    ['data' => $this->backgroundSync->status($ownerHash)],
+                    campusSessionValid: true
+                );
+            }
+
+            try {
+                $check = $this->sessionManager->createBackgroundSession($username, $password);
+                $this->sessionManager->destroySession($check['session_token']);
+            } catch (PortalAuthenticationException $exception) {
+                if (PortalAuthService::refusedPassword($exception)) {
+                    return $this->passwordRefused('Password ditolak portal kampus.');
+                }
+
+                return $this->statusError('Portal kampus belum bisa memeriksa password. Coba lagi beberapa saat.', 503, campusSessionValid: true);
+            } catch (PortalConnectionException|PortalScrapingException) {
+                return $this->statusError('Portal kampus sedang tidak dapat diakses. Coba lagi beberapa saat.', 503, campusSessionValid: true);
+            }
+        }
+
+        if (! $this->backgroundSync->enable($ownerHash, $username, $password)) {
+            return $this->backgroundSyncUnavailable($ownerHash);
+        }
+
+        return null;
+    }
+
+    private function backgroundSyncUnavailable(string $ownerHash): JsonResponse
+    {
+        return $this->statusError(
+            $this->backgroundSync->enabled()
+                ? 'Sinkronisasi background tidak tersedia untuk akun demo.'
+                : 'Sinkronisasi background tidak tersedia di WeCIC ini.',
+            409,
+            ['data' => $this->backgroundSync->status($ownerHash)],
+            campusSessionValid: true
+        );
+    }
+
+    private function passwordRefused(string $message): JsonResponse
+    {
+        return response()->json([
+            'status' => 'error',
+            'message' => $message,
+            'errors' => ['password' => [$message]],
+        ], 422);
     }
 
     /**

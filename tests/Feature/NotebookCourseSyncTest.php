@@ -7,6 +7,7 @@ namespace Tests\Feature;
 use App\Jobs\ArchivePortalFilesJob;
 use App\Jobs\SyncCourseNotebookJob;
 use App\Models\Notebook;
+use App\Models\NotebookAiConsent;
 use App\Models\NotebookChunk;
 use App\Models\NotebookMessage;
 use App\Models\NotebookSource;
@@ -70,6 +71,7 @@ class NotebookCourseSyncTest extends TestCase
         }));
         app(PortalDataOwner::class)->remember(self::TOKEN, self::USERNAME, 3600);
         $this->ownerHash = app(PortalDataOwner::class)->keyForUsername(self::USERNAME);
+        NotebookAiConsent::factory()->forOwner($this->ownerHash)->create();
     }
 
     protected function tearDown(): void

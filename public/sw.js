@@ -28,6 +28,7 @@ const PROTECTED_PAGE_PREFIXES = [
     '/notifications',
     '/notebook',
     '/archive',
+    '/account',
 ];
 // Pages without a session that may be kept for offline use.
 const GUEST_PAGES = ['/login'];

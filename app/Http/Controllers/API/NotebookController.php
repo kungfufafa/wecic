@@ -18,6 +18,7 @@ use App\Models\Notebook;
 use App\Models\NotebookMessage;
 use App\Models\NotebookSource;
 use App\Models\PortalArchivedFile;
+use App\Services\NotebookAiConsents;
 use App\Services\NotebookAssistant;
 use App\Services\NotebookCourseSync;
 use App\Services\NotebookLibrary;
@@ -47,6 +48,10 @@ class NotebookController extends CampusApiController
 
     private const AI_STATUS = "'ok'|'disabled'|'missing_key'|'invalid_key'|'model_misconfigured'";
 
+    private const AI_CONSENT_ITEM = 'array{granted: bool, granted_at: string|null, withdrawn_at: string|null, provider: string}';
+
+    private const AI_CONSENT_REQUIRED_RESPONSE = "array{status: 'error', message: string, reason: 'ai_consent_required', data: array{ai_consent: ".self::AI_CONSENT_ITEM.'}, meta: array{timestamp: string, campus_session_valid: true}}';
+
     private const AI_ERROR_RESPONSE = "array{status: 'error', message: string, data?: array{ai_status: ".self::AI_STATUS.'}, meta: array{timestamp: string, campus_session_valid: true}}';
 
     public function __construct(
@@ -54,7 +59,8 @@ class NotebookController extends CampusApiController
         private readonly NotebookAssistant $assistant,
         private readonly NotebookCourseSync $courseSync,
         private readonly PortalArchivedFileStore $archivedFiles,
-        private readonly PortalDataOwner $owner
+        private readonly PortalDataOwner $owner,
+        private readonly NotebookAiConsents $aiConsents
     ) {}
 
     /**
@@ -64,9 +70,10 @@ class NotebookController extends CampusApiController
      * `ai_available` false berarti model AI belum bisa dipakai; sumber tetap bisa ditambahkan. `ai_status` menyebut sebabnya:
      * `disabled` (dimatikan di server), `missing_key` (GEMINI_API_KEY kosong), `invalid_key` (kunci API ditolak Gemini),
      * `model_misconfigured` (pengaturan model AI ditolak Gemini: model tidak dikenali atau sudah tidak tersedia, atau
-     * NOTEBOOK_THINKING_BUDGET tidak cocok), atau `ok`.
+     * NOTEBOOK_THINKING_BUDGET tidak cocok), atau `ok`. `ai_consent.granted` false berarti mahasiswa belum menyetujui
+     * pengiriman isi Notebook ke Google Gemini (POST /ai-consent); fitur AI menolak dengan 403 `ai_consent_required` sampai disetujui.
      */
-    #[Response(description: 'Daftar notebook.', type: "array{status: 'success', message: string, data: array{notebooks: list<".self::NOTEBOOK_ITEM.'>, ai_available: bool, ai_status: '.self::AI_STATUS.', course_notebooks: bool, studio_kinds: array<string, string>}, meta: array{timestamp: string, campus_session_valid: true}}')]
+    #[Response(description: 'Daftar notebook.', type: "array{status: 'success', message: string, data: array{notebooks: list<".self::NOTEBOOK_ITEM.'>, ai_available: bool, ai_status: '.self::AI_STATUS.', ai_consent: '.self::AI_CONSENT_ITEM.', course_notebooks: bool, studio_kinds: array<string, string>}, meta: array{timestamp: string, campus_session_valid: true}}')]
     #[Response(401, description: 'Endpoint ini membutuhkan sesi kampus yang aktif.', type: CampusApiController::SCRAMBLE_SESSION_ERROR_RESPONSE)]
     public function index(): JsonResponse
     {
@@ -86,6 +93,7 @@ class NotebookController extends CampusApiController
                     'notebooks' => $notebooks,
                     'ai_available' => $this->assistant->isAvailable(),
                     'ai_status' => $this->assistant->aiStatus(),
+                    'ai_consent' => $this->aiConsents->state($this->owner->key($sessionToken)),
                     'course_notebooks' => $this->courseSync->enabled(),
                     'studio_kinds' => NotebookAssistant::STUDIO_KINDS,
                 ],
@@ -278,7 +286,7 @@ class NotebookController extends CampusApiController
      * (pesan chat yang lebih lama hanya ada karena tersimpan di Catatan).
      */
     #[PathParameter('notebook', 'Id notebook.', type: 'integer', example: 3)]
-    #[Response(description: 'Detail notebook.', type: "array{status: 'success', message: string, data: array{notebook: ".self::NOTEBOOK_ITEM.', sources: list<'.self::SOURCE_ITEM.'>, messages: list<'.self::MESSAGE_ITEM.'>, chat_from_id: int|null, meetings: '.self::MEETINGS_ITEM.'|null, archived_courses: list<array<string, mixed>>, source_limit: int, ai_available: bool, ai_status: '.self::AI_STATUS.', studio_kinds: array<string, string>}, meta: array{timestamp: string, campus_session_valid: true}}')]
+    #[Response(description: 'Detail notebook.', type: "array{status: 'success', message: string, data: array{notebook: ".self::NOTEBOOK_ITEM.', sources: list<'.self::SOURCE_ITEM.'>, messages: list<'.self::MESSAGE_ITEM.'>, chat_from_id: int|null, meetings: '.self::MEETINGS_ITEM.'|null, archived_courses: list<array<string, mixed>>, source_limit: int, ai_available: bool, ai_status: '.self::AI_STATUS.', ai_consent: '.self::AI_CONSENT_ITEM.', studio_kinds: array<string, string>}, meta: array{timestamp: string, campus_session_valid: true}}')]
     #[Response(404, description: 'Notebook tidak ditemukan.', type: CampusApiController::SCRAMBLE_NOT_FOUND_RESPONSE)]
     public function show(int $notebook): JsonResponse
     {
@@ -340,11 +348,16 @@ class NotebookController extends CampusApiController
     #[PathParameter('notebook', 'Id notebook.', type: 'integer', example: 3)]
     #[Response(201, description: 'Sumber ditambahkan.', type: "array{status: 'success', message: string, data: array{sources: list<".self::SOURCE_ITEM.'>}, meta: array{timestamp: string, campus_session_valid: true}}')]
     #[Response(422, description: 'Data tidak valid atau batas sumber tercapai.', type: CampusApiController::SCRAMBLE_VALIDATION_ERROR_RESPONSE)]
+    #[Response(403, description: 'Berkas (unggahan atau arsip materi) butuh persetujuan AI dulu; catatan teks tidak.', type: self::AI_CONSENT_REQUIRED_RESPONSE)]
     public function storeSource(StoreNotebookSourceRequest $request, int $notebook): JsonResponse
     {
         return $this->withNotebook($notebook, 'Notebook source add failed', 'Gagal menambah sumber', function (Notebook $owned) use ($request): JsonResponse {
             $room = $owned->sourceRoom();
             $type = (string) $request->validated('type');
+
+            if ($type !== NotebookSource::KIND_TEXT && ($refused = $this->refuseWithoutAiConsent($owned)) !== null) {
+                return $refused;
+            }
 
             if ($room <= 0) {
                 return $this->statusError('Notebook ini sudah mencapai batas jumlah sumber.', 422, campusSessionValid: true);
@@ -393,9 +406,14 @@ class NotebookController extends CampusApiController
     #[PathParameter('notebook', 'Id notebook.', type: 'integer', example: 3)]
     #[PathParameter('source', 'Id sumber.', type: 'integer', example: 11)]
     #[Response(description: 'Sumber dibaca ulang.', type: "array{status: 'success', message: string, data: array{source: ".self::SOURCE_ITEM.'}, meta: array{timestamp: string, campus_session_valid: true}}')]
+    #[Response(403, description: 'Persetujuan AI belum diberikan.', type: self::AI_CONSENT_REQUIRED_RESPONSE)]
     public function retrySource(int $notebook, int $source): JsonResponse
     {
         return $this->withSource($notebook, $source, 'Notebook source retry failed', 'Gagal membaca ulang sumber', function (Notebook $owned, NotebookSource $ownedSource): JsonResponse {
+            if (($refused = $this->refuseWithoutAiConsent($owned)) !== null) {
+                return $refused;
+            }
+
             $this->library->retry($ownedSource);
 
             return $this->statusSuccess('Sumber dibaca ulang.', [
@@ -430,11 +448,16 @@ class NotebookController extends CampusApiController
     #[PathParameter('notebook', 'Id notebook.', type: 'integer', example: 3)]
     #[Response(201, description: 'Pertanyaan dijawab.', type: "array{status: 'success', message: string, data: array{question: ".self::MESSAGE_ITEM.', answer: '.self::MESSAGE_ITEM.'}, meta: array{timestamp: string, campus_session_valid: true}}')]
     #[Response(422, description: 'Belum ada sumber yang siap, atau pertanyaan tidak valid.', type: CampusApiController::SCRAMBLE_STATUS_ERROR_RESPONSE)]
+    #[Response(403, description: 'Persetujuan AI belum diberikan.', type: self::AI_CONSENT_REQUIRED_RESPONSE)]
     #[Response(429, description: 'Batas harian tercapai.', type: CampusApiController::SCRAMBLE_STATUS_ERROR_RESPONSE)]
     #[Response(503, description: 'Model AI belum aktif, salah diatur di server, atau tidak bisa dihubungi. Bila sebabnya pengaturan server, `data.ai_status` menyebutnya.', type: self::AI_ERROR_RESPONSE)]
     public function ask(AskNotebookRequest $request, int $notebook): JsonResponse
     {
         return $this->withNotebook($notebook, 'Notebook question failed', 'Gagal menjawab pertanyaan', function (Notebook $owned) use ($request): JsonResponse {
+            if (($refused = $this->refuseWithoutAiConsent($owned)) !== null) {
+                return $refused;
+            }
+
             $exchange = $this->assistant->ask($owned, $request->question(), $request->sourceIds());
 
             return $this->statusSuccess('Pertanyaan dijawab.', [
@@ -454,11 +477,16 @@ class NotebookController extends CampusApiController
      */
     #[PathParameter('notebook', 'Id notebook.', type: 'integer', example: 3)]
     #[Response(201, description: 'Hasil dibuat.', type: "array{status: 'success', message: string, data: array{message: ".self::MESSAGE_ITEM.'}, meta: array{timestamp: string, campus_session_valid: true}}')]
+    #[Response(403, description: 'Persetujuan AI belum diberikan.', type: self::AI_CONSENT_REQUIRED_RESPONSE)]
     #[Response(429, description: 'Batas harian tercapai.', type: CampusApiController::SCRAMBLE_STATUS_ERROR_RESPONSE)]
     #[Response(503, description: 'Model AI belum aktif, salah diatur di server, atau tidak bisa dihubungi. Bila sebabnya pengaturan server, `data.ai_status` menyebutnya.', type: self::AI_ERROR_RESPONSE)]
     public function studio(NotebookStudioRequest $request, int $notebook): JsonResponse
     {
         return $this->withNotebook($notebook, 'Notebook studio failed', 'Gagal membuat hasil studio', function (Notebook $owned) use ($request): JsonResponse {
+            if (($refused = $this->refuseWithoutAiConsent($owned)) !== null) {
+                return $refused;
+            }
+
             $message = $this->assistant->studio($owned, $request->kind(), $request->sourceIds(), $request->focus());
 
             return $this->statusSuccess(NotebookAssistant::STUDIO_KINDS[$request->kind()].' dibuat.', [
@@ -519,6 +547,7 @@ class NotebookController extends CampusApiController
             'source_limit' => $notebook->sourceLimit(),
             'ai_available' => $this->assistant->isAvailable(),
             'ai_status' => $this->assistant->aiStatus(),
+            'ai_consent' => $this->aiConsents->state($notebook->owner_hash),
             'studio_kinds' => NotebookAssistant::STUDIO_KINDS,
         ];
     }
@@ -544,6 +573,23 @@ class NotebookController extends CampusApiController
             ->values()
             ->map(static fn (NotebookMessage $message): array => $message->toApiArray())
             ->all();
+    }
+
+    /**
+     * Nothing of the student's reaches Google Gemini before they agreed to
+     * it (NotebookAiConsents): the AI actions are refused with a stable
+     * `reason` the clients turn into their consent step.
+     */
+    private function refuseWithoutAiConsent(Notebook $notebook): ?JsonResponse
+    {
+        if ($this->aiConsents->granted($notebook->owner_hash)) {
+            return null;
+        }
+
+        return $this->statusError(NotebookAiConsents::REQUIRED_MESSAGE, 403, [
+            'reason' => NotebookAiConsents::REQUIRED_REASON,
+            'data' => ['ai_consent' => $this->aiConsents->state($notebook->owner_hash)],
+        ], campusSessionValid: true);
     }
 
     /**

@@ -12,7 +12,7 @@ Daftar lengkap dan selalu terbaru ada di dokumentasi Scramble (`/docs/api`, bese
 | Data kampus | `GET /api/dashboard`, `/api/profile`, `/api/class`, `/api/class/{id}`, `/api/meeting/{meeting_id}`, `/api/finance/*`, `/api/academic/*`, `/api/skkm`, `/api/thesis`, `/api/library`, `/api/announcement` | Snapshot per mahasiswa; data basi dikirim sambil disinkronkan ulang di queue. |
 | Aksi | `POST /api/assignment`, `POST /api/attendance`, `POST /api/exam`, `GET /api/operations/{operation}` | Butuh portal online; hasilnya dilacak sebagai operasi. |
 | Notifikasi | `GET /api/notifications`, `GET /api/notifications/unread-count`, `POST /api/notifications/read` | Notifikasi tersimpan per mahasiswa. |
-| Arsip | `GET /api/archive`, `/api/archive/{dataset}`, `/api/archive/versions/{version}`, `/api/archive/files`, `POST /api/archive/files/sync`, `PATCH /api/archive/background-sync`, `DELETE /api/archive` | Riwayat versi, data janggal, berkas materi, dan sinkronisasi di background. |
+| Arsip | `GET /api/archive`, `/api/archive/{dataset}`, `/api/archive/versions/{version}`, `/api/archive/files`, `POST /api/archive/files/sync`, `GET`/`PATCH /api/archive/background-sync`, `DELETE /api/archive` | Riwayat versi, data janggal, berkas materi, dan sinkronisasi di background (opt-in: menyalakannya butuh `password`; mematikannya atau logout menghapus password tersimpan). |
 | Notebook | `/api/notebooks/*` | Notebook mata kuliah berbasis Gemini. |
 | Dukungan | `GET /api/support/parameter-help`, `GET /api/support/validate-parameters`, `GET /api/metadata/endpoints` | Bantuan parameter dan registri endpoint portal. |
 

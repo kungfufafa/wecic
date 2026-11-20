@@ -589,6 +589,17 @@ class PortalSnapshotDiffNotifier
     }
 
     /**
+     * Drop what the student's last snapshot of a dataset was compared with
+     * (PortalAccountEraser).
+     *
+     * @param  array<string, mixed>  $params
+     */
+    public function forgetBaseline(string $sessionToken, string $dataset, array $params = []): void
+    {
+        Cache::forget($this->baselineKey($sessionToken, $dataset, $params));
+    }
+
+    /**
      * @param  array<string, mixed>  $params
      */
     private function baselineKey(string $sessionToken, string $dataset, array $params): string

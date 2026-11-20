@@ -9,10 +9,10 @@
             <div class="relative z-10 flex h-full flex-col justify-between gap-8 p-10 xl:p-14">
                 <div class="flex flex-col items-start gap-2">
                     <x-brand-logo class="h-9" />
-                    <p class="text-xs font-medium text-ink-subtle">Aplikasi unofficial untuk MyCIC</p>
+                    <p class="text-xs font-medium text-ink-subtle">Aplikasi unofficial untuk portal akademik kampus</p>
                 </div>
 
-                <p class="text-xs leading-relaxed text-ink-subtle">Data tetap bersumber dari MyCIC (my.cic.ac.id) · WeCIC tidak berafiliasi dengan UCIC</p>
+                <p class="text-xs leading-relaxed text-ink-subtle">Aplikasi unofficial, tidak berafiliasi dengan kampus mana pun. Data dari portal akademik kampus (my.cic.ac.id).</p>
             </div>
         </aside>
 
@@ -20,10 +20,10 @@
             <div class="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center">
                 <div class="mb-8 flex flex-col items-start gap-2 lg:hidden">
                     <x-brand-logo class="h-9" />
-                    <p class="text-xs font-medium text-ink-subtle">Aplikasi unofficial untuk MyCIC</p>
+                    <p class="text-xs font-medium text-ink-subtle">Aplikasi unofficial untuk portal akademik kampus</p>
                 </div>
 
-                <x-page-header title="Masuk ke WeCIC" subtitle="Gunakan NIM dan password MyCIC kamu">
+                <x-page-header title="Masuk ke WeCIC" subtitle="Masuk dengan akun portal akademik kampus kamu">
                     {{-- Present from page load so a failed login is read out; stays on screen unlike a toast. --}}
                     <div id="login-error" role="alert" data-login-error></div>
                 </x-page-header>
@@ -88,6 +88,21 @@
                         </div>
                     </x-field>
 
+                    <label class="flex cursor-pointer items-start gap-3 text-sm text-ink" for="background-sync">
+                        <input type="checkbox" class="mt-0.5 size-4 shrink-0 cursor-pointer accent-brand" id="background-sync" name="background_sync" value="1">
+                        <span class="flex flex-col gap-0.5">
+                            <span class="font-medium">Nyalakan sinkronisasi di background</span>
+                            <span class="text-xs leading-relaxed text-ink-muted">Opsional. Password portal disimpan terenkripsi supaya WeCIC bisa memperbarui arsip saat kamu tidak membukanya. Bisa dimatikan kapan saja di halaman Arsip; keluar juga menghapusnya.</span>
+                        </span>
+                    </label>
+
+                    <ul class="flex flex-col gap-1.5 rounded-lg border border-border-light bg-surface p-3 text-xs leading-relaxed text-ink-muted" data-sign-in-disclosure>
+                        <li>Password dikirim ke server WeCIC untuk masuk ke portal akademik kampus atas namamu.</li>
+                        <li>Data portal yang kamu buka disimpan di server WeCIC supaya bisa dibuka saat portal tidak bisa diakses.</li>
+                        <li>Server WeCIC menyimpan hash password dan info profilmu selama 30 hari supaya arsip tetap bisa dibuka saat portal tidak bisa diakses.</li>
+                        <li>Selengkapnya di <a href="{{ route('legal.privacy') }}" class="font-medium text-ink underline underline-offset-4">kebijakan privasi</a>.</li>
+                    </ul>
+
                     <x-button id="login-submit" type="submit" class="mt-1 w-full" data-online-required>
                         Masuk
                     </x-button>
@@ -108,8 +123,14 @@
                 @endif
 
                 <p class="mt-8 text-center text-xs leading-relaxed text-ink-subtle lg:hidden">
-                    WeCIC adalah aplikasi unofficial buatan mahasiswa dan tidak berafiliasi dengan UCIC. Data tetap bersumber dari MyCIC.
+                    Aplikasi unofficial, tidak berafiliasi dengan kampus mana pun. Data dari portal akademik kampus (my.cic.ac.id).
                 </p>
+
+                <nav aria-label="Informasi WeCIC" class="mt-6 flex flex-wrap justify-center gap-x-4 gap-y-2 text-xs lg:mt-8" data-legal-links>
+                    <a href="{{ route('legal.privacy') }}" class="font-medium text-ink-muted underline-offset-4 hover:text-ink hover:underline">Kebijakan privasi</a>
+                    <a href="{{ route('legal.support') }}" class="font-medium text-ink-muted underline-offset-4 hover:text-ink hover:underline">Bantuan</a>
+                    <a href="{{ route('legal.data-deletion') }}" class="font-medium text-ink-muted underline-offset-4 hover:text-ink hover:underline">Hapus akun &amp; data</a>
+                </nav>
             </div>
         </main>
     </div>
@@ -123,6 +144,7 @@
             const usernameInput = document.getElementById('username');
             const passwordInput = document.getElementById('password');
             const passwordToggle = document.getElementById('password-visibility-toggle');
+            const backgroundSyncInput = document.getElementById('background-sync');
             const errorHost = document.getElementById('login-error');
             const expiredRetryKey = 'mycic-login-expired-username';
             // The bundle (app.js) is a module: window.portalApp exists from DOMContentLoaded.
@@ -211,6 +233,7 @@
                                 json: {
                                     username: usernameInput.value,
                                     password: passwordInput.value,
+                                    ...(backgroundSyncInput?.checked ? { background_sync: true } : {}),
                                 },
                                 redirectOnAuth: false,
                             });

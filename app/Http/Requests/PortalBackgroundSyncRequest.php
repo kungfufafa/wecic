@@ -6,6 +6,8 @@ namespace App\Http\Requests;
 
 /**
  * Switch background sync (and the stored credentials it needs) on or off.
+ * Switching it on needs the portal password whenever none is stored yet,
+ * which the controller checks (PortalArchiveController::backgroundSync()).
  */
 class PortalBackgroundSyncRequest extends ApiFormRequest
 {
@@ -26,6 +28,13 @@ class PortalBackgroundSyncRequest extends ApiFormRequest
              * @example true
              */
             'enabled' => ['required', 'boolean'],
+            /**
+             * Password portal kampus. Wajib saat menyalakan sinkronisasi dan belum ada password tersimpan;
+             * diabaikan saat mematikan.
+             *
+             * @example "********"
+             */
+            'password' => ['nullable', 'string', 'max:255'],
         ];
     }
 
@@ -37,6 +46,8 @@ class PortalBackgroundSyncRequest extends ApiFormRequest
         return [
             'enabled.required' => 'Pilih aktif atau nonaktif.',
             'enabled.boolean' => 'Pilih aktif atau nonaktif.',
+            'password.string' => 'Password tidak valid.',
+            'password.max' => 'Password maksimal 255 karakter.',
         ];
     }
 }

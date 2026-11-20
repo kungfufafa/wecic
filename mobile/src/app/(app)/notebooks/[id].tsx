@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Fragment, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Platform, ScrollView, StyleSheet, View } from 'react-native';
 
 import type { ApiEnvelope } from '@/api/types';
@@ -18,8 +18,10 @@ import { StatusPill } from '@/components/status-pill';
 import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
 import { Radius, Spacing } from '@/constants/theme';
+import { useAiConsent } from '@/hooks/use-ai-consent';
 import { useApiResource } from '@/hooks/use-api-resource';
 import { useTheme } from '@/hooks/use-theme';
+import { isAiConsentRequired, rememberAiConsentFrom } from '@/lib/ai-consent';
 import { aiStatusMessage, sourceStatus } from '@/lib/classes';
 import { formatDateTime } from '@/lib/format';
 
@@ -44,6 +46,28 @@ export default function NotebookScreen() {
   const aiNotice = aiStatusMessage(data?.ai_available, data?.ai_status);
   const hasReadySource = sources.some((source) => source.status === 'ready');
   const isCourse = notebook?.kind === 'course';
+  const { consent } = useAiConsent();
+  const needsConsent = aiAvailable && consent !== null && !consent.granted;
+
+  useEffect(() => {
+    rememberAiConsentFrom(detail.data);
+  }, [detail.data]);
+
+  function openConsent() {
+    router.push('/ai-consent');
+  }
+
+  /** A refusal for lack of consent shows the consent screen instead of an error. */
+  function showError(error: unknown) {
+    if (isAiConsentRequired(error)) {
+      rememberAiConsentFrom(error);
+      openConsent();
+
+      return;
+    }
+
+    setActionError(error instanceof Error ? error.message : String(error));
+  }
 
   async function run(key: string, action: () => Promise<unknown>) {
     setBusy(key);
@@ -53,7 +77,7 @@ export default function NotebookScreen() {
       await action();
       await detail.reload();
     } catch (error) {
-      setActionError(error instanceof Error ? error.message : String(error));
+      showError(error);
     } finally {
       setBusy(null);
     }
@@ -66,6 +90,12 @@ export default function NotebookScreen() {
       return;
     }
 
+    if (needsConsent) {
+      openConsent();
+
+      return;
+    }
+
     setAsking(text);
     setQuestion('');
     setActionError(null);
@@ -75,7 +105,7 @@ export default function NotebookScreen() {
       await detail.reload();
     } catch (error) {
       setQuestion(text);
-      setActionError(error instanceof Error ? error.message : String(error));
+      showError(error);
     } finally {
       setAsking(null);
     }
@@ -121,6 +151,17 @@ export default function NotebookScreen() {
       {aiNotice ? <Notice tone="warning" message={aiNotice} /> : null}
       {detail.error ? <Notice tone="error" message={detail.error} /> : null}
       {actionError ? <Notice tone="error" message={actionError} /> : null}
+
+      {notebook && needsConsent ? (
+        <Section label="Izin Notebook AI">
+          <Panel style={styles.consent}>
+            <ThemedText type="small" themeColor="textSecondary">
+              Tanya jawab, Studio, dan pembacaan PDF atau gambar mengirim isi notebook ke Google Gemini. Setujui dulu sebelum memakai AI. Tanpa izin, notebook tetap bisa dibuka dan dihapus.
+            </ThemedText>
+            <Button size="small" variant="secondary" icon="sparkles" label="Tinjau dan setujui" onPress={openConsent} />
+          </Panel>
+        </Section>
+      ) : null}
 
       {detail.isLoading ? (
         <Section label="Memuat notebook">
@@ -185,7 +226,9 @@ export default function NotebookScreen() {
                     icon="sparkles"
                     label={busy === `studio-${kind}` ? 'Membuat…' : label}
                     onPress={
-                      aiAvailable && hasReadySource && busy === null
+                      aiAvailable && needsConsent
+                        ? openConsent
+                        : aiAvailable && hasReadySource && busy === null
                         ? () => void run(`studio-${kind}`, () => api.post(`notebooks/${encodeURIComponent(id ?? '')}/studio`, { kind }, { timeoutMs: 180_000 }))
                         : undefined
                     }
@@ -333,6 +376,10 @@ const styles = StyleSheet.create({
   },
   chat: {
     gap: Spacing.two,
+  },
+  consent: {
+    gap: Spacing.two + Spacing.half,
+    alignItems: 'flex-start',
   },
   bubble: {
     maxWidth: '88%',

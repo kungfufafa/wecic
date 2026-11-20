@@ -82,7 +82,8 @@ class PortalOfflineSessionResumeTest extends TestCase
             $mock->shouldReceive('logout');
         }));
 
-        app(PortalOfflineAccess::class)->remember(self::USERNAME, self::PASSWORD, ['name' => 'Mahasiswa Arsip', 'student_id' => self::USERNAME]);
+        // These students opted into background sync, so their offline sessions keep a password copy.
+        app(PortalOfflineAccess::class)->remember(self::USERNAME, self::PASSWORD, ['name' => 'Mahasiswa Arsip', 'student_id' => self::USERNAME], true);
     }
 
     protected function tearDown(): void
@@ -231,7 +232,7 @@ class PortalOfflineSessionResumeTest extends TestCase
 
         $this->assertSame('', PortalOfflineAccount::query()->sole()->password_hash);
 
-        app(PortalBackgroundSync::class)->setEnabled(app(PortalDataOwner::class)->keyForUsername(self::USERNAME), false);
+        app(PortalBackgroundSync::class)->disable(app(PortalDataOwner::class)->keyForUsername(self::USERNAME));
 
         $this->portal = 'down';
         $this->postJson('/api/auth/login', ['username' => self::USERNAME, 'password' => self::PASSWORD])
@@ -430,7 +431,8 @@ class PortalOfflineSessionResumeTest extends TestCase
         $this->assertNull(Cache::get(config('portal.session_prefix').$offlineToken));
         $this->assertFalse(app(PortalOfflineAccess::class)->isOfflineSession($offlineToken));
         $this->assertTrue(app(PortalSessionManager::class)->isSessionUsable($onlineToken));
-        $this->assertStringNotContainsString('encrypted_credentials', serialize(Cache::getStore()->all()));
+        $otherEntries = array_diff_key(Cache::getStore()->all(), [config('portal.session_prefix').$onlineToken => true]);
+        $this->assertStringNotContainsString('encrypted_credentials', serialize($otherEntries));
 
         // Its chain has nothing left to log in.
         $this->runResume($offlineToken, attempt: 2);
@@ -463,7 +465,7 @@ class PortalOfflineSessionResumeTest extends TestCase
 
     private function switchBackgroundSyncOff(): void
     {
-        app(PortalBackgroundSync::class)->setEnabled(app(PortalDataOwner::class)->keyForUsername(self::USERNAME), false);
+        app(PortalBackgroundSync::class)->disable(app(PortalDataOwner::class)->keyForUsername(self::USERNAME));
     }
 
     private function assertPortalBackNoticeSent(): void

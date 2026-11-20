@@ -8,6 +8,7 @@ use App\Jobs\ArchivePortalFilesJob;
 use App\Jobs\IngestNotebookSourceJob;
 use App\Jobs\SyncCourseNotebookJob;
 use App\Models\Notebook;
+use App\Models\NotebookAiConsent;
 use App\Models\NotebookChunk;
 use App\Models\NotebookDismissal;
 use App\Models\NotebookSource;
@@ -75,6 +76,7 @@ class NotebookSourceSafeguardsTest extends TestCase
         }));
         app(PortalDataOwner::class)->remember(self::TOKEN, self::USERNAME, 3600);
         $this->ownerHash = app(PortalDataOwner::class)->keyForUsername(self::USERNAME);
+        NotebookAiConsent::factory()->forOwner($this->ownerHash)->create();
     }
 
     protected function tearDown(): void
@@ -413,6 +415,7 @@ class NotebookSourceSafeguardsTest extends TestCase
         $this->geminiAnswers("[[HALAMAN 1]]\nNormalisasi mengurangi redundansi.");
         $contents = '%PDF-1.4 modul bersama';
         $classmate = 'student_classmate';
+        NotebookAiConsent::factory()->forOwner($classmate)->create();
         $theirs = PortalArchivedFile::factory()->forOwner($classmate)->create(['sha256' => hash('sha256', $contents)]);
         $mine = PortalArchivedFile::factory()->forOwner($this->ownerHash)->create(['sha256' => hash('sha256', $contents)]);
         Storage::disk('local')->put($mine->blobPath(), $contents);

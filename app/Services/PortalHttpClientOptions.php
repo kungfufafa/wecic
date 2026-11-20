@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use GuzzleHttp\HandlerStack;
 use Illuminate\Container\Container;
 
 /**
@@ -30,6 +31,30 @@ class PortalHttpClientOptions
     public static function shared(): array
     {
         return [...self::dnsOverHttps(), ...self::boundHandler()];
+    }
+
+    /**
+     * What a portal client merges into its defaults: shared(), with the
+     * handler always a stack topped by the store reviewer's fixture layer
+     * (PortalReviewerAccount::middleware()). The bound handler's own stack
+     * gets the layer (once, by name); a bound plain handler, or the network
+     * when nothing is bound, gets a stack of its own around it.
+     *
+     * @return array{curl?: array<int, string>, handler: HandlerStack}
+     */
+    public static function forClient(): array
+    {
+        $bound = self::boundHandler()['handler'] ?? null;
+        $stack = match (true) {
+            $bound instanceof HandlerStack => $bound,
+            $bound !== null => new HandlerStack($bound),
+            default => HandlerStack::create(),
+        };
+
+        $stack->remove(PortalReviewerAccount::MIDDLEWARE_NAME);
+        $stack->push(PortalReviewerAccount::middleware(), PortalReviewerAccount::MIDDLEWARE_NAME);
+
+        return [...self::dnsOverHttps(), 'handler' => $stack];
     }
 
     /**

@@ -48,6 +48,7 @@
             'tiles' => [
                 ['key' => 'profile', 'label' => 'Profil', 'caption' => 'Data diri di portal', 'href' => route('profile'), 'icon' => 'user'],
                 ['key' => 'password', 'label' => 'Ubah password', 'caption' => 'Ganti password portal', 'href' => route('password.edit'), 'icon' => 'lock'],
+                ['key' => 'privacy', 'label' => 'Privasi & bantuan', 'caption' => 'Kebijakan privasi, bantuan, dan hapus data', 'href' => route('legal.privacy'), 'icon' => 'help'],
                 ['key' => 'portal', 'label' => 'Portal kampus', 'caption' => 'Buka situs resmi', 'href' => config('portal.base_url'), 'icon' => 'world', 'external' => true],
             ],
         ],
@@ -70,6 +71,7 @@
             <div class="flex shrink-0 flex-wrap items-center gap-2">
                 <x-button variant="secondary" size="sm" :href="route('profile')"><x-icon name="user" size="sm" />Lihat profil</x-button>
                 <x-button variant="ghost" size="sm" href="#panduan"><x-icon name="help" size="sm" />Panduan</x-button>
+                <x-button variant="ghost" size="sm" :href="route('account.delete')"><x-icon name="trash" size="sm" />Hapus akun</x-button>
             </div>
         </x-card>
 

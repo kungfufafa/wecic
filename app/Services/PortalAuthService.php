@@ -59,7 +59,7 @@ class PortalAuthService
                 'referer' => true,
                 'track_redirects' => true,
             ],
-        ], PortalHttpClientOptions::shared()));
+        ], PortalHttpClientOptions::forClient()));
     }
 
     /**
@@ -184,10 +184,15 @@ class PortalAuthService
     }
 
     /**
-     * Attempt to login to campus system
+     * Attempt to login to campus system. The store reviewer's username is
+     * answered without the portal (PortalReviewerAccount::login()).
      */
     public function login(string $username, string $password): array
     {
+        if (PortalReviewerAccount::isReviewerUsername($username)) {
+            return PortalReviewerAccount::login($username, $password);
+        }
+
         // The login page and the login POST share one fresh jar, like a
         // browser would, and the form is analyzed again for every login.
         $cookieJar = new CookieJar;
@@ -476,6 +481,10 @@ class PortalAuthService
      */
     public function isSessionAlive(CookieJar $cookieJar): bool
     {
+        if (PortalReviewerAccount::isReviewerCookieJar($cookieJar)) {
+            return true;
+        }
+
         $dashboardUrl = PortalEndpointRegistry::url('dashboard');
 
         try {
@@ -497,6 +506,10 @@ class PortalAuthService
      */
     public function logout(CookieJar $cookieJar): void
     {
+        if (PortalReviewerAccount::isReviewerCookieJar($cookieJar)) {
+            return;
+        }
+
         foreach (['student_logout', 'sipandai_logout'] as $endpoint) {
             try {
                 $this->client->request(PortalEndpointRegistry::method($endpoint), PortalEndpointRegistry::url($endpoint), [

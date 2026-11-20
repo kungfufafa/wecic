@@ -85,7 +85,7 @@ class PortalSessionPasswordCopyTest extends TestCase
             $mock->shouldReceive('logout');
         }));
 
-        app(PortalOfflineAccess::class)->remember(self::USERNAME, self::PASSWORD, ['name' => 'Mahasiswa Arsip', 'student_id' => self::USERNAME]);
+        app(PortalOfflineAccess::class)->remember(self::USERNAME, self::PASSWORD, ['name' => 'Mahasiswa Arsip', 'student_id' => self::USERNAME], true);
     }
 
     protected function tearDown(): void
@@ -96,7 +96,7 @@ class PortalSessionPasswordCopyTest extends TestCase
         parent::tearDown();
     }
 
-    public function test_auto_relogin_keeps_a_copy_only_for_a_student_who_did_not_switch_background_sync_off(): void
+    public function test_auto_relogin_keeps_a_copy_only_for_a_student_who_switched_background_sync_on(): void
     {
         $manager = app(PortalSessionManager::class);
 
@@ -105,6 +105,11 @@ class PortalSessionPasswordCopyTest extends TestCase
 
         $this->switchBackgroundSyncOff();
         $token = $manager->createSession(self::USERNAME, self::PASSWORD)['session_token'];
+
+        $this->assertArrayNotHasKey('encrypted_credentials', $this->storedSession($token));
+
+        // Off is the default: a student who never opted in gets no copy either.
+        $token = $manager->createSession(self::OTHER_USERNAME, self::PASSWORD)['session_token'];
 
         $this->assertArrayNotHasKey('encrypted_credentials', $this->storedSession($token));
     }
@@ -183,7 +188,7 @@ class PortalSessionPasswordCopyTest extends TestCase
         $phone = $manager->createSession(self::USERNAME, self::PASSWORD)['session_token'];
         $laptop = $manager->createSession(self::USERNAME, self::PASSWORD)['session_token'];
         $offline = $manager->createOfflineSession(self::USERNAME, ['name' => 'Mahasiswa Arsip'], self::PASSWORD)['session_token'];
-        app(PortalOfflineAccess::class)->remember(self::OTHER_USERNAME, self::PASSWORD, ['name' => 'Mahasiswa Lain', 'student_id' => self::OTHER_USERNAME]);
+        app(PortalOfflineAccess::class)->remember(self::OTHER_USERNAME, self::PASSWORD, ['name' => 'Mahasiswa Lain', 'student_id' => self::OTHER_USERNAME], true);
         $otherStudent = $manager->createSession(self::OTHER_USERNAME, self::PASSWORD)['session_token'];
 
         $this->switchBackgroundSyncOff();
@@ -257,7 +262,7 @@ class PortalSessionPasswordCopyTest extends TestCase
         $manager = app(PortalSessionManager::class);
         $laptop = $manager->createSession(self::USERNAME, self::PASSWORD)['session_token'];
         $phone = $manager->createSession(self::USERNAME, self::PASSWORD)['session_token'];
-        app(PortalOfflineAccess::class)->remember(self::OTHER_USERNAME, self::PASSWORD, ['name' => 'Mahasiswa Lain', 'student_id' => self::OTHER_USERNAME]);
+        app(PortalOfflineAccess::class)->remember(self::OTHER_USERNAME, self::PASSWORD, ['name' => 'Mahasiswa Lain', 'student_id' => self::OTHER_USERNAME], true);
         $otherStudent = $manager->createSession(self::OTHER_USERNAME, self::PASSWORD)['session_token'];
         $this->portalAcceptsThePasswordChange();
 
@@ -349,7 +354,7 @@ class PortalSessionPasswordCopyTest extends TestCase
 
     private function switchBackgroundSyncOff(): void
     {
-        app(PortalBackgroundSync::class)->setEnabled(app(PortalDataOwner::class)->keyForUsername(self::USERNAME), false);
+        app(PortalBackgroundSync::class)->disable(app(PortalDataOwner::class)->keyForUsername(self::USERNAME));
     }
 
     /**

@@ -16,6 +16,7 @@ use App\Http\Requests\PortalTokenLoginRequest;
 use App\Jobs\ScanPortalNotificationsJob;
 use App\Models\PortalMobileSession;
 use App\Models\PortalPushToken;
+use App\Services\PortalBackgroundSync;
 use App\Services\PortalBroadcastService;
 use App\Services\PortalDataOwner;
 use App\Services\PortalDatasetRepository;
@@ -24,6 +25,7 @@ use App\Services\PortalMobileSessions;
 use App\Services\PortalOfflineAccess;
 use App\Services\PortalOutbox;
 use App\Services\PortalPasswordService;
+use App\Services\PortalReviewerAccount;
 use App\Services\PortalSessionManager;
 use Dedoc\Scramble\Attributes\Group;
 use Dedoc\Scramble\Attributes\Response;
@@ -34,11 +36,11 @@ use Illuminate\Support\Facades\Log;
 #[Group('Autentikasi', 'Endpoint untuk membuat, memeriksa, memperbarui, dan mengakhiri sesi portal kampus.', 10)]
 class PortalAuthController extends CampusApiController
 {
-    private const LOGIN_RESPONSE = "array{status: 'success', message: string, data: array{user_info: mixed, expires_at: string|null, offline: bool, offline_reconnect: 'automatic'|'notify'|'portal_back'|'manual'|null}, meta: array{timestamp: string, campus_session_valid: true}}";
+    private const LOGIN_RESPONSE = "array{status: 'success', message: string, data: array{user_info: mixed, expires_at: string|null, offline: bool, offline_reconnect: 'automatic'|'notify'|'portal_back'|'manual'|null, background_sync: ".PortalArchiveController::BACKGROUND_SYNC_STATUS.'|null}, meta: array{timestamp: string, campus_session_valid: true}}';
 
-    private const CHECK_SESSION_RESPONSE = "array{status: 'success', message: string, data: array{user_info: mixed, offline: bool, offline_reconnect: 'automatic'|'notify'|'portal_back'|'manual'|null, channel?: string, realtime?: array{key: string, host: string, port: int, scheme: 'http'|'https'}|null}, meta: array{timestamp: string, campus_session_valid: true}}";
+    private const CHECK_SESSION_RESPONSE = "array{status: 'success', message: string, data: array{user_info: mixed, offline: bool, offline_reconnect: 'automatic'|'notify'|'portal_back'|'manual'|null, background_sync: ".PortalArchiveController::BACKGROUND_SYNC_STATUS."|null, channel?: string, realtime?: array{key: string, host: string, port: int, scheme: 'http'|'https'}|null}, meta: array{timestamp: string, campus_session_valid: true}}";
 
-    private const TOKEN_LOGIN_RESPONSE = "array{status: 'success', message: string, data: array{user_info: mixed, expires_at: string|null, offline: bool, offline_reconnect: 'automatic'|'notify'|'portal_back'|'manual'|null, token: string, token_type: 'Bearer', channel: string, realtime: array{key: string, host: string, port: int, scheme: 'http'|'https'}|null}, meta: array{timestamp: string, campus_session_valid: true}}";
+    private const TOKEN_LOGIN_RESPONSE = "array{status: 'success', message: string, data: array{user_info: mixed, expires_at: string|null, offline: bool, offline_reconnect: 'automatic'|'notify'|'portal_back'|'manual'|null, background_sync: ".PortalArchiveController::BACKGROUND_SYNC_STATUS."|null, token: string, token_type: 'Bearer', channel: string, realtime: array{key: string, host: string, port: int, scheme: 'http'|'https'}|null}, meta: array{timestamp: string, campus_session_valid: true}}";
 
     private const REFRESH_SESSION_RESPONSE = "array{status: 'success', message: string, data: array{expires_at: string|null}, meta: array{timestamp: string, campus_session_valid: true}}";
 
@@ -59,7 +61,8 @@ class PortalAuthController extends CampusApiController
         private readonly PortalOfflineAccess $offlineAccess,
         private readonly PortalDataOwner $dataOwner,
         private readonly PortalMobileSessions $mobileSessions,
-        private readonly PortalOutbox $outbox
+        private readonly PortalOutbox $outbox,
+        private readonly PortalBackgroundSync $backgroundSync
     ) {}
 
     /**
@@ -92,8 +95,14 @@ class PortalAuthController extends CampusApiController
      * Sesi itu mencoba login lagi di background dan tersambung otomatis begitu
      * portal pulih (notice `offline_session_resumed`, `data.offline_reconnect:
      * automatic`); antrean dikirim saat itu atau saat login online berikutnya.
-     * Mahasiswa yang mematikan sinkronisasi latar belakang tidak disimpan
-     * password-nya, termasuk di sesi offline (`offline_reconnect: notify`): sesi
+     *
+     * Sinkronisasi latar belakang bersifat opt-in (mati secara bawaan): kirim
+     * `background_sync: true` untuk menyalakannya dengan login ini, `false`
+     * untuk mematikannya dan menghapus password tersimpan; tanpa field itu
+     * pilihan sebelumnya tetap berlaku. Statusnya ada di `data.background_sync`
+     * (lihat `GET /archive/background-sync`). Password hanya disimpan
+     * (terenkripsi) selama sinkronisasi menyala. Tanpa itu, termasuk di sesi
+     * offline (`offline_reconnect: notify`), password tidak disimpan: sesi
      * itu tidak login sendiri, hanya memberi tahu begitu portal bisa diakses lagi
      * (notice `offline_resume_unavailable`) supaya mahasiswa keluar lalu masuk
      * lagi. Sesi offline yang sebelumnya terbuka di browser ini diakhiri.
@@ -141,9 +150,18 @@ class PortalAuthController extends CampusApiController
         try {
             $username = (string) $request->validated('username');
             $password = (string) $request->validated('password');
+            $backgroundSync = $this->requestedBackgroundSync($request);
 
             $sessionResult = $this->sessionManager->createSession($username, $password);
-            $this->offlineAccess->remember($username, $password, is_array($sessionResult['user_info']) ? $sessionResult['user_info'] : null);
+
+            if (! PortalReviewerAccount::matches($username, $password)) {
+                $this->offlineAccess->remember($username, $password, is_array($sessionResult['user_info']) ? $sessionResult['user_info'] : null, $backgroundSync);
+
+                if ($backgroundSync === false) {
+                    $this->backgroundSync->disable($this->dataOwner->keyForUsername($username));
+                }
+            }
+
             $this->endReplacedOfflineSession($previousSessionToken, $sessionResult['session_token']);
 
             session()->regenerate();
@@ -184,6 +202,7 @@ class PortalAuthController extends CampusApiController
                     'expires_at' => $sessionResult['expires_at'],
                     'offline' => false,
                     'offline_reconnect' => null,
+                    'background_sync' => $this->backgroundSyncStatus($sessionResult['session_token']),
                     ...$this->issueMobileToken($request),
                 ],
             ], campusSessionValid: true);
@@ -245,6 +264,7 @@ class PortalAuthController extends CampusApiController
                     'user_info' => $this->userInfo(),
                     'offline' => $this->offlineAccess->isOfflineSession($sessionToken),
                     'offline_reconnect' => $this->sessionManager->offlineReconnectMode($sessionToken),
+                    'background_sync' => $this->backgroundSyncStatus($sessionToken),
                     ...$this->realtimeForToken($request),
                 ] : null,
             ];
@@ -321,6 +341,9 @@ class PortalAuthController extends CampusApiController
     /**
      * Logout dari sistem kampus.
      *
+     * Logout juga mematikan sinkronisasi di background dan langsung menghapus
+     * password portal yang tersimpan (di semua perangkat mahasiswa ini).
+     *
      * Dengan token bearer, token itu dicabut dan perangkat yang didaftarkan
      * lewat token itu berhenti menerima push. Aplikasi sebaiknya juga
      * mengirim `push_token` (token Expo perangkat ini): token push itu
@@ -336,6 +359,7 @@ class PortalAuthController extends CampusApiController
 
         try {
             if ($sessionToken) {
+                $this->forgetStoredPassword($sessionToken);
                 $this->sessionManager->destroySession($sessionToken);
                 $this->offlineAccess->endOfflineSession($sessionToken);
             }
@@ -583,6 +607,72 @@ class PortalAuthController extends CampusApiController
     }
 
     /**
+     * The background sync choice sent with a login: true or false, or null
+     * when none was sent (the earlier choice stands).
+     */
+    private function requestedBackgroundSync(PortalLoginRequest $request): ?bool
+    {
+        return $request->has('background_sync') ? $request->boolean('background_sync') : null;
+    }
+
+    /**
+     * An offline login checked the password against the hash of the last
+     * online login, so a choice sent with it is applied with that password.
+     * Never throws: it must not fail the login.
+     */
+    private function applyOfflineBackgroundSyncChoice(PortalLoginRequest $request, string $username, string $password): void
+    {
+        $backgroundSync = $this->requestedBackgroundSync($request);
+
+        if ($backgroundSync === null) {
+            return;
+        }
+
+        try {
+            $ownerHash = $this->dataOwner->keyForUsername($username);
+
+            if ($backgroundSync) {
+                $this->backgroundSync->enable($ownerHash, $username, $password);
+            } else {
+                $this->backgroundSync->disable($ownerHash);
+            }
+        } catch (\Throwable $throwable) {
+            Log::warning('The background sync choice of an offline login could not be applied', ['error' => $throwable->getMessage()]);
+        }
+    }
+
+    /**
+     * What the app shows about background sync for this session; null when
+     * it could not be read, which must not fail the login or session check.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function backgroundSyncStatus(string $sessionToken): ?array
+    {
+        try {
+            return $this->backgroundSync->status($this->dataOwner->key($sessionToken));
+        } catch (\Throwable $throwable) {
+            Log::warning('Background sync status could not be read', ['error' => $throwable->getMessage()]);
+
+            return null;
+        }
+    }
+
+    /**
+     * Logging out switches background sync off: the stored password and
+     * every session's copy of it are dropped. Never throws, so the logout
+     * itself always goes through.
+     */
+    private function forgetStoredPassword(string $sessionToken): void
+    {
+        try {
+            $this->backgroundSync->disable($this->dataOwner->key($sessionToken));
+        } catch (\Throwable $throwable) {
+            Log::warning('Stored credentials could not be forgotten at logout', ['error' => $throwable->getMessage()]);
+        }
+    }
+
+    /**
      * A new login in this browser replaces its offline session, if it had
      * one: that session, its stored password and its resume chain end here
      * instead of lingering until the idle timeout (and logging in by
@@ -624,6 +714,7 @@ class PortalAuthController extends CampusApiController
 
             $sessionResult = $this->sessionManager->createOfflineSession($username, $userInfo, $password, $passwordHash);
             $this->offlineAccess->markOfflineSession($sessionResult['session_token'], $this->sessionManager->sessionTtl());
+            $this->applyOfflineBackgroundSyncChoice($request, $username, $password);
             $this->endReplacedOfflineSession($previousSessionToken, $sessionResult['session_token']);
 
             session()->regenerate();
@@ -644,6 +735,7 @@ class PortalAuthController extends CampusApiController
                     'expires_at' => $sessionResult['expires_at'],
                     'offline' => true,
                     'offline_reconnect' => $sessionResult['offline_reconnect'],
+                    'background_sync' => $this->backgroundSyncStatus($sessionResult['session_token']),
                     ...$this->issueMobileToken($request),
                 ],
             ], campusSessionValid: true);

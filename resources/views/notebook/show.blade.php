@@ -44,6 +44,21 @@
         Fitur AI sedang tidak bisa dipakai karena pengaturan model AI di server WeCIC ditolak (model tidak dikenali, sudah tidak tersedia, atau pengaturannya tidak cocok). Pengelola WeCIC perlu memeriksa pengaturan model AI, misalnya GEMINI_MODEL atau NOTEBOOK_THINKING_BUDGET. Catatan pertemuan, teks, DOCX, dan PPTX tetap bisa ditambahkan; PDF, gambar, tanya jawab, dan studio menunggu sampai pengaturannya diperbaiki.
     </x-alert>
 
+    {{-- The consent to send Notebook content to Google Gemini (`ai_consent`): asked before the first AI action, withdrawable after. --}}
+    <x-alert tone="info" icon title="Izinkan AI membaca materimu?" class="mb-4 hidden" id="notebook-ai-consent" role="region" aria-label="Persetujuan AI Notebook" tabindex="-1">
+        <div class="mt-1 flex flex-col gap-3">
+            <p class="text-ink-muted">Tanya jawab, studio, dan pembacaan PDF atau gambar memakai Google Gemini. Pertanyaanmu dan isi sumber yang dipakai (teks, PDF, gambar) dikirim ke Google untuk diproses. WeCIC memakai layanan Gemini tingkat gratis, sehingga Google dapat menyimpan dan memakai data itu untuk meningkatkan produknya. Jangan masukkan data pribadi atau rahasia. WeCIC adalah aplikasi unofficial dan tidak berafiliasi dengan kampus.</p>
+            <p class="text-ink-muted">Tanpa persetujuan, kamu tetap bisa melihat, menambah catatan teks, dan menghapus isi notebook. Persetujuan bisa ditarik kapan saja.</p>
+            <div class="flex flex-wrap gap-2">
+                <x-button size="sm" id="notebook-ai-consent-grant">Setuju, aktifkan AI</x-button>
+            </div>
+        </div>
+    </x-alert>
+    <p class="mb-4 hidden text-xs text-ink-subtle" id="notebook-ai-consent-granted">
+        AI aktif: pertanyaan dan isi sumber dikirim ke Google Gemini.
+        <button type="button" class="min-h-11 cursor-pointer font-medium text-brand-text underline-offset-4 hover:underline sm:min-h-0" id="notebook-ai-consent-withdraw">Tarik persetujuan</button>
+    </p>
+
     <div class="grid min-w-0 gap-4 xl:grid-cols-[16rem_minmax(0,1fr)_18rem] 2xl:grid-cols-[18rem_minmax(0,1fr)_20rem]">
         <x-card as="section" class="min-w-0 self-start" aria-labelledby="notebook-sources-title" data-notebook-panel="sources">
             <x-card.header>
@@ -134,6 +149,7 @@
             @include('notebook.show.scripts.clicks')
             @include('notebook.show.scripts.add-sources')
             @include('notebook.show.scripts.header-buttons')
+            @include('notebook.show.scripts.consent')
             @include('notebook.show.scripts.start')
         });
     </script>

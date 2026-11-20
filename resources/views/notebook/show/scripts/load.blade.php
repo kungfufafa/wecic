@@ -18,6 +18,7 @@
                 ].filter(Boolean).join(' · ');
                 document.title = `${notebook.title || 'Notebook'} · Notebook`;
                 renderAiStatus();
+                renderAiConsent();
                 el('notebook-delete').textContent = notebook.kind === 'course' ? 'Kosongkan' : 'Hapus';
 
                 const classLink = el('notebook-class-link');
@@ -72,6 +73,7 @@
                 state.studioKinds = data.studio_kinds || {};
                 state.sourceLimit = Number.isFinite(Number(data.source_limit)) ? Number(data.source_limit) : null;
                 setAiStatus(data);
+                setAiConsent(data);
 
                 const known = new Set(state.sources.map((source) => source.id));
                 state.excluded.forEach((id) => {

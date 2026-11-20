@@ -61,8 +61,8 @@
                 <x-card.body class="flex flex-col gap-4 text-[13px] text-ink-muted">
                     <ul class="flex list-disc flex-col gap-2.5 ps-5 leading-relaxed marker:text-ink-subtle">
                         <li>Data disimpan terenkripsi di server WeCIC dan hanya bisa dibuka lewat akunmu. Daftar teman sekelas tidak ikut diarsipkan.</li>
-                        <li>Saat portal mati, kamu tetap bisa masuk dengan password terakhir yang berhasil login (maks. {{ \App\Models\PortalOfflineAccount::offlineLoginDays() }} hari), dan WeCIC menyambung lagi otomatis begitu portal pulih selama sinkronisasi background menyala. Jika dimatikan, password tidak disimpan: WeCIC hanya memberi tahu saat portal pulih dan kamu masuk lagi sendiri.</li>
-                        <li>Dengan sinkronisasi di background aktif, password terakhirmu disimpan terenkripsi supaya WeCIC bisa masuk ke portal sendiri setiap {{ (int) config('portal.background_sync.interval', 180) }} menit dan memperbarui arsip saat kamu tidak membuka WeCIC, termasuk detail kelas, pertemuan, dan materi semua kelasmu. Matikan di bawah kalau tidak mau; yang tersisa hanya hash password.</li>
+                        <li>Saat portal mati, kamu tetap bisa masuk dengan password terakhir yang berhasil login (maks. {{ \App\Models\PortalOfflineAccount::offlineLoginDays() }} hari), dan WeCIC menyambung lagi otomatis begitu portal pulih selama sinkronisasi background menyala. Selama mati, password tidak disimpan: WeCIC hanya memberi tahu saat portal pulih dan kamu masuk lagi sendiri.</li>
+                        <li>Sinkronisasi di background mati sampai kamu menyalakannya. Kalau dinyalakan, password portalmu disimpan terenkripsi supaya WeCIC bisa masuk ke portal sendiri setiap {{ (int) config('portal.background_sync.interval', 180) }} menit dan memperbarui arsip saat kamu tidak membuka WeCIC, termasuk detail kelas, pertemuan, dan materi semua kelasmu. Mematikannya atau keluar dari WeCIC langsung menghapus password itu; yang tersisa hanya hash password.</li>
                         <li>Semua itu tidak disimpan selamanya: {{ \App\Models\PortalOfflineAccount::credentialDays() }} hari setelah login online terakhirmu, password terenkripsi dihapus otomatis dan sinkronisasi di background berhenti; hash password dan data untuk masuk saat portal mati dihapus {{ \App\Models\PortalOfflineAccount::offlineLoginDays() }} hari sejak login itu. Password yang ditolak portal langsung dihapus. Arsipmu sendiri tetap tersimpan sampai kamu menghapusnya.</li>
                         <li>Kalau data dari portal terlihat janggal (nilai hilang, presensi berubah jadi absen, riwayat bayar berkurang), WeCIC tetap menampilkan versi terakhir yang dipercaya sampai kamu memeriksanya.</li>
                     </ul>
@@ -75,6 +75,15 @@
                             <input type="checkbox" class="size-5 cursor-pointer accent-brand" id="archive-background-sync-toggle">
                             <span>Aktif</span>
                         </label>
+                        <form class="flex w-full flex-col gap-2" id="archive-background-sync-form" method="post" novalidate hidden>
+                            <x-field label="Password portal" for="archive-background-sync-password">
+                                <x-input id="archive-background-sync-password" name="password" type="password" autocomplete="current-password" required />
+                            </x-field>
+                            <span class="flex gap-2">
+                                <x-button type="submit" size="sm" id="archive-background-sync-confirm">Nyalakan</x-button>
+                                <x-button type="button" size="sm" variant="secondary" id="archive-background-sync-cancel">Batal</x-button>
+                            </span>
+                        </form>
                     </x-alert>
                 </x-card.body>
                 <x-card.footer>
@@ -232,6 +241,10 @@
             const backgroundSyncHost = document.getElementById('archive-background-sync');
             const backgroundSyncCaption = document.getElementById('archive-background-sync-caption');
             const backgroundSyncToggle = document.getElementById('archive-background-sync-toggle');
+            const backgroundSyncForm = document.getElementById('archive-background-sync-form');
+            const backgroundSyncPassword = document.getElementById('archive-background-sync-password');
+            const backgroundSyncCancel = document.getElementById('archive-background-sync-cancel');
+            let backgroundSyncStatus = null;
 
             const describeInterval = (minutes) => {
                 if (minutes % 1440 === 0) {
@@ -255,7 +268,7 @@
 
             const describeBackgroundSync = (status) => {
                 if (!status.enabled) {
-                    return 'Nonaktif. Password tidak disimpan; arsip hanya diperbarui saat kamu membuka WeCIC.';
+                    return 'Nonaktif. Password tidak disimpan; arsip hanya diperbarui saat kamu membuka WeCIC. Untuk menyalakannya, masukkan password portalmu.';
                 }
 
                 if (status.rejected) {
@@ -289,25 +302,27 @@
                     return;
                 }
 
+                backgroundSyncStatus = status;
                 backgroundSyncHost.hidden = false;
                 backgroundSyncToggle.checked = Boolean(status.enabled);
                 backgroundSyncCaption.textContent = describeBackgroundSync(status);
             };
 
-            backgroundSyncToggle.addEventListener('change', async () => {
-                const enabled = backgroundSyncToggle.checked;
+            const hideBackgroundSyncForm = () => {
+                backgroundSyncForm.hidden = true;
+                backgroundSyncPassword.value = '';
+            };
 
-                if (!enabled && !window.confirm('Matikan sinkronisasi di background? Password yang tersimpan langsung dihapus dan arsip hanya diperbarui saat kamu membuka WeCIC.')) {
-                    backgroundSyncToggle.checked = true;
-
-                    return;
-                }
-
+            const saveBackgroundSync = async (enabled, password = null) => {
                 backgroundSyncToggle.disabled = true;
 
                 try {
-                    const payload = await app.request('/api/archive/background-sync', { method: 'PATCH', json: { enabled } });
+                    const payload = await app.request('/api/archive/background-sync', {
+                        method: 'PATCH',
+                        json: password === null ? { enabled } : { enabled, password },
+                    });
 
+                    hideBackgroundSyncForm();
                     renderBackgroundSync(payload?.data || null);
                     app.showNotice(payload?.message || 'Pengaturan sinkronisasi disimpan.', 'success');
                 } catch (error) {
@@ -315,7 +330,7 @@
 
                     if (effectiveStatus && typeof effectiveStatus === 'object') {
                         renderBackgroundSync(effectiveStatus);
-                    } else {
+                    } else if (!(error?.status === 422 && password !== null)) {
                         backgroundSyncToggle.checked = !enabled;
                     }
 
@@ -323,6 +338,44 @@
                 } finally {
                     backgroundSyncToggle.disabled = false;
                 }
+            };
+
+            backgroundSyncToggle.addEventListener('change', async () => {
+                const enabled = backgroundSyncToggle.checked;
+
+                if (enabled && !backgroundSyncStatus?.active) {
+                    backgroundSyncForm.hidden = false;
+                    backgroundSyncPassword.focus();
+
+                    return;
+                }
+
+                hideBackgroundSyncForm();
+
+                if (!enabled && !window.confirm('Matikan sinkronisasi di background? Password yang tersimpan langsung dihapus dan arsip hanya diperbarui saat kamu membuka WeCIC.')) {
+                    backgroundSyncToggle.checked = true;
+
+                    return;
+                }
+
+                await saveBackgroundSync(enabled);
+            });
+
+            backgroundSyncCancel.addEventListener('click', () => {
+                hideBackgroundSyncForm();
+                backgroundSyncToggle.checked = Boolean(backgroundSyncStatus?.enabled);
+            });
+
+            backgroundSyncForm.addEventListener('submit', async (event) => {
+                event.preventDefault();
+
+                if (backgroundSyncPassword.value === '') {
+                    backgroundSyncPassword.focus();
+
+                    return;
+                }
+
+                await saveBackgroundSync(true, backgroundSyncPassword.value);
             });
 
             const loadArchive = async ({ background = false } = {}) => {

@@ -121,7 +121,17 @@ Jadwal di `routes/console.php`:
 - `PORTAL_BACKGROUND_SYNC_ENABLED`, `PORTAL_BACKGROUND_SYNC_INTERVAL` (menit), `PORTAL_BACKGROUND_SYNC_CREDENTIAL_DAYS`, `PORTAL_BACKGROUND_SYNC_BATCH_SIZE`, `PORTAL_BACKGROUND_SYNC_COURSES_ENABLED`, `PORTAL_BACKGROUND_SYNC_COURSES_INTERVAL` mengatur sinkronisasi; `PORTAL_ARCHIVE_ENABLED`, `PORTAL_ARCHIVE_OFFLINE_LOGIN`, `PORTAL_ARCHIVE_FILES_ENABLED` mengatur arsip, login offline, dan arsip berkas materi (lihat `config/portal.php`).
 - Mengganti `APP_KEY` tanpa `APP_PREVIOUS_KEYS` membuat kredensial tersimpan tidak bisa dibaca: MyCIC menghapusnya pada sinkronisasi berikutnya dan menyimpannya lagi saat mahasiswa login online.
 - Semua data per mahasiswa (versi arsip, berkas materi, akses offline, notifikasi, notebook, token push) disimpan dengan kunci pemilik `student_…`, yaitu HMAC NIM dengan `PORTAL_OWNER_KEY` (kosong = `APP_KEY`, sama seperti sebelumnya). **Sebelum merotasi `APP_KEY`, isi `PORTAL_OWNER_KEY` dengan nilai `APP_KEY` yang sekarang**, supaya kunci pemilik tidak ikut berubah. Bila terlanjur berubah, data dengan kunci lama dipindahkan ke kunci baru saat mahasiswa itu login berikutnya (online, offline, atau sinkronisasi background), asalkan secret lamanya ada di `APP_PREVIOUS_KEYS` atau `PORTAL_PREVIOUS_OWNER_KEYS` (dipisah koma).
+- Sinkronisasi di background bersifat opt-in per mahasiswa: password portal hanya disimpan setelah mahasiswa menyalakannya (login dengan `background_sync: true` atau `PATCH /api/v1/archive/background-sync` dengan `password`); mematikannya atau logout langsung menghapusnya. Migrasi `replace_background_sync_opt_out_with_opt_in` menghapus kredensial yang tersimpan sebelum perubahan ini.
 - Status setiap sinkronisasi tercatat di akun (`last_background_sync_*`); sinkronisasi yang sedang berjalan bertanda `running` dan dibaca gagal bila melewati batas waktunya.
+
+### Akun reviewer App Store & Google Play
+Reviewer toko aplikasi tidak punya akun kampus, jadi server menyediakan satu akun reviewer yang juga berlaku di production:
+
+- Isi `PORTAL_REVIEWER_USERNAME` dan `PORTAL_REVIEWER_PASSWORD` (password panjang dan acak), lalu `php artisan config:cache`. Keduanya kosong = mode reviewer mati. Username yang berupa angka saja (bentuk NIM) diabaikan, supaya tidak pernah menutupi login mahasiswa sungguhan.
+- Login dengan username dan password itu, baik dari aplikasi (`POST /api/v1/auth/token`) maupun dari web (`POST /api/auth/login`), membuka sesi mahasiswa contoh (`store-reviewer`). Semua halaman portal sesi itu dijawab dari halaman contoh yang sudah disanitasi di `tests/Fixtures/portal` (tanpa data orang sungguhan), jadi folder itu harus ikut ter-deploy. Portal kampus tidak pernah dihubungi: login, keep-alive, logout, sinkronisasi, arsip, notifikasi, dan notebook sesi reviewer semuanya membaca fixture. Aksi tulis (absensi, unggah tugas/ujian, ganti password) dan unduhan berkas tidak punya fixture dan ditolak seperti portal yang tidak bisa dihubungi.
+- Username reviewer dengan password lain ditolak (401) tanpa menghubungi portal. Username lain berjalan seperti biasa.
+- Sesi reviewer tidak menyimpan password atau hash-nya (tidak ada login offline dan sinkronisasi di background untuknya). Semua reviewer berbagi data contoh yang sama, termasuk notebook yang mereka buat.
+- Cantumkan username dan password ini di App Store Connect (App Review Information > Sign-in required) dan di Google Play Console (App content > App access). Ganti password setelah review selesai bila perlu.
 
 ## Konfigurasi `.env` Penting
 | Key | Fungsi |
@@ -130,7 +140,9 @@ Jadwal di `routes/console.php`:
 | `DB_*` | Konfigurasi database utama (SQLite default). |
 | `CACHE_STORE`, `SESSION_DRIVER` | Gunakan `database` agar sejalan dengan konfigurasi repo & migrasi bawaan. |
 | `QUEUE_CONNECTION`, `REDIS_*`, `REDIS_QUEUE_RETRY_AFTER` | `redis`: Horizon menjalankan queue dari Redis. `REDIS_QUEUE_RETRY_AFTER` harus di atas 1800 detik (default 1900). |
+| `LOG_STACK`, `LOG_DAILY_DAYS` | `daily` dan `14`: log diputar per hari dan dihapus setelah 14 hari, sesuai masa simpan log yang dijanjikan kebijakan privasi (`/privasi`) dan halaman hapus data (`/hapus-data`). Jangan pakai `single`, yang tidak pernah menghapus log. Tambahkan `sentry_logs` bila perlu (`daily,sentry_logs`). |
 | `PORTAL_MAINTAINERS` | NIM (dipisah koma) yang boleh membuka `/horizon` dan `/log-viewer` di luar `APP_ENV=local`. |
+| `PORTAL_REVIEWER_USERNAME`, `PORTAL_REVIEWER_PASSWORD` | Akun reviewer App Store / Google Play yang dilayani dari fixture tanpa menghubungi portal (lihat di atas). Kosong = mati. |
 | `CAMPUS_BASE_URL`, `CAMPUS_LOGIN_URL`, `CAMPUS_LOGIN_ACTION`, `CAMPUS_DASHBOARD_URL`, `CAMPUS_PROFILE_URL`, `CAMPUS_CLASSES_URL`, `CAMPUS_CLASS_DETAIL_URL` | URL halaman kampus tempat scraping dilakukan. Sesuaikan jika portal berubah. |
 | `CAMPUS_SIPANDAI_ASSIGNMENT_URL`, `CAMPUS_SIPANDAI_ATTENDANCE_URL` | Base URL aksi SIPANDAI untuk upload tugas dan validasi kehadiran; tambahkan parameter dinamis (`courses_id`, `id`, `pertemuan`, `course_id`) saat runtime. |
 | `CAMPUS_REQUEST_TIMEOUT`, `CAMPUS_REQUEST_DELAY`, `CAMPUS_SESSION_REFRESH_INTERVAL` | Atur timeout HTTP, jeda antar request (ms), serta interval refresh sesi (detik). |
@@ -139,7 +151,7 @@ Jadwal di `routes/console.php`:
 | `CAMPUS_CACHE_PROFILE_TTL`, `CAMPUS_CACHE_DYNAMIC_TTL`, `CAMPUS_CACHE_HTML_TTL` | TTL cache resource untuk profil, keuangan, dan halaman daftar kelas/jadwal. |
 
 ## Observability & Debugging
-- `storage/logs/laravel.log` – log utama; baca di `/log-viewer`, atau gunakan `tail -f` / `php artisan pail` untuk live streaming.
+- `storage/logs/laravel-YYYY-MM-DD.log` – log utama (`LOG_STACK=daily`, disimpan 14 hari); baca di `/log-viewer`, atau gunakan `tail -f` / `php artisan pail` untuk live streaming.
 - `php artisan tinker` – debugging session/cache secara langsung (`Cache::get('cic_session_<token>')`).
 - Endpoint `/api/support/*` membantu memeriksa struktur HTML terbaru tanpa membuka UI lama.
 - Job yang gagal terlihat dan bisa di-retry di `/horizon`; `php artisan queue:failed` & `php artisan queue:retry` juga tetap bisa dipakai.

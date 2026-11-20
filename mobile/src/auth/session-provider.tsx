@@ -6,6 +6,7 @@ import { ApiError, type ApiClient } from '@/api/client';
 import { apiBaseUrl, MISSING_API_URL_MESSAGE } from '@/api/config';
 import { deviceSecureStorage } from '@/auth/device-secure-storage';
 import { SessionManager, type SessionState } from '@/auth/session-manager';
+import { clearAiConsent } from '@/lib/ai-consent';
 import { setReachable } from '@/lib/connectivity';
 import { clearDeviceCache, keepOnlyOwner } from '@/lib/device-cache';
 import { registerForPushNotifications, type PushRegistration } from '@/push/push-notifications';
@@ -15,8 +16,10 @@ type SessionContextValue = {
   state: SessionState;
   api: ApiClient;
   push: PushRegistration | null;
-  signIn(username: string, password: string, remember: boolean): Promise<void>;
-  signOut(): Promise<void>;
+  signIn(username: string, password: string, remember: boolean, backgroundSync?: boolean): Promise<void>;
+  signOut(): Promise<boolean>;
+  /** Erases the WeCIC account and its data on the server, then signs out. */
+  deleteAccount(): Promise<void>;
   rememberedUsername(): Promise<string | null>;
 };
 
@@ -33,7 +36,10 @@ const manager = baseUrl === null
       deviceName: Device.deviceName ?? Device.modelName,
       onReachability: setReachable,
       onOwner: keepOnlyOwner,
-      onEnd: clearDeviceCache,
+      onEnd: () => {
+        clearDeviceCache();
+        clearAiConsent();
+      },
     });
 
 const unconfiguredState: SessionState = { status: 'signedOut', notice: MISSING_API_URL_MESSAGE };
@@ -122,9 +128,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     state,
     api: manager?.api ?? unconfiguredApi,
     push: signedIn ? push : null,
-    signIn: (username, password, remember) =>
-      manager?.signIn(username, password, remember) ?? Promise.reject(new ApiError(MISSING_API_URL_MESSAGE, 0)),
-    signOut: () => manager?.signOut() ?? Promise.resolve(),
+    signIn: (username, password, remember, backgroundSync) =>
+      manager?.signIn(username, password, remember, backgroundSync) ?? Promise.reject(new ApiError(MISSING_API_URL_MESSAGE, 0)),
+    signOut: () => manager?.signOut() ?? Promise.resolve(false),
+    deleteAccount: () => manager?.deleteAccount() ?? Promise.reject(new ApiError(MISSING_API_URL_MESSAGE, 0)),
     rememberedUsername: () => manager?.rememberedUsername() ?? Promise.resolve(null),
   };
 

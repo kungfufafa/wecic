@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { Fragment, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { ScrollView, StyleSheet } from 'react-native';
 
 import type { ClassesResponse } from '@/api/types';
@@ -17,6 +17,7 @@ import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useApiResource } from '@/hooks/use-api-resource';
+import { rememberAiConsentFrom } from '@/lib/ai-consent';
 import { aiStatusMessage, coursesWithoutNotebook } from '@/lib/classes';
 
 export default function NotebooksScreen() {
@@ -32,6 +33,12 @@ export default function NotebooksScreen() {
   const freeNotebooks = items.filter((notebook) => notebook.kind !== 'course');
   const missingCourses = notebooks.data?.data.course_notebooks === false ? [] : coursesWithoutNotebook(classes.data?.classes ?? [], items);
   const aiNotice = aiStatusMessage(notebooks.data?.data.ai_available, notebooks.data?.data.ai_status);
+  const consent = notebooks.data?.data.ai_consent;
+  const needsConsent = notebooks.data?.data.ai_available !== false && consent !== undefined && !consent.granted;
+
+  useEffect(() => {
+    rememberAiConsentFrom(notebooks.data);
+  }, [notebooks.data]);
 
   async function create(key: string, request: () => Promise<NotebookCreateResponse>) {
     setBusy(key);
@@ -61,6 +68,19 @@ export default function NotebooksScreen() {
       {aiNotice ? <Notice tone="warning" message={aiNotice} /> : null}
       {notebooks.error ? <Notice tone="error" message={notebooks.error} /> : null}
       {actionError ? <Notice tone="error" message={actionError} /> : null}
+
+      {needsConsent ? (
+        <Section label="Izin Notebook AI">
+          <Panel padded={false}>
+            <ListRow
+              icon="sparkles"
+              label="Setujui pengiriman ke Google Gemini"
+              value="Diperlukan sebelum tanya jawab, Studio, dan pembacaan PDF"
+              onPress={() => router.push('/ai-consent')}
+            />
+          </Panel>
+        </Section>
+      ) : null}
 
       {notebooks.isLoading ? (
         <Section label="Memuat notebook">

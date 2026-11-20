@@ -40,6 +40,7 @@ class AppShellPagesTest extends TestCase
             'library theses' => ['/library/theses', 'library-theses'],
             'more' => ['/more', 'more-index'],
             'notifications' => ['/notifications', 'notification-index'],
+            'account delete' => ['/account/delete', 'account-delete'],
         ];
     }
 

@@ -95,10 +95,15 @@
                         app.showNotice(app.describeError(error), 'error');
                     }
                 } else if (retrySource) {
+                    if (needsAiConsent()) {
+                        return;
+                    }
+
                     try {
                         await app.request(`${base}/sources/${retrySource.dataset.retrySource}/retry`, { method: 'POST' });
                         await load({ quiet: true });
                     } catch (error) {
+                        noteAiStatus(error);
                         app.showNotice(app.describeError(error), 'error');
                     }
                 } else if (deleteMessage) {

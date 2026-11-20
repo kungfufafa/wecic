@@ -71,7 +71,8 @@ class PortalOfflineLoginTest extends TestCase
         $this->assertNotSame(self::PASSWORD, $account->password_hash);
         $this->assertTrue(Hash::check(self::PASSWORD, $account->password_hash));
         $this->assertSame('Mahasiswa Arsip', $account->user_info['name']);
-        $this->assertSame(self::PASSWORD, $account->credentials['password']);
+        // Offline login keeps only the hash; the password itself waits for the background sync opt-in.
+        $this->assertNull($account->credentials);
     }
 
     public function test_the_same_password_opens_an_offline_session_while_the_portal_is_down(): void
@@ -133,9 +134,33 @@ class PortalOfflineLoginTest extends TestCase
         $this->login(self::PASSWORD)->assertOk()->assertJsonPath('data.offline', true);
     }
 
-    public function test_an_online_login_repairs_an_offline_account_sealed_with_an_old_app_key(): void
+    public function test_an_offline_login_can_switch_background_sync_on_and_off_with_the_checked_password(): void
     {
         $this->rememberOnlineLogin();
+        $this->portalIsDown();
+
+        $this->login(self::PASSWORD, backgroundSync: true)
+            ->assertOk()
+            ->assertJsonPath('data.offline', true)
+            ->assertJsonPath('data.background_sync.enabled', true)
+            ->assertJsonPath('data.background_sync.active', true);
+        $account = PortalOfflineAccount::query()->sole();
+        $this->assertSame(['username' => self::USERNAME, 'password' => self::PASSWORD], $account->credentials);
+        // Logging in regenerates the CSRF token.
+        session()->put('_token', 'known-csrf-token');
+
+        $this->login(self::PASSWORD, backgroundSync: false)
+            ->assertOk()
+            ->assertJsonPath('data.offline', true)
+            ->assertJsonPath('data.background_sync.enabled', false);
+        $account = PortalOfflineAccount::query()->sole();
+        $this->assertNull($account->credentials);
+        $this->assertFalse($account->isBackgroundSyncEnabled());
+    }
+
+    public function test_an_online_login_repairs_an_offline_account_sealed_with_an_old_app_key(): void
+    {
+        $this->rememberOnlineLogin(backgroundSync: true);
         $oldKey = new Encrypter(random_bytes(32), 'aes-256-cbc');
         PortalOfflineAccount::query()->update([
             'user_info' => $oldKey->encryptString((string) json_encode(['name' => 'Kunci lama'])),
@@ -225,7 +250,7 @@ class PortalOfflineLoginTest extends TestCase
             });
             $mock->shouldReceive('logout');
         }));
-        $this->rememberOnlineLogin();
+        $this->rememberOnlineLogin(backgroundSync: true);
         $this->login(self::PASSWORD)->assertOk()->assertJsonPath('data.offline', true);
         session()->put('_token', 'known-csrf-token');
 
@@ -250,7 +275,7 @@ class PortalOfflineLoginTest extends TestCase
         $offlineAccess = app(PortalOfflineAccess::class);
         PortalOfflineAccount::query()->sole()->forceFill(['credentials_rejected_at' => now()])->save();
 
-        $offlineAccess->rememberBackgroundSyncOptOut(app(PortalDataOwner::class)->keyForUsername(self::USERNAME));
+        app(PortalBackgroundSync::class)->disable(app(PortalDataOwner::class)->keyForUsername(self::USERNAME));
 
         $this->assertNull(PortalOfflineAccount::query()->sole()->credentials_rejected_at);
         $this->assertNull($offlineAccess->attempt(self::USERNAME, self::PASSWORD));
@@ -280,7 +305,7 @@ class PortalOfflineLoginTest extends TestCase
             $mock->shouldReceive('changePassword')->once()->andReturn(['success' => true, 'message' => 'Password berhasil diubah.', 'data' => []]);
         }));
 
-        $this->login(self::PASSWORD)->assertOk()->assertJsonPath('data.offline', false);
+        $this->login(self::PASSWORD, backgroundSync: true)->assertOk()->assertJsonPath('data.offline', false);
         session()->put('_token', 'known-csrf-token');
         $this->postJson('/api/auth/password', [
             'current_password' => self::PASSWORD,
@@ -317,12 +342,12 @@ class PortalOfflineLoginTest extends TestCase
         Event::assertNotDispatched(PortalSessionNoticeSent::class);
     }
 
-    public function test_with_offline_login_switched_off_an_online_login_still_keeps_what_background_sync_needs(): void
+    public function test_with_offline_login_switched_off_an_opted_in_login_still_keeps_what_background_sync_needs(): void
     {
         config(['portal.archive.offline_login' => false]);
         $this->portalAcceptsLogin();
 
-        $this->login(self::PASSWORD)->assertOk();
+        $this->login(self::PASSWORD, backgroundSync: true)->assertOk();
 
         $account = PortalOfflineAccount::query()->sole();
         $this->assertSame('', $account->password_hash);
@@ -448,9 +473,9 @@ class PortalOfflineLoginTest extends TestCase
         }
     }
 
-    private function rememberOnlineLogin(): void
+    private function rememberOnlineLogin(?bool $backgroundSync = null): void
     {
-        app(PortalOfflineAccess::class)->remember(self::USERNAME, self::PASSWORD, ['name' => 'Mahasiswa Arsip', 'student_id' => self::USERNAME]);
+        app(PortalOfflineAccess::class)->remember(self::USERNAME, self::PASSWORD, ['name' => 'Mahasiswa Arsip', 'student_id' => self::USERNAME], $backgroundSync);
     }
 
     private function offlineSession(): string
@@ -482,8 +507,12 @@ class PortalOfflineLoginTest extends TestCase
         }));
     }
 
-    private function login(string $password): \Illuminate\Testing\TestResponse
+    private function login(string $password, ?bool $backgroundSync = null): \Illuminate\Testing\TestResponse
     {
-        return $this->postJson('/api/auth/login', ['username' => self::USERNAME, 'password' => $password]);
+        return $this->postJson('/api/auth/login', [
+            'username' => self::USERNAME,
+            'password' => $password,
+            ...($backgroundSync === null ? [] : ['background_sync' => $backgroundSync]),
+        ]);
     }
 }

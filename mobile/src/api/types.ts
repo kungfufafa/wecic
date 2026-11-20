@@ -5,6 +5,8 @@
  * portal decides what it holds.
  */
 
+import type { BackgroundSync } from '@/api/types/admin';
+
 export type ApiMeta = {
   timestamp?: string;
   campus_session_valid?: boolean;
@@ -41,6 +43,8 @@ export type TokenLoginResponse = ApiEnvelope & {
     /** This session's private channel (`portal.session.…`). */
     channel: string;
     realtime?: RealtimeConfig | null;
+    /** The student's background sync, which is off until they switch it on; null where the server has none. */
+    background_sync?: BackgroundSync | null;
   };
 };
 
@@ -52,6 +56,7 @@ export type SessionResponse = ApiEnvelope & {
     /** Told with a token, as at login, so an app opened from a stored token knows its channel. */
     channel?: string;
     realtime?: RealtimeConfig | null;
+    background_sync?: BackgroundSync | null;
   } | null;
 };
 

@@ -1388,6 +1388,26 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Store Reviewer Account (Every Environment)
+    |--------------------------------------------------------------------------
+    |
+    | The sign-in app store reviewers use. Logging in (API token login or
+    | web login) with exactly this username and password opens a session of
+    | a fixed demo student served entirely from the sanitized fixture pages
+    | of tests/Fixtures/portal; the campus portal is never contacted, and
+    | nothing is stored for offline login or background sync. Off while
+    | either value is empty, or while the username is all digits (a NIM).
+    | See PortalReviewerAccount.
+    |
+    */
+
+    'reviewer' => [
+        'username' => (string) env('PORTAL_REVIEWER_USERNAME', ''),
+        'password' => (string) env('PORTAL_REVIEWER_PASSWORD', ''),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Maintainers (Horizon and Log Viewer)
     |--------------------------------------------------------------------------
     |

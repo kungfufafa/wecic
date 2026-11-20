@@ -249,6 +249,9 @@ export type BackgroundSync = {
   last_synced_at?: string | null;
   last_status?: string | null;
   last_error?: string | null;
+  courses_enabled?: boolean;
+  courses_interval_minutes?: number;
+  last_course_sync_at?: string | null;
 };
 
 export type ArchiveDataset = {
@@ -309,4 +312,9 @@ export type OutboxItem = {
 
 export type OutboxResponse = ApiEnvelope & {
   data: { items: OutboxItem[]; queued_count?: number; offline?: boolean; enabled?: boolean };
+};
+
+/** What `DELETE /account` erased, counted per kind. */
+export type AccountDeletionResponse = ApiEnvelope & {
+  data: Record<string, number>;
 };

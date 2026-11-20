@@ -541,8 +541,8 @@ class PortalMobileTokenAuthTest extends TestCase
 
         // The refresh answers the new expiry only; the campus token never leaves the server.
         $this->assertSame(['expires_at'], $dataKeys('/auth/session/refresh', 'post'));
-        $this->assertSame(['user_info', 'expires_at', 'offline', 'offline_reconnect', 'token', 'token_type', 'channel', 'realtime'], $dataKeys('/auth/token', 'post'));
-        $this->assertSame(['user_info', 'offline', 'offline_reconnect', 'channel', 'realtime'], $dataKeys('/auth/session', 'get'));
+        $this->assertSame(['user_info', 'expires_at', 'offline', 'offline_reconnect', 'background_sync', 'token', 'token_type', 'channel', 'realtime'], $dataKeys('/auth/token', 'post'));
+        $this->assertSame(['user_info', 'offline', 'offline_reconnect', 'background_sync', 'channel', 'realtime'], $dataKeys('/auth/session', 'get'));
         $this->assertNotContains('token', $dataKeys('/auth/login', 'post'));
         $this->assertSame(['platform', 'registered_at'], $dataKeys('/devices/push-token', 'post'));
         $this->assertSame(['removed'], $dataKeys('/devices/push-token', 'delete'));

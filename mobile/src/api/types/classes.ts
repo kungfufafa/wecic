@@ -111,6 +111,7 @@ export type NotebooksResponse = ApiEnvelope & {
     ai_status?: string | null;
     course_notebooks?: boolean;
     studio_kinds?: Record<string, string>;
+    ai_consent?: AiConsent;
   };
 };
 
@@ -159,8 +160,19 @@ export type NotebookDetailResponse = ApiEnvelope & {
     ai_available?: boolean;
     ai_status?: string | null;
     studio_kinds?: Record<string, string>;
+    ai_consent?: AiConsent;
   };
 };
+
+/** The student's consent to send Notebook content to the AI provider (Google Gemini); nothing is sent without it. */
+export type AiConsent = {
+  granted: boolean;
+  granted_at: string | null;
+  withdrawn_at: string | null;
+  provider: string;
+};
+
+export type AiConsentResponse = ApiEnvelope & { data: { consent: AiConsent } };
 
 export type NotebookAskResponse = ApiEnvelope & { data: { question: NotebookMessage; answer: NotebookMessage } };
 export type NotebookStudioResponse = ApiEnvelope & { data: { message: NotebookMessage } };

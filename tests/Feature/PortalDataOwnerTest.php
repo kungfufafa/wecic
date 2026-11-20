@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Models\Notebook;
+use App\Models\NotebookAiConsent;
 use App\Models\PortalArchivedFile;
 use App\Models\PortalArchiveVersion;
 use App\Models\PortalNotification;
@@ -73,6 +74,7 @@ class PortalDataOwnerTest extends TestCase
             PortalArchivedFile::factory()->forOwner($earlier)->create(),
             PortalNotification::factory()->forOwner($earlier)->create(),
             Notebook::factory()->forOwner($earlier)->create(),
+            NotebookAiConsent::factory()->forOwner($earlier)->create(),
             PortalOfflineAccount::query()->create(['owner_hash' => $earlier, 'password_hash' => Hash::make('rahasia'), 'last_online_login_at' => now()]),
         ];
 
@@ -89,21 +91,21 @@ class PortalDataOwnerTest extends TestCase
         }
     }
 
-    public function test_an_earlier_offline_account_gives_way_to_the_current_one_but_keeps_its_background_sync_opt_out(): void
+    public function test_an_earlier_offline_account_gives_way_to_the_current_one_and_its_background_sync_choice(): void
     {
         $earlier = app(PortalDataOwner::class)->keyForUsername(self::USERNAME);
         PortalOfflineAccount::query()->create([
             'owner_hash' => $earlier,
             'password_hash' => '',
+            'credentials' => ['username' => self::USERNAME, 'password' => 'lama'],
+            'background_sync_enabled_at' => now()->subDays(3),
             'last_online_login_at' => now()->subDays(3),
-            'background_sync_disabled_at' => now()->subDays(3),
         ]);
         $this->rotateAppKey();
         $current = $this->keyMadeWith(self::NEW_APP_KEY);
         PortalOfflineAccount::query()->create([
             'owner_hash' => $current,
             'password_hash' => Hash::make('rahasia'),
-            'credentials' => ['username' => self::USERNAME, 'password' => 'rahasia'],
             'last_online_login_at' => now(),
         ]);
 
@@ -111,7 +113,7 @@ class PortalDataOwnerTest extends TestCase
 
         $account = PortalOfflineAccount::query()->sole();
         $this->assertSame($current, $account->owner_hash);
-        $this->assertNotNull($account->background_sync_disabled_at);
+        $this->assertFalse($account->isBackgroundSyncEnabled(), 'An earlier opt-in never switches the newer row on.');
         $this->assertNull($account->credentials);
         $this->assertTrue(Hash::check('rahasia', $account->password_hash));
     }

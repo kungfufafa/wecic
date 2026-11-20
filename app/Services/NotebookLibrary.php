@@ -37,6 +37,11 @@ use Illuminate\Support\Str;
  * (`notebook.limits.daily_source_reads`), part of which is kept for the
  * files the student adds; a course file another notebook has read already
  * is reused instead.
+ *
+ * Nothing goes to the model before the student agreed to it
+ * (NotebookAiConsents): without that consent a file that needs the model
+ * waits (or, when the student asked for it, fails saying so) and no source
+ * gets a model summary; files read locally are still read.
  */
 class NotebookLibrary
 {
@@ -64,10 +69,19 @@ class NotebookLibrary
      */
     private const WAITING_FOR_AI = 'Berkas ini perlu dibaca AI, yang sedang tidak bisa dipakai. Berkas ini dibaca otomatis saat notebook dibuka setelah AI aktif lagi.';
 
+    /**
+     * A file that needs the model while the student has not agreed to send
+     * Notebook content to Google Gemini, or withdrew that consent.
+     */
+    private const WAITING_FOR_CONSENT = 'Berkas ini perlu dibaca AI (Google Gemini). Setujui pengiriman data ke AI di Notebook dulu; berkas ini dibaca otomatis saat notebook dibuka lagi.';
+
+    private const NEEDS_CONSENT = 'Berkas ini perlu dibaca AI (Google Gemini). Setujui pengiriman data ke AI di Notebook dulu, lalu ketuk "Baca ulang".';
+
     public function __construct(
         private readonly NotebookSourceReader $reader,
         private readonly PortalArchivedFileStore $archivedFiles,
-        private readonly GeminiClient $gemini
+        private readonly GeminiClient $gemini,
+        private readonly NotebookAiConsents $aiConsents
     ) {}
 
     /**
@@ -173,7 +187,7 @@ class NotebookLibrary
             'requested_at' => now(),
         ]);
 
-        $this->index($source, [['page' => null, 'text' => $content]], false, summarize: $this->gemini->isUsable() && $this->spendRead($notebook->owner_hash));
+        $this->index($source, [['page' => null, 'text' => $content]], false, summarize: $this->modelUsableFor($notebook->owner_hash) && $this->spendRead($notebook->owner_hash));
 
         return $source->refresh();
     }
@@ -242,6 +256,17 @@ class NotebookLibrary
             [$contents, $filename] = $this->contents($source);
             $mime = (string) $source->mime;
             $byModel = $this->reader->needsModel($mime, $filename);
+            $consented = $this->aiConsents->granted($ownerHash);
+
+            if ($byModel && ! $consented) {
+                if (! $automatic) {
+                    throw new NotebookSourceException(self::NEEDS_CONSENT);
+                }
+
+                $this->waitForTurn($source, self::WAITING_FOR_CONSENT);
+
+                return;
+            }
 
             if ($byModel && $automatic && ! $this->gemini->isUsable()) {
                 $this->waitForTurn($source, self::WAITING_FOR_AI);
@@ -266,7 +291,7 @@ class NotebookLibrary
             $read = $this->reader->read($contents, $mime, $filename);
 
             // A transcribed file's summary is part of the reading it paid for.
-            $this->index($source, $read['pages'], $read['truncated'], summarize: $this->gemini->isUsable() && ($byModel || $this->spendRead($ownerHash, $automatic)));
+            $this->index($source, $read['pages'], $read['truncated'], summarize: $consented && $this->gemini->isUsable() && ($byModel || $this->spendRead($ownerHash, $automatic)));
         } catch (\Throwable $throwable) {
             $unusable = $throwable instanceof NotebookAiException && $throwable->concernsConfiguration();
 
@@ -325,7 +350,8 @@ class NotebookLibrary
             ->get();
         $readElsewhere = $this->hashesReadElsewhere($waiting);
         $usable = $this->gemini->isUsable();
-        $modelReads = $usable ? $this->automaticReadsLeft($notebook->owner_hash) : 0;
+        $consented = $this->aiConsents->granted($notebook->owner_hash);
+        $modelReads = $usable && $consented ? $this->automaticReadsLeft($notebook->owner_hash) : 0;
         $queued = 0;
 
         foreach ($waiting as $source) {
@@ -340,7 +366,11 @@ class NotebookLibrary
             if (! $free) {
                 if ($modelReads <= 0) {
                     // Say why it waits; past the share the student can read it now with their own reads.
-                    $this->waitForTurn($source, $usable ? self::WAITING_FOR_READS : self::WAITING_FOR_AI);
+                    $this->waitForTurn($source, match (true) {
+                        ! $usable => self::WAITING_FOR_AI,
+                        ! $consented => self::WAITING_FOR_CONSENT,
+                        default => self::WAITING_FOR_READS,
+                    });
 
                     continue;
                 }
@@ -456,6 +486,15 @@ class NotebookLibrary
         $notebook->sources()->delete();
         $notebook->messages()->delete();
         $notebook->touch();
+    }
+
+    /**
+     * The model can be used for this student's content: the AI works and
+     * they agreed to send Notebook content to Google Gemini.
+     */
+    private function modelUsableFor(string $ownerHash): bool
+    {
+        return $this->gemini->isUsable() && $this->aiConsents->granted($ownerHash);
     }
 
     /**

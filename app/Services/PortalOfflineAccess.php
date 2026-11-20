@@ -15,10 +15,11 @@ use Illuminate\Support\Facades\Log;
  * online within `portal.archive.offline_login_days` can still open MyCIC
  * with the same password and read their archive (read-only).
  *
- * A hash of that password is kept for the check. With background sync on
- * (PortalBackgroundSync), the credentials themselves are stored encrypted as
- * well, so MyCIC can keep the archive current while the student is away;
- * the account row is kept for that even when offline login is switched off
+ * A hash of that password is kept for the check. Only once the student
+ * switched background sync on (PortalBackgroundSync, opt-in, off by
+ * default) are the credentials themselves stored encrypted as well, so
+ * MyCIC can keep the archive current while the student is away; the
+ * account row is kept for that even when offline login is switched off
  * (it then holds no password hash). A password the portal has since refused
  * no longer opens MyCIC offline, and its stored credentials are dropped.
  * Whatever is kept expires with the last online login
@@ -48,28 +49,39 @@ class PortalOfflineAccess
      * changed their password through MyCIC. Never throws: offline access
      * must not fail the login it comes from.
      *
+     * The password itself is stored (encrypted) only for a student who
+     * switched background sync on: `$backgroundSync` true switches it on
+     * with this login, false switches it off and drops what was stored, and
+     * null keeps the choice the student made before (off by default).
+     *
      * @param  array<string, mixed>|null  $userInfo
      */
-    public function remember(string $username, string $password, ?array $userInfo): void
+    public function remember(string $username, string $password, ?array $userInfo, ?bool $backgroundSync = null): void
     {
         $offlineLogin = $this->enabled();
-        $backgroundSync = PortalBackgroundSync::configured();
-
-        if (! $offlineLogin && ! $backgroundSync) {
-            return;
-        }
+        $syncConfigured = PortalBackgroundSync::configured();
 
         try {
             $account = PortalOfflineAccount::query()->firstOrNew(['owner_hash' => $this->owner->keyForUsername($username)]);
             // A row sealed with an earlier APP_KEY is overwritten, not left unusable.
             $account->forgetUnreadableEncryptedAttributes();
-            $storeCredentials = $backgroundSync && $account->isBackgroundSyncEnabled();
+            $optedIn = match ($backgroundSync) {
+                true => $syncConfigured,
+                false => false,
+                null => $account->exists && $account->isBackgroundSyncEnabled(),
+            };
+            $storeCredentials = $syncConfigured && $optedIn;
+
+            if (! $offlineLogin && ! $storeCredentials && ! $account->exists) {
+                return;
+            }
 
             $account->forceFill([
                 'password_hash' => $offlineLogin ? Hash::make($password) : '',
                 'user_info' => $userInfo,
                 'credentials' => $storeCredentials ? ['username' => $username, 'password' => $password] : null,
                 'credentials_rejected_at' => null,
+                'background_sync_enabled_at' => $optedIn ? ($account->background_sync_enabled_at ?? now()) : null,
                 'last_online_login_at' => now(),
             ])->save();
         } catch (\Throwable $throwable) {
@@ -77,6 +89,22 @@ class PortalOfflineAccess
                 'error' => $throwable->getMessage(),
             ]);
         }
+    }
+
+    /**
+     * Whether `$password` is the one the student last logged in with online,
+     * checked against the offline-login hash; null when no usable hash is
+     * kept (offline login switched off, or the portal refused it since).
+     */
+    public function matchesLastOnlinePassword(string $ownerHash, string $password): ?bool
+    {
+        $account = $this->findForOwner($ownerHash);
+
+        if ($account === null || $account->password_hash === '' || $account->credentials_rejected_at !== null) {
+            return null;
+        }
+
+        return Hash::check($password, $account->password_hash);
     }
 
     /**
@@ -220,48 +248,13 @@ class PortalOfflineAccess
 
     /**
      * Remove everything MyCIC keeps to act for the student (password hash,
-     * stored credentials, user info, sync history). A student who switched
-     * background sync off keeps only that choice, so the next online login
-     * does not start storing their password again.
+     * stored credentials, user info, sync history), the background sync
+     * opt-in included: the next login stores no password unless the
+     * student switches it on again.
      */
     public function forget(string $ownerHash): void
     {
-        $account = $this->findForOwner($ownerHash);
-
-        if ($account === null) {
-            return;
-        }
-
-        if ($account->isBackgroundSyncEnabled()) {
-            $account->delete();
-
-            return;
-        }
-
-        $account->forceFill(PortalOfflineAccount::forgottenAttributes())->save();
-    }
-
-    /**
-     * Record that the student switched background sync off, even when MyCIC
-     * keeps nothing else for them yet (their archive was deleted, or offline
-     * login is switched off for the deployment), so the next online login
-     * honours it instead of storing the password.
-     */
-    public function rememberBackgroundSyncOptOut(string $ownerHash): PortalOfflineAccount
-    {
-        $account = PortalOfflineAccount::query()->firstOrNew(['owner_hash' => $ownerHash]);
-
-        if (! $account->exists) {
-            $account->forceFill(['password_hash' => '', 'last_online_login_at' => now()]);
-        }
-
-        $account->forceFill([
-            'background_sync_disabled_at' => $account->background_sync_disabled_at ?? now(),
-            'credentials' => null,
-            'credentials_rejected_at' => null,
-        ])->save();
-
-        return $account;
+        $this->findForOwner($ownerHash)?->delete();
     }
 
     /**

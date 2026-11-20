@@ -41,6 +41,7 @@ class PortalArchiveApiTest extends TestCase
             $mock->shouldReceive('validateSession')->andReturnTrue();
             $mock->shouldReceive('isSessionUsable')->andReturnTrue();
             $mock->shouldReceive('forgetStoredCredentialsForOwner')->andReturnTrue();
+            $mock->shouldReceive('getSession')->andReturn(['username' => self::USERNAME]);
         }));
         app(PortalDataOwner::class)->remember(self::TOKEN, self::USERNAME, 3600);
         $this->ownerHash = app(PortalDataOwner::class)->keyForUsername(self::USERNAME);
@@ -224,13 +225,14 @@ class PortalArchiveApiTest extends TestCase
         Storage::disk('local')->assertMissing($own->blobPath());
     }
 
-    public function test_deleting_the_archive_keeps_the_choice_to_switch_background_sync_off(): void
+    public function test_deleting_the_archive_also_forgets_the_background_sync_opt_in(): void
     {
         PortalOfflineAccount::query()->create([
             'owner_hash' => $this->ownerHash,
             'password_hash' => Hash::make('rahasia-portal'),
             'user_info' => ['name' => 'Mahasiswa Arsip'],
-            'background_sync_disabled_at' => now()->subDay(),
+            'credentials' => ['username' => self::USERNAME, 'password' => 'rahasia-portal'],
+            'background_sync_enabled_at' => now()->subDay(),
             'last_online_login_at' => now()->subHour(),
             'last_offline_login_at' => now()->subMinutes(30),
             'last_background_sync_at' => now()->subDays(2),
@@ -239,14 +241,7 @@ class PortalArchiveApiTest extends TestCase
 
         $this->deleteAsStudent('/api/archive', ['confirm' => true])->assertOk();
 
-        $account = PortalOfflineAccount::query()->sole();
-        $this->assertNotNull($account->background_sync_disabled_at);
-        $this->assertSame('', $account->password_hash);
-        $this->assertNull($account->user_info);
-        $this->assertNull($account->credentials);
-        $this->assertNull($account->last_offline_login_at);
-        $this->assertNull($account->last_background_sync_at);
-        $this->assertNull($account->last_background_sync_status);
+        $this->assertSame(0, PortalOfflineAccount::query()->count());
         // Offline access itself is gone.
         $this->assertNull(app(PortalOfflineAccess::class)->attempt(self::USERNAME, 'rahasia-portal'));
         $this->getAsStudent('/api/archive')
@@ -255,31 +250,54 @@ class PortalArchiveApiTest extends TestCase
             ->assertJsonPath('data.background_sync.pending_login', false)
             ->assertJsonPath('data.background_sync.last_synced_at', null);
 
-        // The next online login honours the choice.
+        // The next online login stores no password until the student opts in again.
         app(PortalOfflineAccess::class)->remember(self::USERNAME, 'rahasia-portal', ['name' => 'Mahasiswa Arsip']);
         $this->assertNull(PortalOfflineAccount::query()->sole()->credentials);
     }
 
-    public function test_switching_background_sync_off_is_kept_even_when_mycic_holds_nothing_for_the_student(): void
+    public function test_background_sync_is_off_by_default_and_switching_it_on_needs_the_password(): void
     {
+        $this->getAsStudent('/api/archive/background-sync')
+            ->assertOk()
+            ->assertJsonPath('data.available', true)
+            ->assertJsonPath('data.enabled', false)
+            ->assertJsonPath('data.active', false);
+
         $this->patchAsStudent('/api/archive/background-sync', ['enabled' => false])
             ->assertOk()
             ->assertJsonPath('data.enabled', false)
             ->assertJsonPath('data.active', false)
             ->assertJsonPath('data.pending_login', false);
-
-        $account = PortalOfflineAccount::query()->sole();
-        $this->assertNotNull($account->background_sync_disabled_at);
-        $this->assertSame('', $account->password_hash);
-        $this->assertNull(app(PortalOfflineAccess::class)->attempt(self::USERNAME, ''));
+        $this->assertSame(0, PortalOfflineAccount::query()->count(), 'Off is the default; nothing is kept to remember it.');
 
         app(PortalOfflineAccess::class)->remember(self::USERNAME, 'rahasia-portal', null);
         $this->assertNull(PortalOfflineAccount::query()->sole()->credentials);
 
         $this->patchAsStudent('/api/archive/background-sync', ['enabled' => true])
+            ->assertStatus(422)
+            ->assertJsonPath('errors.password.0', 'Masukkan password portal untuk menyalakan sinkronisasi background.');
+        $this->patchAsStudent('/api/archive/background-sync', ['enabled' => true, 'password' => 'salah'])
+            ->assertStatus(422)
+            ->assertJsonPath('errors.password.0', 'Password tidak cocok dengan password login terakhirmu.');
+        $this->assertNull(PortalOfflineAccount::query()->sole()->credentials);
+
+        $this->patchAsStudent('/api/archive/background-sync', ['enabled' => true, 'password' => 'rahasia-portal'])
             ->assertOk()
             ->assertJsonPath('data.enabled', true)
-            ->assertJsonPath('data.pending_login', true);
+            ->assertJsonPath('data.active', true)
+            ->assertJsonPath('data.pending_login', false);
+        $account = PortalOfflineAccount::query()->sole();
+        $this->assertSame(['username' => self::USERNAME, 'password' => 'rahasia-portal'], $account->credentials);
+        $this->assertNotNull($account->background_sync_enabled_at);
+
+        $this->patchAsStudent('/api/archive/background-sync', ['enabled' => false])
+            ->assertOk()
+            ->assertJsonPath('message', 'Sinkronisasi background dimatikan dan password tersimpan sudah dihapus.')
+            ->assertJsonPath('data.enabled', false);
+        $account = PortalOfflineAccount::query()->sole();
+        $this->assertNull($account->credentials);
+        $this->assertNull($account->background_sync_enabled_at);
+        $this->assertStringNotContainsString('rahasia-portal', (string) PortalOfflineAccount::query()->toBase()->value('credentials'));
     }
 
     public function test_switching_background_sync_on_is_refused_when_the_deployment_has_it_off(): void

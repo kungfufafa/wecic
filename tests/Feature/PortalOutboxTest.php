@@ -88,7 +88,7 @@ class PortalOutboxTest extends TestCase
             $mock->shouldReceive('logout');
         }));
 
-        app(PortalOfflineAccess::class)->remember(self::USERNAME, self::PASSWORD, ['name' => 'Mahasiswa Arsip', 'student_id' => self::USERNAME]);
+        app(PortalOfflineAccess::class)->remember(self::USERNAME, self::PASSWORD, ['name' => 'Mahasiswa Arsip', 'student_id' => self::USERNAME], true);
         $this->ownerHash = app(PortalDataOwner::class)->keyForUsername(self::USERNAME);
     }
 
