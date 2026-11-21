@@ -503,7 +503,7 @@ Sebelum mengunggah tangkapan layar:
 | Play App Signing | Aplikasi baru otomatis terdaftar dengan kunci yang dibuat Google. Simpan **upload key** (EAS menyimpannya; unduh cadangan lewat `eas credentials`). Play App Signing juga otomatis mendaftarkan paket untuk verifikasi pengembang. |
 | Target API | **36 (Android 16)**. Cek setelah prebuild (blocker B10). |
 | versionCode | Dikelola EAS (`appVersionSource: remote`, `autoIncrement` di profil `production`); jangan tulis di app.json. |
-| Cek manifest rilis | Ada `CAMERA`, tidak ada `AD_ID`, `READ_MEDIA_*`, `FOREGROUND_SERVICE*`, `RECORD_AUDIO`, atau izin dev-client (`SYSTEM_ALERT_WINDOW`, `ACCESS_LOCAL_NETWORK`). `android:allowBackup="false"`. |
+| Cek manifest rilis | Ada `CAMERA`, tidak ada `AD_ID`, `READ_MEDIA_*`, `FOREGROUND_SERVICE*`, `RECORD_AUDIO`, atau izin dev-client (`SYSTEM_ALERT_WINDOW`, `ACCESS_LOCAL_NETWORK`). `android:allowBackup="false"`. `android.hardware.wifi` dan `android.hardware.screen.portrait` berstatus `required="false"` (plugin `mobile/plugins/with-optional-hardware-features.js`); tanpa itu Play membatasi tablet, desktop, dan XR. |
 
 ### 6.2 Uji internal (opsional, disarankan dulu)
 

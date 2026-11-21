@@ -216,6 +216,7 @@
       ],
       "expo-image",
       "expo-web-browser",
+      "./plugins/with-optional-hardware-features",
       [
         "@sentry/react-native/expo",
         {
