@@ -13,7 +13,7 @@ node mobile/store-listing/tools/generate-assets.mjs
 | `03-tugas.png` | Tugas | Daftar tugas dengan tenggat |
 | `04-nilai.png` | Nilai | IPK/IPS dan KHS satu semester |
 | `05-keuangan.png` | Keuangan | Tagihan dan riwayat pembayaran |
-| `06-notifikasi.png` | Notifikasi | Beberapa notifikasi pengingat |
+| `06-kuliah.png` | Kuliah | Daftar kelas per hari |
 
 Cara mengambil di simulator iOS (iPhone 17 Pro Max = 6.9", hasil 1320×2868):
 

@@ -34,7 +34,7 @@ const SCREENS = [
   { raw: '03-tugas.png', id: 'Tenggat tugas tak lagi terlewat', en: 'Never miss an assignment deadline' },
   { raw: '04-nilai.png', id: 'IPK, IPS, dan KHS dalam genggaman', en: 'GPA and semester grades in your pocket' },
   { raw: '05-keuangan.png', id: 'Tagihan dan riwayat pembayaran', en: 'Bills and payment history' },
-  { raw: '06-notifikasi.png', id: 'Pengingat langsung ke HP-mu', en: 'Reminders straight to your phone' },
+  { raw: '06-kuliah.png', id: 'Semua kelas dan jadwal kuliah', en: 'All your classes and schedule' },
 ];
 
 /** Output sizes: [folder, width, height]. */

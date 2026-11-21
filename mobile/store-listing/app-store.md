@@ -275,7 +275,7 @@ Urutan dan caption screenshot (dari `generate-assets.mjs`):
 | 03 | Tugas | Tenggat tugas tak lagi terlewat | Never miss an assignment deadline |
 | 04 | Nilai | IPK, IPS, dan KHS dalam genggaman | GPA and semester grades in your pocket |
 | 05 | Keuangan | Tagihan dan riwayat pembayaran | Bills and payment history |
-| 06 | Notifikasi | Pengingat langsung ke HP-mu | Reminders straight to your phone |
+| 06 | Kuliah | Semua kelas dan jadwal kuliah | All your classes and schedule |
 
 Sebelum mengambil tangkapan:
 

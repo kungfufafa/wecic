@@ -469,7 +469,7 @@ Berkas dibuat terpisah oleh `mobile/store-listing/tools/generate-assets.mjs`. Pa
 |---|---|---|---|
 | App icon | 512 × 512 px, PNG 32-bit dengan alpha, maks. 1024 KB | `mobile/store-listing/assets/google-play/icon-512.png` | Tanpa lencana atau teks peringkat/harga/kategori. Tanpa logo atau lambang kampus. |
 | Feature graphic (wajib) | 1024 × 500 px, JPEG atau PNG 24-bit, **tanpa alpha** | `mobile/store-listing/assets/google-play/feature-graphic-1024x500.png` | Pastikan PNG disimpan tanpa kanal alpha. Tanpa logo atau warna kampus. |
-| Phone screenshots, id-ID | Min. 2, maks. 8; JPEG atau PNG 24-bit tanpa alpha; sisi 320 sampai 3840 px; sisi panjang maks. 2× sisi pendek. Disarankan min. 4, min. 1080 px, 9:16 | `mobile/store-listing/assets/google-play/phone/id/01.png` sampai `06.png` (1080 × 1920) | 6 layar: Beranda, Absensi, Tugas, Nilai, Keuangan, Notifikasi. |
+| Phone screenshots, id-ID | Min. 2, maks. 8; JPEG atau PNG 24-bit tanpa alpha; sisi 320 sampai 3840 px; sisi panjang maks. 2× sisi pendek. Disarankan min. 4, min. 1080 px, 9:16 | `mobile/store-listing/assets/google-play/phone/id/01.png` sampai `06.png` (1080 × 1920) | 6 layar: Beranda, Absensi, Tugas, Nilai, Keuangan, Kuliah. |
 | Phone screenshots, en-US | Sama | `mobile/store-listing/assets/google-play/phone/en/01.png` sampai `06.png` | Unggah di terjemahan en-US. |
 | 7" / 10" tablet screenshots | Min. 4 per jenis, 1080 sampai 7680 px, 16:9 atau 9:16 | Tidak ada | Opsional. Aplikasi portrait dan berfokus ke ponsel. |
 | Chromebook | Sama dengan tablet | Tidak ada | Opsional. |
