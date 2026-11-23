@@ -55,10 +55,9 @@ class BrandIdentityTest extends TestCase
         $this->assertStringNotContainsString('UCIC', $page->text());
         $this->assertStringNotContainsString('password MyCIC', $page->text());
 
-        $disclosure = $page->filter('#login-form [data-sign-in-disclosure]');
-        $this->assertCount(1, $disclosure);
-        $this->assertStringContainsString('hash password dan info profilmu selama 30 hari', $disclosure->text());
-        $this->assertSame(route('legal.privacy'), $disclosure->filter('a')->attr('href'));
+        $this->assertCount(1, $page->filter('#login-form #background-sync'));
+        $this->assertCount(0, $page->filter('#login-form [data-sign-in-disclosure]'));
+        $this->assertGreaterThan(0, $page->filter('a[href="'.route('legal.privacy').'"]')->count());
     }
 
     public function test_authenticated_header_uses_the_same_logo_and_favicon(): void
