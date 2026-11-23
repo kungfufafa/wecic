@@ -42,10 +42,10 @@ function isProtectedNavigation(pathname) {
     return PROTECTED_PAGE_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
 }
 
-// A URL that carries a password or token (a form that ever submitted
-// natively) never becomes a Cache Storage key.
+// A URL that carries a password, token or API key (a form that ever
+// submitted natively) never becomes a Cache Storage key.
 function carriesCredentials(url) {
-    return [...url.searchParams.keys()].some((name) => /password|secret|token/i.test(name));
+    return [...url.searchParams.keys()].some((name) => /password|secret|token|api_?key/i.test(name));
 }
 
 function isStaticAsset(pathname) {

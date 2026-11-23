@@ -168,6 +168,28 @@ class NotebookAiOwnerSettings
     }
 
     /**
+     * Whether a provider can answer with these settings (null: none saved),
+     * the server's filling in what the student left empty.
+     */
+    public static function usable(?NotebookAiSetting $settings, string $provider): bool
+    {
+        if ($provider === 'openai' && ($settings?->hasOwnOpenAiEndpoint() ?? false)) {
+            return $settings->apiKey('openai') !== null && trim((string) $settings->openai_model) !== '';
+        }
+
+        if (self::serverConfigures($provider)) {
+            return true;
+        }
+
+        if ($settings?->apiKey($provider) === null) {
+            return false;
+        }
+
+        return $provider !== 'openai'
+            || (trim((string) config('services.openai_compatible.base_url')) !== '' && (trim((string) $settings->openai_model) !== '' || trim((string) config('services.openai_compatible.model')) !== ''));
+    }
+
+    /**
      * The server names an OpenAI-compatible endpoint and model.
      */
     public static function serverOpenAiEndpoint(): bool

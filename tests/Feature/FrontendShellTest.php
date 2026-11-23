@@ -78,19 +78,34 @@ class FrontendShellTest extends TestCase
             ->assertOk()
             ->assertSee('data-page="notebook-ai-settings"', false)
             ->assertSee('Pengaturan AI')
+            ->assertSee('Siapa yang menjawab Notebook-mu?')
             ->assertSee('action="javascript:void(0)"', false);
 
         $crawler = new Crawler((string) $page->getContent());
 
+        // One decision: follow the server or one of the three providers, each with its own credentials panel.
+        $this->assertSame(['', 'gemini', 'anthropic', 'openai'], $crawler->filter('input[type="radio"][name="provider"]')->extract(['value']));
+
+        foreach (['gemini', 'anthropic', 'openai'] as $provider) {
+            $this->assertCount(1, $crawler->filter("[data-provider-panel=\"{$provider}\"][hidden] input[name=\"{$provider}_api_key\"]"));
+        }
+
         foreach (['gemini_api_key', 'anthropic_api_key', 'openai_api_key'] as $field) {
+            $this->assertNull($crawler->filter("input[name=\"{$field}\"]")->attr('placeholder'));
             $this->assertSame('password', $crawler->filter("input[name=\"{$field}\"]")->attr('type'));
             $this->assertNull($crawler->filter("input[name=\"{$field}\"]")->attr('value'));
         }
 
-        $this->withSession(['campus_session_token' => 'token-ai-settings-page'])
-            ->get('/more')
-            ->assertOk()
-            ->assertSee(route('notebook.ai-settings'), false);
+        // On the /more hub the Notebook and its settings form a group of their own, apart from the account menu.
+        $more = new Crawler((string) $this->withSession(['campus_session_token' => 'token-ai-settings-page'])->get('/more')->assertOk()->getContent());
+        $tilesOf = fn (string $title): array => $more
+            ->filterXPath("//*[starts-with(@id, 'more-group-')][normalize-space()='{$title}']/ancestor::section[1]//a[@data-more-tile]")
+            ->extract(['data-more-tile']);
+
+        $this->assertSame(['notebook', 'ai-settings'], $tilesOf('Notebook'));
+        $this->assertSame(route('notebook.ai-settings'), $more->filter('a[data-more-tile="ai-settings"]')->attr('href'));
+        $this->assertNotContains('ai-settings', $tilesOf('Akun'));
+        $this->assertNotContains('notebook', $tilesOf('Cadangan'));
     }
 
     public function test_session_without_a_known_owner_still_gets_its_own_cache_owner(): void
@@ -290,6 +305,7 @@ class FrontendShellTest extends TestCase
             $this->assertMatchesRegularExpression($guard[1], $field, "A URL carrying {$field} would become a cache key.");
         }
 
+        $this->assertContains('{{ $provider }}_api_key', $passwordFields->all(), 'The AI settings page names its key fields per provider.');
         $this->assertDoesNotMatchRegularExpression($guard[1], 'class_id', 'Meeting and class pages keep their offline copy.');
     }
 

@@ -36,6 +36,15 @@ class NotebookAiSetting extends Model
     public const PROVIDERS = ['gemini', 'anthropic', 'openai'];
 
     /**
+     * Each provider as students read it.
+     */
+    public const LABELS = [
+        'gemini' => 'Google Gemini',
+        'anthropic' => 'Anthropic Claude',
+        'openai' => 'OpenAI-compatible',
+    ];
+
+    /**
      * The key column of each provider.
      */
     public const KEY_COLUMNS = [

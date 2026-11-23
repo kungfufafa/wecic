@@ -18,12 +18,6 @@ use Illuminate\Validation\Validator;
  */
 class UpdateNotebookAiSettingsRequest extends ApiFormRequest
 {
-    private const PROVIDER_LABELS = [
-        'gemini' => 'Google Gemini',
-        'anthropic' => 'Anthropic Claude',
-        'openai' => 'OpenAI-compatible',
-    ];
-
     public function authorize(): bool
     {
         return true;
@@ -98,8 +92,8 @@ class UpdateNotebookAiSettingsRequest extends ApiFormRequest
                     return;
                 }
 
-                if ($settings->provider !== null && ! $this->usable($settings, $settings->provider)) {
-                    $validator->errors()->add('provider', 'Server WeCIC belum punya API key '.self::PROVIDER_LABELS[$settings->provider].'. Isi API key milikmu dulu untuk memakai penyedia ini.');
+                if ($settings->provider !== null && ! NotebookAiOwnerSettings::usable($settings, $settings->provider)) {
+                    $validator->errors()->add('provider', 'Server WeCIC belum punya API key '.NotebookAiSetting::LABELS[$settings->provider].'. Isi API key milikmu dulu untuk memakai penyedia ini.');
                 }
             },
         ];
@@ -136,24 +130,6 @@ class UpdateNotebookAiSettingsRequest extends ApiFormRequest
         }
 
         return $attributes;
-    }
-
-    /**
-     * Whether a provider can answer with these settings, the server's
-     * filling in what the student left empty.
-     */
-    private function usable(NotebookAiSetting $settings, string $provider): bool
-    {
-        if (NotebookAiOwnerSettings::serverConfigures($provider)) {
-            return true;
-        }
-
-        if ($settings->apiKey($provider) === null) {
-            return false;
-        }
-
-        return $provider !== 'openai'
-            || (trim((string) config('services.openai_compatible.base_url')) !== '' && (trim((string) $settings->openai_model) !== '' || trim((string) config('services.openai_compatible.model')) !== ''));
     }
 
     private function publicEndpoint(): Closure

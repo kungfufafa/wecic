@@ -382,6 +382,104 @@ class NotebookAiSettingsTest extends TestCase
         $this->assertSame('gemini', $providers->ingest()->driver());
     }
 
+    public function test_the_settings_say_what_is_in_effect_and_whose_key_it_uses(): void
+    {
+        $this->sendAsStudent('GET', '/api/v1/ai-settings')
+            ->assertOk()
+            ->assertJsonPath('data.settings.server_provider_label', 'Google Gemini')
+            ->assertJsonPath('data.settings.server_ready', true)
+            ->assertJsonPath('data.settings.effective.provider', 'gemini')
+            ->assertJsonPath('data.settings.effective.label', 'Google Gemini')
+            ->assertJsonPath('data.settings.effective.key_source', 'server')
+            ->assertJsonPath('data.settings.effective.endpoint', null)
+            ->assertJsonPath('data.settings.effective.ready', true)
+            ->assertJsonPath('data.settings.ingest', null)
+            ->assertJsonPath('data.settings.providers.gemini.usable', true)
+            ->assertJsonPath('data.settings.providers.anthropic.usable', false)
+            ->assertJsonPath('data.settings.providers.openai.usable', false)
+            ->assertJsonPath('data.settings.providers.openai.server_endpoint', false);
+
+        NotebookAiSetting::factory()->forOwner($this->ownerHash)->create(['gemini_api_key' => 'student-gemini-key-1234']);
+        app(NotebookAiOwnerSettings::class)->forget();
+
+        $this->sendAsStudent('GET', '/api/v1/ai-settings')
+            ->assertJsonPath('data.settings.provider', null)
+            ->assertJsonPath('data.settings.effective.key_source', 'own');
+    }
+
+    public function test_a_provider_without_any_key_is_in_effect_but_not_ready(): void
+    {
+        config(['notebook.ai.provider' => 'anthropic']);
+
+        $this->sendAsStudent('GET', '/api/v1/ai-settings')
+            ->assertOk()
+            ->assertJsonPath('data.settings.server_ready', false)
+            ->assertJsonPath('data.settings.effective.provider', 'anthropic')
+            ->assertJsonPath('data.settings.effective.key_source', 'none')
+            ->assertJsonPath('data.settings.effective.ready', false);
+    }
+
+    public function test_an_unknown_server_provider_is_named_as_such(): void
+    {
+        config(['notebook.ai.provider' => 'mistral']);
+
+        $this->sendAsStudent('GET', '/api/v1/ai-settings')
+            ->assertOk()
+            ->assertJsonPath('data.settings.server_provider_label', null)
+            ->assertJsonPath('data.settings.effective.provider', 'unknown')
+            ->assertJsonPath('data.settings.effective.ready', false);
+    }
+
+    public function test_an_own_endpoint_is_named_by_its_host_and_the_server_one_never_is(): void
+    {
+        config([
+            'services.openai_compatible.key' => 'server-openai-key',
+            'services.openai_compatible.model' => 'server-secret-model',
+            'services.openai_compatible.base_url' => 'https://gateway.internal-company.example/v1',
+        ]);
+        NotebookAiSetting::factory()->forOwner($this->ownerHash)->openAi()->create();
+
+        $response = $this->sendAsStudent('GET', '/api/v1/ai-settings')
+            ->assertOk()
+            ->assertJsonPath('data.settings.effective.provider', 'openai')
+            ->assertJsonPath('data.settings.effective.key_source', 'own')
+            ->assertJsonPath('data.settings.effective.endpoint', 'own')
+            ->assertJsonPath('data.settings.effective.endpoint_host', 'llm.example.com')
+            ->assertJsonPath('data.settings.effective.ready', true)
+            ->assertJsonPath('data.settings.providers.openai.server_endpoint', true);
+
+        foreach (['server-openai-key', 'server-secret-model', 'gateway.internal-company.example', 'server-gemini-key', 'sk-student-openai'] as $secret) {
+            $this->assertStringNotContainsString($secret, $response->getContent());
+        }
+    }
+
+    public function test_a_separate_file_reader_is_named(): void
+    {
+        config(['notebook.ai.provider' => 'anthropic', 'services.anthropic.key' => 'server-anthropic-key', 'notebook.ai.ingest_provider' => 'gemini']);
+
+        $this->sendAsStudent('GET', '/api/v1/ai-settings')
+            ->assertOk()
+            ->assertJsonPath('data.settings.ingest.provider', 'gemini')
+            ->assertJsonPath('data.settings.ingest.label', 'Google Gemini')
+            ->assertJsonPath('data.settings.ingest.key_source', 'server');
+    }
+
+    public function test_a_partial_update_keeps_everything_it_does_not_name(): void
+    {
+        NotebookAiSetting::factory()->forOwner($this->ownerHash)->openAi()->create(['anthropic_api_key' => 'sk-ant-kept-key']);
+
+        $this->sendAsStudent('PUT', '/api/v1/ai-settings', ['gemini_api_key' => 'student-gemini-key'])->assertOk();
+        $this->sendAsStudent('PUT', '/api/v1/ai-settings', ['clear_anthropic_api_key' => true])->assertOk();
+
+        $settings = NotebookAiSetting::query()->forOwner($this->ownerHash)->firstOrFail();
+        $this->assertSame('openai', $settings->provider);
+        $this->assertSame(self::OWN_ENDPOINT, $settings->openai_base_url);
+        $this->assertSame('student-model', $settings->openai_model);
+        $this->assertSame('sk-student-openai-9012', $settings->openai_api_key);
+        $this->assertSame('student-gemini-key', $settings->gemini_api_key);
+        $this->assertNull($settings->anthropic_api_key);
+    }
+
     public function test_the_mask_shows_only_the_last_four_characters(): void
     {
         $this->assertNull(NotebookAiSetting::mask(null));
