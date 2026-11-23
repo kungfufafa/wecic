@@ -13,6 +13,7 @@ use App\Models\NotebookSource;
 use App\Models\PortalArchivedFile;
 use App\Services\Ai\NotebookAiClient;
 use App\Services\Ai\NotebookAiProviders;
+use App\Services\NotebookAssistant;
 use App\Services\PortalDataOwner;
 use App\Services\PortalSessionManager;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -25,6 +26,7 @@ use Illuminate\Testing\TestResponse;
 use Mockery;
 use Mockery\MockInterface;
 use PHPUnit\Framework\Attributes\DataProvider;
+use ReflectionClassConstant;
 use Tests\TestCase;
 
 /**
@@ -123,6 +125,56 @@ class NotebookProviderMatrixTest extends TestCase
     }
 
     #[DataProvider('providers')]
+    public function test_tutor_mode_adds_its_instruction_to_the_question_and_sends_the_system_instruction_unchanged(string $provider): void
+    {
+        $this->useProviders(['notebook.ai.provider' => $provider]);
+        $notebook = $this->notebookWithChunks([['page' => 1, 'content' => 'Normalisasi mengurangi redundansi data.']]);
+        Http::fake([self::URLS[$provider] => Http::response($this->answer($provider, 'Apa yang sudah kamu ketahui tentang redundansi? [1]'))]);
+
+        $this->sendAsStudent('POST', "/api/notebooks/{$notebook->id}/messages", ['question' => 'Bantu aku paham normalisasi.', 'mode' => 'tutor'])
+            ->assertCreated()
+            ->assertJsonPath('data.answer.context.mode', 'tutor');
+        Http::assertSentCount(1);
+        Http::assertSent(fn (Request $request): bool => str_contains($this->lastUserText($provider, $request), "Pertanyaan: Bantu aku paham normalisasi.\n\n---\nMode tutor: ".$this->assistantConstant('TUTOR_INSTRUCTION'))
+            && $this->sentSystem($provider, $request) === $this->systemInstruction());
+        $this->assertSame('tutor', NotebookMessage::query()->where('role', 'assistant')->sole()->context['mode']);
+        $this->assertStringContainsString('Untuk soal tugas atau ujian yang dinilai, bantu memahami: jelaskan konsep, langkah, dan contoh lain, bukan jawaban siap salin.', $this->systemInstruction());
+        $this->assertStringContainsString('jangan menyelesaikan tugas/soal milik mahasiswa', $this->assistantConstant('TUTOR_INSTRUCTION'));
+    }
+
+    #[DataProvider('providers')]
+    public function test_a_question_without_a_mode_is_sent_as_before_and_recorded_as_a_direct_answer(string $provider): void
+    {
+        $this->useProviders(['notebook.ai.provider' => $provider, 'services.anthropic.thinking_headroom' => 0]);
+        $notebook = $this->notebookWithChunks([['page' => 1, 'content' => 'Normalisasi mengurangi redundansi data.']]);
+        Http::fake([self::URLS[$provider] => Http::response($this->answer($provider, 'Normalisasi mengurangi redundansi [1].'))]);
+
+        $this->sendAsStudent('POST', "/api/notebooks/{$notebook->id}/messages", ['question' => 'Apa itu normalisasi?'])
+            ->assertCreated()
+            ->assertJsonPath('data.answer.context.mode', 'answer');
+        Http::assertSent(fn (Request $request): bool => str_ends_with($this->lastUserText($provider, $request), 'Pertanyaan: Apa itu normalisasi?')
+            && ! str_contains($this->lastUserText($provider, $request), 'Mode ')
+            && $this->sentSystem($provider, $request) === $this->systemInstruction()
+            && $this->sentOutputLimit($provider, $request) === 8192);
+    }
+
+    #[DataProvider('providers')]
+    public function test_ringkas_asks_for_at_most_five_points_by_prompt_with_the_usual_output_limit(string $provider): void
+    {
+        $this->useProviders(['notebook.ai.provider' => $provider, 'services.anthropic.thinking_headroom' => 0]);
+        $notebook = $this->notebookWithChunks([['page' => 1, 'content' => 'Normalisasi mengurangi redundansi data.']]);
+        Http::fake([self::URLS[$provider] => Http::response($this->answer($provider, '- Mengurangi redundansi [1].'))]);
+
+        $this->sendAsStudent('POST', "/api/notebooks/{$notebook->id}/messages", ['question' => 'Apa itu normalisasi?', 'mode' => 'ringkas'])
+            ->assertCreated()
+            ->assertJsonPath('data.answer.context.mode', 'ringkas');
+        $this->assertStringContainsString('paling banyak 5 poin', $this->assistantConstant('RINGKAS_INSTRUCTION'));
+        Http::assertSent(fn (Request $request): bool => str_ends_with($this->lastUserText($provider, $request), 'Mode ringkas: '.$this->assistantConstant('RINGKAS_INSTRUCTION'))
+            && $this->sentSystem($provider, $request) === $this->systemInstruction()
+            && $this->sentOutputLimit($provider, $request) === 8192);
+    }
+
+    #[DataProvider('providers')]
     public function test_a_quiz_is_saved_pinned_and_unwrapped_from_its_items(string $provider): void
     {
         $this->useProviders(['notebook.ai.provider' => $provider]);
@@ -144,6 +196,49 @@ class NotebookProviderMatrixTest extends TestCase
             ->assertJsonPath('data.message.citations.0.page', 4);
         $this->assertSame([$question], json_decode((string) NotebookMessage::query()->where('kind', 'quiz')->value('content'), true));
         Http::assertSent(fn (Request $request): bool => $this->sentSchemaRoot($provider, $request) === ($provider === 'gemini' ? 'OBJECT' : 'object'));
+    }
+
+    #[DataProvider('providers')]
+    public function test_quiz_options_set_the_count_and_difficulty_in_the_prompt_and_the_item_count_where_the_schema_takes_it(string $provider): void
+    {
+        $this->useProviders(['notebook.ai.provider' => $provider, 'services.anthropic.thinking_headroom' => 0]);
+        $notebook = $this->notebookWithChunks([['page' => 4, 'content' => 'SQL JOIN menggabungkan tabel.']]);
+        $question = ['question' => 'Fungsi JOIN?', 'options' => ['Menghapus', 'Menggabungkan tabel', 'Mengurutkan', 'Membuat indeks'], 'answer_index' => 1, 'explanation' => 'JOIN menggabungkan tabel.', 'topic' => 'JOIN', 'citations' => [1]];
+        Http::fake([self::URLS[$provider] => Http::response($this->answer($provider, (string) json_encode(['items' => array_fill(0, 5, $question)])))]);
+
+        $this->sendAsStudent('POST', "/api/notebooks/{$notebook->id}/studio", ['kind' => 'quiz', 'options' => ['count' => 5, 'difficulty' => 'sulit']])
+            ->assertCreated()
+            ->assertJsonPath('data.message.context.options', ['count' => 5, 'difficulty' => 'sulit'])
+            ->assertJsonPath('data.message.data.0.topic', 'JOIN')
+            ->assertJsonPath('data.ai_budget.used', 1);
+        $this->assertSame(['count' => 5, 'difficulty' => 'sulit'], NotebookMessage::query()->where('kind', 'quiz')->sole()->context['options']);
+        Http::assertSentCount(1);
+        Http::assertSent(function (Request $request) use ($provider): bool {
+            $items = $this->sentSchemaItems($provider, $request);
+
+            return str_contains($this->lastUserText($provider, $request), 'Jumlah: 5. Tingkat kesulitan: sulit.')
+                && $this->sentSystem($provider, $request) === $this->systemInstruction()
+                && $this->sentOutputLimit($provider, $request) === 16384
+                && ($items['type'] ?? null) === ($provider === 'gemini' ? 'ARRAY' : 'array')
+                // Claude's structured outputs take no item counts: there the count is in the prompt only.
+                && ($items['maxItems'] ?? null) === ($provider === 'anthropic' ? null : 5)
+                && ($items['minItems'] ?? null) === ($provider === 'anthropic' ? null : 5);
+        });
+    }
+
+    #[DataProvider('providers')]
+    public function test_a_quiz_without_options_is_asked_for_as_before(string $provider): void
+    {
+        $this->useProviders(['notebook.ai.provider' => $provider, 'services.anthropic.thinking_headroom' => 0]);
+        $notebook = $this->notebookWithChunks([['page' => 4, 'content' => 'SQL JOIN menggabungkan tabel.']]);
+        Http::fake([self::URLS[$provider] => Http::response($this->answer($provider, (string) json_encode(['items' => [['question' => 'Q?', 'options' => ['a', 'b'], 'answer_index' => 0, 'explanation' => 'E.', 'citations' => [1]]]])))]);
+
+        $this->sendAsStudent('POST', "/api/notebooks/{$notebook->id}/studio", ['kind' => 'quiz'])
+            ->assertCreated()
+            ->assertJsonMissingPath('data.message.context.options');
+        Http::assertSent(fn (Request $request): bool => str_ends_with($this->lastUserText($provider, $request), 'Tugas: '.((array) (new ReflectionClassConstant(NotebookAssistant::class, 'STUDIO_PROMPTS'))->getValue())['quiz'])
+            && $this->sentOutputLimit($provider, $request) === 16384
+            && ! array_key_exists('maxItems', $this->sentSchemaItems($provider, $request)));
     }
 
     #[DataProvider('providers')]
@@ -369,6 +464,42 @@ class NotebookProviderMatrixTest extends TestCase
     }
 
     /**
+     * The system instruction as the provider received it: Gemini's
+     * systemInstruction, Anthropic's top-level system, or the OpenAI
+     * system message.
+     */
+    private function sentSystem(string $provider, Request $request): ?string
+    {
+        $system = match ($provider) {
+            'gemini' => $request['systemInstruction']['parts'][0]['text'] ?? null,
+            'anthropic' => $request['system'] ?? null,
+            default => collect($request['messages'])->firstWhere('role', 'system')['content'] ?? null,
+        };
+
+        return is_string($system) ? $system : null;
+    }
+
+    private function sentOutputLimit(string $provider, Request $request): ?int
+    {
+        $limit = match ($provider) {
+            'gemini' => $request['generationConfig']['maxOutputTokens'] ?? null,
+            default => $request['max_tokens'] ?? null,
+        };
+
+        return is_int($limit) ? $limit : null;
+    }
+
+    private function systemInstruction(): string
+    {
+        return $this->assistantConstant('SYSTEM_INSTRUCTION');
+    }
+
+    private function assistantConstant(string $name): string
+    {
+        return (string) (new ReflectionClassConstant(NotebookAssistant::class, $name))->getValue();
+    }
+
+    /**
      * The type of the root of the JSON schema the provider was sent.
      */
     private function sentSchemaRoot(string $provider, Request $request): mixed
@@ -378,6 +509,22 @@ class NotebookProviderMatrixTest extends TestCase
             'anthropic' => $request['output_config']['format']['schema']['type'] ?? null,
             default => $request['response_format']['json_schema']['schema']['type'] ?? null,
         };
+    }
+
+    /**
+     * The `items` array of the list schema the provider was sent.
+     *
+     * @return array<string, mixed>
+     */
+    private function sentSchemaItems(string $provider, Request $request): array
+    {
+        $items = match ($provider) {
+            'gemini' => $request['generationConfig']['responseSchema']['properties']['items'] ?? null,
+            'anthropic' => $request['output_config']['format']['schema']['properties']['items'] ?? null,
+            default => $request['response_format']['json_schema']['schema']['properties']['items'] ?? null,
+        };
+
+        return is_array($items) ? $items : [];
     }
 
     /**

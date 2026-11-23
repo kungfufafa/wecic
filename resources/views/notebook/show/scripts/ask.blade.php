@@ -74,9 +74,10 @@
 
                 await app.withSubmitLoading(submit, async () => {
                     try {
-                        const payload = await app.request(`${base}/messages`, { method: 'POST', json: { question, source_ids: contextSourceIds() }, timeout: 120000 });
+                        const payload = await app.request(`${base}/messages`, { method: 'POST', json: { question, source_ids: contextSourceIds(), mode: state.askMode }, timeout: 120000 });
 
                         state.messages.push(payload.data.question, payload.data.answer);
+                        setAiBudget(payload.data);
                         renderMessages();
                         // The list is redrawn whole, so only the new answer is read out.
                         app.announce(`Jawaban: ${plainText(payload.data.answer.content)}`);

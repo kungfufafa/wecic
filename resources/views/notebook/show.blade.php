@@ -116,6 +116,12 @@
             <x-card.body class="flex min-h-0 flex-1 flex-col gap-3">
                 <ol class="flex max-h-[60vh] min-h-48 flex-1 flex-col gap-4 overflow-y-auto pe-1" id="notebook-messages" aria-label="Percakapan"></ol>
                 <form class="flex flex-col gap-2 border-t border-border-light pt-3" id="notebook-ask-form">
+                    <div class="flex gap-1 rounded-lg border border-border-light bg-surface/40 p-1" role="group" aria-label="Cara menjawab" id="notebook-ask-mode">
+                        @foreach (\App\Services\NotebookAssistant::ASK_MODES as $askMode => $askModeLabel)
+                            <button type="button" class="min-h-11 flex-1 cursor-pointer rounded-md px-2 text-[13px] font-medium text-ink-muted transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 aria-pressed:bg-panel aria-pressed:text-ink aria-pressed:shadow-xs dark:aria-pressed:shadow-none" data-ask-mode="{{ $askMode }}" aria-pressed="{{ $askMode === \App\Services\NotebookAssistant::MODE_ANSWER ? 'true' : 'false' }}">{{ $askModeLabel }}</button>
+                        @endforeach
+                    </div>
+                    <p class="hidden text-xs text-ink-subtle" id="notebook-ask-mode-hint">Mode tutor menuntunmu selangkah demi selangkah dengan pertanyaan dan petunjuk, tanpa mengerjakan tugasmu.</p>
                     <label class="sr-only" for="notebook-question">Pertanyaan</label>
                     <x-textarea class="resize-y" id="notebook-question" maxlength="2000" placeholder="Tanyakan dari sumber yang dicentang" required></x-textarea>
                     <div class="flex items-center justify-between gap-2">

@@ -54,6 +54,66 @@ class NotebookAssistant
         'mind_map' => 'Peta konsep',
     ];
 
+    /**
+     * How hard a quiz or a set of flashcards is, as the student picks it.
+     */
+    public const DIFFICULTIES = [
+        'campuran' => 'Campuran',
+        'dasar' => 'Dasar',
+        'sulit' => 'Sulit',
+    ];
+
+    /**
+     * The fewest items a quiz or a set of flashcards may be asked for;
+     * maxPracticeItems() gives the most.
+     */
+    public const MIN_PRACTICE_ITEMS = 5;
+
+    private const MAX_QUIZ_ITEMS = 15;
+
+    private const MAX_FLASHCARD_ITEMS = 20;
+
+    /**
+     * The Studio kinds that take a count and a difficulty.
+     */
+    private const PRACTICE_KINDS = ['quiz' => true, 'flashcards' => true];
+
+    /**
+     * The same for every Studio kind and option: a thinking model (Gemini
+     * 2.5, OpenAI reasoning models) spends its thinking from this limit, so
+     * the item count is held by the prompt and schema, not by a tighter cap.
+     */
+    private const STUDIO_OUTPUT_TOKENS = 16384;
+
+    public const MODE_ANSWER = 'answer';
+
+    private const MODE_TUTOR = 'tutor';
+
+    private const MODE_RINGKAS = 'ringkas';
+
+    /**
+     * How a question is answered, as the student picks it per question.
+     */
+    public const ASK_MODES = [
+        self::MODE_ANSWER => 'Jawab langsung',
+        self::MODE_TUTOR => 'Mode tutor',
+        self::MODE_RINGKAS => 'Ringkas',
+    ];
+
+    /**
+     * Added to the question in tutor mode; SYSTEM_INSTRUCTION, with its
+     * sentence on graded work, is sent unchanged in every mode.
+     */
+    private const TUTOR_INSTRUCTION = 'Mulai dengan satu pertanyaan diagnosis; satu langkah per giliran; tangga petunjuk konsep → strategi → contoh soal serupa yang berbeda; jangan menyelesaikan tugas/soal milik mahasiswa; konfirmasi bagian yang benar dengan rujukan; tutup dengan rangkuman singkat.';
+
+    private const RINGKAS_INSTRUCTION = 'Jawab ringkas: paling banyak 5 poin singkat, tiap poin dengan rujukan [n], tanpa pembuka atau penutup panjang.';
+
+    /**
+     * The same in every mode: a thinking model spends its thinking from this
+     * limit, so Ringkas is kept short by its instruction, not by a tighter cap.
+     */
+    private const ANSWER_OUTPUT_TOKENS = 8192;
+
     private const SYSTEM_INSTRUCTION = <<<'PROMPT'
         Kamu adalah asisten belajar WeCIC Notebook untuk mahasiswa Universitas Catur Insan Cendekia.
         Gunakan HANYA kutipan sumber yang diberikan. Setiap informasi dari sumber diberi rujukan nomor kutipannya dalam kurung siku, misalnya [3] atau [2][5], tepat setelah kalimatnya.
@@ -131,17 +191,23 @@ class NotebookAssistant
 
     /**
      * @param  list<int>  $sourceIds  Limit the context to these sources (empty: every ready source).
+     * @param  key-of<self::ASK_MODES>  $mode  How to answer: directly, as a tutor (one step per turn, never
+     *                                         solving the student's own task), or in at most 5 points.
      * @return array{question: NotebookMessage, answer: NotebookMessage}
      */
-    public function ask(Notebook $notebook, string $question, array $sourceIds = []): array
+    public function ask(Notebook $notebook, string $question, array $sourceIds = [], string $mode = self::MODE_ANSWER): array
     {
+        $mode = array_key_exists($mode, self::ASK_MODES) ? $mode : self::MODE_ANSWER;
         $budgetKey = $this->guard($notebook, $sourceIds);
         $excerpts = $this->excerpts($notebook, $question, $sourceIds);
-        $context = $this->contextOf($notebook, $excerpts, $sourceIds, null);
+        $context = [...$this->contextOf($notebook, $excerpts, $sourceIds, null), 'mode' => $mode];
+        $historyLength = $mode === self::MODE_TUTOR
+            ? (int) config('notebook.limits.tutor_history_messages', 12)
+            : (int) config('notebook.limits.history_messages', 8);
         $history = $notebook->messages()
             ->where('kind', 'chat')
             ->latest('id')
-            ->limit(max(0, (int) config('notebook.limits.history_messages', 8)))
+            ->limit(max(0, $historyLength))
             ->get()
             ->reverse()
             ->values();
@@ -151,13 +217,13 @@ class NotebookAssistant
             ? AiRequest::user([AiRequest::text($message->content)])
             : AiRequest::assistant($this->withoutCitations($message->content))
         )->all();
-        $messages[] = AiRequest::user([AiRequest::text($this->contextBlock($excerpts)."\n\n---\nPertanyaan: ".$question)]);
+        $messages[] = AiRequest::user([AiRequest::text($this->contextBlock($excerpts)."\n\n---\nPertanyaan: ".$question.$this->modeBlock($mode))]);
 
         // Cut even with the larger limit the client asks for once: kept, but marked as cut.
         $result = $this->charged($budgetKey, fn (): AiResult => $this->ai->generate(new AiRequest(
             messages: $messages,
             system: self::SYSTEM_INSTRUCTION,
-            maxOutputTokens: 8192,
+            maxOutputTokens: self::ANSWER_OUTPUT_TOKENS,
             temperature: 0.3,
         )));
         [$text, $citations] = $this->citeText($result->text, $excerpts);
@@ -187,18 +253,26 @@ class NotebookAssistant
     /**
      * @param  list<int>  $sourceIds  Limit the context to these sources (empty: every ready source).
      * @param  string|null  $focus  What the output should centre on, e.g. the assignment instructions.
+     * @param  array{count?: int, difficulty?: string}  $options  How many items and how hard, for a quiz or flashcards.
+     * @param  array{message_id: int, missed: list<int>}|null  $practiceFrom  The quiz or flashcards whose missed items
+     *                                                                        the focus was built from (NotebookPractice::missedFocus()).
      */
-    public function studio(Notebook $notebook, string $kind, array $sourceIds = [], ?string $focus = null): NotebookMessage
+    public function studio(Notebook $notebook, string $kind, array $sourceIds = [], ?string $focus = null, array $options = [], ?array $practiceFrom = null): NotebookMessage
     {
         if (! isset(self::STUDIO_PROMPTS[$kind])) {
             throw new \InvalidArgumentException("Unknown studio output [{$kind}].");
         }
 
+        $options = $this->practiceOptions($kind, $options);
         $budgetKey = $this->guard($notebook, $sourceIds);
         $excerpts = $this->excerpts($notebook, $focus, $sourceIds);
-        $context = $this->contextOf($notebook, $excerpts, $sourceIds, $focus);
-        $schema = self::schema($kind);
-        $task = self::STUDIO_PROMPTS[$kind];
+        $context = [
+            ...$this->contextOf($notebook, $excerpts, $sourceIds, $focus),
+            ...($options !== [] ? ['options' => $options] : []),
+            ...($practiceFrom !== null ? ['practice_from' => $practiceFrom] : []),
+        ];
+        $schema = self::schema($kind, $options['count'] ?? null);
+        $task = self::STUDIO_PROMPTS[$kind].$this->optionsBlock($options);
 
         if ($focus !== null) {
             $task .= ($kind === 'assignment_plan' ? "\n\nInstruksi/fokus tugas dari mahasiswa: " : "\n\nFokus yang diminta mahasiswa: ").$focus;
@@ -208,7 +282,7 @@ class NotebookAssistant
             $result = $this->ai->generate(new AiRequest(
                 messages: [AiRequest::user([AiRequest::text($this->contextBlock($excerpts)."\n\n---\nTugas: ".$task)])],
                 system: self::SYSTEM_INSTRUCTION,
-                maxOutputTokens: 16384,
+                maxOutputTokens: self::STUDIO_OUTPUT_TOKENS,
                 temperature: $kind === 'quiz' || $kind === 'flashcards' ? 0.5 : 0.3,
                 jsonSchema: $schema,
             ));
@@ -241,6 +315,78 @@ class NotebookAssistant
         $notebook->touch();
 
         return $message;
+    }
+
+    /**
+     * The most items a quiz (15) or a set of flashcards (20) may be asked for.
+     */
+    public static function maxPracticeItems(string $kind): int
+    {
+        return $kind === 'flashcards' ? self::MAX_FLASHCARD_ITEMS : self::MAX_QUIZ_ITEMS;
+    }
+
+    /**
+     * What is left of the student's daily budget of AI requests, so a page
+     * can say so before the student spends one.
+     *
+     * @return array{limit: int, used: int, remaining: int}
+     */
+    public function dailyBudget(Notebook $notebook): array
+    {
+        $limit = $this->dailyRequests();
+        $used = min($limit, RateLimiter::attempts($this->budgetKey($notebook)));
+
+        return ['limit' => $limit, 'used' => $used, 'remaining' => max(0, $limit - $used)];
+    }
+
+    /**
+     * The options that apply to this kind, within their bounds; other kinds
+     * take none.
+     *
+     * @param  array{count?: int, difficulty?: string}  $options
+     * @return array{count?: int, difficulty?: string}
+     */
+    private function practiceOptions(string $kind, array $options): array
+    {
+        if (! isset(self::PRACTICE_KINDS[$kind])) {
+            return [];
+        }
+
+        return array_filter([
+            'count' => isset($options['count']) ? max(self::MIN_PRACTICE_ITEMS, min(self::maxPracticeItems($kind), (int) $options['count'])) : null,
+            'difficulty' => isset($options['difficulty'], self::DIFFICULTIES[$options['difficulty']]) ? $options['difficulty'] : null,
+        ], static fn (mixed $value): bool => $value !== null);
+    }
+
+    /**
+     * What the options add to a quiz or flashcards task; none adds nothing,
+     * so that request is the same as before options existed.
+     *
+     * @param  array{count?: int, difficulty?: string}  $options
+     */
+    private function optionsBlock(array $options): string
+    {
+        $parts = array_filter([
+            isset($options['count']) ? "Jumlah: {$options['count']}." : null,
+            isset($options['difficulty']) ? "Tingkat kesulitan: {$options['difficulty']}." : null,
+        ]);
+
+        return $parts !== [] ? "\n\n".implode(' ', $parts).' Ikuti jumlah dan tingkat kesulitan ini, bukan bawaan di atas.' : '';
+    }
+
+    /**
+     * What the chosen mode adds after the question; a direct answer adds
+     * nothing, so its request is the same as before modes existed.
+     *
+     * @param  key-of<self::ASK_MODES>  $mode
+     */
+    private function modeBlock(string $mode): string
+    {
+        return match ($mode) {
+            self::MODE_TUTOR => "\n\n---\nMode tutor: ".self::TUTOR_INSTRUCTION,
+            self::MODE_RINGKAS => "\n\n---\nMode ringkas: ".self::RINGKAS_INSTRUCTION,
+            default => '',
+        };
     }
 
     /**
@@ -627,7 +773,7 @@ class NotebookAssistant
             throw new NotebookAiException('Sumber yang dipilih belum ada yang siap dibaca. Pilih sumber lain atau tunggu sebentar.', 422);
         }
 
-        $key = 'notebook-ai:'.$notebook->owner_hash.':'.now()->format('Y-m-d');
+        $key = $this->budgetKey($notebook);
 
         if (RateLimiter::tooManyAttempts($key, $this->dailyRequests())) {
             throw NotebookAiException::dailyLimitReached();
@@ -637,21 +783,33 @@ class NotebookAssistant
     }
 
     /**
+     * The key of the student's daily budget of AI requests, shared by all
+     * their notebooks.
+     */
+    private function budgetKey(Notebook $notebook): string
+    {
+        return 'notebook-ai:'.$notebook->owner_hash.':'.now()->format('Y-m-d');
+    }
+
+    /**
      * The JSON Schema a structured studio output follows, or null for one
      * written as prose. Lowercase JSON Schema with an object root, so every
      * provider's structured output takes it: a list comes wrapped as
      * `{items: [...]}`, which studio() unwraps before it is stored. Every
      * object takes no other properties and needs all of its own; citations
-     * may be an empty list.
+     * may be an empty list. With a `$count`, a list asks for exactly that
+     * many items (`minItems`/`maxItems`); a driver whose structured output
+     * takes no item counts leaves them out (AnthropicDriver), and the task
+     * names the count anyway.
      *
      * @return array<string, mixed>|null
      */
-    public static function schema(string $kind): ?array
+    public static function schema(string $kind, ?int $count = null): ?array
     {
         $string = ['type' => 'string'];
         $citations = ['type' => 'array', 'items' => ['type' => 'integer'], 'description' => 'Nomor kutipan sumber yang dipakai.'];
         $list = static fn (array $properties): array => self::objectSchema([
-            'items' => ['type' => 'array', 'items' => self::objectSchema($properties)],
+            'items' => ['type' => 'array', 'items' => self::objectSchema($properties), ...($count !== null ? ['minItems' => $count, 'maxItems' => $count] : [])],
         ]);
         $children = static fn (array $node): array => ['type' => 'array', 'items' => $node];
         $leaf = self::objectSchema(['title' => $string]);
@@ -665,6 +823,7 @@ class NotebookAssistant
                 'options' => ['type' => 'array', 'items' => $string],
                 'answer_index' => ['type' => 'integer', 'description' => 'Indeks (mulai 0) pilihan yang benar.'],
                 'explanation' => $string,
+                'topic' => ['type' => 'string', 'description' => 'Topik soal dalam 1 sampai 4 kata.'],
                 'citations' => $citations,
             ]),
             'flashcards' => $list(['front' => $string, 'back' => $string, 'citations' => $citations]),

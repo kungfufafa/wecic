@@ -34,6 +34,25 @@
                 'Jelaskan bagian tersulit dengan contoh sederhana.',
                 'Tugas apa saja yang ada di pertemuan-pertemuan ini dan kapan tenggatnya?',
             ];
+            // In tutor mode the starters ask to be guided, never for a finished answer.
+            const TUTOR_SUGGESTIONS = [
+                'Tuntun aku memahami konsep utama materi ini langkah demi langkah.',
+                'Uji dulu pemahamanku tentang materi ini dengan satu pertanyaan.',
+                'Aku bingung di bagian tersulit; beri petunjuk pelan-pelan.',
+                'Beri contoh soal serupa untuk latihan, lalu cek jawabanku.',
+            ];
+            // answer, tutor or ringkas (NotebookAssistant::ASK_MODES), remembered per notebook in this browser.
+            const ASK_MODES = @json(\App\Services\NotebookAssistant::ASK_MODES);
+            const ASK_MODE_KEY = `mycic-notebook-ask-mode:${notebookId}`;
+            const storedAskMode = () => {
+                try {
+                    const stored = window.localStorage.getItem(ASK_MODE_KEY);
+
+                    return Object.hasOwn(ASK_MODES, stored) ? stored : 'answer';
+                } catch {
+                    return 'answer';
+                }
+            };
 
             const state = {
                 notebook: null,
@@ -62,6 +81,14 @@
                 tab: 'chat',
                 // Sources left out of the context (NotebookLM-style source ticks); empty = everything.
                 excluded: new Set(),
+                askMode: storedAskMode(),
+                // The Catatan entries kept open when the list is redrawn (a new Studio output opens itself).
+                openNoteIds: new Set(),
+                // Practice on a quiz or flashcards by message id, so a redraw (renderNotes) keeps the progress:
+                // quiz {choices, flagged, reviewing}; flashcards {mode, order, position, flipped, known, again}.
+                practice: {},
+                // What is left of today's AI requests (`ai_budget`); null until a response says.
+                aiBudget: null,
             };
 
             // A bare 502/504 (no message from MyCIC) means the web server gave up before the model answered;
@@ -69,6 +96,12 @@
             const describeAiError = (error, fallback) => ((error?.status === 504 || error?.status === 502) && !error?.payload?.message
                 ? 'Model AI tidak menjawab dalam batas waktu server (sedang sibuk). Tunggu sebentar lalu coba lagi.'
                 : app.describeError(error, fallback));
+
+            const setAiBudget = (data) => {
+                if (data?.ai_budget && Number.isFinite(Number(data.ai_budget.remaining))) {
+                    state.aiBudget = { limit: Number(data.ai_budget.limit), remaining: Number(data.ai_budget.remaining) };
+                }
+            };
 
             // Older responses carry only ai_available.
             const setAiStatus = (data) => {

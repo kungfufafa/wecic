@@ -17,7 +17,9 @@ use Illuminate\Http\Client\Response;
  * The request carries the system prompt at the top level and always a
  * `max_tokens`. PDFs go as `document` blocks and images as `image` blocks,
  * always inside user messages. A JSON schema goes as
- * `output_config.format`; `output_config.effort` only when
+ * `output_config.format`, without the array item counts (`minItems`,
+ * `maxItems`) structured outputs do not take (anthropicSchema()); the
+ * prompt names the count instead; `output_config.effort` only when
  * `services.anthropic.effort` is set. On API version 2026-10-21 sampling
  * settings (temperature, top_p, top_k) are refused, and Claude Opus 5.5
  * refuses any `thinking` setting but adaptive, so neither is sent; nor is
@@ -65,6 +67,12 @@ class AnthropicDriver extends HttpAiClient
      * request: an unknown or unavailable model id, or an effort the model
      * does not take.
      */
+    /**
+     * JSON Schema keywords structured outputs refuse: array constraints
+     * beyond `minItems` of 0 or 1, so the count stays in the prompt.
+     */
+    private const UNSUPPORTED_SCHEMA_KEYWORDS = ['minItems', 'maxItems'];
+
     private const MODEL_ERROR_MESSAGE = '/^model\b|\bmodel\b[^\n]{0,120}?\b(not found|does not exist|not supported|is not available|no longer available|deprecated|retired|invalid)\b|\beffort\b|\bmax_tokens\b:?\s*\d+\s*>\s*\d+/i';
 
     public function driver(): string
@@ -105,7 +113,7 @@ class AnthropicDriver extends HttpAiClient
     protected function payload(AiRequest $request): array
     {
         $outputConfig = array_filter([
-            'format' => $request->jsonSchema !== null ? ['type' => 'json_schema', 'schema' => $request->jsonSchema] : null,
+            'format' => $request->jsonSchema !== null ? ['type' => 'json_schema', 'schema' => self::anthropicSchema($request->jsonSchema)] : null,
             'effort' => $this->effort(),
         ], static fn (mixed $value): bool => $value !== null);
 
@@ -115,6 +123,35 @@ class AnthropicDriver extends HttpAiClient
             'messages' => $this->messages($request->messages),
             'output_config' => $outputConfig !== [] ? $outputConfig : null,
         ], static fn (mixed $value): bool => $value !== null);
+    }
+
+    /**
+     * The schema without the keywords structured outputs refuse, at every
+     * level.
+     *
+     * @param  array<string, mixed>  $schema
+     * @return array<string, mixed>
+     */
+    public static function anthropicSchema(array $schema): array
+    {
+        $kept = [];
+
+        foreach ($schema as $keyword => $value) {
+            if (in_array($keyword, self::UNSUPPORTED_SCHEMA_KEYWORDS, true)) {
+                continue;
+            }
+
+            $kept[$keyword] = match (true) {
+                $keyword === 'items' && is_array($value) => self::anthropicSchema($value),
+                $keyword === 'properties' && is_array($value) => array_map(
+                    static fn (mixed $property): mixed => is_array($property) ? self::anthropicSchema($property) : $property,
+                    $value
+                ),
+                default => $value,
+            };
+        }
+
+        return $kept;
     }
 
     /**

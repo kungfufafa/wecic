@@ -1,3 +1,4 @@
+import type { NotebookAiBudget, NotebookAskMode, NotebookDifficulty, NotebookQuizItem } from '@/api/types/classes';
 import type { Tone } from '@/lib/format';
 
 /** One query parameter of a portal or MyCIC link (`?mod=…&id=30061`, `/meeting/1?courses_id=2`); null when it is missing. */
@@ -204,4 +205,120 @@ export function sourceStatus(source: { status?: string | null; waiting?: boolean
   }
 
   return { label: source.waiting ? 'Menunggu' : 'Dibaca…', tone: 'muted' };
+}
+
+/** The answer modes the notebook offers, in the order of the chip row. */
+export const NotebookAskModes: readonly { mode: NotebookAskMode; label: string }[] = [
+  { mode: 'answer', label: 'Jawab langsung' },
+  { mode: 'tutor', label: 'Mode tutor' },
+  { mode: 'ringkas', label: 'Ringkas' },
+];
+
+/** The mode an answer was given in; one from before modes existed, or unknown, was a direct answer. */
+export function askModeOf(context: { mode?: string | null } | null | undefined): NotebookAskMode {
+  return NotebookAskModes.find((item) => item.mode === context?.mode)?.mode ?? 'answer';
+}
+
+export function askModeLabel(mode: NotebookAskMode): string {
+  return NotebookAskModes.find((item) => item.mode === mode)?.label ?? 'Jawab langsung';
+}
+
+/** Quiz answers given so far, by question index; a skipped question has none. */
+export type QuizChoices = Record<number, number | undefined>;
+
+export type QuizScore = { score: number; total: number; answered: number; missed: number[]; done: boolean };
+
+/**
+ * The questions still missed: every counted question (not marked wrong with "Soal ini salah?") whose choice is not
+ * its answer, unanswered ones included.
+ */
+export function missedQuestions(items: NotebookQuizItem[], choices: QuizChoices, flagged: number[] = []): number[] {
+  return items.flatMap((item, index) => (flagged.includes(index) || choices[index] === item.answer_index ? [] : [index]));
+}
+
+/** The score of a quiz attempt; questions marked wrong leave it, and it is `done` once every counted question is answered. */
+export function scoreQuiz(items: NotebookQuizItem[], choices: QuizChoices, flagged: number[] = []): QuizScore {
+  const counted = items.map((_, index) => index).filter((index) => !flagged.includes(index));
+  const answered = counted.filter((index) => Number.isInteger(choices[index])).length;
+  const missed = missedQuestions(items, choices, flagged);
+
+  return { score: counted.length - missed.length, total: counted.length, answered, missed, done: counted.length > 0 && answered === counted.length };
+}
+
+/**
+ * The questions "Tinjau yang salah" lists: the missed ones and the ones marked wrong, so a mark can still be undone.
+ * Null when the review does not apply (not finished, or nothing missed or marked), so every question is shown.
+ */
+export function quizReviewItems(items: NotebookQuizItem[], score: QuizScore, flagged: number[]): number[] | null {
+  const reviewed = items.map((_, index) => index).filter((index) => score.missed.includes(index) || flagged.includes(index));
+
+  return score.done && reviewed.length ? reviewed : null;
+}
+
+/** The flashcards still to learn: every card not marked "Sudah hafal", the ones skipped with "Berikutnya" included. */
+export function flashcardsToLearn(count: number, known: number[]): number[] {
+  return Array.from({ length: count }, (_, index) => index).filter((index) => !known.includes(index));
+}
+
+/** The choices sent with a quiz attempt, one per question (null when skipped): the server counts the score from them. */
+export function quizChoicesPayload(items: NotebookQuizItem[], choices: QuizChoices): (number | null)[] {
+  return items.map((_, index) => (Number.isInteger(choices[index]) ? (choices[index] as number) : null));
+}
+
+/** How many questions a practice set made from `missed` items asks for: as many, within 5 to 15. */
+export function practiceCount(missed: number[]): number {
+  return Math.min(15, Math.max(5, missed.length));
+}
+
+export const NotebookDifficulties: readonly { difficulty: NotebookDifficulty; label: string }[] = [
+  { difficulty: 'campuran', label: 'Campuran' },
+  { difficulty: 'dasar', label: 'Dasar' },
+  { difficulty: 'sulit', label: 'Sulit' },
+];
+
+/** The counts a quiz (5 to 15) or flashcards (5 to 20) may be asked for, and the one picked first. */
+export function studioCounts(kind: string): { counts: number[]; initial: number; unit: string } {
+  return kind === 'flashcards'
+    ? { counts: [5, 10, 15, 20], initial: 15, unit: 'kartu' }
+    : { counts: [5, 10, 15], initial: 10, unit: 'soal' };
+}
+
+/** What making a practice set costs, said before the button; null when the server does not say. */
+export function budgetLine(budget: NotebookAiBudget | null | undefined): string | null {
+  if (!budget) {
+    return null;
+  }
+
+  return budget.remaining > 0
+    ? `Sisa kuota AI hari ini: ${budget.remaining} dari ${budget.limit}. Membuat latihan memakai 1.`
+    : 'Kuota AI hari ini sudah habis. Ulangi dan tinjau tetap bisa dipakai; buat latihan baru besok.';
+}
+
+export type QuizOptionState = 'open' | 'correct' | 'chosen-wrong' | 'other';
+
+/**
+ * How one quiz question is shown: before a choice every option is open and the answer, verdict and explanation stay
+ * hidden; after it the right option and a wrong pick are marked, and the verdict is said in words.
+ */
+export function quizItemView(
+  item: NotebookQuizItem,
+  choice: number | undefined,
+  flagged = false,
+): { answered: boolean; options: QuizOptionState[]; verdict: string | null; explanation: string | null } {
+  const options = item.options ?? [];
+  const answered = Number.isInteger(choice) && !flagged;
+
+  if (!answered) {
+    return { answered: false, options: options.map(() => 'open'), verdict: null, explanation: null };
+  }
+
+  const correct = choice === item.answer_index;
+  const answerText = typeof item.answer_index === 'number' ? options[item.answer_index] ?? '' : '';
+
+  return {
+    answered: true,
+    options: options.map((_, index) => (index === item.answer_index ? 'correct' : index === choice ? 'chosen-wrong' : 'other')),
+    verdict: correct ? 'Benar.' : `Salah. Jawaban benar: ${answerText}.`,
+    explanation: item.explanation ?? null,
+  };
 }

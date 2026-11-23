@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit;
 
+use App\Services\Ai\AnthropicDriver;
 use App\Services\Ai\GeminiDriver;
 use App\Services\NotebookAssistant;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -49,7 +50,7 @@ class NotebookSchemaTest extends TestCase
         }
 
         $this->assertSame(
-            ['question', 'options', 'answer_index', 'explanation', 'citations'],
+            ['question', 'options', 'answer_index', 'explanation', 'topic', 'citations'],
             NotebookAssistant::schema('quiz')['properties']['items']['items']['required']
         );
     }
@@ -110,6 +111,35 @@ class NotebookSchemaTest extends TestCase
             'required' => ['type', 'items'],
             'additionalProperties' => false,
         ]));
+    }
+
+    public function test_a_count_asks_for_exactly_that_many_items_and_none_leaves_the_list_open(): void
+    {
+        $items = NotebookAssistant::schema('quiz', 5)['properties']['items'];
+
+        $this->assertSame([5, 5], [$items['minItems'], $items['maxItems']]);
+        $this->assertArrayNotHasKey('maxItems', NotebookAssistant::schema('quiz')['properties']['items']);
+        $this->assertSame(20, NotebookAssistant::schema('flashcards', 20)['properties']['items']['maxItems']);
+        $this->assertSame(20, GeminiDriver::geminiSchema(NotebookAssistant::schema('flashcards', 20))['properties']['items']['maxItems']);
+    }
+
+    public function test_claude_receives_the_schema_without_item_counts_at_any_level(): void
+    {
+        $schema = AnthropicDriver::anthropicSchema([
+            'type' => 'object',
+            'properties' => [
+                'minItems' => ['type' => 'integer'],
+                'items' => ['type' => 'array', 'minItems' => 5, 'maxItems' => 5, 'items' => ['type' => 'object', 'properties' => ['tags' => ['type' => 'array', 'maxItems' => 3, 'items' => ['type' => 'string']]]]],
+            ],
+            'required' => ['minItems', 'items'],
+            'additionalProperties' => false,
+        ]);
+
+        $this->assertSame(['type' => 'integer'], $schema['properties']['minItems'], 'a property named like the keyword stays');
+        $this->assertSame(['type', 'items'], array_keys($schema['properties']['items']));
+        $this->assertSame(['type' => 'array', 'items' => ['type' => 'string']], $schema['properties']['items']['items']['properties']['tags']);
+        $this->assertFalse($schema['additionalProperties']);
+        $this->assertSame(NotebookAssistant::schema('quiz'), AnthropicDriver::anthropicSchema(NotebookAssistant::schema('quiz', 5)));
     }
 
     /**

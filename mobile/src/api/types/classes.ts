@@ -130,12 +130,43 @@ export type NotebookSource = {
   stalled?: boolean;
 };
 
+/** How a question is answered: directly, as a tutor (one step per turn, never solving the student's task), or in at most 5 points. */
+export type NotebookAskMode = 'answer' | 'tutor' | 'ringkas';
+
+export type NotebookDifficulty = 'campuran' | 'dasar' | 'sulit';
+
+/** How many quiz questions or flashcards, and how hard (studio `options`). */
+export type NotebookStudioOptions = { count?: number; difficulty?: NotebookDifficulty };
+
+/** A quiz question as the studio returns it; `topic` is missing on quizzes made before it existed. */
+export type NotebookQuizItem = { question?: string; options?: string[]; answer_index?: number; explanation?: string; topic?: string; citations?: number[] };
+
+export type NotebookFlashcardItem = { front?: string; back?: string; citations?: number[] };
+
+/** The last practice on a quiz or flashcards, as the server kept it (`context.practice`). */
+export type NotebookPracticeResult = { score: number; total: number; missed: number[]; flagged?: number[]; choices?: (number | null)[]; at?: string };
+
+/** What is left of today's AI requests. */
+export type NotebookAiBudget = { limit: number; used: number; remaining: number };
+
 export type NotebookMessage = {
   id: number;
   role: 'user' | 'assistant' | string;
   kind: string;
   content: string;
   data?: unknown;
+  /** The excerpts the output cites, by their number `n`. */
+  citations?: { n: number; source_id?: number; source_title?: string; page?: number | null; excerpt?: string }[];
+  /**
+   * What the output was given; `mode` is missing on answers from before modes existed. A quiz or flashcards carry their
+   * `options` and the last `practice` (kept without AI); a quiz made from missed items names them in `practice_from`.
+   */
+  context?: {
+    mode?: NotebookAskMode | string | null;
+    options?: NotebookStudioOptions | null;
+    practice?: NotebookPracticeResult | null;
+    practice_from?: { message_id: number; missed: number[] } | null;
+  } | null;
   pinned?: boolean;
   created_at?: string | null;
 };
@@ -163,6 +194,8 @@ export type NotebookDetailResponse = ApiEnvelope & {
     studio_kinds?: Record<string, string>;
     ai_provider?: AiProvider;
     ai_consent?: AiConsent;
+    /** Missing on servers from before practice sets. */
+    ai_budget?: NotebookAiBudget;
   };
 };
 
@@ -202,5 +235,5 @@ export type AiProvider = {
 export type AiConsentResponse = ApiEnvelope & { data: { consent: AiConsent } };
 
 export type NotebookAskResponse = ApiEnvelope & { data: { question: NotebookMessage; answer: NotebookMessage } };
-export type NotebookStudioResponse = ApiEnvelope & { data: { message: NotebookMessage } };
+export type NotebookStudioResponse = ApiEnvelope & { data: { message: NotebookMessage; ai_budget?: NotebookAiBudget } };
 export type NotebookCreateResponse = ApiEnvelope & { data: { notebook: NotebookItem; created?: boolean } };

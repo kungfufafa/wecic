@@ -195,6 +195,42 @@ class NotebookApiTest extends TestCase
             && count($request['contents']) === 3);
     }
 
+    public function test_an_unknown_answer_mode_is_refused_in_indonesian_before_the_model_is_called(): void
+    {
+        $notebook = $this->notebookWithChunks([['page' => 1, 'content' => 'Kunci primer unik.']]);
+        Http::fake();
+
+        $this->sendAsStudent('POST', "/api/notebooks/{$notebook->id}/messages", ['question' => 'Apa itu kunci primer?', 'mode' => 'ujian'])
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Mode jawaban tidak dikenal. Pilih jawab langsung, mode tutor, atau ringkas.');
+        $this->sendAsStudent('POST', "/api/notebooks/{$notebook->id}/messages", ['question' => 'Apa itu kunci primer?', 'mode' => ['tutor']])
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Mode jawaban tidak valid.');
+        Http::assertNothingSent();
+        $this->assertSame(0, NotebookMessage::query()->count());
+    }
+
+    public function test_tutor_mode_sends_the_configured_length_of_history_and_other_modes_the_usual_one(): void
+    {
+        config(['notebook.limits.history_messages' => 2, 'notebook.limits.tutor_history_messages' => 4]);
+        $notebook = $this->notebookWithChunks([['page' => 1, 'content' => 'Kunci primer unik.']]);
+
+        foreach (range(1, 3) as $turn) {
+            NotebookMessage::factory()->create(['notebook_id' => $notebook->id, 'role' => 'user', 'content' => "Pertanyaan {$turn}"]);
+            NotebookMessage::factory()->create(['notebook_id' => $notebook->id, 'role' => 'assistant', 'content' => "Jawaban {$turn}"]);
+        }
+
+        $this->geminiAnswers('Coba jelaskan dulu dengan kata-katamu [1].');
+
+        $this->sendAsStudent('POST', "/api/notebooks/{$notebook->id}/messages", ['question' => 'Boleh kosong?', 'mode' => 'tutor'])->assertCreated();
+        $this->sendAsStudent('POST', "/api/notebooks/{$notebook->id}/messages", ['question' => 'Boleh ganda?', 'mode' => 'ringkas'])->assertCreated();
+
+        $sent = Http::recorded()->map(fn (array $pair): array => $pair[0]['contents'])->values();
+        $this->assertCount(5, $sent[0]);
+        $this->assertSame('Pertanyaan 2', $sent[0][0]['parts'][0]['text']);
+        $this->assertCount(3, $sent[1]);
+    }
+
     public function test_bracketed_numbers_in_code_are_not_citations(): void
     {
         $notebook = $this->notebookWithChunks([
@@ -698,6 +734,216 @@ class NotebookApiTest extends TestCase
         $this->assertNull($message->fresh());
     }
 
+    public function test_studio_options_out_of_range_or_unknown_are_refused_in_indonesian_before_the_model_is_called(): void
+    {
+        $notebook = $this->notebookWithChunks([['page' => 1, 'content' => 'Kunci primer unik.']]);
+        Http::fake();
+
+        $this->sendAsStudent('POST', "/api/notebooks/{$notebook->id}/studio", ['kind' => 'quiz', 'options' => ['count' => 16]])
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Jumlah paling banyak 15 untuk kuis.');
+        $this->sendAsStudent('POST', "/api/notebooks/{$notebook->id}/studio", ['kind' => 'flashcards', 'options' => ['count' => 21]])
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Jumlah paling banyak 20 untuk flashcard.');
+        $this->sendAsStudent('POST', "/api/notebooks/{$notebook->id}/studio", ['kind' => 'quiz', 'options' => ['count' => 4]])
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Jumlah paling sedikit 5.');
+        $this->sendAsStudent('POST', "/api/notebooks/{$notebook->id}/studio", ['kind' => 'quiz', 'options' => ['difficulty' => 'ujian']])
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Tingkat kesulitan tidak dikenal. Pilih campuran, dasar, atau sulit.');
+        $this->sendAsStudent('POST', "/api/notebooks/{$notebook->id}/studio", ['kind' => 'summary', 'options' => ['count' => 5]])
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Jumlah dan tingkat kesulitan hanya untuk kuis dan flashcard.');
+        $this->sendAsStudent('POST', "/api/notebooks/{$notebook->id}/studio", ['kind' => 'quiz', 'options' => ['timer' => 30]])
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Pilihan latihan tidak valid.');
+        Http::assertNothingSent();
+        $this->assertSame(0, NotebookMessage::query()->count());
+    }
+
+    public function test_flashcard_options_are_sent_and_kept(): void
+    {
+        $notebook = $this->notebookWithChunks([['page' => 1, 'content' => 'Kunci primer unik.']]);
+        $this->geminiAnswers((string) json_encode(['items' => array_fill(0, 20, ['front' => 'Kunci primer?', 'back' => 'Unik.', 'citations' => [1]])]));
+
+        $this->sendAsStudent('POST', "/api/notebooks/{$notebook->id}/studio", ['kind' => 'flashcards', 'options' => ['count' => 20, 'difficulty' => 'dasar']])
+            ->assertCreated()
+            ->assertJsonPath('data.message.context.options', ['count' => 20, 'difficulty' => 'dasar']);
+        Http::assertSent(fn (Request $request): bool => str_contains((string) collect($request['contents'])->last()['parts'][0]['text'], 'Jumlah: 20. Tingkat kesulitan: dasar.')
+            && $request['generationConfig']['maxOutputTokens'] === 16384
+            && $request['generationConfig']['responseSchema']['properties']['items']['maxItems'] === 20);
+    }
+
+    public function test_a_quiz_attempt_is_kept_with_the_score_counted_by_the_server_without_the_model_or_the_budget(): void
+    {
+        $budgetKey = 'notebook-ai:'.$this->ownerHash.':'.now()->format('Y-m-d');
+        $notebook = $this->notebook();
+        $quiz = $this->quiz($notebook, 4);
+        Http::fake();
+
+        // The client claims a perfect score; the server counts the choices against answer_index instead.
+        $this->sendAsStudent('PATCH', "/api/notebooks/{$notebook->id}/messages/{$quiz->id}", ['practice' => ['choices' => [1, 0, null, 3], 'flagged' => [3], 'score' => 4, 'total' => 4]])
+            ->assertOk()
+            ->assertJsonPath('message', 'Hasil latihan disimpan.')
+            ->assertJsonPath('data.message.context.practice.score', 1)
+            ->assertJsonPath('data.message.context.practice.total', 3)
+            ->assertJsonPath('data.message.context.practice.missed', [1, 2])
+            ->assertJsonPath('data.message.context.practice.flagged', [3])
+            ->assertJsonPath('data.message.pinned', true);
+
+        $practice = $quiz->fresh()->context['practice'];
+        $this->assertSame([1, 3], [$practice['score'], $practice['total']]);
+        $this->assertSame([1, 0, null, 3], $practice['choices']);
+        // With choices, a client score, total or missed list is ignored rather than checked.
+        $this->sendAsStudent('PATCH', "/api/notebooks/{$notebook->id}/messages/{$quiz->id}", ['practice' => ['choices' => [1, 0, 2, 3], 'score' => 5, 'missed' => [99]]])
+            ->assertOk()
+            ->assertJsonPath('data.message.context.practice.score', 1)
+            ->assertJsonPath('data.message.context.practice.total', 4)
+            ->assertJsonPath('data.message.context.practice.missed', [1, 2, 3]);
+        // The context the output was made with is kept beside the attempt.
+        $this->assertSame([], $quiz->fresh()->context['source_ids']);
+        Http::assertNothingSent();
+        $this->assertSame(0, RateLimiter::attempts($budgetKey));
+        $this->getAsStudent("/api/notebooks/{$notebook->id}")->assertOk()->assertJsonPath('data.ai_budget', ['limit' => 60, 'used' => 0, 'remaining' => 60]);
+    }
+
+    public function test_a_flashcard_attempt_is_kept_as_sent(): void
+    {
+        $notebook = $this->notebook();
+        $cards = NotebookMessage::factory()->create([
+            'notebook_id' => $notebook->id,
+            'role' => 'assistant',
+            'kind' => 'flashcards',
+            'content' => (string) json_encode(array_fill(0, 5, ['front' => 'Depan', 'back' => 'Belakang', 'citations' => []])),
+            'pinned' => true,
+        ]);
+
+        $this->sendAsStudent('PATCH', "/api/notebooks/{$notebook->id}/messages/{$cards->id}", ['practice' => ['score' => 3, 'total' => 5, 'missed' => [4, 0]]])
+            ->assertOk()
+            ->assertJsonPath('data.message.context.practice.score', 3)
+            ->assertJsonPath('data.message.context.practice.missed', [0, 4]);
+        $this->sendAsStudent('PATCH', "/api/notebooks/{$notebook->id}/messages/{$cards->id}", ['practice' => ['choices' => [0, 1]]])
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Pilihan jawaban hanya untuk kuis.');
+        $this->sendAsStudent('PATCH', "/api/notebooks/{$notebook->id}/messages/{$cards->id}", ['practice' => ['score' => 6, 'total' => 6]])
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Jumlah soal melebihi isi latihan ini.');
+    }
+
+    public function test_practice_is_refused_on_a_chat_message_or_with_invalid_items(): void
+    {
+        $notebook = $this->notebook();
+        $chat = NotebookMessage::factory()->create(['notebook_id' => $notebook->id, 'role' => 'assistant']);
+        $quiz = $this->quiz($notebook, 3);
+
+        $this->sendAsStudent('PATCH', "/api/notebooks/{$notebook->id}/messages/{$chat->id}", ['practice' => ['score' => 1, 'total' => 1]])
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Hasil latihan hanya bisa disimpan untuk kuis atau flashcard.');
+        $this->sendAsStudent('PATCH', "/api/notebooks/{$notebook->id}/messages/{$quiz->id}", ['practice' => ['score' => 1, 'total' => 3, 'missed' => [1, 1]]])
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Nomor soal tidak boleh berulang.');
+        $this->sendAsStudent('PATCH', "/api/notebooks/{$notebook->id}/messages/{$quiz->id}", ['practice' => ['score' => 1, 'total' => 3, 'missed' => ['satu']]])
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Nomor soal harus berupa angka.');
+        $this->sendAsStudent('PATCH', "/api/notebooks/{$notebook->id}/messages/{$quiz->id}", ['practice' => ['score' => 1, 'total' => 3, 'missed' => range(0, 30)]])
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Daftar soal yang salah terlalu panjang.');
+        $this->sendAsStudent('PATCH', "/api/notebooks/{$notebook->id}/messages/{$quiz->id}", ['practice' => ['score' => 1, 'total' => 3, 'missed' => [7]]])
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Nomor soal tidak ada di latihan ini.');
+        $this->sendAsStudent('PATCH', "/api/notebooks/{$notebook->id}/messages/{$quiz->id}", ['practice' => ['score' => 3, 'total' => 2]])
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Skor tidak boleh melebihi jumlah soal.');
+        $this->sendAsStudent('PATCH', "/api/notebooks/{$notebook->id}/messages/{$quiz->id}", ['practice' => ['missed' => [0]]])
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Kirim skor latihan atau pilihan jawabannya.');
+        $this->sendAsStudent('PATCH', "/api/notebooks/{$notebook->id}/messages/{$quiz->id}", [])
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Pilih simpan atau lepas dari catatan.');
+        // An empty attempt alongside a pin is refused, not kept as 0/0.
+        $this->sendAsStudent('PATCH', "/api/notebooks/{$notebook->id}/messages/{$quiz->id}", ['pinned' => true, 'practice' => []])
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Hasil latihan tidak boleh kosong.');
+        // A quiz score is never taken from the client: without its choices the attempt is refused.
+        $this->sendAsStudent('PATCH', "/api/notebooks/{$notebook->id}/messages/{$quiz->id}", ['practice' => ['score' => 3, 'total' => 3, 'missed' => []]])
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Kirim pilihan jawaban untuk kuis.');
+        $this->assertArrayNotHasKey('practice', $quiz->fresh()->context);
+        $this->assertArrayNotHasKey('practice', $chat->fresh()->context ?? []);
+    }
+
+    public function test_practice_on_another_students_notebook_is_not_found(): void
+    {
+        $foreign = Notebook::factory()->forOwner('someone-else')->create();
+        $quiz = $this->quiz($foreign, 2);
+
+        $this->sendAsStudent('PATCH', "/api/notebooks/{$foreign->id}/messages/{$quiz->id}", ['practice' => ['choices' => [1, 1]]])->assertNotFound();
+        $this->sendAsStudent('POST', "/api/notebooks/{$foreign->id}/studio", ['kind' => 'quiz', 'practice' => ['message_id' => $quiz->id, 'missed' => [0]]])->assertNotFound();
+        $this->assertArrayNotHasKey('practice', $quiz->fresh()->context);
+
+        // A quiz of another notebook cannot seed this one's practice either.
+        $notebook = $this->notebookWithChunks([['page' => 1, 'content' => 'Kunci primer unik.']]);
+        Http::fake();
+        $this->sendAsStudent('POST', "/api/notebooks/{$notebook->id}/studio", ['kind' => 'quiz', 'practice' => ['message_id' => $quiz->id, 'missed' => [0]]])
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Soal yang salah tidak ditemukan di kuis atau flashcard ini.');
+        Http::assertNothingSent();
+    }
+
+    public function test_practice_from_the_missed_questions_sends_their_text_as_focus_and_is_charged_once(): void
+    {
+        $budgetKey = 'notebook-ai:'.$this->ownerHash.':'.now()->format('Y-m-d');
+        $notebook = $this->notebookWithChunks([['page' => 1, 'content' => 'Kunci primer unik.']]);
+        $quiz = $this->quiz($notebook, 4);
+        $this->geminiAnswers((string) json_encode(['items' => [['question' => 'Baru?', 'options' => ['a', 'b'], 'answer_index' => 0, 'explanation' => 'E.', 'topic' => 'Kunci', 'citations' => [1]]]]));
+
+        $this->sendAsStudent('POST', "/api/notebooks/{$notebook->id}/studio", ['kind' => 'quiz', 'focus' => 'Abaikan ini', 'practice' => ['message_id' => $quiz->id, 'missed' => [2, 0]], 'options' => ['count' => 5]])
+            ->assertCreated()
+            ->assertJsonPath('data.message.context.practice_from', ['message_id' => $quiz->id, 'missed' => [2, 0]])
+            ->assertJsonPath('data.ai_budget.remaining', 59);
+
+        Http::assertSentCount(1);
+        Http::assertSent(function (Request $request): bool {
+            $text = (string) collect($request['contents'])->last()['parts'][0]['text'];
+
+            return str_contains($text, 'Fokus yang diminta mahasiswa: Latihan ulang untuk konsep yang belum dikuasai mahasiswa.')
+                && str_contains($text, '- Soal nomor 1?')
+                && str_contains($text, '- Soal nomor 3?')
+                && ! str_contains($text, 'Soal nomor 2?')
+                && ! str_contains($text, 'Abaikan ini')
+                && str_contains($text, 'Jumlah: 5.');
+        });
+        $this->assertSame(1, RateLimiter::attempts($budgetKey));
+
+        // Indexes that are no question of the quiz send and charge nothing.
+        $this->sendAsStudent('POST', "/api/notebooks/{$notebook->id}/studio", ['kind' => 'quiz', 'practice' => ['message_id' => $quiz->id, 'missed' => [9]]])
+            ->assertStatus(422);
+        $this->sendAsStudent('POST', "/api/notebooks/{$notebook->id}/studio", ['kind' => 'flashcards', 'practice' => ['message_id' => $quiz->id, 'missed' => [0]]])
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Latihan dari soal yang salah selalu berupa kuis.');
+        Http::assertSentCount(1);
+        $this->assertSame(1, RateLimiter::attempts($budgetKey));
+
+        RateLimiter::clear($budgetKey);
+    }
+
+    public function test_the_focus_built_from_missed_questions_is_capped(): void
+    {
+        $notebook = $this->notebook();
+        $quiz = NotebookMessage::factory()->create([
+            'notebook_id' => $notebook->id,
+            'role' => 'assistant',
+            'kind' => 'quiz',
+            'content' => (string) json_encode(array_fill(0, 15, ['question' => str_repeat('panjang ', 40), 'options' => ['a', 'b'], 'answer_index' => 0])),
+        ]);
+
+        $focus = app(\App\Services\NotebookPractice::class)->missedFocus($quiz, range(0, 14));
+
+        $this->assertSame(1500, mb_strlen((string) $focus));
+        $this->assertStringEndsWith('…', (string) $focus);
+        $this->assertNull(app(\App\Services\NotebookPractice::class)->missedFocus($quiz, [20]));
+    }
+
     public function test_deleting_a_notebook_removes_its_uploads(): void
     {
         config(['services.gemini.key' => null]);
@@ -753,6 +999,59 @@ class NotebookApiTest extends TestCase
             ->assertSee('(error?.status === 504 || error?.status === 502) && !error?.payload?.message', false)
             // A source waiting for a reading slot says so.
             ->assertSee('Menunggu giliran dibaca.');
+    }
+
+    public function test_the_notebook_page_offers_the_answer_modes_remembered_per_notebook(): void
+    {
+        $notebook = $this->notebook();
+
+        $this->withSession(['campus_session_token' => self::TOKEN])->get('/notebook/'.$notebook->id)
+            ->assertOk()
+            ->assertSeeInOrder(['role="group" aria-label="Cara menjawab"', 'Jawab langsung', 'Mode tutor', 'Ringkas', 'id="notebook-question"'], false)
+            ->assertSee('data-ask-mode="answer" aria-pressed="true"', false)
+            ->assertSee('data-ask-mode="tutor" aria-pressed="false"', false)
+            ->assertSee('min-h-11 flex-1', false)
+            // Remembered per notebook, and a browser that refuses storage still works.
+            ->assertSee('`mycic-notebook-ask-mode:${notebookId}`', false)
+            ->assertSee('window.localStorage.setItem(ASK_MODE_KEY, state.askMode)', false)
+            ->assertSee('mode: state.askMode', false)
+            ->assertSee('askModeBadge(message)', false)
+            ->assertSee("state.askMode === 'tutor' ? TUTOR_SUGGESTIONS : SUGGESTIONS", false)
+            ->assertSee('Tuntun aku memahami konsep utama materi ini langkah demi langkah.')
+            ->assertSee('tanpa mengerjakan tugasmu');
+    }
+
+    public function test_the_notebook_page_offers_quiz_and_flashcard_practice(): void
+    {
+        $notebook = $this->notebook();
+
+        $this->withSession(['campus_session_token' => self::TOKEN])->get('/notebook/'.$notebook->id)
+            ->assertOk()
+            // Progress is kept across redraws of Catatan.
+            ->assertSee('openNoteIds: new Set(),', false)
+            ->assertSee("notesHost.addEventListener('toggle'", false)
+            ->assertSee('practice: {},', false)
+            ->assertSee('state.practice[messageId] ??=', false)
+            // Answers, verdicts in words, citations on explanations, and a way out for a wrong item.
+            ->assertSee('Pilihanmu, salah')
+            ->assertSee('itemCitations(question)', false)
+            ->assertSee('Soal ini salah?')
+            ->assertSee('Ditandai salah, tidak dihitung dalam skor.')
+            // After the last answer: score, local retry, review, and a charged practice set with the budget shown first.
+            ->assertSeeInOrder(['Skor ${result.score}/${result.total}', 'budgetLine()', 'Ulangi', 'Tinjau yang salah', 'practiceFromButton(message.id, result.missed)'], false)
+            ->assertSee('Sisa kuota AI hari ini: ${state.aiBudget.remaining} dari ${state.aiBudget.limit}. Membuat latihan memakai 1.', false)
+            ->assertSee('practice: { message_id: Number(practiceFrom.dataset.practiceFrom), missed }', false)
+            // One card at a time, with the grid as the other view.
+            ->assertSee('Satu kartu')
+            ->assertSee('Semua kartu')
+            ->assertSee('Sudah hafal')
+            ->assertSee('Acak')
+            // Count and difficulty before a quiz or flashcards.
+            ->assertSee("const STUDIO_OPTION_KINDS = ['assignment_plan', 'quiz', 'flashcards'];", false)
+            ->assertSee('const STUDIO_DIFFICULTIES = {"campuran":"Campuran","dasar":"Dasar","sulit":"Sulit"};', false)
+            ->assertSee('max: 15', false)
+            ->assertSee('max: 20', false)
+            ->assertSee('Tingkat kesulitan');
     }
 
     public function test_notebook_pages_show_the_banner_for_each_reason_the_ai_cannot_answer(): void
@@ -894,6 +1193,28 @@ class NotebookApiTest extends TestCase
         }
 
         return $notebook;
+    }
+
+    /**
+     * A saved quiz of `$count` questions whose answer is always option 1,
+     * with the context it was made with.
+     */
+    private function quiz(Notebook $notebook, int $count): NotebookMessage
+    {
+        return NotebookMessage::factory()->create([
+            'notebook_id' => $notebook->id,
+            'role' => 'assistant',
+            'kind' => 'quiz',
+            'content' => (string) json_encode(array_map(static fn (int $number): array => [
+                'question' => "Soal nomor {$number}?",
+                'options' => ['A', 'B', 'C', 'D'],
+                'answer_index' => 1,
+                'explanation' => "Penjelasan {$number}.",
+                'citations' => [1],
+            ], range(1, $count))),
+            'context' => ['source_ids' => [], 'sources' => [], 'total_sources' => 1, 'excerpts' => 1, 'chars' => 10, 'partial' => false, 'focus' => null],
+            'pinned' => true,
+        ]);
     }
 
     private function geminiAnswers(string $text): void

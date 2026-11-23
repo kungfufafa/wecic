@@ -3,10 +3,11 @@ import { Fragment, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Platform, ScrollView, StyleSheet, View } from 'react-native';
 
 import type { ApiEnvelope } from '@/api/types';
-import type { NotebookDetailResponse, NotebookMeeting, NotebookMessage, NotebookSource } from '@/api/types/classes';
+import type { NotebookAskMode, NotebookDetailResponse, NotebookMeeting, NotebookMessage, NotebookSource, NotebookStudioOptions } from '@/api/types/classes';
 import { useSession } from '@/auth/session-provider';
 import { Button } from '@/components/button';
 import { Chip } from '@/components/chip';
+import { StudioOptionsSheet } from '@/components/classes/studio-options-sheet';
 import { StudioResult, plainText } from '@/components/classes/studio-result';
 import { EmptyState } from '@/components/empty-state';
 import { IconButton } from '@/components/icon-button';
@@ -22,7 +23,10 @@ import { useAiConsent } from '@/hooks/use-ai-consent';
 import { useApiResource } from '@/hooks/use-api-resource';
 import { useTheme } from '@/hooks/use-theme';
 import { aiProviderLabel, isAiConsentRequired, rememberAiConsentFrom } from '@/lib/ai-consent';
-import { aiStatusMessage, sourceStatus } from '@/lib/classes';
+import { aiStatusMessage, askModeLabel, askModeOf, NotebookAskModes, practiceCount, sourceStatus } from '@/lib/classes';
+
+/** Studio tools that ask how many and how hard first (StudioOptionsSheet). */
+const OPTION_KINDS = ['quiz', 'flashcards'];
 import { formatDateTime } from '@/lib/format';
 
 export default function NotebookScreen() {
@@ -31,9 +35,11 @@ export default function NotebookScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const detail = useApiResource<NotebookDetailResponse>(id ? `notebooks/${encodeURIComponent(id)}` : null);
   const [question, setQuestion] = useState('');
+  const [askMode, setAskMode] = useState<NotebookAskMode>('answer');
   const [asking, setAsking] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [optionsKind, setOptionsKind] = useState<string | null>(null);
   const data = detail.data?.data;
   const notebook = data?.notebook;
   const sources = data?.sources ?? [];
@@ -101,7 +107,7 @@ export default function NotebookScreen() {
     setActionError(null);
 
     try {
-      await api.post(`notebooks/${encodeURIComponent(id)}/messages`, { question: text }, { timeoutMs: 120_000 });
+      await api.post(`notebooks/${encodeURIComponent(id)}/messages`, { question: text, mode: askMode }, { timeoutMs: 120_000 });
       await detail.reload();
     } catch (error) {
       setQuestion(text);
@@ -110,6 +116,28 @@ export default function NotebookScreen() {
       setAsking(null);
     }
   }
+
+  /** One studio request (one AI request from the daily budget), with its options or the practice it is made from. */
+  function runStudio(kind: string, body: { options?: NotebookStudioOptions; practice?: { message_id: number; missed: number[] } } = {}) {
+    void run(`studio-${kind}`, () => api.post(`notebooks/${encodeURIComponent(id ?? '')}/studio`, { kind, ...body }, { timeoutMs: 180_000 }));
+  }
+
+  function openStudio(kind: string) {
+    if (OPTION_KINDS.includes(kind)) {
+      setOptionsKind(kind);
+    } else {
+      runStudio(kind);
+    }
+  }
+
+  /** A practice attempt is kept on the output without AI; a failed save leaves the practice as it is. */
+  function savePractice(message: NotebookMessage, practice: Record<string, unknown>) {
+    api.patch(`notebooks/${encodeURIComponent(id ?? '')}/messages/${message.id}`, { practice }).catch(() => {
+      setActionError('Hasil latihan belum tersimpan.');
+    });
+  }
+
+  const canStudio = aiAvailable && !needsConsent && hasReadySource && busy === null;
 
   function confirmDelete() {
     const title = isCourse ? 'Kosongkan notebook ini?' : 'Hapus notebook ini?';
@@ -198,8 +226,18 @@ export default function NotebookScreen() {
               ) : null}
             </Panel>
             <Panel style={styles.ask}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips} accessibilityLabel="Cara menjawab">
+                {NotebookAskModes.map((item) => (
+                  <Chip key={item.mode} label={item.label} selected={askMode === item.mode} onPress={() => setAskMode(item.mode)} />
+                ))}
+              </ScrollView>
+              {askMode === 'tutor' ? (
+                <ThemedText type="caption" themeColor="textTertiary">
+                  Mode tutor menuntunmu selangkah demi selangkah dengan pertanyaan dan petunjuk, tanpa mengerjakan tugasmu.
+                </ThemedText>
+              ) : null}
               <TextField
-                placeholder={aiAvailable ? 'Tulis pertanyaan…' : 'Asisten AI belum aktif'}
+                placeholder={aiAvailable ? (askMode === 'tutor' ? 'Ceritakan bagian yang ingin kamu pahami…' : 'Tulis pertanyaan…') : 'Asisten AI belum aktif'}
                 value={question}
                 onChangeText={setQuestion}
                 editable={aiAvailable && asking === null}
@@ -229,7 +267,7 @@ export default function NotebookScreen() {
                       aiAvailable && needsConsent
                         ? openConsent
                         : aiAvailable && hasReadySource && busy === null
-                        ? () => void run(`studio-${kind}`, () => api.post(`notebooks/${encodeURIComponent(id ?? '')}/studio`, { kind }, { timeoutMs: 180_000 }))
+                        ? () => openStudio(kind)
                         : undefined
                     }
                   />
@@ -246,7 +284,15 @@ export default function NotebookScreen() {
                     {formatDateTime(message.created_at)}
                   </ThemedText>
                 </View>
-                <StudioResult message={message} />
+                <StudioResult
+                  message={message}
+                  budget={data?.ai_budget}
+                  canMakePractice={canStudio}
+                  onSave={(practice) => savePractice(message, practice)}
+                  onPracticeFromMissed={(missed) =>
+                    runStudio('quiz', { practice: { message_id: message.id, missed }, options: { count: practiceCount(missed) } })
+                  }
+                />
               </Panel>
             ))}
           </Section>
@@ -274,6 +320,22 @@ export default function NotebookScreen() {
               ))}
             </Panel>
           </Section>
+
+          <StudioOptionsSheet
+            kind={optionsKind}
+            label={optionsKind ? studioKinds[optionsKind] ?? optionsKind : ''}
+            budget={data?.ai_budget}
+            onClose={() => setOptionsKind(null)}
+            onSubmit={(options) => {
+              const kind = optionsKind;
+
+              setOptionsKind(null);
+
+              if (kind) {
+                runStudio(kind, { options });
+              }
+            }}
+          />
 
           {isCourse && meetings.length > 0 ? (
             <Section label="Pertemuan">
@@ -310,6 +372,11 @@ function ChatBubble({ message }: { message: NotebookMessage }) {
       <ThemedText type="small" themeColor={mine ? 'text' : 'textSecondary'} selectable>
         {mine ? message.content : plainText(message.content)}
       </ThemedText>
+      {mine ? null : (
+        <ThemedText type="caption" themeColor="textQuaternary">
+          {askModeLabel(askModeOf(message.context))}
+        </ThemedText>
+      )}
     </View>
   );
 }
@@ -382,6 +449,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   bubble: {
+    gap: Spacing.one,
     maxWidth: '88%',
     alignSelf: 'flex-start',
     paddingHorizontal: Spacing.three - Spacing.one,

@@ -74,6 +74,7 @@
                 state.sourceLimit = Number.isFinite(Number(data.source_limit)) ? Number(data.source_limit) : null;
                 setAiStatus(data);
                 setAiConsent(data);
+                setAiBudget(data);
 
                 const known = new Set(state.sources.map((source) => source.id));
                 state.excluded.forEach((id) => {

@@ -1,5 +1,17 @@
 import {
   aiStatusMessage,
+  askModeLabel,
+  budgetLine,
+  flashcardsToLearn,
+  missedQuestions,
+  practiceCount,
+  quizChoicesPayload,
+  quizItemView,
+  quizReviewItems,
+  scoreQuiz,
+  studioCounts,
+  askModeOf,
+  NotebookAskModes,
   classTargetFromUrl,
   coursesWithoutNotebook,
   daysUntil,
@@ -155,5 +167,97 @@ describe('meetingRows', () => {
 
   it('has no rows for no meetings', () => {
     expect(meetingRows([])).toEqual([]);
+  });
+});
+
+describe('notebook answer modes', () => {
+  it('offers the three modes in order', () => {
+    expect(NotebookAskModes.map((item) => item.label)).toEqual(['Jawab langsung', 'Mode tutor', 'Ringkas']);
+  });
+
+  it('reads the mode an answer was given in, defaulting to a direct answer', () => {
+    expect(askModeOf({ mode: 'tutor' })).toBe('tutor');
+    expect(askModeOf({ mode: 'ringkas' })).toBe('ringkas');
+    expect(askModeOf({ mode: 'ujian' })).toBe('answer');
+    expect(askModeOf({})).toBe('answer');
+    expect(askModeOf(null)).toBe('answer');
+    expect(askModeLabel('tutor')).toBe('Mode tutor');
+  });
+});
+
+describe('quiz practice', () => {
+  const quiz = [
+    { question: 'Fungsi JOIN?', options: ['Menghapus', 'Menggabungkan tabel'], answer_index: 1, explanation: 'JOIN menggabungkan tabel.' },
+    { question: 'Fungsi WHERE?', options: ['Menyaring baris', 'Mengurutkan'], answer_index: 0, explanation: 'WHERE menyaring baris.' },
+    { question: 'Fungsi ORDER BY?', options: ['Mengurutkan', 'Menghapus'], answer_index: 0, explanation: 'ORDER BY mengurutkan.' },
+  ];
+
+  it('scores only once every counted question is answered', () => {
+    expect(scoreQuiz(quiz, { 0: 1 })).toEqual({ score: 1, total: 3, answered: 1, missed: [1, 2], done: false });
+    expect(scoreQuiz(quiz, { 0: 1, 1: 1, 2: 0 })).toEqual({ score: 2, total: 3, answered: 3, missed: [1], done: true });
+  });
+
+  it('leaves questions marked wrong out of the score and the missed list', () => {
+    expect(scoreQuiz(quiz, { 0: 1, 2: 1 }, [1])).toEqual({ score: 1, total: 2, answered: 2, missed: [2], done: true });
+    expect(missedQuestions(quiz, { 0: 0, 1: 0 }, [2])).toEqual([0]);
+    expect(scoreQuiz(quiz, {}, [0, 1, 2]).done).toBe(false);
+  });
+
+  it('counts unanswered questions as missed', () => {
+    expect(missedQuestions(quiz, { 1: 0 })).toEqual([0, 2]);
+  });
+
+  it('keeps questions marked wrong in the review, so the mark can be undone', () => {
+    const flagged = [1];
+    const choices = { 0: 1, 1: 1, 2: 0 };
+
+    expect(quizReviewItems(quiz, scoreQuiz(quiz, choices, flagged), flagged)).toEqual([1]);
+    expect(quizReviewItems(quiz, scoreQuiz(quiz, choices), [])).toEqual([1]);
+  });
+
+  it('shows every question when there is nothing to review or the quiz is not finished', () => {
+    expect(quizReviewItems(quiz, scoreQuiz(quiz, { 0: 1, 1: 0, 2: 0 }), [])).toBeNull();
+    expect(quizReviewItems(quiz, scoreQuiz(quiz, { 0: 0 }), [])).toBeNull();
+  });
+
+  it('counts flashcards skipped with Berikutnya as still to learn', () => {
+    expect(flashcardsToLearn(4, [3])).toEqual([0, 1, 2]);
+    expect(flashcardsToLearn(3, [2, 0, 1])).toEqual([]);
+  });
+
+  it('sends one choice per question, null when skipped, for the server to score', () => {
+    expect(quizChoicesPayload(quiz, { 0: 1, 2: 0 })).toEqual([1, null, 0]);
+  });
+
+  it('hides the answer, verdict and explanation until an option is picked', () => {
+    expect(quizItemView(quiz[0], undefined)).toEqual({ answered: false, options: ['open', 'open'], verdict: null, explanation: null });
+  });
+
+  it('marks the right option and a wrong pick, and says the verdict in words', () => {
+    expect(quizItemView(quiz[0], 0)).toEqual({
+      answered: true,
+      options: ['chosen-wrong', 'correct'],
+      verdict: 'Salah. Jawaban benar: Menggabungkan tabel.',
+      explanation: 'JOIN menggabungkan tabel.',
+    });
+    expect(quizItemView(quiz[0], 1).verdict).toBe('Benar.');
+    expect(quizItemView(quiz[0], 1, true).answered).toBe(false);
+  });
+
+  it('asks a practice set for as many questions as were missed, within 5 to 15', () => {
+    expect(practiceCount([1])).toBe(5);
+    expect(practiceCount(Array.from({ length: 9 }, (_, index) => index))).toBe(9);
+    expect(practiceCount(Array.from({ length: 20 }, (_, index) => index))).toBe(15);
+  });
+
+  it('offers 5 to 15 quiz questions and 5 to 20 flashcards', () => {
+    expect(studioCounts('quiz')).toEqual({ counts: [5, 10, 15], initial: 10, unit: 'soal' });
+    expect(studioCounts('flashcards').counts.at(-1)).toBe(20);
+  });
+
+  it('says what is left of the daily budget before a practice set is made', () => {
+    expect(budgetLine({ limit: 60, used: 57, remaining: 3 })).toBe('Sisa kuota AI hari ini: 3 dari 60. Membuat latihan memakai 1.');
+    expect(budgetLine({ limit: 60, used: 60, remaining: 0 })).toMatch(/sudah habis/);
+    expect(budgetLine(undefined)).toBeNull();
   });
 });

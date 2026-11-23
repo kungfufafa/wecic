@@ -85,6 +85,9 @@ return [
         'context_chars' => (int) env('NOTEBOOK_CONTEXT_CHARS', 300000),
         'chunk_chars' => 1800,
         'history_messages' => 8,
+        // Earlier messages sent with a question in tutor mode, which walks
+        // through a topic one step per turn and needs more of the thread.
+        'tutor_history_messages' => (int) env('NOTEBOOK_TUTOR_HISTORY_MESSAGES', 12),
     ],
 
     'uploads' => [
