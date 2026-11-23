@@ -513,7 +513,7 @@ class ActionCenterBuilder
             return $items;
         }
 
-        return array_values(array_filter($items, static fn (array $item): bool => ($item['cta_external'] ?? false) !== true));
+        return array_values(array_filter($items, static fn (array $item): bool => $item['cta_external'] !== true));
     }
 
     /**

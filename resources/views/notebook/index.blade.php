@@ -5,8 +5,19 @@
 @section('hide_sync_refresh', '1')
 
 @section('content')
+    {{-- `$notebookAi` names the AI provider the server uses (NotebookAiProviders::forPages()). --}}
+    @php
+        $aiChatLabel = $notebookAi['processors'][0]['label'] ?? $notebookAi['label'];
+        $aiModelSettings = $notebookAi['model_settings'];
+        $aiModelExample = count($aiModelSettings) > 1 ? $aiModelSettings[0].' atau '.$aiModelSettings[count($aiModelSettings) - 1] : ($aiModelSettings[0] ?? '');
+    @endphp
     <x-page-hero title="Notebook" subtitle="Tanya materi kuliahmu dan buat bahan belajar. Jawabannya hanya dari sumbermu.">
         <x-slot:actions>
+            {{-- Ulasan harian; the badge counts the cards waiting today (`review_due` of /api/notebooks). --}}
+            <x-button variant="secondary" size="sm" :href="route('notebook.review')" id="notebook-review-link">
+                Ulasan harian
+                <span class="hidden min-w-5 rounded-full bg-brand px-1.5 text-center text-xs font-semibold leading-5 text-brand-ink tabular-nums" id="notebook-review-due" aria-hidden="true"></span>
+            </x-button>
             <x-button size="sm" href="#notebook-create">
                 <x-icon name="plus" size="sm" />
                 Notebook baru
@@ -20,13 +31,21 @@
             Fitur AI Notebook dimatikan di server WeCIC. Kamu tetap bisa memasukkan pertemuan dan sumber teks, DOCX, dan PPTX; tanya jawab aktif lagi setelah AI dinyalakan.
         </x-alert>
         <x-alert tone="warning" icon class="hidden" data-ai-status-banner="missing_key" role="status">
-            Fitur AI belum diaktifkan di server WeCIC (GEMINI_API_KEY kosong). Kamu tetap bisa memasukkan pertemuan dan sumber teks, DOCX, dan PPTX; tanya jawab aktif setelah AI dinyalakan.
+            Fitur AI belum diaktifkan di server WeCIC ({{ $notebookAi['key_setting'] }} kosong). Kamu tetap bisa memasukkan pertemuan dan sumber teks, DOCX, dan PPTX; tanya jawab aktif setelah AI dinyalakan. Kamu juga bisa memakai API key milikmu sendiri di <a class="font-medium underline underline-offset-2" href="{{ route('notebook.ai-settings') }}">Pengaturan AI</a>.
         </x-alert>
         <x-alert tone="warning" icon class="hidden" data-ai-status-banner="invalid_key" role="status">
-            Fitur AI sedang tidak bisa dipakai karena kunci API Gemini di server WeCIC ditolak. Pengelola WeCIC perlu memperbarui GEMINI_API_KEY. Pertemuan dan sumber teks, DOCX, dan PPTX tetap bisa dimasukkan.
+            @if ($notebookAi['own_settings'])
+                Fitur AI sedang tidak bisa dipakai karena kunci API {{ $aiChatLabel }} milikmu ditolak. Perbarui kuncinya di <a class="font-medium underline underline-offset-2" href="{{ route('notebook.ai-settings') }}">Pengaturan AI</a>.
+            @else
+                Fitur AI sedang tidak bisa dipakai karena kunci API {{ $aiChatLabel }} di server WeCIC ditolak. Pengelola WeCIC perlu memperbarui {{ $notebookAi['key_setting'] }}. Pertemuan dan sumber teks, DOCX, dan PPTX tetap bisa dimasukkan.
+            @endif
         </x-alert>
         <x-alert tone="warning" icon class="hidden" data-ai-status-banner="model_misconfigured" role="status">
-            Fitur AI sedang tidak bisa dipakai karena pengaturan model AI di server WeCIC ditolak (model tidak dikenali, sudah tidak tersedia, atau pengaturannya tidak cocok). Pengelola WeCIC perlu memeriksa pengaturan model AI, misalnya GEMINI_MODEL atau NOTEBOOK_THINKING_BUDGET. Pertemuan dan sumber teks, DOCX, dan PPTX tetap bisa dimasukkan.
+            @if ($notebookAi['own_settings'])
+                Fitur AI sedang tidak bisa dipakai karena pengaturan model atau alamat layanan AI milikmu ditolak. Periksa lagi di <a class="font-medium underline underline-offset-2" href="{{ route('notebook.ai-settings') }}">Pengaturan AI</a>.
+            @else
+                Fitur AI sedang tidak bisa dipakai karena pengaturan model AI di server WeCIC ditolak (model tidak dikenali, sudah tidak tersedia, atau pengaturannya tidak cocok). Pengelola WeCIC perlu memeriksa pengaturan model AI, misalnya {{ $aiModelExample }}. Pertemuan dan sumber teks, DOCX, dan PPTX tetap bisa dimasukkan.
+            @endif
         </x-alert>
 
         <x-section title="Mata kuliah semester ini" title-id="notebook-courses-title" description="Dibuat otomatis dari daftar kelasmu. Pertemuan yang kamu buka masuk sendiri ke notebooknya.">
@@ -90,6 +109,16 @@
                 document.querySelectorAll('[data-ai-status-banner]').forEach((banner) => {
                     banner.classList.toggle('hidden', banner.dataset.aiStatusBanner !== status);
                 });
+            };
+
+            // Older responses carry no review_due: the badge stays hidden.
+            const showReviewDue = (due) => {
+                const count = Number.isInteger(due) && due > 0 ? due : 0;
+                const badge = document.getElementById('notebook-review-due');
+
+                badge.textContent = count > 99 ? '99+' : String(count);
+                badge.classList.toggle('hidden', count === 0);
+                document.getElementById('notebook-review-link').setAttribute('aria-label', count ? `Ulasan harian, ${count} kartu menunggu` : 'Ulasan harian');
             };
 
             const card = (notebook) => {
@@ -185,6 +214,7 @@
                     }
 
                     showAiStatus(payload?.data);
+                    showReviewDue(payload?.data?.review_due);
                     const notebooks = Array.isArray(payload?.data?.notebooks) ? payload.data.notebooks : [];
                     renderCourses(notebooks, payload?.data?.course_notebooks);
                     renderList(notebooks);

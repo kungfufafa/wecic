@@ -3,7 +3,9 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\API\NotebookAiConsentController;
+use App\Http\Controllers\API\NotebookAiSettingsController;
 use App\Http\Controllers\API\NotebookController;
+use App\Http\Controllers\API\NotebookReviewController;
 use App\Http\Controllers\API\PortalAcademicController;
 use App\Http\Controllers\API\PortalAccountController;
 use App\Http\Controllers\API\PortalActionCenterController;
@@ -172,7 +174,7 @@ Route::middleware($sessionMiddleware)->group(function () {
             Route::get('{dataset}', 'versions')->where('dataset', '[a-z_]+');
         });
 
-        // Consent to send Notebook content to Google Gemini: the AI parts of the
+        // Consent to send Notebook content to the AI provider: the AI parts of the
         // notebook refuse with `ai_consent_required` until it is given.
         Route::prefix('ai-consent')->controller(NotebookAiConsentController::class)->group(function (): void {
             Route::get('', 'show');
@@ -180,8 +182,25 @@ Route::middleware($sessionMiddleware)->group(function () {
             Route::delete('', 'destroy')->middleware('throttle:portal-action');
         });
 
+        // The student's own Notebook AI provider and API keys (stored encrypted,
+        // never sent back in full); empty settings fall back to the server's.
+        Route::prefix('ai-settings')->controller(NotebookAiSettingsController::class)->group(function (): void {
+            Route::get('', 'show');
+            Route::put('', 'update')->middleware('throttle:portal-action');
+            Route::delete('', 'destroy')->middleware('throttle:portal-action');
+        });
+
         // The notebook reads stored portal data, so it also works in offline mode
         // (adding a meeting that was never opened is the one read that needs the portal).
+        // Ulasan harian (spaced repetition) across the student's notebooks; no AI.
+        Route::prefix('notebooks')->controller(NotebookReviewController::class)->group(function (): void {
+            Route::get('review', 'index');
+            Route::post('review/resume', 'resume');
+            Route::post('review/{card}', 'review')->whereNumber('card');
+            Route::patch('review/{card}', 'update')->whereNumber('card');
+            Route::post('{notebook}/messages/{message}/review-cards', 'import')->whereNumber(['notebook', 'message']);
+        });
+
         Route::prefix('notebooks')->controller(NotebookController::class)->group(function (): void {
             Route::get('', 'index');
             Route::post('', 'store');
@@ -194,9 +213,13 @@ Route::middleware($sessionMiddleware)->group(function () {
             Route::delete('{notebook}', 'destroy')->whereNumber('notebook');
             Route::post('{notebook}/sources', 'storeSource')->whereNumber('notebook')->middleware('throttle:notebook-sources');
             Route::post('{notebook}/sources/{source}/retry', 'retrySource')->whereNumber(['notebook', 'source'])->middleware('throttle:notebook-sources');
+            Route::get('{notebook}/sources/{source}/chunks', 'sourceChunks')->whereNumber(['notebook', 'source'])->middleware('throttle:notebook-sources');
             Route::delete('{notebook}/sources/{source}', 'destroySource')->whereNumber(['notebook', 'source']);
             Route::post('{notebook}/messages', 'ask')->whereNumber('notebook')->middleware('throttle:notebook-ai');
             Route::post('{notebook}/studio', 'studio')->whereNumber('notebook')->middleware('throttle:notebook-ai');
+            Route::post('{notebook}/feedback', 'feedback')->whereNumber('notebook')->middleware('throttle:notebook-ai');
+            Route::post('{notebook}/notes', 'storeNote')->whereNumber('notebook');
+            Route::post('{notebook}/notes/{message}/source', 'noteToSource')->whereNumber(['notebook', 'message'])->middleware('throttle:notebook-sources');
             Route::patch('{notebook}/messages/{message}', 'updateMessage')->whereNumber(['notebook', 'message']);
             Route::delete('{notebook}/messages/{message}', 'destroyMessage')->whereNumber(['notebook', 'message']);
         });

@@ -37,9 +37,16 @@
             ],
         ],
         [
-            'title' => 'Belajar & cadangan',
+            // An extra feature of WeCIC, not a portal menu: the Notebook and its own settings.
+            'title' => 'Notebook',
             'tiles' => [
                 ['key' => 'notebook', 'label' => 'Notebook', 'caption' => 'Tanya jawab dan ringkasan dari materi kuliah', 'href' => route('notebook.index'), 'icon' => 'notebook'],
+                ['key' => 'ai-settings', 'label' => 'Pengaturan AI', 'caption' => 'Penyedia dan API key Notebook', 'href' => route('notebook.ai-settings'), 'icon' => 'settings'],
+            ],
+        ],
+        [
+            'title' => 'Cadangan',
+            'tiles' => [
                 ['key' => 'archive', 'label' => 'Arsip WeCIC', 'caption' => 'Cadangan data portal dan materi', 'href' => route('archive.index'), 'icon' => 'archive'],
             ],
         ],

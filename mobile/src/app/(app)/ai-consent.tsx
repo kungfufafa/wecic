@@ -13,21 +13,24 @@ import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useAiConsent } from '@/hooks/use-ai-consent';
 import { useTheme } from '@/hooks/use-theme';
-import { AI_CONSENT_FREE_TIER, AI_CONSENT_SENT_ITEMS, AI_PROVIDER } from '@/lib/ai-consent';
+import { AI_CONSENT_SENT_ITEMS, aiConsentFreeTierNotice, aiProviderLabel } from '@/lib/ai-consent';
 import { formatDateTime } from '@/lib/format';
 import { legalPageUrl } from '@/lib/privacy';
 
 /**
- * Asks, before the first AI action, to send Notebook content to Google
- * Gemini, and lets the student withdraw it later. Declining leaves the
- * rest of the app, and the notebooks themselves, as they are.
+ * Asks, before the first AI action, to send Notebook content to the AI
+ * provider(s) the server names, and lets the student withdraw it later.
+ * The free-tier warning shows only while the server says a provider runs
+ * on its free tier. Declining leaves the rest of the app, and the
+ * notebooks themselves, as they are.
  */
 export default function AiConsentScreen() {
   const router = useRouter();
   const theme = useTheme();
   const { consent, granted, loading, busy, error, grant, withdraw } = useAiConsent({ load: true });
   const privacyUrl = legalPageUrl('privacy');
-  const provider = consent?.provider ?? AI_PROVIDER;
+  const provider = aiProviderLabel(consent);
+  const freeTierNotice = aiConsentFreeTierNotice(consent);
 
   function leave() {
     if (router.canGoBack()) {
@@ -75,7 +78,7 @@ export default function AiConsentScreen() {
       <Section label="Yang dikirim">
         <Panel style={styles.panel}>
           <ThemedText type="small" themeColor="textSecondary">
-            {`Fitur AI Notebook mengirim isi berikut ke ${provider} (layanan Google) untuk menjawab dan membuat ringkasan:`}
+            {`Fitur AI Notebook mengirim isi berikut ke ${provider} untuk menjawab dan membuat ringkasan:`}
           </ThemedText>
           {AI_CONSENT_SENT_ITEMS.map((item) => (
             <View key={item} style={styles.item}>
@@ -88,12 +91,13 @@ export default function AiConsentScreen() {
         </Panel>
       </Section>
 
-      <Section label="Tingkat gratis">
+      <Section label={freeTierNotice ? 'Tingkat gratis' : 'Pemrosesan'}>
         <Panel style={styles.panel}>
           <View style={styles.item}>
-            <Icon name="warning" size={16} color={theme.warning} />
+            <Icon name={freeTierNotice ? 'warning' : 'lock'} size={16} color={freeTierNotice ? theme.warning : theme.brand} />
             <ThemedText type="small" themeColor="textSecondary" style={styles.flex}>
-              {AI_CONSENT_FREE_TIER}
+              {freeTierNotice ??
+                `Data yang dikirim diproses oleh ${provider} sesuai ketentuan layanan penyedianya untuk menjawab dan membuat ringkasan. Jangan kirim data pribadi atau rahasia.`}
             </ThemedText>
           </View>
           <ThemedText type="caption" themeColor="textTertiary">

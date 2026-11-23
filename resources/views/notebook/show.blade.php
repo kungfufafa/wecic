@@ -7,9 +7,15 @@
 {{--
     Notebook: the header, the AI status banners, and the Sumber, Chat and
     Studio panels. The script is split into parts in
-    resources/views/notebook/show/scripts.
+    resources/views/notebook/show/scripts. `$notebookAi` names the AI
+    provider(s) the server uses (NotebookAiProviders::forPages()).
 --}}
 @section('content')
+    @php
+        $aiChatLabel = $notebookAi['processors'][0]['label'] ?? $notebookAi['label'];
+        $aiModelSettings = $notebookAi['model_settings'];
+        $aiModelExample = count($aiModelSettings) > 1 ? $aiModelSettings[0].' atau '.$aiModelSettings[count($aiModelSettings) - 1] : ($aiModelSettings[0] ?? '');
+    @endphp
     <x-page-hero :back="route('notebook.index')" back-label="Notebook" class="xl:pb-6">
         <x-slot:title><span class="break-words" id="notebook-title">Memuat…</span></x-slot:title>
         <x-slot:subtitle id="notebook-meta"></x-slot:subtitle>
@@ -35,27 +41,47 @@
         Fitur AI Notebook dimatikan di server WeCIC. Catatan pertemuan, teks, DOCX, dan PPTX tetap bisa ditambahkan; PDF, gambar, tanya jawab, dan studio aktif lagi setelah AI dinyalakan.
     </x-alert>
     <x-alert tone="warning" icon class="mb-4 hidden" data-ai-status-banner="missing_key" role="status">
-        Fitur AI belum diaktifkan di server WeCIC (GEMINI_API_KEY kosong). Catatan pertemuan, teks, DOCX, dan PPTX tetap bisa ditambahkan; PDF, gambar, tanya jawab, dan studio aktif setelah AI dinyalakan.
+        Fitur AI belum diaktifkan di server WeCIC ({{ $notebookAi['key_setting'] }} kosong). Catatan pertemuan, teks, DOCX, dan PPTX tetap bisa ditambahkan; PDF, gambar, tanya jawab, dan studio aktif setelah AI dinyalakan. Kamu juga bisa memakai API key milikmu sendiri di <a class="font-medium underline underline-offset-2" href="{{ route('notebook.ai-settings') }}">Pengaturan AI</a>.
     </x-alert>
     <x-alert tone="warning" icon class="mb-4 hidden" data-ai-status-banner="invalid_key" role="status">
-        Fitur AI sedang tidak bisa dipakai karena kunci API Gemini di server WeCIC ditolak. Pengelola WeCIC perlu memperbarui GEMINI_API_KEY. Catatan pertemuan, teks, DOCX, dan PPTX tetap bisa ditambahkan; PDF, gambar, tanya jawab, dan studio menunggu sampai kuncinya diperbaiki.
+        @if ($notebookAi['own_settings'])
+            Fitur AI sedang tidak bisa dipakai karena kunci API {{ $aiChatLabel }} milikmu ditolak. Perbarui kuncinya di <a class="font-medium underline underline-offset-2" href="{{ route('notebook.ai-settings') }}">Pengaturan AI</a>.
+        @else
+            Fitur AI sedang tidak bisa dipakai karena kunci API {{ $aiChatLabel }} di server WeCIC ditolak. Pengelola WeCIC perlu memperbarui {{ $notebookAi['key_setting'] }}. Catatan pertemuan, teks, DOCX, dan PPTX tetap bisa ditambahkan; PDF, gambar, tanya jawab, dan studio menunggu sampai kuncinya diperbaiki.
+        @endif
     </x-alert>
     <x-alert tone="warning" icon class="mb-4 hidden" data-ai-status-banner="model_misconfigured" role="status">
-        Fitur AI sedang tidak bisa dipakai karena pengaturan model AI di server WeCIC ditolak (model tidak dikenali, sudah tidak tersedia, atau pengaturannya tidak cocok). Pengelola WeCIC perlu memeriksa pengaturan model AI, misalnya GEMINI_MODEL atau NOTEBOOK_THINKING_BUDGET. Catatan pertemuan, teks, DOCX, dan PPTX tetap bisa ditambahkan; PDF, gambar, tanya jawab, dan studio menunggu sampai pengaturannya diperbaiki.
+        @if ($notebookAi['own_settings'])
+            Fitur AI sedang tidak bisa dipakai karena pengaturan model atau alamat layanan AI milikmu ditolak. Periksa lagi di <a class="font-medium underline underline-offset-2" href="{{ route('notebook.ai-settings') }}">Pengaturan AI</a>.
+        @else
+            Fitur AI sedang tidak bisa dipakai karena pengaturan model AI di server WeCIC ditolak (model tidak dikenali, sudah tidak tersedia, atau pengaturannya tidak cocok). Pengelola WeCIC perlu memeriksa pengaturan model AI, misalnya {{ $aiModelExample }}. Catatan pertemuan, teks, DOCX, dan PPTX tetap bisa ditambahkan; PDF, gambar, tanya jawab, dan studio menunggu sampai pengaturannya diperbaiki.
+        @endif
     </x-alert>
 
-    {{-- The consent to send Notebook content to Google Gemini (`ai_consent`): asked before the first AI action, withdrawable after. --}}
+    {{-- The consent to send Notebook content to the AI provider(s) (`ai_consent`): asked before the first AI action, withdrawable after. --}}
     <x-alert tone="info" icon title="Izinkan AI membaca materimu?" class="mb-4 hidden" id="notebook-ai-consent" role="region" aria-label="Persetujuan AI Notebook" tabindex="-1">
         <div class="mt-1 flex flex-col gap-3">
-            <p class="text-ink-muted">Tanya jawab, studio, dan pembacaan PDF atau gambar memakai Google Gemini. Pertanyaanmu dan isi sumber yang dipakai (teks, PDF, gambar) dikirim ke Google untuk diproses. WeCIC memakai layanan Gemini tingkat gratis, sehingga Google dapat menyimpan dan memakai data itu untuk meningkatkan produknya. Jangan masukkan data pribadi atau rahasia. WeCIC adalah aplikasi unofficial dan tidak berafiliasi dengan kampus.</p>
-            <p class="text-ink-muted">Tanpa persetujuan, kamu tetap bisa melihat, menambah catatan teks, dan menghapus isi notebook. Persetujuan bisa ditarik kapan saja.</p>
+            <p class="text-ink-muted" data-ai-provider="{{ $notebookAi['driver'] }}">
+                Tanya jawab, studio, dan pembacaan PDF atau gambar memakai {{ $notebookAi['label'] }}. Pertanyaanmu dan isi sumber yang dipakai (teks, PDF, gambar) dikirim ke {{ $notebookAi['label'] }} untuk diproses.
+                @foreach ($notebookAi['processors'] as $processor)
+                    @if ($processor['free_tier'])
+                        @if ($processor['driver'] === 'gemini')
+                            WeCIC memakai layanan Gemini tingkat gratis, sehingga Google dapat menyimpan dan memakai data itu untuk meningkatkan produknya.
+                        @else
+                            WeCIC memakai layanan {{ $processor['label'] }} tingkat gratis, sehingga penyedianya dapat menyimpan dan memakai data itu untuk meningkatkan produknya.
+                        @endif
+                    @endif
+                @endforeach
+                Jangan masukkan data pribadi atau rahasia. WeCIC adalah aplikasi unofficial dan tidak berafiliasi dengan kampus.
+            </p>
+            <p class="text-ink-muted">Tanpa persetujuan, kamu tetap bisa melihat, menulis catatan, menempel teks sebagai sumber, dan menghapus isi notebook. Persetujuan bisa ditarik kapan saja.</p>
             <div class="flex flex-wrap gap-2">
                 <x-button size="sm" id="notebook-ai-consent-grant">Setuju, aktifkan AI</x-button>
             </div>
         </div>
     </x-alert>
     <p class="mb-4 hidden text-xs text-ink-subtle" id="notebook-ai-consent-granted">
-        AI aktif: pertanyaan dan isi sumber dikirim ke Google Gemini.
+        AI aktif: pertanyaan dan isi sumber dikirim ke {{ $notebookAi['label'] }}.
         <button type="button" class="min-h-11 cursor-pointer font-medium text-brand-text underline-offset-4 hover:underline sm:min-h-0" id="notebook-ai-consent-withdraw">Tarik persetujuan</button>
     </p>
 
@@ -73,7 +99,7 @@
                         <span>+ Unggah berkas</span>
                         <input type="file" class="sr-only" id="source-upload" accept=".pdf,.docx,.pptx,.txt,.md,.png,.jpg,.jpeg">
                     </label>
-                    <x-button variant="secondary" size="sm" class="justify-start!" id="source-add-text">+ Tulis catatan</x-button>
+                    <x-button variant="secondary" size="sm" class="justify-start!" id="source-add-text">+ Tempel teks sebagai sumber</x-button>
                 </div>
                 <div class="hidden flex-wrap items-center justify-between gap-2 rounded-lg border border-border-light bg-surface/40 px-3 py-0 text-xs sm:py-2" id="notebook-context-bar">
                     <span class="text-ink-muted tabular-nums" id="notebook-context-summary"></span>
@@ -98,6 +124,12 @@
             <x-card.body class="flex min-h-0 flex-1 flex-col gap-3">
                 <ol class="flex max-h-[60vh] min-h-48 flex-1 flex-col gap-4 overflow-y-auto pe-1" id="notebook-messages" aria-label="Percakapan"></ol>
                 <form class="flex flex-col gap-2 border-t border-border-light pt-3" id="notebook-ask-form">
+                    <div class="flex gap-1 rounded-lg border border-border-light bg-surface/40 p-1" role="group" aria-label="Cara menjawab" id="notebook-ask-mode">
+                        @foreach (\App\Services\NotebookAssistant::ASK_MODES as $askMode => $askModeLabel)
+                            <button type="button" class="min-h-11 flex-1 cursor-pointer rounded-md px-2 text-[13px] font-medium text-ink-muted transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 aria-pressed:bg-panel aria-pressed:text-ink aria-pressed:shadow-xs dark:aria-pressed:shadow-none" data-ask-mode="{{ $askMode }}" aria-pressed="{{ $askMode === \App\Services\NotebookAssistant::MODE_ANSWER ? 'true' : 'false' }}">{{ $askModeLabel }}</button>
+                        @endforeach
+                    </div>
+                    <p class="hidden text-xs text-ink-subtle" id="notebook-ask-mode-hint">Mode tutor menuntunmu selangkah demi selangkah dengan pertanyaan dan petunjuk, tanpa mengerjakan tugasmu.</p>
                     <label class="sr-only" for="notebook-question">Pertanyaan</label>
                     <x-textarea class="resize-y" id="notebook-question" maxlength="2000" placeholder="Tanyakan dari sumber yang dicentang" required></x-textarea>
                     <div class="flex items-center justify-between gap-2">
@@ -115,13 +147,16 @@
             <x-card.header>
                 <div class="min-w-0">
                     <x-card.title id="notebook-studio-title">Studio</x-card.title>
-                    <x-card.subtitle>Bahan belajar mandiri dan kerangka tugas dari sumber yang dicentang, tersimpan otomatis di Catatan.</x-card.subtitle>
+                    <x-card.subtitle>Bahan belajar mandiri dan kerangka tugas dari sumber yang dicentang, tersimpan otomatis di Catatan. Catatanmu sendiri tidak memakai AI.</x-card.subtitle>
                 </div>
             </x-card.header>
             <x-card.body class="flex flex-col gap-5">
                 <div class="grid grid-cols-2 gap-2" id="notebook-studio-buttons"></div>
                 <div class="flex flex-col gap-3 border-t border-border-light pt-4">
-                    <h3 class="text-sm font-semibold tracking-tight text-ink">Catatan</h3>
+                    <div class="flex items-center justify-between gap-2">
+                        <h3 class="text-sm font-semibold tracking-tight text-ink">Catatan</h3>
+                        <x-button variant="secondary" size="sm" id="notebook-note-new">+ Catatan baru</x-button>
+                    </div>
                     <div class="flex flex-col" id="notebook-notes"></div>
                 </div>
             </x-card.body>
@@ -144,8 +179,10 @@
             @include('notebook.show.scripts.load')
             @include('notebook.show.scripts.ask')
             @include('notebook.show.scripts.studio')
+            @include('notebook.show.scripts.feedback')
             @include('notebook.show.scripts.meeting-picker')
             @include('notebook.show.scripts.controls')
+            @include('notebook.show.scripts.source-viewer')
             @include('notebook.show.scripts.clicks')
             @include('notebook.show.scripts.add-sources')
             @include('notebook.show.scripts.header-buttons')

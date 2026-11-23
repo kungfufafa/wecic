@@ -524,7 +524,7 @@ class PortalBackgroundSyncTest extends TestCase
         $this->patchJson('/api/archive/background-sync', ['enabled' => true, 'password' => 'bukan-password-ini'])
             ->assertStatus(422)
             ->assertJsonPath('errors.password.0', 'Password ditolak portal kampus.');
-        $this->assertSame(0, PortalOfflineAccount::query()->count());
+        $this->assertDatabaseCount(PortalOfflineAccount::class, 0);
 
         $this->patchJson('/api/archive/background-sync', ['enabled' => true, 'password' => self::PASSWORD])
             ->assertOk()

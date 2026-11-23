@@ -28,13 +28,22 @@
                 `;
             };
 
+            // Answers from before modes were direct answers.
+            const askModeBadge = (message) => {
+                const mode = Object.hasOwn(ASK_MODES, message.context?.mode) ? message.context.mode : 'answer';
+
+                return `<span class="${mode === 'tutor' ? app.ui.badge.brand : app.ui.badge.neutral}">${app.escapeHtml(ASK_MODES[mode])}</span>`;
+            };
+
             const renderAssistant = (message) => `
                 <li class="flex flex-col gap-2" data-message-id="${message.id}">
                     <div class="rounded-xl rounded-tl-xs border border-border bg-panel p-3 sm:p-4">${renderMarkdown(message.content)}</div>
                     ${citationPanel(message)}
                     <div class="flex flex-wrap items-center gap-2 text-xs text-ink-subtle">
+                        ${askModeBadge(message)}
                         ${message.citations.length ? `<span class="tabular-nums">${message.citations.length} rujukan</span>` : '<span>Tanpa rujukan</span>'}
                         <button type="button" class="${app.ui.button.ghostSm}" data-pin="${message.id}" aria-pressed="${message.pinned ? 'true' : 'false'}">${message.pinned ? 'Tersimpan di Catatan' : 'Simpan ke Catatan'}</button>
+                        <button type="button" class="${app.ui.button.ghostSm}" data-copy-to-note="${message.id}">Salin ke catatan</button>
                     </div>
                     ${contextLine(message)}
                 </li>
@@ -47,7 +56,7 @@
                     messagesHost.innerHTML = `
                         <li class="flex flex-col gap-3">
                             <p class="text-sm text-ink-muted">Belum ada percakapan. Coba mulai dengan:</p>
-                            <div class="flex flex-wrap gap-2">${SUGGESTIONS.map((text) => `<button type="button" class="${app.ui.button.secondarySm} whitespace-normal! py-1.5 text-start" data-suggestion="${app.escapeHtml(text)}">${app.escapeHtml(text)}</button>`).join('')}</div>
+                            <div class="flex flex-wrap gap-2">${(state.askMode === 'tutor' ? TUTOR_SUGGESTIONS : state.suggestions).map((text) => `<button type="button" class="${app.ui.button.secondarySm} whitespace-normal! py-1.5 text-start" data-suggestion="${app.escapeHtml(text)}">${app.escapeHtml(text)}</button>`).join('')}</div>
                         </li>
                     `;
 

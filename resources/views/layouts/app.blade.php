@@ -43,8 +43,8 @@
     $iconPaths = require resource_path('views/components/data/icons.php');
     $svg = static fn (string $name): string => '<svg xmlns="http://www.w3.org/2000/svg" class="size-[18px] shrink-0" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'.$iconPaths[$name].'</svg>';
     $icons = array_combine(
-        ['home', 'class', 'academic', 'finance', 'more', 'skkm', 'thesis', 'library', 'announcement', 'notebook', 'archive'],
-        array_map($svg, ['home', 'class', 'academic', 'finance', 'more', 'skkm', 'thesis', 'library', 'announcement', 'notebook', 'archive']),
+        ['home', 'class', 'academic', 'finance', 'more', 'skkm', 'thesis', 'library', 'announcement', 'notebook', 'archive', 'settings'],
+        array_map($svg, ['home', 'class', 'academic', 'finance', 'more', 'skkm', 'thesis', 'library', 'announcement', 'notebook', 'archive', 'settings']),
     );
 
     $isClassSection = request()->routeIs('class.*', 'meeting.show', 'exam.*');
@@ -77,8 +77,13 @@
         ['href' => route('thesis.index'), 'label' => 'Skripsi', 'icon' => $icons['thesis'], 'badge' => 'thesis', 'active' => request()->routeIs('thesis.*')],
         ['href' => route('library.index'), 'label' => 'Perpustakaan', 'icon' => $icons['library'], 'badge' => 'library', 'active' => request()->routeIs('library.*')],
         ['href' => route('announcement.index'), 'label' => 'Pengumuman', 'icon' => $icons['announcement'], 'badge' => 'announcement', 'active' => request()->routeIs('announcement.*')],
-        ['href' => route('notebook.index'), 'label' => 'Notebook', 'icon' => $icons['notebook'], 'badge' => 'notebook', 'active' => request()->routeIs('notebook.*')],
         ['href' => route('archive.index'), 'label' => 'Arsip', 'icon' => $icons['archive'], 'badge' => 'archive', 'active' => request()->routeIs('archive.*')],
+    ];
+
+    // The sidebar's "Notebook" group: an extra feature of WeCIC with its own settings.
+    $notebookMenu = [
+        ['href' => route('notebook.index'), 'label' => 'Notebook', 'icon' => $icons['notebook'], 'badge' => 'notebook', 'active' => request()->routeIs('notebook.*') && ! request()->routeIs('notebook.ai-settings')],
+        ['href' => route('notebook.ai-settings'), 'label' => 'Pengaturan AI', 'icon' => $icons['settings'], 'badge' => 'notebook-ai-settings', 'active' => request()->routeIs('notebook.ai-settings')],
     ];
 
     $refreshableDatasets = array_keys(array_filter(
@@ -140,6 +145,13 @@
                 @foreach ($desktopNavigation as $item)
                     <x-nav.sidebar-item :href="$item['href']" :label="$item['label']" :icon="$item['icon']" :badge="$item['badge']" :active="$item['active']" />
                 @endforeach
+
+                <div class="flex flex-col gap-0.5" role="group" aria-labelledby="sidebar-notebook-label">
+                    <p class="px-2.5 pb-1 pt-4 text-xs font-medium text-ink-subtle" id="sidebar-notebook-label">Notebook</p>
+                    @foreach ($notebookMenu as $item)
+                        <x-nav.sidebar-item :href="$item['href']" :label="$item['label']" :icon="$item['icon']" :badge="$item['badge']" :active="$item['active']" />
+                    @endforeach
+                </div>
 
                 <div class="flex flex-col gap-0.5" role="group" aria-labelledby="sidebar-more-label">
                     <p class="px-2.5 pb-1 pt-4 text-xs font-medium text-ink-subtle" id="sidebar-more-label">Lainnya</p>

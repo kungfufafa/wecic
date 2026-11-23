@@ -71,14 +71,46 @@
                 state.meetings = data.meetings && typeof data.meetings === 'object' ? data.meetings : null;
                 state.archivedCourses = Array.isArray(data.archived_courses) ? data.archived_courses : [];
                 state.studioKinds = data.studio_kinds || {};
+                const suggestions = Array.isArray(data.suggestions) ? data.suggestions.filter((text) => typeof text === 'string' && text.trim() !== '') : [];
+                state.suggestions = suggestions.length ? suggestions : STARTER_QUESTIONS;
                 state.sourceLimit = Number.isFinite(Number(data.source_limit)) ? Number(data.source_limit) : null;
                 setAiStatus(data);
                 setAiConsent(data);
+                setAiBudget(data);
 
                 const known = new Set(state.sources.map((source) => source.id));
+
+                // The choice saved on the server (`context_source_ids`, deleted sources already dropped) sets the ticks
+                // when it differs from the one last taken, so a poll does not undo a tick whose save is on its way.
+                if (Object.hasOwn(data, 'context_source_ids')) {
+                    const chosen = Array.isArray(data.context_source_ids) ? data.context_source_ids.map(Number) : null;
+                    const key = chosen === null ? 'all' : chosen.join(',');
+
+                    if (key !== state.contextChoiceKey) {
+                        state.contextChoiceKey = key;
+                        state.excluded = new Set(chosen === null ? [] : state.sources.map((source) => source.id).filter((id) => !chosen.includes(id)));
+                    }
+                }
+
                 state.excluded.forEach((id) => {
                     if (!known.has(id)) {
                         state.excluded.delete(id);
+                    }
+                });
+
+                // A note being typed keeps the student's text: a quiet load does not redraw Catatan, and saveNote
+                // compares the text in state with what the server has, so the server copy must not replace it.
+                state.messages.filter((message) => message.kind === 'note').forEach((message) => {
+                    state.noteSaved[message.id] = message.content || '';
+
+                    if (!Object.hasOwn(state.noteDrafts, message.id)) {
+                        return;
+                    }
+
+                    if (state.noteDrafts[message.id] === state.noteSaved[message.id]) {
+                        delete state.noteDrafts[message.id];
+                    } else {
+                        message.content = state.noteDrafts[message.id];
                     }
                 });
             };

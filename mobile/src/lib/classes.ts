@@ -1,3 +1,12 @@
+import type {
+  NotebookAiBudget,
+  NotebookAskMode,
+  NotebookDifficulty,
+  NotebookQuizItem,
+  NotebookReviewCard,
+  NotebookReviewCounts,
+  NotebookReviewGrade,
+} from '@/api/types/classes';
 import type { Tone } from '@/lib/format';
 
 /** One query parameter of a portal or MyCIC link (`?mod=…&id=30061`, `/meeting/1?courses_id=2`); null when it is missing. */
@@ -150,17 +159,60 @@ export function coursesWithoutNotebook<T extends { join_link?: { params?: { cour
   });
 }
 
-export type MindMapNode = { title?: string | null; children?: MindMapNode[] | null };
+export type MindMapNode = { title?: string | null; citations?: number[] | null; children?: MindMapNode[] | null };
 
-/** A mind map as indented lines, the root first. */
-export function mindMapLines(node: MindMapNode | null | undefined, depth = 0): { depth: number; title: string }[] {
+/** One mind map node as a line: its depth, its citation numbers (none on older maps) and the titles above it, root first. */
+export type MindMapLine = { depth: number; title: string; citations: number[]; path: string[] };
+
+/** A mind map as indented lines, the root first; each keeps the titles above it for its parent context. */
+export function mindMapLines(node: MindMapNode | null | undefined, depth = 0, path: string[] = []): MindMapLine[] {
   if (!node || typeof node !== 'object') {
     return [];
   }
 
-  const own = typeof node.title === 'string' && node.title.trim() !== '' ? [{ depth, title: node.title.trim() }] : [];
+  const title = typeof node.title === 'string' ? node.title.trim() : '';
+  const citations = (Array.isArray(node.citations) ? node.citations : []).filter((n) => Number.isInteger(n) && n > 0);
+  const own = title !== '' ? [{ depth, title, citations, path }] : [];
+  const below = title !== '' ? [...path, title] : path;
 
-  return [...own, ...(Array.isArray(node.children) ? node.children : []).flatMap((child) => mindMapLines(child, depth + 1))];
+  return [...own, ...(Array.isArray(node.children) ? node.children : []).flatMap((child) => mindMapLines(child, depth + 1, below))];
+}
+
+/** The title right above a mind map line, or null for the root. */
+export function mindMapParent(line: MindMapLine): string | null {
+  return line.path.length > 0 ? line.path[line.path.length - 1] : null;
+}
+
+/** "Jelaskan" on a mind map node: the question asked in Chat, with its parent as context (as on the web). */
+export function mindMapQuestion(line: MindMapLine): string {
+  const parent = mindMapParent(line);
+
+  return `Jelaskan "${line.title}"${parent ? ` dalam konteks "${parent}"` : ''} berdasarkan sumber.`;
+}
+
+/** A mind map node as a quiz focus or a concept to explain: its title, with its parent as context. */
+export function mindMapConcept(line: MindMapLine): string {
+  const parent = mindMapParent(line);
+
+  return `${line.title}${parent ? ` (dalam konteks ${parent})` : ''}`.slice(0, 1500);
+}
+
+/** The sources a mind map was made from that are still ready; null when none is, so the chosen ones are used. */
+export function mindMapSourceIds(sourceIds: number[] | null | undefined, readyIds: number[]): number[] | null {
+  const kept = (Array.isArray(sourceIds) ? sourceIds : []).filter((sourceId) => readyIds.includes(sourceId));
+
+  return kept.length > 0 ? kept : null;
+}
+
+/** Each mind map action spends one daily AI request when it runs; what is left today is said first. */
+export function mindMapBudgetLine(budget: NotebookAiBudget | null | undefined): string {
+  if (!budget) {
+    return 'Tiap pilihan memakai 1 permintaan dari kuota AI harianmu.';
+  }
+
+  return budget.remaining > 0
+    ? `Sisa kuota AI hari ini: ${budget.remaining} dari ${budget.limit}. Tiap pilihan memakai 1 permintaan.`
+    : 'Kuota AI hari ini sudah habis. Coba lagi besok.';
 }
 
 /** A score the portal printed ("85", "0", "-"), as a number; null when there is none. */
@@ -204,4 +256,226 @@ export function sourceStatus(source: { status?: string | null; waiting?: boolean
   }
 
   return { label: source.waiting ? 'Menunggu' : 'Dibaca…', tone: 'muted' };
+}
+
+/** The answer modes the notebook offers, in the order of the chip row. */
+export const NotebookAskModes: readonly { mode: NotebookAskMode; label: string }[] = [
+  { mode: 'answer', label: 'Jawab langsung' },
+  { mode: 'tutor', label: 'Mode tutor' },
+  { mode: 'ringkas', label: 'Ringkas' },
+];
+
+/** The mode an answer was given in; one from before modes existed, or unknown, was a direct answer. */
+export function askModeOf(context: { mode?: string | null } | null | undefined): NotebookAskMode {
+  return NotebookAskModes.find((item) => item.mode === context?.mode)?.mode ?? 'answer';
+}
+
+export function askModeLabel(mode: NotebookAskMode): string {
+  return NotebookAskModes.find((item) => item.mode === mode)?.label ?? 'Jawab langsung';
+}
+
+/** Quiz answers given so far, by question index; a skipped question has none. */
+export type QuizChoices = Record<number, number | undefined>;
+
+export type QuizScore = { score: number; total: number; answered: number; missed: number[]; done: boolean };
+
+/**
+ * The questions still missed: every counted question (not marked wrong with "Soal ini salah?") whose choice is not
+ * its answer, unanswered ones included.
+ */
+export function missedQuestions(items: NotebookQuizItem[], choices: QuizChoices, flagged: number[] = []): number[] {
+  return items.flatMap((item, index) => (flagged.includes(index) || choices[index] === item.answer_index ? [] : [index]));
+}
+
+/** The score of a quiz attempt; questions marked wrong leave it, and it is `done` once every counted question is answered. */
+export function scoreQuiz(items: NotebookQuizItem[], choices: QuizChoices, flagged: number[] = []): QuizScore {
+  const counted = items.map((_, index) => index).filter((index) => !flagged.includes(index));
+  const answered = counted.filter((index) => Number.isInteger(choices[index])).length;
+  const missed = missedQuestions(items, choices, flagged);
+
+  return { score: counted.length - missed.length, total: counted.length, answered, missed, done: counted.length > 0 && answered === counted.length };
+}
+
+/**
+ * The questions "Tinjau yang salah" lists: the missed ones and the ones marked wrong, so a mark can still be undone.
+ * Null when the review does not apply (not finished, or nothing missed or marked), so every question is shown.
+ */
+export function quizReviewItems(items: NotebookQuizItem[], score: QuizScore, flagged: number[]): number[] | null {
+  const reviewed = items.map((_, index) => index).filter((index) => score.missed.includes(index) || flagged.includes(index));
+
+  return score.done && reviewed.length ? reviewed : null;
+}
+
+/** The flashcards still to learn: every card not marked "Sudah hafal", the ones skipped with "Berikutnya" included. */
+export function flashcardsToLearn(count: number, known: number[]): number[] {
+  return Array.from({ length: count }, (_, index) => index).filter((index) => !known.includes(index));
+}
+
+/** The choices sent with a quiz attempt, one per question (null when skipped): the server counts the score from them. */
+export function quizChoicesPayload(items: NotebookQuizItem[], choices: QuizChoices): (number | null)[] {
+  return items.map((_, index) => (Number.isInteger(choices[index]) ? (choices[index] as number) : null));
+}
+
+/** How many questions a practice set made from `missed` items asks for: as many, within 5 to 15. */
+export function practiceCount(missed: number[]): number {
+  return Math.min(15, Math.max(5, missed.length));
+}
+
+export const NotebookDifficulties: readonly { difficulty: NotebookDifficulty; label: string }[] = [
+  { difficulty: 'campuran', label: 'Campuran' },
+  { difficulty: 'dasar', label: 'Dasar' },
+  { difficulty: 'sulit', label: 'Sulit' },
+];
+
+/** The counts a quiz (5 to 15) or flashcards (5 to 20) may be asked for, and the one picked first. */
+export function studioCounts(kind: string): { counts: number[]; initial: number; unit: string } {
+  return kind === 'flashcards'
+    ? { counts: [5, 10, 15, 20], initial: 15, unit: 'kartu' }
+    : { counts: [5, 10, 15], initial: 10, unit: 'soal' };
+}
+
+/** What making a practice set costs, said before the button; null when the server does not say. */
+export function budgetLine(budget: NotebookAiBudget | null | undefined): string | null {
+  if (!budget) {
+    return null;
+  }
+
+  return budget.remaining > 0
+    ? `Sisa kuota AI hari ini: ${budget.remaining} dari ${budget.limit}. Membuat latihan memakai 1.`
+    : 'Kuota AI hari ini sudah habis. Ulangi dan tinjau tetap bisa dipakai; buat latihan baru besok.';
+}
+
+export type QuizOptionState = 'open' | 'correct' | 'chosen-wrong' | 'other';
+
+/**
+ * How one quiz question is shown: before a choice every option is open and the answer, verdict and explanation stay
+ * hidden; after it the right option and a wrong pick are marked, and the verdict is said in words.
+ */
+export function quizItemView(
+  item: NotebookQuizItem,
+  choice: number | undefined,
+  flagged = false,
+): { answered: boolean; options: QuizOptionState[]; verdict: string | null; explanation: string | null } {
+  const options = item.options ?? [];
+  const answered = Number.isInteger(choice) && !flagged;
+
+  if (!answered) {
+    return { answered: false, options: options.map(() => 'open'), verdict: null, explanation: null };
+  }
+
+  const correct = choice === item.answer_index;
+  const answerText = typeof item.answer_index === 'number' ? options[item.answer_index] ?? '' : '';
+
+  return {
+    answered: true,
+    options: options.map((_, index) => (index === item.answer_index ? 'correct' : index === choice ? 'chosen-wrong' : 'other')),
+    verdict: correct ? 'Benar.' : `Salah. Jawaban benar: ${answerText}.`,
+    explanation: item.explanation ?? null,
+  };
+}
+
+/** The grade buttons of Ulasan harian, in order (keys 1 to 4 on the web). */
+export const REVIEW_GRADES: { grade: NotebookReviewGrade; label: string }[] = [
+  { grade: 'lagi', label: 'Lagi' },
+  { grade: 'sulit', label: 'Sulit' },
+  { grade: 'bisa', label: 'Bisa' },
+  { grade: 'mudah', label: 'Mudah' },
+];
+
+/** "10 mnt", "3 jam", "4 hari", "2 bln": when a grade brings a card back (the server sends minutes). */
+export function formatReviewInterval(minutes: number | null | undefined): string {
+  const value = Math.max(0, Number(minutes) || 0);
+
+  if (value < 60) {
+    return `${Math.max(1, Math.round(value))} mnt`;
+  }
+
+  if (value < 1440) {
+    return `${Math.round(value / 60)} jam`;
+  }
+
+  const days = Math.round(value / 1440);
+
+  return days < 31 ? `${days} hari` : `${Math.round(days / 30)} bln`;
+}
+
+/**
+ * The cards still to review in this sitting: the server's queue without the ones graded or suspended here
+ * (`done`), in the server's order (reviews first, oldest due first, then new cards).
+ */
+export function reviewQueue(cards: NotebookReviewCard[] | null | undefined, done: readonly number[]): NotebookReviewCard[] {
+  return (cards ?? []).filter((card) => !card.suspended && !done.includes(card.id));
+}
+
+/**
+ * After a card is graded or held: it leaves this sitting for good (even when re-reading the queue then fails, so it
+ * is never graded twice), and the queue is read again once no card is left.
+ */
+export function reviewAfterCard(cards: readonly NotebookReviewCard[], done: readonly number[], cardId: number): { done: number[]; reload: boolean } {
+  const next = done.includes(cardId) ? [...done] : [...done, cardId];
+
+  return { done: next, reload: !cards.some((card) => !next.includes(card.id)) };
+}
+
+/**
+ * The finished (or empty) screen: no card saved yet, every card held, or done for now with when the next one comes
+ * and how many are held. `resume` offers to bring the held cards back.
+ */
+export function reviewFinishedCopy(
+  counts: Partial<NotebookReviewCounts> | null | undefined,
+  nextDueAt: string | null | undefined,
+  now: number = Date.now(),
+): { title: string; description: string; resume: boolean } {
+  const total = counts?.total ?? 0;
+  const held = Math.max(0, counts?.suspended ?? 0);
+
+  if (total === 0) {
+    return {
+      title: 'Belum ada kartu ulasan',
+      description: 'Buka notebook, lalu pilih Simpan ke ulasan di flashcard atau Simpan yang salah ke ulasan setelah kuis.',
+      resume: false,
+    };
+  }
+
+  if (held >= total) {
+    return { title: 'Semua kartu sedang ditahan', description: `${held} kartu sedang ditahan, jadi tidak ada yang muncul di ulasan.`, resume: true };
+  }
+
+  const next = reviewNextLine(nextDueAt, now) ?? 'Tidak ada kartu lain yang terjadwal.';
+
+  return {
+    title: 'Selesai untuk sekarang',
+    description: held ? `${next} ${held} kartu sedang ditahan dan tidak muncul sampai diaktifkan lagi.` : next,
+    resume: held > 0,
+  };
+}
+
+/** "Sisa 4 kartu hari ini · 2 baru", or that nothing is waiting. */
+export function reviewProgressLine(queue: NotebookReviewCard[]): string {
+  if (queue.length === 0) {
+    return 'Tidak ada kartu yang menunggu.';
+  }
+
+  const fresh = queue.filter((card) => card.is_new).length;
+
+  return `Sisa ${queue.length} kartu hari ini${fresh ? ` · ${fresh} baru` : ''}`;
+}
+
+/** "Notebook · Pertemuan 3 · Topik: Kunci". */
+export function reviewCardMeta(card: NotebookReviewCard): string {
+  return [card.notebook_title, card.meeting_number ? `Pertemuan ${card.meeting_number}` : null, card.topic ? `Topik: ${card.topic}` : null]
+    .filter(Boolean)
+    .join(' · ');
+}
+
+/** The due badge of the notebook list: "5 kartu menunggu", or null when none (or an older server). */
+export function reviewDueLabel(due: number | null | undefined): string | null {
+  return typeof due === 'number' && due > 0 ? `${due > 99 ? '99+' : due} kartu menunggu` : null;
+}
+
+/** When the next card comes back, from `next_due_at`: "dalam 10 mnt"; null when none is scheduled. */
+export function reviewNextLine(nextDueAt: string | null | undefined, now: number = Date.now()): string | null {
+  const at = nextDueAt ? Date.parse(nextDueAt) : Number.NaN;
+
+  return Number.isNaN(at) ? null : `Kartu berikutnya muncul dalam ${formatReviewInterval((at - now) / 60000)}.`;
 }

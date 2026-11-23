@@ -25,6 +25,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string|null $course_code
  * @property string|null $lecturer_name
  * @property array{id?: string, dosen_id?: string, course_id?: string}|null $class_params
+ * @property list<int>|null $context_source_ids The sources ticked as the AI context; null is every source.
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  */
@@ -46,6 +47,7 @@ class Notebook extends Model
         'course_code',
         'lecturer_name',
         'class_params',
+        'context_source_ids',
     ];
 
     /**
@@ -55,6 +57,7 @@ class Notebook extends Model
     {
         return [
             'class_params' => 'array',
+            'context_source_ids' => 'array',
         ];
     }
 
@@ -90,6 +93,16 @@ class Notebook extends Model
     public function messages(): HasMany
     {
         return $this->hasMany(NotebookMessage::class);
+    }
+
+    /**
+     * Cards of the student's "Ulasan harian" saved from this notebook.
+     *
+     * @return HasMany<NotebookReviewCard, $this>
+     */
+    public function reviewCards(): HasMany
+    {
+        return $this->hasMany(NotebookReviewCard::class);
     }
 
     /**
@@ -143,6 +156,42 @@ class Notebook extends Model
     public function sourceRoom(): int
     {
         return max(0, $this->sourceLimit() - $this->sources()->count());
+    }
+
+    /**
+     * The sources ticked as the AI context, as the student last saved them,
+     * without the ones deleted since; null when every source is ticked.
+     *
+     * @return list<int>|null
+     */
+    public function contextSourceIds(): ?array
+    {
+        if (! is_array($this->context_source_ids)) {
+            return null;
+        }
+
+        $saved = array_values(array_unique(array_map('intval', $this->context_source_ids)));
+
+        if ($saved === []) {
+            return [];
+        }
+
+        $existing = $this->sources()->whereKey($saved)->pluck('id')->map(static fn (mixed $id): int => (int) $id)->all();
+
+        return array_values(array_filter($saved, static fn (int $id): bool => in_array($id, $existing, true)));
+    }
+
+    /**
+     * A source added after the student chose their context is ticked, as
+     * a new source is on a page that has not saved a choice.
+     */
+    public function includeInContext(int $sourceId): void
+    {
+        if (! is_array($this->context_source_ids) || in_array($sourceId, array_map('intval', $this->context_source_ids), true)) {
+            return;
+        }
+
+        $this->forceFill(['context_source_ids' => [...array_map('intval', $this->context_source_ids), $sourceId]])->saveQuietly();
     }
 
     public function isDismissed(string $kind, ?string $reference): bool

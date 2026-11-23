@@ -26,6 +26,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string $status
  * @property string|null $error
  * @property string|null $summary
+ * @property list<string>|null $topics
+ * @property list<string>|null $suggested_questions
  * @property int $char_count
  * @property int|null $page_count
  * @property bool $truncated
@@ -88,12 +90,24 @@ class NotebookSource extends Model
         'status',
         'error',
         'summary',
+        'topics',
+        'suggested_questions',
         'char_count',
         'page_count',
         'truncated',
         'queued_at',
         'requested_at',
     ];
+
+    /**
+     * A new source joins the notebook's saved AI context (Notebook::includeInContext()).
+     */
+    protected static function booted(): void
+    {
+        static::created(static function (self $source): void {
+            Notebook::query()->whereKey($source->notebook_id)->whereNotNull('context_source_ids')->first()?->includeInContext($source->id);
+        });
+    }
 
     /**
      * @return array<string, string>
@@ -105,6 +119,8 @@ class NotebookSource extends Model
             'char_count' => 'integer',
             'page_count' => 'integer',
             'truncated' => 'boolean',
+            'topics' => 'array',
+            'suggested_questions' => 'array',
             'queued_at' => 'datetime',
             'requested_at' => 'datetime',
         ];
@@ -166,7 +182,30 @@ class NotebookSource extends Model
     }
 
     /**
-     * @return array{id: int, kind: string, title: string, meeting_id: string|null, meeting_number: int|null, mime: string|null, status: string, error: string|null, summary: string|null, char_count: int, page_count: int|null, truncated: bool, stalled: bool, waiting: bool, archived_file_id: int|null, created_at: string|null}
+     * The source's understanding questions, none for a source read before
+     * source guides or without the model.
+     *
+     * @return list<string>
+     */
+    public function suggestedQuestions(): array
+    {
+        return self::strings($this->suggested_questions);
+    }
+
+    /**
+     * @param  array<mixed>|null  $values
+     * @return list<string>
+     */
+    private static function strings(?array $values): array
+    {
+        return array_values(array_filter($values ?? [], static fn (mixed $value): bool => is_string($value) && $value !== ''));
+    }
+
+    /**
+     * `topics` and `suggested_questions` are empty lists for a source read
+     * before source guides, or without the model.
+     *
+     * @return array{id: int, kind: string, title: string, meeting_id: string|null, meeting_number: int|null, mime: string|null, status: string, error: string|null, summary: string|null, topics: list<string>, suggested_questions: list<string>, char_count: int, page_count: int|null, truncated: bool, stalled: bool, waiting: bool, archived_file_id: int|null, created_at: string|null}
      */
     public function toApiArray(): array
     {
@@ -180,6 +219,8 @@ class NotebookSource extends Model
             'status' => $this->status,
             'error' => $this->error,
             'summary' => $this->summary,
+            'topics' => self::strings($this->topics),
+            'suggested_questions' => $this->suggestedQuestions(),
             'char_count' => $this->char_count,
             'page_count' => $this->page_count,
             'truncated' => $this->truncated,

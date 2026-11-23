@@ -3,6 +3,11 @@
 namespace App\Providers;
 
 use App\Http\Controllers\API\PortalAuthController;
+use App\Services\Ai\LazyNotebookAiClient;
+use App\Services\Ai\NotebookAiClient;
+use App\Services\Ai\NotebookAiOwnerSettings;
+use App\Services\Ai\NotebookAiProviders;
+use App\Services\NotebookSourceReader;
 use App\Services\PortalAuthService;
 use App\Services\PortalBroadcastService;
 use App\Services\PortalDataOwner;
@@ -12,21 +17,31 @@ use App\Services\PortalOperationTracker;
 use App\Services\PortalSessionContext;
 use App\Services\PortalSessionManager;
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Contracts\View\View as ViewContract;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
+use InvalidArgumentException;
 use Opcodes\LogViewer\Facades\LogViewer;
 use Symfony\Component\HttpFoundation\Response;
 
 class AppServiceProvider extends ServiceProvider
 {
     /**
+     * Views that name the notebook's AI provider(s).
+     */
+    private const NOTEBOOK_AI_VIEWS = ['notebook.index', 'notebook.show', 'legal.privacy', 'legal.support', 'legal.data-deletion'];
+
+    /**
      * Register any application services.
      */
     public function register(): void
     {
         $this->registerPortalServices();
+        $this->registerNotebookAiClient();
     }
 
     /**
@@ -34,6 +49,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        $this->shareNotebookAiProviders();
+
         RateLimiter::for('portal-login', function (Request $request): array {
             $username = strtolower((string) $request->input('username', 'anonymous'));
             $decayMinutes = (int) ceil(config('portal.security.login_rate_limit_decay', 300) / 60);
@@ -105,6 +122,49 @@ class AppServiceProvider extends ServiceProvider
                 'campus_session_valid' => false,
             ],
         ], 429, $headers);
+    }
+
+    /**
+     * The notebook's model: the driver `notebook.ai.provider` (or the
+     * student's own choice) names, and for reading PDFs and images
+     * (NotebookSourceReader) the one `notebook.ai.ingest_provider` names,
+     * when set. Chosen on first use (LazyNotebookAiClient), so building a
+     * service that never calls the model reads no settings.
+     */
+    private function registerNotebookAiClient(): void
+    {
+        // The student's own provider and keys, read once per request or job.
+        $this->app->scoped(NotebookAiOwnerSettings::class);
+        $this->app->bind(NotebookAiClient::class, fn (Application $app): NotebookAiClient => new LazyNotebookAiClient(
+            static fn (): NotebookAiClient => $app->make(NotebookAiProviders::class)->chat()
+        ));
+
+        $this->app->when(NotebookSourceReader::class)
+            ->needs(NotebookAiClient::class)
+            ->give(fn (Application $app): NotebookAiClient => new LazyNotebookAiClient(
+                static fn (): NotebookAiClient => $app->make(NotebookAiProviders::class)->ingest()
+            ));
+    }
+
+    /**
+     * The notebook pages and the privacy pages name the AI provider(s) the
+     * server uses (`$notebookAi`, NotebookAiProviders::forPages()) instead
+     * of a fixed one. A provider setting the server has no driver for is
+     * logged; the privacy pages then describe the AI provider generically
+     * rather than failing.
+     */
+    private function shareNotebookAiProviders(): void
+    {
+        View::composer(self::NOTEBOOK_AI_VIEWS, function (ViewContract $view): void {
+            try {
+                $notebookAi = $this->app->make(NotebookAiProviders::class)->forPages();
+            } catch (InvalidArgumentException $exception) {
+                report($exception);
+                $notebookAi = NotebookAiProviders::unknown();
+            }
+
+            $view->with('notebookAi', $notebookAi);
+        });
     }
 
     /**

@@ -41,8 +41,18 @@ export const ACCOUNT_DELETION_ITEMS = [
   'Semua sesi WeCIC di semua perangkat, termasuk token notifikasi push',
 ] as const;
 
-export const ACCOUNT_DELETION_UNAFFECTED =
-  'Akun portal akademik kampusmu tidak terpengaruh: kamu tetap bisa masuk ke portal kampus seperti biasa. Data yang sudah dikirim ke Google Gemini tidak bisa ditarik dari Google.';
+/**
+ * What "Hapus akun & data WeCIC" leaves alone, naming the Notebook AI
+ * provider(s) the server said it uses (`ai_consent.provider`), when known,
+ * and those that received Notebook content before (`past_processors`).
+ */
+export function accountDeletionUnaffected(aiProvider?: string | null, pastProviders: readonly string[] = []): string {
+  const provider = aiProvider?.trim() ? aiProvider.trim() : 'penyedia AI Notebook';
+  const past = pastProviders.map((label) => label.trim()).filter(Boolean);
+  const pastNote = past.length > 0 ? `, begitu pula data yang dulu dikirim ke ${past.join(' dan ')}` : '';
+
+  return `Akun portal akademik kampusmu tidak terpengaruh: kamu tetap bisa masuk ke portal kampus seperti biasa. Data yang sudah dikirim ke ${provider} tidak bisa ditarik kembali oleh WeCIC${pastNote}.`;
+}
 
 /** Whether switching background sync on needs the portal password typed again: no usable one is stored. */
 export function backgroundSyncNeedsPassword(status: BackgroundSync | null | undefined): boolean {

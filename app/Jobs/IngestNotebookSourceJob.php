@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Jobs;
 
+use App\Jobs\Middleware\UseNotebookOwnerAiSettings;
 use App\Models\NotebookSource;
 use App\Services\NotebookLibrary;
 use Illuminate\Bus\Queueable;
@@ -64,13 +65,17 @@ class IngestNotebookSourceJob implements ShouldBeUnique, ShouldQueue
     }
 
     /**
-     * A reading queued again after its lock expired never runs twice at once.
+     * A reading queued again after its lock expired never runs twice at once,
+     * and it reads with the AI settings of the student who owns the source.
      *
      * @return list<object>
      */
     public function middleware(): array
     {
-        return [(new WithoutOverlapping((string) $this->sourceId))->dontRelease()->expireAfter($this->timeout + 60)];
+        return [
+            (new WithoutOverlapping((string) $this->sourceId))->dontRelease()->expireAfter($this->timeout + 60),
+            new UseNotebookOwnerAiSettings(fn (): ?string => NotebookSource::query()->with('notebook:id,owner_hash')->find($this->sourceId)?->notebook?->owner_hash),
+        ];
     }
 
     /**

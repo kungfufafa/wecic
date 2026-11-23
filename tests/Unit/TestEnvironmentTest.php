@@ -20,6 +20,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Monolog\Handler\NullHandler;
 use PHPUnit\Framework\AssertionFailedError;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 /**
@@ -60,6 +61,11 @@ class TestEnvironmentTest extends TestCase
     public function test_tests_carry_no_real_ai_key_and_broadcast_nowhere(): void
     {
         $this->assertSame('', config('services.gemini.key'));
+        $this->assertSame('', config('services.anthropic.key'));
+        $this->assertSame('', config('services.openai_compatible.key'));
+        $this->assertNull(config('services.openai_compatible.model'));
+        $this->assertSame('gemini', config('notebook.ai.provider'));
+        $this->assertNull(config('notebook.ai.ingest_provider'));
         $this->assertSame('null', config('broadcasting.default'));
     }
 
@@ -158,6 +164,25 @@ class TestEnvironmentTest extends TestCase
         $this->expectException(StrayRequestException::class);
 
         Http::get('https://generativelanguage.googleapis.com/v1beta/models');
+    }
+
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function otherAiEndpoints(): array
+    {
+        return [
+            'anthropic' => ['https://api.anthropic.com/v1/messages'],
+            'openai' => ['https://api.openai.com/v1/chat/completions'],
+        ];
+    }
+
+    #[DataProvider('otherAiEndpoints')]
+    public function test_a_call_to_another_ai_provider_the_test_did_not_fake_throws(string $url): void
+    {
+        $this->expectException(StrayRequestException::class);
+
+        Http::post($url, ['model' => 'test']);
     }
 
     private function portalClient(): Client

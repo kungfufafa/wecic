@@ -1,13 +1,29 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Fragment, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { Fragment, useCallback, useEffect, useEffectEvent, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, AppState, Platform, ScrollView, Share, StyleSheet, View, type ScrollViewInstance } from 'react-native';
 
 import type { ApiEnvelope } from '@/api/types';
-import type { NotebookDetailResponse, NotebookMeeting, NotebookMessage, NotebookSource } from '@/api/types/classes';
+import type {
+  NotebookAskMode,
+  NotebookDetailResponse,
+  NotebookFeedbackResponse,
+  NotebookMeeting,
+  NotebookMessage,
+  NotebookNoteResponse,
+  NotebookReviewImportResponse,
+  NotebookSource,
+  NotebookStudioOptions,
+} from '@/api/types/classes';
 import { useSession } from '@/auth/session-provider';
 import { Button } from '@/components/button';
 import { Chip } from '@/components/chip';
-import { StudioResult, plainText } from '@/components/classes/studio-result';
+import { AddSourceSheet } from '@/components/classes/add-source-sheet';
+import { AssignmentBriefSheet } from '@/components/classes/assignment-brief-sheet';
+import { FeedbackSheet } from '@/components/classes/feedback-sheet';
+import { NotesSection } from '@/components/classes/notes-section';
+import { StudioOptionsSheet } from '@/components/classes/studio-options-sheet';
+import { CitationText } from '@/components/classes/citation-text';
+import { StudioResult, type MindMapAction } from '@/components/classes/studio-result';
 import { EmptyState } from '@/components/empty-state';
 import { IconButton } from '@/components/icon-button';
 import { Notice } from '@/components/notice';
@@ -20,10 +36,48 @@ import { ThemedText } from '@/components/themed-text';
 import { Radius, Spacing } from '@/constants/theme';
 import { useAiConsent } from '@/hooks/use-ai-consent';
 import { useApiResource } from '@/hooks/use-api-resource';
+import { useSourceSelection } from '@/hooks/use-source-selection';
 import { useTheme } from '@/hooks/use-theme';
-import { isAiConsentRequired, rememberAiConsentFrom } from '@/lib/ai-consent';
-import { aiStatusMessage, sourceStatus } from '@/lib/classes';
+import { aiProviderLabel, isAiConsentRequired, rememberAiConsentFrom } from '@/lib/ai-consent';
+import {
+  aiStatusMessage,
+  askModeLabel,
+  askModeOf,
+  mindMapConcept,
+  mindMapQuestion,
+  mindMapSourceIds,
+  NotebookAskModes,
+  practiceCount,
+  sourceStatus,
+  type MindMapLine,
+} from '@/lib/classes';
 import { formatDateTime } from '@/lib/format';
+import {
+  buildUploadForm,
+  canRetrySource,
+  chatSuggestions,
+  choiceForServer,
+  choiceKey,
+  contextSourceIds,
+  excludedFromChoice,
+  noContextChosen,
+  pollDelay,
+  pruneExcluded,
+  readingKey,
+  retryLabel,
+  showsSourceSelection,
+  sourceQuestions,
+  sourceTopics,
+} from '@/lib/notebook-sources';
+import { feedbackRequest, type FeedbackRequest } from '@/lib/notebook-feedback';
+import { noteShareMessage, notesOf, noteTitle } from '@/lib/notebook-notes';
+import type { PickedFile } from '@/lib/pick-file';
+
+/** Studio tools that ask how many and how hard first (StudioOptionsSheet). */
+const OPTION_KINDS = ['quiz', 'flashcards'];
+
+/** The studio tool that asks for the lecturer's brief first (AssignmentBriefSheet). */
+const BRIEF_KIND = 'assignment_plan';
 
 export default function NotebookScreen() {
   const router = useRouter();
@@ -31,27 +85,137 @@ export default function NotebookScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const detail = useApiResource<NotebookDetailResponse>(id ? `notebooks/${encodeURIComponent(id)}` : null);
   const [question, setQuestion] = useState('');
+  const [askMode, setAskMode] = useState<NotebookAskMode>('answer');
   const [asking, setAsking] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [optionsKind, setOptionsKind] = useState<string | null>(null);
+  /** A mind map node's Latihan: the quiz's focus and the map's own sources (null: the chosen ones). */
+  const [optionsFocus, setOptionsFocus] = useState<{ focus: string; sourceIds: number[] | null } | null>(null);
+  const [briefOpen, setBriefOpen] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
+  const [feedbackAsk, setFeedbackAsk] = useState<FeedbackRequest | null>(null);
+  const [feedbackBusy, setFeedbackBusy] = useState(false);
+  const [feedbackError, setFeedbackError] = useState<string | null>(null);
+  const [feedbackResult, setFeedbackResult] = useState<NotebookMessage | null>(null);
+  /** Which opening of the feedback sheet a request belongs to: a late result never lands in a sheet closed or reopened since. */
+  const feedbackOpening = useRef(0);
+  const scrollRef = useRef<ScrollViewInstance>(null);
+  /** The last practice save of each output, so "Simpan yang salah ke ulasan" reads the attempt just finished. */
+  const practiceSaves = useRef(new Map<number, Promise<unknown>>());
+  const [addBusy, setAddBusy] = useState<'upload' | 'text' | null>(null);
+  const [addError, setAddError] = useState<string | null>(null);
+  const [excluded, setExcluded] = useSourceSelection(id);
   const data = detail.data?.data;
   const notebook = data?.notebook;
   const sources = data?.sources ?? [];
   const messages = [...(data?.messages ?? [])].sort((a, b) => a.id - b.id);
   const chat = messages.filter((message) => message.kind === 'chat');
+  const notes = notesOf(messages);
   const studio = messages.filter((message) => message.kind !== 'chat' && message.role !== 'user').reverse();
   const studioKinds = data?.studio_kinds ?? {};
   const meetings = data?.meetings?.meetings ?? [];
   const aiAvailable = data?.ai_available !== false;
   const aiNotice = aiStatusMessage(data?.ai_available, data?.ai_status);
-  const hasReadySource = sources.some((source) => source.status === 'ready');
+  const readySources = sources.filter((source) => source.status === 'ready');
+  const hasReadySource = readySources.length > 0;
+  const chosenIds = contextSourceIds(sources, excluded);
+  const chosenCount = excluded.size === 0 ? readySources.length : chosenIds.length;
+  const nothingChosen = noContextChosen(sources, excluded);
+  const room = data?.source_limit ? Math.max(0, data.source_limit - sources.length) : null;
   const isCourse = notebook?.kind === 'course';
   const { consent } = useAiConsent();
   const needsConsent = aiAvailable && consent !== null && !consent.granted;
+  // A tutor-mode starter asks to be guided, so the source questions are offered outside tutor mode only (as on the web).
+  const suggestions = askMode === 'tutor' ? [] : chatSuggestions(data?.suggestions);
+  const canAsk = aiAvailable && hasReadySource && asking === null;
 
   useEffect(() => {
     rememberAiConsentFrom(detail.data);
   }, [detail.data]);
+
+  // A deleted source is forgotten from the selection, as on the web.
+  const sourceIds = sources.map((source) => source.id).join(',');
+  const forgetDeleted = useEffectEvent(() => {
+    const kept = pruneExcluded(excluded, sources);
+
+    if (kept.size !== excluded.size) {
+      setExcluded(kept);
+    }
+  });
+
+  useEffect(() => {
+    if (data) {
+      forgetDeleted();
+    }
+  }, [data, sourceIds, excluded]);
+
+  // The choice saved on the server wins over the device copy and is written to it (setExcluded); it is applied
+  // when it changes, so a reload that brings back the choice just saved leaves the chips alone.
+  const serverChoice = data?.context_source_ids;
+  const serverChoiceKey = choiceKey(serverChoice);
+  const appliedChoice = useRef<string | null>(null);
+  const applyServerChoice = useEffectEvent(() => {
+    const next = excludedFromChoice(serverChoice, sources);
+
+    if (next) {
+      setExcluded(next);
+    }
+  });
+
+  useEffect(() => {
+    if (serverChoiceKey !== null && serverChoiceKey !== appliedChoice.current) {
+      appliedChoice.current = serverChoiceKey;
+      applyServerChoice();
+    }
+  }, [serverChoiceKey]);
+
+  // While a source is read: ask again every 4 s, every 20 s after two minutes without progress, and stop
+  // after an hour (the web's POLL_* constants); only while this screen is shown and the app is in front.
+  const reading = readingKey(sources);
+  const pollWindow = useRef({ key: '', startedAt: 0 });
+  const [onScreen, setOnScreen] = useState(true);
+  const [appActive, setAppActive] = useState(AppState.currentState === 'active');
+  const [pollTick, setPollTick] = useState(0);
+  const pollOnce = useEffectEvent(async () => {
+    await detail.reload();
+    setPollTick((tick) => tick + 1);
+  });
+
+  useFocusEffect(
+    useCallback(() => {
+      setOnScreen(true);
+
+      return () => setOnScreen(false);
+    }, []),
+  );
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (status) => setAppActive(status === 'active'));
+
+    return () => subscription.remove();
+  }, []);
+
+  useEffect(() => {
+    // Any progress (a source added, read, or read again) starts a fresh polling window.
+    if (reading !== pollWindow.current.key) {
+      pollWindow.current = { key: reading, startedAt: Date.now() };
+    }
+
+    if (!onScreen || !appActive) {
+      return;
+    }
+
+    const delay = pollDelay(Date.now() - pollWindow.current.startedAt, reading !== '');
+
+    if (delay === null) {
+      return;
+    }
+
+    const timer = setTimeout(() => void pollOnce(), delay);
+
+    return () => clearTimeout(timer);
+  }, [reading, onScreen, appActive, pollTick]);
 
   function openConsent() {
     router.push('/ai-consent');
@@ -83,10 +247,108 @@ export default function NotebookScreen() {
     }
   }
 
-  async function ask() {
-    const text = question.trim();
+  /** `source_ids` of the chosen ready sources, only when the student left some out (none means all, as on the web). */
+  function withContext<T extends object>(body: T): T & { source_ids?: number[] } {
+    return chosenIds.length > 0 ? { ...body, source_ids: chosenIds } : body;
+  }
 
-    if (text.length < 2 || !id) {
+  /** A new choice of sources: kept on the device and saved on the server, so the web opens with it too. */
+  function chooseSources(next: Set<number>) {
+    const choice = choiceForServer(next, sources);
+
+    setExcluded(next);
+    appliedChoice.current = choiceKey(choice);
+    api.patch(`notebooks/${encodeURIComponent(id ?? '')}`, { context_source_ids: choice }).catch(() => {
+      setActionError('Pilihan sumber belum tersimpan di server; di perangkat ini tetap dipakai.');
+    });
+  }
+
+  function toggleSource(sourceId: number) {
+    const next = new Set(excluded);
+
+    if (next.has(sourceId)) {
+      next.delete(sourceId);
+    } else {
+      next.add(sourceId);
+    }
+
+    chooseSources(next);
+  }
+
+  function openAddSource() {
+    setAddError(null);
+    setAddOpen(true);
+  }
+
+  /**
+   * One source from the "+ Sumber" sheet. The server's refusal (a format
+   * or size, or a file the configured AI model cannot read) is shown in the
+   * sheet as it came; a refusal for lack of consent opens the consent screen.
+   */
+  async function addSource(kind: 'upload' | 'text', body: FormData | { type: 'text'; title: string; content: string }) {
+    if (kind === 'upload' && needsConsent) {
+      setAddOpen(false);
+      openConsent();
+
+      return;
+    }
+
+    setAddBusy(kind);
+    setAddError(null);
+
+    try {
+      await api.post(`notebooks/${encodeURIComponent(id ?? '')}/sources`, body, { timeoutMs: 180_000 });
+      setAddOpen(false);
+      await detail.reload();
+    } catch (error) {
+      if (isAiConsentRequired(error)) {
+        setAddOpen(false);
+        showError(error);
+      } else {
+        setAddError(error instanceof Error ? error.message : String(error));
+      }
+    } finally {
+      setAddBusy(null);
+    }
+  }
+
+  function retrySource(source: NotebookSource) {
+    if (needsConsent) {
+      openConsent();
+
+      return;
+    }
+
+    void run(`retry-${source.id}`, () => api.post(`notebooks/${encodeURIComponent(id ?? '')}/sources/${source.id}/retry`));
+  }
+
+  function confirmDeleteSource(source: NotebookSource) {
+    const title = 'Hapus sumber ini?';
+    const message = `${source.title ?? 'Sumber'} dihapus dari notebook. Rujukan ke sumber ini tidak bisa dibuka lagi.`;
+    const remove = () => void run(`delete-source-${source.id}`, () => api.delete<ApiEnvelope>(`notebooks/${encodeURIComponent(id ?? '')}/sources/${source.id}`));
+
+    if (Platform.OS === 'web') {
+      if (window.confirm(`${title}\n${message}`)) {
+        remove();
+      }
+
+      return;
+    }
+
+    Alert.alert(title, message, [
+      { text: 'Batal', style: 'cancel' },
+      { text: 'Hapus', style: 'destructive', onPress: remove },
+    ]);
+  }
+
+  /**
+   * Asks the typed question, or a suggested one; `sourceIds` asks about
+   * those sources only (a question from a source's guide), whatever is chosen.
+   */
+  async function ask(preset?: string, sourceIds?: number[]) {
+    const text = (preset ?? question).trim();
+
+    if (text.length < 2 || !id || asking !== null) {
       return;
     }
 
@@ -96,20 +358,256 @@ export default function NotebookScreen() {
       return;
     }
 
+    const typed = preset === undefined;
+
     setAsking(text);
-    setQuestion('');
+
+    if (sourceIds) {
+      // Asked from a source row, far below: show the chat, where the answer comes.
+      scrollRef.current?.scrollTo({ y: 0, animated: true });
+    }
+
+    if (typed) {
+      setQuestion('');
+    }
+
     setActionError(null);
 
     try {
-      await api.post(`notebooks/${encodeURIComponent(id)}/messages`, { question: text }, { timeoutMs: 120_000 });
+      const body = sourceIds ? { question: text, mode: askMode, source_ids: sourceIds } : withContext({ question: text, mode: askMode });
+
+      await api.post(`notebooks/${encodeURIComponent(id)}/messages`, body, { timeoutMs: 120_000 });
       await detail.reload();
     } catch (error) {
-      setQuestion(text);
+      if (typed) {
+        setQuestion(text);
+      }
+
       showError(error);
     } finally {
       setAsking(null);
     }
   }
+
+  /** One studio request (one AI request from the daily budget), with its options or the practice it is made from. */
+  function runStudio(
+    kind: string,
+    body: { options?: NotebookStudioOptions; practice?: { message_id: number; missed: number[] }; focus?: string | null } = {},
+    sourceIds: number[] | null = null,
+  ) {
+    const payload = sourceIds ? { kind, ...body, source_ids: sourceIds } : withContext({ kind, ...body });
+
+    void run(`studio-${kind}`, () => api.post(`notebooks/${encodeURIComponent(id ?? '')}/studio`, payload, { timeoutMs: 180_000 }));
+  }
+
+  /**
+   * A mind map node's action, with the map's own sources that are still ready (the chosen ones otherwise): Jelaskan asks
+   * in Chat with the parent as context, Latihan opens the quiz options focused on the node, and the third opens
+   * "Cek pemahamanku" to explain it in the student's own words. Each spends one daily AI request when it runs.
+   */
+  function onMindMapAction(message: NotebookMessage, action: MindMapAction, line: MindMapLine) {
+    const mapSources = mindMapSourceIds(message.context?.source_ids, readySources.map((source) => source.id));
+
+    if (action === 'explain') {
+      // The answer comes in the chat, far above Studio.
+      scrollRef.current?.scrollTo({ y: 0, animated: true });
+      void ask(mindMapQuestion(line), mapSources ?? undefined);
+    } else if (action === 'practice') {
+      if (needsConsent) {
+        openConsent();
+
+        return;
+      }
+
+      setOptionsFocus({ focus: mindMapConcept(line), sourceIds: mapSources });
+      setOptionsKind('quiz');
+    } else {
+      const request = feedbackRequest(mindMapConcept(line), 'explain_concept');
+
+      openFeedback(request ? { ...request, ...(mapSources ? { sourceIds: mapSources } : {}) } : null);
+    }
+  }
+
+  function openStudio(kind: string) {
+    if (kind === BRIEF_KIND) {
+      setBriefOpen(true);
+    } else if (OPTION_KINDS.includes(kind)) {
+      setOptionsFocus(null);
+      setOptionsKind(kind);
+    } else {
+      runStudio(kind);
+    }
+  }
+
+  /**
+   * "Cek pemahamanku" for a question, concept or brief (FeedbackSheet); the entry point for every later caller too.
+   * Without consent the consent screen opens instead.
+   */
+  function openFeedback(request: FeedbackRequest | null) {
+    if (!request || !aiAvailable) {
+      return;
+    }
+
+    if (needsConsent) {
+      openConsent();
+
+      return;
+    }
+
+    feedbackOpening.current += 1;
+    setFeedbackBusy(false);
+    setFeedbackError(null);
+    setFeedbackResult(null);
+    setFeedbackAsk(request);
+  }
+
+  /** Closing is allowed while a check runs: the request carries on and its result lands in Studio. */
+  function closeFeedback() {
+    feedbackOpening.current += 1;
+    setFeedbackBusy(false);
+    setFeedbackError(null);
+    setFeedbackAsk(null);
+    setFeedbackResult(null);
+  }
+
+  /** One AI request: the student's own answer, judged against the chosen sources; the result shows in the sheet. */
+  async function sendFeedback(answer: string) {
+    if (!feedbackAsk || !id || feedbackBusy) {
+      return;
+    }
+
+    const opening = feedbackOpening.current;
+    const stillOpen = () => feedbackOpening.current === opening;
+
+    setFeedbackBusy(true);
+    setFeedbackError(null);
+
+    try {
+      const response = await api.post<NotebookFeedbackResponse>(
+        `notebooks/${encodeURIComponent(id)}/feedback`,
+        feedbackAsk.sourceIds
+          ? { prompt: feedbackAsk.prompt, answer, mode: feedbackAsk.mode, source_ids: feedbackAsk.sourceIds }
+          : withContext({ prompt: feedbackAsk.prompt, answer, mode: feedbackAsk.mode }),
+        { timeoutMs: 180_000 },
+      );
+
+      if (stillOpen()) {
+        setFeedbackResult(response.data.message);
+      }
+
+      await detail.reload();
+    } catch (error) {
+      if (isAiConsentRequired(error)) {
+        if (stillOpen()) {
+          setFeedbackAsk(null);
+        }
+
+        showError(error);
+      } else if (stillOpen()) {
+        setFeedbackError(error instanceof Error ? error.message : String(error));
+      } else {
+        showError(error);
+      }
+    } finally {
+      if (stillOpen()) {
+        setFeedbackBusy(false);
+      }
+    }
+  }
+
+  /** A practice attempt is kept on the output without AI; a failed save leaves the practice as it is. */
+  function savePractice(message: NotebookMessage, practice: Record<string, unknown>) {
+    const saved = api.patch(`notebooks/${encodeURIComponent(id ?? '')}/messages/${message.id}`, { practice }).catch(() => {
+      setActionError('Hasil latihan belum tersimpan.');
+    });
+
+    practiceSaves.current.set(message.id, saved);
+  }
+
+  /**
+   * Ulasan harian: every flashcard, or the items missed in the last practice (always for a quiz). No AI and no
+   * budget; saving the same output again adds no duplicates.
+   */
+  async function saveToReview(message: NotebookMessage, onlyMissed: boolean) {
+    setBusy(`review-${message.id}`);
+    setActionError(null);
+
+    try {
+      await practiceSaves.current.get(message.id);
+      const response = await api.post<NotebookReviewImportResponse>(
+        `notebooks/${encodeURIComponent(id ?? '')}/messages/${message.id}/review-cards`,
+        onlyMissed ? { only_missed: true } : {},
+      );
+
+      Alert.alert('Ulasan harian', response.message ?? 'Disimpan ke Ulasan harian.', [
+        { text: 'Nanti', style: 'cancel' },
+        { text: 'Ulas sekarang', onPress: () => router.push('/notebooks/review') },
+      ]);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  /** "+ Catatan baru", or "Salin ke catatan" from an answer: no AI and no consent. */
+  function createNote(fromMessageId?: number) {
+    void run(fromMessageId ? `note-copy-${fromMessageId}` : 'note-new', () =>
+      api.post<NotebookNoteResponse>(`notebooks/${encodeURIComponent(id ?? '')}/notes`, fromMessageId ? { from_message_id: fromMessageId } : { content: '' }),
+    );
+  }
+
+  /** One PATCH with the note's new text; false (and the error shown) when the server did not keep it. */
+  async function saveNote(note: NotebookMessage, content: string): Promise<boolean> {
+    setBusy(`note-save-${note.id}`);
+    setActionError(null);
+
+    try {
+      await api.patch(`notebooks/${encodeURIComponent(id ?? '')}/messages/${note.id}`, { content });
+      await detail.reload();
+
+      return true;
+    } catch (error) {
+      showError(error);
+
+      return false;
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  /** Bagikan: the note's Markdown through the system share sheet (on the web preview, the browser's). */
+  function shareNote(note: NotebookMessage) {
+    Share.share({ title: noteTitle(note.content), message: noteShareMessage(note) }).catch(() => {
+      setActionError('Catatan gagal dibagikan.');
+    });
+  }
+
+  /** Jadikan sumber: a pasted-text source; the source limit and the daily reading budget apply as for pasted text. */
+  function noteToSource(note: NotebookMessage) {
+    void run(`note-source-${note.id}`, () => api.post(`notebooks/${encodeURIComponent(id ?? '')}/notes/${note.id}/source`));
+  }
+
+  function confirmDeleteNote(note: NotebookMessage) {
+    const title = 'Hapus catatan ini?';
+    const message = `${noteTitle(note.content)} dihapus permanen.`;
+    const remove = () => void run(`note-delete-${note.id}`, () => api.delete<ApiEnvelope>(`notebooks/${encodeURIComponent(id ?? '')}/messages/${note.id}`));
+
+    if (Platform.OS === 'web') {
+      if (window.confirm(`${title}\n${message}`)) {
+        remove();
+      }
+
+      return;
+    }
+
+    Alert.alert(title, message, [
+      { text: 'Batal', style: 'cancel' },
+      { text: 'Hapus', style: 'destructive', onPress: remove },
+    ]);
+  }
+
+  const canStudio = aiAvailable && !needsConsent && hasReadySource && !nothingChosen && busy === null;
 
   function confirmDelete() {
     const title = isCourse ? 'Kosongkan notebook ini?' : 'Hapus notebook ini?';
@@ -141,6 +639,7 @@ export default function NotebookScreen() {
 
   return (
     <Screen
+      scrollRef={scrollRef}
       back
       title={notebook?.title ?? 'Notebook'}
       subtitle={notebook ? [notebook.course_code, `${notebook.sources_count ?? sources.length} sumber`, notebook.lecturer_name].filter(Boolean).join(' · ') : null}
@@ -156,7 +655,7 @@ export default function NotebookScreen() {
         <Section label="Izin Notebook AI">
           <Panel style={styles.consent}>
             <ThemedText type="small" themeColor="textSecondary">
-              Tanya jawab, Studio, dan pembacaan PDF atau gambar mengirim isi notebook ke Google Gemini. Setujui dulu sebelum memakai AI. Tanpa izin, notebook tetap bisa dibuka dan dihapus.
+              {`Tanya jawab, Studio, dan pembacaan PDF atau gambar mengirim isi notebook ke ${aiProviderLabel(consent)}. Setujui dulu sebelum memakai AI. Tanpa izin, notebook tetap bisa dibuka dan dihapus.`}
             </ThemedText>
             <Button size="small" variant="secondary" icon="sparkles" label="Tinjau dan setujui" onPress={openConsent} />
           </Panel>
@@ -182,8 +681,21 @@ export default function NotebookScreen() {
                     : 'Belum ada sumber yang siap.'}
                 </ThemedText>
               ) : null}
+              {chat.length === 0 && !asking && hasReadySource && suggestions.length > 0 ? (
+                <View style={styles.suggestions} accessibilityLabel="Coba mulai dengan">
+                  {suggestions.map((text) => (
+                    <Chip key={text} icon="sparkles" label={text} onPress={canAsk && !nothingChosen ? () => void ask(text) : undefined} />
+                  ))}
+                </View>
+              ) : null}
               {chat.map((message) => (
-                <ChatBubble key={message.id} message={message} />
+                <ChatBubble
+                  key={message.id}
+                  message={message}
+                  notebookId={id}
+                  copying={busy === `note-copy-${message.id}`}
+                  onCopyToNote={busy === null ? () => createNote(message.id) : undefined}
+                />
               ))}
               {asking ? (
                 <>
@@ -198,8 +710,31 @@ export default function NotebookScreen() {
               ) : null}
             </Panel>
             <Panel style={styles.ask}>
+              {showsSourceSelection(sources, excluded) ? (
+                <>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips} accessibilityLabel="Sumber yang dipakai AI">
+                    <Chip label="Semua sumber" selected={excluded.size === 0} onPress={() => chooseSources(new Set())} />
+                    {readySources.map((source) => (
+                      <Chip key={source.id} label={source.title ?? 'Sumber'} selected={!excluded.has(source.id)} onPress={() => toggleSource(source.id)} />
+                    ))}
+                  </ScrollView>
+                  <ThemedText type="caption" themeColor={nothingChosen ? 'danger' : 'textTertiary'}>
+                    {nothingChosen ? 'Pilih minimal satu sumber untuk ditanyakan.' : `Konteks: ${chosenCount} dari ${readySources.length} sumber siap.`}
+                  </ThemedText>
+                </>
+              ) : null}
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips} accessibilityLabel="Cara menjawab">
+                {NotebookAskModes.map((item) => (
+                  <Chip key={item.mode} label={item.label} selected={askMode === item.mode} onPress={() => setAskMode(item.mode)} />
+                ))}
+              </ScrollView>
+              {askMode === 'tutor' ? (
+                <ThemedText type="caption" themeColor="textTertiary">
+                  Mode tutor menuntunmu selangkah demi selangkah dengan pertanyaan dan petunjuk, tanpa mengerjakan tugasmu.
+                </ThemedText>
+              ) : null}
               <TextField
-                placeholder={aiAvailable ? 'Tulis pertanyaan…' : 'Asisten AI belum aktif'}
+                placeholder={aiAvailable ? (askMode === 'tutor' ? 'Ceritakan bagian yang ingin kamu pahami…' : 'Tulis pertanyaan…') : 'Asisten AI belum aktif'}
                 value={question}
                 onChangeText={setQuestion}
                 editable={aiAvailable && asking === null}
@@ -211,7 +746,7 @@ export default function NotebookScreen() {
                 icon="send"
                 label="Tanya"
                 loading={asking !== null}
-                disabled={!aiAvailable || !hasReadySource || question.trim().length < 2}
+                disabled={!aiAvailable || !hasReadySource || nothingChosen || question.trim().length < 2}
                 onPress={() => void ask()}
               />
             </Panel>
@@ -228,8 +763,8 @@ export default function NotebookScreen() {
                     onPress={
                       aiAvailable && needsConsent
                         ? openConsent
-                        : aiAvailable && hasReadySource && busy === null
-                        ? () => void run(`studio-${kind}`, () => api.post(`notebooks/${encodeURIComponent(id ?? '')}/studio`, { kind }, { timeoutMs: 180_000 }))
+                        : aiAvailable && hasReadySource && !nothingChosen && busy === null
+                        ? () => openStudio(kind)
                         : undefined
                     }
                   />
@@ -240,40 +775,141 @@ export default function NotebookScreen() {
               <Panel key={message.id} style={styles.result}>
                 <View style={styles.resultHead}>
                   <ThemedText type="smallBold" style={styles.flex}>
-                    {studioKinds[message.kind] ?? message.kind}
+                    {message.kind === 'feedback' ? 'Cek pemahaman' : studioKinds[message.kind] ?? message.kind}
                   </ThemedText>
                   <ThemedText type="caption" themeColor="textQuaternary">
                     {formatDateTime(message.created_at)}
                   </ThemedText>
                 </View>
-                <StudioResult message={message} />
+                <StudioResult
+                  message={message}
+                  notebookId={id}
+                  budget={data?.ai_budget}
+                  canMakePractice={canStudio}
+                  onFeedback={aiAvailable && hasReadySource && !nothingChosen ? openFeedback : undefined}
+                  onMindMapAction={canAsk ? (action, line) => onMindMapAction(message, action, line) : undefined}
+                  onSave={(practice) => savePractice(message, practice)}
+                  savingToReview={busy === `review-${message.id}`}
+                  onSaveToReview={busy === null ? (onlyMissed) => void saveToReview(message, onlyMissed) : undefined}
+                  onPracticeFromMissed={(missed) =>
+                    runStudio('quiz', { practice: { message_id: message.id, missed }, options: { count: practiceCount(missed) } })
+                  }
+                />
               </Panel>
             ))}
           </Section>
 
+          <NotesSection
+            notes={notes}
+            sources={sources}
+            room={room}
+            notebookId={id}
+            busy={busy}
+            onCreate={() => createNote()}
+            onSave={saveNote}
+            onShare={shareNote}
+            onMakeSource={noteToSource}
+            onDelete={confirmDeleteNote}
+          />
+
           <Section
             label="Sumber"
             accessory={
-              <ThemedText type="small" themeColor="textTertiary" style={styles.count}>
-                {data?.source_limit ? `${sources.length}/${data.source_limit}` : `${sources.length}`}
-              </ThemedText>
+              <View style={styles.sourceAccessory}>
+                <ThemedText type="small" themeColor="textTertiary">
+                  {data?.source_limit ? `${sources.length}/${data.source_limit}` : `${sources.length}`}
+                </ThemedText>
+                <Button size="small" variant="secondary" label="+ Sumber" accessibilityLabel="Tambah sumber" hitSlop={4} onPress={openAddSource} />
+              </View>
             }>
             <Panel padded={false}>
               {sources.length === 0 ? (
                 <EmptyState
                   icon="document"
                   title="Belum ada sumber"
-                  description={isCourse && meetings.length > 0 ? 'Tambahkan dari daftar pertemuan.' : undefined}
+                  description={isCourse && meetings.length > 0 ? 'Tambahkan dari daftar pertemuan, atau ketuk + Sumber.' : 'Ketuk + Sumber untuk menambah foto, berkas, atau catatan.'}
                 />
               ) : null}
               {sources.map((source, index) => (
                 <Fragment key={source.id}>
                   {index > 0 ? <Divider /> : null}
-                  <SourceRow source={source} />
+                  <SourceRow
+                    source={source}
+                    canRetry={canRetrySource(source, aiAvailable)}
+                    retrying={busy === `retry-${source.id}`}
+                    deleting={busy === `delete-source-${source.id}`}
+                    disabled={busy !== null}
+                    onRetry={() => retrySource(source)}
+                    onDelete={() => confirmDeleteSource(source)}
+                    onAsk={canAsk ? (text) => void ask(text, [source.id]) : undefined}
+                  />
                 </Fragment>
               ))}
             </Panel>
           </Section>
+
+          <StudioOptionsSheet
+            kind={optionsKind}
+            label={optionsKind ? studioKinds[optionsKind] ?? optionsKind : ''}
+            budget={data?.ai_budget}
+            focus={optionsFocus?.focus}
+            onClose={() => {
+              setOptionsKind(null);
+              setOptionsFocus(null);
+            }}
+            onSubmit={(options) => {
+              const kind = optionsKind;
+              const focused = optionsFocus;
+
+              setOptionsKind(null);
+              setOptionsFocus(null);
+
+              if (kind) {
+                runStudio(kind, focused ? { options, focus: focused.focus } : { options }, focused?.sourceIds ?? null);
+              }
+            }}
+          />
+
+          <AssignmentBriefSheet
+            visible={briefOpen}
+            label={studioKinds[BRIEF_KIND] ?? 'Kerangka tugas'}
+            sources={sources}
+            chosenCount={chosenCount}
+            readyCount={readySources.length}
+            budget={data?.ai_budget}
+            onClose={() => setBriefOpen(false)}
+            onSubmit={(focus) => {
+              setBriefOpen(false);
+              runStudio(BRIEF_KIND, { focus });
+            }}
+          />
+
+          <FeedbackSheet
+            request={feedbackAsk}
+            notebookId={id}
+            chosenCount={chosenCount}
+            budget={data?.ai_budget}
+            busy={feedbackBusy}
+            error={feedbackError}
+            result={feedbackResult}
+            onClose={closeFeedback}
+            onSubmit={(answer) => void sendFeedback(answer)}
+            onAnswerAgain={(question) => openFeedback(feedbackRequest(question, 'practice_answer'))}
+          />
+
+          <AddSourceSheet
+            visible={addOpen}
+            busy={addBusy}
+            error={addError}
+            room={room}
+            onClose={() => {
+              if (addBusy === null) {
+                setAddOpen(false);
+              }
+            }}
+            onUpload={(file: PickedFile) => void addSource('upload', buildUploadForm(file))}
+            onText={(title, content) => void addSource('text', { type: 'text', title, content })}
+          />
 
           {isCourse && meetings.length > 0 ? (
             <Section label="Pertemuan">
@@ -301,21 +937,74 @@ export default function NotebookScreen() {
   );
 }
 
-function ChatBubble({ message }: { message: NotebookMessage }) {
+/** A question, or an answer with its citations as chips (CitationText) and "Salin ke catatan". */
+function ChatBubble({
+  message,
+  notebookId,
+  copying = false,
+  onCopyToNote,
+}: {
+  message: NotebookMessage;
+  notebookId?: string;
+  copying?: boolean;
+  /** Copies the answer and its citations into a new note; without it the button is left out. */
+  onCopyToNote?: () => void;
+}) {
   const theme = useTheme();
   const mine = message.role === 'user';
 
   return (
     <View style={[styles.bubble, mine ? [styles.mine, { backgroundColor: theme.selected }] : { backgroundColor: theme.elevated }]}>
-      <ThemedText type="small" themeColor={mine ? 'text' : 'textSecondary'} selectable>
-        {mine ? message.content : plainText(message.content)}
-      </ThemedText>
+      {mine ? (
+        <ThemedText type="small" themeColor="text" selectable>
+          {message.content}
+        </ThemedText>
+      ) : (
+        <CitationText content={message.content} citations={message.citations} notebookId={notebookId} messageId={message.id} />
+      )}
+      {mine ? null : (
+        <ThemedText type="caption" themeColor="textQuaternary">
+          {askModeLabel(askModeOf(message.context))}
+        </ThemedText>
+      )}
+      {mine || message.id < 0 ? null : (
+        <Button
+          size="small"
+          variant="secondary"
+          icon="copy"
+          label="Salin ke catatan"
+          loading={copying}
+          disabled={!onCopyToNote}
+          hitSlop={4}
+          onPress={onCopyToNote}
+          style={styles.copyToNote}
+        />
+      )}
     </View>
   );
 }
 
-function SourceRow({ source }: { source: NotebookSource }) {
+type SourceRowProps = {
+  source: NotebookSource;
+  canRetry: boolean;
+  retrying: boolean;
+  deleting: boolean;
+  disabled: boolean;
+  onRetry: () => void;
+  onDelete: () => void;
+  /** Asks one of the source's guide questions about this source only; without it the questions are labels. */
+  onAsk?: (question: string) => void;
+};
+
+/**
+ * A source with its reading status, its guide (topics and understanding
+ * questions, shown as text), and "Baca ulang" (a failed or stalled file)
+ * and "Hapus" (after a confirm).
+ */
+function SourceRow({ source, canRetry, retrying, deleting, disabled, onRetry, onDelete, onAsk }: SourceRowProps) {
   const status = sourceStatus(source);
+  const topics = sourceTopics(source);
+  const questions = sourceQuestions(source);
   const detail = [
     source.meeting_number ? `Pertemuan ${source.meeting_number}` : null,
     source.page_count ? `${source.page_count} halaman` : null,
@@ -340,6 +1029,34 @@ function SourceRow({ source }: { source: NotebookSource }) {
             {source.error}
           </ThemedText>
         ) : null}
+        {topics.length > 0 ? (
+          <ThemedText type="caption" themeColor="textTertiary" accessibilityLabel={`Topik: ${topics.join(', ')}`}>
+            {`Topik: ${topics.join(' · ')}`}
+          </ThemedText>
+        ) : null}
+        {questions.length > 0 ? (
+          <View style={styles.suggestions} accessibilityLabel={`Tanyakan tentang ${source.title ?? 'sumber ini'}`}>
+            {questions.map((text) => (
+              <Chip key={text} label={text} onPress={onAsk && !disabled ? () => onAsk(text) : undefined} />
+            ))}
+          </View>
+        ) : null}
+        <View style={styles.sourceActions}>
+          {canRetry ? (
+            <Button size="small" variant="secondary" icon="refresh" label={retryLabel(source)} loading={retrying} disabled={disabled} hitSlop={4} onPress={onRetry} />
+          ) : null}
+          <Button
+            size="small"
+            variant="secondary"
+            icon="trash"
+            label="Hapus"
+            accessibilityLabel={`Hapus ${source.title ?? 'sumber'}`}
+            loading={deleting}
+            disabled={disabled}
+            hitSlop={4}
+            onPress={onDelete}
+          />
+        </View>
       </View>
       <StatusPill label={status.label} tone={status.tone} />
     </View>
@@ -371,17 +1088,32 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: Spacing.half,
   },
-  count: {
+  sourceAccessory: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
     paddingRight: Spacing.two,
+  },
+  sourceActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
+    paddingTop: Spacing.one,
   },
   chat: {
     gap: Spacing.two,
+  },
+  suggestions: {
+    alignItems: 'flex-start',
+    gap: Spacing.two,
+    paddingTop: Spacing.one,
   },
   consent: {
     gap: Spacing.two + Spacing.half,
     alignItems: 'flex-start',
   },
   bubble: {
+    gap: Spacing.one,
     maxWidth: '88%',
     alignSelf: 'flex-start',
     paddingHorizontal: Spacing.three - Spacing.one,
@@ -390,6 +1122,9 @@ const styles = StyleSheet.create({
   },
   mine: {
     alignSelf: 'flex-end',
+  },
+  copyToNote: {
+    alignSelf: 'flex-start',
   },
   thinking: {
     flexDirection: 'row',

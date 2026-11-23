@@ -5,10 +5,16 @@ declare(strict_types=1);
 namespace App\Http\Requests;
 
 use App\Models\NotebookSource;
+use App\Services\NotebookSourceReader;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 /**
  * A source to add: archived course files, an uploaded file, or pasted text.
+ * An upload the model that reads files cannot take (a scanned PDF or an
+ * image, for a model without PDF or image input) is refused here, before
+ * it is stored.
  */
 class StoreNotebookSourceRequest extends ApiFormRequest
 {
@@ -78,6 +84,35 @@ class StoreNotebookSourceRequest extends ApiFormRequest
             'title.max' => 'Judul catatan maksimal 120 karakter.',
             'content.required_if' => 'Isi catatan masih kosong.',
             'content.max' => 'Catatan terlalu panjang.',
+        ];
+    }
+
+    /**
+     * @return list<callable(Validator): void>
+     */
+    public function after(NotebookSourceReader $reader): array
+    {
+        return [
+            function (Validator $validator) use ($reader): void {
+                $file = $this->file('file');
+
+                if ($validator->errors()->isNotEmpty() || $this->input('type') !== NotebookSource::KIND_UPLOAD || ! $file instanceof UploadedFile) {
+                    return;
+                }
+
+                $mime = (string) ($file->getMimeType() ?: $file->getClientMimeType());
+                $filename = $file->getClientOriginalName();
+
+                if (! $reader->needsModel($mime, $filename)) {
+                    return;
+                }
+
+                $unreadable = $reader->unreadable((string) $file->get(), $mime, $filename);
+
+                if ($unreadable !== null) {
+                    $validator->errors()->add('file', $unreadable);
+                }
+            },
         ];
     }
 

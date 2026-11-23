@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
-import type { ReactNode } from 'react';
-import { Platform, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import type { ReactNode, RefObject } from 'react';
+import { Platform, RefreshControl, ScrollView, StyleSheet, View, type ScrollViewInstance } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { IconButton } from '@/components/icon-button';
@@ -24,11 +24,13 @@ type ScreenProps = {
   onRefresh?: () => void;
   /** When the main data on screen came from the server, for the offline strip. */
   dataSavedAt?: number | null;
+  /** The page's scroll view, for a screen that scrolls itself (e.g. back to a section). */
+  scrollRef?: RefObject<ScrollViewInstance | null>;
   children: ReactNode;
 };
 
 /** A page on the canvas: its header, then sections that scroll and pull to refresh. */
-export function Screen({ title, subtitle, accessory, header, back = false, refreshing = false, onRefresh, dataSavedAt, children }: ScreenProps) {
+export function Screen({ title, subtitle, accessory, header, back = false, refreshing = false, onRefresh, dataSavedAt, scrollRef, children }: ScreenProps) {
   const theme = useTheme();
   const router = useRouter();
 
@@ -43,6 +45,7 @@ export function Screen({ title, subtitle, accessory, header, back = false, refre
   return (
     <SafeAreaView edges={['top']} style={[styles.safeArea, { backgroundColor: theme.background }]}>
       <ScrollView
+        ref={scrollRef}
         contentContainerStyle={[styles.content, back && styles.pushedContent]}
         contentInsetAdjustmentBehavior="automatic"
         keyboardShouldPersistTaps="handled"

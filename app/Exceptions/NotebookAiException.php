@@ -28,6 +28,14 @@ class NotebookAiException extends RuntimeException
 
     public const REASON_MISCONFIGURED = 'misconfigured';
 
+    public const REASON_UNSUPPORTED_INPUT = 'unsupported_input';
+
+    /**
+     * Shown when the model the server uses cannot read a PDF without a text
+     * layer, or an image.
+     */
+    public const UNSUPPORTED_INPUT_MESSAGE = 'Model AI yang dipakai server tidak bisa membaca PDF hasil pindaian atau gambar; tempel teksnya atau unggah DOCX/PPTX.';
+
     /**
      * What a misconfiguration is about: the API key (or the project behind
      * it), or the model settings (model id, thinking budget).
@@ -76,9 +84,15 @@ class NotebookAiException extends RuntimeException
         return in_array($this->reason, self::ANSWERED_REASONS, true);
     }
 
-    public static function notConfigured(): self
+    /**
+     * The provider's key (or, for an OpenAI-compatible endpoint, its model
+     * or address) is not set on the server.
+     *
+     * @param  string  $label  The provider as students read it (NotebookAiClient::label()).
+     */
+    public static function notConfigured(string $label = 'AI'): self
     {
-        return self::because(self::REASON_NOT_CONFIGURED, 'Fitur AI Notebook belum diaktifkan di server WeCIC (GEMINI_API_KEY belum diisi).', 503);
+        return self::because(self::REASON_NOT_CONFIGURED, "Fitur AI Notebook belum diaktifkan di server WeCIC (kunci API {$label} belum diisi).", 503);
     }
 
     /**
@@ -98,11 +112,12 @@ class NotebookAiException extends RuntimeException
      * The key or the model settings are wrong; retrying will not help.
      *
      * @param  self::CAUSE_*  $cause
+     * @param  string  $label  The provider as students read it (NotebookAiClient::label()).
      */
-    public static function misconfigured(string $cause = self::CAUSE_MODEL): self
+    public static function misconfigured(string $cause = self::CAUSE_MODEL, string $label = 'AI'): self
     {
         return self::because(self::REASON_MISCONFIGURED, $cause === self::CAUSE_KEY
-            ? 'Fitur AI Notebook sedang tidak tersedia karena kunci API Gemini di server WeCIC ditolak. Hubungi pengelola WeCIC.'
+            ? "Fitur AI Notebook sedang tidak tersedia karena kunci API {$label} di server WeCIC ditolak. Hubungi pengelola WeCIC."
             : 'Fitur AI Notebook sedang tidak tersedia karena pengaturan model AI di server WeCIC ditolak (model tidak dikenali, sudah tidak tersedia, atau pengaturannya tidak cocok). Hubungi pengelola WeCIC.', 503);
     }
 
@@ -112,6 +127,15 @@ class NotebookAiException extends RuntimeException
     public static function rejected(): self
     {
         return self::because(self::REASON_REJECTED, 'Permintaan ini tidak bisa diproses model AI. Coba lagi dengan lebih sedikit sumber atau pertanyaan yang lebih singkat.', 422);
+    }
+
+    /**
+     * The model the server uses cannot read this kind of file (a PDF or an
+     * image); nothing was sent.
+     */
+    public static function unsupportedInput(): self
+    {
+        return self::because(self::REASON_UNSUPPORTED_INPUT, self::UNSUPPORTED_INPUT_MESSAGE, 422);
     }
 
     /**

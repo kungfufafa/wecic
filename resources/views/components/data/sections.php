@@ -56,6 +56,7 @@ return [
         'notifications.index' => ['section' => 'notifikasi', 'crumbs' => [['Notifikasi']]],
         'notebook.index' => ['section' => 'notebook', 'crumbs' => [['Lainnya', 'more'], ['Notebook']]],
         'notebook.show' => ['section' => 'notebook', 'crumbs' => [['Notebook', 'notebook.index'], ['Detail notebook']]],
+        'notebook.ai-settings' => ['section' => 'notebook', 'icon' => 'settings', 'crumbs' => [['Notebook', 'notebook.index'], ['Pengaturan AI']]],
         'archive.index' => ['section' => 'arsip', 'crumbs' => [['Lainnya', 'more'], ['Arsip WeCIC']]],
         'archive.show' => ['section' => 'arsip', 'crumbs' => [['Arsip WeCIC', 'archive.index'], ['Riwayat']]],
         'archive.print' => ['section' => 'arsip', 'crumbs' => [['Arsip WeCIC', 'archive.index'], ['Bukti arsip']]],

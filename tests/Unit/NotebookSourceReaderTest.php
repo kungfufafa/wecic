@@ -106,7 +106,7 @@ class NotebookSourceReaderTest extends TestCase
         ]], 400)]);
 
         $this->expectException(NotebookAiException::class);
-        $this->expectExceptionMessage(NotebookAiException::misconfigured(NotebookAiException::CAUSE_KEY)->getMessage());
+        $this->expectExceptionMessage(NotebookAiException::misconfigured(NotebookAiException::CAUSE_KEY, 'Google Gemini')->getMessage());
 
         app(NotebookSourceReader::class)->read('%PDF-1.4 modul', 'application/pdf', 'modul.pdf');
     }
@@ -139,6 +139,158 @@ class NotebookSourceReaderTest extends TestCase
         $this->expectExceptionMessage('Berkas ini terlalu panjang untuk dibaca sekaligus.');
 
         app(NotebookSourceReader::class)->read('%PDF-1.4 buku', 'application/pdf', 'buku.pdf');
+    }
+
+    public function test_a_born_digital_pdf_is_read_from_its_own_text_layer_without_the_model(): void
+    {
+        Http::fake();
+        $reader = app(NotebookSourceReader::class);
+        $pdf = $this->fixture('born-digital.pdf');
+
+        $read = $reader->read($pdf, 'application/pdf', 'modul.pdf');
+
+        $this->assertFalse($read['truncated']);
+        $this->assertSame([1, 2], array_column($read['pages'], 'page'));
+        $this->assertStringContainsString('Normalisasi mengurangi redundansi data dalam tabel.', $read['pages'][0]['text']);
+        $this->assertStringContainsString('Bentuk normal ketiga (3NF) menghapus ketergantungan transitif.', $read['pages'][1]['text']);
+        $this->assertFalse($reader->needsModel('application/pdf', 'modul.pdf', $pdf));
+        // Without the contents, a PDF may still need the model.
+        $this->assertTrue($reader->needsModel('application/pdf', 'modul.pdf'));
+        Http::assertNothingSent();
+    }
+
+    public function test_a_scanned_pdf_without_a_text_layer_is_transcribed_by_the_model(): void
+    {
+        Http::fake([self::GEMINI_URL => Http::response(['candidates' => [['content' => ['parts' => [['text' => "[[HALAMAN 1]]\nHasil pindaian."]]], 'finishReason' => 'STOP']]])]);
+        $reader = app(NotebookSourceReader::class);
+        $pdf = $this->fixture('scanned.pdf');
+
+        $this->assertTrue($reader->needsModel('application/pdf', 'pindaian.pdf', $pdf));
+        $this->assertSame([['page' => 1, 'text' => 'Hasil pindaian.']], $reader->read($pdf, 'application/pdf', 'pindaian.pdf')['pages']);
+        Http::assertSent(fn (Request $request): bool => ($request['contents'][0]['parts'][0]['inlineData']['data'] ?? null) === base64_encode($pdf));
+    }
+
+    public function test_with_the_text_layer_off_a_model_that_reads_pdfs_transcribes_every_pdf(): void
+    {
+        config(['notebook.uploads.pdf_text_layer' => false]);
+        Http::fake([self::GEMINI_URL => Http::response(['candidates' => [['content' => ['parts' => [['text' => "[[HALAMAN 1]]\nDari model."]]], 'finishReason' => 'STOP']]])]);
+        $pdf = $this->fixture('born-digital.pdf');
+
+        $this->assertTrue(app(NotebookSourceReader::class)->needsModel('application/pdf', 'modul.pdf', $pdf));
+        $this->assertSame('Dari model.', app(NotebookSourceReader::class)->read($pdf, 'application/pdf', 'modul.pdf')['pages'][0]['text']);
+        Http::assertSentCount(1);
+    }
+
+    public function test_a_model_without_pdf_or_image_input_still_reads_born_digital_pdfs_and_refuses_the_rest_without_a_call(): void
+    {
+        $this->useLocalOpenAiCompatibleModel();
+        config(['notebook.uploads.pdf_text_layer' => false]);
+        Http::fake();
+        $reader = app(NotebookSourceReader::class);
+        $bornDigital = $this->fixture('born-digital.pdf');
+        $scanned = $this->fixture('scanned.pdf');
+
+        // The text layer is read even with the setting off: the model could not read the PDF at all.
+        $this->assertNull($reader->unreadable($bornDigital, 'application/pdf', 'modul.pdf'));
+        $this->assertCount(2, $reader->read($bornDigital, 'application/pdf', 'modul.pdf')['pages']);
+        $this->assertSame(NotebookAiException::UNSUPPORTED_INPUT_MESSAGE, $reader->unreadable($scanned, 'application/pdf', 'pindaian.pdf'));
+        $this->assertSame(NotebookAiException::UNSUPPORTED_INPUT_MESSAGE, $reader->unreadable('png', 'image/png', 'foto.png'));
+        $this->assertNull($reader->unreadable('teks', 'text/plain', 'catatan.txt'));
+
+        foreach ([[$scanned, 'application/pdf', 'pindaian.pdf'], ['png', 'image/png', 'foto.png']] as [$contents, $mime, $filename]) {
+            try {
+                $reader->read($contents, $mime, $filename);
+                $this->fail('The file was expected to be refused.');
+            } catch (NotebookSourceException $exception) {
+                $this->assertSame('Model AI yang dipakai server tidak bisa membaca PDF hasil pindaian atau gambar; tempel teksnya atau unggah DOCX/PPTX.', $exception->getMessage());
+            }
+        }
+
+        Http::assertNothingSent();
+    }
+
+    public function test_an_ingest_provider_keeps_transcription_on_gemini_while_another_provider_answers(): void
+    {
+        $this->useLocalOpenAiCompatibleModel();
+        config(['notebook.ai.ingest_provider' => 'gemini']);
+        Http::fake([self::GEMINI_URL => Http::response(['candidates' => [['content' => ['parts' => [['text' => "[[HALAMAN 1]]\nLewat Gemini."]]], 'finishReason' => 'STOP']]])]);
+        $reader = app(NotebookSourceReader::class);
+
+        $this->assertNull($reader->unreadable($this->fixture('scanned.pdf'), 'application/pdf', 'pindaian.pdf'));
+        $this->assertSame('Lewat Gemini.', $reader->read($this->fixture('scanned.pdf'), 'application/pdf', 'pindaian.pdf')['pages'][0]['text']);
+        Http::assertSentCount(1);
+        Http::assertSent(fn (Request $request): bool => str_starts_with($request->url(), 'https://generativelanguage.googleapis.com/'));
+    }
+
+    public function test_a_text_layer_that_lost_its_word_spaces_is_transcribed_by_the_model(): void
+    {
+        Http::fake([self::GEMINI_URL => Http::response(['candidates' => [['content' => ['parts' => [['text' => "[[HALAMAN 1]]\nMata kuliah ini membekali mahasiswa."]]], 'finishReason' => 'STOP']]])]);
+        $reader = app(NotebookSourceReader::class);
+        $pdf = $this->fixture('lost-spacing.pdf');
+
+        $this->assertTrue($reader->needsModel('application/pdf', 'modul.pdf', $pdf));
+        $this->assertSame('Mata kuliah ini membekali mahasiswa.', $reader->read($pdf, 'application/pdf', 'modul.pdf')['pages'][0]['text']);
+        Http::assertSentCount(1);
+    }
+
+    public function test_a_long_word_now_and_then_keeps_the_text_layer(): void
+    {
+        $text = str_repeat('Mahasiswa wajib mempertanggungjawabkan tugas dan menghindari ketidakbertanggungjawaban akademik. ', 20);
+
+        $method = new \ReflectionMethod(NotebookSourceReader::class, 'lostWordSpaces');
+
+        $this->assertFalse($method->invoke(app(NotebookSourceReader::class), $text));
+        $this->assertTrue($method->invoke(app(NotebookSourceReader::class), $text.str_repeat('membekalimahasiswadengankonseppemrosesan ', 20)));
+    }
+
+    public function test_an_image_over_the_models_image_limit_is_refused_with_its_size(): void
+    {
+        config([
+            'notebook.ai.provider' => 'anthropic',
+            'services.anthropic.key' => 'test-anthropic-key',
+            'services.anthropic.model' => 'claude-opus-5-5',
+        ]);
+        Http::fake();
+        $reader = app(NotebookSourceReader::class);
+        $photo = str_repeat('x', 4 * 1024 * 1024);
+        $message = 'Gambar ini terlalu besar untuk dibaca model AI (maks. 3,75 MB). Perkecil atau kompres gambarnya, lalu unggah lagi.';
+
+        $this->assertSame($message, $reader->unreadable($photo, 'image/jpeg', 'foto.jpg'));
+        $this->assertNull($reader->unreadable(str_repeat('x', 3 * 1024 * 1024), 'image/jpeg', 'foto.jpg'));
+
+        try {
+            $reader->read($photo, 'image/jpeg', 'foto.jpg');
+            $this->fail('The image was expected to be refused.');
+        } catch (NotebookSourceException $exception) {
+            $this->assertSame($message, $exception->getMessage());
+        }
+
+        Http::assertNothingSent();
+    }
+
+    public function test_a_damaged_pdf_falls_back_to_the_model(): void
+    {
+        Http::fake([self::GEMINI_URL => Http::response(['candidates' => [['content' => ['parts' => [['text' => 'Isi.']]], 'finishReason' => 'STOP']]])]);
+        $reader = app(NotebookSourceReader::class);
+
+        $this->assertTrue($reader->needsModel('application/pdf', 'rusak.pdf', '%PDF-1.4 rusak'));
+        $this->assertSame('Isi.', $reader->read('%PDF-1.4 rusak', 'application/pdf', 'rusak.pdf')['pages'][0]['text']);
+    }
+
+    private function useLocalOpenAiCompatibleModel(): void
+    {
+        config([
+            'notebook.ai.provider' => 'openai',
+            'services.openai_compatible.base_url' => 'http://llm.test/v1',
+            'services.openai_compatible.model' => 'llama-test',
+            'services.openai_compatible.pdf_input' => false,
+            'services.openai_compatible.image_input' => false,
+        ]);
+    }
+
+    private function fixture(string $name): string
+    {
+        return (string) file_get_contents(base_path('tests/Fixtures/notebook/'.$name));
     }
 
     /**

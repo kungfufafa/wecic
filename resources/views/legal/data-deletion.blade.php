@@ -6,6 +6,11 @@
 @section('summary', 'Cara menghapus akun WeCIC beserta semua data yang disimpan server WeCIC untukmu.')
 
 @section('legal_content')
+    {{-- The AI provider(s) the server uses and used before (`$notebookAi`, NotebookAiProviders::forPages()); the free-tier note names only those on a free tier. --}}
+    @php
+        $aiFreeTierLabels = collect($notebookAi['processors'])->where('free_tier', true)->pluck('label');
+        $aiPastLabels = collect($notebookAi['past_processors']);
+    @endphp
     <section aria-labelledby="deletion-app-title" class="flex flex-col gap-3">
         <h2 id="deletion-app-title">Hapus dari dalam aplikasi</h2>
         <ol>
@@ -37,7 +42,10 @@
         <ul>
             <li><strong>Akun portal akademik kampus</strong> (NIM, password, dan datamu di portal). Akun itu milik kampus; WeCIC tidak bisa dan tidak akan mengubahnya.</li>
             <li><strong>Log server</strong> yang terhapus sendiri dalam 14 hari, dan <strong>laporan error Sentry</strong> yang tidak memuat nama atau NIM dan terhapus sendiri paling lama 90 hari.</li>
-            <li>Data yang sudah dikirim ke <strong>Google Gemini</strong> lewat Notebook AI. Karena WeCIC memakai Gemini API tingkat gratis, data itu tunduk pada kebijakan Google dan tidak bisa dihapus oleh WeCIC.</li>
+            <li>Data yang sudah dikirim ke <strong>{{ $notebookAi['label'] }}</strong> lewat Notebook AI. Data itu tunduk pada kebijakan penyedianya{{ $aiFreeTierLabels->isEmpty() ? '' : ' (WeCIC memakai tingkat gratis '.$aiFreeTierLabels->implode(' dan ').')' }} dan tidak bisa dihapus oleh WeCIC.</li>
+            @if ($aiPastLabels->isNotEmpty())
+                <li>Data yang dulu dikirim ke <strong>{{ $aiPastLabels->implode(' dan ') }}</strong>, penyedia AI yang sebelumnya dipakai Notebook AI. Data itu tunduk pada kebijakan penyedianya dan tidak bisa dihapus oleh WeCIC.</li>
+            @endif
         </ul>
     </section>
 
@@ -68,7 +76,7 @@
         <ol>
             <li><strong>In the app:</strong> sign in, open <strong>Lainnya (More) → Privasi (Privacy) → Hapus akun &amp; data WeCIC</strong>, turn on <strong>Saya mengerti data ini tidak bisa dikembalikan</strong>, tap <strong>Hapus akun &amp; data WeCIC</strong> and confirm with <strong>Hapus permanen</strong>. On the website: <strong>Lainnya → Hapus akun → Hapus akun dan semua data saya</strong>. Deletion is immediate; remaining temporary copies and older sessions expire within 7 days.</li>
             <li><strong>Deleted:</strong> your portal data archive and archived files, notebooks with their sources, AI chats and AI consent, offline sign-in data and the encrypted background-sync password, notifications, push tokens, the outbox, exam upload records, cached portal data, and all sessions.</li>
-            <li><strong>Not deleted:</strong> your campus portal account (owned by the university), server logs (expire within 14 days), crash reports without your name or NIM (expire within 90 days), and content already sent to Google Gemini under its free tier.</li>
+            <li><strong>Not deleted:</strong> your campus portal account (owned by the university), server logs (expire within 14 days), crash reports without your name or NIM (expire within 90 days), and content already sent to {{ $notebookAi['label_en'] }}{{ $aiFreeTierLabels->isEmpty() ? '' : ' (WeCIC uses the free tier of '.$aiFreeTierLabels->implode(' and ').')' }}{{ $aiPastLabels->isEmpty() ? '' : ' or, earlier, to '.$aiPastLabels->implode(' and ') }}.</li>
             <li><strong>Cannot sign in?</strong> Email <a href="mailto:developer@rizqis.com?subject=Hapus%20data%20WeCIC">developer@rizqis.com</a> with the subject "Hapus data WeCIC" and your student ID (NIM). We may ask you to verify ownership, and we reply within 30 days.</li>
         </ol>
     </section>

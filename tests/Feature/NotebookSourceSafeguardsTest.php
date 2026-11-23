@@ -433,6 +433,34 @@ class NotebookSourceSafeguardsTest extends TestCase
         $this->assertSame(['Normalisasi mengurangi redundansi.'], NotebookChunk::query()->where('notebook_id', $notebook->id)->pluck('content')->all());
     }
 
+    public function test_a_course_file_read_elsewhere_brings_its_topics_and_questions_without_the_model(): void
+    {
+        config(['services.gemini.key' => 'test-gemini-key']);
+        Http::fake();
+        $contents = '%PDF-1.4 modul berpanduan';
+        $theirs = PortalArchivedFile::factory()->forOwner('student_classmate')->create(['sha256' => hash('sha256', $contents)]);
+        $mine = PortalArchivedFile::factory()->forOwner($this->ownerHash)->create(['sha256' => hash('sha256', $contents)]);
+        Storage::disk('local')->put($mine->blobPath(), $contents);
+        $reader = NotebookSource::factory()->withGuide()->create([
+            'notebook_id' => Notebook::factory()->forOwner('student_classmate')->create()->id,
+            'kind' => NotebookSource::KIND_ARCHIVED_FILE,
+            'portal_archived_file_id' => $theirs->id,
+            'char_count' => 34,
+            'page_count' => 1,
+        ]);
+        NotebookChunk::query()->create(['notebook_source_id' => $reader->id, 'notebook_id' => $reader->notebook_id, 'position' => 0, 'page' => 1, 'content' => 'Normalisasi mengurangi redundansi.']);
+
+        $notebook = Notebook::factory()->forOwner($this->ownerHash)->create();
+        $this->sendAsStudent('POST', "/api/notebooks/{$notebook->id}/sources", ['type' => 'archived_file', 'archived_file_ids' => [$mine->id]])
+            ->assertCreated()
+            ->assertJsonPath('data.sources.0.status', 'ready')
+            ->assertJsonPath('data.sources.0.summary', 'Sumber ini membahas normalisasi basis data.')
+            ->assertJsonPath('data.sources.0.topics', ['Normalisasi', 'Redundansi', 'Bentuk normal'])
+            ->assertJsonPath('data.sources.0.suggested_questions.1', 'Apa beda 2NF dan 3NF?');
+
+        Http::assertNothingSent();
+    }
+
     public function test_removed_course_sources_are_not_added_back_on_their_own(): void
     {
         Queue::fake([ArchivePortalFilesJob::class]);

@@ -1,5 +1,5 @@
 import { createApiClient } from '@/api/client';
-import { backgroundSyncNeedsPassword, deleteAccount, legalPageUrl, setBackgroundSync } from '@/lib/privacy';
+import { accountDeletionUnaffected, backgroundSyncNeedsPassword, deleteAccount, legalPageUrl, setBackgroundSync } from '@/lib/privacy';
 
 function fakeApi(answers: { status: number; body: unknown }[]) {
   const requests: { url: string; method: string; body: unknown }[] = [];
@@ -72,6 +72,19 @@ describe('background sync', () => {
 });
 
 describe('account deletion', () => {
+  it('names the Notebook AI provider the server uses, or none when it is not known', () => {
+    expect(accountDeletionUnaffected('Anthropic Claude')).toContain('Data yang sudah dikirim ke Anthropic Claude tidak bisa ditarik kembali');
+    expect(accountDeletionUnaffected(null)).toContain('Data yang sudah dikirim ke penyedia AI Notebook tidak bisa ditarik kembali');
+    expect(accountDeletionUnaffected(' ')).not.toContain('Gemini');
+  });
+
+  it('names the providers that received Notebook content before', () => {
+    expect(accountDeletionUnaffected('Anthropic Claude', ['Google Gemini'])).toContain(
+      'Data yang sudah dikirim ke Anthropic Claude tidak bisa ditarik kembali oleh WeCIC, begitu pula data yang dulu dikirim ke Google Gemini.',
+    );
+    expect(accountDeletionUnaffected('Anthropic Claude', [' '])).toContain('tidak bisa ditarik kembali oleh WeCIC.');
+  });
+
   it('sends the confirmation to the account endpoint', async () => {
     const { api, requests } = fakeApi([{ status: 200, body: { status: 'success', message: 'Akun WeCIC dan semua datamu sudah dihapus.', data: { notebooks: 1 } } }]);
 

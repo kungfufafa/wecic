@@ -30,6 +30,7 @@ class PortalRouteThrottleTest extends TestCase
             'notebook meeting' => ['POST', '/api/notebooks/meetings', 'throttle:notebook-sources'],
             'notebook source' => ['POST', '/api/notebooks/5/sources', 'throttle:notebook-sources'],
             'notebook source retry' => ['POST', '/api/notebooks/5/sources/9/retry', 'throttle:notebook-sources'],
+            'notebook note to source' => ['POST', '/api/notebooks/5/notes/9/source', 'throttle:notebook-sources'],
         ];
     }
 

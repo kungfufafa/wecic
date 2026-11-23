@@ -1,6 +1,6 @@
 import { afterEach, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { createPortalApp } from './support/browser.mjs';
+import { createPortalApp, json } from './support/browser.mjs';
 import { ui } from '../../resources/js/app/ui.js';
 
 /**
@@ -131,5 +131,18 @@ describe('requireOnlineAction', () => {
 
         assert.equal(app.requireOnlineAction('Butuh internet.', { queueable: true }), false);
         assert.deepEqual(notices, [['Butuh internet.', 'warning']]);
+    });
+});
+
+describe('request keepalive', () => {
+    it('asks the browser to keep a write sent as the page goes away, and only that one', async () => {
+        await open();
+
+        browser.server = () => json(200, { status: 'success' });
+
+        await app.request('/api/notebooks/7/messages/41', { method: 'PATCH', json: { content: 'Isi' }, keepalive: true });
+        await app.request('/api/notebooks/7/messages/41', { method: 'PATCH', json: { content: 'Isi' } });
+
+        assert.deepEqual(browser.requests.map((request) => request.keepalive), [true, false]);
     });
 });

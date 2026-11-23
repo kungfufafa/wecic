@@ -13,12 +13,13 @@ import { Notice } from '@/components/notice';
 import { Screen } from '@/components/screen';
 import { Divider, Panel, Section } from '@/components/section';
 import { SkeletonRows } from '@/components/skeleton';
+import { StatusPill } from '@/components/status-pill';
 import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useApiResource } from '@/hooks/use-api-resource';
-import { rememberAiConsentFrom } from '@/lib/ai-consent';
-import { aiStatusMessage, coursesWithoutNotebook } from '@/lib/classes';
+import { aiProviderLabel, rememberAiConsentFrom } from '@/lib/ai-consent';
+import { aiStatusMessage, coursesWithoutNotebook, reviewDueLabel } from '@/lib/classes';
 
 export default function NotebooksScreen() {
   const router = useRouter();
@@ -35,6 +36,7 @@ export default function NotebooksScreen() {
   const aiNotice = aiStatusMessage(notebooks.data?.data.ai_available, notebooks.data?.data.ai_status);
   const consent = notebooks.data?.data.ai_consent;
   const needsConsent = notebooks.data?.data.ai_available !== false && consent !== undefined && !consent.granted;
+  const reviewDue = reviewDueLabel(notebooks.data?.data.review_due);
 
   useEffect(() => {
     rememberAiConsentFrom(notebooks.data);
@@ -74,13 +76,24 @@ export default function NotebooksScreen() {
           <Panel padded={false}>
             <ListRow
               icon="sparkles"
-              label="Setujui pengiriman ke Google Gemini"
+              label={`Setujui pengiriman ke ${aiProviderLabel(consent)}`}
               value="Diperlukan sebelum tanya jawab, Studio, dan pembacaan PDF"
               onPress={() => router.push('/ai-consent')}
             />
           </Panel>
         </Section>
       ) : null}
+
+      <Section label="Ulasan harian" accessory={reviewDue ? <StatusPill label={reviewDue} tone="attention" /> : null}>
+        <Panel padded={false}>
+          <ListRow
+            icon="checkAll"
+            label="Ulas kartu hari ini"
+            value={reviewDue ?? 'Tidak ada kartu menunggu'}
+            onPress={() => router.push('/notebooks/review')}
+          />
+        </Panel>
+      </Section>
 
       {notebooks.isLoading ? (
         <Section label="Memuat notebook">

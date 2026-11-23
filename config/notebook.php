@@ -9,12 +9,31 @@ return [
     |
     | A notebook answers questions and writes study material from the sources
     | a student puts in it (archived course files, uploads, pasted text), with
-    | citations to those sources. The model is configured under
-    | `services.gemini`. Limits are per student.
+    | citations to those sources. The provider is chosen under `ai`; its
+    | key and model are configured under `services.{provider}`. Limits are
+    | per student.
     |
     */
 
     'enabled' => (bool) env('NOTEBOOK_ENABLED', true),
+
+    'ai' => [
+        // Which provider answers questions and writes study material:
+        // `gemini` (services.gemini), `anthropic` (services.anthropic) or
+        // `openai`, any OpenAI-compatible endpoint (services.openai_compatible).
+        'provider' => env('NOTEBOOK_AI_PROVIDER') ?: 'gemini',
+        // Which provider reads scanned PDFs and images; unset uses
+        // `provider`. `gemini` keeps transcription on Gemini while another
+        // provider answers questions.
+        'ingest_provider' => env('NOTEBOOK_AI_INGEST_PROVIDER') ?: null,
+        // Seconds one web request may spend on every model attempt
+        // together; keep it under the web server's own timeout (nginx:
+        // 60 s). Unset falls back to services.gemini.request_budget.
+        'request_budget' => is_numeric(env('NOTEBOOK_AI_REQUEST_BUDGET')) ? (int) env('NOTEBOOK_AI_REQUEST_BUDGET') : null,
+        // Reading a PDF or image runs in a queued job, which may wait
+        // longer. Unset falls back to services.gemini.ingest_budget.
+        'ingest_budget' => is_numeric(env('NOTEBOOK_AI_INGEST_BUDGET')) ? (int) env('NOTEBOOK_AI_INGEST_BUDGET') : null,
+    ],
 
     // Tokens a Gemini 2.5 model may spend thinking before it answers: 0
     // turns thinking off (where the model allows it), -1 lets the model
@@ -61,16 +80,29 @@ return [
         // Kilobytes, for upload validation.
         'max_upload_kb' => (int) env('NOTEBOOK_MAX_UPLOAD_KB', 20480),
         'max_text_chars' => 200000,
+        // The student's own notes (Catatan) per notebook.
+        'max_notes' => 200,
+        // Ulasan harian: cards per notebook, and cards never reviewed that
+        // the daily queue lets in per day (across every notebook).
+        'max_review_cards' => 1000,
+        'review_new_per_day' => 20,
         // Characters of source text sent with one question; larger notebooks
         // send the excerpts that match the question best.
         'context_chars' => (int) env('NOTEBOOK_CONTEXT_CHARS', 300000),
         'chunk_chars' => 1800,
         'history_messages' => 8,
+        // Earlier messages sent with a question in tutor mode, which walks
+        // through a topic one step per turn and needs more of the thread.
+        'tutor_history_messages' => (int) env('NOTEBOOK_TUTOR_HISTORY_MESSAGES', 12),
     ],
 
     'uploads' => [
         'disk' => env('NOTEBOOK_UPLOAD_DISK', 'local'),
         'mimes' => ['pdf', 'docx', 'pptx', 'txt', 'md', 'png', 'jpg', 'jpeg'],
+        // A PDF's own text layer is read locally first; only a PDF without
+        // one (a scan) goes to the model. Off sends every PDF to a model
+        // that reads PDFs, and reads the text layer only for one that does not.
+        'pdf_text_layer' => (bool) env('NOTEBOOK_PDF_TEXT_LAYER', true),
         // Bytes of XML a DOCX/PPTX may unpack to; a larger one is refused
         // before it is decompressed.
         'max_unzipped_bytes' => (int) env('NOTEBOOK_MAX_UNZIPPED_BYTES', 50 * 1024 * 1024),

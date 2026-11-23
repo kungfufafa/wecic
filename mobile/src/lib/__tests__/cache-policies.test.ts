@@ -18,6 +18,7 @@ describe('policyFor', () => {
   it('never keeps the session, notebooks, archives, searches or later pages', () => {
     expect(policyFor('auth/session')).toBeNull();
     expect(policyFor('notebooks/11')).toBeNull();
+    expect(policyFor('notebooks/11/sources/4/chunks?around=12')).toBeNull();
     expect(policyFor('archive')).toBeNull();
     expect(policyFor('library/theses?q=sistem')).toBeNull();
     expect(policyFor('notifications?limit=30&before=12')).toBeNull();

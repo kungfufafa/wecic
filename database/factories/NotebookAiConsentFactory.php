@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Database\Factories;
 
 use App\Models\NotebookAiConsent;
+use App\Services\Ai\NotebookAiProviders;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -15,7 +16,8 @@ class NotebookAiConsentFactory extends Factory
     protected $model = NotebookAiConsent::class;
 
     /**
-     * Define the model's default state.
+     * Define the model's default state: a consent for the providers the
+     * configuration names when it is made.
      *
      * @return array<string, mixed>
      */
@@ -23,6 +25,7 @@ class NotebookAiConsentFactory extends Factory
     {
         return [
             'owner_hash' => 'student_'.$this->faker->regexify('[a-f0-9]{16}'),
+            'provider' => app(NotebookAiProviders::class)->consentKey(),
             'granted_at' => now(),
             'withdrawn_at' => null,
         ];
@@ -31,6 +34,23 @@ class NotebookAiConsentFactory extends Factory
     public function forOwner(string $ownerHash): static
     {
         return $this->state(fn (): array => ['owner_hash' => $ownerHash]);
+    }
+
+    /**
+     * A consent for another provider set (NotebookAiProviders::consentKey()).
+     */
+    public function forProvider(?string $provider): static
+    {
+        return $this->state(fn (): array => ['provider' => $provider]);
+    }
+
+    /**
+     * A consent stored before consents named their provider (Google
+     * Gemini's free tier).
+     */
+    public function legacy(): static
+    {
+        return $this->forProvider(null);
     }
 
     public function withdrawn(): static
