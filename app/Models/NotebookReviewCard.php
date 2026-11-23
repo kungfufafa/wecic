@@ -91,14 +91,6 @@ class NotebookReviewCard extends Model
     }
 
     /**
-     * @return BelongsTo<NotebookMessage, $this>
-     */
-    public function message(): BelongsTo
-    {
-        return $this->belongsTo(NotebookMessage::class, 'notebook_message_id');
-    }
-
-    /**
      * Cards of every notebook the student owns.
      *
      * @param  Builder<self>  $query
@@ -120,7 +112,7 @@ class NotebookReviewCard extends Model
         return $query->where('suspended', false)->where('due_at', '<=', $now);
     }
 
-    public function isNew(): bool
+    private function isNew(): bool
     {
         return $this->first_reviewed_at === null;
     }

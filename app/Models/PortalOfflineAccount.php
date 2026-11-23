@@ -171,7 +171,7 @@ class PortalOfflineAccount extends Model
      *
      * @return array<string, string|null>
      */
-    public static function forgottenAttributes(): array
+    private static function forgottenAttributes(): array
     {
         return [
             'password_hash' => '',

@@ -459,7 +459,7 @@ class NotebookAssistant
      *
      * @return array<string, mixed>
      */
-    public static function feedbackSchema(): array
+    private static function feedbackSchema(): array
     {
         $string = ['type' => 'string'];
         $citations = ['type' => 'array', 'items' => ['type' => 'integer'], 'description' => 'Nomor kutipan sumber yang mendukung poin ini.'];

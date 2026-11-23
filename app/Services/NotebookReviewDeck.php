@@ -27,7 +27,7 @@ class NotebookReviewDeck
     /**
      * The most cards saved from one output.
      */
-    public const MAX_IMPORT = 50;
+    private const MAX_IMPORT = 50;
 
     public function __construct(private readonly NotebookReviewScheduler $scheduler) {}
 

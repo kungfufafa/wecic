@@ -6,7 +6,7 @@ namespace App\Http\Requests;
 
 class NotebookReviewQueueRequest extends ApiFormRequest
 {
-    public const DEFAULT_LIMIT = 50;
+    private const DEFAULT_LIMIT = 50;
 
     public function authorize(): bool
     {

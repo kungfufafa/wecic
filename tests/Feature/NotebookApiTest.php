@@ -833,7 +833,7 @@ class NotebookApiTest extends TestCase
         $this->assertSame(NotebookAiException::dailyLimitReached()->getMessage(), $parallel->getMessage());
         $this->assertSame(429, $parallel->getCode());
         Http::assertSentCount(1);
-        $this->assertSame(1, RateLimiter::attempts($budgetKey));
+        $this->assertSame(1, app(\Illuminate\Cache\RateLimiter::class)->attempts($budgetKey), 'Rejected practice requests are not charged.');
 
         RateLimiter::clear($budgetKey);
     }
@@ -1112,7 +1112,7 @@ class NotebookApiTest extends TestCase
             ->assertStatus(422)
             ->assertJsonPath('message', 'Latihan dari soal yang salah selalu berupa kuis.');
         Http::assertSentCount(1);
-        $this->assertSame(1, RateLimiter::attempts($budgetKey));
+        $this->assertSame(1, app(\Illuminate\Cache\RateLimiter::class)->attempts($budgetKey), 'Rejected practice requests are not charged.');
 
         RateLimiter::clear($budgetKey);
     }

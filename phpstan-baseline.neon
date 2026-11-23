@@ -385,6 +385,12 @@ parameters:
 			path: app/Jobs/IngestNotebookSourceJob.php
 
 		-
+			message: '#^Public method "App\\Jobs\\Middleware\\UseNotebookOwnerAiSettings\:\:handle\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Jobs/Middleware/UseNotebookOwnerAiSettings.php
+
+		-
 			message: '#^Public property "App\\Jobs\\ProcessPortalAssignmentUploadJob\:\:\$tries" is never used$#'
 			identifier: public.property.unused
 			count: 1
@@ -571,6 +577,18 @@ parameters:
 			path: app/Models/Notebook.php
 
 		-
+			message: '#^Public method "App\\Models\\NotebookAiConsent\:\:scopeForOwner\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Models/NotebookAiConsent.php
+
+		-
+			message: '#^Public method "App\\Models\\NotebookAiSetting\:\:scopeForOwner\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Models/NotebookAiSetting.php
+
+		-
 			message: '#^Public method "App\\Models\\NotebookChunk\:\:source\(\)" is never used$#'
 			identifier: public.method.unused
 			count: 1
@@ -589,16 +607,28 @@ parameters:
 			path: app/Models/NotebookDismissal.php
 
 		-
-			message: '#^Public constant "App\\Models\\NotebookMessage\:\:STRUCTURED_KINDS" is never used$#'
-			identifier: public.classConstant.unused
-			count: 1
-			path: app/Models/NotebookMessage.php
-
-		-
 			message: '#^Public method "App\\Models\\NotebookMessage\:\:notebook\(\)" is never used$#'
 			identifier: public.method.unused
 			count: 1
 			path: app/Models/NotebookMessage.php
+
+		-
+			message: '#^Public method "App\\Models\\NotebookReviewCard\:\:notebook\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Models/NotebookReviewCard.php
+
+		-
+			message: '#^Public method "App\\Models\\NotebookReviewCard\:\:scopeDue\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Models/NotebookReviewCard.php
+
+		-
+			message: '#^Public method "App\\Models\\NotebookReviewCard\:\:scopeForOwner\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Models/NotebookReviewCard.php
 
 		-
 			message: '#^Public constant "App\\Models\\NotebookSource\:\:STALLED_AFTER_SECONDS" is never used$#'
@@ -877,6 +907,24 @@ parameters:
 			path: app/Services/ActionCenterBuilder.php
 
 		-
+			message: '#^Public method "App\\Services\\Ai\\AnthropicDriver\:\:anthropicSchema\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Services/Ai/AnthropicDriver.php
+
+		-
+			message: '#^Public method "App\\Services\\Ai\\GeminiDriver\:\:geminiSchema\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Services/Ai/GeminiDriver.php
+
+		-
+			message: '#^Comparison operation "\<\=" between 1\|2 and 2 is always true\.$#'
+			identifier: smallerOrEqual.alwaysTrue
+			count: 1
+			path: app/Services/Ai/HttpAiClient.php
+
+		-
 			message: '#^Public method "App\\Services\\AttendanceShortcutService\:\:getPendingAssignments\(\)" is never used$#'
 			identifier: public.method.unused
 			count: 1
@@ -1135,12 +1183,6 @@ parameters:
 			path: app/Services/Extractors/ThesisRepositoryExtractor.php
 
 		-
-			message: '#^Comparison operation "\<\=" between 1\|2 and 2 is always true\.$#'
-			identifier: smallerOrEqual.alwaysTrue
-			count: 1
-			path: app/Services/Ai/HttpAiClient.php
-
-		-
 			message: '#^Parameter \#1 \$array \(list\<int\>\) of array_values is already a list, call has no effect\.$#'
 			identifier: arrayValues.list
 			count: 1
@@ -1177,7 +1219,25 @@ parameters:
 			path: app/Services/NotebookAssistant.php
 
 		-
+			message: '#^Public constant "App\\Services\\NotebookAssistant\:\:FEEDBACK_VERDICTS" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Services/NotebookAssistant.php
+
+		-
+			message: '#^Public constant "App\\Services\\NotebookAssistant\:\:STARTER_QUESTIONS" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Services/NotebookAssistant.php
+
+		-
 			message: '#^Public method "App\\Services\\NotebookAssistant\:\:excerpts\(\)" is used only locally and should be turned protected/private$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Services/NotebookAssistant.php
+
+		-
+			message: '#^Public method "App\\Services\\NotebookAssistant\:\:schema\(\)" is never used$#'
 			identifier: public.method.unused
 			count: 1
 			path: app/Services/NotebookAssistant.php
@@ -1187,6 +1247,12 @@ parameters:
 			identifier: public.method.unused
 			count: 1
 			path: app/Services/NotebookCourseSync.php
+
+		-
+			message: '#^Public constant "App\\Services\\NotebookReviewScheduler\:\:MAX_INTERVAL_DAYS" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Services/NotebookReviewScheduler.php
 
 		-
 			message: '#^Public method "App\\Services\\NotebookSourceReader\:\:type\(\)" is used only locally and should be turned protected/private$#'
@@ -1417,12 +1483,6 @@ parameters:
 			path: app/Services/PortalDataArchive.php
 
 		-
-			message: '#^Public method "App\\Services\\PortalDataCache\:\:forget\(\)" is never used$#'
-			identifier: public.method.unused
-			count: 1
-			path: app/Services/PortalDataCache.php
-
-		-
 			message: '#^Public constant "App\\Services\\PortalDatasetRepository\:\:SYNC_FAILED_CODE" is never used$#'
 			identifier: public.classConstant.unused
 			count: 1
@@ -1439,6 +1499,12 @@ parameters:
 			identifier: public.method.unused
 			count: 1
 			path: app/Services/PortalDatasetRepository.php
+
+		-
+			message: '#^Public constant "App\\Services\\PortalDemoFixtures\:\:UPLOADED_ASSIGNMENT_CACHE_PREFIX" is never used$#'
+			identifier: public.classConstant.unused
+			count: 1
+			path: app/Services/PortalDemoFixtures.php
 
 		-
 			message: '#^Public method "App\\Services\\PortalEndpointRegistry\:\:definition\(\)" is never used$#'
@@ -1502,6 +1568,12 @@ parameters:
 
 		-
 			message: '#^Public method "App\\Services\\PortalHttpClientOptions\:\:boundHandler\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Services/PortalHttpClientOptions.php
+
+		-
+			message: '#^Public method "App\\Services\\PortalHttpClientOptions\:\:shared\(\)" is never used$#'
 			identifier: public.method.unused
 			count: 1
 			path: app/Services/PortalHttpClientOptions.php
@@ -1693,6 +1765,12 @@ parameters:
 			path: app/Services/PortalResponseRecorder.php
 
 		-
+			message: '#^Public method "App\\Services\\PortalReviewerAccount\:\:enabled\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Services/PortalReviewerAccount.php
+
+		-
 			message: '#^Public method "App\\Services\\PortalScrapingService\:\:formOf\(\)" is never used$#'
 			identifier: public.method.unused
 			count: 1
@@ -1879,6 +1957,60 @@ parameters:
 			path: app/Services/ThesisRepositorySearch.php
 
 		-
+			message: '#^Public property "App\\Support\\Ai\\AiResult\:\:\$finishReason" is never used$#'
+			identifier: public.property.unused
+			count: 1
+			path: app/Support/Ai/AiResult.php
+
+		-
+			message: '#^Public method "Database\\Factories\\NotebookAiConsentFactory\:\:forOwner\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/factories/NotebookAiConsentFactory.php
+
+		-
+			message: '#^Public method "Database\\Factories\\NotebookAiConsentFactory\:\:forProvider\(\)" is used only locally and should be turned protected/private$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/factories/NotebookAiConsentFactory.php
+
+		-
+			message: '#^Public method "Database\\Factories\\NotebookAiConsentFactory\:\:legacy\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/factories/NotebookAiConsentFactory.php
+
+		-
+			message: '#^Public method "Database\\Factories\\NotebookAiConsentFactory\:\:withdrawn\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/factories/NotebookAiConsentFactory.php
+
+		-
+			message: '#^Public method "Database\\Factories\\NotebookAiSettingFactory\:\:anthropic\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/factories/NotebookAiSettingFactory.php
+
+		-
+			message: '#^Public method "Database\\Factories\\NotebookAiSettingFactory\:\:forOwner\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/factories/NotebookAiSettingFactory.php
+
+		-
+			message: '#^Public method "Database\\Factories\\NotebookAiSettingFactory\:\:gemini\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/factories/NotebookAiSettingFactory.php
+
+		-
+			message: '#^Public method "Database\\Factories\\NotebookAiSettingFactory\:\:openAi\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/factories/NotebookAiSettingFactory.php
+
+		-
 			message: '#^Public method "Database\\Factories\\NotebookDismissalFactory\:\:meeting\(\)" is never used$#'
 			identifier: public.method.unused
 			count: 1
@@ -1891,7 +2023,25 @@ parameters:
 			path: database/factories/NotebookFactory.php
 
 		-
+			message: '#^Public method "Database\\Factories\\NotebookReviewCardFactory\:\:learned\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/factories/NotebookReviewCardFactory.php
+
+		-
+			message: '#^Public method "Database\\Factories\\NotebookReviewCardFactory\:\:suspended\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/factories/NotebookReviewCardFactory.php
+
+		-
 			message: '#^Public method "Database\\Factories\\NotebookSourceFactory\:\:pending\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/factories/NotebookSourceFactory.php
+
+		-
+			message: '#^Public method "Database\\Factories\\NotebookSourceFactory\:\:withGuide\(\)" is never used$#'
 			identifier: public.method.unused
 			count: 1
 			path: database/factories/NotebookSourceFactory.php
@@ -2431,6 +2581,90 @@ parameters:
 			path: database/migrations/2026_10_24_214812_move_waiting_database_jobs_to_redis.php
 
 		-
+			message: '#^Public method "AnonymousClass6cbe6ec99822c6c76fa402c4343d8700\:\:down\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/2026_11_20_143327_create_notebook_ai_consents_table.php
+
+		-
+			message: '#^Public method "AnonymousClass6cbe6ec99822c6c76fa402c4343d8700\:\:up\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/2026_11_20_143327_create_notebook_ai_consents_table.php
+
+		-
+			message: '#^Public method "AnonymousClass943ab2f8cb18a412f0b31a448a71444e\:\:down\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/2026_11_20_144143_replace_background_sync_opt_out_with_opt_in_on_portal_offline_accounts_table.php
+
+		-
+			message: '#^Public method "AnonymousClass943ab2f8cb18a412f0b31a448a71444e\:\:up\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/2026_11_20_144143_replace_background_sync_opt_out_with_opt_in_on_portal_offline_accounts_table.php
+
+		-
+			message: '#^Public method "AnonymousClass807375e031c298e1ddf4d53c92c5b67e\:\:down\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/2026_11_23_100624_add_provider_to_notebook_ai_consents_table.php
+
+		-
+			message: '#^Public method "AnonymousClass807375e031c298e1ddf4d53c92c5b67e\:\:up\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/2026_11_23_100624_add_provider_to_notebook_ai_consents_table.php
+
+		-
+			message: '#^Public method "AnonymousClass1f41465534eab933f80b7438f20b8c24\:\:down\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/2026_11_23_120015_add_guide_to_notebook_sources_table.php
+
+		-
+			message: '#^Public method "AnonymousClass1f41465534eab933f80b7438f20b8c24\:\:up\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/2026_11_23_120015_add_guide_to_notebook_sources_table.php
+
+		-
+			message: '#^Public method "AnonymousClassbeec2b007f0c64355ef7505b6f01592e\:\:down\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/2026_11_23_133002_add_context_source_ids_to_notebooks_table.php
+
+		-
+			message: '#^Public method "AnonymousClassbeec2b007f0c64355ef7505b6f01592e\:\:up\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/2026_11_23_133002_add_context_source_ids_to_notebooks_table.php
+
+		-
+			message: '#^Public method "AnonymousClasscc1366c937914c484d144647e928558a\:\:down\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/2026_11_23_134407_create_notebook_review_cards_table.php
+
+		-
+			message: '#^Public method "AnonymousClasscc1366c937914c484d144647e928558a\:\:up\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/2026_11_23_134407_create_notebook_review_cards_table.php
+
+		-
+			message: '#^Public method "AnonymousClass0c2c6865eed4cffa00e3b884a6956b9c\:\:down\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/2026_11_23_162423_create_notebook_ai_settings_table.php
+
+		-
+			message: '#^Public method "AnonymousClass0c2c6865eed4cffa00e3b884a6956b9c\:\:up\(\)" is never used$#'
+			identifier: public.method.unused
+			count: 1
+			path: database/migrations/2026_11_23_162423_create_notebook_ai_settings_table.php
+
+		-
 			message: '#^Public method "Database\\Seeders\\DatabaseSeeder\:\:run\(\)" is never used$#'
 			identifier: public.method.unused
 			count: 1
@@ -2453,6 +2687,18 @@ parameters:
 			identifier: staticMethod.notFound
 			count: 1
 			path: tests/Feature/AnnouncementNotificationRekeyTest.php
+
+		-
+			message: '#^Using nullsafe method call on non\-nullable type DOMNamedNodeMap\<DOMAttr\>\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: tests/Feature/BrandIdentityTest.php
+
+		-
+			message: '#^Using nullsafe property access on non\-nullable type DOMNodeList\<DOMNameSpaceNode\|DOMNode\>\|false\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: tests/Feature/BrandIdentityTest.php
 
 		-
 			message: '#^Call to an undefined method Illuminate\\Database\\Migrations\\Migration\:\:up\(\)\.$#'
@@ -2501,12 +2747,6 @@ parameters:
 			identifier: staticMethod.notFound
 			count: 1
 			path: tests/Feature/PortalAuthControllerTest.php
-
-		-
-			message: '#^Offset ''password'' does not exist on null\.$#'
-			identifier: offsetAccess.notFound
-			count: 1
-			path: tests/Feature/PortalBackgroundSyncTest.php
 
 		-
 			message: '#^Call to method PHPUnit\\Framework\\Assert\:\:assertSame\(\) with string and string will always evaluate to true\.$#'
@@ -2629,15 +2869,21 @@ parameters:
 			path: tests/Unit/AcademicProgressCalculatorTest.php
 
 		-
+			message: '#^Call to an undefined static method Illuminate\\Support\\Facades\\Log\:\:shouldHaveReceived\(\)\.$#'
+			identifier: staticMethod.notFound
+			count: 1
+			path: tests/Unit/Ai/GeminiDriverTest.php
+
+		-
 			message: '#^Parameter \#1 \$classesExtractor of class App\\Services\\AttendanceShortcutService constructor expects App\\Services\\Extractors\\ClassesExtractor, Mockery\\MockInterface given\.$#'
 			identifier: argument.type
-			count: 11
+			count: 12
 			path: tests/Unit/AttendanceShortcutServiceTest.php
 
 		-
 			message: '#^Parameter \#2 \$sipandaiClassesExtractor of class App\\Services\\AttendanceShortcutService constructor expects App\\Services\\Extractors\\SipandaiClassesExtractor, Mockery\\MockInterface given\.$#'
 			identifier: argument.type
-			count: 11
+			count: 12
 			path: tests/Unit/AttendanceShortcutServiceTest.php
 
 		-
@@ -3359,12 +3605,6 @@ parameters:
 			identifier: method.notFound
 			count: 1
 			path: tests/Unit/FinancialHistoryExtractorTest.php
-
-		-
-			message: '#^Call to an undefined static method Illuminate\\Support\\Facades\\Log\:\:shouldHaveReceived\(\)\.$#'
-			identifier: staticMethod.notFound
-			count: 1
-			path: tests/Unit/Ai/GeminiDriverTest.php
 
 		-
 			message: '#^Call to an undefined method Mockery\\MockInterface\:\:validateResponse\(\)\.$#'

@@ -171,7 +171,7 @@ class NotebookFeedbackTest extends TestCase
 
         $message = NotebookMessage::query()->sole();
         $this->assertSame('feedback', $message->kind);
-        $this->assertTrue(in_array('feedback', NotebookMessage::STRUCTURED_KINDS, true));
+        $this->assertContains('feedback', NotebookMessage::STRUCTURED_KINDS);
         $this->assertArrayNotHasKey('feedback', NotebookAssistant::STUDIO_KINDS);
         $this->assertSame('Apa syarat sebuah tabel berada di 2NF?', json_decode($message->content, true)['follow_up_question']);
         $this->assertSame(1, RateLimiter::attempts($this->budgetKey()));

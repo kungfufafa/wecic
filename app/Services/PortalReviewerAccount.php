@@ -41,13 +41,13 @@ class PortalReviewerAccount
     /**
      * The marker cookie of a reviewer session's cookie jar.
      */
-    public const MARKER_COOKIE = 'wecic_store_reviewer';
+    private const MARKER_COOKIE = 'wecic_store_reviewer';
 
     /**
      * The marker's domain: reserved (RFC 2606), so no portal page can set
      * it and no request ever carries it.
      */
-    public const MARKER_DOMAIN = 'store-reviewer.invalid';
+    private const MARKER_DOMAIN = 'store-reviewer.invalid';
 
     /**
      * The name of middleware() in a portal client's handler stack.
@@ -136,7 +136,7 @@ class PortalReviewerAccount
      * the portal is simulated, so nothing may follow it (offline password
      * hashes, dropped credentials, links to the real portal).
      */
-    public static function isSandboxUsername(mixed $username): bool
+    private static function isSandboxUsername(mixed $username): bool
     {
         return in_array($username, [self::SESSION_USERNAME, PortalDemoFixtures::USERNAME], true);
     }
@@ -172,7 +172,7 @@ class PortalReviewerAccount
         }
 
         foreach ($cookieJar as $cookie) {
-            if ($cookie instanceof SetCookie && $cookie->getName() === self::MARKER_COOKIE && $cookie->getDomain() === self::MARKER_DOMAIN) {
+            if ($cookie->getName() === self::MARKER_COOKIE && $cookie->getDomain() === self::MARKER_DOMAIN) {
                 return true;
             }
         }
@@ -185,7 +185,7 @@ class PortalReviewerAccount
      * the fixtures (a page without one is refused like an unreachable host)
      * and passing every other request on untouched.
      *
-     * @return callable(callable(RequestInterface, array<string, mixed>): PromiseInterface): callable(RequestInterface, array<string, mixed>): PromiseInterface
+     * @return callable(callable(RequestInterface, array<string, mixed>): PromiseInterface): (callable(RequestInterface, array<string, mixed>): PromiseInterface)
      */
     public static function middleware(): callable
     {

@@ -39,7 +39,7 @@ class NotebookAiOwnerSettings
         $this->actingOwner = $ownerHash !== null && $ownerHash !== '' ? $ownerHash : null;
     }
 
-    public function ownerHash(): ?string
+    private function ownerHash(): ?string
     {
         if ($this->actingOwner !== null) {
             return $this->actingOwner;
