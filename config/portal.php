@@ -340,7 +340,7 @@ return [
         'exams' => [
             'fresh_for' => 1800,
             'cache_keys' => ['/api/exam', '/api/action-items'],
-            'sync_keys' => ['exam-index', 'dashboard-action-items'],
+            'sync_keys' => ['exam-index', 'exam-show', 'dashboard-action-items'],
             'archive' => [
                 'label' => 'Ujian',
                 'requires' => ['source' => 'exam_page'],
@@ -941,6 +941,19 @@ return [
             'requires_session' => true,
             'required_params' => ['modulesid', 'courseid'],
         ],
+        'attendance_qr_submit' => [
+            'method' => 'POST',
+            'url' => "{$sipandaiBase}/",
+            'default_query' => [
+                'mod' => 'sipandai',
+                'act' => 'discussabsen',
+            ],
+            'description' => 'Submit QR attendance code directly to discussabsen.',
+            'category' => 'action',
+            'priority' => 'high',
+            'requires_session' => true,
+            'required_params' => ['id', 'courses_id'],
+        ],
         'assignment_delete' => [
             'method' => 'GET',
             'url' => $assignmentDeleteUrl,
@@ -956,7 +969,7 @@ return [
         ],
         'exam_upload_form' => [
             'method' => 'GET',
-            'url' => $sipandaiBase,
+            'url' => "{$sipandaiBase}/",
             'default_query' => [
                 'mod' => 'sipandai',
                 'act' => 'sendujian',
@@ -969,7 +982,7 @@ return [
         ],
         'exam_submit' => [
             'method' => 'POST',
-            'url' => $sipandaiBase,
+            'url' => "{$sipandaiBase}/",
             'default_query' => [
                 'mod' => 'sipandai',
                 'act' => 'sentujian',
@@ -981,7 +994,7 @@ return [
         ],
         'exam_list' => [
             'method' => 'GET',
-            'url' => $sipandaiBase,
+            'url' => "{$sipandaiBase}/",
             'default_query' => [
                 'mod' => 'sipandai',
                 'act' => 'ujian',

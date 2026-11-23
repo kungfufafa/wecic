@@ -34,7 +34,9 @@ export default function ExamDetailScreen() {
   const links = (detail?.related_links ?? []).filter((link) => hrefOf(link) !== null);
   const submissions = detail?.submissions ?? [];
   const editableFields = detail?.form?.editable_fields ?? [];
-  const canUpload = detail?.form?.available === true || detail?.form?.available_via_direct_submit === true;
+  const canUpload = detail?.form?.available !== false;
+  const tipeField = typeof detail?.form?.fields?.['data[tipe]'] === 'string' ? detail.form.fields['data[tipe]'].trim() : '';
+  const kelasField = typeof detail?.form?.fields?.['data[kelas]'] === 'string' ? detail.form.fields['data[kelas]'].trim() : '';
 
   function openLink(href: string, label: string) {
     if (/^https?:\/\//i.test(href) && !/\/files\//i.test(href)) {
@@ -157,6 +159,8 @@ export default function ExamDetailScreen() {
                     path="exam"
                     fields={{
                       id: String(detail.exam_id ?? id),
+                      ...(tipeField ? { 'form_values[data[tipe]]': tipeField } : {}),
+                      ...(kelasField ? { 'form_values[data[kelas]]': kelasField } : {}),
                       ...Object.fromEntries(
                         Object.entries(formValues)
                           .filter(([, value]) => value.trim() !== '')

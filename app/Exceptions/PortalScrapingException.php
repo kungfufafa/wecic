@@ -11,11 +11,6 @@ class PortalScrapingException extends PortalException
         return new self("Required element not found: {$selector} on page {$page}", 422);
     }
 
-    public static function invalidHtmlStructure(string $page): self
-    {
-        return new self("Invalid HTML structure on page {$page}", 422);
-    }
-
     public static function dataExtractionFailed(string $data, string $reason): self
     {
         return new self("Failed to extract {$data}: {$reason}", 422);

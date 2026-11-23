@@ -131,68 +131,63 @@ class RealPortalAssignmentPagesTest extends TestCase
     }
 
     #[DataProvider('closedAssignmentPages')]
-    public function test_a_closed_assignment_is_not_posted_although_its_page_keeps_the_file_input(int $meetingId, int $coursesId, int $meetingNumber): void
+    public function test_a_closed_assignment_is_posted_directly_without_pre_checking_the_form(int $meetingId, int $coursesId, int $meetingNumber): void
     {
         $page = $this->assignmentPage($meetingId, $coursesId, $meetingNumber);
         $this->assertStringContainsString('type="file" name="data[tugas]"', $page);
         $this->assertStringContainsString('Waktu upload tugas sudah berakhir', $page);
 
         $history = [];
-        $service = $this->serviceAnswering([new Response(200, [], $page)], $history);
+        $service = $this->serviceAnswering([
+            new Response(200, [], '<div class="alert alert-warning">Batas waktu pengumpulan sudah lewat.</div>'),
+        ], $history);
 
         $result = $service->submitAssignment('token-real', $coursesId, $meetingId, $meetingNumber, $this->pdf());
 
-        $this->assertCount(1, $history, 'Only the act=send page may be read; nothing is posted.');
-        $this->assertSame('GET', $history[0]['request']->getMethod());
+        $this->assertCount(1, $history, 'The assignment posts directly to act=sent without reading act=send first.');
+        $this->assertSame('POST', $history[0]['request']->getMethod());
+        $this->assertStringContainsString('act=sent', (string) $history[0]['request']->getUri());
         $this->assertFalse($result['success']);
-        $this->assertSame('upload_unavailable', $result['data']['status']);
-        $this->assertStringContainsString('sudah ditutup', $result['message']);
+        $this->assertSame('deadline_passed', $result['data']['status']);
     }
 
     #[DataProvider('closedAssignmentPages')]
-    public function test_a_closed_assignment_is_posted_when_the_student_overrides_the_closed_window(int $meetingId, int $coursesId, int $meetingNumber): void
+    public function test_a_closed_assignment_posts_its_standard_multipart_fields_directly(int $meetingId, int $coursesId, int $meetingNumber): void
     {
-        $page = $this->assignmentPage($meetingId, $coursesId, $meetingNumber);
-        $this->assertStringContainsString('Waktu upload tugas sudah berakhir', $page);
-
         $history = [];
         $service = $this->serviceAnswering([
-            new Response(200, [], $page),
             new ConnectException('cURL error 28: Operation timed out', new Request('POST', 'https://portal.invalid/portal/sipandai/?mod=sipandai&act=sent')),
         ], $history);
 
         $service->submitAssignment('token-real', $coursesId, $meetingId, $meetingNumber, $this->pdf(), allowClosed: true);
 
-        $this->assertCount(2, $history, 'The override posts the file to the closed form.');
-        $post = $history[1]['request'];
+        $this->assertCount(1, $history, 'Direct submission posts immediately without a pre-POST GET.');
+        $post = $history[0]['request'];
         $this->assertSame('POST', $post->getMethod());
         $this->assertStringContainsString('act=sent', (string) $post->getUri());
-        // The closed form keeps its hidden fields and the empty Pesan input; it
-        // lacks only the Upload button, which MyCIC supplies as cmd=Upload.
         $this->assertSame([
             'data[courses_id]' => (string) $coursesId,
             'data[pertemuan]' => (string) $meetingNumber,
             'data[id]' => (string) $meetingId,
             'data[name]' => '',
-            'pertemuan' => (string) $meetingNumber,
             'cmd' => 'Upload',
+            'pertemuan' => (string) $meetingNumber,
             'data[tugas]' => 'tugas.pdf',
         ], $this->multipartFields($post));
     }
 
     #[DataProvider('openAssignmentPages')]
-    public function test_an_open_assignment_is_posted_with_the_hidden_fields_of_its_real_form(int $meetingId, int $coursesId, int $meetingNumber): void
+    public function test_an_open_assignment_is_posted_directly_with_its_standard_multipart_fields(int $meetingId, int $coursesId, int $meetingNumber): void
     {
         $history = [];
         $service = $this->serviceAnswering([
-            new Response(200, [], $this->assignmentPage($meetingId, $coursesId, $meetingNumber)),
             new ConnectException('cURL error 28: Operation timed out', new Request('POST', 'https://portal.invalid/portal/sipandai/?mod=sipandai&act=sent')),
         ], $history);
 
         $result = $service->submitAssignment('token-real', $coursesId, $meetingId, $meetingNumber, $this->pdf(), ['data[name]' => 'Tugas pertemuan']);
 
-        $this->assertCount(2, $history);
-        $post = $history[1]['request'];
+        $this->assertCount(1, $history);
+        $post = $history[0]['request'];
         $this->assertSame('POST', $post->getMethod());
         $this->assertStringContainsString('act=sent', (string) $post->getUri());
         $this->assertSame([
@@ -211,14 +206,16 @@ class RealPortalAssignmentPagesTest extends TestCase
         $this->assertTrue($result['data']['transport_error']);
     }
 
-    public function test_the_upload_job_refuses_a_closed_real_assignment_without_advice_to_retry(): void
+    public function test_the_upload_job_fails_without_advice_to_retry_when_the_portal_reports_deadline_passed(): void
     {
         Event::fake([PortalUploadProgressed::class]);
         Storage::fake();
         Storage::put('portal-uploads/real-task.pdf', '%PDF-1.4 tugas');
 
         $history = [];
-        $service = $this->serviceAnswering([new Response(200, [], $this->assignmentPage(36633, 9496, 4))], $history, 'campus-token');
+        $service = $this->serviceAnswering([
+            new Response(200, [], '<div class="alert alert-warning">Batas waktu pengumpulan sudah lewat.</div>'),
+        ], $history, 'campus-token');
         $projector = Mockery::mock(PortalActionProjector::class, function (MockInterface $mock): void {
             $mock->shouldNotReceive('recordAssignmentUploaded');
         });
@@ -237,11 +234,11 @@ class RealPortalAssignmentPagesTest extends TestCase
         ))->handle($service, $tracker, app(PortalBroadcastService::class), Mockery::mock(PortalDatasetRepository::class), $projector);
 
         $this->assertCount(1, $history);
-        $this->assertSame('GET', $history[0]['request']->getMethod());
+        $this->assertSame('POST', $history[0]['request']->getMethod());
 
         $operation = $tracker->get('op-real-closed');
         $this->assertSame('failed', $operation['stage']);
-        $this->assertStringContainsString('sudah ditutup', $operation['message']);
+        $this->assertStringContainsString('Batas waktu', $operation['message']);
         $this->assertStringNotContainsString('unggah ulang', (string) $operation['next_step']);
         Storage::assertMissing('portal-uploads/real-task.pdf');
     }

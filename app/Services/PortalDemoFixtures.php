@@ -76,6 +76,7 @@ class PortalDemoFixtures
         'password_submit' => 'demo/password_success.html',
         'qr_attendance_page' => 'demo/attendance_qr_page.html',
         'attendance_submit' => 'demo/attendance_success.html',
+        'attendance_qr_submit' => 'demo/attendance_success.html',
         'assignment_submit' => 'demo/assignment_upload_success.html',
         'assignment_delete' => 'demo/assignment_delete_success.html',
         'exam_submit' => 'demo/exam_upload_success.html',

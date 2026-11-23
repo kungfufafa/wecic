@@ -69,7 +69,7 @@ class SipandaiSubmissionServiceTest extends TestCase
         $this->assertSame('upload_refresh', ExamSubmissionRecord::query()->firstOrFail()->source);
     }
 
-    public function test_submit_attendance_falls_back_to_direct_submit_when_qr_page_has_no_form(): void
+    public function test_submit_attendance_posts_directly_to_discussabsen_without_reading_qr_page(): void
     {
         config(['portal.request_delay' => 0]);
 
@@ -83,7 +83,6 @@ class SipandaiSubmissionServiceTest extends TestCase
         $history = [];
 
         $handler = new MockHandler([
-            new Response(200, [], $this->attendanceScannerPageHtml()),
             new Response(200, [], $this->successfulAttendanceResponseHtml()),
         ]);
 
@@ -98,11 +97,16 @@ class SipandaiSubmissionServiceTest extends TestCase
             'kode' => '35533429',
         ]);
 
-        $this->assertCount(2, $history);
-        $this->assertSame('GET', $history[0]['request']->getMethod());
-        $this->assertSame('POST', $history[1]['request']->getMethod());
-        $this->assertStringContainsString('act=discussabsen', (string) $history[1]['request']->getUri());
-        parse_str((string) $history[1]['request']->getBody(), $submittedPayload);
+        $this->assertCount(1, $history);
+        $this->assertSame('POST', $history[0]['request']->getMethod());
+        $this->assertSame(
+            PortalEndpointRegistry::url('attendance_qr_submit', [
+                'id' => 30216,
+                'courses_id' => 8837,
+            ]),
+            (string) $history[0]['request']->getUri()
+        );
+        parse_str((string) $history[0]['request']->getBody(), $submittedPayload);
 
         $this->assertSame('35533429', $submittedPayload['qrcode']);
         $this->assertSame('35533429', $submittedPayload['kode']);
@@ -110,7 +114,7 @@ class SipandaiSubmissionServiceTest extends TestCase
         $this->assertSame('marked', $result['data']['status']);
     }
 
-    public function test_submit_attendance_falls_back_to_actabsen_when_qr_page_has_no_redirect_script(): void
+    public function test_submit_attendance_falls_back_directly_to_actabsen_when_discussabsen_does_not_confirm(): void
     {
         config(['portal.request_delay' => 0]);
 
@@ -123,10 +127,8 @@ class SipandaiSubmissionServiceTest extends TestCase
         $service = new SipandaiSubmissionService($sessionManager);
         $history = [];
 
-        $htmlWithoutScript = '<html><head><title>Absensi</title></head><body><div class="container"><h3>ABSEN</h3></div></body></html>';
-
         $handler = new MockHandler([
-            new Response(200, [], $htmlWithoutScript),
+            new Response(200, [], '<html><head><title>Absensi</title></head><body><div>OK</div></body></html>'),
             new Response(200, [], $this->successfulAttendanceResponseHtml()),
         ]);
 
@@ -142,7 +144,14 @@ class SipandaiSubmissionServiceTest extends TestCase
         ]);
 
         $this->assertCount(2, $history);
-        $this->assertSame('GET', $history[0]['request']->getMethod());
+        $this->assertSame('POST', $history[0]['request']->getMethod());
+        $this->assertSame(
+            PortalEndpointRegistry::url('attendance_qr_submit', [
+                'id' => 30216,
+                'courses_id' => 8837,
+            ]),
+            (string) $history[0]['request']->getUri()
+        );
         $this->assertSame('POST', $history[1]['request']->getMethod());
         $this->assertSame(
             PortalEndpointRegistry::url('attendance_submit', [
@@ -175,12 +184,11 @@ class SipandaiSubmissionServiceTest extends TestCase
         $service = new SipandaiSubmissionService($sessionManager);
 
         $handler = new MockHandler([
-            new Response(200, [], $this->attendanceScannerPageHtml()),
             new Response(200, [], '<div>Absensi berhasil</div>'),
         ]);
 
         $this->setNonPublicProperty($service, 'client', new Client([
-            'handler' => HandlerStack::create($handler),
+            'handler' => $handler,
         ]));
 
         $result = $service->submitAttendance('token-short-response', 8837, 30216, 9, [
@@ -191,7 +199,7 @@ class SipandaiSubmissionServiceTest extends TestCase
         $this->assertSame('marked', $result['data']['status']);
     }
 
-    public function test_submit_exam_refuses_when_the_portal_renders_no_upload_form(): void
+    public function test_submit_exam_posts_directly_without_reading_form_first(): void
     {
         config(['portal.request_delay' => 0]);
 
@@ -200,26 +208,20 @@ class SipandaiSubmissionServiceTest extends TestCase
         $attachment = UploadedFile::fake()->create('jawaban.pdf', 128, 'application/pdf');
 
         $this->fakePortal($service, [
-            new Response(200, [], <<<'HTML'
-            <html>
-                <body>
-                    <div class="alert alert-warning">Upload jawaban belum dibuka oleh jadwal portal.</div>
-                    <p>Halaman ini sengaja tidak merender form upload sampai jam ujian dibuka.</p>
-                </body>
-            </html>
-            HTML),
+            new Response(200, [], '<html><body><div class="alert alert-success">Data sudah disimpan</div></body></html>'),
+            new Response(200, [], $this->openExamFormHtml(8833, 'UTS')),
         ], $history);
 
         $result = $service->submitExam('token-exam-direct', 8833, $attachment);
 
-        $this->assertCount(1, $history);
-        $this->assertSame('GET', $history[0]['request']->getMethod());
-        $this->assertFalse($result['success']);
-        $this->assertSame('upload_unavailable', $result['data']['status']);
-        $this->assertSame('Portal belum membuka form upload untuk ujian ini.', $result['message']);
+        $this->assertSame('POST', $history[0]['request']->getMethod());
+        $this->assertSame(PortalEndpointRegistry::url('exam_submit'), (string) $history[0]['request']->getUri());
+        $this->assertTrue($result['success']);
+        $this->assertSame('uploaded', $result['data']['status']);
+        $this->assertFalse($result['data']['direct_submit_fallback']);
     }
 
-    public function test_submit_exam_refuses_a_closed_exam_instead_of_posting_its_hidden_fields(): void
+    public function test_submit_exam_posts_directly_and_reports_portal_deadline_refusal(): void
     {
         config(['portal.request_delay' => 0]);
 
@@ -228,32 +230,30 @@ class SipandaiSubmissionServiceTest extends TestCase
         $attachment = UploadedFile::fake()->create('UTS-TTE_MAHASISWACONTOH.pdf', 128, 'application/pdf');
 
         $this->fakePortal($service, [
-            new Response(200, [], <<<'HTML'
-            <html>
-                <body>
-                    <form method="post" action="?mod=sipandai&act=sentujian" enctype="multipart/form-data">
-                        <input type="hidden" name="data[id]" value="9186" />
-                        <input type="hidden" name="data[tipe]" value="UTS" />
-                        <input type="hidden" name="data[kelas]" value="TEORI" />
-                        <input type="text" name="data[name]" size="70" maxlength="70" />
-                        <span>Waktu Ujian Sudah Berakhir Untuk Mata Kuliah Diatas</span>
-                    </form>
-                </body>
-            </html>
-            HTML),
+            new Response(200, [], '<html><body><div class="alert alert-warning">Batas waktu pengumpulan sudah lewat.</div></body></html>'),
         ], $history);
 
         $result = $service->submitExam('token-exam-closed', 9186, $attachment, [
+            'data[tipe]' => 'UTS',
+            'data[kelas]' => 'TEORI',
             'data[name]' => 'Jawaban UTS Teknologi dan trend E-commerce',
         ]);
 
         $this->assertCount(1, $history);
+        $this->assertSame('POST', $history[0]['request']->getMethod());
+        $this->assertSame(PortalEndpointRegistry::url('exam_submit'), (string) $history[0]['request']->getUri());
+
+        $submittedBody = (string) $history[0]['request']->getBody();
+        $this->assertMatchesRegularExpression('/name="data\[id\]"\s+Content-Length: \d+\s+9186/', $submittedBody);
+        $this->assertMatchesRegularExpression('/name="data\[tipe\]"\s+Content-Length: \d+\s+UTS/', $submittedBody);
+        $this->assertMatchesRegularExpression('/name="data\[kelas\]"\s+Content-Length: \d+\s+TEORI/', $submittedBody);
+        $this->assertStringContainsString('Jawaban UTS Teknologi dan trend E-commerce', $submittedBody);
+
         $this->assertFalse($result['success']);
-        $this->assertSame('upload_unavailable', $result['data']['status']);
-        $this->assertSame('Waktu ujian sudah berakhir; portal tidak menerima jawaban lagi.', $result['message']);
+        $this->assertSame('deadline_passed', $result['data']['status']);
     }
 
-    public function test_submit_exam_posts_the_portal_hidden_fields_and_ignores_overrides_for_them(): void
+    public function test_submit_exam_preserves_client_exam_fields_and_protects_exam_id_and_cmd(): void
     {
         config(['portal.request_delay' => 0]);
 
@@ -262,7 +262,6 @@ class SipandaiSubmissionServiceTest extends TestCase
         $attachment = UploadedFile::fake()->create('UTS-TTE_MAHASISWACONTOH.pdf', 128, 'application/pdf');
 
         $this->fakePortal($service, [
-            new Response(200, [], $this->openExamFormHtml(9186, 'UTS')),
             new Response(200, [], '<html><body><a href="?mod=sipandai&act=sendujian&id=9186"><b>Data sudah disimpan</b></a></body></html>'),
             new Response(200, [], $this->openExamFormHtml(9186, 'UTS')),
         ], $history);
@@ -270,17 +269,20 @@ class SipandaiSubmissionServiceTest extends TestCase
         $result = $service->submitExam('token-exam-open', 9186, $attachment, [
             'data[name]' => 'Jawaban UTS Teknologi dan trend E-commerce',
             'data[tipe]' => 'UAS',
+            'data[kelas]' => 'TEORI',
             'data[id]' => '1',
+            'cmd' => 'Other',
         ]);
 
-        $this->assertSame('POST', $history[1]['request']->getMethod());
-        $this->assertSame(PortalEndpointRegistry::url('exam_submit'), (string) $history[1]['request']->getUri());
+        $this->assertSame('POST', $history[0]['request']->getMethod());
+        $this->assertSame(PortalEndpointRegistry::url('exam_submit'), (string) $history[0]['request']->getUri());
 
-        $submittedBody = (string) $history[1]['request']->getBody();
+        $submittedBody = (string) $history[0]['request']->getBody();
 
         $this->assertMatchesRegularExpression('/name="data\[id\]"\s+Content-Length: \d+\s+9186/', $submittedBody);
-        $this->assertMatchesRegularExpression('/name="data\[tipe\]"\s+Content-Length: \d+\s+UTS/', $submittedBody);
-        $this->assertStringNotContainsString('UAS', $submittedBody);
+        $this->assertMatchesRegularExpression('/name="data\[tipe\]"\s+Content-Length: \d+\s+UAS/', $submittedBody);
+        $this->assertMatchesRegularExpression('/name="data\[kelas\]"\s+Content-Length: \d+\s+TEORI/', $submittedBody);
+        $this->assertMatchesRegularExpression('/name="cmd"\s+Content-Length: \d+\s+Upload/', $submittedBody);
         $this->assertStringContainsString('Jawaban UTS Teknologi dan trend E-commerce', $submittedBody);
         $this->assertStringContainsString('filename="UTS-TTE_MAHASISWACONTOH.pdf"', $submittedBody);
         $this->assertTrue($result['success']);
@@ -296,14 +298,17 @@ class SipandaiSubmissionServiceTest extends TestCase
         $history = [];
 
         $this->fakePortal($service, [
-            new Response(200, [], $this->openExamFormHtml(9195, 'UAS', $this->examAnswerRowHtml('UTS', 131828))),
             new Response(200, [], '<html><body><p>Ujian Akhir Semester</p></body></html>'),
             new Response(200, [], $this->openExamFormHtml(9195, 'UAS', $this->examAnswerRowHtml('UTS', 131828).$this->examAnswerRowHtml('UAS', 131900))),
         ], $history);
 
-        $result = $service->submitExam('token-exam-verify', 9195, UploadedFile::fake()->create('uas.pdf', 64, 'application/pdf'));
+        $result = $service->submitExam('token-exam-verify', 9195, UploadedFile::fake()->create('uas.pdf', 64, 'application/pdf'), [
+            'data[tipe]' => 'UAS',
+        ]);
 
-        $this->assertCount(3, $history);
+        $this->assertCount(2, $history);
+        $this->assertSame('POST', $history[0]['request']->getMethod());
+        $this->assertSame('GET', $history[1]['request']->getMethod());
         $this->assertTrue($result['success']);
         $this->assertSame('uploaded', $result['data']['status']);
         $this->assertTrue($result['data']['verified']);
@@ -319,13 +324,15 @@ class SipandaiSubmissionServiceTest extends TestCase
         $formWithUtsAnswer = $this->openExamFormHtml(9195, 'UAS', $this->examAnswerRowHtml('UTS', 131828));
 
         $this->fakePortal($service, [
-            new Response(200, [], $formWithUtsAnswer),
             new Response(200, [], '<html><body><p>Ujian Akhir Semester</p></body></html>'),
             new Response(200, [], $formWithUtsAnswer),
         ], $history);
 
-        $result = $service->submitExam('token-exam-missing', 9195, UploadedFile::fake()->create('uas.pdf', 64, 'application/pdf'));
+        $result = $service->submitExam('token-exam-missing', 9195, UploadedFile::fake()->create('uas.pdf', 64, 'application/pdf'), [
+            'data[tipe]' => 'UAS',
+        ]);
 
+        $this->assertCount(2, $history);
         $this->assertFalse($result['success']);
         $this->assertSame('not_uploaded', $result['data']['status']);
         $this->assertSame('Jawaban ujian belum masuk ke portal.', $result['message']);
@@ -339,14 +346,15 @@ class SipandaiSubmissionServiceTest extends TestCase
         $history = [];
 
         $this->fakePortal($service, [
-            new Response(200, [], $this->openExamFormHtml(9195, 'UAS')),
             new ConnectException('cURL error 28: Operation timed out', new Request('POST', PortalEndpointRegistry::url('exam_submit'))),
             new Response(200, [], '<html><body><p>Halaman ujian sedang sibuk.</p></body></html>'),
         ], $history);
 
         $result = $service->submitExam('token-exam-timeout', 9195, UploadedFile::fake()->create('uas.pdf', 64, 'application/pdf'));
 
-        $this->assertCount(3, $history);
+        $this->assertCount(2, $history);
+        $this->assertSame('POST', $history[0]['request']->getMethod());
+        $this->assertSame('GET', $history[1]['request']->getMethod());
         $this->assertFalse($result['success']);
         $this->assertSame('unknown', $result['data']['status']);
         $this->assertTrue($result['data']['transport_error']);
@@ -715,7 +723,8 @@ class SipandaiSubmissionServiceTest extends TestCase
         ]);
 
         $this->assertSame('uploaded', $detail['status']);
-        $this->assertFalse($detail['form']['available']);
+        $this->assertTrue($detail['form']['available']);
+        $this->assertFalse($detail['form']['portal_form_open']);
         $this->assertTrue($detail['form']['available_via_direct_submit']);
         $this->assertSame(PortalEndpointRegistry::url('exam_submit'), $detail['form']['post_url']);
         $this->assertSame('9184', $detail['form']['fields']['data[id]']);
@@ -983,7 +992,8 @@ class SipandaiSubmissionServiceTest extends TestCase
         ]);
 
         $this->assertSame('not_uploaded', $detail['status']);
-        $this->assertFalse($detail['form']['available']);
+        $this->assertTrue($detail['form']['available']);
+        $this->assertFalse($detail['form']['portal_form_open']);
         $this->assertTrue($detail['form']['available_via_direct_submit']);
         $this->assertSame('file', $detail['form']['file_field']);
         $this->assertSame(PortalEndpointRegistry::url('exam_submit'), $detail['form']['action_url']);
@@ -1024,6 +1034,7 @@ class SipandaiSubmissionServiceTest extends TestCase
 
         $service = new class($this->createMock(PortalSessionManager::class)) extends SipandaiSubmissionService
         {
+            /** @api */
             public function writeLog(): void
             {
                 $this->logScraping('token leak check', [
@@ -1060,23 +1071,21 @@ class SipandaiSubmissionServiceTest extends TestCase
         ]);
     }
 
-    public function test_build_exam_unavailable_result_marks_existing_submission_as_already_uploaded(): void
+    public function test_submit_exam_directly_posts_and_handles_already_uploaded_response(): void
     {
-        $service = new SipandaiSubmissionService($this->createMock(PortalSessionManager::class));
+        config(['portal.request_delay' => 0]);
 
-        $result = $this->invokeNonPublicMethod($service, 'buildExamUnavailableResultPayload', [
-            <<<'HTML'
-            <html>
-                <body>
-                    <a href="/storage/jawaban-8810.zip">Open Jawaban</a>
-                    <a href="?mod=sipandai&act=sendujian&id=8810&hapus=1">Hapus Jawaban</a>
-                </body>
-            </html>
-            HTML,
-            'https://portal.invalid/portal/sipandai/?mod=sipandai&act=sendujian&id=8810',
-            8810,
-        ]);
+        $service = new SipandaiSubmissionService($this->sessionManagerFor('token-exam-already'));
+        $history = [];
 
+        $this->fakePortal($service, [
+            new Response(200, [], '<html><body><div class="alert alert-warning">Jawaban sudah diupload sebelumnya.</div></body></html>'),
+        ], $history);
+
+        $result = $service->submitExam('token-exam-already', 8810, UploadedFile::fake()->create('uas.pdf', 64, 'application/pdf'));
+
+        $this->assertCount(1, $history);
+        $this->assertSame('POST', $history[0]['request']->getMethod());
         $this->assertFalse($result['success']);
         $this->assertSame('already_uploaded', $result['data']['status']);
     }
@@ -1271,7 +1280,7 @@ class SipandaiSubmissionServiceTest extends TestCase
         $this->assertSame('../files/tugasmhs/9198-6-20990000001-a14.pdf', $state['file_info']['href']);
     }
 
-    public function test_submit_assignment_reports_a_closed_upload_without_posting(): void
+    public function test_submit_assignment_posts_directly_and_reports_portal_refusal(): void
     {
         config(['portal.request_delay' => 0]);
 
@@ -1279,15 +1288,19 @@ class SipandaiSubmissionServiceTest extends TestCase
         $history = [];
 
         $this->fakePortal($service, [
-            new Response(200, [], $this->assignmentPageHtml('<b>Batas waktu pengumpulan tugas sudah berakhir.</b>')),
+            new Response(200, [], $this->assignmentPageHtml('<div class="alert alert-warning">Batas waktu pengumpulan tugas sudah lewat.</div>')),
         ], $history);
 
         $result = $service->submitAssignment('token-closed-task', 9198, 33317, 6, UploadedFile::fake()->create('tugas.pdf', 64, 'application/pdf'));
 
         $this->assertCount(1, $history);
+        $this->assertSame('POST', $history[0]['request']->getMethod());
+        $this->assertSame(
+            PortalEndpointRegistry::url('assignment_submit', ['courses_id' => 9198, 'id' => 33317, 'pertemuan' => 6]),
+            (string) $history[0]['request']->getUri()
+        );
         $this->assertFalse($result['success']);
-        $this->assertSame('upload_unavailable', $result['data']['status']);
-        $this->assertStringNotContainsString('input[type="file"]', $result['message']);
+        $this->assertSame('deadline_passed', $result['data']['status']);
     }
 
     public function test_submit_assignment_reports_an_upload_without_reply_as_unknown(): void
@@ -1298,13 +1311,13 @@ class SipandaiSubmissionServiceTest extends TestCase
         $history = [];
 
         $this->fakePortal($service, [
-            new Response(200, [], $this->assignmentPageHtml('<form method="post" action="?mod=sipandai&act=sent" enctype="multipart/form-data"><input type="file" name="data[tugas]"></form>')),
             new ConnectException('cURL error 28: Operation timed out', new Request('POST', 'https://portal.invalid/portal/sipandai/?mod=sipandai&act=sent')),
         ], $history);
 
         $result = $service->submitAssignment('token-slow-task', 9198, 33317, 6, UploadedFile::fake()->create('tugas.pdf', 64, 'application/pdf'));
 
-        $this->assertCount(2, $history);
+        $this->assertCount(1, $history);
+        $this->assertSame('POST', $history[0]['request']->getMethod());
         $this->assertFalse($result['success']);
         $this->assertSame('unknown', $result['data']['status']);
         $this->assertTrue($result['data']['transport_error']);
@@ -1338,14 +1351,13 @@ class SipandaiSubmissionServiceTest extends TestCase
         $history = [];
 
         $this->fakePortal($service, [
-            new Response(200, [], $this->openExamFormHtml(9195, 'UAS', $this->examAnswerRowHtml('UTS', 131828))),
             new ConnectException('cURL error 28: Operation timed out', new Request('POST', PortalEndpointRegistry::url('exam_submit'))),
             new Response(200, [], $this->openExamFormHtml(9195, 'UAS', $this->examAnswerRowHtml('UTS', 131828))),
         ], $history);
 
         $result = $service->submitExam('token-exam-slow', 9195, UploadedFile::fake()->create('uas.pdf', 64, 'application/pdf'));
 
-        $this->assertCount(3, $history);
+        $this->assertCount(2, $history);
         $this->assertFalse($result['success']);
         $this->assertSame('unknown', $result['data']['status']);
         $this->assertTrue($result['data']['transport_error']);
@@ -1360,13 +1372,13 @@ class SipandaiSubmissionServiceTest extends TestCase
         $history = [];
 
         $this->fakePortal($service, [
-            new Response(200, [], $this->openExamFormHtml(9195, 'UAS')),
             new ConnectException('cURL error 28: Operation timed out', new Request('POST', PortalEndpointRegistry::url('exam_submit'))),
             new Response(200, [], $this->openExamFormHtml(9195, 'UAS', $this->examAnswerRowHtml('UAS', 131900))),
         ], $history);
 
         $result = $service->submitExam('token-exam-slow', 9195, UploadedFile::fake()->create('uas.pdf', 64, 'application/pdf'));
 
+        $this->assertCount(2, $history);
         $this->assertTrue($result['success']);
         $this->assertSame('uploaded', $result['data']['status']);
         $this->assertSame([131900], array_column($result['data']['submission_records'], 'submission_id'));
@@ -1551,25 +1563,6 @@ class SipandaiSubmissionServiceTest extends TestCase
         $reflectionProperty = new \ReflectionProperty(PortalScrapingService::class, $property);
         $reflectionProperty->setAccessible(true);
         $reflectionProperty->setValue($instance, $value);
-    }
-
-    private function attendanceScannerPageHtml(): string
-    {
-        return <<<'HTML'
-        <html>
-            <head><title>Absensi Perkuliahan dengan QR Code</title></head>
-            <body>
-                <div class="container">
-                    <h3>ABSEN PERTEMUAN 9</h3>
-                    <p>Halaman scanner QR memakai JavaScript redirect ke discussabsen.</p>
-                    <script>
-                        var redirect = '../../?mod=sipandai&act=discussabsen&id=30216&courses_id=8837';
-                        console.log(redirect);
-                    </script>
-                </div>
-            </body>
-        </html>
-        HTML;
     }
 
     private function successfulAttendanceResponseHtml(): string

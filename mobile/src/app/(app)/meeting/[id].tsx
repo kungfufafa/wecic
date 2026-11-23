@@ -24,7 +24,6 @@ import {
   ATTENDANCE_STATE_LABELS,
   meetingAttendanceState,
   meetingAttendanceView,
-  meetingTakesAttendanceCode,
   parseIndonesianDate,
   todayIso,
 } from '@/lib/attendance';
@@ -68,7 +67,7 @@ export default function MeetingScreen() {
   const uploaded = assignment?.status === 'uploaded' || Boolean(assignment?.submission);
   const deadlinePassed = /sudah\s+berakhir|ditutup|kedaluwarsa/i.test(assignment?.status_text ?? assignment?.deadline ?? '');
   const hint = attendanceHint(attendanceView);
-  const takesCode = meetingTakesAttendanceCode(attendanceView) && resolvedCoursesId !== null;
+  const takesCode = attendanceView !== 'recorded' && resolvedCoursesId !== null;
 
   function confirmDelete() {
     const payload = assignment?.delete_payload;
@@ -208,13 +207,18 @@ export default function MeetingScreen() {
                   detail={[assignment.submission.date, assignment.submission.score ? `Nilai ${assignment.submission.score}` : null].filter(Boolean).join(' · ')}
                 />
               ) : null}
-              {target && !deadlinePassed ? (
+              {target ? (
                 <>
                   <Divider />
                   <View style={styles.text}>
                     <FileUpload
                       path="assignment"
-                      fields={{ courses_id: target.courses_id, id: target.id, pertemuan: target.pertemuan }}
+                      fields={{
+                        courses_id: target.courses_id,
+                        id: target.id,
+                        pertemuan: target.pertemuan,
+                        ...(deadlinePassed ? { allow_closed: '1' } : {}),
+                      }}
                       mimeTypes={['application/pdf']}
                       maxBytes={10 * 1024 * 1024}
                       hint="PDF, maksimal 10 MB"

@@ -20,6 +20,8 @@ use Symfony\Component\DomCrawler\Crawler;
 
 class SipandaiSubmissionService extends PortalScrapingService
 {
+    private const DEFAULT_ASSIGNMENT_FILE_FIELD = 'data[tugas]';
+
     private const DEFAULT_EXAM_FILE_FIELD = 'file';
 
     private const DEFAULT_EXAM_ID_FIELD = 'data[id]';
@@ -36,16 +38,11 @@ class SipandaiSubmissionService extends PortalScrapingService
     private ?array $recordedAction = null;
 
     /**
-     * Upload assignment file to SIPANDAI portal.
+     * Upload assignment file directly to SIPANDAI portal (`act=sent`).
      *
-     * An `act=send` page without an open upload form means the portal has
-     * closed (or not yet opened) the upload, so nothing is posted: see
-     * resolveFormForAssignment(). `$allowClosed` overrides that — the student
-     * asked to submit past the deadline, and the portal, not MyCIC, decides
-     * whether the late POST is accepted. A POST that gets
-     * no reply comes back as `unknown` with `transport_error`: the portal may
-     * have stored the file before the connection dropped, and the caller
-     * checks the assignment page.
+     * A POST that gets no reply comes back as `unknown` with `transport_error`:
+     * the portal may have stored the file before the connection dropped, and the
+     * caller checks the assignment page.
      */
     public function submitAssignment(
         string $sessionToken,
@@ -62,11 +59,18 @@ class SipandaiSubmissionService extends PortalScrapingService
         $onStage?->__invoke(PortalOperationStage::FileReceived, 'File tugas diterima server.', 20);
 
         $targetUrl = $this->buildAssignmentUrl($courseId, $discussionId, $meetingNumber);
+        $actionUrl = PortalEndpointRegistry::url('assignment_submit', [
+            'courses_id' => $courseId,
+            'id' => $discussionId,
+            'pertemuan' => $meetingNumber,
+        ]);
+
         $this->logScraping('Uploading SIPANDAI assignment', [
             'session_token' => $sessionToken,
             'course_id' => $courseId,
             'discussion_id' => $discussionId,
             'meeting_number' => $meetingNumber,
+            'allow_closed' => $allowClosed,
         ]);
 
         $context = [
@@ -74,31 +78,37 @@ class SipandaiSubmissionService extends PortalScrapingService
             'discussion_id' => $discussionId,
             'meeting_number' => $meetingNumber,
         ];
-        $formCrawler = $this->resolveFormForAssignment($targetUrl, $allowClosed);
-        $formMeta = $formCrawler !== null ? $this->extractFormMetadata($formCrawler) : null;
+        $extraOverrides = array_diff_key($overrides, array_flip([
+            'data[courses_id]',
+            'data[id]',
+            'data[pertemuan]',
+            'data[name]',
+            'pertemuan',
+            'cmd',
+            self::DEFAULT_ASSIGNMENT_FILE_FIELD,
+        ]));
+        $note = $overrides['data[name]'] ?? $overrides['keterangan'] ?? '';
+        $cmd = is_string($overrides['cmd'] ?? null) && trim($overrides['cmd']) !== ''
+            ? trim($overrides['cmd'])
+            : 'Upload';
 
-        if ($formMeta === null || $formMeta['file_field'] === null) {
-            return [
-                'success' => false,
-                'message' => 'Portal tidak membuka form upload untuk tugas ini. Pengumpulan kemungkinan sudah ditutup.',
-                'data' => ['status' => 'upload_unavailable', ...$context],
-            ];
-        }
-
-        $payload = $this->mergeOverrides($formMeta['fields'], array_merge([
+        $payload = $this->mergeOverrides([
+            'data[courses_id]' => (string) $courseId,
+            'data[pertemuan]' => (string) $meetingNumber,
+            'data[id]' => (string) $discussionId,
+            'data[name]' => is_scalar($note) ? (string) $note : '',
+            'cmd' => $cmd,
             'pertemuan' => (string) $meetingNumber,
-            'cmd' => 'Upload',
-        ], $overrides));
+            ...$extraOverrides,
+        ], []);
 
-        $actionUrl = $this->resolveActionUrl($formMeta['action'], $targetUrl);
-
-        $multipart = $this->buildMultipartPayload($payload, $formMeta['file_field'], $attachment);
+        $multipart = $this->buildMultipartPayload($payload, self::DEFAULT_ASSIGNMENT_FILE_FIELD, $attachment);
 
         $onStage?->__invoke(PortalOperationStage::PortalUploading, 'Mengirim file tugas ke portal SIPANDAI.', 55);
 
         try {
             $response = $this->dispatchRequest(
-                strtoupper($formMeta['method'] ?? 'POST'),
+                'POST',
                 $actionUrl,
                 [
                     RequestOptions::MULTIPART => $multipart,
@@ -124,7 +134,7 @@ class SipandaiSubmissionService extends PortalScrapingService
 
         $result['data']['redirect_history'] = $response->getHeader(\GuzzleHttp\RedirectMiddleware::HISTORY_HEADER);
         $result['data']['sent_fields'] = array_column($multipart, 'name');
-        $result['data']['file_field'] = $formMeta['file_field'];
+        $result['data']['file_field'] = self::DEFAULT_ASSIGNMENT_FILE_FIELD;
 
         if (($result['success'] ?? false) === true) {
             $onStage?->__invoke(PortalOperationStage::SubmissionSaved, 'Submission tugas tersimpan.', 100);
@@ -134,7 +144,7 @@ class SipandaiSubmissionService extends PortalScrapingService
     }
 
     /**
-     * Submit attendance confirmation on SIPANDAI portal.
+     * Submit attendance confirmation directly to SIPANDAI portal.
      */
     public function submitAttendance(
         string $sessionToken,
@@ -146,89 +156,49 @@ class SipandaiSubmissionService extends PortalScrapingService
         $this->setSession($sessionToken);
         $this->beginRecordedAction('attendance_submit');
 
-        $targetUrl = $this->buildAttendanceUrl($courseId, $moduleId, $meetingNumber);
+        $refererUrl = $this->buildAttendanceUrl($courseId, $moduleId, $meetingNumber);
+        $qrSubmitUrl = PortalEndpointRegistry::url('attendance_qr_submit', [
+            'id' => $moduleId,
+            'courses_id' => $courseId,
+        ]);
 
         $this->logScraping('Submitting SIPANDAI attendance', [
             'session_token' => $sessionToken,
             'course_id' => $courseId,
             'module_id' => $moduleId,
             'meeting_number' => $meetingNumber,
-            'target_url' => $targetUrl,
+            'target_url' => $qrSubmitUrl,
         ]);
 
-        $pageHtml = $this->get($targetUrl);
-        $crawler = $this->createCrawler($pageHtml);
         $payload = $this->buildAttendancePayload(
             $meetingNumber,
             $this->mergeOverrides([], $overrides)
         );
+        $qrPayload = array_merge($payload, [
+            'qrcode' => (string) ($overrides['kode'] ?? $payload['kode'] ?? $overrides['qrcode'] ?? ''),
+        ]);
 
-        if ($crawler->filter('form')->count() === 0) {
-            $qrRedirectUrl = $this->extractQrRedirectUrl($pageHtml, $targetUrl);
+        $response = $this->dispatchRequest('POST', $qrSubmitUrl, [
+            RequestOptions::FORM_PARAMS => $qrPayload,
+        ], $refererUrl);
 
-            if ($qrRedirectUrl !== null) {
-                $qrPayload = array_merge($payload, [
-                    'qrcode' => (string) ($overrides['kode'] ?? $payload['kode'] ?? $overrides['qrcode'] ?? ''),
-                ]);
+        $result = $this->buildAttendanceResultPayload((string) $response->getBody(), $qrSubmitUrl, [
+            'course_id' => $courseId,
+            'discussion_id' => $moduleId,
+            'meeting_number' => $meetingNumber,
+        ]);
 
-                $response = $this->dispatchRequest('POST', $qrRedirectUrl, [
-                    RequestOptions::FORM_PARAMS => $qrPayload,
-                ], $targetUrl);
-
-                $result = $this->buildAttendanceResultPayload((string) $response->getBody(), $qrRedirectUrl, [
-                    'course_id' => $courseId,
-                    'discussion_id' => $moduleId,
-                    'meeting_number' => $meetingNumber,
-                ]);
-
-                if (($result['success'] ?? false) === true) {
-                    $result['data']['redirect_history'] = $response->getHeader(\GuzzleHttp\RedirectMiddleware::HISTORY_HEADER);
-                    $result['data']['sent_fields'] = array_keys($qrPayload);
-
-                    return $result;
-                }
-            }
-
-            $responseUrl = $this->buildAttendanceSubmitUrl($courseId, $moduleId);
-            $response = $this->dispatchRequest('POST', $responseUrl, [
-                RequestOptions::FORM_PARAMS => $payload,
-            ], $targetUrl);
-
-            $result = $this->buildAttendanceResultPayload((string) $response->getBody(), $responseUrl, [
-                'course_id' => $courseId,
-                'discussion_id' => $moduleId,
-                'meeting_number' => $meetingNumber,
-            ]);
-
+        if (($result['success'] ?? false) === true) {
             $result['data']['redirect_history'] = $response->getHeader(\GuzzleHttp\RedirectMiddleware::HISTORY_HEADER);
-            $result['data']['sent_fields'] = array_keys($payload);
+            $result['data']['sent_fields'] = array_keys($qrPayload);
 
             return $result;
         }
 
-        $formCrawler = $this->resolveFormForAttendance($crawler);
-        $formMeta = $this->extractFormMetadata($formCrawler);
-        $payload = $this->buildAttendancePayload(
-            $meetingNumber,
-            $this->mergeOverrides($formMeta['fields'], $overrides)
-        );
-
-        if ($formMeta['enctype'] === 'multipart/form-data' && $formMeta['file_field'] !== null) {
-            throw PortalScrapingException::invalidHtmlStructure('attendance form contains file input unexpectedly');
-        }
-
-        $actionUrl = $this->resolveActionUrl($formMeta['action'], $targetUrl);
-
-        if (strtoupper($formMeta['method']) === 'GET') {
-            $finalUrl = $this->appendQuery($actionUrl, $payload);
-            $response = $this->dispatchRequest('GET', $finalUrl, [], $targetUrl);
-            $responseUrl = $finalUrl;
-        } else {
-            $response = $this->dispatchRequest('POST', $actionUrl, [
-                RequestOptions::FORM_PARAMS => $payload,
-            ], $targetUrl);
-            $responseUrl = $actionUrl;
-        }
+        $responseUrl = $this->buildAttendanceSubmitUrl($courseId, $moduleId);
+        $response = $this->dispatchRequest('POST', $responseUrl, [
+            RequestOptions::FORM_PARAMS => $payload,
+        ], $refererUrl);
 
         $result = $this->buildAttendanceResultPayload((string) $response->getBody(), $responseUrl, [
             'course_id' => $courseId,
@@ -425,13 +395,11 @@ class SipandaiSubmissionService extends PortalScrapingService
     }
 
     /**
-     * Upload exam (UAS/UTS) file to SIPANDAI portal.
+     * Upload exam (UAS/UTS) file directly to SIPANDAI portal (`act=sentujian`).
      *
-     * The answer is only sent while the sendujian page renders its upload
-     * form: without one the exam is closed (or not open yet), and the result
-     * says so instead of posting past the portal's own schedule. A reply that
-     * does not say whether the answer was stored, or a POST that never got a
-     * reply, is checked against the sendujian page before it is reported.
+     * A reply that does not say whether the answer was stored, or a POST that
+     * never got a reply, is checked against the sendujian page before it is
+     * reported.
      *
      * @param  string  $sessionToken  Active session token
      * @param  int  $examId  Exam ID from the URL (e.g., id=8833)
@@ -459,32 +427,25 @@ class SipandaiSubmissionService extends PortalScrapingService
             'submit_url' => $submitUrl,
         ]);
 
-        $formHtml = $this->get($metadataUrl);
-        $formMeta = $this->prepareExamUploadFormMeta($this->extractExamFormMeta($formHtml), $examId);
+        $payload = $this->mergeOverrides([
+            self::DEFAULT_EXAM_ID_FIELD => (string) $examId,
+            'data[tipe]' => '',
+            'data[kelas]' => '',
+            'data[name]' => '',
+            'cmd' => 'Upload',
+        ], $this->withoutExamProtectedOverrides($overrides));
 
-        if (($formMeta['direct_submit_fallback'] ?? false) === true) {
-            $this->logScraping('Exam upload refused: portal renders no upload form', [
-                'exam_id' => $examId,
-                'metadata_url' => $metadataUrl,
-            ]);
-
-            return $this->buildExamUnavailableResultPayload($formHtml, $metadataUrl, $examId);
-        }
-
-        $examType = $this->currentExamType($formMeta);
+        $examType = $this->currentExamType(['fields' => $payload]);
         $recordKeysBefore = array_map(
             fn (array $record): string => $this->examSubmissionRecordKey($record),
-            $this->examSubmissionsForType($this->extractExamSubmissionRecords($formHtml, $metadataUrl, $examId), $examType)
+            $this->examSubmissionsForType($this->storedExamSubmissionRecords($sessionToken, $examId), $examType)
         );
-        $payload = $this->mergeOverrides($formMeta['fields'], array_merge([
-            'cmd' => 'Upload',
-        ], $this->withoutHiddenFieldOverrides($overrides, $formMeta)));
-        $multipart = $this->buildMultipartPayload($payload, $formMeta['file_field'], $attachment);
+        $multipart = $this->buildMultipartPayload($payload, self::DEFAULT_EXAM_FILE_FIELD, $attachment);
 
         $this->logScraping('Exam upload endpoints resolved', [
             'metadata_url' => $metadataUrl,
             'submit_url' => $submitUrl,
-            'file_field' => $formMeta['file_field'],
+            'file_field' => self::DEFAULT_EXAM_FILE_FIELD,
             'fields' => array_keys($payload),
         ]);
 
@@ -530,7 +491,7 @@ class SipandaiSubmissionService extends PortalScrapingService
 
         $result['data']['redirect_history'] = $response?->getHeader(\GuzzleHttp\RedirectMiddleware::HISTORY_HEADER) ?? [];
         $result['data']['sent_fields'] = array_keys($payload);
-        $result['data']['file_field'] = $formMeta['file_field'];
+        $result['data']['file_field'] = self::DEFAULT_EXAM_FILE_FIELD;
         $result['data']['metadata_url'] = $metadataUrl;
         $result['data']['submit_url'] = $submitUrl;
         $result['data']['action_url'] = $submitUrl;
@@ -587,7 +548,9 @@ class SipandaiSubmissionService extends PortalScrapingService
             return $uncertain;
         }
 
-        $records = $this->examSubmissionsForType($this->extractExamSubmissionRecords($html, $metadataUrl, $examId), $examType);
+        $formMeta = $this->extractExamFormMeta($html);
+        $resolvedExamType = $examType ?? $this->currentExamType($formMeta);
+        $records = $this->examSubmissionsForType($this->extractExamSubmissionRecords($html, $metadataUrl, $examId), $resolvedExamType);
         $newRecords = array_filter(
             $records,
             fn (array $record): bool => ! in_array($this->examSubmissionRecordKey($record), $recordKeysBefore, true)
@@ -601,7 +564,7 @@ class SipandaiSubmissionService extends PortalScrapingService
             ];
         }
 
-        if (! $replyMissing && ($this->extractExamFormMeta($html)['has_upload_form'] ?? false) === true) {
+        if (! $replyMissing && ($formMeta['has_upload_form'] ?? false) === true) {
             return [
                 'success' => false,
                 'message' => 'Jawaban ujian belum masuk ke portal.',
@@ -655,19 +618,15 @@ class SipandaiSubmissionService extends PortalScrapingService
     }
 
     /**
-     * Values the portal puts in hidden inputs (exam id, type, class) are its
-     * own; a client override for them is dropped.
+     * Values that identify the exam target or submit action are controlled by
+     * the server; client overrides for exam type, class and note are preserved.
      *
      * @param  array<string, mixed>  $overrides
-     * @param  array<string, mixed>  $formMeta
      * @return array<string, mixed>
      */
-    private function withoutHiddenFieldOverrides(array $overrides, array $formMeta): array
+    private function withoutExamProtectedOverrides(array $overrides): array
     {
-        $protectedFields = array_merge(
-            $formMeta['hidden_fields'] ?? [],
-            [self::DEFAULT_EXAM_ID_FIELD, self::LEGACY_EXAM_ID_FIELD, 'cmd']
-        );
+        $protectedFields = [self::DEFAULT_EXAM_ID_FIELD, self::LEGACY_EXAM_ID_FIELD, 'cmd'];
 
         return array_diff_key($overrides, array_flip($protectedFields));
     }
@@ -1291,7 +1250,8 @@ class SipandaiSubmissionService extends PortalScrapingService
 
         $submitUrl = PortalEndpointRegistry::url('exam_submit');
         $directSubmitFallback = (bool) ($formMeta['direct_submit_fallback'] ?? false);
-        $uploadAvailable = ! $directSubmitFallback && $formMeta['file_field'] !== null && $submitUrl !== '';
+        $portalFormOpen = ! $directSubmitFallback && $formMeta['file_field'] !== null;
+        $uploadAvailable = $submitUrl !== '';
         $editableFields = array_values(array_diff(
             array_keys($formMeta['fields']),
             $formMeta['hidden_fields'] ?? [],
@@ -1321,6 +1281,7 @@ class SipandaiSubmissionService extends PortalScrapingService
                 'enctype' => $formMeta['enctype'],
                 'file_field' => $formMeta['file_field'],
                 'available' => $uploadAvailable,
+                'portal_form_open' => $portalFormOpen,
                 'available_via_direct_submit' => $directSubmitFallback,
                 'fields' => $formMeta['fields'],
                 'editable_fields' => $editableFields,
@@ -1755,43 +1716,6 @@ class SipandaiSubmissionService extends PortalScrapingService
     }
 
     /**
-     * Result of an upload refused because the sendujian page renders no
-     * upload form: the answer is already in, or the exam is closed or not
-     * open yet.
-     *
-     * Before an exam is scheduled the page shows its start as "01-01-1970"
-     * (the portal's empty date) and still prints "Waktu Ujian Sudah
-     * Berakhir": that exam has not opened yet, it has not closed.
-     *
-     * @return array{success: false, message: string, data: array{status: string, exam_id: int, request_url: string}}
-     */
-    private function buildExamUnavailableResultPayload(string $html, string $formUrl, int $examId): array
-    {
-        $examType = $this->currentExamType($this->extractExamFormMeta($html));
-        $alreadyUploaded = $this->examSubmissionsForType(
-            $this->extractExamSubmissionRecords($html, $formUrl, $examId),
-            $examType
-        ) !== [];
-        $pageText = $this->visibleText($html);
-        $closed = ! Str::contains($pageText, '01-01-1970')
-            && Str::contains($pageText, ['sudah berakhir', 'telah berakhir', 'ditutup', 'sudah lewat']);
-
-        return [
-            'success' => false,
-            'message' => match (true) {
-                $alreadyUploaded => 'Jawaban ujian ini sudah terkirim; portal tidak membuka form upload lagi.',
-                $closed => 'Waktu ujian sudah berakhir; portal tidak menerima jawaban lagi.',
-                default => 'Portal belum membuka form upload untuk ujian ini.',
-            },
-            'data' => [
-                'status' => $alreadyUploaded ? 'already_uploaded' : 'upload_unavailable',
-                'exam_id' => $examId,
-                'request_url' => $formUrl,
-            ],
-        ];
-    }
-
-    /**
      * The exam's own part of a SIPANDAI page, `.app-content`: the header and
      * sidebar before it hold the menu ("Ujian (UTS/UAS/SP)"), which is no
      * note about the exam. A page without that layout is read whole.
@@ -1941,40 +1865,6 @@ class SipandaiSubmissionService extends PortalScrapingService
     }
 
     /**
-     * The upload form of the assignment page, or null when the page renders
-     * no form with a file input, or only a closed one.
-     */
-    private function resolveFormForAssignment(string $targetUrl, bool $allowClosed = false): ?Crawler
-    {
-        $html = $this->get($targetUrl);
-        $crawler = $this->createCrawler($html);
-
-        foreach ($crawler->filter('form') as $node) {
-            $formCrawler = new Crawler($node);
-            if (self::formScope($formCrawler)->filter('input[type="file"]')->count() > 0 && ($allowClosed || ! $this->isClosedAssignmentForm($formCrawler))) {
-                return $formCrawler;
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * The portal keeps rendering the upload form, file input included, after
-     * the upload time has ended: it only replaces the Upload button with
-     * "Waktu upload tugas sudah berakhir". A form without any submit control
-     * that says so is closed. A student who chooses to submit anyway
-     * ($allowClosed) still POSTs to it — the portal has the final say.
-     */
-    private function isClosedAssignmentForm(Crawler $form): bool
-    {
-        $hasSubmitControl = self::formScope($form)->filter('input[type="submit"], input[type="image"], button[type="submit"], button:not([type])')->count() > 0;
-
-        return ! $hasSubmitControl
-            && Str::contains(strtolower($this->formText($form)), ['sudah berakhir', 'telah berakhir', 'sudah ditutup', 'sudah lewat']);
-    }
-
-    /**
      * Build assignment URL with query parameters.
      */
     private function buildAssignmentUrl(int $courseId, int $discussionId, int $meetingNumber): string
@@ -2009,30 +1899,6 @@ class SipandaiSubmissionService extends PortalScrapingService
             'modulesid' => $moduleId,
             'courseid' => $courseId,
         ]);
-    }
-
-    private function extractQrRedirectUrl(string $html, string $baseUrl): ?string
-    {
-        if (preg_match('/var\s+redirect\s*=\s*[\'"]([^\'"]+)[\'"]/i', $html, $matches)) {
-            return $this->resolveActionUrl($matches[1], $baseUrl);
-        }
-
-        return null;
-    }
-
-    private function resolveFormForAttendance(Crawler $crawler): Crawler
-    {
-        $forms = $crawler->filter('form');
-
-        foreach ($forms as $node) {
-            $formCrawler = new Crawler($node);
-
-            if (self::formScope($formCrawler)->filter('input[name="kode"], input[name="cmd"], button[name="cmd"]')->count() > 0) {
-                return $formCrawler;
-            }
-        }
-
-        return $forms->first();
     }
 
     private function buildAssignmentDeleteUrl(int $submissionId, int $discussionId, int $meetingNumber): string
@@ -2150,22 +2016,6 @@ class SipandaiSubmissionService extends PortalScrapingService
 
             return (string) $value;
         }, $merged);
-    }
-
-    /**
-     * Append query string to base URL.
-     */
-    private function appendQuery(string $baseUrl, $query, bool $raw = false): string
-    {
-        $separator = str_contains($baseUrl, '?') ? '&' : '?';
-
-        if ($raw) {
-            return rtrim($baseUrl, '&').$separator.$query;
-        }
-
-        $queryString = http_build_query($query, '', '&', PHP_QUERY_RFC3986);
-
-        return rtrim($baseUrl, '&').$separator.$queryString;
     }
 
     /**

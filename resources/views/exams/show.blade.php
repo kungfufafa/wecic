@@ -108,13 +108,34 @@
                 const entries = editable
                     .filter((name) => Object.prototype.hasOwnProperty.call(fields, name))
                     .map((name) => [name, fields[name]]);
+                const missingTipe = !String(fields['data[tipe]'] || '').trim();
+                const missingKelas = !String(fields['data[kelas]'] || '').trim();
 
-                if (!entries.length) {
+                if (!entries.length && !missingTipe && !missingKelas) {
                     return '';
                 }
 
                 return `
                     <p class="${app.ui.hint}">Isian tambahan dari form portal (opsional).</p>
+                    ${missingTipe ? `
+                        <div class="${app.ui.field}">
+                            <label class="${app.ui.label}" for="exam-field-tipe">${app.escapeHtml(FIELD_LABELS['data[tipe]'])}</label>
+                            <select id="exam-field-tipe" class="${app.ui.select}" data-override-field="data[tipe]">
+                                <option value="UTS">UTS</option>
+                                <option value="UAS">UAS</option>
+                                <option value="SP">SP</option>
+                            </select>
+                        </div>
+                    ` : ''}
+                    ${missingKelas ? `
+                        <div class="${app.ui.field}">
+                            <label class="${app.ui.label}" for="exam-field-kelas">${app.escapeHtml(FIELD_LABELS['data[kelas]'])}</label>
+                            <select id="exam-field-kelas" class="${app.ui.select}" data-override-field="data[kelas]">
+                                <option value="TEORI">TEORI</option>
+                                <option value="PRAKTIKUM">PRAKTIKUM</option>
+                            </select>
+                        </div>
+                    ` : ''}
                     ${entries.map(([name, value], index) => `
                         <div class="${app.ui.field}">
                             <label class="${app.ui.label}" for="exam-field-${index}">${app.escapeHtml(FIELD_LABELS[name] || name.replace(/^data\[(.+)\]$/, '$1'))}</label>
@@ -266,8 +287,8 @@
                 `;
             };
 
-            const renderUploadPanel = (detail, form, isUploadReady) => {
-                const uploadTone = isUploadReady ? 'success' : 'secondary';
+            const renderUploadPanel = (detail, form, isUploadReady, isPortalFormOpen) => {
+                const uploadTone = isPortalFormOpen ? 'success' : 'secondary';
 
                 return `
                 <div class="${app.ui.card}" data-slot="card">
@@ -276,8 +297,8 @@
                     </div>
                     <div class="${app.ui.cardBody} flex flex-col gap-4">
                         <div class="${app.alertTone(uploadTone)}">
-                            <div class="font-medium leading-snug text-ink">${isUploadReady ? 'Jawaban bisa dikirim dari sini.' : 'Portal tidak menampilkan form upload saat ini.'}</div>
-                            <div class="mt-0.5 text-xs ${app.textToneClass(uploadTone)}">${app.escapeHtml(statusBadge(detail.status)[0])}</div>
+                            <div class="font-medium leading-snug text-ink">${isPortalFormOpen ? 'Jawaban bisa dikirim dari sini.' : 'Kirim langsung ke endpoint upload portal.'}</div>
+                            <div class="mt-0.5 text-xs ${app.textToneClass(uploadTone)}">${app.escapeHtml(isPortalFormOpen ? statusBadge(detail.status)[0] : `${statusBadge(detail.status)[0]} · Halaman portal belum menampilkan form HTML, server portal yang menentukan.`)}</div>
                         </div>
                         ${isUploadReady ? `
                             <form id="exam-upload-form" class="flex flex-col gap-4">
@@ -339,7 +360,8 @@
             const render = (payload) => {
                 const detail = payload.data?.exam_detail || {};
                 const form = detail.form || {};
-                const isUploadReady = form.available === true;
+                const isPortalFormOpen = form.portal_form_open ?? (form.available === true && form.available_via_direct_submit !== true);
+                const isUploadReady = form.available !== false;
                 const relatedLinks = detail.related_links || [];
                 const fileLinks = relatedLinks.filter(isDownloadableLink);
                 const portalLinks = relatedLinks.filter((link) => !isDownloadableLink(link) && link?.type !== 'action');
@@ -373,7 +395,7 @@
                     <div class="${app.ui.statGridKpi} mb-6" data-slot="stat-strip">
                         ${renderMetric({ label: 'Status', value: statusLabel, note: 'Dibaca dari halaman ujian di portal.', text: true })}
                         ${renderMetric({ label: 'Soal', value: fileLinks.length || '0', note: fileLinks.length ? 'Soal atau lampiran tersedia.' : 'Belum ada soal yang diunggah dosen.' })}
-                        ${renderMetric({ label: 'Pengumpulan', value: isUploadReady ? 'Dibuka' : 'Tertutup', note: isUploadReady ? 'Kirim jawaban dari halaman ini.' : 'Form upload belum dibuka atau sudah ditutup portal.', text: true })}
+                        ${renderMetric({ label: 'Pengumpulan', value: isPortalFormOpen ? 'Dibuka' : 'Kirim langsung', note: isPortalFormOpen ? 'Kirim jawaban dari halaman ini.' : 'Form HTML portal belum terlihat; kirim langsung ke endpoint upload portal.', text: true })}
                         ${renderMetric({ label: 'Jadwal', value: course.schedule || 'Belum ada', note: course.schedule ? 'Sesuai jadwal kelas.' : 'Jadwal ujian belum diumumkan.', text: true })}
                     </div>
                 `;
@@ -384,7 +406,7 @@
                 `;
 
                 document.getElementById('exam-actions').innerHTML = `
-                    ${renderUploadPanel(detail, form, isUploadReady)}
+                    ${renderUploadPanel(detail, form, isUploadReady, isPortalFormOpen)}
                     ${renderSubmissionMemoryPanel(detail)}
                     ${renderPortalLinks(portalLinks)}
                 `;
@@ -425,11 +447,20 @@
                         formData.append('id', examId);
                         formData.append('attachment', file);
 
+                        const fields = form.fields || {};
+                        ['data[tipe]', 'data[kelas]'].forEach((fieldName) => {
+                            const fieldValue = String(fields[fieldName] || '').trim();
+
+                            if (fieldValue !== '') {
+                                formData.set(`form_values[${fieldName}]`, fieldValue);
+                            }
+                        });
+
                         document.querySelectorAll('[data-override-field]').forEach((input) => {
                             const value = input.value.trim();
 
                             if (value !== '') {
-                                formData.append(`form_values[${input.dataset.overrideField}]`, value);
+                                formData.set(`form_values[${input.dataset.overrideField}]`, value);
                             }
                         });
 

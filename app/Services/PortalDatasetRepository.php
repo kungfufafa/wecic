@@ -73,9 +73,10 @@ class PortalDatasetRepository
         string $dataset,
         array $params = [],
         bool $forceFresh = false,
-        ?string $broadcastSessionId = null
+        ?string $broadcastSessionId = null,
+        bool $bypassCooldown = false
     ): array {
-        $result = $this->readSnapshotOrUpstream($sessionToken, $dataset, $params, $forceFresh, $broadcastSessionId);
+        $result = $this->readSnapshotOrUpstream($sessionToken, $dataset, $params, $forceFresh, $broadcastSessionId, $bypassCooldown);
 
         // See PortalActionProjector::project(): a class page cannot be patched in place.
         if ($dataset === 'class_detail') {
@@ -98,7 +99,8 @@ class PortalDatasetRepository
         string $dataset,
         array $params,
         bool $forceFresh,
-        ?string $broadcastSessionId
+        ?string $broadcastSessionId,
+        bool $bypassCooldown = false
     ): array {
         $snapshot = $this->snapshotOrArchive($sessionToken, $dataset, $params);
 
@@ -108,7 +110,7 @@ class PortalDatasetRepository
                 : throw PortalOfflineException::offlineSession();
         }
 
-        if ($snapshot !== null && (! $forceFresh || $this->isWithinForceCooldown($sessionToken, $dataset, $snapshot))) {
+        if ($snapshot !== null && (! $forceFresh || (! $bypassCooldown && $this->isWithinForceCooldown($sessionToken, $dataset, $snapshot)))) {
             return $this->serveSnapshot($sessionToken, $dataset, $params, $snapshot, $forceFresh, $broadcastSessionId);
         }
 

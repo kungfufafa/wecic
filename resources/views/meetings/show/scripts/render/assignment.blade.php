@@ -66,11 +66,12 @@
                         const note = slot.querySelector('#assignment-note')?.value.trim();
                         if (note) {
                             formData.append('form_values[keterangan]', note);
+                            formData.append('form_values[data[name]]', note);
                         }
 
-                        // Submitted from "Tetap kirim tugas": POST past the closed
-                        // upload window and let the portal decide.
-                        if (assignmentForm.closest('[data-assignment-override]')) {
+                        // Submitted when the portal already hid the link: keep
+                        // allow_closed for offline outbox compatibility.
+                        if (assignmentForm.closest('[data-assignment-closed]')) {
                             formData.append('allow_closed', '1');
                         }
 

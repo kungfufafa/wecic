@@ -274,6 +274,20 @@ class PortalDatasetRepositoryTest extends TestCase
         $this->assertSame('upstream', $result['meta']['data_origin']);
     }
 
+    public function test_forced_read_can_bypass_the_cooldown_when_requested(): void
+    {
+        $this->snapshots->put('token', 'exams', ['exams' => [['id' => 9521, 'can_upload' => false]]], now()->subSeconds(5)->toISOString());
+        $this->expectBuilds(1, ['exams' => [['id' => 9521, 'can_upload' => true]]]);
+
+        $withinCooldown = $this->repository()->read('token', 'exams', forceFresh: true);
+        $this->assertSame('snapshot', $withinCooldown['meta']['data_origin']);
+        $this->assertFalse($withinCooldown['data']['exams'][0]['can_upload']);
+
+        $bypassed = $this->repository()->read('token', 'exams', forceFresh: true, bypassCooldown: true);
+        $this->assertSame('upstream', $bypassed['meta']['data_origin']);
+        $this->assertTrue($bypassed['data']['exams'][0]['can_upload']);
+    }
+
     public function test_a_stale_snapshot_is_still_served_when_its_resync_cannot_be_queued(): void
     {
         $this->snapshots->put('token', 'grades', ['summary' => ['ipk' => 3.1]], now()->subHours(2)->toISOString());

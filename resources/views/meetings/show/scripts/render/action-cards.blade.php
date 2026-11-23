@@ -60,28 +60,24 @@
                         </div>
                     `;
                 } else if (attendanceState === 'past' || attendanceState === 'upcoming') {
-                    // The date gate guards against sending today's code to an old
-                    // meeting; a moved or make-up class can still send it on purpose.
+                    // Direct POST stays directly visible even when the meeting date
+                    // is another day (e.g. make-up or moved class); the portal decides.
                     const isPast = attendanceState === 'past';
 
                     attendanceSectionMarkup = `
-                        <div class="${app.ui.card} overflow-hidden" data-slot="card">
+                        <div class="${app.ui.card}" data-slot="card">
                             <div class="${app.ui.cardHeader}">
                                 <h3 class="${app.ui.cardTitle}">Presensi</h3>
                                 ${isPast ? app.renderBadge('Sudah lewat', 'danger') : app.renderBadge('Belum dibuka', 'neutral')}
                             </div>
-                            <p class="${app.ui.cardBody} text-sm text-ink-muted">
-                                ${isPast
-                                    ? `Pertemuan ini dijadwalkan ${safeDate} dan kehadiranmu belum terlihat tercatat di portal. Absensi biasanya hanya diterima saat kelas berlangsung.`
-                                    : `Absensi dibuka saat kelas berlangsung (${safeDate}).`}
-                            </p>
-                            <details class="border-t border-border-light" data-attendance-override>
-                                <summary class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 px-4 text-sm font-medium text-ink transition-colors hover:bg-surface/50 sm:min-h-10 sm:px-5 [&::-webkit-details-marker]:hidden"><span>Tetap kirim kode</span><svg xmlns="http://www.w3.org/2000/svg" class="size-4 shrink-0 text-ink-subtle transition-transform [details[open]_&]:rotate-180" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6l6 -6" /></svg></summary>
-                                <div class="flex flex-col gap-3 px-4 pb-4 sm:px-5 sm:pb-5">
-                                    <p class="${app.ui.hint}">Hanya untuk kelas pengganti atau kelas yang jadwalnya dipindah ke hari ini. Portal yang memutuskan: kode ditolak bila absensi pertemuan ini tidak dibuka.</p>
-                                    ${attendanceFormMarkup}
+                            <div class="${app.ui.cardBody}">
+                                <div class="${app.alertTone(isPast ? 'warning' : 'secondary')} mb-4">
+                                    ${isPast
+                                        ? `Pertemuan ini dijadwalkan ${safeDate} dan kehadiranmu belum terlihat tercatat di portal. Absensi biasanya hanya diterima saat kelas berlangsung.`
+                                        : `Absensi biasanya dibuka saat kelas berlangsung (${safeDate}).`}
                                 </div>
-                            </details>
+                                ${attendanceFormMarkup}
+                            </div>
                         </div>
                     `;
                 } else {
@@ -184,27 +180,20 @@
                         </div>
                     `;
                 } else if (assignmentStatus === 'upload_unavailable') {
-                    // The meeting page no longer links the upload form: the portal
-                    // is not taking files for this assignment. The student may still
-                    // try, like the attendance override — the portal decides.
+                    // The meeting page no longer links the upload form: still keep
+                    // direct POST upload visible so the portal endpoint decides.
                     assignmentSectionMarkup = `
-                        <div class="${app.ui.card} overflow-hidden" data-slot="card">
+                        <div class="${app.ui.card}" data-slot="card">
                             <div class="${app.ui.cardHeader}">
                                 <h3 class="${app.ui.cardTitle}">Tugas</h3>
                                 ${app.renderBadge('Ditutup', 'danger')}
                             </div>
-                            <p class="${app.ui.cardBody} text-sm text-ink-muted">
-                                Pengumpulan tugas ini sudah ditutup portal${hasDeadline ? ` (deadline ${app.escapeHtml(deadlineText)})` : ''}.
-                            </p>
-                            ${assignmentParams ? `
-                                <details class="border-t border-border-light" data-assignment-override>
-                                    <summary class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 px-4 text-sm font-medium text-ink transition-colors hover:bg-surface/50 sm:min-h-10 sm:px-5 [&::-webkit-details-marker]:hidden"><span>Tetap kirim tugas</span><svg xmlns="http://www.w3.org/2000/svg" class="size-4 shrink-0 text-ink-subtle transition-transform [details[open]_&]:rotate-180" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6l6 -6" /></svg></summary>
-                                    <div class="flex flex-col gap-3 px-4 pb-4 sm:px-5 sm:pb-5">
-                                        <p class="${app.ui.hint}">Portal yang memutuskan: file ditolak bila pengumpulan tugas ini benar-benar sudah ditutup di server.</p>
-                                        ${uploadFormMarkup}
-                                    </div>
-                                </details>
-                            ` : ''}
+                            <div class="${app.ui.cardBody} flex flex-col gap-4"${assignmentParams ? ' data-assignment-closed' : ''}>
+                                <div class="${app.alertTone('secondary')}">
+                                    Pengumpulan tugas ini sudah ditutup di halaman portal${hasDeadline ? ` (deadline ${app.escapeHtml(deadlineText)})` : ''}. Kirim langsung ke endpoint upload portal — server portal yang menentukan diterima atau ditolak.
+                                </div>
+                                ${assignmentParams ? uploadFormMarkup : ''}
+                            </div>
                         </div>
                     `;
                 } else if (assignmentStatus === 'unresolved') {

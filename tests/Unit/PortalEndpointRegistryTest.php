@@ -143,6 +143,17 @@ class PortalEndpointRegistryTest extends TestCase
         );
     }
 
+    public function test_exam_endpoints_keep_the_trailing_slash(): void
+    {
+        $sipandaiBase = config('portal.base_url').'/portal/sipandai/';
+
+        $this->assertSame($sipandaiBase.'?mod=sipandai&act=ujian', PortalEndpointRegistry::url('exam_list'));
+        $this->assertSame($sipandaiBase.'?mod=sipandai&act=sendujian&id=9521', PortalEndpointRegistry::url('exam_upload_form', ['id' => 9521]));
+        $this->assertSame($sipandaiBase.'?mod=sipandai&act=sentujian', PortalEndpointRegistry::url('exam_submit'));
+        $this->assertSame('POST', PortalEndpointRegistry::method('attendance_qr_submit'));
+        $this->assertSame($sipandaiBase.'?mod=sipandai&act=discussabsen&id=30216&courses_id=8837', PortalEndpointRegistry::url('attendance_qr_submit', ['id' => 30216, 'courses_id' => 8837]));
+    }
+
     public function test_write_effect_endpoints_require_their_server_side_payload(): void
     {
         $this->assertSame(['subject', 'pertemuan', 'courses', 'dosen', 'sesuai', 'modules'], PortalEndpointRegistry::requiredParams('meeting_conformity'));

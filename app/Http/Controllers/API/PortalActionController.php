@@ -151,14 +151,33 @@ class PortalActionController extends CampusApiController
      *
      * @return array{exams: list<mixed>, exam: array<string, mixed>|null}
      */
-    private function listedExam(string $sessionToken, int $examId): array
+    private function listedExam(string $sessionToken, int $examId, bool $forceFresh = false): array
     {
-        $exams = $this->datasets->read($sessionToken, 'exams', broadcastSessionId: (string) session()->getId())['data']['exams'] ?? [];
+        $exams = $this->datasets->read(
+            $sessionToken,
+            'exams',
+            forceFresh: $forceFresh,
+            broadcastSessionId: (string) session()->getId()
+        )['data']['exams'] ?? [];
         $exams = is_array($exams) ? array_values($exams) : [];
         $matches = collect($exams)->filter(fn (mixed $exam): bool => is_array($exam) && (string) ($exam['id'] ?? '') === (string) $examId);
         $exam = $matches->first(fn (array $exam): bool => ($exam['can_upload'] ?? true) !== false) ?? $matches->first();
 
         return ['exams' => $exams, 'exam' => $exam];
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $course
+     */
+    private function examClassFromSchedule(?array $course): ?string
+    {
+        $schedule = (string) ($course['schedule'] ?? '');
+
+        if ($schedule !== '' && preg_match('/\bUjian\s*:\s*(TEORI|PRAKTIKUM)\b/i', $schedule, $matches) === 1) {
+            return strtoupper($matches[1]);
+        }
+
+        return null;
     }
 
     /**
@@ -656,17 +675,21 @@ class PortalActionController extends CampusApiController
         try {
             // The upload page itself carries no course name; the exam list does,
             // and it also tells whether this id is one of the student's exams.
-            ['exams' => $exams, 'exam' => $course] = $this->listedExam($sessionToken, $request->examId());
+            ['exams' => $exams, 'exam' => $course] = $this->listedExam(
+                $sessionToken,
+                $request->examId(),
+                forceFresh: $request->boolean('fresh')
+            );
 
             if ($course === null && $exams !== []) {
                 return $this->booleanResponse(false, 'Ujian tidak ditemukan di daftar ujian kamu.', null, 404);
             }
 
             $examDetail = $this->submissionService->getExamDetail($sessionToken, $request->examId());
+            $scheduleClass = $this->examClassFromSchedule($course);
 
-            // The id of a row the portal gave no upload link for is a guess.
-            if (($course['can_upload'] ?? true) === false) {
-                $examDetail['form']['available'] = false;
+            if ($scheduleClass !== null && trim((string) ($examDetail['form']['fields']['data[kelas]'] ?? '')) === '') {
+                $examDetail['form']['fields']['data[kelas]'] = $scheduleClass;
             }
 
             $examDetail['course'] = $course === null ? null : [
@@ -760,8 +783,11 @@ class PortalActionController extends CampusApiController
                 return $this->booleanResponse(false, 'Ujian tidak ditemukan di daftar ujian kamu.', null, 404);
             }
 
-            if ($exam !== null && ($exam['can_upload'] ?? true) === false) {
-                return $this->booleanResponse(false, 'Portal belum membuka upload jawaban untuk ujian ini.', ['status' => 'upload_unavailable'], 422);
+            $formValues = $request->formValues();
+            $scheduleClass = $this->examClassFromSchedule($exam);
+
+            if ($scheduleClass !== null && trim((string) ($formValues['data[kelas]'] ?? '')) === '') {
+                $formValues['data[kelas]'] = $scheduleClass;
             }
 
             $attachment = $request->attachment();
@@ -786,7 +812,7 @@ class PortalActionController extends CampusApiController
                 $storedFilePath,
                 $attachment->getClientOriginalName(),
                 $attachment->getMimeType() ?: 'application/octet-stream',
-                $request->formValues(),
+                $formValues,
                 $uploadLock['key'],
                 $uploadLock['owner']
             );

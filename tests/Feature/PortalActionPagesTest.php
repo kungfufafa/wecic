@@ -37,7 +37,7 @@ class PortalActionPagesTest extends TestCase
             ->assertDontSee('${attendanceSectionMarkup}', false);
     }
 
-    public function test_meeting_page_offers_attendance_only_on_the_meeting_day_and_upload_only_while_the_portal_takes_files(): void
+    public function test_meeting_page_offers_attendance_and_assignment_upload_directly(): void
     {
         $this->mockValidCampusSession('token-meeting');
 
@@ -48,9 +48,10 @@ class PortalActionPagesTest extends TestCase
             ->assertSee("} else if (assignmentStatus === 'upload_unavailable') {", false)
             ->assertSee("} else if (assignmentStatus === 'unresolved') {", false)
             ->assertSee('Cek ulang status')
-            ->assertSee('data-assignment-override>', false)
-            ->assertSee('Tetap kirim tugas')
-            ->assertSee("if (assignmentForm.closest('[data-assignment-override]')) {", false)
+            ->assertSee('data-assignment-closed', false)
+            ->assertDontSee('data-assignment-override', false)
+            ->assertSee('Kirim langsung ke endpoint upload portal')
+            ->assertSee("if (assignmentForm.closest('[data-assignment-closed]')) {", false)
             ->assertSee("formData.append('allow_closed', '1');", false)
             ->assertSee('if (file.size > ASSIGNMENT_MAX_BYTES) {', false)
             ->assertSee('if (error.status === 409 && error.payload?.data?.operation_id) {', false);
@@ -123,19 +124,18 @@ class PortalActionPagesTest extends TestCase
             ->assertSee('${assignment.upload_status_text ? esc(assignment.upload_status_text) : \'Portal sedang tidak membuka upload tugas ini.', false);
     }
 
-    public function test_meeting_page_on_another_day_still_lets_a_moved_class_send_its_code(): void
+    public function test_meeting_page_on_another_day_still_offers_the_attendance_form_directly(): void
     {
         $this->mockValidCampusSession('token-meeting');
 
         $this->withSession(['campus_session_token' => 'token-meeting'])
             ->get('/meeting/445?courses_id=8861')
             ->assertOk()
-            ->assertSee('<details class="border-t border-border-light" data-attendance-override>', false)
-            ->assertSee('Tetap kirim kode')
+            ->assertDontSee('data-attendance-override', false)
+            ->assertSee('id="attendance-form"', false)
             ->assertSee('kehadiranmu belum terlihat tercatat di portal')
             ->assertDontSee('kehadiranmu tidak tercatat di portal')
-            ->assertSee("if (input && attendanceState === 'open') {", false)
-            ->assertSee('override.open = true;', false);
+            ->assertSee("if (input && attendanceState === 'open') {", false);
     }
 
     public function test_meeting_page_says_when_the_course_notebook_is_full(): void

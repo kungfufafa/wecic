@@ -62,6 +62,7 @@ class PortalDemoFixturesTest extends TestCase
             'password change' => ['POST', 'password_submit', [], 'demo/password_success.html'],
             'QR attendance page' => ['GET', 'qr_attendance_page', ['course_id' => '9496', 'id' => '36365'], 'demo/attendance_qr_page.html'],
             'attendance' => ['POST', 'attendance_submit', ['modulesid' => '36365', 'courseid' => '9496'], 'demo/attendance_success.html'],
+            'attendance QR' => ['POST', 'attendance_qr_submit', ['id' => '36365', 'courses_id' => '9496'], 'demo/attendance_success.html'],
             'assignment upload' => ['POST', 'assignment_submit', ['courses_id' => '9496', 'id' => '36365', 'pertemuan' => '3'], 'demo/assignment_upload_success.html'],
             'assignment delete' => ['GET', 'assignment_delete', ['id' => '1', 'idx' => '2', 'pertemuan' => '3'], 'demo/assignment_delete_success.html'],
             'exam upload' => ['POST', 'exam_submit', [], 'demo/exam_upload_success.html'],

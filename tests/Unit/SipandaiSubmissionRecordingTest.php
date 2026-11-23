@@ -80,7 +80,6 @@ class SipandaiSubmissionRecordingTest extends TestCase
     public function test_an_assignment_upload_reply_is_recorded_without_the_uploaded_file_name_and_its_form_read_is_not(): void
     {
         $service = $this->service([
-            new Response(200, [], $this->page('<form method="post" action="?mod=sipandai&amp;act=sent" enctype="multipart/form-data"><input type="hidden" name="pertemuan" value="6"><input type="file" name="data[tugas]"></form>')),
             new Response(200, [], $this->page('<div class="alert">File Tugas Budi Santoso.pdf tersimpan.</div>')),
             new Response(200, [], $this->page('<a href="../files/tugasmhs/9198-6-'.self::NIM.'-a14.pdf">Open File</a> <a href="?mod=sipandai&amp;act=jobdel&amp;id=126663&amp;idx=33317&amp;pertemuan=6">Hapus</a>')),
         ]);
@@ -98,7 +97,6 @@ class SipandaiSubmissionRecordingTest extends TestCase
     public function test_an_attendance_reply_is_recorded_and_the_scanner_page_read_before_it_is_not(): void
     {
         $service = $this->service([
-            new Response(200, [], '<html><head><title>Absensi</title></head><body><div class="container"><h3>ABSEN PERTEMUAN 9</h3><p>Pindai kode QR.</p></div></body></html>'),
             new Response(200, [], $this->page('<div class="alert alert-success">Sukses Malakukan Absensi Perkulliahan..! BUDI SANTOSO</div>')),
         ]);
 
@@ -113,7 +111,6 @@ class SipandaiSubmissionRecordingTest extends TestCase
     public function test_an_exam_upload_reply_and_the_sendujian_page_read_to_verify_it_are_recorded(): void
     {
         $service = $this->service([
-            new Response(200, [], $this->examForm()),
             new Response(200, [], '<html><body><p>Ujian Akhir Semester</p></body></html>'),
             new Response(200, [], $this->examForm('<tr><td>Rabu, 20 Mei 2026</td><td>UAS / Reguler</td><td>-</td><td><a href="../files/tugasmhs/9195-UAS-'.self::NIM.'-131900.pdf">Open Jawaban Ujian</a> | <a href="?mod=sipandai&amp;act=jobdelujian&amp;id=131900">Hapus Jawaban</a></td></tr>')),
         ]);
@@ -130,7 +127,6 @@ class SipandaiSubmissionRecordingTest extends TestCase
     public function test_the_page_re_read_after_an_accepted_exam_upload_is_recorded_as_its_verification(): void
     {
         $service = $this->service([
-            new Response(200, [], $this->examForm()),
             new Response(200, [], $this->page('<div class="alert alert-success">Upload berhasil disimpan.</div>')),
             new Response(200, [], $this->examForm('<tr><td>Rabu, 20 Mei 2026</td><td>UAS / Reguler</td><td>-</td><td><a href="../files/tugasmhs/9195-UAS-'.self::NIM.'-131900.pdf">Open Jawaban Ujian</a></td></tr>')),
         ]);
@@ -173,7 +169,6 @@ class SipandaiSubmissionRecordingTest extends TestCase
     {
         $sessionEnded = false;
         $service = $this->service([
-            new Response(200, [], $this->page('<form method="post" action="?mod=sipandai&amp;act=sent" enctype="multipart/form-data"><input type="hidden" name="pertemuan" value="6"><input type="file" name="data[tugas]"></form>')),
             function () use (&$sessionEnded): Response {
                 $sessionEnded = true;
 
@@ -194,7 +189,6 @@ class SipandaiSubmissionRecordingTest extends TestCase
     {
         Log::spy();
         $service = $this->service([
-            new Response(200, [], '<html><head><title>Absensi</title></head><body><div class="container"><h3>ABSEN PERTEMUAN 9</h3><p>Pindai kode QR.</p></div></body></html>'),
             new Response(200, [], $this->page('<div class="alert alert-success">Sukses Malakukan Absensi Perkulliahan..! BUDI SANTOSO '.self::NIM.'</div>')),
         ], static fn (): ?array => null);
 
@@ -234,7 +228,6 @@ class SipandaiSubmissionRecordingTest extends TestCase
         });
         Log::spy();
         $service = $this->service([
-            new Response(200, [], '<html><head><title>Absensi</title></head><body><div class="container"><h3>ABSEN PERTEMUAN 9</h3><p>Pindai kode QR.</p></div></body></html>'),
             new Response(200, [], $this->page('<div class="alert alert-success">Sukses Malakukan Absensi Perkulliahan..!</div>')),
         ]);
 

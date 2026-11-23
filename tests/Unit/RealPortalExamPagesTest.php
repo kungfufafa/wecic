@@ -12,9 +12,11 @@ use App\Services\PortalSessionManager;
 use App\Services\SipandaiSubmissionService;
 use GuzzleHttp\Client;
 use GuzzleHttp\Cookie\CookieJar;
+use GuzzleHttp\Exception\ConnectException;
 use GuzzleHttp\Handler\MockHandler;
 use GuzzleHttp\HandlerStack;
 use GuzzleHttp\Middleware;
+use GuzzleHttp\Psr7\Request;
 use GuzzleHttp\Psr7\Response;
 use Illuminate\Http\UploadedFile;
 use Mockery;
@@ -97,51 +99,57 @@ class RealPortalExamPagesTest extends TestCase
         $this->assertSame([], $detail['stored_submissions']);
         $this->assertNull($detail['latest_submission']);
         $this->assertNull($detail['exam_type'], 'The page names no exam: data[tipe] is empty.');
-        $this->assertFalse($detail['form']['available']);
+        $this->assertTrue($detail['form']['available']);
+        $this->assertFalse($detail['form']['portal_form_open']);
         $this->assertSame((string) $examId, $detail['form']['fields']['data[id]']);
         $this->assertSame(['data[name]'], $detail['form']['editable_fields']);
     }
 
     /**
-     * The portal's "Waktu Ujian Sudah Berakhir" is about an exam that has no
-     * type and starts on 01-01-1970: nothing is scheduled yet, so nothing has
-     * ended either.
+     * Even when the portal shows 01-01-1970 and "Waktu Ujian Sudah Berakhir",
+     * submission posts directly to act=sentujian without blocking on a GET.
      */
     #[DataProvider('examPages')]
-    public function test_an_answer_is_not_posted_before_the_exam_is_scheduled(int $examId): void
+    public function test_an_exam_answer_is_posted_directly_without_a_pre_post_form_check(int $examId): void
     {
         $page = $this->examPage($examId);
         $this->assertStringContainsString('01-01-1970', $page);
         $this->assertStringContainsString('Waktu Ujian Sudah Berakhir', $page);
 
         $history = [];
-        $result = $this->serviceAnswering([new Response(200, [], $page)], $history)
-            ->submitExam('token-real', $examId, UploadedFile::fake()->create('jawaban.pdf', 64, 'application/pdf'));
+        $result = $this->serviceAnswering([
+            new ConnectException('cURL error 28: Operation timed out', new Request('POST', 'https://portal.invalid/portal/sipandai/?mod=sipandai&act=sentujian')),
+            new Response(200, [], $page),
+        ], $history)->submitExam('token-real', $examId, UploadedFile::fake()->create('jawaban.pdf', 64, 'application/pdf'));
 
-        $this->assertCount(1, $history, 'Only the sendujian page may be read; nothing is posted.');
-        $this->assertSame('GET', $history[0]['request']->getMethod());
+        $this->assertCount(2, $history, 'The upload posts directly first and verifies only after a transport error.');
+        $this->assertSame('POST', $history[0]['request']->getMethod());
+        $this->assertStringContainsString('act=sentujian', (string) $history[0]['request']->getUri());
+        $this->assertSame('GET', $history[1]['request']->getMethod());
         $this->assertFalse($result['success']);
-        $this->assertSame('upload_unavailable', $result['data']['status']);
-        $this->assertSame('Portal belum membuka form upload untuk ujian ini.', $result['message']);
+        $this->assertSame('unknown', $result['data']['status']);
     }
 
     /**
-     * The same real page with a start date (only that changed, in memory):
-     * its closing notice, below the sidebar every SIPANDAI page breaks with
-     * an unclosed `</span`, is read.
+     * Scheduled exams whose window appears closed still post directly and fall
+     * back to checking the real portal page if the upload outcome is unclear.
      */
-    public function test_a_scheduled_exam_whose_time_is_over_is_reported_as_closed(): void
+    public function test_a_closed_exam_still_posts_directly_and_verifies_against_the_portal_page(): void
     {
         $page = str_replace(', 01-01-1970 /  Wib', 'Rabu, 21-10-2026 / 08:00 Wib', $this->examPage(9524), $replaced);
         $this->assertSame(1, $replaced);
 
         $history = [];
-        $result = $this->serviceAnswering([new Response(200, [], (string) $page)], $history)
-            ->submitExam('token-real', 9524, UploadedFile::fake()->create('jawaban.pdf', 64, 'application/pdf'));
+        $result = $this->serviceAnswering([
+            new ConnectException('cURL error 28: Operation timed out', new Request('POST', 'https://portal.invalid/portal/sipandai/?mod=sipandai&act=sentujian')),
+            new Response(200, [], (string) $page),
+        ], $history)->submitExam('token-real', 9524, UploadedFile::fake()->create('jawaban.pdf', 64, 'application/pdf'));
 
-        $this->assertCount(1, $history);
-        $this->assertSame('upload_unavailable', $result['data']['status']);
-        $this->assertSame('Waktu ujian sudah berakhir; portal tidak menerima jawaban lagi.', $result['message']);
+        $this->assertCount(2, $history);
+        $this->assertSame('POST', $history[0]['request']->getMethod());
+        $this->assertStringContainsString('act=sentujian', (string) $history[0]['request']->getUri());
+        $this->assertSame('GET', $history[1]['request']->getMethod());
+        $this->assertSame('unknown', $result['data']['status']);
     }
 
     /**

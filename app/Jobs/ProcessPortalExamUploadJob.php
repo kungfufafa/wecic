@@ -177,7 +177,7 @@ class ProcessPortalExamUploadJob implements ShouldQueue
     {
         $realtimeKeys = PortalDatasetRepository::realtimeKeys('exams');
         $cacheKeys = [...$realtimeKeys['cache_keys'], '/api/exam/'.$this->examId];
-        $syncKeys = [...$realtimeKeys['sync_keys'], 'exam-show'];
+        $syncKeys = array_values(array_unique([...$realtimeKeys['sync_keys'], 'exam-show']));
 
         try {
             $tracker->progress($this->operationId, PortalOperationStage::Completed, 'Jawaban ujian terkirim ke portal.', 100, cacheKeys: $cacheKeys, syncKeys: $syncKeys);

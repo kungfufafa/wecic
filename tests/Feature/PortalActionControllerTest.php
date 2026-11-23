@@ -1025,7 +1025,48 @@ class PortalActionControllerTest extends TestCase
             ]);
     }
 
-    public function test_exam_detail_keeps_upload_closed_for_an_exam_id_guessed_from_the_class_list(): void
+    public function test_exam_detail_keeps_direct_upload_available_when_exam_list_snapshot_has_no_upload_url(): void
+    {
+        $this->mockValidCampusSession('token-exam-detail');
+        $this->instance(
+            SipandaiSubmissionService::class,
+            Mockery::mock(SipandaiSubmissionService::class, function (MockInterface $mock): void {
+                $mock->shouldReceive('getExamDetail')
+                    ->once()
+                    ->with('token-exam-detail', 8810)
+                    ->andReturn([
+                        'exam_id' => 8810,
+                        'status' => 'not_uploaded',
+                        'form' => [
+                            'file_field' => 'file',
+                            'available' => true,
+                            'portal_form_open' => false,
+                            'fields' => [
+                                'data[id]' => '8810',
+                                'data[tipe]' => 'UTS',
+                                'data[kelas]' => '',
+                            ],
+                        ],
+                    ]);
+            })
+        );
+        $this->mockExamListSnapshot('token-exam-detail', [
+            'source' => 'class_schedule',
+            'schedule' => 'Kamis, 26-11-2026 | 10:00 WIB Ujian : TEORI',
+            'upload_url' => null,
+            'can_upload' => false,
+        ]);
+
+        $response = $this->withSession(['campus_session_token' => 'token-exam-detail'])
+            ->getJson('/api/exam/8810')
+            ->assertOk()
+            ->assertJsonPath('data.exam_detail.form.available', true)
+            ->assertJsonPath('data.exam_detail.form.portal_form_open', false);
+
+        $this->assertSame('TEORI', $response->json('data.exam_detail.form.fields')['data[kelas]']);
+    }
+
+    public function test_exam_detail_forwards_fresh_flag_to_exam_list_read(): void
     {
         $this->mockValidCampusSession('token-exam-detail');
         $this->instance(
@@ -1044,16 +1085,33 @@ class PortalActionControllerTest extends TestCase
                     ]);
             })
         );
-        $this->mockExamListSnapshot('token-exam-detail', [
-            'source' => 'class_schedule',
-            'upload_url' => null,
-            'can_upload' => false,
-        ]);
+        $this->instance(
+            PortalDatasetRepository::class,
+            Mockery::mock(PortalDatasetRepository::class, function (MockInterface $mock): void {
+                $mock->shouldReceive('read')
+                    ->once()
+                    ->withArgs(fn (string $token, string $dataset, array $params = [], bool $forceFresh = false): bool => $token === 'token-exam-detail'
+                        && $dataset === 'exams'
+                        && $forceFresh === true)
+                    ->andReturn([
+                        'data' => ['exams' => [[
+                            'id' => 8810,
+                            'course_code' => 'IF101',
+                            'course_name' => 'Algoritma',
+                            'schedule' => 'Senin 09:30',
+                            'status' => 'Terjadwal',
+                            'upload_url' => '?mod=sipandai&act=sendujian&id=8810',
+                            'can_upload' => true,
+                        ]]],
+                        'meta' => ['data_origin' => 'upstream', 'status' => 'synced'],
+                    ]);
+            })
+        );
 
         $this->withSession(['campus_session_token' => 'token-exam-detail'])
-            ->getJson('/api/exam/8810')
+            ->getJson('/api/exam/8810?fresh=1')
             ->assertOk()
-            ->assertJsonPath('data.exam_detail.form.available', false);
+            ->assertJsonPath('data.exam_detail.form.available', true);
     }
 
     public function test_exam_detail_is_not_found_for_an_id_outside_the_exam_list(): void
@@ -1174,13 +1232,14 @@ class PortalActionControllerTest extends TestCase
         Bus::assertNotDispatchedAfterResponse(ProcessPortalExamUploadJob::class);
     }
 
-    public function test_upload_exam_refuses_an_exam_the_portal_has_not_opened(): void
+    public function test_upload_exam_queues_direct_upload_even_when_exam_list_marks_upload_closed(): void
     {
         Bus::fake();
         $this->mockValidCampusSession('token-exam-upload');
         $this->mockExamListSnapshot('token-exam-upload', [
             'id' => 8833,
             'source' => 'exam_list_with_class_id',
+            'schedule' => 'Kamis, 26-11-2026 | 10:00 WIB Ujian : TEORI',
             'upload_url' => null,
             'can_upload' => false,
         ]);
@@ -1190,10 +1249,40 @@ class PortalActionControllerTest extends TestCase
                 'id' => 8833,
                 'attachment' => UploadedFile::fake()->create('uas.pdf', 64, 'application/pdf'),
             ], ['Accept' => 'application/json'])
-            ->assertStatus(422)
-            ->assertJsonPath('data.status', 'upload_unavailable');
+            ->assertStatus(202);
 
-        Bus::assertNotDispatchedAfterResponse(ProcessPortalExamUploadJob::class);
+        Bus::assertDispatchedAfterResponse(ProcessPortalExamUploadJob::class, function (ProcessPortalExamUploadJob $job): bool {
+            $formValues = (new \ReflectionProperty($job, 'formValues'))->getValue($job);
+
+            return ($formValues['data[kelas]'] ?? null) === 'TEORI';
+        });
+    }
+
+    public function test_upload_exam_preserves_explicit_exam_class_over_schedule_fallback(): void
+    {
+        Bus::fake();
+        $this->mockValidCampusSession('token-exam-upload');
+        $this->mockExamListSnapshot('token-exam-upload', [
+            'id' => 8833,
+            'source' => 'exam_list_with_class_id',
+            'schedule' => 'Kamis, 26-11-2026 | 10:00 WIB Ujian : TEORI',
+            'upload_url' => '?mod=sipandai&act=sendujian&id=8833',
+            'can_upload' => true,
+        ]);
+
+        $this->withSession(['campus_session_token' => 'token-exam-upload'])
+            ->post('/api/exam', [
+                'id' => 8833,
+                'form_values' => ['data[kelas]' => 'PRAKTIKUM'],
+                'attachment' => UploadedFile::fake()->create('uas.pdf', 64, 'application/pdf'),
+            ], ['Accept' => 'application/json'])
+            ->assertStatus(202);
+
+        Bus::assertDispatchedAfterResponse(ProcessPortalExamUploadJob::class, function (ProcessPortalExamUploadJob $job): bool {
+            $formValues = (new \ReflectionProperty($job, 'formValues'))->getValue($job);
+
+            return ($formValues['data[kelas]'] ?? null) === 'PRAKTIKUM';
+        });
     }
 
     public function test_upload_exam_still_reaches_the_portal_check_when_the_exam_list_cannot_be_read(): void

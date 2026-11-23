@@ -74,10 +74,7 @@
 
                 app.showNotice(message, tone);
 
-                const override = document.querySelector('[data-attendance-override]');
-
-                if (override && input) {
-                    override.open = true;
+                if (input) {
                     input.scrollIntoView({ block: 'center', behavior: 'smooth' });
                 }
             };
