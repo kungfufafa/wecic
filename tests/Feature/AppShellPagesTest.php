@@ -158,14 +158,17 @@ class AppShellPagesTest extends TestCase
         );
         $this->assertSame(['beranda', 'kuliah', 'akademik', 'keuangan'], $links->extract(['data-nav-slot']));
 
-        // The sidebar lists the "Lainnya" menu as a labelled group, ending with the /more hub.
-        $group = $crawler->filter('nav[aria-label="Navigasi utama"] [role="group"]');
-        $this->assertCount(1, $group);
-        $this->assertSame('Lainnya', trim($crawler->filter('#'.$group->attr('aria-labelledby'))->text()));
+        // The sidebar lists the Notebook (an extra feature, with its settings) and the "Lainnya" menu as labelled groups.
+        $groups = $crawler->filter('nav[aria-label="Navigasi utama"] [role="group"]');
+        $this->assertCount(2, $groups);
+        $this->assertSame(['Notebook', 'Lainnya'], $groups->each(fn (Crawler $group): string => trim($crawler->filter('#'.$group->attr('aria-labelledby'))->text())));
 
-        $moreMenuPaths = array_map(fn (string $href): string => (string) parse_url($href, PHP_URL_PATH), $group->filter('a')->extract(['href']));
+        $paths = fn (Crawler $group): array => array_map(fn (string $href): string => (string) parse_url($href, PHP_URL_PATH), $group->filter('a')->extract(['href']));
 
-        $this->assertSame(['/skkm', '/thesis', '/library', '/announcement', '/notebook', '/archive', '/more'], $moreMenuPaths);
+        $this->assertSame(['/notebook', '/notebook/pengaturan-ai'], $paths($groups->eq(0)));
+
+        $group = $groups->eq(1);
+        $this->assertSame(['/skkm', '/thesis', '/library', '/announcement', '/archive', '/more'], $paths($group));
         $this->assertSame('Semua menu', trim($group->filter('a[data-nav-slot="more"]')->text()));
 
         // Profil and Ubah password moved to the account menu at the foot of the sidebar.
