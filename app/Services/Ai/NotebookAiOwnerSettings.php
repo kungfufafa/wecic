@@ -68,9 +68,9 @@ class NotebookAiOwnerSettings
             try {
                 $this->loaded[$ownerHash] = NotebookAiSetting::query()->forOwner($ownerHash)->first();
             } catch (\Throwable $throwable) {
+                // Read (and reported) once per request or job: the server's settings hold meanwhile.
                 report($throwable);
-
-                return null;
+                $this->loaded[$ownerHash] = null;
             }
         }
 

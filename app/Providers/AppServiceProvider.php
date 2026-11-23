@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Http\Controllers\API\PortalAuthController;
+use App\Services\Ai\LazyNotebookAiClient;
 use App\Services\Ai\NotebookAiClient;
 use App\Services\Ai\NotebookAiOwnerSettings;
 use App\Services\Ai\NotebookAiProviders;
@@ -124,20 +125,25 @@ class AppServiceProvider extends ServiceProvider
     }
 
     /**
-     * The notebook's model: the driver `notebook.ai.provider` names, and for
-     * reading PDFs and images (NotebookSourceReader) the one
-     * `notebook.ai.ingest_provider` names, when set. Resolved anew each
-     * time, so a changed setting takes effect at once.
+     * The notebook's model: the driver `notebook.ai.provider` (or the
+     * student's own choice) names, and for reading PDFs and images
+     * (NotebookSourceReader) the one `notebook.ai.ingest_provider` names,
+     * when set. Chosen on first use (LazyNotebookAiClient), so building a
+     * service that never calls the model reads no settings.
      */
     private function registerNotebookAiClient(): void
     {
         // The student's own provider and keys, read once per request or job.
         $this->app->scoped(NotebookAiOwnerSettings::class);
-        $this->app->bind(NotebookAiClient::class, fn (Application $app): NotebookAiClient => $app->make(NotebookAiProviders::class)->chat());
+        $this->app->bind(NotebookAiClient::class, fn (Application $app): NotebookAiClient => new LazyNotebookAiClient(
+            static fn (): NotebookAiClient => $app->make(NotebookAiProviders::class)->chat()
+        ));
 
         $this->app->when(NotebookSourceReader::class)
             ->needs(NotebookAiClient::class)
-            ->give(fn (Application $app): NotebookAiClient => $app->make(NotebookAiProviders::class)->ingest());
+            ->give(fn (Application $app): NotebookAiClient => new LazyNotebookAiClient(
+                static fn (): NotebookAiClient => $app->make(NotebookAiProviders::class)->ingest()
+            ));
     }
 
     /**

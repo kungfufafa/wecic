@@ -925,6 +925,12 @@ parameters:
 			path: app/Services/Ai/HttpAiClient.php
 
 		-
+			message: '#^Public method "App\\Services\\Ai\\LazyNotebookAiClient\:\:resolved\(\)" is used only locally and should be turned protected/private$#'
+			identifier: public.method.unused
+			count: 1
+			path: app/Services/Ai/LazyNotebookAiClient.php
+
+		-
 			message: '#^Public method "App\\Services\\AttendanceShortcutService\:\:getPendingAssignments\(\)" is never used$#'
 			identifier: public.method.unused
 			count: 1
