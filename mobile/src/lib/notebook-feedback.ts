@@ -20,8 +20,8 @@ export const FEEDBACK_VERDICTS: Record<NotebookFeedbackVerdict, { label: string;
   belum_tepat: { label: 'Belum tepat', tone: 'neutral' },
 };
 
-/** What the sheet opens with: the question, concept or brief, and what is checked. */
-export type FeedbackRequest = { prompt: string; mode: NotebookFeedbackMode };
+/** What the sheet opens with: the question, concept or brief, what is checked, and (a mind map node's) own sources. */
+export type FeedbackRequest = { prompt: string; mode: NotebookFeedbackMode; sourceIds?: number[] };
 
 /** The feedback check's own budget line (budgetLine() speaks of practice sets); null before the budget is known. */
 export function feedbackBudgetLine(budget: NotebookAiBudget | null | undefined): string | null {

@@ -151,17 +151,60 @@ export function coursesWithoutNotebook<T extends { join_link?: { params?: { cour
   });
 }
 
-export type MindMapNode = { title?: string | null; children?: MindMapNode[] | null };
+export type MindMapNode = { title?: string | null; citations?: number[] | null; children?: MindMapNode[] | null };
 
-/** A mind map as indented lines, the root first. */
-export function mindMapLines(node: MindMapNode | null | undefined, depth = 0): { depth: number; title: string }[] {
+/** One mind map node as a line: its depth, its citation numbers (none on older maps) and the titles above it, root first. */
+export type MindMapLine = { depth: number; title: string; citations: number[]; path: string[] };
+
+/** A mind map as indented lines, the root first; each keeps the titles above it for its parent context. */
+export function mindMapLines(node: MindMapNode | null | undefined, depth = 0, path: string[] = []): MindMapLine[] {
   if (!node || typeof node !== 'object') {
     return [];
   }
 
-  const own = typeof node.title === 'string' && node.title.trim() !== '' ? [{ depth, title: node.title.trim() }] : [];
+  const title = typeof node.title === 'string' ? node.title.trim() : '';
+  const citations = (Array.isArray(node.citations) ? node.citations : []).filter((n) => Number.isInteger(n) && n > 0);
+  const own = title !== '' ? [{ depth, title, citations, path }] : [];
+  const below = title !== '' ? [...path, title] : path;
 
-  return [...own, ...(Array.isArray(node.children) ? node.children : []).flatMap((child) => mindMapLines(child, depth + 1))];
+  return [...own, ...(Array.isArray(node.children) ? node.children : []).flatMap((child) => mindMapLines(child, depth + 1, below))];
+}
+
+/** The title right above a mind map line, or null for the root. */
+export function mindMapParent(line: MindMapLine): string | null {
+  return line.path.length > 0 ? line.path[line.path.length - 1] : null;
+}
+
+/** "Jelaskan" on a mind map node: the question asked in Chat, with its parent as context (as on the web). */
+export function mindMapQuestion(line: MindMapLine): string {
+  const parent = mindMapParent(line);
+
+  return `Jelaskan "${line.title}"${parent ? ` dalam konteks "${parent}"` : ''} berdasarkan sumber.`;
+}
+
+/** A mind map node as a quiz focus or a concept to explain: its title, with its parent as context. */
+export function mindMapConcept(line: MindMapLine): string {
+  const parent = mindMapParent(line);
+
+  return `${line.title}${parent ? ` (dalam konteks ${parent})` : ''}`.slice(0, 1500);
+}
+
+/** The sources a mind map was made from that are still ready; null when none is, so the chosen ones are used. */
+export function mindMapSourceIds(sourceIds: number[] | null | undefined, readyIds: number[]): number[] | null {
+  const kept = (Array.isArray(sourceIds) ? sourceIds : []).filter((sourceId) => readyIds.includes(sourceId));
+
+  return kept.length > 0 ? kept : null;
+}
+
+/** Each mind map action spends one daily AI request when it runs; what is left today is said first. */
+export function mindMapBudgetLine(budget: NotebookAiBudget | null | undefined): string {
+  if (!budget) {
+    return 'Tiap pilihan memakai 1 permintaan dari kuota AI harianmu.';
+  }
+
+  return budget.remaining > 0
+    ? `Sisa kuota AI hari ini: ${budget.remaining} dari ${budget.limit}. Tiap pilihan memakai 1 permintaan.`
+    : 'Kuota AI hari ini sudah habis. Coba lagi besok.';
 }
 
 /** A score the portal printed ("85", "0", "-"), as a number; null when there is none. */

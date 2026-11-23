@@ -19,7 +19,12 @@ import {
   meetingRows,
   meetingStatus,
   meetingTargetFromHref,
+  mindMapBudgetLine,
+  mindMapConcept,
   mindMapLines,
+  mindMapParent,
+  mindMapQuestion,
+  mindMapSourceIds,
   queryParam,
   queryString,
   scoreValue,
@@ -123,16 +128,43 @@ describe('notebooks', () => {
     expect(coursesWithoutNotebook(classes, [{ course_key: '1' }, { course_key: null }]).map((c) => c.name)).toEqual(['B']);
   });
 
-  it('flattens a mind map into indented lines', () => {
+  it('flattens a mind map into indented lines, each with the titles above it', () => {
     expect(
       mindMapLines({ title: 'ERP', children: [{ title: 'Modul', children: [{ title: 'Keuangan' }, { title: ' ' }] }, { title: 'Sejarah' }] }),
     ).toEqual([
-      { depth: 0, title: 'ERP' },
-      { depth: 1, title: 'Modul' },
-      { depth: 2, title: 'Keuangan' },
-      { depth: 1, title: 'Sejarah' },
+      { depth: 0, title: 'ERP', citations: [], path: [] },
+      { depth: 1, title: 'Modul', citations: [], path: ['ERP'] },
+      { depth: 2, title: 'Keuangan', citations: [], path: ['ERP', 'Modul'] },
+      { depth: 1, title: 'Sejarah', citations: [], path: ['ERP'] },
     ]);
     expect(mindMapLines(null)).toEqual([]);
+  });
+
+  it('keeps a node\'s citations and its parent for the node actions', () => {
+    const lines = mindMapLines({
+      title: 'SQL',
+      citations: [1],
+      children: [{ title: 'JOIN', citations: [1, 0, 2.5, 3], children: [{ title: 'INNER', citations: null }] }],
+    });
+
+    expect(lines.map((line) => line.citations)).toEqual([[1], [1, 3], []]);
+    expect(mindMapParent(lines[2])).toBe('JOIN');
+    expect(mindMapParent(lines[0])).toBeNull();
+    expect(mindMapQuestion(lines[2])).toBe('Jelaskan "INNER" dalam konteks "JOIN" berdasarkan sumber.');
+    expect(mindMapQuestion(lines[0])).toBe('Jelaskan "SQL" berdasarkan sumber.');
+    expect(mindMapConcept(lines[1])).toBe('JOIN (dalam konteks SQL)');
+  });
+
+  it('uses the mind map\'s own sources that are still ready, else none', () => {
+    expect(mindMapSourceIds([3, 8], [3, 5])).toEqual([3]);
+    expect(mindMapSourceIds([8], [3])).toBeNull();
+    expect(mindMapSourceIds(undefined, [3])).toBeNull();
+  });
+
+  it('says each mind map action costs one daily request', () => {
+    expect(mindMapBudgetLine(null)).toBe('Tiap pilihan memakai 1 permintaan dari kuota AI harianmu.');
+    expect(mindMapBudgetLine({ limit: 60, used: 56, remaining: 4 })).toBe('Sisa kuota AI hari ini: 4 dari 60. Tiap pilihan memakai 1 permintaan.');
+    expect(mindMapBudgetLine({ limit: 60, used: 60, remaining: 0 })).toBe('Kuota AI hari ini sudah habis. Coba lagi besok.');
   });
 });
 

@@ -20,7 +20,7 @@ import { AssignmentBriefSheet } from '@/components/classes/assignment-brief-shee
 import { FeedbackSheet } from '@/components/classes/feedback-sheet';
 import { StudioOptionsSheet } from '@/components/classes/studio-options-sheet';
 import { CitationText } from '@/components/classes/citation-text';
-import { StudioResult } from '@/components/classes/studio-result';
+import { StudioResult, type MindMapAction } from '@/components/classes/studio-result';
 import { EmptyState } from '@/components/empty-state';
 import { IconButton } from '@/components/icon-button';
 import { Notice } from '@/components/notice';
@@ -36,7 +36,18 @@ import { useApiResource } from '@/hooks/use-api-resource';
 import { useSourceSelection } from '@/hooks/use-source-selection';
 import { useTheme } from '@/hooks/use-theme';
 import { aiProviderLabel, isAiConsentRequired, rememberAiConsentFrom } from '@/lib/ai-consent';
-import { aiStatusMessage, askModeLabel, askModeOf, NotebookAskModes, practiceCount, sourceStatus } from '@/lib/classes';
+import {
+  aiStatusMessage,
+  askModeLabel,
+  askModeOf,
+  mindMapConcept,
+  mindMapQuestion,
+  mindMapSourceIds,
+  NotebookAskModes,
+  practiceCount,
+  sourceStatus,
+  type MindMapLine,
+} from '@/lib/classes';
 import { formatDateTime } from '@/lib/format';
 import {
   buildUploadForm,
@@ -72,6 +83,8 @@ export default function NotebookScreen() {
   const [busy, setBusy] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [optionsKind, setOptionsKind] = useState<string | null>(null);
+  /** A mind map node's Latihan: the quiz's focus and the map's own sources (null: the chosen ones). */
+  const [optionsFocus, setOptionsFocus] = useState<{ focus: string; sourceIds: number[] | null } | null>(null);
   const [briefOpen, setBriefOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [feedbackAsk, setFeedbackAsk] = useState<FeedbackRequest | null>(null);
@@ -336,14 +349,49 @@ export default function NotebookScreen() {
   }
 
   /** One studio request (one AI request from the daily budget), with its options or the practice it is made from. */
-  function runStudio(kind: string, body: { options?: NotebookStudioOptions; practice?: { message_id: number; missed: number[] }; focus?: string | null } = {}) {
-    void run(`studio-${kind}`, () => api.post(`notebooks/${encodeURIComponent(id ?? '')}/studio`, withContext({ kind, ...body }), { timeoutMs: 180_000 }));
+  function runStudio(
+    kind: string,
+    body: { options?: NotebookStudioOptions; practice?: { message_id: number; missed: number[] }; focus?: string | null } = {},
+    sourceIds: number[] | null = null,
+  ) {
+    const payload = sourceIds ? { kind, ...body, source_ids: sourceIds } : withContext({ kind, ...body });
+
+    void run(`studio-${kind}`, () => api.post(`notebooks/${encodeURIComponent(id ?? '')}/studio`, payload, { timeoutMs: 180_000 }));
+  }
+
+  /**
+   * A mind map node's action, with the map's own sources that are still ready (the chosen ones otherwise): Jelaskan asks
+   * in Chat with the parent as context, Latihan opens the quiz options focused on the node, and the third opens
+   * "Cek pemahamanku" to explain it in the student's own words. Each spends one daily AI request when it runs.
+   */
+  function onMindMapAction(message: NotebookMessage, action: MindMapAction, line: MindMapLine) {
+    const mapSources = mindMapSourceIds(message.context?.source_ids, readySources.map((source) => source.id));
+
+    if (action === 'explain') {
+      // The answer comes in the chat, far above Studio.
+      scrollRef.current?.scrollTo({ y: 0, animated: true });
+      void ask(mindMapQuestion(line), mapSources ?? undefined);
+    } else if (action === 'practice') {
+      if (needsConsent) {
+        openConsent();
+
+        return;
+      }
+
+      setOptionsFocus({ focus: mindMapConcept(line), sourceIds: mapSources });
+      setOptionsKind('quiz');
+    } else {
+      const request = feedbackRequest(mindMapConcept(line), 'explain_concept');
+
+      openFeedback(request ? { ...request, ...(mapSources ? { sourceIds: mapSources } : {}) } : null);
+    }
   }
 
   function openStudio(kind: string) {
     if (kind === BRIEF_KIND) {
       setBriefOpen(true);
     } else if (OPTION_KINDS.includes(kind)) {
+      setOptionsFocus(null);
       setOptionsKind(kind);
     } else {
       runStudio(kind);
@@ -396,7 +444,9 @@ export default function NotebookScreen() {
     try {
       const response = await api.post<NotebookFeedbackResponse>(
         `notebooks/${encodeURIComponent(id)}/feedback`,
-        withContext({ prompt: feedbackAsk.prompt, answer, mode: feedbackAsk.mode }),
+        feedbackAsk.sourceIds
+          ? { prompt: feedbackAsk.prompt, answer, mode: feedbackAsk.mode, source_ids: feedbackAsk.sourceIds }
+          : withContext({ prompt: feedbackAsk.prompt, answer, mode: feedbackAsk.mode }),
         { timeoutMs: 180_000 },
       );
 
@@ -605,6 +655,7 @@ export default function NotebookScreen() {
                   budget={data?.ai_budget}
                   canMakePractice={canStudio}
                   onFeedback={aiAvailable && hasReadySource && !nothingChosen ? openFeedback : undefined}
+                  onMindMapAction={canAsk ? (action, line) => onMindMapAction(message, action, line) : undefined}
                   onSave={(practice) => savePractice(message, practice)}
                   onPracticeFromMissed={(missed) =>
                     runStudio('quiz', { practice: { message_id: message.id, missed }, options: { count: practiceCount(missed) } })
@@ -654,14 +705,20 @@ export default function NotebookScreen() {
             kind={optionsKind}
             label={optionsKind ? studioKinds[optionsKind] ?? optionsKind : ''}
             budget={data?.ai_budget}
-            onClose={() => setOptionsKind(null)}
+            focus={optionsFocus?.focus}
+            onClose={() => {
+              setOptionsKind(null);
+              setOptionsFocus(null);
+            }}
             onSubmit={(options) => {
               const kind = optionsKind;
+              const focused = optionsFocus;
 
               setOptionsKind(null);
+              setOptionsFocus(null);
 
               if (kind) {
-                runStudio(kind, { options });
+                runStudio(kind, focused ? { options, focus: focused.focus } : { options }, focused?.sourceIds ?? null);
               }
             }}
           />

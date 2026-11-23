@@ -189,7 +189,7 @@ class NotebookAssistant
         'glossary' => 'Buat glosarium 10 sampai 25 istilah penting dari sumber, urut abjad. Definisi singkat dan tepat sesuai sumber.',
         'quiz' => 'Buat kuis 10 soal pilihan ganda dari sumber, masing-masing 4 pilihan dengan tepat satu jawaban benar, tingkat kesulitan beragam, dan penjelasan singkat mengapa jawabannya benar.',
         'flashcards' => 'Buat 15 flashcard: sisi depan berupa pertanyaan atau istilah singkat, sisi belakang jawaban ringkas.',
-        'mind_map' => 'Buat peta konsep materi: satu topik utama, 3 sampai 7 cabang, tiap cabang punya 2 sampai 5 sub-topik singkat (maksimal 3 tingkat).',
+        'mind_map' => 'Buat peta konsep materi: satu topik utama, 3 sampai 7 cabang, tiap cabang punya 2 sampai 5 sub-topik singkat (maksimal 3 tingkat). Isi citations tiap simpul dengan nomor kutipan sumber yang membahasnya (boleh kosong).',
     ];
 
     /**
@@ -357,6 +357,10 @@ class NotebookAssistant
 
             if ($data === null) {
                 throw $truncated ? NotebookAiException::tooLong() : NotebookAiException::emptyAnswer();
+            }
+
+            if ($kind === 'mind_map') {
+                $data = self::citedNode($data, array_column($excerpts, 'n'));
             }
 
             return [(string) json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), $this->citeNumbers($this->numbersIn($data), $excerpts), $truncated, $this->usageOf($result)];
@@ -929,6 +933,34 @@ class NotebookAssistant
     }
 
     /**
+     * A mind map node with only the citation numbers it may use (`$valid`),
+     * at every level: a node cites the sources it was made from, and a
+     * number that names no excerpt is dropped. A node without `citations`
+     * (an older mind map, or a model that left them out) is left as it is.
+     *
+     * @param  array<array-key, mixed>  $node
+     * @param  list<int>  $valid
+     * @return array<array-key, mixed>
+     */
+    private static function citedNode(array $node, array $valid): array
+    {
+        if (array_key_exists('citations', $node)) {
+            $node['citations'] = is_array($node['citations'])
+                ? array_values(array_unique(array_filter($node['citations'], static fn (mixed $number): bool => is_int($number) && in_array($number, $valid, true))))
+                : [];
+        }
+
+        if (is_array($node['children'] ?? null)) {
+            $node['children'] = array_map(
+                static fn (mixed $child): mixed => is_array($child) ? self::citedNode($child, $valid) : $child,
+                $node['children'],
+            );
+        }
+
+        return $node;
+    }
+
+    /**
      * Run one model request against the student's daily budget. The request
      * is spent before the model is called, so requests sent at the same
      * time cannot all pass the check before any of them is charged; past
@@ -1069,9 +1101,10 @@ class NotebookAssistant
             'items' => ['type' => 'array', 'items' => self::objectSchema($properties), ...($count !== null ? ['minItems' => $count, 'maxItems' => $count] : [])],
         ]);
         $children = static fn (array $node): array => ['type' => 'array', 'items' => $node];
-        $leaf = self::objectSchema(['title' => $string]);
-        $branch = self::objectSchema(['title' => $string, 'children' => $children($leaf)]);
-        $topic = self::objectSchema(['title' => $string, 'children' => $children($branch)]);
+        // Spelled out level by level: providers with strict schemas refuse a recursive $ref.
+        $leaf = self::objectSchema(['title' => $string, 'citations' => $citations]);
+        $branch = self::objectSchema(['title' => $string, 'citations' => $citations, 'children' => $children($leaf)]);
+        $topic = self::objectSchema(['title' => $string, 'citations' => $citations, 'children' => $children($branch)]);
 
         return match ($kind) {
             'glossary' => $list(['term' => $string, 'definition' => $string, 'citations' => $citations]),
@@ -1084,7 +1117,7 @@ class NotebookAssistant
                 'citations' => $citations,
             ]),
             'flashcards' => $list(['front' => $string, 'back' => $string, 'citations' => $citations]),
-            'mind_map' => self::objectSchema(['title' => $string, 'children' => $children($topic)]),
+            'mind_map' => self::objectSchema(['title' => $string, 'citations' => $citations, 'children' => $children($topic)]),
             default => null,
         };
     }

@@ -61,12 +61,28 @@ class NotebookSchemaTest extends TestCase
         $depth = 0;
 
         while (isset($node['properties']['children'])) {
+            $this->assertSame(['title', 'citations', 'children'], $node['required']);
             $node = $node['properties']['children']['items'];
             $depth++;
         }
 
         $this->assertSame(3, $depth);
-        $this->assertSame(['title'], $node['required']);
+        $this->assertSame(['title', 'citations'], $node['required']);
+    }
+
+    public function test_every_mind_map_node_cites_its_sources_without_a_recursive_ref(): void
+    {
+        $schema = NotebookAssistant::schema('mind_map');
+        $node = $schema;
+
+        for ($level = 0; $level <= 3; $level++) {
+            $this->assertSame(['type' => 'array', 'items' => ['type' => 'integer']], array_diff_key($node['properties']['citations'], ['description' => true]));
+            $node = $node['properties']['children']['items'] ?? null;
+        }
+
+        $this->assertNull($node);
+        $this->assertStringNotContainsString('$ref', (string) json_encode($schema));
+        $this->assertStringNotContainsString('$defs', (string) json_encode($schema));
     }
 
     public function test_prose_outputs_have_no_schema(): void

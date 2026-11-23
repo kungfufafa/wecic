@@ -125,6 +125,39 @@ class NotebookProviderMatrixTest extends TestCase
     }
 
     #[DataProvider('providers')]
+    public function test_every_mind_map_node_is_asked_for_citations_and_keeps_only_real_ones(string $provider): void
+    {
+        $this->useProviders(['notebook.ai.provider' => $provider]);
+        $notebook = $this->notebookWithChunks([['page' => 1, 'content' => 'Normalisasi mengurangi redundansi data.']]);
+        $map = ['title' => 'Normalisasi', 'citations' => [1], 'children' => [
+            ['title' => '1NF', 'citations' => [1, 8], 'children' => [['title' => 'Atomik', 'citations' => [3], 'children' => [['title' => 'Nilai tunggal', 'citations' => [1]]]]]],
+        ]];
+        Http::fake([self::URLS[$provider] => Http::response($this->answer($provider, (string) json_encode($map)))]);
+
+        $this->sendAsStudent('POST', "/api/notebooks/{$notebook->id}/studio", ['kind' => 'mind_map'])
+            ->assertCreated()
+            ->assertJsonPath('data.message.data.children.0.citations', [1])
+            ->assertJsonPath('data.message.data.children.0.children.0.citations', [])
+            ->assertJsonPath('data.message.data.children.0.children.0.children.0.citations', [1])
+            ->assertJsonCount(1, 'data.message.citations');
+        Http::assertSent(function (Request $request) use ($provider): bool {
+            $node = $this->sentSchema($provider, $request);
+
+            for ($level = 0; $level <= 3; $level++) {
+                $required = array_map('strtolower', $node['required'] ?? []);
+
+                if (! isset($node['properties']['citations']) || ! in_array('citations', $required, true)) {
+                    return false;
+                }
+
+                $node = $node['properties']['children']['items'] ?? null;
+            }
+
+            return $node === null && ! str_contains((string) json_encode($this->sentSchema($provider, $request)), '$ref');
+        });
+    }
+
+    #[DataProvider('providers')]
     public function test_tutor_mode_adds_its_instruction_to_the_question_and_sends_the_system_instruction_unchanged(string $provider): void
     {
         $this->useProviders(['notebook.ai.provider' => $provider]);
@@ -594,6 +627,22 @@ class NotebookProviderMatrixTest extends TestCase
             'anthropic' => $request['output_config']['format']['schema']['type'] ?? null,
             default => $request['response_format']['json_schema']['schema']['type'] ?? null,
         };
+    }
+
+    /**
+     * The whole JSON schema the provider was sent.
+     *
+     * @return array<string, mixed>
+     */
+    private function sentSchema(string $provider, Request $request): array
+    {
+        $schema = match ($provider) {
+            'gemini' => $request['generationConfig']['responseSchema'] ?? null,
+            'anthropic' => $request['output_config']['format']['schema'] ?? null,
+            default => $request['response_format']['json_schema']['schema'] ?? null,
+        };
+
+        return is_array($schema) ? $schema : [];
     }
 
     /**

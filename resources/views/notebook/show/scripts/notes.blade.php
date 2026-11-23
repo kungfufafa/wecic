@@ -248,22 +248,129 @@
                 `).join('')}</dl>`;
             };
 
-            const renderMindMapNode = (node, depth = 0) => {
+            // A mind map node by its path of child indexes ('' is the root, '0.2' the root's first child's third).
+            const mindMapNodeAt = (root, path) => {
+                let node = root && typeof root === 'object' ? root : null;
+                let parent = null;
+
+                for (const index of String(path || '').split('.').filter((part) => part !== '')) {
+                    const children = Array.isArray(node?.children) ? node.children : [];
+
+                    parent = node;
+                    node = children[Number(index)] && typeof children[Number(index)] === 'object' ? children[Number(index)] : null;
+                }
+
+                return node ? { title: String(node.title || '').trim(), parent: parent ? String(parent.title || '').trim() : null } : null;
+            };
+
+            // Each title is a button that opens the node's actions (toggleMindMapActions); the branches stay nested <details>.
+            const renderMindMapNode = (node, depth = 0, path = '') => {
                 const children = Array.isArray(node?.children) ? node.children : [];
                 const title = inline(node?.title || '');
 
-                if (!children.length) {
-                    return `<li class="text-sm text-ink-muted">${title}</li>`;
-                }
-
                 return `
-                    <li>
-                        <details ${depth < 1 ? 'open' : ''} class="group">
-                            <summary class="cursor-pointer text-sm font-medium text-ink">${title}</summary>
-                            <ul class="ms-2 mt-1 flex flex-col gap-1 border-s border-border ps-3">${children.map((child) => renderMindMapNode(child, depth + 1)).join('')}</ul>
-                        </details>
+                    <li class="flex flex-col gap-1">
+                        <div class="flex flex-wrap items-center gap-x-1" data-mindmap-row>
+                            <button type="button" class="-mx-1.5 min-h-11 cursor-pointer rounded-md px-1.5 text-start text-sm transition-colors hover:bg-surface/60 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 aria-expanded:bg-surface-tint/40 aria-expanded:text-ink sm:min-h-8 ${depth < 1 || children.length ? 'font-medium text-ink' : 'text-ink-muted'}" data-mindmap-node="${path}" aria-expanded="false">${title}</button>
+                            ${itemCitations(node)}
+                        </div>
+                        ${children.length ? `
+                            <details ${depth < 1 ? 'open' : ''}>
+                                <summary class="inline-flex min-h-11 cursor-pointer list-none items-center gap-1 rounded-md text-xs text-ink-subtle hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 sm:min-h-7 [&::-webkit-details-marker]:hidden">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5 shrink-0 -rotate-90 transition-transform [details[open]>summary>&]:rotate-0" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6l6 -6" /></svg>
+                                    ${children.length} sub-topik<span class="sr-only"> ${app.escapeHtml(String(node?.title || ''))}</span>
+                                </summary>
+                                <ul class="ms-2 mt-1 flex flex-col gap-1 border-s border-border ps-3">${children.map((child, index) => renderMindMapNode(child, depth + 1, path === '' ? String(index) : `${path}.${index}`)).join('')}</ul>
+                            </details>
+                        ` : ''}
                     </li>
                 `;
+            };
+
+            // A node's actions use the sources the map was made from (those still ready), else the ticked ones.
+            const mindMapSourceIds = (message) => {
+                const ids = (Array.isArray(message?.context?.source_ids) ? message.context.source_ids : [])
+                    .map(Number)
+                    .filter((id) => state.sources.some((source) => source.id === id && source.status === 'ready'));
+
+                return ids.length ? ids : null;
+            };
+
+            const mindMapBudgetLine = () => (state.aiBudget
+                ? (state.aiBudget.remaining > 0
+                    ? `Sisa kuota AI hari ini: ${state.aiBudget.remaining} dari ${state.aiBudget.limit}. Tiap pilihan memakai 1 permintaan.`
+                    : 'Kuota AI hari ini sudah habis. Coba lagi besok.')
+                : 'Tiap pilihan memakai 1 permintaan dari kuota AI harianmu.');
+
+            const mindMapActionsBody = (node, id) => {
+                const unavailable = !state.aiAvailable || state.aiBudget?.remaining === 0;
+                const action = (name, label, hint) => `
+                    <button type="button" class="${app.ui.button.secondarySm} justify-start! text-start" data-mindmap-action="${name}" ${unavailable ? 'disabled aria-disabled="true"' : ''}>
+                        <span class="flex flex-col"><span>${label}</span><span class="text-xs font-normal text-ink-subtle">${hint}</span></span>
+                    </button>
+                `;
+
+                return `
+                    <div class="my-1 flex flex-col gap-2 rounded-lg border border-border bg-panel p-3 shadow-xs dark:shadow-none" id="${id}" role="group" aria-label="Pilihan untuk ${app.escapeHtml(node.title)}" data-mindmap-actions>
+                        ${action('explain', 'Jelaskan', 'Jawaban bersumber di Chat')}
+                        ${action('practice', 'Latihan', 'Kuis singkat tentang simpul ini')}
+                        ${action('feedback', 'Jelaskan dengan kata-katamu', 'Tulis sendiri, lalu cek pemahamanmu')}
+                        <p class="text-xs text-ink-subtle">${app.escapeHtml(mindMapBudgetLine())}</p>
+                    </div>
+                `;
+            };
+
+            // One node's actions open under its title at a time; the same title closes them again.
+            const toggleMindMapActions = (button) => {
+                const holder = button.closest('[data-message-id]');
+                const message = state.messages.find((item) => item.id === Number(holder?.dataset.messageId));
+                const node = mindMapNodeAt(message?.data, button.dataset.mindmapNode);
+                const wasOpen = button.getAttribute('aria-expanded') === 'true';
+
+                holder?.querySelectorAll('[data-mindmap-actions]').forEach((panel) => panel.remove());
+                holder?.querySelectorAll('[data-mindmap-node][aria-expanded="true"]').forEach((other) => {
+                    other.setAttribute('aria-expanded', 'false');
+                    other.removeAttribute('aria-controls');
+                });
+
+                if (wasOpen || !node || !node.title) {
+                    return;
+                }
+
+                const id = `mindmap-${message.id}-${button.dataset.mindmapNode.replaceAll('.', '-') || 'root'}`;
+
+                button.closest('[data-mindmap-row]').insertAdjacentHTML('afterend', mindMapActionsBody(node, id));
+                button.setAttribute('aria-expanded', 'true');
+                button.setAttribute('aria-controls', id);
+            };
+
+            // Jelaskan asks in Chat; Latihan opens the quiz options with the node as its focus; the third opens
+            // "Cek pemahamanku" (explain_concept). Each spends one daily request when it runs.
+            const runMindMapAction = async (actionButton) => {
+                const holder = actionButton.closest('[data-message-id]');
+                const message = state.messages.find((item) => item.id === Number(holder?.dataset.messageId));
+                const nodeButton = holder?.querySelector('[data-mindmap-node][aria-expanded="true"]');
+                const node = mindMapNodeAt(message?.data, nodeButton?.dataset.mindmapNode);
+
+                if (!node || !node.title) {
+                    return;
+                }
+
+                const sourceIds = mindMapSourceIds(message);
+                const inContext = node.parent ? ` dalam konteks "${node.parent}"` : '';
+
+                switch (actionButton.dataset.mindmapAction) {
+                    case 'explain':
+                        setTab('chat');
+                        await ask(`Jelaskan "${node.title}"${inContext} berdasarkan sumber.`, { sourceIds });
+                        break;
+                    case 'practice':
+                        openStudioOptions(actionButton, 'quiz', { focus: `${node.title}${node.parent ? ` (dalam konteks ${node.parent})` : ''}`.slice(0, 1500), sourceIds });
+                        break;
+                    case 'feedback':
+                        openFeedback(`${node.title}${node.parent ? ` (dalam konteks ${node.parent})` : ''}`, 'explain_concept', { sourceIds });
+                        break;
+                }
             };
 
             const renderNoteBody = (message) => {
@@ -275,7 +382,7 @@
                     case 'glossary':
                         return renderGlossary(message);
                     case 'mind_map':
-                        return `<ul class="flex flex-col gap-1">${renderMindMapNode(message.data || {})}</ul>`;
+                        return `<ul class="flex flex-col gap-1" data-mindmap="${message.id}">${renderMindMapNode(message.data || {})}</ul>`;
                     case 'feedback':
                         return renderFeedback(message);
                     case 'study_guide':

@@ -15,12 +15,14 @@ type StudioOptionsSheetProps = {
   kind: string | null;
   label: string;
   budget?: NotebookAiBudget | null;
+  /** What the quiz centres on (a mind map node's Latihan); shown above the choices. */
+  focus?: string | null;
   onClose: () => void;
   onSubmit: (options: NotebookStudioOptions) => void;
 };
 
 /** How many quiz questions or flashcards, and how hard, before they are made (one AI request). */
-export function StudioOptionsSheet({ kind, label, budget, onClose, onSubmit }: StudioOptionsSheetProps) {
+export function StudioOptionsSheet({ kind, label, budget, focus, onClose, onSubmit }: StudioOptionsSheetProps) {
   const theme = useTheme();
   // A Modal is a window of its own, where SafeAreaView reads no insets: the app's are applied by hand.
   const insets = useSafeAreaInsets();
@@ -49,6 +51,9 @@ export function StudioOptionsSheet({ kind, label, budget, onClose, onSubmit }: S
               ? 'Flashcard untuk menghafal istilah dan konsep penting, disusun hanya dari sumber notebook ini.'
               : 'Kuis latihan untuk menguji pemahamanmu, dengan penjelasan dan rujukan sumber di tiap soal.'}
           </ThemedText>
+          {focus ? (
+            <ThemedText type="small">{`Fokus: ${focus}`}</ThemedText>
+          ) : null}
           <ThemedText type="label">{`Jumlah ${counts.unit}`}</ThemedText>
           <View style={styles.row}>
             {counts.counts.map((value) => (

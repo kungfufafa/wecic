@@ -3,7 +3,9 @@
     (and opening them in the source viewer), viewing a source,
     suggestions, "Cek pemahamanku" (Jawab, Cek kerangkaku, Jawab lagi), pins, Studio, deleting or retrying a source, deleting a
     message, quiz practice (answers, "Soal ini salah?", Ulangi, Tinjau yang
-    salah, Buat latihan dari yang salah) and flashcards (deck and grid). Part of the DOMContentLoaded
+    salah, Buat latihan dari yang salah), flashcards (deck and grid) and the
+    mind map's nodes (their actions: Jelaskan, Latihan, Jelaskan dengan
+    kata-katamu). Part of the DOMContentLoaded
     handler opened in notebook/show.blade.php: it shares that scope (app,
     el, base, the elements, constants and state in setup).
 --}}
@@ -31,9 +33,15 @@
                 const practiceFrom = target.closest('[data-practice-from]');
                 const flash = target.closest('[data-flash-mode], [data-flash-flip], [data-flash-prev], [data-flash-next], [data-flash-shuffle], [data-flash-known], [data-flash-again], [data-flash-repeat], [data-flash-restart]');
                 const flashcard = target.closest('[data-flashcard]');
+                const mindMapNode = target.closest('[data-mindmap-node]');
+                const mindMapAction = target.closest('[data-mindmap-action]');
 
                 if (cite) {
                     showCitation(cite);
+                } else if (mindMapNode) {
+                    toggleMindMapActions(mindMapNode);
+                } else if (mindMapAction && !mindMapAction.disabled) {
+                    await runMindMapAction(mindMapAction);
                 } else if (openSource) {
                     const position = openSource.dataset.openPosition;
 
@@ -227,6 +235,17 @@
                     } catch (error) {
                         app.showNotice(app.describeError(error), 'error');
                     }
+                }
+            });
+
+            // Escape closes a mind map node's actions and returns to its title.
+            notesHost.addEventListener('keydown', (event) => {
+                const panel = event.key === 'Escape' && event.target instanceof Element ? event.target.closest('[data-mindmap-actions]') : null;
+                const node = panel ? notesHost.querySelector(`[aria-controls="${panel.id}"]`) : null;
+
+                if (node) {
+                    toggleMindMapActions(node);
+                    node.focus();
                 }
             });
 

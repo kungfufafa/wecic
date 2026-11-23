@@ -696,6 +696,50 @@ class NotebookApiTest extends TestCase
         $this->assertSame(1, json_decode((string) NotebookMessage::query()->where('kind', 'quiz')->value('content'), true)[0]['answer_index']);
     }
 
+    public function test_mind_map_nodes_keep_the_citations_they_may_use_and_drop_made_up_ones(): void
+    {
+        $notebook = $this->notebookWithChunks([
+            ['page' => 4, 'content' => 'SQL JOIN menggabungkan tabel.'],
+            ['page' => 5, 'content' => 'WHERE menyaring baris.'],
+        ]);
+        $this->geminiAnswers(json_encode(['title' => 'SQL', 'citations' => [1, 7], 'children' => [
+            ['title' => 'JOIN', 'citations' => [1, 1, 9], 'children' => [
+                ['title' => 'INNER', 'citations' => [2, 42], 'children' => [['title' => 'ON', 'citations' => [99, 2]]]],
+            ]],
+            ['title' => 'WHERE', 'citations' => [], 'children' => []],
+        ]]));
+
+        $this->sendAsStudent('POST', "/api/notebooks/{$notebook->id}/studio", ['kind' => 'mind_map'])
+            ->assertCreated()
+            ->assertJsonPath('data.message.data.citations', [1])
+            ->assertJsonPath('data.message.data.children.0.citations', [1])
+            ->assertJsonPath('data.message.data.children.0.children.0.citations', [2])
+            ->assertJsonPath('data.message.data.children.0.children.0.children.0.citations', [2])
+            ->assertJsonPath('data.message.data.children.1.citations', [])
+            ->assertJsonPath('data.message.citations.0.page', 4)
+            ->assertJsonPath('data.message.citations.1.page', 5)
+            ->assertJsonCount(2, 'data.message.citations');
+        Http::assertSent(fn (Request $request): bool => isset($request['generationConfig']['responseSchema']['properties']['children']['items']['properties']['children']['items']['properties']['children']['items']['properties']['citations']));
+    }
+
+    public function test_an_old_mind_map_without_citations_is_still_listed_with_its_data(): void
+    {
+        $notebook = $this->notebook();
+        $map = NotebookMessage::factory()->create([
+            'notebook_id' => $notebook->id,
+            'kind' => 'mind_map',
+            'pinned' => true,
+            'content' => json_encode(['title' => 'SQL', 'children' => [['title' => 'JOIN', 'children' => [['title' => 'INNER']]]]]),
+        ]);
+
+        $messages = $this->getAsStudent("/api/notebooks/{$notebook->id}")->assertOk()->json('data.messages');
+        $listed = collect($messages)->firstWhere('id', $map->id);
+
+        $this->assertSame('SQL', $listed['data']['title']);
+        $this->assertSame('INNER', $listed['data']['children'][0]['children'][0]['title']);
+        $this->assertArrayNotHasKey('citations', $listed['data']);
+    }
+
     public function test_a_mind_map_cut_before_its_last_brace_is_too_long_not_a_list_of_its_branches(): void
     {
         $notebook = $this->notebookWithChunks([['page' => 4, 'content' => 'SQL JOIN menggabungkan tabel.']]);

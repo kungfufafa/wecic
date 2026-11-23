@@ -36,7 +36,7 @@
                 });
             };
 
-            const quizOptionsBody = (kind, chosen) => {
+            const quizOptionsBody = (kind, chosen, focus = null) => {
                 const counts = STUDIO_COUNTS[kind];
                 const steps = [];
 
@@ -46,7 +46,8 @@
 
                 return `
                     <form class="flex flex-col gap-4" data-studio-options>
-                        <p class="text-sm text-ink-muted">${kind === 'quiz' ? 'Kuis latihan untuk menguji pemahamanmu, dengan penjelasan dan rujukan sumber di tiap soal.' : 'Flashcard untuk menghafal istilah dan konsep penting, satu kartu setiap kali.'} Disusun hanya dari sumber yang dicentang.</p>
+                        <p class="text-sm text-ink-muted">${kind === 'quiz' ? 'Kuis latihan untuk menguji pemahamanmu, dengan penjelasan dan rujukan sumber di tiap soal.' : 'Flashcard untuk menghafal istilah dan konsep penting, satu kartu setiap kali.'} Disusun hanya dari ${focus ? 'sumber peta konsep ini' : 'sumber yang dicentang'}.</p>
+                        ${focus ? `<p class="rounded-lg border border-border-light bg-surface/40 p-3 text-sm text-ink"><span class="font-medium">Fokus:</span> ${app.escapeHtml(focus)}</p>` : ''}
                         <fieldset class="flex flex-col gap-2">
                             <legend class="${app.ui.label} mb-2">Jumlah ${counts.unit}</legend>
                             <div class="flex flex-wrap gap-2">
@@ -95,17 +96,18 @@
             };
 
             // The assignment outline asks what the task is, so the outline fits the brief and the chosen sources;
-            // a quiz or flashcards ask how many and how hard.
-            const openStudioOptions = (button, kind) => {
+            // a quiz or flashcards ask how many and how hard. `focus` and `sourceIds` (a mind map node's Latihan)
+            // centre a quiz on that node and read those sources instead of the ticked ones.
+            const openStudioOptions = (button, kind, { focus = null, sourceIds = null } = {}) => {
                 if (needsAiConsent()) {
                     return;
                 }
 
-                const chosen = contextSources();
+                const chosen = sourceIds ? readySources().filter((source) => sourceIds.includes(source.id)) : contextSources();
                 const panel = app.openSheet({
                     title: state.studioKinds[kind] || 'Studio',
-                    pretitle: `${chosen.length} sumber dicentang`,
-                    body: kind === 'assignment_plan' ? assignmentPlanBody(chosen) : quizOptionsBody(kind, chosen),
+                    pretitle: sourceIds ? `${chosen.length} sumber` : `${chosen.length} sumber dicentang`,
+                    body: kind === 'assignment_plan' ? assignmentPlanBody(chosen) : quizOptionsBody(kind, chosen, focus),
                 });
                 const form = panel.querySelector('[data-studio-options]');
 
@@ -129,8 +131,9 @@
                         return;
                     }
 
-                    runStudio(button, kind, null, {
+                    runStudio(button, kind, focus, {
                         options: { count: Number(form.elements.count.value), difficulty: form.elements.difficulty.value },
+                        ...(sourceIds ? { source_ids: sourceIds } : {}),
                     });
                 });
             };
