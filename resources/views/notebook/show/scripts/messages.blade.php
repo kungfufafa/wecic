@@ -43,6 +43,7 @@
                         ${askModeBadge(message)}
                         ${message.citations.length ? `<span class="tabular-nums">${message.citations.length} rujukan</span>` : '<span>Tanpa rujukan</span>'}
                         <button type="button" class="${app.ui.button.ghostSm}" data-pin="${message.id}" aria-pressed="${message.pinned ? 'true' : 'false'}">${message.pinned ? 'Tersimpan di Catatan' : 'Simpan ke Catatan'}</button>
+                        <button type="button" class="${app.ui.button.ghostSm}" data-copy-to-note="${message.id}">Salin ke catatan</button>
                     </div>
                     ${contextLine(message)}
                 </li>

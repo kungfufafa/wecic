@@ -189,6 +189,10 @@ export type NotebookMessageContext = {
   feedback_mode?: NotebookFeedbackMode | string | null;
   feedback_prompt?: string | null;
   answer_excerpt?: string | null;
+  /** A note copied from an answer ("Salin ke catatan") names it. */
+  from_message_id?: number;
+  /** A note made a source ("Jadikan sumber"): that text source. */
+  note_source?: { id: number; title: string; at: string } | null;
   truncated?: boolean;
   provider?: string;
   model?: string;
@@ -253,8 +257,22 @@ export type NotebookDetailResponse = ApiEnvelope & {
     ai_budget?: NotebookAiBudget;
     /** The empty chat's starter questions (the ready sources' guide questions, else general ones); missing on older servers. */
     suggestions?: string[];
+    /**
+     * The sources ticked as the AI context, saved on the server (deleted ones dropped); null is every source.
+     * Missing on older servers, which leave the choice to the device copy.
+     */
+    context_source_ids?: number[] | null;
   };
 };
+
+/** PATCH notebooks/{id}: the notebook and the saved context choice. */
+export type NotebookUpdateResponse = ApiEnvelope & { data: { notebook: NotebookItem; context_source_ids?: number[] | null } };
+
+/** POST notebooks/{id}/notes and PATCH of a note's content: the student's own note (`kind: note`). */
+export type NotebookNoteResponse = ApiEnvelope & { data: { message: NotebookMessage } };
+
+/** "Jadikan sumber": the new text source and the note that records it (`context.note_source`). */
+export type NotebookNoteSourceResponse = ApiEnvelope & { data: { source: NotebookSource; message: NotebookMessage } };
 
 /** One AI provider Notebook content goes to, and whether the server uses its free tier. */
 export type AiProcessor = {

@@ -27,7 +27,9 @@
             // asks less often, and stops after the hour in which the server marks a lost reading stalled.
             const POLL_LIMIT_MS = 60 * 60 * 1000;
             const POLL_SLOW_AFTER_MS = 2 * 60 * 1000;
-            const SOURCE_KIND = { meeting: 'Catatan pertemuan', archived_file: 'Arsip materi', upload: 'Unggahan', text: 'Catatan' };
+            const SOURCE_KIND = { meeting: 'Catatan pertemuan', archived_file: 'Arsip materi', upload: 'Unggahan', text: 'Teks' };
+            // The student's own notes (NotebookMessage::MAX_NOTE_CHARS).
+            const NOTE_MAX_CHARS = @json(\App\Models\NotebookMessage::MAX_NOTE_CHARS);
             // The empty chat's starters until the notebook loads (`suggestions` then: the ready sources' guide questions).
             const STARTER_QUESTIONS = @json(\App\Services\NotebookAssistant::STARTER_QUESTIONS);
             // In tutor mode the starters ask to be guided, never for a finished answer.
@@ -78,7 +80,14 @@
                 pollReading: '',
                 tab: 'chat',
                 // Sources left out of the context (NotebookLM-style source ticks); empty = everything.
+                // Kept on the server (`context_source_ids`) so the app opens with the same choice.
                 excluded: new Set(),
+                // The `context_source_ids` last taken from the server, so a poll that brings the same choice back leaves the ticks alone.
+                contextChoiceKey: null,
+                // What the server has of each own note (`kind: note`), so leaving its editor saves only a change.
+                noteSaved: {},
+                // The save of each own note still on its way.
+                noteSaving: {},
                 askMode: storedAskMode(),
                 // The Catatan entries kept open when the list is redrawn (a new Studio output opens itself).
                 openNoteIds: new Set(),

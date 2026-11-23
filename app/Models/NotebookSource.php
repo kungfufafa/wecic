@@ -100,6 +100,16 @@ class NotebookSource extends Model
     ];
 
     /**
+     * A new source joins the notebook's saved AI context (Notebook::includeInContext()).
+     */
+    protected static function booted(): void
+    {
+        static::created(static function (self $source): void {
+            Notebook::query()->whereKey($source->notebook_id)->whereNotNull('context_source_ids')->first()?->includeInContext($source->id);
+        });
+    }
+
+    /**
      * @return array<string, string>
      */
     protected function casts(): array

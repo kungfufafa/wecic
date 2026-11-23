@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Http\Requests;
 
+use App\Models\NotebookMessage;
 use App\Services\NotebookPractice;
+use Illuminate\Validation\Rule;
 
 class UpdateNotebookMessageRequest extends ApiFormRequest
 {
@@ -14,7 +16,7 @@ class UpdateNotebookMessageRequest extends ApiFormRequest
     }
 
     /**
-     * @return array<string, list<string>>
+     * @return array<string, list<mixed>>
      */
     public function rules(): array
     {
@@ -22,11 +24,18 @@ class UpdateNotebookMessageRequest extends ApiFormRequest
 
         return [
             /**
-             * Simpan (true) atau lepas (false) dari Catatan. Wajib bila `practice` tidak dikirim.
+             * Simpan (true) atau lepas (false) dari Catatan. Wajib bila `practice` dan `content` tidak dikirim.
              *
              * @example true
              */
-            'pinned' => ['required_without:practice', 'boolean'],
+            'pinned' => [Rule::requiredIf(fn (): bool => ! $this->has('practice') && ! $this->has('content')), 'boolean'],
+            /**
+             * Isi baru catatan sendiri (Markdown, paling banyak 10.000 karakter). Hanya untuk pesan berjenis `note`;
+             * pesan lain menolak dengan 422.
+             *
+             * @example "## Normalisasi\n- 1NF: nilai atomik"
+             */
+            'content' => ['sometimes', 'present', 'nullable', 'string', 'max:'.NotebookMessage::MAX_NOTE_CHARS],
             /**
              * Hasil latihan kuis atau flashcard (tanpa AI, tanpa kuota harian). Untuk kuis wajib kirim `choices` (indeks pilihan per soal,
              * `null` bila dilewati): skor dihitung server dari kunci jawaban, dan `score`/`total`/`missed` yang ikut dikirim diabaikan.
@@ -53,7 +62,9 @@ class UpdateNotebookMessageRequest extends ApiFormRequest
     public function messages(): array
     {
         return [
-            'pinned.required_without' => 'Pilih simpan atau lepas dari catatan.',
+            'pinned.required' => 'Pilih simpan atau lepas dari catatan.',
+            'content.string' => 'Isi catatan tidak valid.',
+            'content.max' => 'Catatan maksimal 10.000 karakter.',
             'pinned.boolean' => 'Nilai pinned harus true atau false.',
             'practice.required' => 'Hasil latihan tidak boleh kosong.',
             'practice.array' => 'Hasil latihan tidak valid.',
@@ -87,6 +98,16 @@ class UpdateNotebookMessageRequest extends ApiFormRequest
     public function hasPinned(): bool
     {
         return $this->has('pinned');
+    }
+
+    public function hasContent(): bool
+    {
+        return $this->has('content');
+    }
+
+    public function content(): string
+    {
+        return (string) $this->validated('content');
     }
 
     /**

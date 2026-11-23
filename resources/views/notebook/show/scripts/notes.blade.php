@@ -1,6 +1,7 @@
 {{--
     Notebook script, the Studio outputs in Catatan (quiz and flashcard
-    practice, glossary, mind map) and the Studio buttons. Practice progress
+    practice, glossary, mind map), the student's own notes (editor,
+    preview, Salin, Unduh .md, Jadikan sumber) and the Studio buttons. Practice progress
     lives in state.practice, so redrawing Catatan keeps it. Part of the DOMContentLoaded
     handler opened in notebook/show.blade.php: it shares that scope (app,
     el, base, the elements, constants and state in setup).
@@ -385,6 +386,8 @@
                         return `<ul class="flex flex-col gap-1" data-mindmap="${message.id}">${renderMindMapNode(message.data || {})}</ul>`;
                     case 'feedback':
                         return renderFeedback(message);
+                    case 'note':
+                        return renderNoteEditor(message);
                     case 'study_guide':
                         return renderMarkdown(message.content, { listItemAction: practiceQuestionAction });
                     default:
@@ -397,18 +400,208 @@
                     return 'Jawaban tersimpan';
                 }
 
+                if (message.kind === 'note') {
+                    return noteTitle(message);
+                }
+
                 return message.kind === 'feedback' ? 'Cek pemahaman' : (state.studioKinds[message.kind] || message.kind);
             };
 
             // "Cek kerangkaku": the student's own outline for this brief gets feedback (openFeedback, outline_check).
             const outlineCheckButton = (message) => `<button type="button" class="${app.ui.button.secondarySm}" data-feedback-prompt="${app.escapeHtml(String(message.context?.focus || 'Kerangka tugas dari Catatan').slice(0, 1500))}" data-feedback-mode="outline_check">Cek kerangkaku</button>`;
 
+            // The student's own note: its first line without Markdown marks, else "Catatan baru".
+            const noteTitle = (message) => {
+                const line = String(message?.content || '').split(/\n/)
+                    .map((text) => text.replace(/^\s{0,3}(?:#{1,6}\s+|[-*+]\s+|\d+[.)]\s+|>\s*)/, '').replace(/[*_`]+/g, '').trim())
+                    .find((text) => text !== '');
+
+                return line ? (line.length > 80 ? `${line.slice(0, 79)}…` : line) : 'Catatan baru';
+            };
+
+            // The source a note became, while it is still in the notebook.
+            const noteSource = (message) => {
+                const id = Number(message?.context?.note_source?.id);
+
+                return id ? state.sources.find((source) => source.id === id) || null : null;
+            };
+
+            // A textarea (saved when it loses focus, saveNote) above a live preview through the same safe Markdown as answers.
+            const renderNoteEditor = (message) => `
+                <div class="flex flex-col gap-2" data-note="${message.id}">
+                    <label class="sr-only" for="note-editor-${message.id}">Isi catatan</label>
+                    <textarea class="${app.ui.textarea} min-h-32 resize-y" id="note-editor-${message.id}" data-note-editor="${message.id}" maxlength="${NOTE_MAX_CHARS}" placeholder="Tulis dengan kata-katamu sendiri. Markdown didukung: # judul, - daftar, **tebal**.">${app.escapeHtml(message.content || '')}</textarea>
+                    <p class="text-xs text-ink-subtle" data-note-status="${message.id}" aria-live="polite">${state.noteSaved[message.id] === (message.content || '') ? 'Tersimpan' : 'Belum tersimpan'}</p>
+                    <div class="rounded-lg border border-border-light bg-surface/40 p-3" aria-label="Pratinjau catatan">
+                        <p class="mb-1 text-xs font-medium text-ink-subtle">Pratinjau</p>
+                        <div class="text-sm" data-note-preview="${message.id}">${String(message.content || '').trim() ? renderMarkdown(message.content) : '<p class="text-ink-subtle">Catatan masih kosong.</p>'}</div>
+                    </div>
+                </div>
+            `;
+
+            const noteActions = (message) => {
+                const source = noteSource(message);
+                const full = state.sourceLimit !== null && state.sources.length >= state.sourceLimit;
+
+                return `
+                    <button type="button" class="${app.ui.button.secondarySm}" data-note-copy="${message.id}">Salin</button>
+                    <button type="button" class="${app.ui.button.secondarySm}" data-note-download="${message.id}">Unduh .md</button>
+                    ${source
+                        ? `<span class="inline-flex min-h-11 items-center text-xs text-ink-subtle sm:min-h-8">Sudah jadi sumber: ${app.escapeHtml(source.title)}</span>`
+                        : `<button type="button" class="${app.ui.button.secondarySm}" data-note-source="${message.id}" ${full ? 'disabled aria-disabled="true" title="Notebook ini sudah mencapai batas jumlah sumber."' : ''}>Jadikan sumber</button>`}
+                `;
+            };
+
+            // Typing updates the note in state (so a redraw keeps it) and its preview; nothing is sent yet.
+            const editNote = (textarea) => {
+                const messageId = Number(textarea.dataset.noteEditor);
+                const message = state.messages.find((item) => item.id === messageId);
+
+                if (!message) {
+                    return;
+                }
+
+                message.content = textarea.value;
+
+                const holder = textarea.closest('[data-note]');
+                const preview = holder?.querySelector('[data-note-preview]');
+                const status = holder?.querySelector('[data-note-status]');
+
+                if (preview) {
+                    preview.innerHTML = message.content.trim() ? renderMarkdown(message.content) : '<p class="text-ink-subtle">Catatan masih kosong.</p>';
+                }
+
+                if (status) {
+                    status.textContent = state.noteSaved[messageId] === message.content ? 'Tersimpan' : 'Belum tersimpan';
+                }
+            };
+
+            // One PATCH when the text differs from what the server has; a failed save says so and is tried on the next blur.
+            const saveNote = async (messageId) => {
+                // A save still on its way finishes first (leaving the editor for "Jadikan sumber" saves, then converts).
+                await state.noteSaving[messageId];
+
+                const message = state.messages.find((item) => item.id === messageId && item.kind === 'note');
+                const content = String(message?.content ?? '');
+
+                if (!message || state.noteSaved[messageId] === content) {
+                    return true;
+                }
+
+                const previous = state.noteSaved[messageId];
+                // Looked up each time: Catatan may be redrawn while the save runs.
+                const setStatus = (text) => {
+                    const status = notesHost.querySelector(`[data-note-status="${messageId}"]`);
+
+                    if (status) {
+                        status.textContent = text;
+                    }
+                };
+
+                state.noteSaved[messageId] = content;
+                setStatus('Menyimpan…');
+
+                const request = app.request(`${base}/messages/${messageId}`, { method: 'PATCH', json: { content } });
+
+                state.noteSaving[messageId] = request.catch(() => null);
+
+                try {
+                    await request;
+                    setStatus(message.content === content ? 'Tersimpan' : 'Belum tersimpan');
+
+                    const summary = notesHost.querySelector(`[data-message-id="${messageId}"] [data-note-title]`);
+
+                    if (summary) {
+                        summary.textContent = noteTitle(message);
+                    }
+
+                    return true;
+                } catch (error) {
+                    state.noteSaved[messageId] = previous;
+                    setStatus('Belum tersimpan');
+                    app.showNotice(app.describeError(error, 'Catatan belum tersimpan.'), 'warning');
+
+                    return false;
+                }
+            };
+
+            // "+ Catatan baru" (empty) or "Salin ke catatan" from an answer (`fromMessageId`): no AI, no consent.
+            const createNote = async ({ fromMessageId = null } = {}) => {
+                try {
+                    const payload = await app.request(`${base}/notes`, { method: 'POST', json: fromMessageId ? { from_message_id: fromMessageId } : { content: '' } });
+                    const note = payload.data.message;
+
+                    state.messages.push(note);
+                    state.noteSaved[note.id] = note.content || '';
+                    state.openNoteIds.add(note.id);
+                    renderNotes();
+
+                    if (fromMessageId) {
+                        app.showNotice('Disalin ke Catatan.', 'success');
+                    } else {
+                        notesHost.querySelector(`[data-note-editor="${note.id}"]`)?.focus();
+                    }
+
+                    return note;
+                } catch (error) {
+                    app.showNotice(app.describeError(error, 'Catatan gagal dibuat.'), 'error');
+
+                    return null;
+                }
+            };
+
+            // Unduh .md: the note as a Markdown file, made in the browser.
+            const downloadNote = (message) => {
+                const name = noteTitle(message).replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-+|-+$/g, '').toLowerCase().slice(0, 60) || 'catatan';
+                const url = URL.createObjectURL(new Blob([String(message.content || '')], { type: 'text/markdown;charset=utf-8' }));
+                const link = document.createElement('a');
+
+                link.href = url;
+                link.download = `${name}.md`;
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+            };
+
+            // Jadikan sumber: saved first, then a pasted-text source (the source limit and the reading budget apply as for pasted text).
+            const noteToSource = async (button) => {
+                const messageId = Number(button.dataset.noteSource);
+                const message = state.messages.find((item) => item.id === messageId);
+
+                if (!message || !(await saveNote(messageId))) {
+                    return;
+                }
+
+                if (!String(message.content || '').trim()) {
+                    app.showNotice('Catatan ini masih kosong.', 'warning');
+
+                    return;
+                }
+
+                await app.withSubmitLoading(button, async () => {
+                    try {
+                        const payload = await app.request(`${base}/notes/${messageId}/source`, { method: 'POST' });
+
+                        Object.assign(message, payload.data.message);
+                        state.sources = [...state.sources.filter((source) => source.id !== payload.data.source.id), payload.data.source];
+                        renderHeader();
+                        renderSources();
+                        renderNotes();
+                        renderStudioButtons();
+                        app.showNotice(payload.message || 'Catatan menjadi sumber.', 'success');
+                    } catch (error) {
+                        app.showNotice(app.describeError(error, 'Catatan gagal dijadikan sumber.'), 'error');
+                    }
+                });
+            };
+
             // Studio outputs live only here, so they are listed even if unpinned elsewhere.
             const renderNotes = () => {
                 const notes = state.messages.filter((message) => message.pinned || message.kind !== 'chat').slice().reverse();
 
                 if (!notes.length) {
-                    notesHost.innerHTML = '<p class="rounded-lg border border-dashed border-border px-3 py-6 text-center text-sm text-ink-subtle">Hasil studio dan jawaban yang kamu simpan muncul di sini.</p>';
+                    notesHost.innerHTML = '<p class="rounded-lg border border-dashed border-border px-3 py-6 text-center text-sm text-ink-subtle">Catatanmu sendiri, hasil studio, dan jawaban yang kamu simpan muncul di sini.</p>';
 
                     return;
                 }
@@ -417,8 +610,8 @@
                     <details class="group border-t border-border-light first:border-t-0" data-message-id="${message.id}" ${state.openNoteIds.has(message.id) ? 'open' : ''}>
                         <summary class="-mx-2 flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 rounded-lg px-2 py-2.5 transition-colors hover:bg-surface/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 [&::-webkit-details-marker]:hidden">
                             <span class="min-w-0">
-                                <span class="block text-sm font-medium leading-snug text-ink">${app.escapeHtml(noteLabel(message))}</span>
-                                <span class="mt-0.5 block text-xs text-ink-subtle">${app.escapeHtml([app.formatTimeAgo(message.created_at), message.context?.practice ? `Skor terakhir ${Number(message.context.practice.score)}/${Number(message.context.practice.total)}` : null, message.context?.focus ? message.context.focus : null].filter(Boolean).join(' · '))}</span>
+                                <span class="block break-words text-sm font-medium leading-snug text-ink" ${message.kind === 'note' ? 'data-note-title' : ''}>${app.escapeHtml(noteLabel(message))}</span>
+                                <span class="mt-0.5 block text-xs text-ink-subtle">${app.escapeHtml([message.kind === 'note' ? 'Catatan saya' : null, app.formatTimeAgo(message.created_at), message.context?.practice ? `Skor terakhir ${Number(message.context.practice.score)}/${Number(message.context.practice.total)}` : null, message.context?.focus ? message.context.focus : null].filter(Boolean).join(' · '))}</span>
                             </span>
                             <svg xmlns="http://www.w3.org/2000/svg" class="size-4 shrink-0 text-ink-subtle transition-transform group-open:rotate-180" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6l6 -6" /></svg>
                         </summary>
@@ -428,9 +621,10 @@
                             ${contextLine(message)}
                             <div class="flex flex-wrap gap-2">
                                 ${message.kind === 'assignment_plan' ? outlineCheckButton(message) : ''}
+                                ${message.kind === 'note' ? noteActions(message) : ''}
                                 ${message.kind === 'chat'
                                     ? `<button type="button" class="${app.ui.button.ghostSm}" data-pin="${message.id}" aria-pressed="true">Lepas dari Catatan</button>`
-                                    : `<button type="button" class="${app.ui.button.ghostSm} text-danger! hover:bg-danger-soft!" data-delete-message="${message.id}">Hapus</button>`}
+                                    : `<button type="button" class="${app.ui.button.ghostSm} text-danger! hover:bg-danger-soft!" data-delete-message="${message.id}" ${message.kind === 'note' ? 'data-delete-note' : ''}>Hapus</button>`}
                             </div>
                         </div>
                     </details>

@@ -66,7 +66,7 @@
                 @endforeach
                 Jangan masukkan data pribadi atau rahasia. WeCIC adalah aplikasi unofficial dan tidak berafiliasi dengan kampus.
             </p>
-            <p class="text-ink-muted">Tanpa persetujuan, kamu tetap bisa melihat, menambah catatan teks, dan menghapus isi notebook. Persetujuan bisa ditarik kapan saja.</p>
+            <p class="text-ink-muted">Tanpa persetujuan, kamu tetap bisa melihat, menulis catatan, menempel teks sebagai sumber, dan menghapus isi notebook. Persetujuan bisa ditarik kapan saja.</p>
             <div class="flex flex-wrap gap-2">
                 <x-button size="sm" id="notebook-ai-consent-grant">Setuju, aktifkan AI</x-button>
             </div>
@@ -91,7 +91,7 @@
                         <span>+ Unggah berkas</span>
                         <input type="file" class="sr-only" id="source-upload" accept=".pdf,.docx,.pptx,.txt,.md,.png,.jpg,.jpeg">
                     </label>
-                    <x-button variant="secondary" size="sm" class="justify-start!" id="source-add-text">+ Tulis catatan</x-button>
+                    <x-button variant="secondary" size="sm" class="justify-start!" id="source-add-text">+ Tempel teks sebagai sumber</x-button>
                 </div>
                 <div class="hidden flex-wrap items-center justify-between gap-2 rounded-lg border border-border-light bg-surface/40 px-3 py-0 text-xs sm:py-2" id="notebook-context-bar">
                     <span class="text-ink-muted tabular-nums" id="notebook-context-summary"></span>
@@ -139,13 +139,16 @@
             <x-card.header>
                 <div class="min-w-0">
                     <x-card.title id="notebook-studio-title">Studio</x-card.title>
-                    <x-card.subtitle>Bahan belajar mandiri dan kerangka tugas dari sumber yang dicentang, tersimpan otomatis di Catatan.</x-card.subtitle>
+                    <x-card.subtitle>Bahan belajar mandiri dan kerangka tugas dari sumber yang dicentang, tersimpan otomatis di Catatan. Catatanmu sendiri tidak memakai AI.</x-card.subtitle>
                 </div>
             </x-card.header>
             <x-card.body class="flex flex-col gap-5">
                 <div class="grid grid-cols-2 gap-2" id="notebook-studio-buttons"></div>
                 <div class="flex flex-col gap-3 border-t border-border-light pt-4">
-                    <h3 class="text-sm font-semibold tracking-tight text-ink">Catatan</h3>
+                    <div class="flex items-center justify-between gap-2">
+                        <h3 class="text-sm font-semibold tracking-tight text-ink">Catatan</h3>
+                        <x-button variant="secondary" size="sm" id="notebook-note-new">+ Catatan baru</x-button>
+                    </div>
                     <div class="flex flex-col" id="notebook-notes"></div>
                 </div>
             </x-card.body>

@@ -11,6 +11,7 @@ use App\Http\Requests\FeedbackNotebookRequest;
 use App\Http\Requests\NotebookSourceChunksRequest;
 use App\Http\Requests\NotebookStudioRequest;
 use App\Http\Requests\StoreCourseNotebookRequest;
+use App\Http\Requests\StoreNotebookNoteRequest;
 use App\Http\Requests\StoreNotebookRequest;
 use App\Http\Requests\StoreNotebookSourceRequest;
 use App\Http\Requests\UpdateNotebookMessageRequest;
@@ -44,7 +45,7 @@ class NotebookController extends CampusApiController
 
     private const SOURCE_ITEM = "array{id: int, kind: 'meeting'|'archived_file'|'upload'|'text', title: string, meeting_id: string|null, meeting_number: int|null, mime: string|null, status: 'pending'|'processing'|'ready'|'failed', error: string|null, summary: string|null, topics: list<string>, suggested_questions: list<string>, char_count: int, page_count: int|null, truncated: bool, stalled: bool, waiting: bool, archived_file_id: int|null, created_at: string|null}";
 
-    private const CONTEXT_ITEM = "array{source_ids: list<int>, sources: list<array{id: int, title: string, meeting_number: int|null}>, total_sources: int, excerpts: int, chars: int, partial: bool, focus: string|null, mode?: 'answer'|'tutor'|'ringkas', options?: array{count?: int, difficulty?: 'campuran'|'dasar'|'sulit'}, practice_from?: array{message_id: int, missed: list<int>}, practice?: array{score: int, total: int, missed: list<int>, flagged: list<int>, choices?: list<int|null>, at: string}, feedback_mode?: 'practice_answer'|'explain_concept'|'outline_check', feedback_prompt?: string, answer_excerpt?: string, truncated?: bool, provider?: string, model?: string, usage?: array{input_tokens: int|null, output_tokens: int|null, thoughts_tokens: int|null}}";
+    private const CONTEXT_ITEM = "array{source_ids: list<int>, sources: list<array{id: int, title: string, meeting_number: int|null}>, total_sources: int, excerpts: int, chars: int, partial: bool, focus: string|null, mode?: 'answer'|'tutor'|'ringkas', options?: array{count?: int, difficulty?: 'campuran'|'dasar'|'sulit'}, practice_from?: array{message_id: int, missed: list<int>}, practice?: array{score: int, total: int, missed: list<int>, flagged: list<int>, choices?: list<int|null>, at: string}, feedback_mode?: 'practice_answer'|'explain_concept'|'outline_check', feedback_prompt?: string, from_message_id?: int, note_source?: array{id: int, title: string, at: string}, answer_excerpt?: string, truncated?: bool, provider?: string, model?: string, usage?: array{input_tokens: int|null, output_tokens: int|null, thoughts_tokens: int|null}}";
 
     private const MESSAGE_ITEM = "array{id: int, role: 'user'|'assistant', kind: string, content: string, data: mixed, citations: list<array{n: int, source_id: int, source_title: string, page: int|null, position?: int, chunk_id?: int, excerpt: string}>, context: ".self::CONTEXT_ITEM.'|null, pinned: bool, created_at: string|null}';
 
@@ -302,9 +303,11 @@ class NotebookController extends CampusApiController
      * (pesan chat yang lebih lama hanya ada karena tersimpan di Catatan).
      * Setiap sumber yang dibaca AI membawa `topics` (topik utama) dan `suggested_questions` (pertanyaan pemahaman); `suggestions`
      * berisi paling banyak 4 pertanyaan pembuka percakapan, diambil bergiliran dari sumber yang siap, atau daftar umum bila belum ada.
+     * Catatan sendiri mahasiswa ada di `messages` dengan `kind: note`. `context_source_ids` adalah sumber yang terakhir dicentang
+     * sebagai konteks AI (tanpa sumber yang sudah dihapus); `null` berarti semua sumber.
      */
     #[PathParameter('notebook', 'Id notebook.', type: 'integer', example: 3)]
-    #[Response(description: 'Detail notebook.', type: "array{status: 'success', message: string, data: array{notebook: ".self::NOTEBOOK_ITEM.', sources: list<'.self::SOURCE_ITEM.'>, messages: list<'.self::MESSAGE_ITEM.'>, chat_from_id: int|null, meetings: '.self::MEETINGS_ITEM.'|null, archived_courses: list<array<string, mixed>>, source_limit: int, ai_available: bool, ai_status: '.self::AI_STATUS.', ai_provider: '.self::AI_PROVIDER_ITEM.', ai_consent: '.self::AI_CONSENT_ITEM.', ai_budget: '.self::AI_BUDGET_ITEM.', studio_kinds: array<string, string>, suggestions: list<string>}, meta: array{timestamp: string, campus_session_valid: true}}')]
+    #[Response(description: 'Detail notebook.', type: "array{status: 'success', message: string, data: array{notebook: ".self::NOTEBOOK_ITEM.', sources: list<'.self::SOURCE_ITEM.'>, messages: list<'.self::MESSAGE_ITEM.'>, chat_from_id: int|null, meetings: '.self::MEETINGS_ITEM.'|null, archived_courses: list<array<string, mixed>>, source_limit: int, ai_available: bool, ai_status: '.self::AI_STATUS.', ai_provider: '.self::AI_PROVIDER_ITEM.', ai_consent: '.self::AI_CONSENT_ITEM.', ai_budget: '.self::AI_BUDGET_ITEM.', studio_kinds: array<string, string>, suggestions: list<string>, context_source_ids: list<int>|null}, meta: array{timestamp: string, campus_session_valid: true}}')]
     #[Response(404, description: 'Notebook tidak ditemukan.', type: CampusApiController::SCRAMBLE_NOT_FOUND_RESPONSE)]
     public function show(int $notebook): JsonResponse
     {
@@ -319,17 +322,41 @@ class NotebookController extends CampusApiController
     }
 
     /**
-     * Ganti judul notebook.
+     * Ganti judul notebook, atau simpan sumber yang dicentang sebagai konteks AI (`context_source_ids`).
+     *
+     * Pilihan sumber disimpan di server agar web dan aplikasi membuka pilihan yang sama. `null` berarti semua sumber;
+     * id yang bukan sumber notebook ini ditolak dengan 422. Tidak memanggil AI.
      */
     #[PathParameter('notebook', 'Id notebook.', type: 'integer', example: 3)]
-    #[Response(description: 'Notebook diperbarui.', type: "array{status: 'success', message: string, data: array{notebook: ".self::NOTEBOOK_ITEM.'}, meta: array{timestamp: string, campus_session_valid: true}}')]
+    #[Response(description: 'Notebook diperbarui.', type: "array{status: 'success', message: string, data: array{notebook: ".self::NOTEBOOK_ITEM.', context_source_ids: list<int>|null}, meta: array{timestamp: string, campus_session_valid: true}}')]
+    #[Response(404, description: 'Notebook tidak ditemukan.', type: CampusApiController::SCRAMBLE_NOT_FOUND_RESPONSE)]
+    #[Response(422, description: 'Judul tidak valid, atau sumber yang dipilih bukan milik notebook ini.', type: CampusApiController::SCRAMBLE_VALIDATION_ERROR_RESPONSE)]
     public function update(UpdateNotebookRequest $request, int $notebook): JsonResponse
     {
         return $this->withNotebook($notebook, 'Notebook update failed', 'Gagal memperbarui notebook', function (Notebook $owned) use ($request): JsonResponse {
-            $owned->update(['title' => trim((string) $request->validated('title'))]);
+            $changes = [];
 
-            return $this->statusSuccess('Judul notebook diperbarui.', [
-                'data' => ['notebook' => $owned->loadCount(['sources', 'messages', 'meetingSources as meetings_count'])->toApiArray()],
+            if ($request->hasContextSourceIds()) {
+                $ids = $request->contextSourceIds();
+
+                if ($ids !== null && $ids !== [] && $owned->sources()->whereKey($ids)->count() !== count($ids)) {
+                    return $this->statusError('Sumber yang dipilih tidak ada di notebook ini.', 422, campusSessionValid: true);
+                }
+
+                $changes['context_source_ids'] = $ids;
+            }
+
+            if ($request->hasTitle()) {
+                $changes['title'] = trim((string) $request->validated('title'));
+            }
+
+            $owned->update($changes);
+
+            return $this->statusSuccess($request->hasTitle() ? 'Judul notebook diperbarui.' : 'Pilihan sumber disimpan.', [
+                'data' => [
+                    'notebook' => $owned->loadCount(['sources', 'messages', 'meetingSources as meetings_count'])->toApiArray(),
+                    'context_source_ids' => $owned->contextSourceIds(),
+                ],
             ], campusSessionValid: true);
         });
     }
@@ -612,18 +639,129 @@ class NotebookController extends CampusApiController
     }
 
     /**
-     * Simpan atau lepas pesan dari Catatan, atau simpan hasil latihan kuis atau flashcard.
+     * Tulis catatan sendiri (Markdown, paling banyak 10.000 karakter), atau "Salin ke catatan" dari sebuah jawaban.
+     *
+     * Catatan tersimpan sebagai pesan `kind: note` (`role: user`, `pinned: true`) di Catatan. Tidak memanggil AI, tanpa
+     * persetujuan AI, dan tanpa kuota harian; catatan tidak pernah dikirim ke model sebagai percakapan. Dengan
+     * `from_message_id`, teks (bila `content` tidak dikirim) dan rujukan jawaban itu disalin, dan id-nya tercatat di
+     * `context.from_message_id`.
+     */
+    #[PathParameter('notebook', 'Id notebook.', type: 'integer', example: 3)]
+    #[Response(201, description: 'Catatan dibuat.', type: "array{status: 'success', message: string, data: array{message: ".self::MESSAGE_ITEM.'}, meta: array{timestamp: string, campus_session_valid: true}}')]
+    #[Response(404, description: 'Notebook atau pesan yang disalin tidak ditemukan.', type: CampusApiController::SCRAMBLE_NOT_FOUND_RESPONSE)]
+    #[Response(422, description: 'Catatan terlalu panjang, pesan yang disalin tidak berteks, atau batas jumlah catatan tercapai.', type: CampusApiController::SCRAMBLE_VALIDATION_ERROR_RESPONSE)]
+    public function storeNote(StoreNotebookNoteRequest $request, int $notebook): JsonResponse
+    {
+        return $this->withNotebook($notebook, 'Notebook note create failed', 'Gagal membuat catatan', function (Notebook $owned) use ($request): JsonResponse {
+            if ($owned->messages()->where('kind', NotebookMessage::KIND_NOTE)->count() >= max(1, (int) config('notebook.limits.max_notes', 200))) {
+                return $this->statusError('Jumlah catatan di notebook ini sudah mencapai batas. Hapus catatan lama dulu.', 422, campusSessionValid: true);
+            }
+
+            $content = $request->content();
+            $citations = [];
+            $context = null;
+
+            if ($request->fromMessageId() !== null) {
+                $copied = $owned->messages()->whereKey($request->fromMessageId())->first();
+
+                if ($copied === null) {
+                    return $this->statusError('Pesan tidak ditemukan.', 404, campusSessionValid: true);
+                }
+
+                if ($copied->role !== NotebookMessage::ROLE_ASSISTANT || in_array($copied->kind, NotebookMessage::STRUCTURED_KINDS, true)) {
+                    return $this->statusError('Hanya jawaban atau hasil studio berteks yang bisa disalin ke catatan.', 422, campusSessionValid: true);
+                }
+
+                $content ??= mb_substr($copied->content, 0, NotebookMessage::MAX_NOTE_CHARS);
+                $citations = $copied->citations ?? [];
+                $context = ['from_message_id' => $copied->id];
+            }
+
+            $note = $owned->messages()->create([
+                'role' => NotebookMessage::ROLE_USER,
+                'kind' => NotebookMessage::KIND_NOTE,
+                'content' => (string) $content,
+                'citations' => $citations,
+                'context' => $context,
+                'pinned' => true,
+            ]);
+            $owned->touch();
+
+            return $this->statusSuccess($context === null ? 'Catatan dibuat.' : 'Disalin ke catatan.', [
+                'data' => ['message' => $note->refresh()->toApiArray()],
+            ], campusSessionValid: true, statusCode: 201);
+        });
+    }
+
+    /**
+     * Jadikan sumber: catatan sendiri menjadi sumber teks yang langsung siap (`kind: text`), seperti teks yang ditempel.
+     *
+     * Batas jumlah sumber berlaku sama (422 bila penuh). Ringkasannya hanya dibuat bila AI aktif, mahasiswa sudah setuju, dan
+     * masih ada kuota baca hari ini; tanpa itu sumbernya tetap siap tanpa ringkasan. Id dan judul sumber tercatat di
+     * `context.note_source` catatan. Catatan yang sudah menjadi sumber (dan sumbernya masih ada) ditolak dengan 422.
+     */
+    #[PathParameter('notebook', 'Id notebook.', type: 'integer', example: 3)]
+    #[PathParameter('message', 'Id catatan (`kind: note`).', type: 'integer', example: 41)]
+    #[Response(201, description: 'Sumber ditambahkan.', type: "array{status: 'success', message: string, data: array{source: ".self::SOURCE_ITEM.', message: '.self::MESSAGE_ITEM.'}, meta: array{timestamp: string, campus_session_valid: true}}')]
+    #[Response(404, description: 'Notebook atau catatan tidak ditemukan.', type: CampusApiController::SCRAMBLE_NOT_FOUND_RESPONSE)]
+    #[Response(422, description: 'Catatan kosong, sudah menjadi sumber, atau batas sumber tercapai.', type: CampusApiController::SCRAMBLE_STATUS_ERROR_RESPONSE)]
+    public function noteToSource(int $notebook, int $message): JsonResponse
+    {
+        return $this->withMessage($notebook, $message, 'Notebook note to source failed', 'Gagal menjadikan catatan sumber', function (NotebookMessage $owned): JsonResponse {
+            if (! $owned->isNote()) {
+                return $this->statusError('Catatan tidak ditemukan.', 404, campusSessionValid: true);
+            }
+
+            $notebook = $owned->notebook;
+
+            if (trim($owned->content) === '') {
+                return $this->statusError('Catatan ini masih kosong.', 422, campusSessionValid: true);
+            }
+
+            $converted = $owned->context['note_source']['id'] ?? null;
+
+            if ($converted !== null && $notebook->sources()->whereKey((int) $converted)->exists()) {
+                return $this->statusError('Catatan ini sudah menjadi sumber. Hapus sumber lamanya dulu bila ingin memakai isi terbarunya.', 422, campusSessionValid: true);
+            }
+
+            if ($notebook->sourceRoom() <= 0) {
+                return $this->statusError('Notebook ini sudah mencapai batas jumlah sumber.', 422, campusSessionValid: true);
+            }
+
+            $source = $this->library->addNote($notebook, $owned);
+            $notebook->touch();
+
+            return $this->statusSuccess('Catatan menjadi sumber.', [
+                'data' => ['source' => $source->toApiArray(), 'message' => $owned->refresh()->toApiArray()],
+            ], campusSessionValid: true, statusCode: 201);
+        });
+    }
+
+    /**
+     * Simpan atau lepas pesan dari Catatan, ubah isi catatan sendiri, atau simpan hasil latihan kuis atau flashcard.
      *
      * `practice` disimpan di `context.practice` tanpa memanggil AI dan tanpa memakai kuota harian. Kuis wajib dikirim dengan
-     * `choices`: skor dan soal yang salah dihitung server dari kunci jawaban.
+     * `choices`: skor dan soal yang salah dihitung server dari kunci jawaban. `content` hanya untuk catatan sendiri (`kind: note`).
      */
     #[PathParameter('notebook', 'Id notebook.', type: 'integer', example: 3)]
     #[PathParameter('message', 'Id pesan.', type: 'integer', example: 40)]
     #[Response(description: 'Pesan diperbarui.', type: "array{status: 'success', message: string, data: array{message: ".self::MESSAGE_ITEM.'}, meta: array{timestamp: string, campus_session_valid: true}}')]
-    #[Response(422, description: 'Latihan untuk pesan yang bukan kuis atau flashcard, kuis tanpa pilihan jawaban, atau nomor soal di luar isinya.', type: CampusApiController::SCRAMBLE_STATUS_ERROR_RESPONSE)]
+    #[Response(422, description: 'Latihan untuk pesan yang bukan kuis atau flashcard, kuis tanpa pilihan jawaban, nomor soal di luar isinya, atau isi baru untuk pesan yang bukan catatan sendiri.', type: CampusApiController::SCRAMBLE_STATUS_ERROR_RESPONSE)]
     public function updateMessage(UpdateNotebookMessageRequest $request, int $notebook, int $message): JsonResponse
     {
         return $this->withMessage($notebook, $message, 'Notebook message update failed', 'Gagal memperbarui catatan', function (NotebookMessage $owned) use ($request): JsonResponse {
+            if ($request->hasContent()) {
+                if (! $owned->isNote()) {
+                    return $this->statusError('Hanya catatan sendiri yang bisa diubah isinya.', 422, campusSessionValid: true);
+                }
+
+                $owned->update(['content' => $request->content(), ...($request->hasPinned() ? ['pinned' => $request->boolean('pinned')] : [])]);
+
+                return $this->statusSuccess('Catatan disimpan.', [
+                    'data' => ['message' => $owned->toApiArray()],
+                ], campusSessionValid: true);
+            }
+
             $practice = $request->practice();
 
             if ($practice !== null) {
@@ -691,6 +829,7 @@ class NotebookController extends CampusApiController
             'ai_consent' => $this->aiConsents->state($notebook->owner_hash),
             'ai_budget' => $this->assistant->dailyBudget($notebook),
             'studio_kinds' => NotebookAssistant::STUDIO_KINDS,
+            'context_source_ids' => $notebook->contextSourceIds(),
         ];
     }
 

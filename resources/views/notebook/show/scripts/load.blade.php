@@ -79,10 +79,27 @@
                 setAiBudget(data);
 
                 const known = new Set(state.sources.map((source) => source.id));
+
+                // The choice saved on the server (`context_source_ids`, deleted sources already dropped) sets the ticks
+                // when it differs from the one last taken, so a poll does not undo a tick whose save is on its way.
+                if (Object.hasOwn(data, 'context_source_ids')) {
+                    const chosen = Array.isArray(data.context_source_ids) ? data.context_source_ids.map(Number) : null;
+                    const key = chosen === null ? 'all' : chosen.join(',');
+
+                    if (key !== state.contextChoiceKey) {
+                        state.contextChoiceKey = key;
+                        state.excluded = new Set(chosen === null ? [] : state.sources.map((source) => source.id).filter((id) => !chosen.includes(id)));
+                    }
+                }
+
                 state.excluded.forEach((id) => {
                     if (!known.has(id)) {
                         state.excluded.delete(id);
                     }
+                });
+
+                state.messages.filter((message) => message.kind === 'note').forEach((message) => {
+                    state.noteSaved[message.id] = message.content || '';
                 });
             };
 

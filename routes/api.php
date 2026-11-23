@@ -199,6 +199,8 @@ Route::middleware($sessionMiddleware)->group(function () {
             Route::post('{notebook}/messages', 'ask')->whereNumber('notebook')->middleware('throttle:notebook-ai');
             Route::post('{notebook}/studio', 'studio')->whereNumber('notebook')->middleware('throttle:notebook-ai');
             Route::post('{notebook}/feedback', 'feedback')->whereNumber('notebook')->middleware('throttle:notebook-ai');
+            Route::post('{notebook}/notes', 'storeNote')->whereNumber('notebook');
+            Route::post('{notebook}/notes/{message}/source', 'noteToSource')->whereNumber(['notebook', 'message'])->middleware('throttle:notebook-sources');
             Route::patch('{notebook}/messages/{message}', 'updateMessage')->whereNumber(['notebook', 'message']);
             Route::delete('{notebook}/messages/{message}', 'destroyMessage')->whereNumber(['notebook', 'message']);
         });

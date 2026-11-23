@@ -1,6 +1,7 @@
 {{--
     Notebook script, the buttons that add a source: a meeting, an archived
-    file, an upload, or a written note. Part of the DOMContentLoaded handler
+    file, an upload, or pasted text (the student's own notes are in
+    Catatan, notes.blade.php). Part of the DOMContentLoaded handler
     opened in notebook/show.blade.php: it shares that scope (app, el, base,
     the elements, constants and state in setup).
 --}}
@@ -95,11 +96,11 @@
 
             el('source-add-text').addEventListener('click', () => {
                 const panel = app.openSheet({
-                    title: 'Tulis catatan',
+                    title: 'Tempel teks sebagai sumber',
                     body: `
                         <form class="flex flex-col gap-3" data-text-source>
                             <label class="${app.ui.field}"><span class="${app.ui.label}">Judul</span><input class="${app.ui.input}" name="title" maxlength="120" required></label>
-                            <label class="${app.ui.field}"><span class="${app.ui.label}">Isi</span><textarea class="${app.ui.textarea} min-h-48!" name="content" required placeholder="Tempel catatan kuliah, ringkasan, atau teks materi."></textarea></label>
+                            <label class="${app.ui.field}"><span class="${app.ui.label}">Isi</span><textarea class="${app.ui.textarea} min-h-48!" name="content" required placeholder="Tempel teks materi, catatan kuliah, atau ringkasan. Untuk menulis catatanmu sendiri, pakai + Catatan baru di Studio."></textarea></label>
                             <button type="submit" class="${app.ui.button.primary}">Simpan sebagai sumber</button>
                         </form>
                     `,
@@ -114,7 +115,7 @@
                             await addSources({ json: { type: 'text', title: textForm.title.value, content: textForm.content.value } });
                             app.closeSheet();
                         } catch (error) {
-                            app.showNotice(`Catatan gagal disimpan. ${app.describeError(error)}`, 'error');
+                            app.showNotice(`Teks gagal disimpan sebagai sumber. ${app.describeError(error)}`, 'error');
                         }
                     });
                 });

@@ -10,6 +10,7 @@ use App\Jobs\IngestNotebookSourceJob;
 use App\Models\Notebook;
 use App\Models\NotebookChunk;
 use App\Models\NotebookDismissal;
+use App\Models\NotebookMessage;
 use App\Models\NotebookSource;
 use App\Models\PortalArchivedFile;
 use App\Services\Ai\NotebookAiClient;
@@ -253,6 +254,40 @@ class NotebookLibrary
         $this->index($source, [['page' => null, 'text' => $content]], false, summarize: $this->modelUsableFor($notebook->owner_hash) && $this->spendRead($notebook->owner_hash));
 
         return $source->refresh();
+    }
+
+    /**
+     * "Jadikan sumber": the student's own note becomes a pasted-text source
+     * (addText(): the same source limit is checked by the caller, and the
+     * summary is written only with consent and a read left today). Its
+     * title is the note's first line; the source is recorded on the note.
+     */
+    public function addNote(Notebook $notebook, NotebookMessage $note): NotebookSource
+    {
+        $source = $this->addText($notebook, $this->noteTitle($note->content), $note->content);
+
+        $note->update(['context' => [
+            ...($note->context ?? []),
+            'note_source' => ['id' => $source->id, 'title' => $source->title, 'at' => now()->toISOString()],
+        ]]);
+
+        return $source;
+    }
+
+    /**
+     * The note's first line without its Markdown marks, else "Catatan" and its date.
+     */
+    private function noteTitle(string $content): string
+    {
+        foreach (preg_split('/\R/u', $content) ?: [] as $line) {
+            $title = trim((string) preg_replace('/^\s{0,3}(?:#{1,6}\s+|[-*+]\s+|\d+[.)]\s+|>\s*)|[*_`]+/u', '', $line));
+
+            if ($title !== '') {
+                return Str::limit($title, 117, '…');
+            }
+        }
+
+        return 'Catatan '.now()->format('d-m-Y');
     }
 
     /**

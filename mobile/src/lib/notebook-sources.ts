@@ -191,6 +191,39 @@ export function withExcluded(store: SourceSelectionStore, notebookId: string | n
   return { ...Object.fromEntries(kept), [key]: ids };
 }
 
+/**
+ * The left-out sources from the choice saved on the server (`context_source_ids`), which wins over the device
+ * copy: null (every source) leaves none out, a list leaves out every other source. An older server sends no
+ * choice (undefined): then null, and the device copy stays.
+ */
+export function excludedFromChoice(choice: readonly number[] | null | undefined, sources: readonly NotebookSource[]): Set<number> | null {
+  if (choice === undefined) {
+    return null;
+  }
+
+  if (choice === null) {
+    return new Set();
+  }
+
+  const chosen = new Set(choice);
+
+  return new Set(sources.map((source) => source.id).filter((id) => !chosen.has(id)));
+}
+
+/** The choice to save on the server: null while nothing is left out, else every source kept (ready or not). */
+export function choiceForServer(excluded: ReadonlySet<number>, sources: readonly NotebookSource[]): number[] | null {
+  return excluded.size === 0 ? null : sources.map((source) => source.id).filter((id) => !excluded.has(id));
+}
+
+/** One key per saved choice, so the same choice brought back by a reload is not applied twice. */
+export function choiceKey(choice: readonly number[] | null | undefined): string | null {
+  if (choice === undefined) {
+    return null;
+  }
+
+  return choice === null ? 'all' : choice.join(',');
+}
+
 /** Left-out sources that are still in the notebook (a deleted source is forgotten, as on the web). */
 export function pruneExcluded(excluded: ReadonlySet<number>, sources: readonly NotebookSource[]): Set<number> {
   const known = new Set(sources.map((source) => source.id));

@@ -1,7 +1,8 @@
 {{--
     Notebook script, the Sumber, Chat and Studio tabs on a phone, the
     answer mode (Jawab langsung, Mode tutor, Ringkas), the question form,
-    and the context ticks (Semua, Kosongkan). Part of the
+    the context ticks (Semua, Kosongkan) saved on the server, and
+    "+ Catatan baru" with its editor saving when it loses focus. Part of the
     DOMContentLoaded handler opened in notebook/show.blade.php: it shares
     that scope (app, el, base, the elements, constants and state in setup).
 --}}
@@ -59,6 +60,27 @@
                 }
             });
 
+            // The ticks are saved on the server (`context_source_ids`, null = every source), so the app and another
+            // browser open with the same choice. A failed save keeps the ticks on this page and says so.
+            const saveContextChoice = async () => {
+                const chosen = state.excluded.size ? state.sources.map((source) => source.id).filter((id) => !state.excluded.has(id)) : null;
+
+                state.contextChoiceKey = chosen === null ? 'all' : chosen.join(',');
+
+                try {
+                    await app.request(base, { method: 'PATCH', json: { context_source_ids: chosen } });
+                } catch (error) {
+                    app.showNotice(app.describeError(error, 'Pilihan sumber belum tersimpan.'), 'warning');
+                }
+            };
+
+            const changeContext = (change) => {
+                change();
+                renderSources();
+                renderStudioButtons();
+                saveContextChoice();
+            };
+
             sourcesHost.addEventListener('change', (event) => {
                 const checkbox = event.target instanceof HTMLInputElement ? event.target.closest('[data-source-select]') : null;
 
@@ -68,25 +90,36 @@
 
                 const id = Number(checkbox.dataset.sourceSelect);
 
-                if (checkbox.checked) {
-                    state.excluded.delete(id);
-                } else {
-                    state.excluded.add(id);
-                }
-
-                renderSources();
-                renderStudioButtons();
+                changeContext(() => {
+                    if (checkbox.checked) {
+                        state.excluded.delete(id);
+                    } else {
+                        state.excluded.add(id);
+                    }
+                });
             });
 
-            el('notebook-context-all').addEventListener('click', () => {
-                state.excluded.clear();
-                renderSources();
-                renderStudioButtons();
-            });
+            el('notebook-context-all').addEventListener('click', () => changeContext(() => state.excluded.clear()));
 
-            el('notebook-context-none').addEventListener('click', () => {
+            el('notebook-context-none').addEventListener('click', () => changeContext(() => {
                 readySources().forEach((source) => state.excluded.add(source.id));
-                renderSources();
-                renderStudioButtons();
+            }));
+
+            el('notebook-note-new').addEventListener('click', (event) => app.withSubmitLoading(event.currentTarget, () => createNote()));
+
+            notesHost.addEventListener('input', (event) => {
+                const editor = event.target instanceof HTMLTextAreaElement && event.target.matches('[data-note-editor]') ? event.target : null;
+
+                if (editor) {
+                    editNote(editor);
+                }
             });
 
+            // Leaving a note's editor saves it, once, when it changed (saveNote).
+            notesHost.addEventListener('focusout', (event) => {
+                const editor = event.target instanceof HTMLTextAreaElement && event.target.matches('[data-note-editor]') ? event.target : null;
+
+                if (editor) {
+                    saveNote(Number(editor.dataset.noteEditor));
+                }
+            });

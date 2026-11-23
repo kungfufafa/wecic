@@ -80,6 +80,8 @@ return [
         // Kilobytes, for upload validation.
         'max_upload_kb' => (int) env('NOTEBOOK_MAX_UPLOAD_KB', 20480),
         'max_text_chars' => 200000,
+        // The student's own notes (Catatan) per notebook.
+        'max_notes' => 200,
         // Characters of source text sent with one question; larger notebooks
         // send the excerpts that match the question best.
         'context_chars' => (int) env('NOTEBOOK_CONTEXT_CHARS', 300000),

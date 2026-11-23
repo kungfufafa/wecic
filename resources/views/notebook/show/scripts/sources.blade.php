@@ -47,7 +47,7 @@
                 if (!state.sources.length) {
                     sourcesHost.innerHTML = `<li class="rounded-lg border border-dashed border-border px-3 py-6 text-center text-sm text-ink-subtle">${isCourseNotebook()
                         ? 'Belum ada pertemuan. Buka pertemuan di menu Kuliah (masuk otomatis), atau pilih dari daftar lewat Tambah pertemuan.'
-                        : 'Belum ada sumber. Tambahkan materi dari arsip, unggah PDF/PPTX/DOCX, atau tulis catatan.'}</li>`;
+                        : 'Belum ada sumber. Tambahkan materi dari arsip, unggah PDF/PPTX/DOCX, atau tempel teks.'}</li>`;
                     renderContextBar();
 
                     return;

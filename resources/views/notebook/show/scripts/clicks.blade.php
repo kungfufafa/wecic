@@ -5,7 +5,8 @@
     message, quiz practice (answers, "Soal ini salah?", Ulangi, Tinjau yang
     salah, Buat latihan dari yang salah), flashcards (deck and grid) and the
     mind map's nodes (their actions: Jelaskan, Latihan, Jelaskan dengan
-    kata-katamu). Part of the DOMContentLoaded
+    kata-katamu), and the own notes (Salin ke catatan, Salin, Unduh .md,
+    Jadikan sumber). Part of the DOMContentLoaded
     handler opened in notebook/show.blade.php: it shares that scope (app,
     el, base, the elements, constants and state in setup).
 --}}
@@ -35,6 +36,10 @@
                 const flashcard = target.closest('[data-flashcard]');
                 const mindMapNode = target.closest('[data-mindmap-node]');
                 const mindMapAction = target.closest('[data-mindmap-action]');
+                const copyToNote = target.closest('[data-copy-to-note]');
+                const noteCopy = target.closest('[data-note-copy]');
+                const noteDownload = target.closest('[data-note-download]');
+                const noteSourceButton = target.closest('[data-note-source]');
 
                 if (cite) {
                     showCitation(cite);
@@ -42,6 +47,20 @@
                     toggleMindMapActions(mindMapNode);
                 } else if (mindMapAction && !mindMapAction.disabled) {
                     await runMindMapAction(mindMapAction);
+                } else if (copyToNote && !copyToNote.disabled) {
+                    await app.withSubmitLoading(copyToNote, () => createNote({ fromMessageId: Number(copyToNote.dataset.copyToNote) }));
+                } else if (noteCopy) {
+                    const message = state.messages.find((item) => item.id === Number(noteCopy.dataset.noteCopy));
+
+                    await app.copyText(message?.content || '', 'Catatan');
+                } else if (noteDownload) {
+                    const message = state.messages.find((item) => item.id === Number(noteDownload.dataset.noteDownload));
+
+                    if (message) {
+                        downloadNote(message);
+                    }
+                } else if (noteSourceButton && !noteSourceButton.disabled) {
+                    await noteToSource(noteSourceButton);
                 } else if (openSource) {
                     const position = openSource.dataset.openPosition;
 
@@ -223,7 +242,7 @@
                         app.showNotice(app.describeError(error), 'error');
                     }
                 } else if (deleteMessage) {
-                    if (!window.confirm('Hapus hasil ini?')) {
+                    if (!window.confirm(deleteMessage.hasAttribute('data-delete-note') ? 'Hapus catatan ini?' : 'Hapus hasil ini?')) {
                         return;
                     }
 

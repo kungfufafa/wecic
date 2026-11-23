@@ -1,6 +1,6 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { Fragment, useCallback, useEffect, useEffectEvent, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, AppState, Platform, ScrollView, StyleSheet, View, type ScrollViewInstance } from 'react-native';
+import { ActivityIndicator, Alert, AppState, Platform, ScrollView, Share, StyleSheet, View, type ScrollViewInstance } from 'react-native';
 
 import type { ApiEnvelope } from '@/api/types';
 import type {
@@ -9,6 +9,7 @@ import type {
   NotebookFeedbackResponse,
   NotebookMeeting,
   NotebookMessage,
+  NotebookNoteResponse,
   NotebookSource,
   NotebookStudioOptions,
 } from '@/api/types/classes';
@@ -18,6 +19,7 @@ import { Chip } from '@/components/chip';
 import { AddSourceSheet } from '@/components/classes/add-source-sheet';
 import { AssignmentBriefSheet } from '@/components/classes/assignment-brief-sheet';
 import { FeedbackSheet } from '@/components/classes/feedback-sheet';
+import { NotesSection } from '@/components/classes/notes-section';
 import { StudioOptionsSheet } from '@/components/classes/studio-options-sheet';
 import { CitationText } from '@/components/classes/citation-text';
 import { StudioResult, type MindMapAction } from '@/components/classes/studio-result';
@@ -53,7 +55,10 @@ import {
   buildUploadForm,
   canRetrySource,
   chatSuggestions,
+  choiceForServer,
+  choiceKey,
   contextSourceIds,
+  excludedFromChoice,
   noContextChosen,
   pollDelay,
   pruneExcluded,
@@ -64,6 +69,7 @@ import {
   sourceTopics,
 } from '@/lib/notebook-sources';
 import { feedbackRequest, type FeedbackRequest } from '@/lib/notebook-feedback';
+import { noteShareMessage, notesOf, noteTitle } from '@/lib/notebook-notes';
 import type { PickedFile } from '@/lib/pick-file';
 
 /** Studio tools that ask how many and how hard first (StudioOptionsSheet). */
@@ -102,6 +108,7 @@ export default function NotebookScreen() {
   const sources = data?.sources ?? [];
   const messages = [...(data?.messages ?? [])].sort((a, b) => a.id - b.id);
   const chat = messages.filter((message) => message.kind === 'chat');
+  const notes = notesOf(messages);
   const studio = messages.filter((message) => message.kind !== 'chat' && message.role !== 'user').reverse();
   const studioKinds = data?.studio_kinds ?? {};
   const meetings = data?.meetings?.meetings ?? [];
@@ -139,6 +146,26 @@ export default function NotebookScreen() {
       forgetDeleted();
     }
   }, [data, sourceIds, excluded]);
+
+  // The choice saved on the server wins over the device copy and is written to it (setExcluded); it is applied
+  // when it changes, so a reload that brings back the choice just saved leaves the chips alone.
+  const serverChoice = data?.context_source_ids;
+  const serverChoiceKey = choiceKey(serverChoice);
+  const appliedChoice = useRef<string | null>(null);
+  const applyServerChoice = useEffectEvent(() => {
+    const next = excludedFromChoice(serverChoice, sources);
+
+    if (next) {
+      setExcluded(next);
+    }
+  });
+
+  useEffect(() => {
+    if (serverChoiceKey !== null && serverChoiceKey !== appliedChoice.current) {
+      appliedChoice.current = serverChoiceKey;
+      applyServerChoice();
+    }
+  }, [serverChoiceKey]);
 
   // While a source is read: ask again every 4 s, every 20 s after two minutes without progress, and stop
   // after an hour (the web's POLL_* constants); only while this screen is shown and the app is in front.
@@ -222,6 +249,17 @@ export default function NotebookScreen() {
     return chosenIds.length > 0 ? { ...body, source_ids: chosenIds } : body;
   }
 
+  /** A new choice of sources: kept on the device and saved on the server, so the web opens with it too. */
+  function chooseSources(next: Set<number>) {
+    const choice = choiceForServer(next, sources);
+
+    setExcluded(next);
+    appliedChoice.current = choiceKey(choice);
+    api.patch(`notebooks/${encodeURIComponent(id ?? '')}`, { context_source_ids: choice }).catch(() => {
+      setActionError('Pilihan sumber belum tersimpan di server; di perangkat ini tetap dipakai.');
+    });
+  }
+
   function toggleSource(sourceId: number) {
     const next = new Set(excluded);
 
@@ -231,7 +269,7 @@ export default function NotebookScreen() {
       next.add(sourceId);
     }
 
-    setExcluded(next);
+    chooseSources(next);
   }
 
   function openAddSource() {
@@ -481,6 +519,63 @@ export default function NotebookScreen() {
     });
   }
 
+  /** "+ Catatan baru", or "Salin ke catatan" from an answer: no AI and no consent. */
+  function createNote(fromMessageId?: number) {
+    void run(fromMessageId ? `note-copy-${fromMessageId}` : 'note-new', () =>
+      api.post<NotebookNoteResponse>(`notebooks/${encodeURIComponent(id ?? '')}/notes`, fromMessageId ? { from_message_id: fromMessageId } : { content: '' }),
+    );
+  }
+
+  /** One PATCH with the note's new text; false (and the error shown) when the server did not keep it. */
+  async function saveNote(note: NotebookMessage, content: string): Promise<boolean> {
+    setBusy(`note-save-${note.id}`);
+    setActionError(null);
+
+    try {
+      await api.patch(`notebooks/${encodeURIComponent(id ?? '')}/messages/${note.id}`, { content });
+      await detail.reload();
+
+      return true;
+    } catch (error) {
+      showError(error);
+
+      return false;
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  /** Bagikan: the note's Markdown through the system share sheet (on the web preview, the browser's). */
+  function shareNote(note: NotebookMessage) {
+    Share.share({ title: noteTitle(note.content), message: noteShareMessage(note) }).catch(() => {
+      setActionError('Catatan gagal dibagikan.');
+    });
+  }
+
+  /** Jadikan sumber: a pasted-text source; the source limit and the daily reading budget apply as for pasted text. */
+  function noteToSource(note: NotebookMessage) {
+    void run(`note-source-${note.id}`, () => api.post(`notebooks/${encodeURIComponent(id ?? '')}/notes/${note.id}/source`));
+  }
+
+  function confirmDeleteNote(note: NotebookMessage) {
+    const title = 'Hapus catatan ini?';
+    const message = `${noteTitle(note.content)} dihapus permanen.`;
+    const remove = () => void run(`note-delete-${note.id}`, () => api.delete<ApiEnvelope>(`notebooks/${encodeURIComponent(id ?? '')}/messages/${note.id}`));
+
+    if (Platform.OS === 'web') {
+      if (window.confirm(`${title}\n${message}`)) {
+        remove();
+      }
+
+      return;
+    }
+
+    Alert.alert(title, message, [
+      { text: 'Batal', style: 'cancel' },
+      { text: 'Hapus', style: 'destructive', onPress: remove },
+    ]);
+  }
+
   const canStudio = aiAvailable && !needsConsent && hasReadySource && !nothingChosen && busy === null;
 
   function confirmDelete() {
@@ -563,7 +658,13 @@ export default function NotebookScreen() {
                 </View>
               ) : null}
               {chat.map((message) => (
-                <ChatBubble key={message.id} message={message} notebookId={id} />
+                <ChatBubble
+                  key={message.id}
+                  message={message}
+                  notebookId={id}
+                  copying={busy === `note-copy-${message.id}`}
+                  onCopyToNote={busy === null ? () => createNote(message.id) : undefined}
+                />
               ))}
               {asking ? (
                 <>
@@ -581,7 +682,7 @@ export default function NotebookScreen() {
               {showsSourceSelection(sources, excluded) ? (
                 <>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips} accessibilityLabel="Sumber yang dipakai AI">
-                    <Chip label="Semua sumber" selected={excluded.size === 0} onPress={() => setExcluded(new Set())} />
+                    <Chip label="Semua sumber" selected={excluded.size === 0} onPress={() => chooseSources(new Set())} />
                     {readySources.map((source) => (
                       <Chip key={source.id} label={source.title ?? 'Sumber'} selected={!excluded.has(source.id)} onPress={() => toggleSource(source.id)} />
                     ))}
@@ -664,6 +765,19 @@ export default function NotebookScreen() {
               </Panel>
             ))}
           </Section>
+
+          <NotesSection
+            notes={notes}
+            sources={sources}
+            room={room}
+            notebookId={id}
+            busy={busy}
+            onCreate={() => createNote()}
+            onSave={saveNote}
+            onShare={shareNote}
+            onMakeSource={noteToSource}
+            onDelete={confirmDeleteNote}
+          />
 
           <Section
             label="Sumber"
@@ -790,8 +904,19 @@ export default function NotebookScreen() {
   );
 }
 
-/** A question, or an answer with its citations as chips (CitationText). */
-function ChatBubble({ message, notebookId }: { message: NotebookMessage; notebookId?: string }) {
+/** A question, or an answer with its citations as chips (CitationText) and "Salin ke catatan". */
+function ChatBubble({
+  message,
+  notebookId,
+  copying = false,
+  onCopyToNote,
+}: {
+  message: NotebookMessage;
+  notebookId?: string;
+  copying?: boolean;
+  /** Copies the answer and its citations into a new note; without it the button is left out. */
+  onCopyToNote?: () => void;
+}) {
   const theme = useTheme();
   const mine = message.role === 'user';
 
@@ -808,6 +933,19 @@ function ChatBubble({ message, notebookId }: { message: NotebookMessage; noteboo
         <ThemedText type="caption" themeColor="textQuaternary">
           {askModeLabel(askModeOf(message.context))}
         </ThemedText>
+      )}
+      {mine || message.id < 0 ? null : (
+        <Button
+          size="small"
+          variant="secondary"
+          icon="copy"
+          label="Salin ke catatan"
+          loading={copying}
+          disabled={!onCopyToNote}
+          hitSlop={4}
+          onPress={onCopyToNote}
+          style={styles.copyToNote}
+        />
       )}
     </View>
   );
@@ -951,6 +1089,9 @@ const styles = StyleSheet.create({
   },
   mine: {
     alignSelf: 'flex-end',
+  },
+  copyToNote: {
+    alignSelf: 'flex-start',
   },
   thinking: {
     flexDirection: 'row',

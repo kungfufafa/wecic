@@ -90,21 +90,21 @@ export function AddSourceSheet({ visible, busy, error, room, onClose, onUpload, 
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.root}>
         <Pressable style={styles.backdrop} accessibilityRole="button" accessibilityLabel="Tutup" onPress={onClose} />
         <View style={[styles.sheet, { backgroundColor: theme.panel, paddingBottom: Spacing.three + insets.bottom }]} accessibilityViewIsModal>
-          <ThemedText type="subtitle">{mode === 'text' ? 'Tempel teks' : 'Tambah sumber'}</ThemedText>
+          <ThemedText type="subtitle">{mode === 'text' ? 'Tempel teks sebagai sumber' : 'Tambah sumber'}</ThemedText>
           {shownError ? <Notice tone="error" message={shownError} /> : null}
           {full ? <Notice tone="warning" message="Notebook ini sudah mencapai batas sumber. Hapus sumber lain dulu." /> : null}
 
           {mode === 'choose' ? (
             <>
               <ThemedText type="small" themeColor="textSecondary">
-                Foto dan berkas dibaca oleh penyedia AI yang dipakai server. Catatan teks disimpan apa adanya.
+                Foto dan berkas dibaca oleh penyedia AI yang dipakai server. Teks yang ditempel disimpan apa adanya. Untuk menulis catatanmu sendiri, pakai Catatan.
               </ThemedText>
               <Button icon="upload" variant="secondary" label="Foto" loading={busy === 'upload'} disabled={busy !== null || full} onPress={() => void pickPhoto()} />
               <Button icon="document" variant="secondary" label="Berkas" disabled={busy !== null || full} onPress={() => void pickDocument()} />
               <ThemedText type="caption" themeColor="textTertiary">
                 PDF, DOCX, PPTX, TXT, MD, PNG, atau JPG.
               </ThemedText>
-              <Button icon="copy" variant="secondary" label="Tempel teks" disabled={busy !== null || full} onPress={() => setMode('text')} />
+              <Button icon="copy" variant="secondary" label="Tempel teks sebagai sumber" disabled={busy !== null || full} onPress={() => setMode('text')} />
             </>
           ) : (
             <>
@@ -113,7 +113,7 @@ export function AddSourceSheet({ visible, busy, error, room, onClose, onUpload, 
                 label="Isi"
                 value={content}
                 onChangeText={setContent}
-                placeholder="Tempel catatan kuliah, ringkasan, atau teks materi."
+                placeholder="Tempel teks materi, catatan kuliah, atau ringkasan."
                 multiline
                 maxLength={TEXT_CONTENT_MAX}
                 editable={busy === null}
