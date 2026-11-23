@@ -117,6 +117,7 @@ class AcademicPagesTest extends TestCase
 
         // Freshness lives only in the shared sync strip, without duplicating it in the page hero.
         $this->assertCount(0, $crawler->filter('[data-krs-updated]'));
+        $this->assertCount(0, $crawler->filter('main [data-slot="page-hero"] p'));
     }
 
     public function test_krs_page_opens_the_history_tab_from_the_query_string(): void
@@ -161,18 +162,13 @@ class AcademicPagesTest extends TestCase
         $this->assertStringContainsString("'visibilitychange'", $html);
     }
 
-    public function test_krs_detail_page_carries_its_id_and_links_back_to_the_history(): void
+    public function test_krs_detail_page_carries_its_id(): void
     {
         $crawler = $this->crawl('/krs/90004');
 
         $this->assertSame('90004', $crawler->filter('#krs-show-root')->attr('data-krs-id'));
         $this->assertSame('Kartu Rencana Studi', trim($crawler->filter('#krs-show-pretitle')->text()));
         $this->assertStringNotContainsString('#90004', $crawler->filter('main header')->text());
-
-        $back = $crawler->filter('main a[href$="/krs?tab=riwayat"]');
-
-        $this->assertCount(1, $back);
-        $this->assertStringContainsString('Riwayat KRS', $back->text());
 
         foreach (['#krs-show-courses', '#krs-show-aside', '#krs-show-alerts', '#krs-show-chips', '#krs-show-print-note'] as $host) {
             $this->assertCount(1, $crawler->filter($host), $host);
@@ -181,7 +177,7 @@ class AcademicPagesTest extends TestCase
         $this->assertSame('Semester lain', $crawler->filter('#krs-show-nav')->attr('aria-label'));
 
         // "Cetak KRS" prints the title, the period line and the status chips; the
-        // back link and the academic menu stay off paper.
+        // academic menu stays off paper.
         foreach (['#krs-show-title', '#krs-show-subtitle', '#krs-show-pretitle', '#krs-show-chips'] as $printed) {
             $node = $crawler->filter('main '.$printed);
             $this->assertCount(1, $node, $printed);
@@ -189,7 +185,6 @@ class AcademicPagesTest extends TestCase
             $this->assertNotContains('print:hidden', explode(' ', (string) $node->attr('class')), $printed);
         }
 
-        $this->assertContains('print:hidden', explode(' ', (string) $back->attr('class')));
         $this->assertContains('print:hidden', explode(' ', (string) $crawler->filter('main [data-slot="page-hero-tabs"]')->attr('class')));
         $this->assertCount(0, $crawler->filter('main [data-krs-show-updated]'));
 

@@ -11,7 +11,7 @@
 --}}
 @section('content')
     <div id="class-hero">
-        <x-page-hero title="Detail kelas" back="{{ route('class.index') }}" back-label="Kembali" aria-busy="true">
+        <x-page-hero title="Detail kelas" aria-busy="true">
             <span class="sr-only">Memuat detail kelas…</span>
             <x-skeleton class="mt-2 h-4 w-64 max-w-full" />
         </x-page-hero>
@@ -151,10 +151,6 @@
 
                 hero.innerHTML = `
                     <header class="${app.ui.pageHero}" data-slot="page-hero">
-                        <a href="/class" class="${app.ui.backLink} mb-2">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="size-4 shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6l6 6" /></svg>
-                            <span>Kembali</span>
-                        </a>
                         <div class="${app.ui.pageHeroRow}">
                             <div class="min-w-0">
                                 <h1 class="${app.ui.pageHeroTitle}">${app.escapeHtml(courseInfo.name || 'Kelas')}</h1>

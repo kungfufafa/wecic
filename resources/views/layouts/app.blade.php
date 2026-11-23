@@ -200,7 +200,7 @@
 
         <div class="lg:p-2 print:p-0">
             <div class="flex min-h-dvh flex-col bg-panel lg:min-h-[calc(100dvh-1rem)] lg:rounded-xl lg:border lg:border-border lg:shadow-xs dark:lg:shadow-none print:min-h-0 print:rounded-none print:border-0 print:shadow-none">
-                <header class="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-3 border-b border-border bg-panel/90 px-4 backdrop-blur md:px-6 lg:rounded-t-xl lg:px-8 print:hidden">
+                <header class="sticky top-0 z-40 flex h-14 shrink-0 items-center gap-3 border-b border-border bg-panel px-4 md:px-6 lg:-mx-px lg:-mt-px lg:top-2 lg:rounded-t-xl lg:border lg:border-border lg:px-8 lg:shadow-[0_-0.5rem_0_0.5rem_var(--color-canvas)] print:hidden">
                     <a href="{{ route('dashboard') }}" class="inline-flex shrink-0 items-center rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand lg:hidden" aria-label="Beranda">
                         <x-brand-logo class="h-7" />
                     </a>
@@ -238,18 +238,11 @@
 
                         <x-button variant="icon" data-theme-toggle aria-pressed="false" aria-label="Ganti tema">
                             <svg xmlns="http://www.w3.org/2000/svg" class="size-[18px] dark:hidden" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                <path d="M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36a5.39 5.39 0 0 1-4.4 2.6 5.37 5.37 0 0 1-3.14-9.74c-.44-.06-.9-.1-1.36-.1z" />
+                                <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
                             </svg>
                             <svg xmlns="http://www.w3.org/2000/svg" class="hidden size-[18px] dark:block" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                <path d="M12 8a4 4 0 1 0 8 0a4 4 0 0 0 -8 0" />
-                                <path d="M12 2v2" />
-                                <path d="M12 20v2" />
-                                <path d="M4.93 4.93l1.41 1.41" />
-                                <path d="M17.66 17.66l1.41 1.41" />
-                                <path d="M2 12h2" />
-                                <path d="M20 12h2" />
-                                <path d="M6.34 17.66l-1.41 1.41" />
-                                <path d="M19.07 4.93l-1.41 1.41" />
+                                <path d="M12 12m-4 0a4 4 0 1 0 8 0a4 4 0 1 0 -8 0" />
+                                <path d="M3 12h1m8 -9v1m8 8h1m-9 8v1m-6.4 -15.4l.7 .7m12.1 -.7l-.7 .7m0 11.4l.7 .7m-12.1 -.7l-.7 .7" />
                             </svg>
                         </x-button>
 
@@ -318,6 +311,8 @@
                         @yield('content')
                     </div>
                 </main>
+
+                <div class="pointer-events-none sticky bottom-2 z-40 -mx-px -mb-px -mt-[11px] hidden h-3 shrink-0 rounded-b-xl border-x border-b border-border shadow-[0_0.5rem_0_0.5rem_var(--color-canvas)] lg:block print:hidden" aria-hidden="true" data-shell-bottom-cap></div>
             </div>
         </div>
 

@@ -34,7 +34,6 @@
     </style>
 
     <x-page-hero title="Akademik" class="print:hidden">
-        <x-slot:subtitle id="krs-period-label"></x-slot:subtitle>
         <x-slot:tabs><x-academic-menu active="krs" underline /></x-slot:tabs>
     </x-page-hero>
 

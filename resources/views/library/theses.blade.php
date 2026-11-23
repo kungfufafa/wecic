@@ -4,7 +4,7 @@
 @section('page_id', 'library-theses')
 
 @section('content')
-    <x-page-hero title="Repositori skripsi" :back="route('library.index')" back-label="Perpustakaan">
+    <x-page-hero title="Repositori skripsi">
         <x-slot:tabs>
             <x-view-tabs as="div" underline role="group" aria-label="Mode repositori" id="theses-modes">
                 <button type="button" class="inline-flex min-h-11 shrink-0 cursor-pointer select-none items-center gap-1.5 whitespace-nowrap border-b-2 border-transparent px-1 text-sm font-medium text-ink-muted transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:ring-inset aria-selected:border-ink aria-selected:text-ink aria-pressed:border-ink aria-pressed:text-ink aria-[current=page]:border-ink aria-[current=page]:text-ink" data-theses-mode="search" aria-pressed="true">
@@ -20,7 +20,7 @@
     </x-page-hero>
 
     <section id="theses-search-panel" class="flex min-w-0 flex-col gap-3" aria-label="Cari skripsi">
-        <form role="search" id="theses-form" class="sticky top-14 z-20 -mx-4 flex flex-col gap-2 border-b border-border-light bg-panel/95 px-4 py-3 backdrop-blur md:-mx-6 md:px-6 lg:-mx-8 lg:px-8">
+        <form role="search" id="theses-form" class="sticky top-14 z-20 -mx-4 flex flex-col gap-2 border-b border-border-light bg-panel/95 px-4 py-3 backdrop-blur md:-mx-6 md:px-6 lg:-mx-8 lg:top-16 lg:px-8">
             <div class="relative flex w-full items-center">
                 <label for="theses-q" class="sr-only">Cari judul, topik, pembimbing, atau penulis</label>
                 <span class="pointer-events-none absolute start-3 top-1/2 z-10 -translate-y-1/2 text-ink-subtle">

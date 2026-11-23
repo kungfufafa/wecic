@@ -371,8 +371,8 @@ export const ui = Object.freeze({
     sheetAction: 'flex min-h-12 w-full cursor-pointer items-center gap-3 rounded-lg border border-border-light bg-panel px-3 py-2 text-start text-sm transition-colors hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40',
     sheetActionIcon: 'flex size-9 shrink-0 items-center justify-center rounded-lg bg-surface-tint text-brand-text',
 
-    toastHost: 'pointer-events-none fixed inset-x-0 bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))] z-[60] flex flex-col items-center gap-2 px-4 lg:top-4 lg:bottom-auto',
-    toastHostGuest: 'pointer-events-none fixed inset-x-0 bottom-[calc(1rem+env(safe-area-inset-bottom,0px))] z-[60] flex flex-col items-center gap-2 px-4 md:top-4 md:bottom-auto',
+    toastHost: 'pointer-events-none fixed inset-x-0 bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))] z-[60] flex flex-col items-end gap-2.5 px-4 sm:inset-x-auto sm:end-4 sm:w-full sm:max-w-sm sm:px-0 lg:bottom-[calc(1rem+env(safe-area-inset-bottom,0px))]',
+    toastHostGuest: 'pointer-events-none fixed inset-x-0 bottom-[calc(1rem+env(safe-area-inset-bottom,0px))] z-[60] flex flex-col items-end gap-2.5 px-4 sm:inset-x-auto sm:end-4 sm:w-full sm:max-w-sm sm:px-0',
     toast: 'pointer-events-auto flex w-full max-w-sm animate-toast-in items-center gap-3 rounded-xl border border-border bg-panel px-3 py-2.5 text-sm shadow-float motion-reduce:animate-none',
     toastIcon: Object.freeze({
         success: 'flex size-5 shrink-0 items-center justify-center text-success',

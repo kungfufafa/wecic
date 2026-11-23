@@ -8,7 +8,7 @@
 @endsection
 
 @section('content')
-    <x-page-hero :back="route('archive.index')" back-label="Arsip WeCIC" :title="'Riwayat '.$label">
+    <x-page-hero :title="'Riwayat '.$label">
         <div class="mt-4 hidden" id="archive-group-picker">
             <label class="flex max-w-md flex-col gap-1.5">
                 <span class="text-sm font-medium text-ink">Pilih data</span>

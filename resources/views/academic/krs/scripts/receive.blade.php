@@ -4,16 +4,7 @@
     DOMContentLoaded handler opened in academic/krs.blade.php: it shares
     that scope (app, esc, hosts, state and the helpers in setup).
 --}}
-            const renderHeaderPeriod = () => {
-                const label = termLabel(state.krs?.academic_period);
-
-                if (hosts.period && label) {
-                    hosts.period.textContent = label;
-                }
-            };
-
             const renderAll = () => {
-                renderHeaderPeriod();
                 renderStatus();
                 renderSchedule();
                 renderNotes();

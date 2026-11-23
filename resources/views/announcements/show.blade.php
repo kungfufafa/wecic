@@ -4,12 +4,8 @@
 @section('page_id', 'announcement-show')
 
 @section('content')
-    {{-- The plain <x-page-hero> header, written out so the back link keeps its data-announcement-back hook; the script fills #announcement-hero. --}}
+    {{-- The plain <x-page-hero> header; the script fills #announcement-hero. --}}
     <header class="mb-6" data-slot="page-hero">
-        <nav class="mb-2" aria-label="Navigasi pengumuman">
-            <x-back-link :href="route('announcement.index')" data-announcement-back>Semua pengumuman</x-back-link>
-        </nav>
-
         <div class="min-w-0" id="announcement-hero">
             <div class="flex flex-col gap-2">
                 <x-skeleton class="h-3.5 w-24" />

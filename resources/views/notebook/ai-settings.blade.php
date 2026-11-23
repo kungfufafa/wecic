@@ -26,7 +26,7 @@
 @endphp
 
 @section('content')
-    <x-page-hero :back="route('notebook.index')" back-label="Notebook" title="Pengaturan AI" />
+    <x-page-hero title="Pengaturan AI" />
 
     <x-split at="xl">
         {{-- Submitted only by the script below: a native submit must never put the keys in a URL. --}}

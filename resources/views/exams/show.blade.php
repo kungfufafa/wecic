@@ -10,7 +10,7 @@
 --}}
 @section('content')
     <div id="exam-hero">
-        <x-page-hero title="Detail ujian" back="{{ route('exam.index') }}" back-label="Kembali ke daftar" aria-busy="true">
+        <x-page-hero title="Detail ujian" aria-busy="true">
             <span class="sr-only">Memuat detail ujian…</span>
             <x-skeleton class="mt-2 h-4 w-64 max-w-full" />
         </x-page-hero>
@@ -76,7 +76,6 @@
             };
             const svgIcon = (paths, size = 'size-4') => `<svg xmlns="http://www.w3.org/2000/svg" class="${size} shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
             const ICONS = {
-                back: svgIcon('<path d="M15 6l-6 6l6 6" />'),
                 download: svgIcon('<path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2 -2v-2" /><path d="M7 11l5 5l5 -5" /><path d="M12 4l0 12" />'),
             };
 
@@ -383,7 +382,6 @@
 
                 hero.innerHTML = `
                     <header class="${app.ui.pageHero}" data-slot="page-hero">
-                        <a href="/exam" class="${app.ui.backLink} mb-2">${ICONS.back}<span>Kembali ke daftar</span></a>
                         <div class="${app.ui.pageHeroRow}">
                             <div class="min-w-0">
                                 <p class="${app.ui.pageEyebrow}">${app.escapeHtml(heroEyebrow)}</p>

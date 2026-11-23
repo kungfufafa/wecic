@@ -16,7 +16,7 @@
         $aiModelSettings = $notebookAi['model_settings'];
         $aiModelExample = count($aiModelSettings) > 1 ? $aiModelSettings[0].' atau '.$aiModelSettings[count($aiModelSettings) - 1] : ($aiModelSettings[0] ?? '');
     @endphp
-    <x-page-hero :back="route('notebook.index')" back-label="Notebook" class="xl:pb-6">
+    <x-page-hero class="xl:pb-6">
         <x-slot:title><span class="break-words" id="notebook-title">Memuat…</span></x-slot:title>
         <x-slot:subtitle id="notebook-meta"></x-slot:subtitle>
         <x-slot:actions>

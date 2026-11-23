@@ -39,10 +39,13 @@
 
     <div class="flex flex-col gap-6">
         <x-section title="Minggu ini" title-id="class-week-title">
-            {{-- The week strip (scripts/summary): one segment per day, today marked with a dot. --}}
-            <div id="day-summary-strip" class="grid grid-cols-3 gap-1 rounded-xl bg-surface p-1 sm:grid-cols-6">
+            {{-- The week strip (scripts/summary): one cell per day inside a bordered strip, today marked with a dot. --}}
+            <div id="day-summary-strip" class="grid grid-cols-3 gap-px overflow-hidden rounded-xl border border-border bg-border sm:grid-cols-6">
                 @for ($i = 0; $i < 6; $i++)
-                    <div class="h-14 animate-pulse rounded-lg bg-panel/70" aria-hidden="true"></div>
+                    <div class="flex flex-col gap-2 bg-panel p-3.5 sm:p-4" aria-hidden="true">
+                        <x-skeleton class="h-3.5 w-12" />
+                        <x-skeleton class="h-5 w-16" />
+                    </div>
                 @endfor
             </div>
         </x-section>
@@ -83,7 +86,7 @@
 
             <div id="view-blocking" class="view-panel" role="tabpanel" aria-labelledby="tab-blocking">
                 <x-card class="overflow-hidden">
-                    <div id="blocking-grid-container" class="overflow-x-auto">
+                    <div id="blocking-grid-container" class="isolate overflow-x-auto">
                         <div class="flex flex-col items-center gap-2 px-4 py-12 text-center">
                             <x-spinner class="text-ink-subtle" />
                             <p class="text-sm text-ink-subtle">Memuat jadwal...</p>

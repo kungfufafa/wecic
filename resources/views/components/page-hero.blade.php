@@ -10,14 +10,12 @@
     - `breadcrumb` (a list of labels or ['label' => …, 'href' => …]) fills
       the top bar's breadcrumb unless the page sets @section('breadcrumb');
       without it the top bar shows the route's.
-    - `back` (a URL, with `backLabel`) puts a back link above the title, as
-      detail pages do.
     - Slots: the default slot follows the subtitle, `meta` is the row of
       small facts under it ("Diperbarui …", one badge), and `tabs` the
       <x-view-tabs underline> or <x-academic-menu underline> under the header.
-    - The back link never prints; the title, subtitle and meta do (a page
+    - The title, subtitle and meta print (a page
       hides its tabs with <x-slot:tabs class="print:hidden">).
-    - `accent` and `icon` are ignored (kept so older call sites still render);
+    - `accent`, `icon`, `back` and `backLabel` are ignored (kept so older call sites still render);
       delete them where you see them.
 --}}
 @props(['title' => null, 'subtitle' => null, 'accent' => null, 'icon' => null, 'breadcrumb' => null, 'back' => null, 'backLabel' => 'Kembali'])
@@ -32,10 +30,6 @@
 @endphp
 
 <header {{ $attributes->class('mb-6') }} data-slot="page-hero">
-    @if ($back !== null)
-        <x-back-link :href="$back" class="mb-2 print:hidden">{{ $backLabel }}</x-back-link>
-    @endif
-
     <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div class="min-w-0">
             @if ($title instanceof \Illuminate\View\ComponentSlot)

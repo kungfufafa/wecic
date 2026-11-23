@@ -14,7 +14,7 @@
         }
     </style>
 
-    <x-page-hero :back="route('krs.index', ['tab' => 'riwayat'])" back-label="Riwayat KRS">
+    <x-page-hero>
         <x-slot:title id="krs-show-title">Detail KRS</x-slot:title>
         <x-slot:subtitle id="krs-show-subtitle"></x-slot:subtitle>
         <x-slot:meta>

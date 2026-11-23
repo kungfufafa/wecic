@@ -54,6 +54,8 @@ class ClassAndProfilePagesMarkupTest extends TestCase
         $this->withSession(['campus_session_token' => 'token-class-index'])
             ->get('/class')
             ->assertOk()
+            ->assertSee('id="day-summary-strip" class="grid grid-cols-3 gap-px overflow-hidden rounded-xl border border-border bg-border sm:grid-cols-6"', false)
+            ->assertSee('<span class="flex w-full items-center gap-1.5">', false)
             ->assertSee('role="dialog" aria-modal="true" aria-labelledby="modal-class-title"', false)
             ->assertSee('<div role="button" tabindex="0" aria-pressed=', false)
             ->assertSee('<div role="button" tabindex="0" aria-haspopup="dialog"', false)

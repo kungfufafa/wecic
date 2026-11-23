@@ -18,7 +18,6 @@
                 printHeader: document.getElementById('krs-print-header'),
                 dpa: document.getElementById('krs-dpa'),
                 history: document.getElementById('krs-history'),
-                period: document.getElementById('krs-period-label'),
             };
             const state = { krs: null, krsMeta: null, advising: null, advisingMeta: null, detail: null, detailRequested: false, renderedDay: null };
             const todayKey = () => new Date().toLocaleDateString('sv-SE');

@@ -57,7 +57,7 @@ class PortalActionPagesTest extends TestCase
             ->assertSee('if (error.status === 409 && error.payload?.data?.operation_id) {', false);
     }
 
-    public function test_meeting_page_sends_typed_codes_like_scanned_ones_and_goes_back_where_the_student_came_from(): void
+    public function test_meeting_page_sends_typed_codes_like_scanned_ones(): void
     {
         $this->mockValidCampusSession('token-meeting');
 
@@ -67,8 +67,7 @@ class PortalActionPagesTest extends TestCase
             ->assertSee('placeholder="Contoh: 8a2b9c1d"', false)
             ->assertDontSee('font-bold uppercase tracking-widest', false)
             ->assertSee("const kode = normalizeAttendanceCode(document.getElementById('attendance-code')?.value);", false)
-            ->assertSee('href="${app.escapeHtml(backHref(detail.class_url))}"', false)
-            ->assertDontSee('href="/class" class="${app.ui.backLink} mb-2">${BACK_ICON}', false);
+            ->assertDontSee('app.ui.backLink', false);
     }
 
     public function test_meeting_link_without_course_explains_itself_instead_of_a_blank_page(): void

@@ -13,7 +13,7 @@
 --}}
 @section('content')
     <div id="meeting-hero">
-        <x-page-hero title="Detail pertemuan" back="{{ route('class.index') }}" back-label="Kembali" aria-busy="true">
+        <x-page-hero title="Detail pertemuan" aria-busy="true">
             <span class="sr-only">Memuat detail pertemuan…</span>
             <div class="mt-2 flex flex-wrap items-center gap-2" aria-hidden="true">
                 <x-skeleton class="h-5 w-32" />

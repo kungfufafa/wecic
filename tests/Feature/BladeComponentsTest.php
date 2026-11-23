@@ -483,7 +483,7 @@ class BladeComponentsTest extends TestCase
         $this->assertNull($hero->attr('icon'));
     }
 
-    public function test_page_hero_takes_title_slots_tabs_and_a_back_link(): void
+    public function test_page_hero_takes_title_slots_and_tabs(): void
     {
         $hero = $this->render(<<<'BLADE'
             <x-page-hero back="/announcement" back-label="Pengumuman" :icon="false">
@@ -498,9 +498,8 @@ class BladeComponentsTest extends TestCase
         $this->assertSame($this->ui('pageHeroTitle'), $hero->filter('h1#announcement-title')->attr('class'));
         $this->assertSame('', $hero->filter('h1')->attr('data-announcement-title'));
         $this->assertSame($this->ui('pageHeroSubtitle'), $hero->filter('#announcement-meta')->attr('class'));
-        $this->assertSame('/announcement', $hero->filter('a')->first()->attr('href'));
-        $this->assertSame($this->ui('backLink').' mb-2 print:hidden', $hero->filter('a')->first()->attr('class'));
-        // An icon slot from an older page is dropped.
+        // Back links and icon slots from older pages are ignored.
+        $this->assertCount(0, $hero->filter('header > a'));
         $this->assertCount(0, $hero->filter('[data-legacy-icon]'));
 
         $tabs = $hero->filter('[data-slot="page-hero-tabs"]');

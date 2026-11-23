@@ -295,6 +295,30 @@ class AppShellPagesTest extends TestCase
         $this->assertContains('overflow-x-clip', explode(' ', (string) $crawler->filter('main')->attr('class')));
     }
 
+    public function test_the_inset_shell_frame_and_top_bar_stay_fixed_above_scrolled_content(): void
+    {
+        $this->mockValidCampusSession('token-shell', 2);
+
+        $crawler = $this->crawl('/class');
+        $headerClasses = explode(' ', (string) $crawler->filter('[data-app-shell] header')->first()->attr('class'));
+        $bottomCapClasses = explode(' ', (string) $crawler->filter('[data-shell-bottom-cap]')->attr('class'));
+
+        foreach (['sticky', 'top-0', 'z-40', 'bg-panel', 'lg:top-2', 'lg:rounded-t-xl', 'lg:border', 'lg:border-border', 'lg:shadow-[0_-0.5rem_0_0.5rem_var(--color-canvas)]'] as $class) {
+            $this->assertContains($class, $headerClasses);
+        }
+
+        $this->assertNotContains('bg-panel/90', $headerClasses);
+
+        foreach (['pointer-events-none', 'sticky', 'bottom-2', 'z-40', 'rounded-b-xl', 'border-x', 'border-b', 'border-border', 'shadow-[0_0.5rem_0_0.5rem_var(--color-canvas)]', 'lg:block'] as $class) {
+            $this->assertContains($class, $bottomCapClasses);
+        }
+
+        $this->assertContains('isolate', explode(' ', (string) $crawler->filter('#blocking-grid-container')->attr('class')));
+
+        $theses = $this->crawl('/library/theses');
+        $this->assertContains('lg:top-16', explode(' ', (string) $theses->filter('#theses-form')->attr('class')));
+    }
+
     public function test_nav_slots_carry_badge_hooks(): void
     {
         $this->mockValidCampusSession('token-shell');
@@ -358,6 +382,11 @@ class AppShellPagesTest extends TestCase
         $this->assertCount(1, $crawler->filter('header [data-account-menu-trigger] [data-user-avatar]'));
         $this->assertCount(1, $crawler->filter('header [data-account-menu-panel] [data-logout]'));
         $this->assertStringContainsString('lg:hidden', (string) $crawler->filter('header [data-account-menu]')->attr('class'));
+
+        $themeToggleSvgs = $crawler->filter('header [data-theme-toggle] svg');
+        $this->assertCount(2, $themeToggleSvgs);
+        $this->assertSame('M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z', $themeToggleSvgs->eq(0)->filter('path')->first()->attr('d'));
+        $this->assertSame('M12 12m-4 0a4 4 0 1 0 8 0a4 4 0 1 0 -8 0', $themeToggleSvgs->eq(1)->filter('path')->first()->attr('d'));
     }
 
     public function test_desktop_nav_is_a_sidebar_beside_the_page_instead_of_an_overlay(): void

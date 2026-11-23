@@ -55,6 +55,7 @@ return [
         'announcement.show' => ['section' => 'pengumuman', 'crumbs' => [['Pengumuman', 'announcement.index'], ['Detail pengumuman']]],
         'notifications.index' => ['section' => 'notifikasi', 'crumbs' => [['Notifikasi']]],
         'notebook.index' => ['section' => 'notebook', 'crumbs' => [['Lainnya', 'more'], ['Notebook']]],
+        'notebook.review' => ['section' => 'notebook', 'crumbs' => [['Notebook', 'notebook.index'], ['Ulasan harian']]],
         'notebook.show' => ['section' => 'notebook', 'crumbs' => [['Notebook', 'notebook.index'], ['Detail notebook']]],
         'notebook.ai-settings' => ['section' => 'notebook', 'icon' => 'settings', 'crumbs' => [['Notebook', 'notebook.index'], ['Pengaturan AI']]],
         'archive.index' => ['section' => 'arsip', 'crumbs' => [['Lainnya', 'more'], ['Arsip WeCIC']]],
@@ -63,6 +64,7 @@ return [
 
         'profile' => ['section' => 'akun', 'crumbs' => [['Akun'], ['Profil']]],
         'password.edit' => ['section' => 'akun', 'icon' => 'lock', 'crumbs' => [['Akun'], ['Ubah password']]],
+        'account.delete' => ['section' => 'akun', 'crumbs' => [['Akun'], ['Hapus akun']]],
         'more' => ['section' => 'akun', 'icon' => 'more', 'crumbs' => [['Lainnya']]],
     ],
 ];

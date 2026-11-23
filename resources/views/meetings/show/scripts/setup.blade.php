@@ -1,6 +1,6 @@
 {{--
-    Pertemuan script, the meeting and course ids, the constants, the
-    "Kembali" link, the not-found state, and the endpoint (a link without
+    Pertemuan script, the meeting and course ids, the constants,
+    the not-found state, and the endpoint (a link without
     the course stops here). Every later part uses them. Part of the
     DOMContentLoaded handler opened in meetings/show.blade.php: it shares
     that scope (app, meetingId, coursesId, endpoint and the constants in
@@ -17,33 +17,9 @@
                 january: 1, february: 2, march: 3, may: 5, june: 6, july: 7, august: 8, october: 10, december: 12,
             };
 
-            /**
-             * "Kembali" returns to the MyCIC page the student came from (class page,
-             * dashboard), else to this meeting's class, else to the class list.
-             */
-            const backHref = (classUrl = null) => {
-                try {
-                    const referrer = document.referrer ? new URL(document.referrer) : null;
-
-                    if (referrer
-                        && referrer.origin === window.location.origin
-                        && !referrer.pathname.startsWith('/meeting/')
-                        && !['/', '/login'].includes(referrer.pathname)) {
-                        return `${referrer.pathname}${referrer.search}`;
-                    }
-                } catch (error) {
-                    // An unreadable referrer falls back to the class page.
-                }
-
-                return classUrl || '/class';
-            };
-
-            const BACK_ICON = '<svg xmlns="http://www.w3.org/2000/svg" class="size-4 shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6l6 6" /></svg>';
-
             const renderNotFound = (message, subtitle = 'Buka halaman Kelas lalu pilih pertemuan dari daftar materi.') => {
                 document.getElementById('meeting-hero').innerHTML = `
                     <header class="${app.ui.pageHero}" data-slot="page-hero">
-                        <a href="${app.escapeHtml(backHref())}" class="${app.ui.backLink} mb-2">${BACK_ICON}<span>Kembali</span></a>
                         <div class="min-w-0">
                             <h1 class="${app.ui.pageHeroTitle}">Pertemuan tidak ditemukan</h1>
                             <p class="${app.ui.pageHeroSubtitle}">${app.escapeHtml(message)}</p>

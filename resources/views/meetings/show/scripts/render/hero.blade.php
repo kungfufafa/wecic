@@ -1,6 +1,6 @@
 {{--
-    Pertemuan script, the plain page header (app.ui.pageHero…): the back
-    link, the course and meeting number as a muted line, the topic, and the
+    Pertemuan script, the plain page header (app.ui.pageHero…):
+    the course and meeting number as a muted line, the topic, and the
     lecturer, date and time as meta. The attendance status is shown once, in
     the Presensi card (action-cards), not here as well. Part of render() opened in
     meetings/show/scripts/render.blade.php: it shares that scope (payload,
@@ -18,7 +18,6 @@
 
                 hero.innerHTML = `
                     <header class="${app.ui.pageHero}" data-slot="page-hero">
-                        <a href="${app.escapeHtml(backHref(detail.class_url))}" class="${app.ui.backLink} mb-2">${BACK_ICON}<span>Kembali</span></a>
                         <div class="${app.ui.pageHeroRow}">
                             <div class="min-w-0">
                                 <div class="mb-1 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 text-[13px] text-ink-muted">

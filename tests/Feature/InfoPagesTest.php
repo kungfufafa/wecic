@@ -146,7 +146,7 @@ class InfoPagesTest extends TestCase
         $crawler = new Crawler((string) $response->getContent());
 
         $this->assertSame(self::ANNOUNCEMENT_ID, $crawler->filter('#announcement-detail')->attr('data-announcement-id'));
-        $this->assertSame(route('announcement.index'), $crawler->filter('[data-announcement-back]')->attr('href'));
+        $this->assertCount(0, $crawler->filter('main [data-slot="page-hero"] a'));
 
         $response
             ->assertSee('const detailUrl = `/api/announcement/${announcementId}`;', false)

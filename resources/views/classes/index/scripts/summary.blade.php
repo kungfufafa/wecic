@@ -41,11 +41,11 @@
                 }
             };
 
-            // Full class strings per state: the selected day is raised like a tab, today reads in ink.
-            const DAY_SEGMENT_BASE = 'flex min-h-11 cursor-pointer select-none flex-col items-start gap-0.5 rounded-lg px-3 py-2 text-start transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40';
-            const DAY_SEGMENT_SELECTED = 'bg-panel text-ink shadow-xs ring-1 ring-border dark:bg-surface-tint dark:ring-white/10';
-            const DAY_SEGMENT_TODAY = 'text-ink hover:bg-panel/60 dark:hover:bg-white/5';
-            const DAY_SEGMENT_IDLE = 'text-ink-muted hover:bg-panel/60 hover:text-ink dark:hover:bg-white/5';
+            // Full class strings per state: cells of a bordered 1px-divider strip.
+            const DAY_SEGMENT_BASE = 'flex min-h-11 min-w-0 cursor-pointer select-none flex-col items-start gap-1 p-3.5 text-start transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand/40 sm:p-4';
+            const DAY_SEGMENT_SELECTED = 'bg-surface-tint text-ink ring-1 ring-inset ring-brand/25';
+            const DAY_SEGMENT_TODAY = 'bg-panel text-ink hover:bg-surface/60';
+            const DAY_SEGMENT_IDLE = 'bg-panel text-ink-muted hover:bg-surface/60 hover:text-ink';
 
             const renderDaySummaryStrip = (dayMap) => {
                 dayStripHost.innerHTML = DAYS_LIST.map((d) => {
@@ -55,18 +55,22 @@
                     const hasClasses = count > 0;
                     const isSelected = selectedDayFilter === d;
                     const gapNote = group.gaps.length > 0
-                        ? `<span class="text-[11px] text-ink-subtle tabular-nums">${group.gaps.length} jeda</span>`
+                        ? `<span class="text-xs text-ink-subtle tabular-nums">${group.gaps.length} jeda</span>`
                         : '';
                     const stateClass = isSelected ? DAY_SEGMENT_SELECTED : (isToday ? DAY_SEGMENT_TODAY : DAY_SEGMENT_IDLE);
+                    const labelClass = isSelected ? 'text-brand-text font-semibold' : (isToday ? 'text-ink font-semibold' : 'text-ink-muted font-medium');
+                    const countClass = hasClasses
+                        ? (isSelected ? 'text-brand-text font-semibold' : 'text-ink font-semibold')
+                        : 'text-ink-subtle font-normal';
 
                     // aria-pressed marks the selected day; aria-current="date" marks today.
                     return `
                         <div role="button" tabindex="0" aria-pressed="${isSelected ? 'true' : 'false'}"${isToday ? ' aria-current="date"' : ''} class="${DAY_SEGMENT_BASE} ${stateClass}" data-day-trigger="${d}" title="${isSelected ? 'Tampilkan semua hari' : `Filter ${d}`}">
-                            <span class="flex w-full items-center justify-between gap-1.5">
-                                <span class="text-[13px] font-medium">${d}</span>
+                            <span class="flex w-full items-center gap-1.5">
+                                <span class="text-xs ${labelClass}">${d}</span>
                                 ${isToday ? `<span class="block size-1.5 shrink-0 rounded-full ${app.ui.fill.brand}" aria-hidden="true"></span><span class="sr-only">Hari ini</span>` : ''}
                             </span>
-                            <span class="text-xs tabular-nums ${hasClasses ? 'font-semibold' : 'opacity-70'}">
+                            <span class="text-sm leading-tight tabular-nums ${countClass}">
                                 ${hasClasses ? `${count} kelas` : 'Libur'}
                             </span>
                             ${gapNote}

@@ -12,7 +12,7 @@
     No AI and no daily AI budget.
 --}}
 @section('content')
-    <x-page-hero :back="route('notebook.index')" back-label="Notebook" title="Ulasan harian" />
+    <x-page-hero title="Ulasan harian" />
 
     <div class="mx-auto flex w-full max-w-2xl min-w-0 flex-col gap-4">
         <p class="text-sm text-ink-muted tabular-nums" id="review-progress" role="status" aria-live="polite">Memuat kartu…</p>
