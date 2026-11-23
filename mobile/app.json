@@ -210,7 +210,7 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "WeCIC membuka foto yang kamu pilih untuk membaca QR absensi.",
+          "photosPermission": "WeCIC membuka foto yang kamu pilih untuk membaca QR absensi, atau untuk menambahkannya sebagai sumber Notebook. Foto sumber dikirim ke penyedia AI yang dipakai server agar teksnya bisa dibaca.",
           "microphonePermission": false
         }
       ],

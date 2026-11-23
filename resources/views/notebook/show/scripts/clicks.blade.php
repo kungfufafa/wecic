@@ -1,5 +1,6 @@
 {{--
-    Notebook script, the click handler shared by the panels: citations,
+    Notebook script, the click handler shared by the panels: citations
+    (and opening them in the source viewer), viewing a source,
     suggestions, pins, Studio, deleting or retrying a source, deleting a
     message, quiz practice (answers, "Soal ini salah?", Ulangi, Tinjau yang
     salah, Buat latihan dari yang salah) and flashcards (deck and grid). Part of the DOMContentLoaded
@@ -14,6 +15,8 @@
                 }
 
                 const cite = target.closest('[data-cite]');
+                const openSource = target.closest('[data-open-source]');
+                const viewSource = target.closest('[data-view-source]');
                 const suggestion = target.closest('[data-suggestion]');
                 const pin = target.closest('[data-pin]');
                 const studio = target.closest('[data-studio]');
@@ -30,6 +33,18 @@
 
                 if (cite) {
                     showCitation(cite);
+                } else if (openSource) {
+                    const position = openSource.dataset.openPosition;
+
+                    await openSourceViewer({
+                        sourceId: Number(openSource.dataset.openSource),
+                        around: position === '' || position === undefined ? null : Number(position),
+                        messageId: Number(openSource.dataset.openMessage),
+                        n: Number(openSource.dataset.openN),
+                        fromCitation: true,
+                    });
+                } else if (viewSource) {
+                    await openSourceViewer({ sourceId: Number(viewSource.dataset.viewSource) });
                 } else if (suggestion) {
                     ask(suggestion.dataset.suggestion);
                 } else if (quizOption && !quizOption.disabled) {

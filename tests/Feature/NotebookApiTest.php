@@ -170,6 +170,9 @@ class NotebookApiTest extends TestCase
             ->assertJsonPath('data.answer.citations.0.n', 1)
             ->assertJsonPath('data.answer.citations.0.page', 1)
             ->assertJsonPath('data.answer.citations.1.excerpt', 'Bentuk normal ketiga menghapus ketergantungan transitif.')
+            ->assertJsonPath('data.answer.citations.0.position', 0)
+            ->assertJsonPath('data.answer.citations.1.position', 1)
+            ->assertJsonPath('data.answer.citations.1.chunk_id', NotebookChunk::query()->where('position', 1)->value('id'))
             ->assertJsonCount(2, 'data.answer.citations');
         Http::assertSent(function (Request $request): bool {
             $prompt = $request['contents'][0]['parts'][0]['text'] ?? '';
@@ -177,6 +180,98 @@ class NotebookApiTest extends TestCase
             return str_contains($prompt, '[1] (Sumber: Modul, hlm. 1)') && str_ends_with($prompt, 'Pertanyaan: Apa itu 3NF?');
         });
         $this->assertSame(2, NotebookMessage::query()->count());
+    }
+
+    public function test_a_cited_chunk_opens_in_its_source_with_its_neighbours_without_the_model(): void
+    {
+        Http::fake();
+        $notebook = $this->notebookWithChunks(array_map(static fn (int $index): array => ['page' => intdiv($index, 3) + 1, 'content' => "Bagian {$index}."], range(0, 9)));
+        $source = NotebookSource::query()->sole();
+        NotebookAiConsent::query()->delete();
+
+        $this->getAsStudent("/api/notebooks/{$notebook->id}/sources/{$source->id}/chunks?around=5")
+            ->assertOk()
+            ->assertJsonPath('status', 'success')
+            ->assertJsonPath('data.source.id', $source->id)
+            ->assertJsonPath('data.source.title', 'Modul')
+            ->assertJsonPath('data.around', 5)
+            ->assertJsonPath('data.chunks.*.position', range(0, 9))
+            ->assertJsonPath('data.chunks.5', ['position' => 5, 'page' => 2, 'content' => 'Bagian 5.'])
+            ->assertJsonPath('data.has_before', false)
+            ->assertJsonPath('data.has_after', false);
+        Http::assertNothingSent();
+    }
+
+    public function test_the_source_window_is_capped_around_the_cited_chunk(): void
+    {
+        $notebook = $this->notebookWithChunks(array_map(static fn (int $index): array => ['page' => null, 'content' => "Bagian {$index}."], range(0, 99)));
+        $source = NotebookSource::query()->sole();
+        $uri = "/api/notebooks/{$notebook->id}/sources/{$source->id}/chunks";
+
+        $middle = $this->getAsStudent($uri.'?around=50')->assertOk()->assertJsonCount(40, 'data.chunks');
+        $this->assertSame(range(35, 74), $middle->json('data.chunks.*.position'));
+        $middle->assertJsonPath('data.has_before', true)->assertJsonPath('data.has_after', true)->assertJsonPath('data.chunks.0.page', null);
+
+        // Near the end the window reaches back instead of coming up short.
+        $end = $this->getAsStudent($uri.'?around=98')->assertOk()->assertJsonCount(40, 'data.chunks');
+        $this->assertSame(range(60, 99), $end->json('data.chunks.*.position'));
+        $end->assertJsonPath('data.has_after', false);
+
+        $start = $this->getAsStudent($uri)->assertOk()->assertJsonCount(40, 'data.chunks')->assertJsonPath('data.around', null);
+        $this->assertSame(range(0, 39), $start->json('data.chunks.*.position'));
+
+        $this->getAsStudent($uri.'?around=-1')->assertStatus(422)->assertJsonPath('message', 'Posisi potongan tidak valid.');
+        $this->getAsStudent($uri.'?around=satu')->assertStatus(422)->assertJsonPath('message', 'Posisi potongan harus berupa angka.');
+    }
+
+    public function test_an_old_citation_without_a_position_opens_where_its_excerpt_is(): void
+    {
+        $notebook = $this->notebookWithChunks([
+            ['page' => 1, 'content' => 'Pendahuluan basis data.'],
+            ['page' => 2, 'content' => str_repeat('Normalisasi mengurangi redundansi. ', 20)],
+            ['page' => 3, 'content' => 'Penutup.'],
+        ]);
+        $source = NotebookSource::query()->sole();
+        $message = NotebookMessage::factory()->create([
+            'notebook_id' => $notebook->id,
+            'role' => 'assistant',
+            'kind' => 'chat',
+            'content' => 'Normalisasi [1].',
+            'citations' => [['n' => 1, 'source_id' => $source->id, 'source_title' => 'Modul', 'page' => 2, 'excerpt' => mb_strimwidth(str_repeat('Normalisasi mengurangi redundansi. ', 20), 0, 400, '…')]],
+        ]);
+        $uri = "/api/notebooks/{$notebook->id}/sources/{$source->id}/chunks";
+
+        $this->getAsStudent($uri."?message={$message->id}&n=1")->assertOk()->assertJsonPath('data.around', 1)->assertJsonCount(3, 'data.chunks');
+        $this->getAsStudent($uri."?message={$message->id}&n=7")->assertOk()->assertJsonPath('data.around', null);
+        $this->getAsStudent($uri.'?n=1')->assertStatus(422)->assertJsonPath('message', 'Kirim id pesan bersama nomor rujukannya.');
+
+        $foreign = Notebook::factory()->forOwner('someone-else')->create();
+        $foreignMessage = NotebookMessage::factory()->create(['notebook_id' => $foreign->id, 'citations' => $message->citations]);
+        $this->getAsStudent($uri."?message={$foreignMessage->id}&n=1")->assertNotFound()->assertJsonPath('message', 'Pesan tidak ditemukan.');
+    }
+
+    public function test_sources_of_other_notebooks_cannot_be_opened(): void
+    {
+        Http::fake();
+        $notebook = $this->notebookWithChunks([['page' => 1, 'content' => 'Milik sendiri.']]);
+        $foreign = Notebook::factory()->forOwner('someone-else')->create();
+        $foreignSource = NotebookSource::factory()->create(['notebook_id' => $foreign->id]);
+        NotebookChunk::query()->create(['notebook_source_id' => $foreignSource->id, 'notebook_id' => $foreign->id, 'position' => 0, 'page' => 1, 'content' => 'Rahasia orang lain.']);
+        $otherNotebook = $this->notebook();
+        $otherSource = NotebookSource::factory()->create(['notebook_id' => $otherNotebook->id]);
+
+        $this->getAsStudent("/api/notebooks/{$foreign->id}/sources/{$foreignSource->id}/chunks?around=0")
+            ->assertNotFound()
+            ->assertJsonPath('message', 'Notebook tidak ditemukan.')
+            ->assertDontSee('Rahasia orang lain.');
+        // A source of the student's own other notebook, or of someone else's, is not found under this one.
+        $this->getAsStudent("/api/notebooks/{$notebook->id}/sources/{$otherSource->id}/chunks?around=0")
+            ->assertNotFound()
+            ->assertJsonPath('message', 'Sumber tidak ditemukan.');
+        $this->getAsStudent("/api/notebooks/{$notebook->id}/sources/{$foreignSource->id}/chunks?around=0")
+            ->assertNotFound()
+            ->assertDontSee('Rahasia orang lain.');
+        Http::assertNothingSent();
     }
 
     public function test_previous_turns_are_sent_as_conversation_history(): void
@@ -543,7 +638,8 @@ class NotebookApiTest extends TestCase
             ->assertJsonPath('data.message.kind', 'quiz')
             ->assertJsonPath('data.message.pinned', true)
             ->assertJsonPath('data.message.data.0.answer_index', 1)
-            ->assertJsonPath('data.message.citations.0.page', 4);
+            ->assertJsonPath('data.message.citations.0.page', 4)
+            ->assertJsonPath('data.message.citations.0.position', 0);
         Http::assertSent(fn (Request $request): bool => ($request['generationConfig']['responseMimeType'] ?? null) === 'application/json'
             && ($request['generationConfig']['responseSchema']['type'] ?? null) === 'OBJECT'
             && ($request['generationConfig']['responseSchema']['properties']['items']['type'] ?? null) === 'ARRAY');

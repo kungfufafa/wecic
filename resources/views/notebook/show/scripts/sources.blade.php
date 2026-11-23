@@ -77,6 +77,7 @@
                             ${source.waiting && !source.error ? '<p class="mt-2 text-xs text-ink-muted">Menunggu giliran dibaca. Beberapa berkas dibaca sekaligus; sisanya menyusul otomatis.</p>' : ''}
                             ${source.summary ? `<details class="mt-2"><summary class="cursor-pointer text-xs font-medium text-brand-text">Ringkasan sumber</summary><p class="mt-1 whitespace-pre-line text-xs leading-relaxed text-ink-muted">${app.escapeHtml(source.summary)}</p></details>` : ''}
                             <div class="mt-2 flex gap-1">
+                                ${ready ? `<button type="button" class="${app.ui.button.ghostSm}" data-view-source="${source.id}" aria-label="Lihat isi ${app.escapeHtml(source.title)}">Lihat isi</button>` : ''}
                                 ${canRetry || canReadNow ? `<button type="button" class="${app.ui.button.ghostSm}" data-retry-source="${source.id}">${canReadNow ? 'Baca sekarang' : 'Baca ulang'}</button>` : ''}
                                 <button type="button" class="${app.ui.button.ghostSm} text-danger! hover:bg-danger-soft!" data-delete-source="${source.id}">Hapus</button>
                             </div>

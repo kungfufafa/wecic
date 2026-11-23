@@ -170,6 +170,7 @@
             @include('notebook.show.scripts.studio')
             @include('notebook.show.scripts.meeting-picker')
             @include('notebook.show.scripts.controls')
+            @include('notebook.show.scripts.source-viewer')
             @include('notebook.show.scripts.clicks')
             @include('notebook.show.scripts.add-sources')
             @include('notebook.show.scripts.header-buttons')

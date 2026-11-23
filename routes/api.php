@@ -194,6 +194,7 @@ Route::middleware($sessionMiddleware)->group(function () {
             Route::delete('{notebook}', 'destroy')->whereNumber('notebook');
             Route::post('{notebook}/sources', 'storeSource')->whereNumber('notebook')->middleware('throttle:notebook-sources');
             Route::post('{notebook}/sources/{source}/retry', 'retrySource')->whereNumber(['notebook', 'source'])->middleware('throttle:notebook-sources');
+            Route::get('{notebook}/sources/{source}/chunks', 'sourceChunks')->whereNumber(['notebook', 'source'])->middleware('throttle:notebook-sources');
             Route::delete('{notebook}/sources/{source}', 'destroySource')->whereNumber(['notebook', 'source']);
             Route::post('{notebook}/messages', 'ask')->whereNumber('notebook')->middleware('throttle:notebook-ai');
             Route::post('{notebook}/studio', 'studio')->whereNumber('notebook')->middleware('throttle:notebook-ai');

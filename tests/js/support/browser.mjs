@@ -250,6 +250,30 @@ export class FakeElement extends EventTarget {
         children.forEach((child) => this.appendChild(child));
     }
 
+    replaceChildren(...children) {
+        this.textContent = '';
+        this.append(...children);
+    }
+
+    get parentElement() {
+        return this.parentNode instanceof FakeElement ? this.parentNode : null;
+    }
+
+    /**
+     * In a document: under an <html> root.
+     */
+    get isConnected() {
+        let element = this;
+
+        while (element.parentNode instanceof FakeElement) {
+            element = element.parentNode;
+        }
+
+        return element.tagName === 'HTML';
+    }
+
+    scrollIntoView() {}
+
     remove() {
         if (this.parentNode) {
             this.parentNode.children = this.parentNode.children.filter((child) => child !== this);

@@ -613,7 +613,7 @@ class NotebookAssistant
      * as written.
      *
      * @param  list<array{n: int, chunk: NotebookChunk, source: NotebookSource}>  $excerpts
-     * @return array{0: string, 1: list<array{n: int, source_id: int, source_title: string, page: int|null, excerpt: string}>}
+     * @return array{0: string, 1: list<array{n: int, source_id: int, source_title: string, page: int|null, position: int, chunk_id: int, excerpt: string}>}
      */
     private function citeText(string $text, array $excerpts): array
     {
@@ -672,9 +672,13 @@ class NotebookAssistant
     }
 
     /**
+     * `position` with `source_id` opens the citation in its source (GET
+     * …/sources/{source}/chunks?around=); it still points near the right
+     * text after the source is read again, when chunk ids are new.
+     *
      * @param  list<int>  $numbers
      * @param  list<array{n: int, chunk: NotebookChunk, source: NotebookSource}>  $excerpts
-     * @return list<array{n: int, source_id: int, source_title: string, page: int|null, excerpt: string}>
+     * @return list<array{n: int, source_id: int, source_title: string, page: int|null, position: int, chunk_id: int, excerpt: string}>
      */
     private function citeNumbers(array $numbers, array $excerpts): array
     {
@@ -687,6 +691,8 @@ class NotebookAssistant
             'source_id' => $byNumber[$number]['source']->id,
             'source_title' => $byNumber[$number]['source']->title,
             'page' => $byNumber[$number]['chunk']->page,
+            'position' => $byNumber[$number]['chunk']->position,
+            'chunk_id' => $byNumber[$number]['chunk']->id,
             'excerpt' => mb_strimwidth($byNumber[$number]['chunk']->content, 0, 400, '…'),
         ], $numbers);
     }

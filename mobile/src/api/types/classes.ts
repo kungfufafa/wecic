@@ -149,6 +149,45 @@ export type NotebookPracticeResult = { score: number; total: number; missed: num
 /** What is left of today's AI requests. */
 export type NotebookAiBudget = { limit: number; used: number; remaining: number };
 
+/**
+ * An excerpt an output cites as `[n]`. `position` (with `source_id`) opens it in its source
+ * (GET notebooks/{id}/sources/{source}/chunks?around=); citations saved before it existed have neither `position`
+ * nor `chunk_id`.
+ */
+export type NotebookCitation = {
+  n: number;
+  source_id?: number;
+  source_title?: string;
+  page?: number | null;
+  position?: number;
+  chunk_id?: number;
+  excerpt?: string;
+};
+
+/** What an output was given (NotebookController CONTEXT_ITEM); every field is missing on older outputs. */
+export type NotebookMessageContext = {
+  source_ids?: number[];
+  sources?: { id: number; title: string; meeting_number: number | null }[];
+  total_sources?: number;
+  excerpts?: number;
+  chars?: number;
+  partial?: boolean;
+  focus?: string | null;
+  /** Missing on answers from before modes existed. */
+  mode?: NotebookAskMode | string | null;
+  /** A quiz or flashcards carry their options. */
+  options?: NotebookStudioOptions | null;
+  /** The last practice on a quiz or flashcards (kept without AI). */
+  practice?: NotebookPracticeResult | null;
+  /** A quiz made from missed items names them. */
+  practice_from?: { message_id: number; missed: number[] } | null;
+  truncated?: boolean;
+  provider?: string;
+  model?: string;
+  usage?: { input_tokens: number | null; output_tokens: number | null; thoughts_tokens: number | null };
+};
+
+/** A message as NotebookController MESSAGE_ITEM sends it. */
 export type NotebookMessage = {
   id: number;
   role: 'user' | 'assistant' | string;
@@ -156,19 +195,27 @@ export type NotebookMessage = {
   content: string;
   data?: unknown;
   /** The excerpts the output cites, by their number `n`. */
-  citations?: { n: number; source_id?: number; source_title?: string; page?: number | null; excerpt?: string }[];
-  /**
-   * What the output was given; `mode` is missing on answers from before modes existed. A quiz or flashcards carry their
-   * `options` and the last `practice` (kept without AI); a quiz made from missed items names them in `practice_from`.
-   */
-  context?: {
-    mode?: NotebookAskMode | string | null;
-    options?: NotebookStudioOptions | null;
-    practice?: NotebookPracticeResult | null;
-    practice_from?: { message_id: number; missed: number[] } | null;
-  } | null;
+  citations?: NotebookCitation[];
+  context?: NotebookMessageContext | null;
   pinned?: boolean;
   created_at?: string | null;
+};
+
+/** A passage of a source as the AI read it; `page` is null for sources without pages (DOCX, notes). */
+export type NotebookChunk = { position: number; page: number | null; content: string };
+
+/**
+ * A window of a source's chunks (at most 40). `around` is the cited position (the server's match for an old
+ * citation, or null when it found none); `has_before`/`has_after` say there is more outside the window.
+ */
+export type NotebookSourceChunksResponse = ApiEnvelope & {
+  data: {
+    source: NotebookSource;
+    chunks: NotebookChunk[];
+    around: number | null;
+    has_before?: boolean;
+    has_after?: boolean;
+  };
 };
 
 export type NotebookMeeting = {

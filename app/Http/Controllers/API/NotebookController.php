@@ -7,6 +7,7 @@ namespace App\Http\Controllers\API;
 use App\Exceptions\NotebookAiException;
 use App\Http\Requests\AddNotebookMeetingRequest;
 use App\Http\Requests\AskNotebookRequest;
+use App\Http\Requests\NotebookSourceChunksRequest;
 use App\Http\Requests\NotebookStudioRequest;
 use App\Http\Requests\StoreCourseNotebookRequest;
 use App\Http\Requests\StoreNotebookRequest;
@@ -24,10 +25,12 @@ use App\Services\NotebookAssistant;
 use App\Services\NotebookCourseSync;
 use App\Services\NotebookLibrary;
 use App\Services\NotebookPractice;
+use App\Services\NotebookSourceViewer;
 use App\Services\PortalArchivedFileStore;
 use App\Services\PortalDataOwner;
 use Dedoc\Scramble\Attributes\Group;
 use Dedoc\Scramble\Attributes\PathParameter;
+use Dedoc\Scramble\Attributes\QueryParameter;
 use Dedoc\Scramble\Attributes\Response;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
@@ -42,7 +45,7 @@ class NotebookController extends CampusApiController
 
     private const CONTEXT_ITEM = "array{source_ids: list<int>, sources: list<array{id: int, title: string, meeting_number: int|null}>, total_sources: int, excerpts: int, chars: int, partial: bool, focus: string|null, mode?: 'answer'|'tutor'|'ringkas', options?: array{count?: int, difficulty?: 'campuran'|'dasar'|'sulit'}, practice_from?: array{message_id: int, missed: list<int>}, practice?: array{score: int, total: int, missed: list<int>, flagged: list<int>, choices?: list<int|null>, at: string}, truncated?: bool, provider?: string, model?: string, usage?: array{input_tokens: int|null, output_tokens: int|null, thoughts_tokens: int|null}}";
 
-    private const MESSAGE_ITEM = "array{id: int, role: 'user'|'assistant', kind: string, content: string, data: mixed, citations: list<array{n: int, source_id: int, source_title: string, page: int|null, excerpt: string}>, context: ".self::CONTEXT_ITEM.'|null, pinned: bool, created_at: string|null}';
+    private const MESSAGE_ITEM = "array{id: int, role: 'user'|'assistant', kind: string, content: string, data: mixed, citations: list<array{n: int, source_id: int, source_title: string, page: int|null, position?: int, chunk_id?: int, excerpt: string}>, context: ".self::CONTEXT_ITEM.'|null, pinned: bool, created_at: string|null}';
 
     private const MEETING_ITEM = 'array{meeting_id: string, courses_id: string, meeting_number: int|null, title: string, date: string|null, time: string|null, description: string|null, meeting_url: string, added: bool, archived_files: int}';
 
@@ -68,7 +71,8 @@ class NotebookController extends CampusApiController
         private readonly PortalDataOwner $owner,
         private readonly NotebookAiConsents $aiConsents,
         private readonly NotebookAiProviders $aiProviders,
-        private readonly NotebookPractice $practice
+        private readonly NotebookPractice $practice,
+        private readonly NotebookSourceViewer $sourceViewer
     ) {}
 
     /**
@@ -429,6 +433,48 @@ class NotebookController extends CampusApiController
 
             return $this->statusSuccess('Sumber dibaca ulang.', [
                 'data' => ['source' => $ownedSource->refresh()->toApiArray()],
+            ], campusSessionValid: true);
+        });
+    }
+
+    /**
+     * Teks sumber seperti yang dibaca AI, sejendela potongan (paling banyak 40) di sekitar rujukan.
+     *
+     * Untuk membuka rujukan `[n]` di sumbernya: kirim `around` = `citations.*.position`. Rujukan lama tanpa `position`
+     * dibuka dengan `message` dan `n`; posisinya dicari dari teks kutipan (`around` di respons null bila tidak ketemu).
+     * `page` null untuk sumber tanpa halaman (DOCX, catatan). `has_before`/`has_after` berarti masih ada potongan di
+     * luar jendela; minta jendela berikutnya dengan `around` di tepinya. Tidak memanggil AI: tanpa persetujuan AI dan
+     * tanpa kuota harian.
+     */
+    #[PathParameter('notebook', 'Id notebook.', type: 'integer', example: 3)]
+    #[PathParameter('source', 'Id sumber.', type: 'integer', example: 11)]
+    #[QueryParameter('around', 'Posisi potongan yang dirujuk (`citations.*.position`).', type: 'integer', example: 12)]
+    #[QueryParameter('message', 'Rujukan lama tanpa `position`: id pesan yang memuatnya.', type: 'integer', example: 40)]
+    #[QueryParameter('n', 'Rujukan lama tanpa `position`: nomor rujukan di pesan itu.', type: 'integer', example: 2)]
+    #[Response(description: 'Potongan sumber.', type: "array{status: 'success', message: string, data: array{source: ".self::SOURCE_ITEM.', chunks: list<array{position: int, page: int|null, content: string}>, around: int|null, has_before: bool, has_after: bool}, meta: array{timestamp: string, campus_session_valid: true}}')]
+    #[Response(404, description: 'Notebook, sumber, atau pesan tidak ditemukan.', type: CampusApiController::SCRAMBLE_STATUS_ERROR_RESPONSE)]
+    #[Response(422, description: 'Parameter tidak valid.', type: CampusApiController::SCRAMBLE_VALIDATION_ERROR_RESPONSE)]
+    public function sourceChunks(NotebookSourceChunksRequest $request, int $notebook, int $source): JsonResponse
+    {
+        return $this->withSource($notebook, $source, 'Notebook source chunks failed', 'Gagal memuat isi sumber', function (Notebook $owned, NotebookSource $ownedSource) use ($request): JsonResponse {
+            $around = $request->around();
+
+            if ($around === null && $request->citedMessageId() !== null) {
+                $message = $owned->messages()->whereKey($request->citedMessageId())->first();
+
+                if ($message === null) {
+                    return $this->statusError('Pesan tidak ditemukan.', 404, campusSessionValid: true);
+                }
+
+                $around = $this->sourceViewer->citedPosition($message, (int) $request->citationNumber(), $ownedSource);
+            }
+
+            return $this->statusSuccess('Isi sumber dimuat.', [
+                'data' => [
+                    'source' => $ownedSource->toApiArray(),
+                    ...$this->sourceViewer->window($ownedSource, $around),
+                    'around' => $around,
+                ],
             ], campusSessionValid: true);
         });
     }

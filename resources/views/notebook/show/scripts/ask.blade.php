@@ -1,6 +1,6 @@
 {{--
-    Notebook script, adding sources, showing a citation, and asking a
-    question. Part of the DOMContentLoaded handler opened in
+    Notebook script, adding sources, showing a citation (with "Buka di
+    sumber", see source-viewer), and asking a question. Part of the DOMContentLoaded handler opened in
     notebook/show.blade.php: it shares that scope (app, el, base, the
     elements, constants and state in setup).
 --}}
@@ -38,9 +38,12 @@
                 const alreadyShown = panel.dataset.shown === String(citation.n) && !panel.classList.contains('hidden');
                 panel.classList.toggle('hidden', alreadyShown);
                 panel.dataset.shown = String(citation.n);
+                // The source may have been removed since; then there is nothing to open.
+                const canOpen = state.sources.some((source) => source.id === Number(citation.source_id));
                 panel.innerHTML = `
                     <p class="mb-1 font-medium text-ink">[${citation.n}] ${app.escapeHtml(citation.source_title)}${citation.page ? ` · hlm. ${citation.page}` : ''}</p>
                     <p class="whitespace-pre-line">${app.escapeHtml(citation.excerpt)}</p>
+                    ${canOpen ? `<button type="button" class="${app.ui.button.ghostSm} mt-1 -ml-3 text-brand-text!" data-open-source="${Number(citation.source_id)}" data-open-position="${Number.isInteger(citation.position) ? citation.position : ''}" data-open-message="${messageId}" data-open-n="${Number(citation.n)}">Buka di sumber</button>` : ''}
                 `;
             };
 
