@@ -88,20 +88,10 @@
                         </div>
                     </x-field>
 
-                    <label class="flex cursor-pointer items-start gap-3 text-sm text-ink" for="background-sync">
-                        <input type="checkbox" class="mt-0.5 size-4 shrink-0 cursor-pointer accent-brand" id="background-sync" name="background_sync" value="1">
-                        <span class="flex flex-col gap-0.5">
-                            <span class="font-medium">Nyalakan sinkronisasi di background</span>
-                            <span class="text-xs leading-relaxed text-ink-muted">Opsional. Password portal disimpan terenkripsi supaya WeCIC bisa memperbarui arsip saat kamu tidak membukanya. Bisa dimatikan kapan saja di halaman Arsip; keluar juga menghapusnya.</span>
-                        </span>
+                    <label class="flex cursor-pointer items-center gap-3 text-sm font-medium text-ink" for="background-sync">
+                        <input type="checkbox" class="size-4 shrink-0 cursor-pointer accent-brand" id="background-sync" name="background_sync" value="1">
+                        Nyalakan sinkronisasi di background
                     </label>
-
-                    <ul class="flex flex-col gap-1.5 rounded-lg border border-border-light bg-surface p-3 text-xs leading-relaxed text-ink-muted" data-sign-in-disclosure>
-                        <li>Password dikirim ke server WeCIC untuk masuk ke portal akademik kampus atas namamu.</li>
-                        <li>Data portal yang kamu buka disimpan di server WeCIC supaya bisa dibuka saat portal tidak bisa diakses.</li>
-                        <li>Server WeCIC menyimpan hash password dan info profilmu selama 30 hari supaya arsip tetap bisa dibuka saat portal tidak bisa diakses.</li>
-                        <li>Selengkapnya di <a href="{{ route('legal.privacy') }}" class="font-medium text-ink underline underline-offset-4">kebijakan privasi</a>.</li>
-                    </ul>
 
                     <x-button id="login-submit" type="submit" class="mt-1 w-full" data-online-required>
                         Masuk
