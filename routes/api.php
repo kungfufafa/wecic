@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\API\NotebookAiConsentController;
+use App\Http\Controllers\API\NotebookAiSettingsController;
 use App\Http\Controllers\API\NotebookController;
 use App\Http\Controllers\API\NotebookReviewController;
 use App\Http\Controllers\API\PortalAcademicController;
@@ -178,6 +179,14 @@ Route::middleware($sessionMiddleware)->group(function () {
         Route::prefix('ai-consent')->controller(NotebookAiConsentController::class)->group(function (): void {
             Route::get('', 'show');
             Route::post('', 'store')->middleware('throttle:portal-action');
+            Route::delete('', 'destroy')->middleware('throttle:portal-action');
+        });
+
+        // The student's own Notebook AI provider and API keys (stored encrypted,
+        // never sent back in full); empty settings fall back to the server's.
+        Route::prefix('ai-settings')->controller(NotebookAiSettingsController::class)->group(function (): void {
+            Route::get('', 'show');
+            Route::put('', 'update')->middleware('throttle:portal-action');
             Route::delete('', 'destroy')->middleware('throttle:portal-action');
         });
 

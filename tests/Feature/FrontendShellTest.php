@@ -62,6 +62,37 @@ class FrontendShellTest extends TestCase
             ->assertSee('Ulasan harian');
     }
 
+    public function test_the_ai_settings_page_is_a_signed_in_page_that_never_holds_a_key(): void
+    {
+        $route = app('router')->getRoutes()->getByName('notebook.ai-settings');
+
+        $this->assertNotNull($route);
+        $this->assertSame('notebook/pengaturan-ai', $route->uri());
+        $this->assertContains('portal.web', $route->gatherMiddleware());
+
+        $this->get('/notebook/pengaturan-ai')->assertRedirect();
+
+        $this->mockValidCampusSessions();
+        $page = $this->withSession(['campus_session_token' => 'token-ai-settings-page'])
+            ->get('/notebook/pengaturan-ai')
+            ->assertOk()
+            ->assertSee('data-page="notebook-ai-settings"', false)
+            ->assertSee('Pengaturan AI')
+            ->assertSee('action="javascript:void(0)"', false);
+
+        $crawler = new Crawler((string) $page->getContent());
+
+        foreach (['gemini_api_key', 'anthropic_api_key', 'openai_api_key'] as $field) {
+            $this->assertSame('password', $crawler->filter("input[name=\"{$field}\"]")->attr('type'));
+            $this->assertNull($crawler->filter("input[name=\"{$field}\"]")->attr('value'));
+        }
+
+        $this->withSession(['campus_session_token' => 'token-ai-settings-page'])
+            ->get('/more')
+            ->assertOk()
+            ->assertSee(route('notebook.ai-settings'), false);
+    }
+
     public function test_session_without_a_known_owner_still_gets_its_own_cache_owner(): void
     {
         $this->mockValidCampusSessions();

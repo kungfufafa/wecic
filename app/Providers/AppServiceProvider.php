@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Http\Controllers\API\PortalAuthController;
 use App\Services\Ai\NotebookAiClient;
+use App\Services\Ai\NotebookAiOwnerSettings;
 use App\Services\Ai\NotebookAiProviders;
 use App\Services\NotebookSourceReader;
 use App\Services\PortalAuthService;
@@ -130,6 +131,8 @@ class AppServiceProvider extends ServiceProvider
      */
     private function registerNotebookAiClient(): void
     {
+        // The student's own provider and keys, read once per request or job.
+        $this->app->scoped(NotebookAiOwnerSettings::class);
         $this->app->bind(NotebookAiClient::class, fn (Application $app): NotebookAiClient => $app->make(NotebookAiProviders::class)->chat());
 
         $this->app->when(NotebookSourceReader::class)

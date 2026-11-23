@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Jobs;
 
 use App\Exceptions\PortalException;
+use App\Jobs\Middleware\UseNotebookOwnerAiSettings;
 use App\Models\Notebook;
 use App\Services\NotebookCourseSync;
 use App\Services\NotebookLibrary;
@@ -53,6 +54,16 @@ class SyncCourseNotebookJob implements ShouldBeUnique, ShouldQueue
     public function uniqueFor(): int
     {
         return $this->timeout;
+    }
+
+    /**
+     * The notebook's readings use the AI settings of the student who owns it.
+     *
+     * @return list<object>
+     */
+    public function middleware(): array
+    {
+        return [new UseNotebookOwnerAiSettings(fn (): ?string => Notebook::query()->whereKey($this->notebookId)->value('owner_hash'))];
     }
 
     public function handle(

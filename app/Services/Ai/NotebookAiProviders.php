@@ -53,7 +53,21 @@ class NotebookAiProviders
      */
     public function chat(): NotebookAiClient
     {
-        return $this->resolve((string) config('notebook.ai.provider', 'gemini'));
+        return $this->resolve($this->chatProvider());
+    }
+
+    /**
+     * The provider the student chose (NotebookAiOwnerSettings), else the
+     * server's.
+     */
+    private function chatProvider(): string
+    {
+        return $this->ownerSettings()->provider() ?? (string) config('notebook.ai.provider', 'gemini');
+    }
+
+    private function ownerSettings(): NotebookAiOwnerSettings
+    {
+        return $this->container->make(NotebookAiOwnerSettings::class);
     }
 
     /**
@@ -61,7 +75,7 @@ class NotebookAiProviders
      */
     public function ingest(): NotebookAiClient
     {
-        return $this->resolve((string) (config('notebook.ai.ingest_provider') ?: config('notebook.ai.provider', 'gemini')));
+        return $this->resolve((string) (config('notebook.ai.ingest_provider') ?: $this->chatProvider()));
     }
 
     /**
@@ -241,7 +255,7 @@ class NotebookAiProviders
      * administrator would check for the chat provider (the notebook
      * banners name them).
      *
-     * @return array{driver: string, label: string, free_tier: bool, consent_key: string, label_en: string, processors: list<array{driver: string, label: string, free_tier: bool}>, past_processors: list<string>, key_setting: string, model_settings: list<string>}
+     * @return array{driver: string, label: string, free_tier: bool, consent_key: string, label_en: string, processors: list<array{driver: string, label: string, free_tier: bool}>, past_processors: list<string>, key_setting: string, model_settings: list<string>, own_settings: bool}
      */
     public function forPages(): array
     {
@@ -258,6 +272,9 @@ class NotebookAiProviders
             ], $this->active()),
             'key_setting' => $chat->settingNames(NotebookAiException::CAUSE_KEY)[0] ?? '',
             'model_settings' => $chat->settingNames(NotebookAiException::CAUSE_MODEL),
+            // The chat provider answers with the student's own key or endpoint
+            // (Pengaturan AI), so a rejected key is theirs to fix.
+            'own_settings' => $this->ownerSettings()->usesOwnKey($chat->driver()) || $this->ownerSettings()->usesOwnEndpoint($chat->driver()),
         ];
     }
 
@@ -266,7 +283,7 @@ class NotebookAiProviders
      * generic provider, with the free-tier warning kept to stay on the safe
      * side.
      *
-     * @return array{driver: string, label: string, free_tier: bool, consent_key: string, label_en: string, processors: list<array{driver: string, label: string, free_tier: bool}>, past_processors: list<string>, key_setting: string, model_settings: list<string>}
+     * @return array{driver: string, label: string, free_tier: bool, consent_key: string, label_en: string, processors: list<array{driver: string, label: string, free_tier: bool}>, past_processors: list<string>, key_setting: string, model_settings: list<string>, own_settings: bool}
      */
     public static function unknown(): array
     {
@@ -280,6 +297,7 @@ class NotebookAiProviders
             'past_processors' => [],
             'key_setting' => 'NOTEBOOK_AI_PROVIDER',
             'model_settings' => ['NOTEBOOK_AI_PROVIDER'],
+            'own_settings' => false,
         ];
     }
 }

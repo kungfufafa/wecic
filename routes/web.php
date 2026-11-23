@@ -121,6 +121,7 @@ Route::middleware('portal.web')->group(function (): void {
 
     Route::view('/notebook', 'notebook.index')->name('notebook.index');
     Route::view('/notebook/ulasan', 'notebook.review')->name('notebook.review');
+    Route::view('/notebook/pengaturan-ai', 'notebook.ai-settings')->name('notebook.ai-settings');
     Route::get('/notebook/{id}', fn (string $id) => view('notebook.show', ['notebookId' => (int) $id]))
         ->whereNumber('id')
         ->name('notebook.show');

@@ -10,6 +10,7 @@ use App\Jobs\ResumeOfflineSessionJob;
 use App\Models\ExamSubmissionRecord;
 use App\Models\Notebook;
 use App\Models\NotebookAiConsent;
+use App\Models\NotebookAiSetting;
 use App\Models\NotebookChunk;
 use App\Models\NotebookDismissal;
 use App\Models\NotebookMessage;
@@ -74,6 +75,7 @@ class PortalAccountDeletionTest extends TestCase
             ->assertJsonPath('data.files', 1)
             ->assertJsonPath('data.notebooks', 1)
             ->assertJsonPath('data.ai_consents', 1)
+            ->assertJsonPath('data.ai_settings', 1)
             ->assertJsonPath('data.notifications', 1)
             ->assertJsonPath('data.outbox', 1)
             ->assertJsonPath('data.push_tokens', 1)
@@ -172,6 +174,7 @@ class PortalAccountDeletionTest extends TestCase
         Storage::disk('local')->put($file->blobPath(), 'pdf '.$username);
 
         NotebookAiConsent::factory()->forOwner($owner)->create();
+        NotebookAiSetting::factory()->forOwner($owner)->anthropic()->create();
         $notebook = Notebook::factory()->forOwner($owner)->create();
         $upload = 'notebook-uploads/'.$notebook->id.'/catatan.pdf';
         Storage::disk('local')->put($upload, 'upload '.$username);
@@ -225,6 +228,7 @@ class PortalAccountDeletionTest extends TestCase
         $this->assertSame(0, PortalArchivedFile::query()->forOwner($owner)->count());
         $this->assertSame(0, Notebook::query()->forOwner($owner)->count());
         $this->assertSame(0, NotebookAiConsent::query()->forOwner($owner)->count());
+        $this->assertSame(0, NotebookAiSetting::query()->forOwner($owner)->count());
         $this->assertSame(0, NotebookReviewCard::query()->forOwner($owner)->count());
         $this->assertSame(0, NotebookReviewCard::query()->whereNotIn('notebook_id', Notebook::query()->select('id'))->count(), 'No review card outlives its notebook.');
         $this->assertSame(0, PortalNotification::query()->forOwner($owner)->count());
@@ -265,6 +269,7 @@ class PortalAccountDeletionTest extends TestCase
         $this->assertSame(1, PortalArchivedFile::query()->forOwner($owner)->count());
         $this->assertSame(1, Notebook::query()->forOwner($owner)->count());
         $this->assertSame(1, NotebookAiConsent::query()->forOwner($owner)->count());
+        $this->assertSame(1, NotebookAiSetting::query()->forOwner($owner)->count());
         $notebookId = Notebook::query()->forOwner($owner)->value('id');
         $this->assertSame(1, NotebookSource::query()->where('notebook_id', $notebookId)->count());
         $this->assertSame(1, NotebookChunk::query()->where('notebook_id', $notebookId)->count());

@@ -31,13 +31,21 @@
             Fitur AI Notebook dimatikan di server WeCIC. Kamu tetap bisa memasukkan pertemuan dan sumber teks, DOCX, dan PPTX; tanya jawab aktif lagi setelah AI dinyalakan.
         </x-alert>
         <x-alert tone="warning" icon class="hidden" data-ai-status-banner="missing_key" role="status">
-            Fitur AI belum diaktifkan di server WeCIC ({{ $notebookAi['key_setting'] }} kosong). Kamu tetap bisa memasukkan pertemuan dan sumber teks, DOCX, dan PPTX; tanya jawab aktif setelah AI dinyalakan.
+            Fitur AI belum diaktifkan di server WeCIC ({{ $notebookAi['key_setting'] }} kosong). Kamu tetap bisa memasukkan pertemuan dan sumber teks, DOCX, dan PPTX; tanya jawab aktif setelah AI dinyalakan. Kamu juga bisa memakai API key milikmu sendiri di <a class="font-medium underline underline-offset-2" href="{{ route('notebook.ai-settings') }}">Pengaturan AI</a>.
         </x-alert>
         <x-alert tone="warning" icon class="hidden" data-ai-status-banner="invalid_key" role="status">
-            Fitur AI sedang tidak bisa dipakai karena kunci API {{ $aiChatLabel }} di server WeCIC ditolak. Pengelola WeCIC perlu memperbarui {{ $notebookAi['key_setting'] }}. Pertemuan dan sumber teks, DOCX, dan PPTX tetap bisa dimasukkan.
+            @if ($notebookAi['own_settings'])
+                Fitur AI sedang tidak bisa dipakai karena kunci API {{ $aiChatLabel }} milikmu ditolak. Perbarui kuncinya di <a class="font-medium underline underline-offset-2" href="{{ route('notebook.ai-settings') }}">Pengaturan AI</a>.
+            @else
+                Fitur AI sedang tidak bisa dipakai karena kunci API {{ $aiChatLabel }} di server WeCIC ditolak. Pengelola WeCIC perlu memperbarui {{ $notebookAi['key_setting'] }}. Pertemuan dan sumber teks, DOCX, dan PPTX tetap bisa dimasukkan.
+            @endif
         </x-alert>
         <x-alert tone="warning" icon class="hidden" data-ai-status-banner="model_misconfigured" role="status">
-            Fitur AI sedang tidak bisa dipakai karena pengaturan model AI di server WeCIC ditolak (model tidak dikenali, sudah tidak tersedia, atau pengaturannya tidak cocok). Pengelola WeCIC perlu memeriksa pengaturan model AI, misalnya {{ $aiModelExample }}. Pertemuan dan sumber teks, DOCX, dan PPTX tetap bisa dimasukkan.
+            @if ($notebookAi['own_settings'])
+                Fitur AI sedang tidak bisa dipakai karena pengaturan model atau alamat layanan AI milikmu ditolak. Periksa lagi di <a class="font-medium underline underline-offset-2" href="{{ route('notebook.ai-settings') }}">Pengaturan AI</a>.
+            @else
+                Fitur AI sedang tidak bisa dipakai karena pengaturan model AI di server WeCIC ditolak (model tidak dikenali, sudah tidak tersedia, atau pengaturannya tidak cocok). Pengelola WeCIC perlu memeriksa pengaturan model AI, misalnya {{ $aiModelExample }}. Pertemuan dan sumber teks, DOCX, dan PPTX tetap bisa dimasukkan.
+            @endif
         </x-alert>
 
         <x-section title="Mata kuliah semester ini" title-id="notebook-courses-title" description="Dibuat otomatis dari daftar kelasmu. Pertemuan yang kamu buka masuk sendiri ke notebooknya.">

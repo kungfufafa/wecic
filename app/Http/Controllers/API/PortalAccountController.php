@@ -31,7 +31,7 @@ class PortalAccountController extends CampusApiController
      * serta semua sesi web dan login aplikasi. Akun portal kampus sendiri
      * tidak tersentuh. Tidak bisa dibatalkan.
      */
-    #[Response(description: 'Akun dan datanya dihapus; semua sesi berakhir.', type: "array{status: 'success', message: string, data: array{versions: int, files: int, notebooks: int, ai_consents: int, notifications: int, outbox: int, push_tokens: int, exam_records: int, offline_accounts: int, sessions: int, mobile_sessions: int}, meta: array{timestamp: string, campus_session_valid: false}}")]
+    #[Response(description: 'Akun dan datanya dihapus; semua sesi berakhir.', type: "array{status: 'success', message: string, data: array{versions: int, files: int, notebooks: int, ai_consents: int, ai_settings: int, notifications: int, outbox: int, push_tokens: int, exam_records: int, offline_accounts: int, sessions: int, mobile_sessions: int}, meta: array{timestamp: string, campus_session_valid: false}}")]
     #[Response(422, description: 'Konfirmasi belum dikirim.', type: CampusApiController::SCRAMBLE_VALIDATION_ERROR_RESPONSE)]
     #[Response(401, description: 'Endpoint ini membutuhkan sesi kampus yang aktif.', type: CampusApiController::SCRAMBLE_SESSION_ERROR_RESPONSE)]
     public function destroy(PortalAccountDestroyRequest $request): JsonResponse

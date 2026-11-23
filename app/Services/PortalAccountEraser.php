@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Models\ExamSubmissionRecord;
 use App\Models\Notebook;
+use App\Models\NotebookAiSetting;
 use App\Models\PortalArchiveVersion;
 use App\Models\PortalMobileSession;
 use App\Models\PortalNotification;
@@ -19,7 +20,7 @@ use Illuminate\Support\Facades\Storage;
 /**
  * Deletes everything WeCIC keeps for the student a campus session belongs
  * to, then ends every session they have: the archive and its files, the
- * notebooks and their uploads (their review cards go with them), the Notebook AI consent, the offline account with its password hash
+ * notebooks and their uploads (their review cards go with them), the Notebook AI consent and AI settings (own keys), the offline account with its password hash
  * and stored credentials (the row itself, not an opt-out stub), the
  * notifications, push tokens and outbox, the exam submission records, the
  * cached portal pages and snapshots, and the mobile app logins. The store
@@ -48,7 +49,7 @@ class PortalAccountEraser
     ) {}
 
     /**
-     * @return array{versions: int, files: int, notebooks: int, ai_consents: int, notifications: int, outbox: int, push_tokens: int, exam_records: int, offline_accounts: int, sessions: int, mobile_sessions: int}
+     * @return array{versions: int, files: int, notebooks: int, ai_consents: int, ai_settings: int, notifications: int, outbox: int, push_tokens: int, exam_records: int, offline_accounts: int, sessions: int, mobile_sessions: int}
      */
     public function erase(string $sessionToken): array
     {
@@ -68,6 +69,7 @@ class PortalAccountEraser
             'files' => $this->files->deleteOwner($ownerHash),
             'notebooks' => $this->deleteNotebooks($ownerHash),
             'ai_consents' => $this->aiConsents->forget($ownerHash),
+            'ai_settings' => NotebookAiSetting::query()->forOwner($ownerHash)->delete(),
             'notifications' => PortalNotification::query()->forOwner($ownerHash)->delete(),
             'outbox' => $this->deleteOutbox($ownerHash),
             'push_tokens' => PortalPushToken::query()->forOwner($ownerHash)->delete(),

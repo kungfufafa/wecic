@@ -8,6 +8,7 @@ use App\Exceptions\NotebookAiException;
 use App\Support\Ai\AiRequest;
 use App\Support\Ai\AiResult;
 use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -268,9 +269,20 @@ abstract class HttpAiClient implements NotebookAiClient
         return $response->json('error.message');
     }
 
+    /**
+     * A setting of the driver: the student's own (NotebookAiOwnerSettings)
+     * when they saved one, else the server's under settingsKey().
+     */
     protected function setting(string $name, mixed $default = null): mixed
     {
-        return config($this->settingsKey().'.'.$name, $default);
+        $overrides = $this->ownerSettings()->overrides($this->driver());
+
+        return array_key_exists($name, $overrides) ? $overrides[$name] : config($this->settingsKey().'.'.$name, $default);
+    }
+
+    protected function ownerSettings(): NotebookAiOwnerSettings
+    {
+        return app(NotebookAiOwnerSettings::class);
     }
 
     protected function key(): string
@@ -305,6 +317,13 @@ abstract class HttpAiClient implements NotebookAiClient
         $url = $this->endpoint($model);
         $response = null;
         $timedOut = false;
+        $ownEndpoint = $this->ownerSettings()->usesOwnEndpoint($this->driver());
+
+        if ($ownEndpoint && ! app(PublicAiEndpoint::class)->allows($url)) {
+            Log::warning($this->label().' is not a public HTTPS endpoint; the request was not sent', ['model' => $model]);
+
+            throw NotebookAiException::misconfigured(NotebookAiException::CAUSE_MODEL, $this->label());
+        }
 
         for ($attempt = 1; $attempt <= 2; $attempt++) {
             $timeout = min($attemptTimeout, max(1, (int) ceil($this->remaining($deadline))));
@@ -314,6 +333,7 @@ abstract class HttpAiClient implements NotebookAiClient
                 $response = Http::withHeaders($this->headers())
                     ->acceptJson()
                     ->timeout($timeout)
+                    ->when($ownEndpoint, fn (PendingRequest $request): PendingRequest => $request->withoutRedirecting())
                     ->post($url, $this->forModel($payload, $model));
             } catch (ConnectionException $exception) {
                 $timedOut = $this->isTimeout($exception);

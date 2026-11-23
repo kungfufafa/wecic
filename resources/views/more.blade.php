@@ -48,6 +48,7 @@
             'tiles' => [
                 ['key' => 'profile', 'label' => 'Profil', 'caption' => 'Data diri di portal', 'href' => route('profile'), 'icon' => 'user'],
                 ['key' => 'password', 'label' => 'Ubah password', 'caption' => 'Ganti password portal', 'href' => route('password.edit'), 'icon' => 'lock'],
+                ['key' => 'ai-settings', 'label' => 'Pengaturan AI', 'caption' => 'Penyedia dan API key Notebook', 'href' => route('notebook.ai-settings'), 'icon' => 'notebook'],
                 ['key' => 'privacy', 'label' => 'Privasi & bantuan', 'caption' => 'Kebijakan privasi, bantuan, dan hapus data', 'href' => route('legal.privacy'), 'icon' => 'help'],
                 ['key' => 'portal', 'label' => 'Portal kampus', 'caption' => 'Buka situs resmi', 'href' => config('portal.base_url'), 'icon' => 'world', 'external' => true],
             ],
