@@ -107,11 +107,27 @@
 
             el('notebook-note-new').addEventListener('click', (event) => app.withSubmitLoading(event.currentTarget, () => createNote()));
 
+            // A pause in typing saves too (NOTE_PAUSE_SAVE_MS), so a tab closed without leaving the editor loses little.
+            const NOTE_PAUSE_SAVE_MS = 2500;
+            const notePauseTimers = {};
+
             notesHost.addEventListener('input', (event) => {
                 const editor = event.target instanceof HTMLTextAreaElement && event.target.matches('[data-note-editor]') ? event.target : null;
 
                 if (editor) {
+                    const messageId = Number(editor.dataset.noteEditor);
+
                     editNote(editor);
+                    window.clearTimeout(notePauseTimers[messageId]);
+                    notePauseTimers[messageId] = window.setTimeout(() => saveNote(messageId), NOTE_PAUSE_SAVE_MS);
+                }
+            });
+
+            // Closing the tab, reloading or going back fires no focusout: the unsaved notes go out as keepalive requests.
+            window.addEventListener('pagehide', () => flushNotes({ keepalive: true }));
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'hidden') {
+                    flushNotes({ keepalive: true });
                 }
             });
 

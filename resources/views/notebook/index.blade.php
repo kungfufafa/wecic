@@ -13,6 +13,11 @@
     @endphp
     <x-page-hero title="Notebook" subtitle="Tanya materi kuliahmu dan buat bahan belajar. Jawabannya hanya dari sumbermu.">
         <x-slot:actions>
+            {{-- Ulasan harian; the badge counts the cards waiting today (`review_due` of /api/notebooks). --}}
+            <x-button variant="secondary" size="sm" :href="route('notebook.review')" id="notebook-review-link">
+                Ulasan harian
+                <span class="hidden min-w-5 rounded-full bg-brand px-1.5 text-center text-xs font-semibold leading-5 text-brand-ink tabular-nums" id="notebook-review-due" aria-hidden="true"></span>
+            </x-button>
             <x-button size="sm" href="#notebook-create">
                 <x-icon name="plus" size="sm" />
                 Notebook baru
@@ -96,6 +101,16 @@
                 document.querySelectorAll('[data-ai-status-banner]').forEach((banner) => {
                     banner.classList.toggle('hidden', banner.dataset.aiStatusBanner !== status);
                 });
+            };
+
+            // Older responses carry no review_due: the badge stays hidden.
+            const showReviewDue = (due) => {
+                const count = Number.isInteger(due) && due > 0 ? due : 0;
+                const badge = document.getElementById('notebook-review-due');
+
+                badge.textContent = count > 99 ? '99+' : String(count);
+                badge.classList.toggle('hidden', count === 0);
+                document.getElementById('notebook-review-link').setAttribute('aria-label', count ? `Ulasan harian, ${count} kartu menunggu` : 'Ulasan harian');
             };
 
             const card = (notebook) => {
@@ -191,6 +206,7 @@
                     }
 
                     showAiStatus(payload?.data);
+                    showReviewDue(payload?.data?.review_due);
                     const notebooks = Array.isArray(payload?.data?.notebooks) ? payload.data.notebooks : [];
                     renderCourses(notebooks, payload?.data?.course_notebooks);
                     renderList(notebooks);

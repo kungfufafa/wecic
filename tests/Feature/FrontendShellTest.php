@@ -43,6 +43,25 @@ class FrontendShellTest extends TestCase
         $this->assertNotSame($studentA, $this->cacheOwnerFor('token-b'), 'Another student never reads them.');
     }
 
+    public function test_the_notebook_review_page_is_a_signed_in_page_with_its_own_page_id(): void
+    {
+        $route = app('router')->getRoutes()->getByName('notebook.review');
+
+        $this->assertNotNull($route);
+        $this->assertSame('notebook/ulasan', $route->uri());
+        $this->assertContains('portal.web', $route->gatherMiddleware());
+
+        $this->get('/notebook/ulasan')->assertRedirect();
+
+        $this->mockValidCampusSessions();
+        $this->withSession(['campus_session_token' => 'token-review-page'])
+            ->get('/notebook/ulasan')
+            ->assertOk()
+            ->assertSee('data-page="notebook-review"', false)
+            ->assertSee('aria-live="polite"', false)
+            ->assertSee('Ulasan harian');
+    }
+
     public function test_session_without_a_known_owner_still_gets_its_own_cache_owner(): void
     {
         $this->mockValidCampusSessions();
@@ -392,7 +411,7 @@ class FrontendShellTest extends TestCase
         $this->assertStringContainsString('return this.filterRefreshableDomains(pageDomains[page] ?? []);', $domains);
         $this->assertStringNotContainsString("['dashboard'])", $domains);
 
-        foreach (['notification-index', 'archive-index', 'archive-show', 'notebook-index', 'notebook-show'] as $page) {
+        foreach (['notification-index', 'archive-index', 'archive-show', 'notebook-index', 'notebook-show', 'notebook-review'] as $page) {
             $this->assertStringContainsString("'{$page}': [],", $domains);
         }
 

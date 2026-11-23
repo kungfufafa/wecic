@@ -98,8 +98,20 @@
                     }
                 });
 
+                // A note being typed keeps the student's text: a quiet load does not redraw Catatan, and saveNote
+                // compares the text in state with what the server has, so the server copy must not replace it.
                 state.messages.filter((message) => message.kind === 'note').forEach((message) => {
                     state.noteSaved[message.id] = message.content || '';
+
+                    if (!Object.hasOwn(state.noteDrafts, message.id)) {
+                        return;
+                    }
+
+                    if (state.noteDrafts[message.id] === state.noteSaved[message.id]) {
+                        delete state.noteDrafts[message.id];
+                    } else {
+                        message.content = state.noteDrafts[message.id];
+                    }
                 });
             };
 

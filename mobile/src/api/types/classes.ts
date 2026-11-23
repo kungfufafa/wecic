@@ -113,6 +113,8 @@ export type NotebooksResponse = ApiEnvelope & {
     studio_kinds?: Record<string, string>;
     ai_provider?: AiProvider;
     ai_consent?: AiConsent;
+    /** Ulasan harian cards waiting today; older servers send none. */
+    review_due?: number;
   };
 };
 
@@ -331,3 +333,48 @@ export type NotebookFeedback = {
 
 export type NotebookFeedbackResponse = ApiEnvelope & { data: { message: NotebookMessage; ai_budget?: NotebookAiBudget } };
 export type NotebookCreateResponse = ApiEnvelope & { data: { notebook: NotebookItem; created?: boolean } };
+
+/** How well the student remembered a review card (NotebookReviewScheduler::GRADES). */
+export type NotebookReviewGrade = 'lagi' | 'sulit' | 'bisa' | 'mudah';
+
+/** A card of Ulasan harian (NotebookReviewController CARD_ITEM). `next` is in minutes per grade. */
+export type NotebookReviewCard = {
+  id: number;
+  notebook_id: number;
+  notebook_title?: string | null;
+  notebook_message_id?: number | null;
+  front: string;
+  back: string;
+  citations?: NotebookCitation[];
+  topic?: string | null;
+  meeting_number?: number | null;
+  due_at?: string | null;
+  interval_days?: number;
+  ease?: number;
+  reps?: number;
+  lapses?: number;
+  last_reviewed_at?: string | null;
+  suspended?: boolean;
+  is_new?: boolean;
+  next?: Partial<Record<NotebookReviewGrade, number>>;
+};
+
+export type NotebookReviewCounts = {
+  due: number;
+  reviews: number;
+  new: number;
+  new_today: number;
+  new_limit: number;
+  total: number;
+  suspended: number;
+};
+
+export type NotebookReviewQueueResponse = ApiEnvelope & {
+  data: { cards: NotebookReviewCard[]; counts: NotebookReviewCounts; next_due_at?: string | null };
+};
+
+export type NotebookReviewCardResponse = ApiEnvelope & { data: { card: NotebookReviewCard; counts: NotebookReviewCounts } };
+
+export type NotebookReviewResumeResponse = ApiEnvelope & { data: { resumed: number; counts: NotebookReviewCounts } };
+
+export type NotebookReviewImportResponse = ApiEnvelope & { data: { imported: number; skipped: number; counts: NotebookReviewCounts } };

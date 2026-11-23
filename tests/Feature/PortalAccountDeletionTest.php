@@ -13,6 +13,7 @@ use App\Models\NotebookAiConsent;
 use App\Models\NotebookChunk;
 use App\Models\NotebookDismissal;
 use App\Models\NotebookMessage;
+use App\Models\NotebookReviewCard;
 use App\Models\NotebookSource;
 use App\Models\PortalArchivedFile;
 use App\Models\PortalArchiveVersion;
@@ -178,6 +179,7 @@ class PortalAccountDeletionTest extends TestCase
         NotebookChunk::query()->create(['notebook_source_id' => $source->id, 'notebook_id' => $notebook->id, 'position' => 0, 'page' => null, 'content' => 'Isi catatan']);
         NotebookMessage::factory()->create(['notebook_id' => $notebook->id]);
         NotebookDismissal::factory()->create(['notebook_id' => $notebook->id]);
+        NotebookReviewCard::factory()->create(['notebook_id' => $notebook->id]);
 
         PortalNotification::factory()->forOwner($owner)->create();
         $outbox = PortalOutboxItem::factory()->forOwner($owner)->withFile()->create();
@@ -223,6 +225,8 @@ class PortalAccountDeletionTest extends TestCase
         $this->assertSame(0, PortalArchivedFile::query()->forOwner($owner)->count());
         $this->assertSame(0, Notebook::query()->forOwner($owner)->count());
         $this->assertSame(0, NotebookAiConsent::query()->forOwner($owner)->count());
+        $this->assertSame(0, NotebookReviewCard::query()->forOwner($owner)->count());
+        $this->assertSame(0, NotebookReviewCard::query()->whereNotIn('notebook_id', Notebook::query()->select('id'))->count(), 'No review card outlives its notebook.');
         $this->assertSame(0, PortalNotification::query()->forOwner($owner)->count());
         $this->assertSame(0, PortalOutboxItem::query()->forOwner($owner)->count());
         $this->assertSame(0, PortalPushToken::query()->forOwner($owner)->count());
@@ -266,6 +270,7 @@ class PortalAccountDeletionTest extends TestCase
         $this->assertSame(1, NotebookChunk::query()->where('notebook_id', $notebookId)->count());
         $this->assertSame(1, NotebookMessage::query()->where('notebook_id', $notebookId)->count());
         $this->assertSame(1, NotebookDismissal::query()->where('notebook_id', $notebookId)->count());
+        $this->assertSame(1, NotebookReviewCard::query()->where('notebook_id', $notebookId)->count());
         $this->assertSame(1, PortalNotification::query()->forOwner($owner)->count());
         $this->assertSame(1, PortalOutboxItem::query()->forOwner($owner)->count());
         $this->assertSame(1, PortalPushToken::query()->forOwner($owner)->count());

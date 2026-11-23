@@ -88,12 +88,16 @@
                 noteSaved: {},
                 // The save of each own note still on its way.
                 noteSaving: {},
+                // Text typed into an own note that the server has not confirmed yet, kept when a load replaces the messages.
+                noteDrafts: {},
                 askMode: storedAskMode(),
                 // The Catatan entries kept open when the list is redrawn (a new Studio output opens itself).
                 openNoteIds: new Set(),
                 // Practice on a quiz or flashcards by message id, so a redraw (renderNotes) keeps the progress:
                 // quiz {choices, flagged, reviewing}; flashcards {mode, order, position, flipped, known, again}.
                 practice: {},
+                // The save of each practice attempt (savePractice) still on its way; Simpan ke ulasan waits for it.
+                practiceSaves: {},
                 // What is left of today's AI requests (`ai_budget`); null until a response says.
                 aiBudget: null,
             };

@@ -1,3 +1,4 @@
+import type { NotebookReviewCard } from '@/api/types/classes';
 import {
   aiStatusMessage,
   askModeLabel,
@@ -27,6 +28,15 @@ import {
   mindMapSourceIds,
   queryParam,
   queryString,
+  formatReviewInterval,
+  REVIEW_GRADES,
+  reviewAfterCard,
+  reviewCardMeta,
+  reviewDueLabel,
+  reviewFinishedCopy,
+  reviewNextLine,
+  reviewProgressLine,
+  reviewQueue,
   scoreValue,
   sourceStatus,
   splitByDeadline,
@@ -291,5 +301,72 @@ describe('quiz practice', () => {
     expect(budgetLine({ limit: 60, used: 57, remaining: 3 })).toBe('Sisa kuota AI hari ini: 3 dari 60. Membuat latihan memakai 1.');
     expect(budgetLine({ limit: 60, used: 60, remaining: 0 })).toMatch(/sudah habis/);
     expect(budgetLine(undefined)).toBeNull();
+  });
+});
+
+describe('Ulasan harian', () => {
+  const card = (id: number, extra: Partial<NotebookReviewCard> = {}): NotebookReviewCard => ({ id, notebook_id: 3, front: `Depan ${id}`, back: `Belakang ${id}`, ...extra });
+
+  it('keeps the server order without the cards graded or suspended in this sitting', () => {
+    const cards = [card(1), card(2, { is_new: true }), card(3, { suspended: true }), card(4, { is_new: true })];
+
+    expect(reviewQueue(cards, []).map((item) => item.id)).toEqual([1, 2, 4]);
+    expect(reviewQueue(cards, [1, 4]).map((item) => item.id)).toEqual([2]);
+    expect(reviewQueue(null, [])).toEqual([]);
+  });
+
+  it('takes a graded or held card out of the sitting for good, and reads the queue again when none is left', () => {
+    const cards = [card(1), card(2)];
+
+    expect(reviewAfterCard(cards, [], 1)).toEqual({ done: [1], reload: false });
+    // The last card stays out even if the reload then fails, so it is never graded twice.
+    expect(reviewAfterCard(cards, [1], 2)).toEqual({ done: [1, 2], reload: true });
+    expect(reviewAfterCard(cards, [1, 2], 2)).toEqual({ done: [1, 2], reload: true });
+  });
+
+  it('says what the finished screen is about, held cards included', () => {
+    const now = Date.parse('2026-11-23T09:00:00.000Z');
+
+    expect(reviewFinishedCopy({ total: 0, suspended: 0 }, null, now)).toMatchObject({ title: 'Belum ada kartu ulasan', resume: false });
+    expect(reviewFinishedCopy(undefined, null, now).title).toBe('Belum ada kartu ulasan');
+    expect(reviewFinishedCopy({ total: 3, suspended: 3 }, null, now)).toEqual({
+      title: 'Semua kartu sedang ditahan',
+      description: '3 kartu sedang ditahan, jadi tidak ada yang muncul di ulasan.',
+      resume: true,
+    });
+    expect(reviewFinishedCopy({ total: 5, suspended: 2 }, '2026-11-23T09:10:00.000Z', now)).toEqual({
+      title: 'Selesai untuk sekarang',
+      description: 'Kartu berikutnya muncul dalam 10 mnt. 2 kartu sedang ditahan dan tidak muncul sampai diaktifkan lagi.',
+      resume: true,
+    });
+    expect(reviewFinishedCopy({ total: 5, suspended: 0 }, null, now)).toEqual({ title: 'Selesai untuk sekarang', description: 'Tidak ada kartu lain yang terjadwal.', resume: false });
+  });
+
+  it('says what is left and how many are new', () => {
+    expect(reviewProgressLine([card(1), card(2, { is_new: true })])).toBe('Sisa 2 kartu hari ini · 1 baru');
+    expect(reviewProgressLine([card(1)])).toBe('Sisa 1 kartu hari ini');
+    expect(reviewProgressLine([])).toBe('Tidak ada kartu yang menunggu.');
+  });
+
+  it('formats when a grade brings the card back', () => {
+    expect(formatReviewInterval(10)).toBe('10 mnt');
+    expect(formatReviewInterval(0)).toBe('1 mnt');
+    expect(formatReviewInterval(180)).toBe('3 jam');
+    expect(formatReviewInterval(1440)).toBe('1 hari');
+    expect(formatReviewInterval(25 * 1440)).toBe('25 hari');
+    expect(formatReviewInterval(90 * 1440)).toBe('3 bln');
+    expect(formatReviewInterval(undefined)).toBe('1 mnt');
+    expect(REVIEW_GRADES.map((item) => item.grade)).toEqual(['lagi', 'sulit', 'bisa', 'mudah']);
+  });
+
+  it('describes the card, the due badge and the next card', () => {
+    expect(reviewCardMeta(card(1, { notebook_title: 'Basis Data', meeting_number: 3, topic: 'Kunci' }))).toBe('Basis Data · Pertemuan 3 · Topik: Kunci');
+    expect(reviewCardMeta(card(1))).toBe('');
+    expect(reviewDueLabel(5)).toBe('5 kartu menunggu');
+    expect(reviewDueLabel(150)).toBe('99+ kartu menunggu');
+    expect(reviewDueLabel(0)).toBeNull();
+    expect(reviewDueLabel(undefined)).toBeNull();
+    expect(reviewNextLine('2026-11-23T09:10:00.000Z', Date.parse('2026-11-23T09:00:00.000Z'))).toBe('Kartu berikutnya muncul dalam 10 mnt.');
+    expect(reviewNextLine(null)).toBeNull();
   });
 });

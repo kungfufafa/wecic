@@ -67,6 +67,11 @@ export class RequestFeature {
             },
         };
 
+        // A write sent as the page goes away (pagehide) must outlive it.
+        if (options.keepalive === true) {
+            config.keepalive = true;
+        }
+
         if (options.json !== undefined) {
             config.headers['Content-Type'] = 'application/json';
             config.body = JSON.stringify(options.json);

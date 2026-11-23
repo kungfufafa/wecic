@@ -583,7 +583,7 @@ class NotebookLibrary
     }
 
     /**
-     * Empty a notebook (sources, uploads, conversation) but keep it: a
+     * Empty a notebook (sources, uploads, conversation, review cards) but keep it: a
      * course notebook stays as long as the course is in the class list.
      */
     public function clearNotebook(Notebook $notebook): void
@@ -592,6 +592,7 @@ class NotebookLibrary
         $notebook->chunks()->delete();
         $notebook->sources()->delete();
         $notebook->messages()->delete();
+        $notebook->reviewCards()->delete();
         $notebook->touch();
     }
 

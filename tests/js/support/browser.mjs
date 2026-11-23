@@ -675,6 +675,7 @@ export function installBrowser({
             headers: { ...(config.headers || {}) },
             body: config.body,
             cache: config.cache,
+            keepalive: config.keepalive === true,
         };
 
         browser.requests.push(request);

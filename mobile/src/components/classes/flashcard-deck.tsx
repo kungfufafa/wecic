@@ -50,7 +50,7 @@ function shuffled(items: number[]): number[] {
  * "Ulangi"; previous, next and shuffle move freely, and the progress reads "Kartu x/N". The list of every card stays
  * as the other view.
  */
-export function FlashcardDeck({ message, budget, canMakePractice = false, onSave, onPracticeFromMissed }: PracticeProps) {
+export function FlashcardDeck({ message, budget, canMakePractice = false, onSave, onPracticeFromMissed, onSaveToReview, savingToReview = false }: PracticeProps) {
   const theme = useTheme();
   const reduceMotion = useReduceMotion();
   const cards = (Array.isArray(message.data) ? message.data : []) as NotebookFlashcardItem[];
@@ -151,6 +151,16 @@ export function FlashcardDeck({ message, budget, canMakePractice = false, onSave
                 move(0);
               }}
             />
+            {toLearn.length ? (
+              <Button
+                size="small"
+                variant="secondary"
+                label="Simpan yang belum hafal ke ulasan"
+                loading={savingToReview}
+                disabled={!onSaveToReview}
+                onPress={() => onSaveToReview?.(true)}
+              />
+            ) : null}
           </View>
           {toLearn.length && onPracticeFromMissed ? (
             <>

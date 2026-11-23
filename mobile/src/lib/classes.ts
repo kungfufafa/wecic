@@ -1,4 +1,12 @@
-import type { NotebookAiBudget, NotebookAskMode, NotebookDifficulty, NotebookQuizItem } from '@/api/types/classes';
+import type {
+  NotebookAiBudget,
+  NotebookAskMode,
+  NotebookDifficulty,
+  NotebookQuizItem,
+  NotebookReviewCard,
+  NotebookReviewCounts,
+  NotebookReviewGrade,
+} from '@/api/types/classes';
 import type { Tone } from '@/lib/format';
 
 /** One query parameter of a portal or MyCIC link (`?mod=…&id=30061`, `/meeting/1?courses_id=2`); null when it is missing. */
@@ -364,4 +372,110 @@ export function quizItemView(
     verdict: correct ? 'Benar.' : `Salah. Jawaban benar: ${answerText}.`,
     explanation: item.explanation ?? null,
   };
+}
+
+/** The grade buttons of Ulasan harian, in order (keys 1 to 4 on the web). */
+export const REVIEW_GRADES: { grade: NotebookReviewGrade; label: string }[] = [
+  { grade: 'lagi', label: 'Lagi' },
+  { grade: 'sulit', label: 'Sulit' },
+  { grade: 'bisa', label: 'Bisa' },
+  { grade: 'mudah', label: 'Mudah' },
+];
+
+/** "10 mnt", "3 jam", "4 hari", "2 bln": when a grade brings a card back (the server sends minutes). */
+export function formatReviewInterval(minutes: number | null | undefined): string {
+  const value = Math.max(0, Number(minutes) || 0);
+
+  if (value < 60) {
+    return `${Math.max(1, Math.round(value))} mnt`;
+  }
+
+  if (value < 1440) {
+    return `${Math.round(value / 60)} jam`;
+  }
+
+  const days = Math.round(value / 1440);
+
+  return days < 31 ? `${days} hari` : `${Math.round(days / 30)} bln`;
+}
+
+/**
+ * The cards still to review in this sitting: the server's queue without the ones graded or suspended here
+ * (`done`), in the server's order (reviews first, oldest due first, then new cards).
+ */
+export function reviewQueue(cards: NotebookReviewCard[] | null | undefined, done: readonly number[]): NotebookReviewCard[] {
+  return (cards ?? []).filter((card) => !card.suspended && !done.includes(card.id));
+}
+
+/**
+ * After a card is graded or held: it leaves this sitting for good (even when re-reading the queue then fails, so it
+ * is never graded twice), and the queue is read again once no card is left.
+ */
+export function reviewAfterCard(cards: readonly NotebookReviewCard[], done: readonly number[], cardId: number): { done: number[]; reload: boolean } {
+  const next = done.includes(cardId) ? [...done] : [...done, cardId];
+
+  return { done: next, reload: !cards.some((card) => !next.includes(card.id)) };
+}
+
+/**
+ * The finished (or empty) screen: no card saved yet, every card held, or done for now with when the next one comes
+ * and how many are held. `resume` offers to bring the held cards back.
+ */
+export function reviewFinishedCopy(
+  counts: Partial<NotebookReviewCounts> | null | undefined,
+  nextDueAt: string | null | undefined,
+  now: number = Date.now(),
+): { title: string; description: string; resume: boolean } {
+  const total = counts?.total ?? 0;
+  const held = Math.max(0, counts?.suspended ?? 0);
+
+  if (total === 0) {
+    return {
+      title: 'Belum ada kartu ulasan',
+      description: 'Buka notebook, lalu pilih Simpan ke ulasan di flashcard atau Simpan yang salah ke ulasan setelah kuis.',
+      resume: false,
+    };
+  }
+
+  if (held >= total) {
+    return { title: 'Semua kartu sedang ditahan', description: `${held} kartu sedang ditahan, jadi tidak ada yang muncul di ulasan.`, resume: true };
+  }
+
+  const next = reviewNextLine(nextDueAt, now) ?? 'Tidak ada kartu lain yang terjadwal.';
+
+  return {
+    title: 'Selesai untuk sekarang',
+    description: held ? `${next} ${held} kartu sedang ditahan dan tidak muncul sampai diaktifkan lagi.` : next,
+    resume: held > 0,
+  };
+}
+
+/** "Sisa 4 kartu hari ini · 2 baru", or that nothing is waiting. */
+export function reviewProgressLine(queue: NotebookReviewCard[]): string {
+  if (queue.length === 0) {
+    return 'Tidak ada kartu yang menunggu.';
+  }
+
+  const fresh = queue.filter((card) => card.is_new).length;
+
+  return `Sisa ${queue.length} kartu hari ini${fresh ? ` · ${fresh} baru` : ''}`;
+}
+
+/** "Notebook · Pertemuan 3 · Topik: Kunci". */
+export function reviewCardMeta(card: NotebookReviewCard): string {
+  return [card.notebook_title, card.meeting_number ? `Pertemuan ${card.meeting_number}` : null, card.topic ? `Topik: ${card.topic}` : null]
+    .filter(Boolean)
+    .join(' · ');
+}
+
+/** The due badge of the notebook list: "5 kartu menunggu", or null when none (or an older server). */
+export function reviewDueLabel(due: number | null | undefined): string | null {
+  return typeof due === 'number' && due > 0 ? `${due > 99 ? '99+' : due} kartu menunggu` : null;
+}
+
+/** When the next card comes back, from `next_due_at`: "dalam 10 mnt"; null when none is scheduled. */
+export function reviewNextLine(nextDueAt: string | null | undefined, now: number = Date.now()): string | null {
+  const at = nextDueAt ? Date.parse(nextDueAt) : Number.NaN;
+
+  return Number.isNaN(at) ? null : `Kartu berikutnya muncul dalam ${formatReviewInterval((at - now) / 60000)}.`;
 }

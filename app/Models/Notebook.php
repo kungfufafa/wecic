@@ -96,6 +96,16 @@ class Notebook extends Model
     }
 
     /**
+     * Cards of the student's "Ulasan harian" saved from this notebook.
+     *
+     * @return HasMany<NotebookReviewCard, $this>
+     */
+    public function reviewCards(): HasMany
+    {
+        return $this->hasMany(NotebookReviewCard::class);
+    }
+
+    /**
      * Course files and meetings the student removed from this notebook.
      *
      * @return HasMany<NotebookDismissal, $this>

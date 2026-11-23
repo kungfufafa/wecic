@@ -19,6 +19,10 @@ export type PracticeProps = {
   onSave?: (practice: Record<string, unknown>) => void;
   /** Make a new quiz from the missed items: one AI request. */
   onPracticeFromMissed?: (missed: number[]) => void;
+  /** Ulasan harian (no AI): `onlyMissed` saves the items missed in the last practice, otherwise every flashcard. */
+  onSaveToReview?: (onlyMissed: boolean) => void;
+  /** A save to Ulasan harian is running. */
+  savingToReview?: boolean;
 };
 
 /** The citation numbers of an item as "[1] Modul, hlm. 2" lines, from the output's citations. */
@@ -37,7 +41,7 @@ export function citationLine(message: NotebookMessage, numbers: number[] | undef
  * words (not only by colour), a question can be marked wrong ("Soal ini salah?") to leave the score, and after the
  * last answer the score comes with Ulangi (on the phone, no AI), Tinjau yang salah, and Buat latihan dari yang salah.
  */
-export function QuizPractice({ message, budget, canMakePractice = false, onSave, onPracticeFromMissed }: PracticeProps) {
+export function QuizPractice({ message, budget, canMakePractice = false, onSave, onPracticeFromMissed, onSaveToReview, savingToReview = false }: PracticeProps) {
   const theme = useTheme();
   const items = (Array.isArray(message.data) ? message.data : []) as NotebookQuizItem[];
   const [choices, setChoices] = useState<QuizChoices>({});
@@ -176,6 +180,16 @@ export function QuizPractice({ message, budget, canMakePractice = false, onSave,
             />
             {result.missed.length || reviewed ? (
               <Button size="small" variant="secondary" label={reviewed ? 'Tampilkan semua soal' : 'Tinjau yang salah'} onPress={() => setReviewing(!reviewed)} />
+            ) : null}
+            {result.missed.length ? (
+              <Button
+                size="small"
+                variant="secondary"
+                label="Simpan yang salah ke ulasan"
+                loading={savingToReview}
+                disabled={!onSaveToReview}
+                onPress={() => onSaveToReview?.(true)}
+              />
             ) : null}
           </View>
           {result.missed.length && onPracticeFromMissed ? (

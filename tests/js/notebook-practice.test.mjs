@@ -60,6 +60,7 @@ function notebookNotes({ messages, aiBudget = null } = {}) {
         messages: structuredClone(messages),
         studioKinds: { quiz: 'Kuis', flashcards: 'Flashcard' },
         practice: {},
+        practiceSaves: {},
         openNoteIds: new Set(),
         aiAvailable: true,
         aiBudget,

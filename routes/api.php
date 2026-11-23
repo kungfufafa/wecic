@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Http\Controllers\API\NotebookAiConsentController;
 use App\Http\Controllers\API\NotebookController;
+use App\Http\Controllers\API\NotebookReviewController;
 use App\Http\Controllers\API\PortalAcademicController;
 use App\Http\Controllers\API\PortalAccountController;
 use App\Http\Controllers\API\PortalActionCenterController;
@@ -182,6 +183,15 @@ Route::middleware($sessionMiddleware)->group(function () {
 
         // The notebook reads stored portal data, so it also works in offline mode
         // (adding a meeting that was never opened is the one read that needs the portal).
+        // Ulasan harian (spaced repetition) across the student's notebooks; no AI.
+        Route::prefix('notebooks')->controller(NotebookReviewController::class)->group(function (): void {
+            Route::get('review', 'index');
+            Route::post('review/resume', 'resume');
+            Route::post('review/{card}', 'review')->whereNumber('card');
+            Route::patch('review/{card}', 'update')->whereNumber('card');
+            Route::post('{notebook}/messages/{message}/review-cards', 'import')->whereNumber(['notebook', 'message']);
+        });
+
         Route::prefix('notebooks')->controller(NotebookController::class)->group(function (): void {
             Route::get('', 'index');
             Route::post('', 'store');

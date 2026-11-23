@@ -10,6 +10,7 @@ import type {
   NotebookMeeting,
   NotebookMessage,
   NotebookNoteResponse,
+  NotebookReviewImportResponse,
   NotebookSource,
   NotebookStudioOptions,
 } from '@/api/types/classes';
@@ -100,6 +101,8 @@ export default function NotebookScreen() {
   /** Which opening of the feedback sheet a request belongs to: a late result never lands in a sheet closed or reopened since. */
   const feedbackOpening = useRef(0);
   const scrollRef = useRef<ScrollViewInstance>(null);
+  /** The last practice save of each output, so "Simpan yang salah ke ulasan" reads the attempt just finished. */
+  const practiceSaves = useRef(new Map<number, Promise<unknown>>());
   const [addBusy, setAddBusy] = useState<'upload' | 'text' | null>(null);
   const [addError, setAddError] = useState<string | null>(null);
   const [excluded, setExcluded] = useSourceSelection(id);
@@ -514,9 +517,37 @@ export default function NotebookScreen() {
 
   /** A practice attempt is kept on the output without AI; a failed save leaves the practice as it is. */
   function savePractice(message: NotebookMessage, practice: Record<string, unknown>) {
-    api.patch(`notebooks/${encodeURIComponent(id ?? '')}/messages/${message.id}`, { practice }).catch(() => {
+    const saved = api.patch(`notebooks/${encodeURIComponent(id ?? '')}/messages/${message.id}`, { practice }).catch(() => {
       setActionError('Hasil latihan belum tersimpan.');
     });
+
+    practiceSaves.current.set(message.id, saved);
+  }
+
+  /**
+   * Ulasan harian: every flashcard, or the items missed in the last practice (always for a quiz). No AI and no
+   * budget; saving the same output again adds no duplicates.
+   */
+  async function saveToReview(message: NotebookMessage, onlyMissed: boolean) {
+    setBusy(`review-${message.id}`);
+    setActionError(null);
+
+    try {
+      await practiceSaves.current.get(message.id);
+      const response = await api.post<NotebookReviewImportResponse>(
+        `notebooks/${encodeURIComponent(id ?? '')}/messages/${message.id}/review-cards`,
+        onlyMissed ? { only_missed: true } : {},
+      );
+
+      Alert.alert('Ulasan harian', response.message ?? 'Disimpan ke Ulasan harian.', [
+        { text: 'Nanti', style: 'cancel' },
+        { text: 'Ulas sekarang', onPress: () => router.push('/notebooks/review') },
+      ]);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setBusy(null);
+    }
   }
 
   /** "+ Catatan baru", or "Salin ke catatan" from an answer: no AI and no consent. */
@@ -758,6 +789,8 @@ export default function NotebookScreen() {
                   onFeedback={aiAvailable && hasReadySource && !nothingChosen ? openFeedback : undefined}
                   onMindMapAction={canAsk ? (action, line) => onMindMapAction(message, action, line) : undefined}
                   onSave={(practice) => savePractice(message, practice)}
+                  savingToReview={busy === `review-${message.id}`}
+                  onSaveToReview={busy === null ? (onlyMissed) => void saveToReview(message, onlyMissed) : undefined}
                   onPracticeFromMissed={(missed) =>
                     runStudio('quiz', { practice: { message_id: message.id, missed }, options: { count: practiceCount(missed) } })
                   }

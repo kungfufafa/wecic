@@ -19,7 +19,7 @@ use Illuminate\Support\Facades\Storage;
 /**
  * Deletes everything WeCIC keeps for the student a campus session belongs
  * to, then ends every session they have: the archive and its files, the
- * notebooks and their uploads, the Notebook AI consent, the offline account with its password hash
+ * notebooks and their uploads (their review cards go with them), the Notebook AI consent, the offline account with its password hash
  * and stored credentials (the row itself, not an opt-out stub), the
  * notifications, push tokens and outbox, the exam submission records, the
  * cached portal pages and snapshots, and the mobile app logins. The store

@@ -38,13 +38,14 @@ function notesPage({ messages = [], sources = [], sourceLimit = 30, failSave = f
         sourceLimit,
         noteSaved: Object.fromEntries(messages.filter((message) => message.kind === 'note').map((message) => [message.id, message.content])),
         noteSaving: {},
+        noteDrafts: {},
         openNoteIds: new Set(),
     };
     const app = {
         escapeHtml,
         ui: { textarea: 'textarea', button: { secondarySm: 'secondary' } },
         request: async (url, options = {}) => {
-            requests.push({ url, method: options.method || 'GET', json: options.json });
+            requests.push({ url, method: options.method || 'GET', json: options.json, ...(options.keepalive ? { keepalive: true } : {}) });
 
             if (failSave && options.method === 'PATCH') {
                 throw new Error('offline');
@@ -93,7 +94,7 @@ function notesPage({ messages = [], sources = [], sourceLimit = 30, failSave = f
         document: { createElement: () => ({}), body: { appendChild: () => {} } },
     };
     const keys = Object.keys(scope);
-    const api = new Function(...keys, `${NOTES}\nreturn { noteTitle, renderNoteEditor, noteActions, saveNote, createNote, noteToSource };`)(...keys.map((key) => scope[key]));
+    const api = new Function(...keys, `${NOTES}\nreturn { noteTitle, renderNoteEditor, noteActions, editNote, saveNote, flushNotes, createNote, noteToSource };`)(...keys.map((key) => scope[key]));
 
     return { ...api, state, requests, notices, statuses, renders };
 }
@@ -210,7 +211,7 @@ describe('notebook context ticks on the server', () => {
         return new Function(...keys, `${RECEIVE}\nreturn receive;`)(...keys.map((key) => scope[key]));
     }
 
-    const freshState = () => ({ excluded: new Set(), contextChoiceKey: null, noteSaved: {} });
+    const freshState = () => ({ excluded: new Set(), contextChoiceKey: null, noteSaved: {}, noteDrafts: {} });
     const data = (contextSourceIds) => ({
         notebook: { id: 7 },
         sources: [{ id: 1 }, { id: 2 }, { id: 3 }],
@@ -269,5 +270,60 @@ describe('notebook context ticks on the server', () => {
             ['/api/notebooks/7', 'PATCH', { context_source_ids: null }],
         ]);
         assert.equal(state.contextChoiceKey, 'all');
+    });
+});
+
+describe('notebook notes while the page reloads or closes', () => {
+    const receiveInto = (state) => {
+        const scope = { state, STARTER_QUESTIONS: [], setAiStatus: () => {}, setAiConsent: () => {}, setAiBudget: () => {} };
+        const keys = Object.keys(scope);
+
+        return new Function(...keys, `${RECEIVE}\nreturn receive;`)(...keys.map((key) => scope[key]));
+    };
+    const typeInto = (page, id, value) => page.editNote({ dataset: { noteEditor: String(id) }, value, closest: () => null });
+    const serverCopy = (content) => ({ notebook: { id: 7 }, sources: [], messages: [{ id: 41, kind: 'note', content }] });
+
+    it('keeps the text being typed when a poll brings the server copy, and still saves it on blur', async () => {
+        const page = notesPage({ messages: [{ id: 41, kind: 'note', role: 'user', content: 'Awal' }] });
+        const receive = receiveInto(page.state);
+
+        page.state.excluded = new Set();
+        typeInto(page, 41, 'Awal, lalu ditambah');
+        receive(serverCopy('Awal'));
+
+        assert.equal(page.state.messages[0].content, 'Awal, lalu ditambah');
+        assert.equal(page.state.noteSaved[41], 'Awal');
+
+        await page.saveNote(41);
+
+        assert.deepEqual(page.requests.map((request) => request.json), [{ content: 'Awal, lalu ditambah' }]);
+        assert.deepEqual(page.state.noteDrafts, {}, 'a saved draft is let go');
+
+        receive(serverCopy('Awal, lalu ditambah'));
+        assert.equal(page.state.messages[0].content, 'Awal, lalu ditambah');
+    });
+
+    it('lets go of a draft once the server has the same text', () => {
+        const page = notesPage({ messages: [{ id: 41, kind: 'note', role: 'user', content: 'Awal' }] });
+
+        page.state.excluded = new Set();
+        typeInto(page, 41, 'Sama');
+        receiveInto(page.state)(serverCopy('Sama'));
+
+        assert.deepEqual(page.state.noteDrafts, {});
+    });
+
+    it('sends every unsaved note as a keepalive request when the page goes away', async () => {
+        const page = notesPage({ messages: [
+            { id: 41, kind: 'note', role: 'user', content: 'Awal' },
+            { id: 42, kind: 'note', role: 'user', content: 'Tetap' },
+        ] });
+
+        typeInto(page, 41, 'Belum di-blur');
+        await page.flushNotes({ keepalive: true });
+
+        assert.deepEqual(page.requests, [{ url: '/api/notebooks/7/messages/41', method: 'PATCH', json: { content: 'Belum di-blur' }, keepalive: true }]);
+        assert.match(source, /window\.addEventListener\('pagehide', \(\) => flushNotes\(\{ keepalive: true \}\)\);/);
+        assert.match(source, /notePauseTimers\[messageId\] = window\.setTimeout\(\(\) => saveNote\(messageId\), NOTE_PAUSE_SAVE_MS\);/);
     });
 });

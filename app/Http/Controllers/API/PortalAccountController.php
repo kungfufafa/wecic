@@ -24,7 +24,7 @@ class PortalAccountController extends CampusApiController
     /**
      * Hapus akun WeCIC dan seluruh datanya, lalu keluar dari semua perangkat.
      *
-     * Yang dihapus: arsip dan berkas materi, notebook beserta unggahannya,
+     * Yang dihapus: arsip dan berkas materi, notebook beserta unggahan dan kartu Ulasan hariannya,
      * persetujuan AI Notebook,
      * akses offline (hash password dan password terenkripsi), notifikasi,
      * token push, antrean offline, catatan unggahan ujian, cache data portal,

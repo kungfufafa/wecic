@@ -27,6 +27,7 @@ use App\Services\NotebookAssistant;
 use App\Services\NotebookCourseSync;
 use App\Services\NotebookLibrary;
 use App\Services\NotebookPractice;
+use App\Services\NotebookReviewDeck;
 use App\Services\NotebookSourceViewer;
 use App\Services\PortalArchivedFileStore;
 use App\Services\PortalDataOwner;
@@ -74,7 +75,8 @@ class NotebookController extends CampusApiController
         private readonly NotebookAiConsents $aiConsents,
         private readonly NotebookAiProviders $aiProviders,
         private readonly NotebookPractice $practice,
-        private readonly NotebookSourceViewer $sourceViewer
+        private readonly NotebookSourceViewer $sourceViewer,
+        private readonly NotebookReviewDeck $reviewDeck
     ) {}
 
     /**
@@ -87,9 +89,10 @@ class NotebookController extends CampusApiController
      * tidak cocok), atau `ok`. `ai_provider` menyebut penyedia AI yang dipakai server (`label` untuk ditampilkan; `free_tier`
      * true berarti penyedia dapat memakai data yang dikirim untuk meningkatkan produknya). `ai_consent.granted` false berarti
      * mahasiswa belum menyetujui pengiriman isi Notebook ke penyedia itu (POST /ai-consent), atau persetujuannya diberikan untuk
-     * penyedia lain; fitur AI menolak dengan 403 `ai_consent_required` sampai disetujui.
+     * penyedia lain; fitur AI menolak dengan 403 `ai_consent_required` sampai disetujui. `review_due` adalah jumlah kartu
+     * Ulasan harian yang menunggu hari ini (GET /notebooks/review).
      */
-    #[Response(description: 'Daftar notebook.', type: "array{status: 'success', message: string, data: array{notebooks: list<".self::NOTEBOOK_ITEM.'>, ai_available: bool, ai_status: '.self::AI_STATUS.', ai_provider: '.self::AI_PROVIDER_ITEM.', ai_consent: '.self::AI_CONSENT_ITEM.', course_notebooks: bool, studio_kinds: array<string, string>}, meta: array{timestamp: string, campus_session_valid: true}}')]
+    #[Response(description: 'Daftar notebook.', type: "array{status: 'success', message: string, data: array{notebooks: list<".self::NOTEBOOK_ITEM.'>, ai_available: bool, ai_status: '.self::AI_STATUS.', ai_provider: '.self::AI_PROVIDER_ITEM.', ai_consent: '.self::AI_CONSENT_ITEM.', course_notebooks: bool, studio_kinds: array<string, string>, review_due: int}, meta: array{timestamp: string, campus_session_valid: true}}')]
     #[Response(401, description: 'Endpoint ini membutuhkan sesi kampus yang aktif.', type: CampusApiController::SCRAMBLE_SESSION_ERROR_RESPONSE)]
     public function index(): JsonResponse
     {
@@ -113,6 +116,7 @@ class NotebookController extends CampusApiController
                     'ai_consent' => $this->aiConsents->state($this->owner->key($sessionToken)),
                     'course_notebooks' => $this->courseSync->enabled(),
                     'studio_kinds' => NotebookAssistant::STUDIO_KINDS,
+                    'review_due' => $this->reviewDeck->counts($this->owner->key($sessionToken), now())['due'],
                 ],
             ], campusSessionValid: true);
         });
@@ -362,7 +366,7 @@ class NotebookController extends CampusApiController
     }
 
     /**
-     * Hapus notebook beserta sumber unggahan dan percakapannya. Berkas arsip materi tidak ikut terhapus.
+     * Hapus notebook beserta sumber unggahan, percakapan, dan kartu Ulasan hariannya. Berkas arsip materi tidak ikut terhapus.
      *
      * Notebook mata kuliah tidak dihapus, hanya dikosongkan (`emptied: true`): ia dibuat otomatis selama mata kuliahnya ada di daftar kelas.
      */

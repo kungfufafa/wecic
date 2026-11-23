@@ -188,3 +188,69 @@ describe('notebook mind map', () => {
         assert.ok(source.includes('runStudio(button, kind, focus, {'));
     });
 });
+
+describe('mind map Escape', () => {
+    const ESCAPE = slice("// Escape closes a mind map node's actions", '// The Catatan entries the student opened');
+
+    class Node {
+        constructor(matches) {
+            this.matches = matches;
+            this.focused = false;
+        }
+
+        closest(selector) {
+            return this.matches[selector] ?? null;
+        }
+
+        focus() {
+            this.focused = true;
+        }
+    }
+
+    function escapeHandler() {
+        const toggled = [];
+        let listener;
+        const title = new Node({});
+        const notesHost = {
+            addEventListener: (type, callback) => {
+                listener = callback;
+            },
+            querySelector: (selector) => (selector === '[aria-controls="mindmap-12-0"]' ? title : null),
+        };
+
+        new Function('notesHost', 'Element', 'toggleMindMapActions', ESCAPE)(notesHost, Node, (button) => toggled.push(button));
+
+        return { press: (target, key = 'Escape') => listener({ key, target }), toggled, title };
+    }
+
+    it('closes the actions from the open title itself and keeps focus there', () => {
+        const page = escapeHandler();
+        const openTitle = new Node({});
+
+        openTitle.matches['[data-mindmap-node][aria-expanded="true"]'] = openTitle;
+        page.press(openTitle);
+
+        assert.deepEqual(page.toggled, [openTitle]);
+        assert.ok(openTitle.focused);
+    });
+
+    it('closes the actions from inside them and returns to the title', () => {
+        const page = escapeHandler();
+
+        page.press(new Node({ '[data-mindmap-actions]': { id: 'mindmap-12-0' } }));
+
+        assert.deepEqual(page.toggled, [page.title]);
+        assert.ok(page.title.focused);
+    });
+
+    it('leaves other keys and a closed title alone', () => {
+        const page = escapeHandler();
+        const openTitle = new Node({});
+
+        openTitle.matches['[data-mindmap-node][aria-expanded="true"]'] = openTitle;
+        page.press(openTitle, 'Enter');
+        page.press(new Node({}));
+
+        assert.deepEqual(page.toggled, []);
+    });
+});

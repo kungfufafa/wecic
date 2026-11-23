@@ -95,7 +95,24 @@ export function StudioResult({ message, notebookId, onFeedback, onMindMapAction,
   }
 
   if (message.kind === 'flashcards' && Array.isArray(data)) {
-    return <FlashcardDeck message={message} {...practice} />;
+    return (
+      <View style={styles.list}>
+        <FlashcardDeck message={message} {...practice} />
+        {data.length > 0 ? (
+          <View style={styles.action}>
+            <Button
+              size="small"
+              variant="secondary"
+              label="Simpan ke ulasan"
+              accessibilityHint="Semua kartu masuk Ulasan harian, tanpa AI"
+              loading={practice.savingToReview}
+              disabled={!practice.onSaveToReview}
+              onPress={() => practice.onSaveToReview?.(false)}
+            />
+          </View>
+        ) : null}
+      </View>
+    );
   }
 
   if (message.kind === 'glossary' && Array.isArray(data)) {

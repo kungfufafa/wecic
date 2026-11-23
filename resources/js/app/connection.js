@@ -240,6 +240,7 @@ export class ConnectionFeature {
             'archive-show': [],
             'notebook-index': [],
             'notebook-show': [],
+            'notebook-review': [],
             password: [],
         };
 

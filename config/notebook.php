@@ -82,6 +82,10 @@ return [
         'max_text_chars' => 200000,
         // The student's own notes (Catatan) per notebook.
         'max_notes' => 200,
+        // Ulasan harian: cards per notebook, and cards never reviewed that
+        // the daily queue lets in per day (across every notebook).
+        'max_review_cards' => 1000,
+        'review_new_per_day' => 20,
         // Characters of source text sent with one question; larger notebooks
         // send the excerpts that match the question best.
         'context_chars' => (int) env('NOTEBOOK_CONTEXT_CHARS', 300000),

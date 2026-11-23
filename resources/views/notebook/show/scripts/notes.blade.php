@@ -1,6 +1,6 @@
 {{--
     Notebook script, the Studio outputs in Catatan (quiz and flashcard
-    practice, glossary, mind map), the student's own notes (editor,
+    practice, glossary, mind map, Simpan ke ulasan), the student's own notes (editor,
     preview, Salin, Unduh .md, Jadikan sumber) and the Studio buttons. Practice progress
     lives in state.practice, so redrawing Catatan keeps it. Part of the DOMContentLoaded
     handler opened in notebook/show.blade.php: it shares that scope (app,
@@ -46,6 +46,41 @@
                 return `
                     <button type="button" class="${app.ui.button.primarySm}" data-practice-from="${messageId}" data-practice-missed="${missed.join(',')}" ${unavailable ? 'disabled aria-disabled="true"' : ''}>Buat latihan dari yang salah</button>
                 `;
+            };
+
+            // Ulasan harian: no AI and no budget. A quiz saves the questions missed in its last saved attempt
+            // (context.practice); flashcards save every card, or with `missed` the ones still to learn.
+            const reviewImportButton = (messageId, label, missed = false) => `
+                <button type="button" class="${app.ui.button.secondarySm}" data-review-import="${messageId}" ${missed ? 'data-review-missed' : ''}>${label}</button>
+            `;
+
+            // The server reads the attempt saved on the output, so the save of the attempt just finished (savePractice)
+            // lands first; one that failed is tried once more, and nothing is imported while it is not saved.
+            const saveToReview = async (button) => {
+                const messageId = Number(button.dataset.reviewImport);
+
+                await app.withSubmitLoading(button, async () => {
+                    const pending = state.practiceSaves[messageId];
+
+                    if (pending && !(await pending)) {
+                        const message = state.messages.find((item) => item.id === messageId);
+
+                        if (!message || !(await savePractice(message))) {
+                            return;
+                        }
+                    }
+
+                    try {
+                        const payload = await app.request(`${base}/messages/${messageId}/review-cards`, {
+                            method: 'POST',
+                            json: button.hasAttribute('data-review-missed') ? { only_missed: true } : {},
+                        });
+
+                        app.showNotice(`${payload?.message || 'Disimpan ke Ulasan harian.'} Ulas di Notebook › Ulasan harian.`, 'success');
+                    } catch (error) {
+                        app.showNotice(app.describeError(error, 'Kartu gagal disimpan ke ulasan.'), 'error');
+                    }
+                });
             };
 
             const renderQuizItem = (question, index, practice) => {
@@ -106,6 +141,7 @@
                                         <button type="button" class="${app.ui.button.secondarySm}" data-quiz-review="${message.id}" aria-pressed="${reviewing ? 'true' : 'false'}">${reviewing ? 'Tampilkan semua soal' : 'Tinjau yang salah'}</button>
                                     ` : ''}
                                     ${result.missed.length ? practiceFromButton(message.id, result.missed) : ''}
+                                    ${result.missed.length ? reviewImportButton(message.id, 'Simpan yang salah ke ulasan', true) : ''}
                                 </div>
                             </div>
                         ` : ''}
@@ -161,6 +197,7 @@
                                 ${toLearn.length ? `<button type="button" class="${app.ui.button.secondarySm}" data-flash-repeat="${message.id}">Ulangi yang belum hafal</button>` : ''}
                                 <button type="button" class="${app.ui.button.secondarySm}" data-flash-restart="${message.id}">Mulai lagi</button>
                                 ${toLearn.length ? practiceFromButton(message.id, toLearn) : ''}
+                                ${toLearn.length ? reviewImportButton(message.id, 'Simpan yang belum hafal ke ulasan', true) : ''}
                             </div>
                         </div>
                     `;
@@ -224,21 +261,35 @@
             };
 
             // The attempt is kept on the output (context.practice) without AI or budget; a quiz sends its choices
-            // and the server counts the score. A failed save does not interrupt the practice.
-            const savePractice = async (message) => {
+            // and the server counts the score. A failed save does not interrupt the practice. The save is kept in
+            // state.practiceSaves (resolving to whether it worked) so Simpan ke ulasan waits for it.
+            const savePractice = (message) => {
                 const questions = Array.isArray(message.data) ? message.data : [];
                 const practice = state.practice[message.id];
                 const body = message.kind === 'quiz'
                     ? { choices: questions.map((question, index) => (Number.isInteger(practice.choices[index]) ? practice.choices[index] : null)), flagged: practice.flagged }
                     : { score: practice.known.length, total: questions.length, missed: flashToLearn(practice, questions.length) };
+                const previous = state.practiceSaves[message.id];
+                const saving = (async () => {
+                    // Attempts are saved in the order they were made.
+                    await previous;
 
-                try {
-                    const payload = await app.request(`${base}/messages/${message.id}`, { method: 'PATCH', json: { practice: body } });
+                    try {
+                        const payload = await app.request(`${base}/messages/${message.id}`, { method: 'PATCH', json: { practice: body } });
 
-                    message.context = payload.data.message.context;
-                } catch (error) {
-                    app.showNotice(app.describeError(error, 'Hasil latihan belum tersimpan.'), 'warning');
-                }
+                        message.context = payload.data.message.context;
+
+                        return true;
+                    } catch (error) {
+                        app.showNotice(app.describeError(error, 'Hasil latihan belum tersimpan.'), 'warning');
+
+                        return false;
+                    }
+                })();
+
+                state.practiceSaves[message.id] = saving;
+
+                return saving;
             };
 
             const renderGlossary = (message) => {
@@ -462,6 +513,7 @@
                 }
 
                 message.content = textarea.value;
+                state.noteDrafts[messageId] = textarea.value;
 
                 const holder = textarea.closest('[data-note]');
                 const preview = holder?.querySelector('[data-note-preview]');
@@ -476,12 +528,18 @@
                 }
             };
 
-            // One PATCH when the text differs from what the server has; a failed save says so and is tried on the next blur.
-            const saveNote = async (messageId) => {
-                // A save still on its way finishes first (leaving the editor for "Jadikan sumber" saves, then converts).
-                await state.noteSaving[messageId];
+            // The note as the page has it now: state.messages is replaced by every load, so it is looked up each time.
+            const currentNote = (messageId) => state.messages.find((item) => item.id === messageId && item.kind === 'note');
 
-                const message = state.messages.find((item) => item.id === messageId && item.kind === 'note');
+            // One PATCH when the text differs from what the server has; a failed save says so and is tried on the next blur.
+            // `keepalive` (leaving the page) sends at once, without waiting for an earlier save, so the browser still delivers it.
+            const saveNote = async (messageId, { keepalive = false } = {}) => {
+                // A save still on its way finishes first (leaving the editor for "Jadikan sumber" saves, then converts).
+                if (!keepalive) {
+                    await state.noteSaving[messageId];
+                }
+
+                const message = currentNote(messageId);
                 const content = String(message?.content ?? '');
 
                 if (!message || state.noteSaved[messageId] === content) {
@@ -501,29 +559,47 @@
                 state.noteSaved[messageId] = content;
                 setStatus('Menyimpan…');
 
-                const request = app.request(`${base}/messages/${messageId}`, { method: 'PATCH', json: { content } });
+                const request = app.request(`${base}/messages/${messageId}`, { method: 'PATCH', json: { content }, ...(keepalive ? { keepalive: true } : {}) });
 
                 state.noteSaving[messageId] = request.catch(() => null);
 
                 try {
                     await request;
-                    setStatus(message.content === content ? 'Tersimpan' : 'Belum tersimpan');
+
+                    // A load while the save ran took the server's older copy; the server has this text now.
+                    state.noteSaved[messageId] = content;
+
+                    if (state.noteDrafts[messageId] === content) {
+                        delete state.noteDrafts[messageId];
+                    }
+
+                    setStatus(String(currentNote(messageId)?.content ?? '') === content ? 'Tersimpan' : 'Belum tersimpan');
 
                     const summary = notesHost.querySelector(`[data-message-id="${messageId}"] [data-note-title]`);
 
                     if (summary) {
-                        summary.textContent = noteTitle(message);
+                        summary.textContent = noteTitle(currentNote(messageId) || message);
                     }
 
                     return true;
                 } catch (error) {
-                    state.noteSaved[messageId] = previous;
+                    if (state.noteSaved[messageId] === content) {
+                        state.noteSaved[messageId] = previous;
+                    }
+
                     setStatus('Belum tersimpan');
                     app.showNotice(app.describeError(error, 'Catatan belum tersimpan.'), 'warning');
 
                     return false;
                 }
             };
+
+            // Every note with text the server does not have yet (leaving the page, or a pause while typing).
+            const unsavedNoteIds = () => state.messages
+                .filter((message) => message.kind === 'note' && String(message.content ?? '') !== (state.noteSaved[message.id] ?? ''))
+                .map((message) => message.id);
+
+            const flushNotes = ({ keepalive = false } = {}) => Promise.all(unsavedNoteIds().map((messageId) => saveNote(messageId, { keepalive })));
 
             // "+ Catatan baru" (empty) or "Salin ke catatan" from an answer (`fromMessageId`): no AI, no consent.
             const createNote = async ({ fromMessageId = null } = {}) => {
@@ -622,6 +698,7 @@
                             <div class="flex flex-wrap gap-2">
                                 ${message.kind === 'assignment_plan' ? outlineCheckButton(message) : ''}
                                 ${message.kind === 'note' ? noteActions(message) : ''}
+                                ${message.kind === 'flashcards' && Array.isArray(message.data) && message.data.length ? reviewImportButton(message.id, 'Simpan ke ulasan') : ''}
                                 ${message.kind === 'chat'
                                     ? `<button type="button" class="${app.ui.button.ghostSm}" data-pin="${message.id}" aria-pressed="true">Lepas dari Catatan</button>`
                                     : `<button type="button" class="${app.ui.button.ghostSm} text-danger! hover:bg-danger-soft!" data-delete-message="${message.id}" ${message.kind === 'note' ? 'data-delete-note' : ''}>Hapus</button>`}
