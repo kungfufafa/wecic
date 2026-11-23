@@ -130,6 +130,20 @@ describe('notebook quiz practice', () => {
         assert.match(html, /Topik: JOIN/);
     });
 
+    it('does not draw a citation twice when the explanation already shows it', () => {
+        const quiz = structuredClone(QUIZ);
+
+        quiz.data[0].explanation = 'JOIN menggabungkan tabel [1].';
+        quiz.data[0].citations = [1, 1, 2];
+        const page = notebookNotes({ messages: [quiz] });
+
+        page.quizPractice(5).choices[0] = 1;
+        const html = page.renderQuiz(page.state.messages[0]);
+
+        assert.equal(html.match(/data-cite="1"/g), null, 'inline() renders the [1] in the text; no extra pill for it');
+        assert.equal(html.match(/data-cite="2"/g)?.length, 1, 'a citation not in the text is drawn once');
+    });
+
     it('shows the score, Ulangi, Tinjau yang salah and the remaining budget before the practice button after the last answer', () => {
         const page = notebookNotes({ messages: [QUIZ], aiBudget: { limit: 60, remaining: 3 } });
 

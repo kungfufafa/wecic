@@ -43,7 +43,7 @@
             const feedbackPoints = (title, points, render) => (points.length ? `
                 <div class="flex flex-col gap-1">
                     <p class="text-xs font-medium text-ink">${title}</p>
-                    <ul class="flex list-disc flex-col gap-1 ps-5 text-sm leading-relaxed text-ink-muted">${points.map((point) => `<li>${render(point)}${itemCitations(point)}</li>`).join('')}</ul>
+                    <ul class="flex list-disc flex-col gap-1 ps-5 text-sm leading-relaxed text-ink-muted">${points.map((point) => `<li>${render(point)}${itemCitations(point, Object.values(point || {}).filter((value) => typeof value === 'string').join(' '))}</li>`).join('')}</ul>
                 </div>
             ` : '');
 

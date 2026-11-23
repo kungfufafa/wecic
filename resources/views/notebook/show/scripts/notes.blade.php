@@ -24,10 +24,15 @@
                 };
             };
 
-            const itemCitations = (item) => (Array.isArray(item?.citations) ? item.citations : [])
-                .filter((n) => Number.isInteger(Number(n)))
-                .map((n) => citationButton(Number(n)))
-                .join('');
+            // Numbers the item's own text already shows as [n] are not drawn a second time.
+            const itemCitations = (item, text = '') => {
+                const shown = new Set([...String(text).matchAll(/\[(\d+)\]/g)].map((match) => Number(match[1])));
+
+                return [...new Set((Array.isArray(item?.citations) ? item.citations : []).map(Number))]
+                    .filter((n) => Number.isInteger(n) && !shown.has(n))
+                    .map((n) => citationButton(n))
+                    .join('');
+            };
 
             // Making a practice set spends one AI request: what is left today is said before the button.
             const budgetLine = () => {
@@ -106,7 +111,7 @@
                         ${question.topic ? `<p class="text-xs text-ink-subtle">Topik: ${app.escapeHtml(question.topic)}</p>` : ''}
                         <div class="flex flex-col gap-1.5">${options}</div>
                         ${answered && !flagged ? `
-                            <p class="text-xs leading-relaxed text-ink-muted focus:outline-none" data-quiz-explanation="${index}" tabindex="-1"><span class="font-medium text-ink">${correct ? 'Benar.' : `Salah. Jawaban benar: ${app.escapeHtml(String(question.options?.[answer] ?? ''))}.`}</span> ${inline(question.explanation || '')}${itemCitations(question)}</p>
+                            <p class="text-xs leading-relaxed text-ink-muted focus:outline-none" data-quiz-explanation="${index}" tabindex="-1"><span class="font-medium text-ink">${correct ? 'Benar.' : `Salah. Jawaban benar: ${app.escapeHtml(String(question.options?.[answer] ?? ''))}.`}</span> ${inline(question.explanation || '')}${itemCitations(question, question.explanation)}</p>
                         ` : ''}
                         ${flagged ? '<p class="text-xs text-ink-subtle">Ditandai salah, tidak dihitung dalam skor.</p>' : ''}
                         <div><button type="button" class="${app.ui.button.ghostSm} -ms-3" data-quiz-flag="${index}" aria-pressed="${flagged ? 'true' : 'false'}">${flagged ? 'Batalkan tanda salah' : 'Soal ini salah?'}</button></div>
