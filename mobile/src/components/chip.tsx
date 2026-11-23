@@ -26,7 +26,7 @@ export function Chip({ label, selected = false, icon, onPress }: ChipProps) {
   const content = (
     <>
       {icon ? <Icon name={icon} size={14} color={textColor} /> : null}
-      <ThemedText type="small" style={{ color: textColor, fontWeight: 500 }}>
+      <ThemedText type="small" style={{ color: textColor, fontWeight: 500, flexShrink: 1 }}>
         {label}
       </ThemedText>
     </>
@@ -58,7 +58,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.one + Spacing.half,
+    maxWidth: '100%',
     paddingHorizontal: Spacing.three - Spacing.one,
+    paddingVertical: Spacing.one,
     borderRadius: Radius.pill,
     borderWidth: StyleSheet.hairlineWidth,
   },

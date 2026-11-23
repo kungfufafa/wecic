@@ -276,10 +276,25 @@
                         return renderGlossary(message);
                     case 'mind_map':
                         return `<ul class="flex flex-col gap-1">${renderMindMapNode(message.data || {})}</ul>`;
+                    case 'feedback':
+                        return renderFeedback(message);
+                    case 'study_guide':
+                        return renderMarkdown(message.content, { listItemAction: practiceQuestionAction });
                     default:
                         return renderMarkdown(message.content);
                 }
             };
+
+            const noteLabel = (message) => {
+                if (message.kind === 'chat') {
+                    return 'Jawaban tersimpan';
+                }
+
+                return message.kind === 'feedback' ? 'Cek pemahaman' : (state.studioKinds[message.kind] || message.kind);
+            };
+
+            // "Cek kerangkaku": the student's own outline for this brief gets feedback (openFeedback, outline_check).
+            const outlineCheckButton = (message) => `<button type="button" class="${app.ui.button.secondarySm}" data-feedback-prompt="${app.escapeHtml(String(message.context?.focus || 'Kerangka tugas dari Catatan').slice(0, 1500))}" data-feedback-mode="outline_check">Cek kerangkaku</button>`;
 
             // Studio outputs live only here, so they are listed even if unpinned elsewhere.
             const renderNotes = () => {
@@ -295,7 +310,7 @@
                     <details class="group border-t border-border-light first:border-t-0" data-message-id="${message.id}" ${state.openNoteIds.has(message.id) ? 'open' : ''}>
                         <summary class="-mx-2 flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 rounded-lg px-2 py-2.5 transition-colors hover:bg-surface/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 [&::-webkit-details-marker]:hidden">
                             <span class="min-w-0">
-                                <span class="block text-sm font-medium leading-snug text-ink">${app.escapeHtml(message.kind === 'chat' ? 'Jawaban tersimpan' : (state.studioKinds[message.kind] || message.kind))}</span>
+                                <span class="block text-sm font-medium leading-snug text-ink">${app.escapeHtml(noteLabel(message))}</span>
                                 <span class="mt-0.5 block text-xs text-ink-subtle">${app.escapeHtml([app.formatTimeAgo(message.created_at), message.context?.practice ? `Skor terakhir ${Number(message.context.practice.score)}/${Number(message.context.practice.total)}` : null, message.context?.focus ? message.context.focus : null].filter(Boolean).join(' · '))}</span>
                             </span>
                             <svg xmlns="http://www.w3.org/2000/svg" class="size-4 shrink-0 text-ink-subtle transition-transform group-open:rotate-180" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6l6 -6" /></svg>
@@ -305,6 +320,7 @@
                             ${citationPanel(message)}
                             ${contextLine(message)}
                             <div class="flex flex-wrap gap-2">
+                                ${message.kind === 'assignment_plan' ? outlineCheckButton(message) : ''}
                                 ${message.kind === 'chat'
                                     ? `<button type="button" class="${app.ui.button.ghostSm}" data-pin="${message.id}" aria-pressed="true">Lepas dari Catatan</button>`
                                     : `<button type="button" class="${app.ui.button.ghostSm} text-danger! hover:bg-danger-soft!" data-delete-message="${message.id}">Hapus</button>`}

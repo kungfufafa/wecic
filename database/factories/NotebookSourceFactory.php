@@ -36,4 +36,22 @@ class NotebookSourceFactory extends Factory
     {
         return $this->state(fn (): array => ['status' => NotebookSource::STATUS_PENDING]);
     }
+
+    /**
+     * A source read with its guide: a summary, topics and understanding questions.
+     *
+     * @param  list<string>|null  $questions
+     */
+    public function withGuide(?array $questions = null): static
+    {
+        return $this->state(fn (): array => [
+            'summary' => 'Sumber ini membahas normalisasi basis data.',
+            'topics' => ['Normalisasi', 'Redundansi', 'Bentuk normal'],
+            'suggested_questions' => $questions ?? [
+                'Mengapa normalisasi mengurangi redundansi?',
+                'Apa beda 2NF dan 3NF?',
+                'Bagaimana contoh tabel yang belum normal?',
+            ],
+        ]);
+    }
 }

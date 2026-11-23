@@ -28,12 +28,8 @@
             const POLL_LIMIT_MS = 60 * 60 * 1000;
             const POLL_SLOW_AFTER_MS = 2 * 60 * 1000;
             const SOURCE_KIND = { meeting: 'Catatan pertemuan', archived_file: 'Arsip materi', upload: 'Unggahan', text: 'Catatan' };
-            const SUGGESTIONS = [
-                'Ringkas inti materi ini dalam 5 poin.',
-                'Konsep apa yang paling penting untuk ujian?',
-                'Jelaskan bagian tersulit dengan contoh sederhana.',
-                'Tugas apa saja yang ada di pertemuan-pertemuan ini dan kapan tenggatnya?',
-            ];
+            // The empty chat's starters until the notebook loads (`suggestions` then: the ready sources' guide questions).
+            const STARTER_QUESTIONS = @json(\App\Services\NotebookAssistant::STARTER_QUESTIONS);
             // In tutor mode the starters ask to be guided, never for a finished answer.
             const TUTOR_SUGGESTIONS = [
                 'Tuntun aku memahami konsep utama materi ini langkah demi langkah.',
@@ -63,6 +59,8 @@
                 meetings: null,
                 archivedCourses: [],
                 studioKinds: {},
+                // The empty chat's starter questions (`suggestions`), shown as text.
+                suggestions: STARTER_QUESTIONS,
                 sourceLimit: null,
                 aiAvailable: true,
                 // ok, disabled, missing_key, invalid_key or model_misconfigured (NotebookAssistant::aiStatus()).

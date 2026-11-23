@@ -55,7 +55,7 @@
                     messagesHost.innerHTML = `
                         <li class="flex flex-col gap-3">
                             <p class="text-sm text-ink-muted">Belum ada percakapan. Coba mulai dengan:</p>
-                            <div class="flex flex-wrap gap-2">${(state.askMode === 'tutor' ? TUTOR_SUGGESTIONS : SUGGESTIONS).map((text) => `<button type="button" class="${app.ui.button.secondarySm} whitespace-normal! py-1.5 text-start" data-suggestion="${app.escapeHtml(text)}">${app.escapeHtml(text)}</button>`).join('')}</div>
+                            <div class="flex flex-wrap gap-2">${(state.askMode === 'tutor' ? TUTOR_SUGGESTIONS : state.suggestions).map((text) => `<button type="button" class="${app.ui.button.secondarySm} whitespace-normal! py-1.5 text-start" data-suggestion="${app.escapeHtml(text)}">${app.escapeHtml(text)}</button>`).join('')}</div>
                         </li>
                     `;
 

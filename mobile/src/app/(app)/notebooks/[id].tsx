@@ -1,14 +1,23 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { Fragment, useCallback, useEffect, useEffectEvent, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, AppState, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Alert, AppState, Platform, ScrollView, StyleSheet, View, type ScrollViewInstance } from 'react-native';
 
 import type { ApiEnvelope } from '@/api/types';
-import type { NotebookAskMode, NotebookDetailResponse, NotebookMeeting, NotebookMessage, NotebookSource, NotebookStudioOptions } from '@/api/types/classes';
+import type {
+  NotebookAskMode,
+  NotebookDetailResponse,
+  NotebookFeedbackResponse,
+  NotebookMeeting,
+  NotebookMessage,
+  NotebookSource,
+  NotebookStudioOptions,
+} from '@/api/types/classes';
 import { useSession } from '@/auth/session-provider';
 import { Button } from '@/components/button';
 import { Chip } from '@/components/chip';
 import { AddSourceSheet } from '@/components/classes/add-source-sheet';
 import { AssignmentBriefSheet } from '@/components/classes/assignment-brief-sheet';
+import { FeedbackSheet } from '@/components/classes/feedback-sheet';
 import { StudioOptionsSheet } from '@/components/classes/studio-options-sheet';
 import { CitationText } from '@/components/classes/citation-text';
 import { StudioResult } from '@/components/classes/studio-result';
@@ -32,6 +41,7 @@ import { formatDateTime } from '@/lib/format';
 import {
   buildUploadForm,
   canRetrySource,
+  chatSuggestions,
   contextSourceIds,
   noContextChosen,
   pollDelay,
@@ -39,7 +49,10 @@ import {
   readingKey,
   retryLabel,
   showsSourceSelection,
+  sourceQuestions,
+  sourceTopics,
 } from '@/lib/notebook-sources';
+import { feedbackRequest, type FeedbackRequest } from '@/lib/notebook-feedback';
 import type { PickedFile } from '@/lib/pick-file';
 
 /** Studio tools that ask how many and how hard first (StudioOptionsSheet). */
@@ -61,6 +74,13 @@ export default function NotebookScreen() {
   const [optionsKind, setOptionsKind] = useState<string | null>(null);
   const [briefOpen, setBriefOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
+  const [feedbackAsk, setFeedbackAsk] = useState<FeedbackRequest | null>(null);
+  const [feedbackBusy, setFeedbackBusy] = useState(false);
+  const [feedbackError, setFeedbackError] = useState<string | null>(null);
+  const [feedbackResult, setFeedbackResult] = useState<NotebookMessage | null>(null);
+  /** Which opening of the feedback sheet a request belongs to: a late result never lands in a sheet closed or reopened since. */
+  const feedbackOpening = useRef(0);
+  const scrollRef = useRef<ScrollViewInstance>(null);
   const [addBusy, setAddBusy] = useState<'upload' | 'text' | null>(null);
   const [addError, setAddError] = useState<string | null>(null);
   const [excluded, setExcluded] = useSourceSelection(id);
@@ -83,6 +103,9 @@ export default function NotebookScreen() {
   const isCourse = notebook?.kind === 'course';
   const { consent } = useAiConsent();
   const needsConsent = aiAvailable && consent !== null && !consent.granted;
+  // A tutor-mode starter asks to be guided, so the source questions are offered outside tutor mode only (as on the web).
+  const suggestions = askMode === 'tutor' ? [] : chatSuggestions(data?.suggestions);
+  const canAsk = aiAvailable && hasReadySource && asking === null;
 
   useEffect(() => {
     rememberAiConsentFrom(detail.data);
@@ -264,10 +287,14 @@ export default function NotebookScreen() {
     ]);
   }
 
-  async function ask() {
-    const text = question.trim();
+  /**
+   * Asks the typed question, or a suggested one; `sourceIds` asks about
+   * those sources only (a question from a source's guide), whatever is chosen.
+   */
+  async function ask(preset?: string, sourceIds?: number[]) {
+    const text = (preset ?? question).trim();
 
-    if (text.length < 2 || !id) {
+    if (text.length < 2 || !id || asking !== null) {
       return;
     }
 
@@ -277,15 +304,31 @@ export default function NotebookScreen() {
       return;
     }
 
+    const typed = preset === undefined;
+
     setAsking(text);
-    setQuestion('');
+
+    if (sourceIds) {
+      // Asked from a source row, far below: show the chat, where the answer comes.
+      scrollRef.current?.scrollTo({ y: 0, animated: true });
+    }
+
+    if (typed) {
+      setQuestion('');
+    }
+
     setActionError(null);
 
     try {
-      await api.post(`notebooks/${encodeURIComponent(id)}/messages`, withContext({ question: text, mode: askMode }), { timeoutMs: 120_000 });
+      const body = sourceIds ? { question: text, mode: askMode, source_ids: sourceIds } : withContext({ question: text, mode: askMode });
+
+      await api.post(`notebooks/${encodeURIComponent(id)}/messages`, body, { timeoutMs: 120_000 });
       await detail.reload();
     } catch (error) {
-      setQuestion(text);
+      if (typed) {
+        setQuestion(text);
+      }
+
       showError(error);
     } finally {
       setAsking(null);
@@ -304,6 +347,80 @@ export default function NotebookScreen() {
       setOptionsKind(kind);
     } else {
       runStudio(kind);
+    }
+  }
+
+  /**
+   * "Cek pemahamanku" for a question, concept or brief (FeedbackSheet); the entry point for every later caller too.
+   * Without consent the consent screen opens instead.
+   */
+  function openFeedback(request: FeedbackRequest | null) {
+    if (!request || !aiAvailable) {
+      return;
+    }
+
+    if (needsConsent) {
+      openConsent();
+
+      return;
+    }
+
+    feedbackOpening.current += 1;
+    setFeedbackBusy(false);
+    setFeedbackError(null);
+    setFeedbackResult(null);
+    setFeedbackAsk(request);
+  }
+
+  /** Closing is allowed while a check runs: the request carries on and its result lands in Studio. */
+  function closeFeedback() {
+    feedbackOpening.current += 1;
+    setFeedbackBusy(false);
+    setFeedbackError(null);
+    setFeedbackAsk(null);
+    setFeedbackResult(null);
+  }
+
+  /** One AI request: the student's own answer, judged against the chosen sources; the result shows in the sheet. */
+  async function sendFeedback(answer: string) {
+    if (!feedbackAsk || !id || feedbackBusy) {
+      return;
+    }
+
+    const opening = feedbackOpening.current;
+    const stillOpen = () => feedbackOpening.current === opening;
+
+    setFeedbackBusy(true);
+    setFeedbackError(null);
+
+    try {
+      const response = await api.post<NotebookFeedbackResponse>(
+        `notebooks/${encodeURIComponent(id)}/feedback`,
+        withContext({ prompt: feedbackAsk.prompt, answer, mode: feedbackAsk.mode }),
+        { timeoutMs: 180_000 },
+      );
+
+      if (stillOpen()) {
+        setFeedbackResult(response.data.message);
+      }
+
+      await detail.reload();
+    } catch (error) {
+      if (isAiConsentRequired(error)) {
+        if (stillOpen()) {
+          setFeedbackAsk(null);
+        }
+
+        showError(error);
+      } else if (stillOpen()) {
+        setFeedbackError(error instanceof Error ? error.message : String(error));
+      } else {
+        showError(error);
+      }
+    } finally {
+      if (stillOpen()) {
+        setFeedbackBusy(false);
+      }
     }
   }
 
@@ -346,6 +463,7 @@ export default function NotebookScreen() {
 
   return (
     <Screen
+      scrollRef={scrollRef}
       back
       title={notebook?.title ?? 'Notebook'}
       subtitle={notebook ? [notebook.course_code, `${notebook.sources_count ?? sources.length} sumber`, notebook.lecturer_name].filter(Boolean).join(' · ') : null}
@@ -386,6 +504,13 @@ export default function NotebookScreen() {
                     ? 'Jawaban hanya diambil dari sumber notebook ini.'
                     : 'Belum ada sumber yang siap.'}
                 </ThemedText>
+              ) : null}
+              {chat.length === 0 && !asking && hasReadySource && suggestions.length > 0 ? (
+                <View style={styles.suggestions} accessibilityLabel="Coba mulai dengan">
+                  {suggestions.map((text) => (
+                    <Chip key={text} icon="sparkles" label={text} onPress={canAsk && !nothingChosen ? () => void ask(text) : undefined} />
+                  ))}
+                </View>
               ) : null}
               {chat.map((message) => (
                 <ChatBubble key={message.id} message={message} notebookId={id} />
@@ -468,7 +593,7 @@ export default function NotebookScreen() {
               <Panel key={message.id} style={styles.result}>
                 <View style={styles.resultHead}>
                   <ThemedText type="smallBold" style={styles.flex}>
-                    {studioKinds[message.kind] ?? message.kind}
+                    {message.kind === 'feedback' ? 'Cek pemahaman' : studioKinds[message.kind] ?? message.kind}
                   </ThemedText>
                   <ThemedText type="caption" themeColor="textQuaternary">
                     {formatDateTime(message.created_at)}
@@ -479,6 +604,7 @@ export default function NotebookScreen() {
                   notebookId={id}
                   budget={data?.ai_budget}
                   canMakePractice={canStudio}
+                  onFeedback={aiAvailable && hasReadySource && !nothingChosen ? openFeedback : undefined}
                   onSave={(practice) => savePractice(message, practice)}
                   onPracticeFromMissed={(missed) =>
                     runStudio('quiz', { practice: { message_id: message.id, missed }, options: { count: practiceCount(missed) } })
@@ -517,6 +643,7 @@ export default function NotebookScreen() {
                     disabled={busy !== null}
                     onRetry={() => retrySource(source)}
                     onDelete={() => confirmDeleteSource(source)}
+                    onAsk={canAsk ? (text) => void ask(text, [source.id]) : undefined}
                   />
                 </Fragment>
               ))}
@@ -551,6 +678,19 @@ export default function NotebookScreen() {
               setBriefOpen(false);
               runStudio(BRIEF_KIND, { focus });
             }}
+          />
+
+          <FeedbackSheet
+            request={feedbackAsk}
+            notebookId={id}
+            chosenCount={chosenCount}
+            budget={data?.ai_budget}
+            busy={feedbackBusy}
+            error={feedbackError}
+            result={feedbackResult}
+            onClose={closeFeedback}
+            onSubmit={(answer) => void sendFeedback(answer)}
+            onAnswerAgain={(question) => openFeedback(feedbackRequest(question, 'practice_answer'))}
           />
 
           <AddSourceSheet
@@ -624,11 +764,19 @@ type SourceRowProps = {
   disabled: boolean;
   onRetry: () => void;
   onDelete: () => void;
+  /** Asks one of the source's guide questions about this source only; without it the questions are labels. */
+  onAsk?: (question: string) => void;
 };
 
-/** A source with its reading status, and "Baca ulang" (a failed or stalled file) and "Hapus" (after a confirm). */
-function SourceRow({ source, canRetry, retrying, deleting, disabled, onRetry, onDelete }: SourceRowProps) {
+/**
+ * A source with its reading status, its guide (topics and understanding
+ * questions, shown as text), and "Baca ulang" (a failed or stalled file)
+ * and "Hapus" (after a confirm).
+ */
+function SourceRow({ source, canRetry, retrying, deleting, disabled, onRetry, onDelete, onAsk }: SourceRowProps) {
   const status = sourceStatus(source);
+  const topics = sourceTopics(source);
+  const questions = sourceQuestions(source);
   const detail = [
     source.meeting_number ? `Pertemuan ${source.meeting_number}` : null,
     source.page_count ? `${source.page_count} halaman` : null,
@@ -652,6 +800,18 @@ function SourceRow({ source, canRetry, retrying, deleting, disabled, onRetry, on
           <ThemedText type="small" themeColor="danger" numberOfLines={2}>
             {source.error}
           </ThemedText>
+        ) : null}
+        {topics.length > 0 ? (
+          <ThemedText type="caption" themeColor="textTertiary" accessibilityLabel={`Topik: ${topics.join(', ')}`}>
+            {`Topik: ${topics.join(' · ')}`}
+          </ThemedText>
+        ) : null}
+        {questions.length > 0 ? (
+          <View style={styles.suggestions} accessibilityLabel={`Tanyakan tentang ${source.title ?? 'sumber ini'}`}>
+            {questions.map((text) => (
+              <Chip key={text} label={text} onPress={onAsk && !disabled ? () => onAsk(text) : undefined} />
+            ))}
+          </View>
         ) : null}
         <View style={styles.sourceActions}>
           {canRetry ? (
@@ -714,6 +874,11 @@ const styles = StyleSheet.create({
   },
   chat: {
     gap: Spacing.two,
+  },
+  suggestions: {
+    alignItems: 'flex-start',
+    gap: Spacing.two,
+    paddingTop: Spacing.one,
   },
   consent: {
     gap: Spacing.two + Spacing.half,

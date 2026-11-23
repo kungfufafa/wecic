@@ -17,10 +17,12 @@
                 ? `<code class="rounded bg-surface px-1 font-mono text-[0.85em]">${app.escapeHtml(part.slice(1, -1))}</code>`
                 : formatProse(part))).join('');
 
-            const renderMarkdown = (text) => {
+            // `listItemAction(itemText, heading)` adds HTML after a list item (e.g. "Jawab" under "Pertanyaan latihan").
+            const renderMarkdown = (text, { listItemAction = null } = {}) => {
                 const blocks = [];
                 let list = null;
                 let fence = null;
+                let heading = '';
 
                 const flushList = () => {
                     if (list) {
@@ -55,7 +57,7 @@
                     const line = rawLine.trimEnd();
                     const bullet = line.match(/^\s*[-*•]\s+(.*)$/);
                     const numbered = line.match(/^\s*\d+[.)]\s+(.*)$/);
-                    const heading = line.match(/^(#{1,4})\s+(.*)$/);
+                    const headingMatch = line.match(/^(#{1,4})\s+(.*)$/);
                     const checkbox = line.match(/^\s*[-*]\s+\[[ xX]\]\s+(.*)$/);
 
                     if (checkbox) {
@@ -77,15 +79,18 @@
                             list = { tag, items: [] };
                         }
 
-                        list.items.push(`<li>${inline((bullet || numbered)[1])}</li>`);
+                        const item = (bullet || numbered)[1];
+
+                        list.items.push(`<li>${inline(item)}${listItemAction ? listItemAction(item, heading) : ''}</li>`);
 
                         return;
                     }
 
                     flushList();
 
-                    if (heading) {
-                        blocks.push(`<h4 class="mt-1 text-sm font-medium leading-snug text-ink">${inline(heading[2])}</h4>`);
+                    if (headingMatch) {
+                        heading = headingMatch[2];
+                        blocks.push(`<h4 class="mt-1 text-sm font-medium leading-snug text-ink">${inline(headingMatch[2])}</h4>`);
                     } else if (line.trim() !== '') {
                         blocks.push(`<p>${inline(line)}</p>`);
                     }

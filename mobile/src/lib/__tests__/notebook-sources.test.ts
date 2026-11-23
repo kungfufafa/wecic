@@ -5,6 +5,7 @@ import {
   briefWithChip,
   buildUploadForm,
   canRetrySource,
+  chatSuggestions,
   contextSourceIds,
   excludedFor,
   noContextChosen,
@@ -20,6 +21,8 @@ import {
   retryLabel,
   SELECTION_NOTEBOOK_LIMIT,
   showsSourceSelection,
+  sourceQuestions,
+  sourceTopics,
   uploadMimeTypeOf,
   withExcluded,
 } from '@/lib/notebook-sources';
@@ -242,5 +245,29 @@ describe('source actions', () => {
     expect(canRetrySource(waiting, true)).toBe(true);
     expect(canRetrySource(waiting, false)).toBe(false);
     expect(retryLabel(waiting)).toBe('Baca sekarang');
+  });
+});
+
+describe('source guide', () => {
+  it('reads topics and questions, dropping malformed entries', () => {
+    const guided = source(1, {
+      topics: ['Normalisasi', '', 7 as unknown as string, 'Redundansi'],
+      suggested_questions: ['Mengapa 1NF?', 'Apa beda 2NF dan 3NF?', 'Bagaimana contohnya?', 'Keempat?'],
+    });
+
+    expect(sourceTopics(guided)).toEqual(['Normalisasi', 'Redundansi']);
+    expect(sourceQuestions(guided)).toEqual(['Mengapa 1NF?', 'Apa beda 2NF dan 3NF?', 'Bagaimana contohnya?']);
+  });
+
+  it('has no guide for a source read before guides, and no questions while it is read', () => {
+    expect(sourceTopics(source(2))).toEqual([]);
+    expect(sourceQuestions(source(2))).toEqual([]);
+    expect(sourceQuestions(source(3, { status: 'processing', suggested_questions: ['Mengapa?'] }))).toEqual([]);
+  });
+
+  it('takes at most four chat suggestions, none from an older server', () => {
+    expect(chatSuggestions(['a?', 'b?', '', 'c?', 'd?', 'e?'])).toEqual(['a?', 'b?', 'c?', 'd?']);
+    expect(chatSuggestions(undefined)).toEqual([]);
+    expect(chatSuggestions('a?')).toEqual([]);
   });
 });

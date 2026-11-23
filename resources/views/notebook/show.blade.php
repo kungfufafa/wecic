@@ -168,6 +168,7 @@
             @include('notebook.show.scripts.load')
             @include('notebook.show.scripts.ask')
             @include('notebook.show.scripts.studio')
+            @include('notebook.show.scripts.feedback')
             @include('notebook.show.scripts.meeting-picker')
             @include('notebook.show.scripts.controls')
             @include('notebook.show.scripts.source-viewer')

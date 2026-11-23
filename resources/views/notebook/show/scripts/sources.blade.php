@@ -25,6 +25,18 @@
                 }
             };
 
+            // Topic badges and understanding questions from the source's guide; a question asks about this source only.
+            const sourceGuide = (source) => {
+                const topics = (Array.isArray(source.topics) ? source.topics : []).filter((topic) => typeof topic === 'string' && topic !== '');
+                const questions = (Array.isArray(source.suggested_questions) ? source.suggested_questions : []).filter((text) => typeof text === 'string' && text !== '');
+                const canAsk = source.status === 'ready';
+
+                return `
+                    ${topics.length ? `<ul class="mt-2 flex flex-wrap gap-1" aria-label="Topik sumber">${topics.map((topic) => `<li class="${app.ui.badge.neutral}">${app.escapeHtml(topic)}</li>`).join('')}</ul>` : ''}
+                    ${questions.length && canAsk ? `<div class="mt-2 flex flex-col items-start gap-1"><p class="text-xs text-ink-subtle">Tanyakan tentang sumber ini:</p>${questions.map((text) => `<button type="button" class="${app.ui.button.secondarySm} whitespace-normal! py-1.5 text-start" data-suggestion="${app.escapeHtml(text)}" data-suggestion-source="${Number(source.id)}">${app.escapeHtml(text)}</button>`).join('')}</div>` : ''}
+                `;
+            };
+
             const sourceGroup = (source) => (source.meeting_number ? `Pertemuan ${source.meeting_number}` : (source.meeting_id ? 'Pertemuan' : 'Sumber lain'));
 
             const renderSources = () => {
@@ -75,7 +87,7 @@
                             ${source.error ? `<p class="mt-2 text-xs ${source.status === 'failed' ? 'text-danger' : 'text-ink-muted'}">${app.escapeHtml(source.error)}</p>` : ''}
                             ${source.stalled ? `<p class="mt-2 text-xs text-ink-muted">${stalledHint}</p>` : ''}
                             ${source.waiting && !source.error ? '<p class="mt-2 text-xs text-ink-muted">Menunggu giliran dibaca. Beberapa berkas dibaca sekaligus; sisanya menyusul otomatis.</p>' : ''}
-                            ${source.summary ? `<details class="mt-2"><summary class="cursor-pointer text-xs font-medium text-brand-text">Ringkasan sumber</summary><p class="mt-1 whitespace-pre-line text-xs leading-relaxed text-ink-muted">${app.escapeHtml(source.summary)}</p></details>` : ''}
+                            ${source.summary ? `<details class="mt-2"><summary class="cursor-pointer text-xs font-medium text-brand-text">Ringkasan sumber</summary><p class="mt-1 whitespace-pre-line text-xs leading-relaxed text-ink-muted">${app.escapeHtml(source.summary)}</p>${sourceGuide(source)}</details>` : ''}
                             <div class="mt-2 flex gap-1">
                                 ${ready ? `<button type="button" class="${app.ui.button.ghostSm}" data-view-source="${source.id}" aria-label="Lihat isi ${app.escapeHtml(source.title)}">Lihat isi</button>` : ''}
                                 ${canRetry || canReadNow ? `<button type="button" class="${app.ui.button.ghostSm}" data-retry-source="${source.id}">${canReadNow ? 'Baca sekarang' : 'Baca ulang'}</button>` : ''}

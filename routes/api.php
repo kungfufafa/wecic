@@ -198,6 +198,7 @@ Route::middleware($sessionMiddleware)->group(function () {
             Route::delete('{notebook}/sources/{source}', 'destroySource')->whereNumber(['notebook', 'source']);
             Route::post('{notebook}/messages', 'ask')->whereNumber('notebook')->middleware('throttle:notebook-ai');
             Route::post('{notebook}/studio', 'studio')->whereNumber('notebook')->middleware('throttle:notebook-ai');
+            Route::post('{notebook}/feedback', 'feedback')->whereNumber('notebook')->middleware('throttle:notebook-ai');
             Route::patch('{notebook}/messages/{message}', 'updateMessage')->whereNumber(['notebook', 'message']);
             Route::delete('{notebook}/messages/{message}', 'destroyMessage')->whereNumber(['notebook', 'message']);
         });

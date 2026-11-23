@@ -238,3 +238,23 @@ export function canRetrySource(source: NotebookSource, aiAvailable: boolean): bo
 export function retryLabel(source: NotebookSource): string {
   return source.waiting && source.error && source.status !== 'failed' && !source.stalled ? 'Baca sekarang' : 'Baca ulang';
 }
+
+/** Strings from a list the server sent, without empty or malformed entries. */
+function textList(value: unknown, limit: number): string[] {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string' && item.trim() !== '').slice(0, limit) : [];
+}
+
+/** A source's main topics (its guide), at most six; none for a source read before guides. */
+export function sourceTopics(source: NotebookSource): string[] {
+  return textList(source.topics, 6);
+}
+
+/** A ready source's understanding questions (its guide), at most three; none while it is not ready. */
+export function sourceQuestions(source: NotebookSource): string[] {
+  return source.status === 'ready' ? textList(source.suggested_questions, 3) : [];
+}
+
+/** The empty chat's starter questions (`suggestions`), at most four; none from a server from before source guides. */
+export function chatSuggestions(suggestions: unknown): string[] {
+  return textList(suggestions, 4);
+}

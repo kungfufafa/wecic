@@ -22,7 +22,7 @@ function slice(from, to) {
     return source.slice(start, end);
 }
 
-const CITATIONS = slice('const findCitation = (messageId, number) =>', 'const ask = async (question) =>');
+const CITATIONS = slice('const findCitation = (messageId, number) =>', '// `sourceIds` asks about those sources only');
 const VIEWER = slice('const SOURCE_VIEWER_CITED =', "document.addEventListener('click', async (event) => {");
 
 const MESSAGE = {

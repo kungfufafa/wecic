@@ -290,6 +290,91 @@ class NotebookProviderMatrixTest extends TestCase
         Http::assertNothingSent();
     }
 
+    #[DataProvider('providers')]
+    public function test_pasted_text_gets_a_source_guide_with_summary_topics_and_understanding_questions(string $provider): void
+    {
+        $this->useProviders(['notebook.ai.provider' => $provider]);
+        $guide = [
+            'summary' => 'Sumber ini membahas normalisasi basis data.',
+            'topics' => ['Normalisasi', 'Redundansi', 'Bentuk normal'],
+            'questions' => [
+                'Mengapa normalisasi mengurangi redundansi?',
+                'Kerjakan soal nomor 2 untuk saya.',
+                'Tulis esai tentang normalisasi?',
+                'Buat makalah tentang 3NF?',
+                'Jawab soal nomor 2 di tugas ini?',
+                'Berikan jawaban lengkap tugas 3?',
+                'Susun laporan praktikum ini?',
+                'Apa kunci jawaban kuis 1?',
+                'Ringkas bab ini',
+                'Apa beda 2NF dan 3NF?',
+                'Bagaimana contoh tabel yang belum normal?',
+            ],
+        ];
+        Http::fake([self::URLS[$provider] => Http::response($this->answer($provider, (string) json_encode($guide)))]);
+        $notebook = $this->notebook();
+
+        $this->sendAsStudent('POST', "/api/notebooks/{$notebook->id}/sources", ['type' => 'text', 'title' => 'Catatan', 'content' => 'Normalisasi basis data mengurangi redundansi.'])
+            ->assertCreated()
+            ->assertJsonPath('data.sources.0.summary', 'Sumber ini membahas normalisasi basis data.')
+            ->assertJsonPath('data.sources.0.topics', ['Normalisasi', 'Redundansi', 'Bentuk normal'])
+            // Do-my-task questions (suffixed or plain imperatives) and a line that is no question are dropped, whatever the prompt said.
+            ->assertJsonPath('data.sources.0.suggested_questions', [
+                'Mengapa normalisasi mengurangi redundansi?',
+                'Apa beda 2NF dan 3NF?',
+                'Bagaimana contoh tabel yang belum normal?',
+            ]);
+
+        Http::assertSentCount(1);
+        Http::assertSent(fn (Request $request): bool => $this->sentSchemaRoot($provider, $request) === ($provider === 'gemini' ? 'OBJECT' : 'object')
+            && str_contains($this->lastUserText($provider, $request), 'pertanyaan pemahaman')
+            && str_contains($this->lastUserText($provider, $request), 'jangan memakai kata seperti "kerjakan"'));
+
+        $this->getAsStudent("/api/notebooks/{$notebook->id}")
+            ->assertOk()
+            ->assertJsonPath('data.suggestions', [
+                'Mengapa normalisasi mengurangi redundansi?',
+                'Apa beda 2NF dan 3NF?',
+                'Bagaimana contoh tabel yang belum normal?',
+            ]);
+    }
+
+    #[DataProvider('providers')]
+    public function test_a_guide_the_provider_refuses_falls_back_to_a_plain_summary(string $provider): void
+    {
+        $this->useProviders(['notebook.ai.provider' => $provider]);
+        Http::fake([self::URLS[$provider] => Http::sequence()
+            ->push(['error' => ['message' => 'Invalid schema for response_format.']], 400)
+            ->push($this->answer($provider, "Sumber ini membahas normalisasi.\nTopik: Normalisasi, Redundansi, Bentuk normal"))]);
+        $notebook = $this->notebook();
+
+        $this->sendAsStudent('POST', "/api/notebooks/{$notebook->id}/sources", ['type' => 'text', 'title' => 'Catatan', 'content' => 'Normalisasi basis data.'])
+            ->assertCreated()
+            ->assertJsonPath('data.sources.0.summary', 'Sumber ini membahas normalisasi.')
+            ->assertJsonPath('data.sources.0.topics', ['Normalisasi', 'Redundansi', 'Bentuk normal'])
+            ->assertJsonPath('data.sources.0.suggested_questions', []);
+
+        Http::assertSentCount(2);
+        $this->assertSame(NotebookAssistant::STARTER_QUESTIONS, $this->getAsStudent("/api/notebooks/{$notebook->id}")->json('data.suggestions'));
+    }
+
+    public function test_a_model_without_structured_output_keeps_the_plain_summary_with_topics_from_its_topik_line(): void
+    {
+        $this->useProviders(['notebook.ai.provider' => 'openai', 'services.openai_compatible.structured_output' => 'none']);
+        Http::fake([self::URLS['openai'] => Http::response($this->answer('openai', "Sumber ini membahas normalisasi.\nTopik: Normalisasi, Redundansi, Normalisasi"))]);
+        $notebook = $this->notebook();
+
+        $this->sendAsStudent('POST', "/api/notebooks/{$notebook->id}/sources", ['type' => 'text', 'title' => 'Catatan', 'content' => 'Normalisasi basis data.'])
+            ->assertCreated()
+            ->assertJsonPath('data.sources.0.summary', 'Sumber ini membahas normalisasi.')
+            ->assertJsonPath('data.sources.0.topics', ['Normalisasi', 'Redundansi'])
+            ->assertJsonPath('data.sources.0.suggested_questions', []);
+
+        Http::assertSentCount(1);
+        Http::assertSent(fn (Request $request): bool => ! isset($request['response_format'])
+            && str_contains($this->lastUserText('openai', $request), 'Topik: '));
+    }
+
     public function test_json_wrapped_in_prose_is_read_only_from_a_model_without_native_schemas(): void
     {
         $this->useProviders(['notebook.ai.provider' => 'openai', 'services.openai_compatible.structured_output' => 'json_object']);

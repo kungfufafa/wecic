@@ -476,6 +476,56 @@ class NotebookApiTest extends TestCase
         RateLimiter::clear('notebook-reads:'.$this->ownerHash.':'.now()->format('Y-m-d'));
     }
 
+    public function test_the_empty_chat_suggests_the_ready_sources_questions_in_turn_and_falls_back_to_the_starters(): void
+    {
+        $notebook = $this->notebook();
+
+        $this->getAsStudent("/api/notebooks/{$notebook->id}")
+            ->assertOk()
+            ->assertJsonPath('data.suggestions', NotebookAssistant::STARTER_QUESTIONS);
+
+        // A source read before source guides has none, and one still being read is left out.
+        NotebookSource::factory()->create(['notebook_id' => $notebook->id]);
+        NotebookSource::factory()->withGuide(['Mengapa P1?', 'Apa beda P1?', 'Bagaimana P1?'])->create(['notebook_id' => $notebook->id]);
+        NotebookSource::factory()->withGuide(['Mengapa P2?', 'Apa beda P2?', 'Bagaimana P2?'])->create(['notebook_id' => $notebook->id]);
+        NotebookSource::factory()->withGuide(['Mengapa menunggu?'])->pending()->create(['notebook_id' => $notebook->id]);
+
+        $this->getAsStudent("/api/notebooks/{$notebook->id}")
+            ->assertOk()
+            ->assertJsonPath('data.suggestions', ['Mengapa P1?', 'Mengapa P2?', 'Apa beda P1?', 'Apa beda P2?'])
+            ->assertJsonPath('data.sources.0.topics', [])
+            ->assertJsonPath('data.sources.0.suggested_questions', [])
+            ->assertJsonPath('data.sources.1.topics', ['Normalisasi', 'Redundansi', 'Bentuk normal'])
+            ->assertJsonPath('data.sources.1.suggested_questions', ['Mengapa P1?', 'Apa beda P1?', 'Bagaimana P1?']);
+    }
+
+    public function test_a_long_source_is_summarised_from_its_beginning_middle_and_end(): void
+    {
+        config(['notebook.limits.chunk_chars' => 1000]);
+        Http::fake([self::GEMINI_URL => Http::response(['candidates' => [['content' => ['parts' => [['text' => (string) json_encode(['summary' => 'Ringkasan.', 'topics' => [], 'questions' => []])]]], 'finishReason' => 'STOP']]])]);
+        $notebook = $this->notebook();
+        $paragraphs = array_map(static fn (int $index): string => "Bagian-{$index}. ".str_repeat('teori basis data ', 50), range(1, 40));
+
+        $this->sendAsStudent('POST', "/api/notebooks/{$notebook->id}/sources", ['type' => 'text', 'title' => 'Modul panjang', 'content' => implode("\n\n", $paragraphs)])
+            ->assertCreated()
+            ->assertJsonPath('data.sources.0.summary', 'Ringkasan.')
+            ->assertJsonPath('data.sources.0.topics', []);
+
+        Http::assertSent(function (Request $request): bool {
+            $text = (string) ($request['contents'][0]['parts'][0]['text'] ?? '');
+            $input = strstr($text, "\n\n---\n", true);
+
+            return is_string($input)
+                && mb_strlen($input) <= 12000
+                && str_contains($input, 'Bagian-1.')
+                && str_contains($input, 'Bagian-21.')
+                && str_contains($input, 'Bagian-40.')
+                && ! str_contains($input, 'Bagian-10.')
+                && substr_count($input, '[…]') === 2;
+        });
+        RateLimiter::clear('notebook-reads:'.$this->ownerHash.':'.now()->format('Y-m-d'));
+    }
+
     public function test_the_ai_status_says_why_the_ai_cannot_answer(): void
     {
         $notebook = $this->notebookWithChunks([['page' => null, 'content' => 'Isi.']]);
@@ -1112,7 +1162,7 @@ class NotebookApiTest extends TestCase
             ->assertSee('window.localStorage.setItem(ASK_MODE_KEY, state.askMode)', false)
             ->assertSee('mode: state.askMode', false)
             ->assertSee('askModeBadge(message)', false)
-            ->assertSee("state.askMode === 'tutor' ? TUTOR_SUGGESTIONS : SUGGESTIONS", false)
+            ->assertSee("state.askMode === 'tutor' ? TUTOR_SUGGESTIONS : state.suggestions", false)
             ->assertSee('Tuntun aku memahami konsep utama materi ini langkah demi langkah.')
             ->assertSee('tanpa mengerjakan tugasmu');
     }

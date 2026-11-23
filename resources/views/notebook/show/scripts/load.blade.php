@@ -71,6 +71,8 @@
                 state.meetings = data.meetings && typeof data.meetings === 'object' ? data.meetings : null;
                 state.archivedCourses = Array.isArray(data.archived_courses) ? data.archived_courses : [];
                 state.studioKinds = data.studio_kinds || {};
+                const suggestions = Array.isArray(data.suggestions) ? data.suggestions.filter((text) => typeof text === 'string' && text.trim() !== '') : [];
+                state.suggestions = suggestions.length ? suggestions : STARTER_QUESTIONS;
                 state.sourceLimit = Number.isFinite(Number(data.source_limit)) ? Number(data.source_limit) : null;
                 setAiStatus(data);
                 setAiConsent(data);

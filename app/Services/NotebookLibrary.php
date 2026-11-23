@@ -13,6 +13,7 @@ use App\Models\NotebookDismissal;
 use App\Models\NotebookSource;
 use App\Models\PortalArchivedFile;
 use App\Services\Ai\NotebookAiClient;
+use App\Support\Ai\AiCapabilities;
 use App\Support\Ai\AiRequest;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Database\Eloquent\Builder;
@@ -52,7 +53,66 @@ class NotebookLibrary
         Jangan memakai Markdown.
         PROMPT;
 
+    /**
+     * The source guide (summary, topics, understanding questions) for a
+     * model with structured output (GUIDE_SCHEMA). The questions help a
+     * student understand the source; they never ask for a task to be done.
+     */
+    private const GUIDE_PROMPT = <<<'PROMPT'
+        Teks di atas bisa berupa cuplikan awal, tengah, dan akhir sebuah sumber kuliah (bagian yang dilewati ditandai […]). Isi:
+        - summary: ringkasan sumber dalam 2–3 kalimat bahasa Indonesia, tanpa Markdown.
+        - topics: 3–6 topik utama sumber, masing-masing 1–4 kata.
+        - questions: tepat 3 pertanyaan pemahaman yang bisa diajukan mahasiswa untuk memahami sumber ini, misalnya "Mengapa …?", "Apa beda … dan …?", atau "Bagaimana contoh …?". Setiap pertanyaan diakhiri tanda tanya.
+        Pertanyaan itu untuk memahami materi, bukan perintah mengerjakan tugas: jangan memakai kata seperti "kerjakan", "buatkan", "jawabkan", atau "selesaikan", dan jangan meminta jawaban soal atau tugas.
+        PROMPT;
+
+    /**
+     * Lowercase JSON Schema with an object root, as every provider's
+     * structured output takes it. The counts are held by the prompt and
+     * cleanTopics()/cleanQuestions(): Anthropic's structured outputs take
+     * no item counts beyond 0 or 1.
+     */
+    private const GUIDE_SCHEMA = [
+        'type' => 'object',
+        'properties' => [
+            'summary' => ['type' => 'string', 'description' => 'Ringkasan 2–3 kalimat.'],
+            'topics' => ['type' => 'array', 'items' => ['type' => 'string'], 'description' => '3–6 topik utama.'],
+            'questions' => ['type' => 'array', 'items' => ['type' => 'string'], 'description' => '3 pertanyaan pemahaman.'],
+        ],
+        'required' => ['summary', 'topics', 'questions'],
+        'additionalProperties' => false,
+    ];
+
     private const SUMMARY_INPUT_CHARS = 12000;
+
+    /**
+     * Between the parts of a long source the summary reads (summaryInput()).
+     */
+    private const SUMMARY_GAP = "\n\n[…]\n\n";
+
+    /**
+     * A source read without the model, or whose summary failed.
+     */
+    private const NO_GUIDE = ['summary' => null, 'topics' => null, 'suggested_questions' => null];
+
+    private const MAX_TOPICS = 6;
+
+    private const MAX_QUESTIONS = 3;
+
+    private const MAX_TOPIC_CHARS = 60;
+
+    private const MAX_QUESTION_CHARS = 200;
+
+    /**
+     * A question that asks the model to do the student's work rather than
+     * to explain (dropped from the guide whatever the prompt said).
+     */
+    /**
+     * A question that asks for the student's work to be done: the suffixed
+     * imperatives on their own, and the plain ones ("tulis", "buat", "susun",
+     * "jawab", "isi", "beri") followed within two words by a piece of work.
+     */
+    private const DO_MY_TASK_PATTERN = '/\b(kerja(kan|in)|buat(kan|in)|jawab(kan|in|lah)|selesai(kan|in)|contekan|kunci\s+jawaban|jawaban\s+lengkap|(tulis|buat|susun|jawab|isi|beri|berikan)(kan|in|lah)?\s+(\p{L}+\s+){0,2}(jawaban|esai|essay|makalah|laporan|soal|tugas|kuis|ujian|lembar|skripsi|paper|artikel))\b/iu';
 
     private const SUMMARY_MAX_CHARS = 1000;
 
@@ -578,8 +638,9 @@ class NotebookLibrary
 
     /**
      * A course file is the same file for every student who archived it: the
-     * text another notebook read from it (same content hash) is copied, so
-     * a file a whole class shares is sent to the model once.
+     * text another notebook read from it (same content hash) is copied with
+     * its summary and guide, so a file a whole class shares is sent to the
+     * model once.
      */
     private function reuseReading(NotebookSource $source): bool
     {
@@ -618,6 +679,8 @@ class NotebookLibrary
             'page_count' => $reader->page_count,
             'truncated' => $reader->truncated,
             'summary' => $reader->summary,
+            'topics' => $reader->topics,
+            'suggested_questions' => $reader->suggested_questions,
         ])->save();
 
         return true;
@@ -735,7 +798,7 @@ class NotebookLibrary
             'char_count' => $total,
             'page_count' => $pageNumbers !== [] ? max($pageNumbers) : null,
             'truncated' => $truncated,
-            'summary' => $summarize ? $this->summarize(implode("\n\n", array_column($chunks, 'content'))) : null,
+            ...($summarize ? $this->summarize(array_column($chunks, 'content')) : self::NO_GUIDE),
         ])->save();
     }
 
@@ -809,34 +872,252 @@ class NotebookLibrary
     }
 
     /**
-     * A short summary of the source, or null when the model gave none: a
-     * summary cut at its output limit (even after the client's larger
-     * retry) says so, and one cut before any text is no summary at all.
+     * The source guide: a short summary, the main topics and a few
+     * understanding questions, all null when the model gave no summary.
+     *
+     * A model with structured output answers GUIDE_SCHEMA; one without
+     * (`structured_output` none) writes the summary with a "Topik:" line,
+     * read into topics, and gives no questions. A structured request the
+     * provider refused, or an answer that is not the guide's JSON, falls
+     * back to that plain summary. A summary cut at its output limit (even
+     * after the client's larger retry) says so, and one cut before any
+     * text is no summary at all.
+     *
+     * @param  list<string>  $contents  The source's chunks, in order.
+     * @return array{summary: string|null, topics: list<string>|null, suggested_questions: list<string>|null}
      */
-    private function summarize(string $text): ?string
+    private function summarize(array $contents): array
     {
         if (! $this->ai->isUsable()) {
-            return null;
+            return self::NO_GUIDE;
+        }
+
+        $input = $this->summaryInput($contents);
+
+        if ($this->ai->capabilities()->structuredOutput === AiCapabilities::STRUCTURED_NONE) {
+            return $this->plainSummary($input);
         }
 
         try {
             // The output limit leaves a thinking model room to reason before its 2–3 sentences.
             $result = $this->ai->generate(new AiRequest(
-                messages: [AiRequest::user([AiRequest::text(mb_substr($text, 0, self::SUMMARY_INPUT_CHARS)."\n\n---\n".self::SUMMARY_PROMPT)])],
+                messages: [AiRequest::user([AiRequest::text($input."\n\n---\n".self::GUIDE_PROMPT)])],
+                maxOutputTokens: 2048,
+                temperature: 0.2,
+                jsonSchema: self::GUIDE_SCHEMA,
+            ));
+        } catch (\Throwable $throwable) {
+            Log::info('Notebook source guide skipped', ['error' => $throwable->getMessage()]);
+
+            // A provider that refused the schema may still write a plain summary; one that is busy or set up wrong will not.
+            return $throwable instanceof NotebookAiException && $throwable->is(NotebookAiException::REASON_REJECTED)
+                ? $this->plainSummary($input)
+                : self::NO_GUIDE;
+        }
+
+        $data = $this->guideJson($result->text);
+
+        if (is_array($data) && is_string($data['summary'] ?? null) && trim($data['summary']) !== '') {
+            $topics = $this->cleanTopics(is_array($data['topics'] ?? null) ? $data['topics'] : []);
+            $questions = $this->cleanQuestions(is_array($data['questions'] ?? null) ? $data['questions'] : []);
+
+            return [
+                'summary' => $this->fitSummary(trim($data['summary']), false),
+                'topics' => $topics !== [] ? $topics : null,
+                'suggested_questions' => $questions !== [] ? $questions : null,
+            ];
+        }
+
+        // Prose where the JSON belongs is a plain summary; broken JSON is asked for again as one.
+        return str_starts_with(ltrim($result->text), '{') || str_starts_with(ltrim($result->text), '`')
+            ? $this->plainSummary($input)
+            : $this->plainGuide($result->text, $result->truncated);
+    }
+
+    /**
+     * The summary without structured output: prose with a "Topik:" line.
+     *
+     * @return array{summary: string|null, topics: list<string>|null, suggested_questions: list<string>|null}
+     */
+    private function plainSummary(string $input): array
+    {
+        if (! $this->ai->isUsable()) {
+            return self::NO_GUIDE;
+        }
+
+        try {
+            $result = $this->ai->generate(new AiRequest(
+                messages: [AiRequest::user([AiRequest::text($input."\n\n---\n".self::SUMMARY_PROMPT)])],
                 maxOutputTokens: 2048,
                 temperature: 0.2,
             ));
         } catch (\Throwable $throwable) {
             Log::info('Notebook source summary skipped', ['error' => $throwable->getMessage()]);
 
-            return null;
+            return self::NO_GUIDE;
         }
 
-        $note = $result->truncated ? "\n".self::TRUNCATED_SUMMARY_NOTE : '';
+        return $this->plainGuide($result->text, $result->truncated);
+    }
+
+    /**
+     * A plain summary with its "Topik:" line read into topics (and left out
+     * of the summary, which shows them as badges).
+     *
+     * @return array{summary: string|null, topics: list<string>|null, suggested_questions: list<string>|null}
+     */
+    private function plainGuide(string $text, bool $truncated): array
+    {
+        $topics = [];
+
+        if (preg_match('/^[ \t*_]*Topik[ \t*_]*:[ \t*_]*(.+)$/mu', $text, $match) === 1) {
+            $topics = $this->cleanTopics(preg_split('/\s*[,;]\s*/u', $match[1]) ?: []);
+
+            if ($topics !== []) {
+                $text = trim(str_replace($match[0], '', $text));
+            }
+        }
+
+        $text = trim($text);
+
+        if ($text === '') {
+            return self::NO_GUIDE;
+        }
+
+        return [
+            'summary' => $this->fitSummary($text, $truncated),
+            'topics' => $topics !== [] ? $topics : null,
+            'suggested_questions' => null,
+        ];
+    }
+
+    private function fitSummary(string $text, bool $truncated): string
+    {
+        $note = $truncated ? "\n".self::TRUNCATED_SUMMARY_NOTE : '';
         $room = self::SUMMARY_MAX_CHARS - mb_strlen($note);
-        $summary = mb_strlen($result->text) > $room ? rtrim(mb_substr($result->text, 0, $room - 1)).'…' : $result->text;
+        $summary = mb_strlen($text) > $room ? rtrim(mb_substr($text, 0, $room - 1)).'…' : $text;
 
         return $summary.$note;
+    }
+
+    /**
+     * The guide's JSON: bare, or (from a model that only has the schema in
+     * its prompt) inside a code block or a sentence. Null when there is none.
+     */
+    private function guideJson(string $text): mixed
+    {
+        $data = json_decode($text, true);
+
+        if ($data !== null) {
+            return $data;
+        }
+
+        $start = strpos($text, '{');
+        $end = strrpos($text, '}');
+
+        return $start !== false && $end !== false && $end > $start
+            ? json_decode(substr($text, $start, $end - $start + 1), true)
+            : null;
+    }
+
+    /**
+     * At most MAX_TOPICS short topics, each once.
+     *
+     * @param  array<mixed>  $topics
+     * @return list<string>
+     */
+    private function cleanTopics(array $topics): array
+    {
+        $kept = [];
+
+        foreach ($topics as $topic) {
+            $topic = is_string($topic) ? trim(preg_replace('/\s+/u', ' ', $topic) ?? '', " \t\n\r\0\x0B.*_\"'") : '';
+
+            if ($topic === '' || mb_strlen($topic) > self::MAX_TOPIC_CHARS || in_array(mb_strtolower($topic), array_map('mb_strtolower', $kept), true)) {
+                continue;
+            }
+
+            $kept[] = $topic;
+
+            if (count($kept) === self::MAX_TOPICS) {
+                break;
+            }
+        }
+
+        return $kept;
+    }
+
+    /**
+     * At most MAX_QUESTIONS understanding questions, each once. A line that
+     * is not a question (no closing "?", as GUIDE_PROMPT asks) or that asks
+     * for the student's work to be done (DO_MY_TASK_PATTERN) is dropped, so a
+     * suggestion never starts a "do my assignment" request.
+     *
+     * @param  array<mixed>  $questions
+     * @return list<string>
+     */
+    private function cleanQuestions(array $questions): array
+    {
+        $kept = [];
+
+        foreach ($questions as $question) {
+            $question = is_string($question) ? trim(preg_replace('/\s+/u', ' ', $question) ?? '') : '';
+
+            if ($question === '' || ! str_ends_with($question, '?') || mb_strlen($question) > self::MAX_QUESTION_CHARS || preg_match(self::DO_MY_TASK_PATTERN, $question) === 1 || in_array($question, $kept, true)) {
+                continue;
+            }
+
+            $kept[] = $question;
+
+            if (count($kept) === self::MAX_QUESTIONS) {
+                break;
+            }
+        }
+
+        return $kept;
+    }
+
+    /**
+     * What the summary reads: the whole source when it fits in
+     * SUMMARY_INPUT_CHARS, else a part from its beginning, its middle and
+     * its end (a third each, joined by SUMMARY_GAP), so a long source is not
+     * summarised from its first pages alone.
+     *
+     * @param  list<string>  $contents
+     */
+    private function summaryInput(array $contents): string
+    {
+        $text = implode("\n\n", $contents);
+
+        if (mb_strlen($text) <= self::SUMMARY_INPUT_CHARS) {
+            return $text;
+        }
+
+        $count = count($contents);
+        $share = intdiv(self::SUMMARY_INPUT_CHARS - 2 * mb_strlen(self::SUMMARY_GAP), 3);
+        $picked = [];
+
+        foreach ([[0, 1], [intdiv($count, 2), 1], [$count - 1, -1]] as [$index, $step]) {
+            $room = $share;
+
+            while ($index >= 0 && $index < $count && $room > 0 && ! isset($picked[$index])) {
+                $piece = $step > 0 ? mb_substr($contents[$index], 0, $room) : mb_substr($contents[$index], -$room);
+                $picked[$index] = $piece;
+                $room -= mb_strlen($piece) + 2;
+                $index += $step;
+            }
+        }
+
+        ksort($picked);
+        $input = '';
+        $previous = null;
+
+        foreach ($picked as $index => $piece) {
+            $input .= $previous === null ? $piece : ($index === $previous + 1 ? "\n\n" : self::SUMMARY_GAP).$piece;
+            $previous = $index;
+        }
+
+        return mb_substr($input, 0, self::SUMMARY_INPUT_CHARS);
     }
 
     /**

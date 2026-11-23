@@ -1,7 +1,7 @@
 {{--
     Notebook script, the click handler shared by the panels: citations
     (and opening them in the source viewer), viewing a source,
-    suggestions, pins, Studio, deleting or retrying a source, deleting a
+    suggestions, "Cek pemahamanku" (Jawab, Cek kerangkaku, Jawab lagi), pins, Studio, deleting or retrying a source, deleting a
     message, quiz practice (answers, "Soal ini salah?", Ulangi, Tinjau yang
     salah, Buat latihan dari yang salah) and flashcards (deck and grid). Part of the DOMContentLoaded
     handler opened in notebook/show.blade.php: it shares that scope (app,
@@ -18,6 +18,7 @@
                 const openSource = target.closest('[data-open-source]');
                 const viewSource = target.closest('[data-view-source]');
                 const suggestion = target.closest('[data-suggestion]');
+                const feedback = target.closest('[data-feedback-prompt]');
                 const pin = target.closest('[data-pin]');
                 const studio = target.closest('[data-studio]');
                 const deleteSource = target.closest('[data-delete-source]');
@@ -45,8 +46,17 @@
                     });
                 } else if (viewSource) {
                     await openSourceViewer({ sourceId: Number(viewSource.dataset.viewSource) });
+                } else if (feedback) {
+                    openFeedback(feedback.dataset.feedbackPrompt, feedback.dataset.feedbackMode);
                 } else if (suggestion) {
-                    ask(suggestion.dataset.suggestion);
+                    // A question from a source's guide asks that source alone; the chat shows the answer.
+                    const sourceId = Number(suggestion.dataset.suggestionSource);
+
+                    if (sourceId) {
+                        setTab('chat');
+                    }
+
+                    ask(suggestion.dataset.suggestion, sourceId ? { sourceIds: [sourceId] } : {});
                 } else if (quizOption && !quizOption.disabled) {
                     const messageId = Number(quizOption.closest('[data-quiz]').dataset.quiz);
                     const index = Number(quizOption.closest('[data-quiz-item]').dataset.quizItem);

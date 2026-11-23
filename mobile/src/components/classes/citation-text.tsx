@@ -18,13 +18,15 @@ type CitationTextProps = Pick<ThemedTextProps, 'type' | 'themeColor'> & {
   /** The notebook and message the citations belong to, for "Lihat sumber". */
   notebookId?: string | number | null;
   messageId?: number | null;
+  /** Called before "Lihat sumber" opens the source, e.g. to close a modal the text sits in. */
+  onNavigate?: () => void;
 };
 
 /**
  * An answer with its citations as tappable chips (the server's citation rule: `arr[0]` stays text). A chip opens a
  * sheet with the source title, page and excerpt, and "Lihat sumber" to read it in its source.
  */
-export function CitationText({ content, citations, notebookId, messageId, type = 'small', themeColor = 'textSecondary' }: CitationTextProps) {
+export function CitationText({ content, citations, notebookId, messageId, onNavigate, type = 'small', themeColor = 'textSecondary' }: CitationTextProps) {
   const theme = useTheme();
   const [open, setOpen] = useState<NotebookCitation | null>(null);
 
@@ -54,7 +56,7 @@ export function CitationText({ content, citations, notebookId, messageId, type =
           );
         })}
       </ThemedText>
-      <CitationSheet citation={open} notebookId={notebookId} messageId={messageId} onClose={() => setOpen(null)} />
+      <CitationSheet citation={open} notebookId={notebookId} messageId={messageId} onNavigate={onNavigate} onClose={() => setOpen(null)} />
     </>
   );
 }
@@ -63,11 +65,12 @@ type CitationSheetProps = {
   citation: NotebookCitation | null;
   notebookId?: string | number | null;
   messageId?: number | null;
+  onNavigate?: () => void;
   onClose: () => void;
 };
 
 /** One citation: source title, page, the excerpt the AI read, and "Lihat sumber". */
-export function CitationSheet({ citation, notebookId, messageId, onClose }: CitationSheetProps) {
+export function CitationSheet({ citation, notebookId, messageId, onNavigate, onClose }: CitationSheetProps) {
   const theme = useTheme();
   const router = useRouter();
   // A Modal is a window of its own, where SafeAreaView reads no insets: the app's are applied by hand.
@@ -102,6 +105,7 @@ export function CitationSheet({ citation, notebookId, messageId, onClose }: Cita
               label="Lihat sumber"
               onPress={() => {
                 onClose();
+                onNavigate?.();
                 router.push({ pathname: '/notebooks/[id]/sources/[sourceId]', params });
               }}
             />
