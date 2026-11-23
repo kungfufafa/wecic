@@ -136,6 +136,31 @@ class PortalActionControllerTest extends TestCase
         );
     }
 
+    public function test_upload_assignment_restores_bracketed_field_names_that_php_split(): void
+    {
+        Bus::fake();
+
+        $this->mockValidCampusSession('token-bracket');
+
+        $this->withSession(['campus_session_token' => 'token-bracket'])
+            ->post('/api/assignment', [
+                'courses_id' => 9496,
+                'id' => 36633,
+                'pertemuan' => 4,
+                'form_values' => ['keterangan' => 'Catatan', 'data[name' => 'Catatan'],
+                'attachment' => UploadedFile::fake()->create('task.pdf', 64, 'application/pdf'),
+            ], ['Accept' => 'application/json'])
+            ->assertStatus(202);
+
+        Bus::assertDispatchedAfterResponse(
+            ProcessPortalAssignmentUploadJob::class,
+            fn (ProcessPortalAssignmentUploadJob $job): bool => (new \ReflectionProperty($job, 'formValues'))->getValue($job) === [
+                'keterangan' => 'Catatan',
+                'data[name]' => 'Catatan',
+            ]
+        );
+    }
+
     public function test_upload_assignment_does_not_override_the_closed_window_by_default(): void
     {
         Bus::fake();
@@ -1282,6 +1307,35 @@ class PortalActionControllerTest extends TestCase
             $formValues = (new \ReflectionProperty($job, 'formValues'))->getValue($job);
 
             return ($formValues['data[kelas]'] ?? null) === 'PRAKTIKUM';
+        });
+    }
+
+    public function test_upload_exam_restores_bracketed_field_names_that_php_split(): void
+    {
+        Bus::fake();
+        $this->mockValidCampusSession('token-exam-upload');
+        $this->mockExamListSnapshot('token-exam-upload', $this->openExamRow());
+
+        $this->withSession(['campus_session_token' => 'token-exam-upload'])
+            ->post('/api/exam', [
+                'id' => 8833,
+                'form_values' => [
+                    'data[tipe' => 'UTS',
+                    'data' => ['kelas' => 'PRAKTIKUM'],
+                    'catatan' => 'Upload via test',
+                ],
+                'attachment' => UploadedFile::fake()->create('uts.pdf', 64, 'application/pdf'),
+            ], ['Accept' => 'application/json'])
+            ->assertStatus(202);
+
+        Bus::assertDispatchedAfterResponse(ProcessPortalExamUploadJob::class, function (ProcessPortalExamUploadJob $job): bool {
+            $formValues = (new \ReflectionProperty($job, 'formValues'))->getValue($job);
+
+            return $formValues === [
+                'data[tipe]' => 'UTS',
+                'data[kelas]' => 'PRAKTIKUM',
+                'catatan' => 'Upload via test',
+            ];
         });
     }
 

@@ -209,7 +209,7 @@ class SipandaiAssignmentUploadRequest extends ApiFormRequest
             'meeting_id' => $this->input('meeting_id'),
             'id' => $this->input('id', $this->input('discussion_id')),
             'pertemuan' => $this->input('pertemuan', $this->input('meeting_number')),
-            'form_values' => $this->input('form_values', []),
+            'form_values' => $this->normalizedPortalFormValues($this->input('form_values', [])),
         ]);
     }
 
