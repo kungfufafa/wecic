@@ -1,6 +1,6 @@
 {{--
     KRS script, the links, the hosts and the shared state, the icons, the
-    cache helpers, the period labels, and the "Diperbarui" line. Every later
+    cache helpers, and the period labels. Every later
     part uses them. Part of the DOMContentLoaded handler opened in
     academic/krs.blade.php: it shares that scope (app, esc, hosts, state and
     the helpers in setup).
@@ -18,7 +18,6 @@
                 printHeader: document.getElementById('krs-print-header'),
                 dpa: document.getElementById('krs-dpa'),
                 history: document.getElementById('krs-history'),
-                updated: document.querySelector('[data-krs-updated]'),
                 period: document.getElementById('krs-period-label'),
             };
             const state = { krs: null, krsMeta: null, advising: null, advisingMeta: null, detail: null, detailRequested: false, renderedDay: null };
@@ -74,34 +73,5 @@
                 }
 
                 return `${app.formatIndonesianDate(start, { month: 'short', year: false })} – ${app.formatIndonesianDate(end, { month: 'short' })}`;
-            };
-
-            const renderFreshness = () => {
-                const meta = state.krsMeta || state.advisingMeta;
-
-                if (!hosts.updated || !meta) {
-                    return;
-                }
-
-                const data = state.krs || state.advising || {};
-                const ago = app.formatTimeAgo(meta.synced_at || data.extracted_at || meta.cached_at);
-                const parts = [ago ? `Diperbarui ${ago}` : 'Waktu pembaruan belum diketahui'];
-                let warn = false;
-
-                if (meta.status === 'failed') {
-                    parts.push('gagal diperbarui, ini data terakhir');
-                    warn = true;
-                } else if (meta.status === 'syncing') {
-                    parts.push('sedang diperbarui dari portal');
-                }
-
-                if (meta.data_origin === 'device_cache') {
-                    parts.push(meta.cache_is_stale ? 'data tersimpan di perangkat, mungkin sudah lama' : 'data tersimpan di perangkat');
-                    warn = warn || Boolean(meta.cache_is_stale);
-                }
-
-                hosts.updated.textContent = parts.join(' · ');
-                hosts.updated.classList.toggle('text-warning', warn);
-                hosts.updated.classList.toggle('text-ink-subtle', !warn);
             };
 

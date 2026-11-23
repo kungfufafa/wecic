@@ -20,7 +20,6 @@
         <x-slot:meta>
             <span class="font-medium text-ink-muted" id="krs-show-pretitle">Kartu Rencana Studi</span>
             <span class="flex flex-wrap gap-2 empty:hidden" id="krs-show-chips"></span>
-            <span class="text-ink-subtle print:hidden" data-krs-show-updated></span>
         </x-slot:meta>
         <x-slot:tabs class="print:hidden"><x-academic-menu active="krs" underline /></x-slot:tabs>
     </x-page-hero>
@@ -82,7 +81,6 @@
                 title: document.getElementById('krs-show-title'),
                 subtitle: document.getElementById('krs-show-subtitle'),
                 chips: document.getElementById('krs-show-chips'),
-                updated: document.querySelector('[data-krs-show-updated]'),
                 alerts: document.getElementById('krs-show-alerts'),
                 courses: document.getElementById('krs-show-courses'),
                 aside: document.getElementById('krs-show-aside'),
@@ -121,29 +119,6 @@
                 }
 
                 return state.currentKrs.insights?.status || state.currentKrs.status || null;
-            };
-
-            const renderFreshness = () => {
-                const meta = state.meta || {};
-                const ago = app.formatTimeAgo(meta.synced_at || state.detail?.extracted_at || meta.cached_at);
-                const parts = [ago ? `Diperbarui ${ago}` : 'Waktu pembaruan belum diketahui'];
-                let warn = false;
-
-                if (meta.status === 'failed') {
-                    parts.push('gagal diperbarui, ini data terakhir');
-                    warn = true;
-                } else if (meta.status === 'syncing') {
-                    parts.push('sedang diperbarui dari portal');
-                }
-
-                if (meta.data_origin === 'device_cache') {
-                    parts.push(meta.cache_is_stale ? 'data tersimpan di perangkat, mungkin sudah lama' : 'data tersimpan di perangkat');
-                    warn = warn || Boolean(meta.cache_is_stale);
-                }
-
-                hosts.updated.textContent = parts.join(' · ');
-                hosts.updated.classList.toggle('text-warning', warn);
-                hosts.updated.classList.toggle('text-ink-subtle', !warn);
             };
 
             const renderHeader = () => {
@@ -354,7 +329,6 @@
                 renderAside();
                 renderNavigation();
                 renderPrintNote();
-                renderFreshness();
             };
 
             const receive = (payload) => {

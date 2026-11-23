@@ -4,9 +4,7 @@
 @section('page_id', 'library-index')
 
 @section('content')
-    <x-page-hero title="Perpustakaan">
-        <x-slot:meta><span data-library-updated></span></x-slot:meta>
-    </x-page-hero>
+    <x-page-hero title="Perpustakaan" />
 
     <x-split at="xl" :sticky="false">
         <form action="{{ route('library.theses') }}" method="get" role="search" aria-labelledby="library-search-title" class="rounded-xl border border-border bg-panel p-4 sm:p-5">
@@ -66,10 +64,8 @@
             const app = window.portalApp;
             const repositoryHost = document.getElementById('library-repository');
             const linksHost = document.getElementById('library-links');
-            const updatedLabel = document.querySelector('[data-library-updated]');
             const SEEN_KEY = 'mycic-library-repository-seen';
             const numberFormatter = new Intl.NumberFormat('id-ID');
-            let lastPayload = null;
             let rendered = false;
             let seenRecorded = false;
 
@@ -90,25 +86,6 @@
                         // "New since last visit" is a per-device convenience.
                     }
                 },
-            };
-
-            const describeFreshness = (payload) => {
-                const meta = payload?.meta || {};
-                const ago = app.formatTimeAgo(meta.synced_at || meta.cached_at || payload?.data?.extracted_at);
-
-                if (!ago) {
-                    return '';
-                }
-
-                if (meta.data_origin === 'device_cache') {
-                    return `Diperbarui ${ago} · data tersimpan di perangkat${meta.cache_is_stale ? ', mungkin sudah lama' : ''}`;
-                }
-
-                if (meta.status === 'failed') {
-                    return `Diperbarui ${ago} · portal belum bisa dihubungi, ini data terakhir`;
-                }
-
-                return `Diperbarui ${ago}`;
             };
 
             // Read once: this visit's own write must not reset the "new" count on re-render.
@@ -251,11 +228,9 @@
                     return;
                 }
 
-                lastPayload = payload;
                 rendered = true;
                 renderLinks(data);
                 renderRepository(data.repository);
-                updatedLabel.textContent = describeFreshness(payload);
             };
 
             linksHost.addEventListener('click', (event) => {
@@ -263,12 +238,6 @@
 
                 if (button) {
                     void app.copyText(button.dataset.copyLink, 'Tautan');
-                }
-            });
-
-            document.addEventListener('visibilitychange', () => {
-                if (!document.hidden && lastPayload) {
-                    updatedLabel.textContent = describeFreshness(lastPayload);
                 }
             });
 

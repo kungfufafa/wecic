@@ -14,7 +14,6 @@
 --}}
 @section('content')
     <x-page-hero title="Akademik">
-        <x-slot:meta><span class="text-ink-subtle" data-grades-updated></span></x-slot:meta>
         <x-slot:tabs><x-academic-menu active="grades" underline /></x-slot:tabs>
     </x-page-hero>
 
@@ -97,9 +96,8 @@
                 chips: document.getElementById('grades-semesters'),
                 panel: document.getElementById('grades-panel'),
                 trend: document.getElementById('grades-trend'),
-                updated: document.querySelector('[data-grades-updated]'),
             };
-            const state = { data: null, meta: null, selected: null, lowOnly: false };
+            const state = { data: null, selected: null, lowOnly: false };
             const esc = (value) => app.escapeHtml(value);
             const componentLabels = { absen: 'Absen', tugas: 'Tugas', uts: 'UTS', uas: 'UAS', quiz: 'Kuis', praktikum: 'Praktikum' };
 
@@ -118,29 +116,6 @@
                 .reduce((highest, semester) => Math.max(highest, semester.semester), 0) || null;
 
             const hasGrades = (semester) => ['graded', 'partial'].includes(semester?.status) && Number(semester?.graded_count) > 0;
-
-            const renderFreshness = () => {
-                const meta = state.meta || {};
-                const ago = app.formatTimeAgo(meta.synced_at || state.data?.extracted_at || meta.cached_at);
-                const parts = [ago ? `Diperbarui ${ago}` : 'Waktu pembaruan belum diketahui'];
-                let warn = false;
-
-                if (meta.status === 'failed') {
-                    parts.push('gagal diperbarui, ini data terakhir');
-                    warn = true;
-                } else if (meta.status === 'syncing') {
-                    parts.push('sedang diperbarui dari portal');
-                }
-
-                if (meta.data_origin === 'device_cache') {
-                    parts.push(meta.cache_is_stale ? 'data tersimpan di perangkat, mungkin sudah lama' : 'data tersimpan di perangkat');
-                    warn = warn || Boolean(meta.cache_is_stale);
-                }
-
-                hosts.updated.textContent = parts.join(' · ');
-                hosts.updated.classList.toggle('text-warning', warn);
-                hosts.updated.classList.toggle('text-ink-subtle', !warn);
-            };
 
             /**
              * One metric cell, the same markup as the x-metric component;
@@ -544,14 +519,12 @@
                 }
 
                 state.data = payload.data;
-                state.meta = payload.meta || {};
                 state.selected = defaultSelection();
                 renderSummary();
                 renderAlerts();
                 renderChips();
                 renderPanel();
                 renderTrend();
-                renderFreshness();
             };
 
             try {

@@ -11,7 +11,6 @@
 --}}
 @section('content')
     <x-page-hero title="Akademik">
-        <x-slot:meta><span class="text-ink-subtle" data-transcript-updated></span></x-slot:meta>
         <x-slot:tabs><x-academic-menu active="transcript" underline /></x-slot:tabs>
     </x-page-hero>
 
@@ -168,7 +167,6 @@
                 table: document.getElementById('transcript-table'),
                 tableCaption: document.getElementById('transcript-table-caption'),
                 search: document.getElementById('transcript-search'),
-                updated: document.querySelector('[data-transcript-updated]'),
                 simForm: document.getElementById('transcript-sim-form'),
                 simTarget: document.getElementById('transcript-sim-target'),
                 simSks: document.getElementById('transcript-sim-sks'),
@@ -177,7 +175,7 @@
                 simPresets: document.getElementById('transcript-sim-presets'),
                 simResult: document.getElementById('transcript-sim-result'),
             };
-            const state = { data: null, meta: null, query: '', simReady: false };
+            const state = { data: null, query: '', simReady: false };
             const esc = (value) => app.escapeHtml(value);
             const maxWeight = 4;
             const letterOrder = ['A', 'A-', 'B+', 'B', 'B-', 'C+', 'C', 'C-', 'D+', 'D', 'E'];
@@ -207,29 +205,6 @@
                 const qualityPoints = Number(summary.quality_points_total) || 0;
 
                 return { sks, qualityPoints, ipk: sks > 0 ? Math.round((qualityPoints / sks) * 100) / 100 : null };
-            };
-
-            const renderFreshness = () => {
-                const meta = state.meta || {};
-                const ago = app.formatTimeAgo(meta.synced_at || state.data?.extracted_at || meta.cached_at);
-                const parts = [ago ? `Diperbarui ${ago}` : 'Waktu pembaruan belum diketahui'];
-                let warn = false;
-
-                if (meta.status === 'failed') {
-                    parts.push('gagal diperbarui, ini data terakhir');
-                    warn = true;
-                } else if (meta.status === 'syncing') {
-                    parts.push('sedang diperbarui dari portal');
-                }
-
-                if (meta.data_origin === 'device_cache') {
-                    parts.push(meta.cache_is_stale ? 'data tersimpan di perangkat, mungkin sudah lama' : 'data tersimpan di perangkat');
-                    warn = warn || Boolean(meta.cache_is_stale);
-                }
-
-                hosts.updated.textContent = parts.join(' · ');
-                hosts.updated.classList.toggle('text-warning', warn);
-                hosts.updated.classList.toggle('text-ink-subtle', !warn);
             };
 
             const renderAlerts = () => {
@@ -749,7 +724,6 @@
                 }
 
                 state.data = payload.data;
-                state.meta = payload.meta || {};
                 hosts.charts.hidden = false;
                 hosts.simulator.hidden = false;
                 hosts.search.disabled = false;
@@ -760,7 +734,6 @@
                 renderLowGrades();
                 renderTable();
                 initSimulator();
-                renderFreshness();
             };
 
             try {

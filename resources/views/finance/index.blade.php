@@ -8,11 +8,7 @@
 @endphp
 
 @section('content')
-    <x-page-hero title="Keuangan">
-        <x-slot:meta>
-            <span class="min-h-4" data-finance-updated></span>
-        </x-slot:meta>
-    </x-page-hero>
+    <x-page-hero title="Keuangan" />
 
     <div class="flex flex-col gap-6" id="finance-page" data-portal-finance-url="{{ $portalFinanceUrl }}">
         <x-stat-strip class="grid-cols-2 sm:grid-cols-3" aria-label="Ringkasan riwayat pembayaran" role="group">
@@ -123,7 +119,6 @@
             const container = document.getElementById('finance-payments');
             const searchInput = document.getElementById('finance-search');
             const searchStatus = document.getElementById('finance-search-status');
-            const updatedLabel = document.querySelector('[data-finance-updated]');
             const portalFinanceUrl = app.safeHref(page.dataset.portalFinanceUrl) || '#';
 
             let allPayments = [];
@@ -132,7 +127,6 @@
             let latestPayments = null;
             let summaryRendered = false;
             let paymentsRendered = false;
-            let lastPayload = null;
 
             const STAGE_STATUS = {
                 paid: { label: 'Lunas', text: app.ui.text.success },
@@ -157,29 +151,6 @@
             };
 
             const shortDate = (value) => app.formatIndonesianDate(value, { month: 'short', year: false });
-
-            const describeFreshness = (payload) => {
-                const meta = payload?.meta || {};
-                const ago = app.formatTimeAgo(meta.synced_at || meta.cached_at || payload?.data?.extracted_at);
-
-                if (!ago) {
-                    return '';
-                }
-
-                if (meta.data_origin === 'device_cache') {
-                    return `Diperbarui ${ago} · data tersimpan di perangkat${meta.cache_is_stale ? ', mungkin sudah lama' : ''}`;
-                }
-
-                if (meta.status === 'syncing') {
-                    return `Diperbarui ${ago} · sedang diperbarui dari portal`;
-                }
-
-                if (meta.status === 'failed') {
-                    return `Diperbarui ${ago} · portal belum bisa dihubungi, ini data terakhir`;
-                }
-
-                return `Diperbarui ${ago}`;
-            };
 
             const stageLabel = (payment) => (payment?.installment_stage
                 ? `Tahap ${payment.installment_stage}${payment.study_year ? ` · tahun ke-${payment.study_year}` : ''}`
@@ -701,10 +672,6 @@
                 summaryRendered = true;
                 renderBills(data);
                 renderStages();
-
-                if (!lastPayload) {
-                    updatedLabel.textContent = describeFreshness(payload);
-                }
             };
 
             const renderPayments = (payload) => {
@@ -720,7 +687,6 @@
 
                 latestPayments = data;
                 paymentsRendered = true;
-                lastPayload = payload;
                 allPayments = Array.isArray(data.payment_history) ? data.payment_history : [];
 
                 const total = summary.portal_total_amount ?? summary.total_paid_amount ?? allPayments.reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0);
@@ -760,8 +726,6 @@
                         stage1_paid_for_current_year: data.payment_stage_summary?.stage1_paid_for_current_year,
                     });
                 }
-
-                updatedLabel.textContent = describeFreshness(payload);
             };
 
             const handleSummaryError = (error, force) => {

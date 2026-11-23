@@ -4,11 +4,7 @@
 @section('page_id', 'announcement-index')
 
 @section('content')
-    <x-page-hero title="Pengumuman">
-        <x-slot:meta>
-            <span class="min-h-4" data-announcement-updated></span>
-        </x-slot:meta>
-    </x-page-hero>
+    <x-page-hero title="Pengumuman" />
 
     <div class="flex flex-col gap-6">
         <div id="announcement-notice" class="empty:hidden"></div>
@@ -88,7 +84,6 @@
             const searchInput = document.getElementById('announcement-search');
             const resultStatus = document.getElementById('announcement-result-status');
             const markAllButton = document.getElementById('announcement-mark-all');
-            const updatedLabel = document.querySelector('[data-announcement-updated]');
 
             const READ_KEY = 'mycic-announcement-read';
             const DISMISSED_KEY = 'mycic-dismissed-notices';
@@ -148,7 +143,6 @@
                 rendered: false,
                 readLoaded: false,
                 readIds: new Set(),
-                lastPayload: null,
             };
 
             const monthFormatter = new Intl.DateTimeFormat('id-ID', { month: 'short' });
@@ -156,29 +150,6 @@
             const deadlineTone = (days) => (days <= 3 ? 'danger' : (days <= 7 ? 'warning' : 'info'));
             const isFiltering = () => state.category !== 'semua' || state.query.trim() !== '';
             const categoryLabel = (key, label) => label || CATEGORY_LABELS[key] || 'Umum';
-
-            const describeFreshness = (payload) => {
-                const meta = payload?.meta || {};
-                const ago = app.formatTimeAgo(meta.synced_at || meta.cached_at || payload?.data?.generated_at);
-
-                if (!ago) {
-                    return '';
-                }
-
-                if (meta.data_origin === 'device_cache') {
-                    return `Diperbarui ${ago} · data tersimpan di perangkat${meta.cache_is_stale ? ', mungkin sudah lama' : ''}`;
-                }
-
-                if (meta.status === 'syncing') {
-                    return `Diperbarui ${ago} · sedang diperbarui dari portal`;
-                }
-
-                if (meta.status === 'failed') {
-                    return `Diperbarui ${ago} · portal belum bisa dihubungi, ini data terakhir`;
-                }
-
-                return `Diperbarui ${ago}`;
-            };
 
             // The same wording is the same announcement, even under another id (a copy saved before stable ids).
             const itemKey = (item) => item.legacy_id || item.id;
@@ -710,7 +681,6 @@
                 state.feedItems = Array.isArray(data.items) ? data.items : [];
                 state.deadlines = Array.isArray(data.upcoming_deadlines) ? data.upcoming_deadlines : [];
                 state.notice = data.notice || null;
-                state.lastPayload = payload;
 
                 if (Number.isInteger(paging.total)) {
                     if (state.extraItems.length && Number.isInteger(state.feedTotal) && paging.total !== state.feedTotal) {
@@ -740,7 +710,6 @@
                 renderNotice();
                 renderDeadlines();
                 renderList();
-                updatedLabel.textContent = describeFreshness(payload);
             };
 
             searchInput.value = state.query;
@@ -812,7 +781,6 @@
                 if (!document.hidden && state.rendered) {
                     renderDeadlines();
                     renderList();
-                    updatedLabel.textContent = describeFreshness(state.lastPayload);
                 }
             });
 

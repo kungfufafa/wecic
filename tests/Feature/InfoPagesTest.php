@@ -53,6 +53,8 @@ class InfoPagesTest extends TestCase
             ->assertSee('await app.ensureAuthenticated();', false)
             ->assertSee('{ fresh: force, background }', false)
             ->assertSee('app.markViewSynced(', false)
+            ->assertDontSee('Diperbarui ${ago}', false)
+            ->assertDontSee('Indeks diperbarui ${ago}', false)
             ->assertSee($syncHandler, false)
             ->assertSee('app.mountErrorState(', false)
             ->assertSee('aria-busy="true"', false)

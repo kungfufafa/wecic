@@ -20,7 +20,6 @@
                 renderCourses();
                 renderDpaCard();
                 renderHistory();
-                renderFreshness();
             };
 
             const receiveKrs = (payload) => {

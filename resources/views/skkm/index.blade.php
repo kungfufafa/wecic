@@ -12,9 +12,6 @@
 @section('content')
     {{-- The hero's isolate traps the floating Tambah bar below lg; z-29 keeps it above the content yet under the top bar (z-30). --}}
     <x-page-hero class="max-lg:z-29" title="SKKM">
-        <x-slot:meta>
-            <span class="min-h-4" data-skkm-updated></span>
-        </x-slot:meta>
         @if ($showSkkmAdd)
         <x-slot:actions class="max-sm:-mt-4 lg:max-w-64 lg:flex-col lg:items-end">
             <x-sticky-action class="lg:text-end">
@@ -128,7 +125,6 @@
             const breakdownSection = document.getElementById('skkm-breakdown');
             const breakdownHost = document.getElementById('skkm-breakdown-body');
             const filterStatus = document.getElementById('skkm-filter-status');
-            const updatedLabel = document.querySelector('[data-skkm-updated]');
             const portalUrl = app.safeHref(page.dataset.portalUrl) || '#';
             const DISMISSED_KEY = 'mycic-dismissed-notices';
             const STATUS = {
@@ -147,7 +143,6 @@
             const requestedFilter = new URLSearchParams(window.location.search).get('status');
             let filter = FILTERS.some((option) => option.key === requestedFilter) ? requestedFilter : 'all';
             let latest = null;
-            let lastPayload = null;
             let rendered = false;
 
             const storage = {
@@ -172,29 +167,6 @@
             const numberFormatter = new Intl.NumberFormat('id-ID', { maximumFractionDigits: 2 });
             const isNumber = (value) => value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value));
             const formatPoints = (value) => (isNumber(value) ? numberFormatter.format(Number(value)) : '–');
-
-            const describeFreshness = (payload) => {
-                const meta = payload?.meta || {};
-                const ago = app.formatTimeAgo(meta.synced_at || meta.cached_at || payload?.data?.extracted_at);
-
-                if (!ago) {
-                    return '';
-                }
-
-                if (meta.data_origin === 'device_cache') {
-                    return `Diperbarui ${ago} · data tersimpan di perangkat${meta.cache_is_stale ? ', mungkin sudah lama' : ''}`;
-                }
-
-                if (meta.status === 'syncing') {
-                    return `Diperbarui ${ago} · sedang diperbarui dari portal`;
-                }
-
-                if (meta.status === 'failed') {
-                    return `Diperbarui ${ago} · portal belum bisa dihubungi, ini data terakhir`;
-                }
-
-                return `Diperbarui ${ago}`;
-            };
 
             const entriesOf = (data) => (Array.isArray(data?.entries) ? data.entries : []).filter((entry) => entry && typeof entry === 'object');
 
@@ -553,7 +525,6 @@
                 }
 
                 latest = data;
-                lastPayload = payload;
                 rendered = true;
                 renderNotice(data.found === false ? null : data.notice);
                 renderMessage(data.message);
@@ -563,7 +534,6 @@
                 renderGuide(data);
                 renderDpa(data);
                 renderBreakdown(data);
-                updatedLabel.textContent = describeFreshness(payload);
             };
 
             const setFilter = (next, source, focusKey) => {
@@ -582,12 +552,6 @@
                 }
 
                 setFilter(button.dataset.skkmFilter, tabsHost, button.dataset.skkmFilter);
-            });
-
-            document.addEventListener('visibilitychange', () => {
-                if (!document.hidden && lastPayload) {
-                    updatedLabel.textContent = describeFreshness(lastPayload);
-                }
             });
 
             try {

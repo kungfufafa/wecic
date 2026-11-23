@@ -89,25 +89,6 @@
 
             const shortDate = (value) => app.formatIndonesianDate(value, { month: 'short', year: false });
 
-            const describeFreshness = (payload) => {
-                const meta = payload?.meta || {};
-                const ago = app.formatTimeAgo(meta.synced_at || meta.cached_at);
-
-                if (!ago) {
-                    return '';
-                }
-
-                if (meta.data_origin === 'device_cache') {
-                    return `Diperbarui ${ago} · data tersimpan di perangkat${meta.cache_is_stale ? ', mungkin sudah lama' : ''}`;
-                }
-
-                if (meta.status === 'syncing') {
-                    return `Diperbarui ${ago} · sedang diperbarui dari portal`;
-                }
-
-                return `Diperbarui ${ago}`;
-            };
-
             // A mark saved under the old wording-based id (before stable ids) moves to the stable id.
             const markRead = (item) => {
                 const stored = storage.read(READ_KEY);
@@ -197,14 +178,13 @@
                 return `<p class="max-w-full xl:hidden [&>span]:whitespace-normal">${app.renderBadge(`${deadlineRange(nearest)} · ${deadlineRelative(nearest)}`, deadlineTone(nearest))}</p>`;
             };
 
-            const renderHeader = (item, deadlines, payload) => {
+            const renderHeader = (item, deadlines) => {
                 const publishedDate = item.published_date
                     ? app.formatIndonesianDate(item.published_date, { weekday: true })
                     : (item.published_label || 'Tanggal tidak terbaca');
                 const days = app.daysUntil(item.published_date);
                 const relative = days !== null && days < 0 && days > -31 ? ` · ${days === -1 ? 'kemarin' : `${Math.abs(days)} hari lalu`}` : '';
                 const publisher = [item.publisher, item.publisher_unit].filter(Boolean).join(' · ');
-                const freshness = describeFreshness(payload);
 
                 return `
                     <div class="flex min-w-0 flex-col gap-2">
@@ -229,7 +209,6 @@
                                 <a href="/announcement/${encodeURIComponent(item.duplicate_of)}" class="${app.ui.link}">Buka versi terbaru</a>
                             </p>
                         ` : ''}
-                        ${freshness ? `<p class="text-xs text-ink-subtle">${app.escapeHtml(freshness)}</p>` : ''}
                     </div>
                 `;
             };
@@ -594,7 +573,7 @@
 
                 rendered = true;
                 host.removeAttribute('aria-busy');
-                heroHost.innerHTML = renderHeader(item, deadlines, payload);
+                heroHost.innerHTML = renderHeader(item, deadlines);
                 host.innerHTML = `
                     <div class="${app.ui.splitXl} max-w-3xl xl:max-w-none">
                         <article class="${app.ui.splitMain}" aria-labelledby="announcement-title">

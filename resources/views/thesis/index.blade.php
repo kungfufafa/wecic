@@ -17,7 +17,6 @@
                 </x-button>
             </x-slot:actions>
         @endif
-        <x-slot:meta><span data-thesis-updated></span></x-slot:meta>
     </x-page-hero>
 
     <x-split at="xl" id="thesis-page" data-portal-thesis-url="{{ $portalThesisUrl }}">
@@ -105,7 +104,6 @@
             const prepCaption = document.getElementById('thesis-prep-caption');
             const requirementsHost = document.getElementById('thesis-requirements');
             const documentsHost = document.getElementById('thesis-documents');
-            const updatedLabel = document.querySelector('[data-thesis-updated]');
             const portalThesisUrl = app.safeHref(page.dataset.portalThesisUrl) || '#';
             const CHECKLIST_PREFIX = 'mycic-skripsi-checklist:';
             const STATUS_STYLE = {
@@ -121,7 +119,6 @@
             // IPK is written with a dot decimal (3.45), as on Nilai, Transkrip and KRS.
             const formatIpk = (value) => (Number.isFinite(Number(value)) ? Number(value).toFixed(2) : '–');
             let thesisData = null;
-            let thesisPayload = null;
             let readinessData = null;
             let thesisRendered = false;
             let readinessRendered = false;
@@ -156,29 +153,6 @@
                 }
 
                 return hash.toString(16).padStart(8, '0');
-            };
-
-            const describeFreshness = (payload) => {
-                const meta = payload?.meta || {};
-                const ago = app.formatTimeAgo(meta.synced_at || meta.cached_at || payload?.data?.extracted_at);
-
-                if (!ago) {
-                    return '';
-                }
-
-                if (meta.data_origin === 'device_cache') {
-                    return `Diperbarui ${ago} · data tersimpan di perangkat${meta.cache_is_stale ? ', mungkin sudah lama' : ''}`;
-                }
-
-                if (meta.status === 'syncing') {
-                    return `Diperbarui ${ago} · sedang diperbarui dari portal`;
-                }
-
-                if (meta.status === 'failed') {
-                    return `Diperbarui ${ago} · portal belum bisa dihubungi, ini data terakhir`;
-                }
-
-                return `Diperbarui ${ago}`;
             };
 
             const formatValue = (key, value) => {
@@ -340,14 +314,12 @@
                 }
 
                 thesisData = data;
-                thesisPayload = payload;
                 thesisRendered = true;
                 ownerKey = data.student?.nim ? hashOwner(data.student.nim) : ownerKey;
                 renderStatus(data);
                 renderRequirements(data);
                 renderDocuments(data);
                 renderPrep();
-                updatedLabel.textContent = describeFreshness(payload);
             };
 
             const sksRing = (progress) => {
@@ -568,12 +540,6 @@
                     event.preventDefault();
                     document.getElementById('kesiapan')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
                     readinessTitle.focus({ preventScroll: true });
-                }
-            });
-
-            document.addEventListener('visibilitychange', () => {
-                if (!document.hidden && thesisPayload) {
-                    updatedLabel.textContent = describeFreshness(thesisPayload);
                 }
             });
 

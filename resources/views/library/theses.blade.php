@@ -5,7 +5,6 @@
 
 @section('content')
     <x-page-hero title="Repositori skripsi" :back="route('library.index')" back-label="Perpustakaan">
-        <x-slot:meta><span data-theses-updated></span></x-slot:meta>
         <x-slot:tabs>
             <x-view-tabs as="div" underline role="group" aria-label="Mode repositori" id="theses-modes">
                 <button type="button" class="inline-flex min-h-11 shrink-0 cursor-pointer select-none items-center gap-1.5 whitespace-nowrap border-b-2 border-transparent px-1 text-sm font-medium text-ink-muted transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:ring-inset aria-selected:border-ink aria-selected:text-ink aria-pressed:border-ink aria-pressed:text-ink aria-[current=page]:border-ink aria-[current=page]:text-ink" data-theses-mode="search" aria-pressed="true">
@@ -126,7 +125,6 @@
             const checkForm = document.getElementById('theses-check-form');
             const checkInput = document.getElementById('theses-check-input');
             const checkResults = document.getElementById('theses-check-results');
-            const updatedLabel = document.querySelector('[data-theses-updated]');
             const PER_PAGE = 20;
             const FILTER_KEYS = ['prodi', 'ta', 'pembimbing', 'sort'];
             const params = new URLSearchParams(window.location.search);
@@ -143,7 +141,6 @@
                 page: 1,
                 requestId: 0,
                 rendered: false,
-                lastPayload: null,
                 loadingMore: false,
             };
             let debounceTimer = null;
@@ -169,33 +166,6 @@
                 return value.split(pattern).map((part, index) => (index % 2 === 1
                     ? `<mark class="rounded-sm bg-warning-soft px-0.5 text-ink">${app.escapeHtml(part)}</mark>`
                     : app.escapeHtml(part))).join('');
-            };
-
-            const describeFreshness = (payload) => {
-                const meta = payload?.meta || {};
-                const ago = app.formatTimeAgo(meta.synced_at || meta.cached_at);
-
-                if (meta.index?.partial) {
-                    return 'Indeks pertama sedang disiapkan';
-                }
-
-                if (!ago) {
-                    return '';
-                }
-
-                if (meta.data_origin === 'device_cache') {
-                    return `Indeks diperbarui ${ago} · data tersimpan di perangkat${meta.cache_is_stale ? ', mungkin sudah lama' : ''}`;
-                }
-
-                if (meta.status === 'syncing') {
-                    return `Indeks diperbarui ${ago} · sedang diperbarui dari portal`;
-                }
-
-                if (meta.status === 'failed') {
-                    return `Indeks diperbarui ${ago} · portal belum bisa dihubungi, ini indeks terakhir`;
-                }
-
-                return `Indeks diperbarui ${ago}`;
             };
 
             const hasFilters = () => state.q.trim() !== '' || FILTER_KEYS.some((key) => state[key] !== '');
@@ -336,7 +306,6 @@
                 state.page = Number(meta.page) || 1;
                 state.items = append ? [...state.items, ...items] : items;
                 state.rendered = true;
-                state.lastPayload = payload;
                 resultsHost.removeAttribute('aria-busy');
 
                 if (meta.facets) {
@@ -348,7 +317,6 @@
                 selects.sort.value = state.sort;
                 renderIndexStatus(meta);
                 resetWrap.classList.toggle('hidden', !hasFilters());
-                updatedLabel.textContent = describeFreshness(payload);
 
                 const total = Number(meta.total) || 0;
 
@@ -663,12 +631,6 @@
 
                 event.preventDefault();
                 (state.mode === 'check' ? checkInput : queryInput).focus();
-            });
-
-            document.addEventListener('visibilitychange', () => {
-                if (!document.hidden && state.lastPayload) {
-                    updatedLabel.textContent = describeFreshness(state.lastPayload);
-                }
             });
 
             queryInput.value = state.q;
