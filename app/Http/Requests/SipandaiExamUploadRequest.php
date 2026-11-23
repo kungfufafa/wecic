@@ -107,7 +107,7 @@ class SipandaiExamUploadRequest extends ApiFormRequest
     {
         $this->merge([
             'id' => $this->input('id'),
-            'form_values' => $this->input('form_values', []),
+            'form_values' => $this->normalizedPortalFormValues($this->input('form_values', [])),
         ]);
     }
 }
