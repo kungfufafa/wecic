@@ -18,6 +18,7 @@ use App\Models\Notebook;
 use App\Models\NotebookMessage;
 use App\Models\NotebookSource;
 use App\Models\PortalArchivedFile;
+use App\Services\Ai\NotebookAiProviders;
 use App\Services\NotebookAiConsents;
 use App\Services\NotebookAssistant;
 use App\Services\NotebookCourseSync;
@@ -38,7 +39,7 @@ class NotebookController extends CampusApiController
 
     private const SOURCE_ITEM = "array{id: int, kind: 'meeting'|'archived_file'|'upload'|'text', title: string, meeting_id: string|null, meeting_number: int|null, mime: string|null, status: 'pending'|'processing'|'ready'|'failed', error: string|null, summary: string|null, char_count: int, page_count: int|null, truncated: bool, stalled: bool, waiting: bool, archived_file_id: int|null, created_at: string|null}";
 
-    private const CONTEXT_ITEM = 'array{source_ids: list<int>, sources: list<array{id: int, title: string, meeting_number: int|null}>, total_sources: int, excerpts: int, chars: int, partial: bool, focus: string|null, truncated?: bool}';
+    private const CONTEXT_ITEM = 'array{source_ids: list<int>, sources: list<array{id: int, title: string, meeting_number: int|null}>, total_sources: int, excerpts: int, chars: int, partial: bool, focus: string|null, truncated?: bool, provider?: string, model?: string, usage?: array{input_tokens: int|null, output_tokens: int|null, thoughts_tokens: int|null}}';
 
     private const MESSAGE_ITEM = "array{id: int, role: 'user'|'assistant', kind: string, content: string, data: mixed, citations: list<array{n: int, source_id: int, source_title: string, page: int|null, excerpt: string}>, context: ".self::CONTEXT_ITEM.'|null, pinned: bool, created_at: string|null}';
 
@@ -48,7 +49,9 @@ class NotebookController extends CampusApiController
 
     private const AI_STATUS = "'ok'|'disabled'|'missing_key'|'invalid_key'|'model_misconfigured'";
 
-    private const AI_CONSENT_ITEM = 'array{granted: bool, granted_at: string|null, withdrawn_at: string|null, provider: string}';
+    private const AI_CONSENT_ITEM = 'array{granted: bool, granted_at: string|null, withdrawn_at: string|null, provider: string, free_tier: bool, consent_key: string, processors: list<array{label: string, free_tier: bool}>, past_processors: list<string>}';
+
+    private const AI_PROVIDER_ITEM = "array{driver: 'gemini'|'anthropic'|'openai', label: string, free_tier: bool, consent_key: string, processors: list<array{label: string, free_tier: bool}>}";
 
     private const AI_CONSENT_REQUIRED_RESPONSE = "array{status: 'error', message: string, reason: 'ai_consent_required', data: array{ai_consent: ".self::AI_CONSENT_ITEM.'}, meta: array{timestamp: string, campus_session_valid: true}}';
 
@@ -60,7 +63,8 @@ class NotebookController extends CampusApiController
         private readonly NotebookCourseSync $courseSync,
         private readonly PortalArchivedFileStore $archivedFiles,
         private readonly PortalDataOwner $owner,
-        private readonly NotebookAiConsents $aiConsents
+        private readonly NotebookAiConsents $aiConsents,
+        private readonly NotebookAiProviders $aiProviders
     ) {}
 
     /**
@@ -68,12 +72,14 @@ class NotebookController extends CampusApiController
      *
      * Notebook mata kuliah (`kind: course`) dibuat otomatis dari daftar kelas yang tersimpan, satu per mata kuliah.
      * `ai_available` false berarti model AI belum bisa dipakai; sumber tetap bisa ditambahkan. `ai_status` menyebut sebabnya:
-     * `disabled` (dimatikan di server), `missing_key` (GEMINI_API_KEY kosong), `invalid_key` (kunci API ditolak Gemini),
-     * `model_misconfigured` (pengaturan model AI ditolak Gemini: model tidak dikenali atau sudah tidak tersedia, atau
-     * NOTEBOOK_THINKING_BUDGET tidak cocok), atau `ok`. `ai_consent.granted` false berarti mahasiswa belum menyetujui
-     * pengiriman isi Notebook ke Google Gemini (POST /ai-consent); fitur AI menolak dengan 403 `ai_consent_required` sampai disetujui.
+     * `disabled` (dimatikan di server), `missing_key` (kunci API penyedia AI kosong), `invalid_key` (kunci API ditolak penyedia AI),
+     * `model_misconfigured` (pengaturan model AI ditolak: model tidak dikenali atau sudah tidak tersedia, atau pengaturannya
+     * tidak cocok), atau `ok`. `ai_provider` menyebut penyedia AI yang dipakai server (`label` untuk ditampilkan; `free_tier`
+     * true berarti penyedia dapat memakai data yang dikirim untuk meningkatkan produknya). `ai_consent.granted` false berarti
+     * mahasiswa belum menyetujui pengiriman isi Notebook ke penyedia itu (POST /ai-consent), atau persetujuannya diberikan untuk
+     * penyedia lain; fitur AI menolak dengan 403 `ai_consent_required` sampai disetujui.
      */
-    #[Response(description: 'Daftar notebook.', type: "array{status: 'success', message: string, data: array{notebooks: list<".self::NOTEBOOK_ITEM.'>, ai_available: bool, ai_status: '.self::AI_STATUS.', ai_consent: '.self::AI_CONSENT_ITEM.', course_notebooks: bool, studio_kinds: array<string, string>}, meta: array{timestamp: string, campus_session_valid: true}}')]
+    #[Response(description: 'Daftar notebook.', type: "array{status: 'success', message: string, data: array{notebooks: list<".self::NOTEBOOK_ITEM.'>, ai_available: bool, ai_status: '.self::AI_STATUS.', ai_provider: '.self::AI_PROVIDER_ITEM.', ai_consent: '.self::AI_CONSENT_ITEM.', course_notebooks: bool, studio_kinds: array<string, string>}, meta: array{timestamp: string, campus_session_valid: true}}')]
     #[Response(401, description: 'Endpoint ini membutuhkan sesi kampus yang aktif.', type: CampusApiController::SCRAMBLE_SESSION_ERROR_RESPONSE)]
     public function index(): JsonResponse
     {
@@ -93,6 +99,7 @@ class NotebookController extends CampusApiController
                     'notebooks' => $notebooks,
                     'ai_available' => $this->assistant->isAvailable(),
                     'ai_status' => $this->assistant->aiStatus(),
+                    'ai_provider' => $this->aiProviders->describe(),
                     'ai_consent' => $this->aiConsents->state($this->owner->key($sessionToken)),
                     'course_notebooks' => $this->courseSync->enabled(),
                     'studio_kinds' => NotebookAssistant::STUDIO_KINDS,
@@ -286,7 +293,7 @@ class NotebookController extends CampusApiController
      * (pesan chat yang lebih lama hanya ada karena tersimpan di Catatan).
      */
     #[PathParameter('notebook', 'Id notebook.', type: 'integer', example: 3)]
-    #[Response(description: 'Detail notebook.', type: "array{status: 'success', message: string, data: array{notebook: ".self::NOTEBOOK_ITEM.', sources: list<'.self::SOURCE_ITEM.'>, messages: list<'.self::MESSAGE_ITEM.'>, chat_from_id: int|null, meetings: '.self::MEETINGS_ITEM.'|null, archived_courses: list<array<string, mixed>>, source_limit: int, ai_available: bool, ai_status: '.self::AI_STATUS.', ai_consent: '.self::AI_CONSENT_ITEM.', studio_kinds: array<string, string>}, meta: array{timestamp: string, campus_session_valid: true}}')]
+    #[Response(description: 'Detail notebook.', type: "array{status: 'success', message: string, data: array{notebook: ".self::NOTEBOOK_ITEM.', sources: list<'.self::SOURCE_ITEM.'>, messages: list<'.self::MESSAGE_ITEM.'>, chat_from_id: int|null, meetings: '.self::MEETINGS_ITEM.'|null, archived_courses: list<array<string, mixed>>, source_limit: int, ai_available: bool, ai_status: '.self::AI_STATUS.', ai_provider: '.self::AI_PROVIDER_ITEM.', ai_consent: '.self::AI_CONSENT_ITEM.', studio_kinds: array<string, string>}, meta: array{timestamp: string, campus_session_valid: true}}')]
     #[Response(404, description: 'Notebook tidak ditemukan.', type: CampusApiController::SCRAMBLE_NOT_FOUND_RESPONSE)]
     public function show(int $notebook): JsonResponse
     {
@@ -547,6 +554,7 @@ class NotebookController extends CampusApiController
             'source_limit' => $notebook->sourceLimit(),
             'ai_available' => $this->assistant->isAvailable(),
             'ai_status' => $this->assistant->aiStatus(),
+            'ai_provider' => $this->aiProviders->describe(),
             'ai_consent' => $this->aiConsents->state($notebook->owner_hash),
             'studio_kinds' => NotebookAssistant::STUDIO_KINDS,
         ];
@@ -576,8 +584,8 @@ class NotebookController extends CampusApiController
     }
 
     /**
-     * Nothing of the student's reaches Google Gemini before they agreed to
-     * it (NotebookAiConsents): the AI actions are refused with a stable
+     * Nothing of the student's reaches the AI provider before they agreed
+     * to it (NotebookAiConsents): the AI actions are refused with a stable
      * `reason` the clients turn into their consent step.
      */
     private function refuseWithoutAiConsent(Notebook $notebook): ?JsonResponse
@@ -586,7 +594,7 @@ class NotebookController extends CampusApiController
             return null;
         }
 
-        return $this->statusError(NotebookAiConsents::REQUIRED_MESSAGE, 403, [
+        return $this->statusError($this->aiConsents->requiredMessage(), 403, [
             'reason' => NotebookAiConsents::REQUIRED_REASON,
             'data' => ['ai_consent' => $this->aiConsents->state($notebook->owner_hash)],
         ], campusSessionValid: true);

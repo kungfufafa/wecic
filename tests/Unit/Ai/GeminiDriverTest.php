@@ -2,10 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Tests\Unit;
+namespace Tests\Unit\Ai;
 
 use App\Exceptions\NotebookAiException;
-use App\Services\GeminiClient;
+use App\Services\Ai\GeminiDriver;
+use App\Support\Ai\AiRequest;
+use App\Support\Ai\AiResult;
 use Illuminate\Http\Client\Factory;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Cache;
@@ -13,7 +15,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Tests\TestCase;
 
-class GeminiClientTest extends TestCase
+class GeminiDriverTest extends TestCase
 {
     private const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/*';
 
@@ -41,9 +43,9 @@ class GeminiClientTest extends TestCase
             return Http::response(['candidates' => [['content' => ['parts' => [['text' => 'Isi.']]], 'finishReason' => 'STOP']]]);
         }]);
 
-        app(GeminiClient::class)->generate($this->contents(), null, [], 240, 240);
-        app(GeminiClient::class)->generate($this->contents(), null, [], 240);
-        app(GeminiClient::class)->generate($this->contents());
+        app(GeminiDriver::class)->generate($this->request(budgetSeconds: 240, attemptTimeoutSeconds: 240));
+        app(GeminiDriver::class)->generate($this->request(budgetSeconds: 240));
+        app(GeminiDriver::class)->generate($this->request());
 
         $this->assertSame([240, 60, 50], $timeouts);
     }
@@ -68,10 +70,10 @@ class GeminiClientTest extends TestCase
             'https://generativelanguage.googleapis.com/v1beta/models/gemini-test-lite:generateContent' => Http::response(['candidates' => [['content' => ['parts' => [['text' => 'Jawaban.']]], 'finishReason' => 'STOP']]]),
         ]);
 
-        $result = app(GeminiClient::class)->generate($this->contents());
+        $result = app(GeminiDriver::class)->generate($this->request());
 
-        $this->assertSame('Jawaban.', $result['text']);
-        $this->assertSame('gemini-test-lite', $result['model']);
+        $this->assertSame('Jawaban.', $result->text);
+        $this->assertSame('gemini-test-lite', $result->model);
     }
 
     public function test_a_wrong_key_is_not_tried_on_another_model(): void
@@ -90,10 +92,10 @@ class GeminiClientTest extends TestCase
 
         $exception = $this->failure();
 
-        $this->assertSame(NotebookAiException::misconfigured(NotebookAiException::CAUSE_KEY)->getMessage(), $exception->getMessage());
+        $this->assertSame(NotebookAiException::misconfigured(NotebookAiException::CAUSE_KEY, 'Google Gemini')->getMessage(), $exception->getMessage());
         $this->assertSame(503, $exception->getCode());
         $this->assertFalse($exception->is(NotebookAiException::REASON_REJECTED));
-        $this->assertSame(NotebookAiException::CAUSE_KEY, app(GeminiClient::class)->misconfiguration());
+        $this->assertSame(NotebookAiException::CAUSE_KEY, app(GeminiDriver::class)->misconfiguration());
         Http::assertSentCount(1);
         Log::shouldHaveReceived('error')->once();
     }
@@ -106,7 +108,7 @@ class GeminiClientTest extends TestCase
             ->push(['error' => ['code' => 400, 'message' => 'API key expired. Please renew the API key.', 'status' => 'INVALID_ARGUMENT']], 400)]);
 
         foreach (range(1, 3) as $attempt) {
-            $this->assertSame(NotebookAiException::misconfigured(NotebookAiException::CAUSE_KEY)->getMessage(), $this->failure()->getMessage(), "Attempt {$attempt}");
+            $this->assertSame(NotebookAiException::misconfigured(NotebookAiException::CAUSE_KEY, 'Google Gemini')->getMessage(), $this->failure()->getMessage(), "Attempt {$attempt}");
             // Each answer on its own, not the one remembered from the attempt before.
             Cache::flush();
         }
@@ -186,7 +188,7 @@ class GeminiClientTest extends TestCase
     public function test_a_rejected_model_is_remembered_until_the_settings_change_or_a_while_passes(): void
     {
         Http::fake([self::GEMINI_URL => Http::response(['error' => ['message' => 'models/gemini-test-flash is not found for API version v1beta']], 404)]);
-        $client = app(GeminiClient::class);
+        $client = app(GeminiDriver::class);
 
         $this->failure();
         Http::assertSentCount(2);
@@ -234,14 +236,14 @@ class GeminiClientTest extends TestCase
 
             $this->assertTrue($exception->is(NotebookAiException::REASON_MISCONFIGURED), $error['message']);
             $this->assertSame(NotebookAiException::misconfigured(NotebookAiException::CAUSE_MODEL)->getMessage(), $exception->getMessage(), $error['message']);
-            $this->assertSame(NotebookAiException::CAUSE_MODEL, app(GeminiClient::class)->misconfiguration(), $error['message']);
+            $this->assertSame(NotebookAiException::CAUSE_MODEL, app(GeminiDriver::class)->misconfiguration(), $error['message']);
         }
 
         // A request that is merely too large is the request's own problem.
         Cache::flush();
         $error = ['message' => 'The input token count (1200000) exceeds the maximum number of tokens allowed (1048576).'];
         $this->assertTrue($this->failure()->is(NotebookAiException::REASON_REJECTED));
-        $this->assertNull(app(GeminiClient::class)->misconfiguration());
+        $this->assertNull(app(GeminiDriver::class)->misconfiguration());
     }
 
     public function test_an_answer_cut_at_its_output_limit_is_asked_for_once_more_with_room_for_thinking(): void
@@ -255,12 +257,12 @@ class GeminiClientTest extends TestCase
                 : Http::response($this->answer('Ringkasan selengkapnya.', 'STOP', thoughts: 1700));
         }]);
 
-        $result = app(GeminiClient::class)->generate($this->contents(), null, ['maxOutputTokens' => 2048]);
+        $result = app(GeminiDriver::class)->generate($this->request(maxOutputTokens: 2048));
 
         $this->assertSame([2048, 2 * 2048 + 1800], $limits);
-        $this->assertSame('Ringkasan selengkapnya.', $result['text']);
-        $this->assertFalse($result['truncated']);
-        $this->assertSame(1700, $result['thoughts_tokens']);
+        $this->assertSame('Ringkasan selengkapnya.', $result->text);
+        $this->assertFalse($result->truncated);
+        $this->assertSame(1700, $result->thoughtsTokens);
     }
 
     public function test_an_answer_still_cut_after_the_larger_limit_is_marked_truncated(): void
@@ -269,11 +271,11 @@ class GeminiClientTest extends TestCase
             ->push($this->answer('Bagian satu', 'MAX_TOKENS', thoughts: 500))
             ->push($this->answer('Bagian satu dan dua', 'MAX_TOKENS', thoughts: 400))]);
 
-        $result = app(GeminiClient::class)->generate($this->contents(), null, ['maxOutputTokens' => 1024]);
+        $result = app(GeminiDriver::class)->generate($this->request(maxOutputTokens: 1024));
 
-        $this->assertSame('Bagian satu dan dua', $result['text']);
-        $this->assertTrue($result['truncated']);
-        $this->assertSame('MAX_TOKENS', $result['finish_reason']);
+        $this->assertSame('Bagian satu dan dua', $result->text);
+        $this->assertTrue($result->truncated);
+        $this->assertSame('MAX_TOKENS', $result->finishReason);
         Http::assertSentCount(2);
     }
 
@@ -290,17 +292,17 @@ class GeminiClientTest extends TestCase
             ->push($this->answer('Normalisasi', 'MAX_TOKENS', thoughts: 18000))]);
 
         // The larger limit went to thinking alone: the first answer stands, marked cut.
-        $result = app(GeminiClient::class)->generate($this->contents(), null, ['maxOutputTokens' => 8192]);
+        $result = app(GeminiDriver::class)->generate($this->request(maxOutputTokens: 8192));
 
-        $this->assertSame('Normalisasi punya beberapa tahap [1]. Tahap pertama', $result['text']);
-        $this->assertTrue($result['truncated']);
-        $this->assertSame(3000, $result['thoughts_tokens']);
+        $this->assertSame('Normalisasi punya beberapa tahap [1]. Tahap pertama', $result->text);
+        $this->assertTrue($result->truncated);
+        $this->assertSame(3000, $result->thoughtsTokens);
 
         // Cut again with less text than the first: the first is kept too.
-        $result = app(GeminiClient::class)->generate($this->contents(), null, ['maxOutputTokens' => 8192]);
+        $result = app(GeminiDriver::class)->generate($this->request(maxOutputTokens: 8192));
 
-        $this->assertSame('Normalisasi punya beberapa tahap [1]. Tahap pertama', $result['text']);
-        $this->assertTrue($result['truncated']);
+        $this->assertSame('Normalisasi punya beberapa tahap [1]. Tahap pertama', $result->text);
+        $this->assertTrue($result->truncated);
         Http::assertSentCount(4);
     }
 
@@ -313,7 +315,7 @@ class GeminiClientTest extends TestCase
         ])]);
 
         try {
-            app(GeminiClient::class)->generate($this->contents(), null, ['maxOutputTokens' => 2048]);
+            app(GeminiDriver::class)->generate($this->request(maxOutputTokens: 2048));
             $this->fail('The request was expected to fail.');
         } catch (NotebookAiException $exception) {
         }
@@ -329,11 +331,11 @@ class GeminiClientTest extends TestCase
         Http::fake([self::GEMINI_URL => Http::response($this->answer('Terpotong', 'MAX_TOKENS'))]);
 
         // Less than a retry's worth of the budget left.
-        $this->assertTrue(app(GeminiClient::class)->generate($this->contents(), null, ['maxOutputTokens' => 1024], 5)['truncated']);
+        $this->assertTrue(app(GeminiDriver::class)->generate($this->request(maxOutputTokens: 1024, budgetSeconds: 5))->truncated);
         Http::assertSentCount(1);
 
         // Already at the largest limit.
-        $this->assertTrue(app(GeminiClient::class)->generate($this->contents(), null, ['maxOutputTokens' => 65536])['truncated']);
+        $this->assertTrue(app(GeminiDriver::class)->generate($this->request(maxOutputTokens: 65536))->truncated);
         Http::assertSentCount(2);
     }
 
@@ -345,15 +347,15 @@ class GeminiClientTest extends TestCase
 
             return Http::response($this->answer('Isi.', 'STOP'));
         }]);
-        $client = app(GeminiClient::class);
+        $client = app(GeminiDriver::class);
 
-        $client->generate($this->contents(), null, ['maxOutputTokens' => 2048]);
+        $client->generate($this->request(maxOutputTokens: 2048));
         config(['notebook.thinking_budget' => 1024]);
-        $client->generate($this->contents(), null, ['maxOutputTokens' => 2048]);
+        $client->generate($this->request(maxOutputTokens: 2048));
         config(['notebook.thinking_budget' => 0]);
-        $client->generate($this->contents(), null, ['maxOutputTokens' => 2048]);
+        $client->generate($this->request(maxOutputTokens: 2048));
         config(['notebook.thinking_budget' => -1]);
-        $client->generate($this->contents());
+        $client->generate($this->request());
 
         $this->assertSame([
             ['maxOutputTokens' => 2048],
@@ -363,10 +365,65 @@ class GeminiClientTest extends TestCase
         ], $configs);
     }
 
+    public function test_a_request_becomes_the_gemini_payload_it_always_was(): void
+    {
+        Http::fake([self::GEMINI_URL => Http::response($this->answer('Isi.', 'STOP'))]);
+        $schema = ['type' => 'object', 'properties' => ['items' => ['type' => 'array', 'items' => ['type' => 'string']]], 'required' => ['items'], 'additionalProperties' => false];
+
+        $result = app(GeminiDriver::class)->generate(new AiRequest(
+            messages: [
+                AiRequest::user([AiRequest::text('Halo')]),
+                AiRequest::assistant('Hai.'),
+                AiRequest::user([AiRequest::file('application/pdf', 'JVBERi0='), AiRequest::text('Salin isinya.')]),
+            ],
+            system: 'Jawab singkat.',
+            maxOutputTokens: 2048,
+            temperature: 0.3,
+            jsonSchema: $schema,
+        ));
+
+        Http::assertSent(function (Request $request): bool {
+            $this->assertSame('https://generativelanguage.googleapis.com/v1beta/models/gemini-test-flash:generateContent', $request->url());
+            $this->assertSame('test-gemini-key', $request->header('x-goog-api-key')[0] ?? null);
+            $this->assertSame([
+                'systemInstruction' => ['parts' => [['text' => 'Jawab singkat.']]],
+                'contents' => [
+                    ['role' => 'user', 'parts' => [['text' => 'Halo']]],
+                    ['role' => 'model', 'parts' => [['text' => 'Hai.']]],
+                    ['role' => 'user', 'parts' => [['inlineData' => ['mimeType' => 'application/pdf', 'data' => 'JVBERi0=']], ['text' => 'Salin isinya.']]],
+                ],
+                'generationConfig' => [
+                    'temperature' => 0.3,
+                    'maxOutputTokens' => 2048,
+                    'responseMimeType' => 'application/json',
+                    'responseSchema' => ['type' => 'OBJECT', 'properties' => ['items' => ['type' => 'ARRAY', 'items' => ['type' => 'STRING']]], 'required' => ['items']],
+                ],
+            ], $request->data());
+
+            return true;
+        });
+        $this->assertSame(AiResult::STOP_END, $result->stop);
+        $this->assertSame('gemini', app(GeminiDriver::class)->driver());
+    }
+
+    public function test_a_finish_reason_is_also_given_in_a_provider_neutral_form(): void
+    {
+        Http::fake([self::GEMINI_URL => Http::sequence()
+            ->push($this->answer('Teks sampai sini', 'RECITATION'))
+            ->push(['candidates' => [['content' => ['parts' => [['text' => 'Isi.']]], 'finishReason' => 'STOP']], 'usageMetadata' => ['promptTokenCount' => 120, 'candidatesTokenCount' => 3]])]);
+        config(['services.gemini.fallback_model' => null]);
+
+        $blocked = app(GeminiDriver::class)->generate($this->request());
+        $ended = app(GeminiDriver::class)->generate($this->request());
+
+        $this->assertSame([AiResult::STOP_BLOCKED, 'RECITATION', false], [$blocked->stop, $blocked->finishReason, $blocked->truncated]);
+        $this->assertSame([AiResult::STOP_END, 120, 3], [$ended->stop, $ended->inputTokens, $ended->outputTokens]);
+    }
+
     private function failure(): NotebookAiException
     {
         try {
-            app(GeminiClient::class)->generate($this->contents());
+            app(GeminiDriver::class)->generate($this->request());
         } catch (NotebookAiException $exception) {
             return $exception;
         }
@@ -385,11 +442,13 @@ class GeminiClientTest extends TestCase
         ];
     }
 
-    /**
-     * @return list<array{role: 'user', parts: list<array{text: string}>}>
-     */
-    private function contents(): array
+    private function request(?int $maxOutputTokens = null, ?int $budgetSeconds = null, ?int $attemptTimeoutSeconds = null): AiRequest
     {
-        return [['role' => 'user', 'parts' => [['text' => 'Halo']]]];
+        return new AiRequest(
+            messages: [AiRequest::user([AiRequest::text('Halo')])],
+            maxOutputTokens: $maxOutputTokens,
+            budgetSeconds: $budgetSeconds,
+            attemptTimeoutSeconds: $attemptTimeoutSeconds,
+        );
     }
 }

@@ -4,7 +4,7 @@
 @section('page_id', 'legal-privacy')
 @section('heading', 'Kebijakan privasi WeCIC')
 @section('summary', 'Data apa yang diproses WeCIC, ke mana dikirim, berapa lama disimpan, dan cara menghapusnya.')
-@section('meta', 'Berlaku sejak 20 November 2026 · Terakhir diperbarui 20 November 2026 · https://wecic.rizqis.com/privasi')
+@section('meta', 'Berlaku sejak 20 November 2026 · Terakhir diperbarui 23 November 2026 · https://wecic.rizqis.com/privasi')
 
 @section('legal_content')
     <nav aria-labelledby="privacy-toc-title" class="rounded-lg border border-border-light bg-surface/50 px-4 py-3 text-sm">
@@ -70,7 +70,7 @@
         <ul>
             <li><strong>Berkas tugas dan jawaban ujian</strong> yang kamu pilih: dikirim ke server WeCIC lalu diteruskan ke portal. Jika portal sedang tidak bisa diakses, berkas disimpan sementara di Antrean dan dikirim saat portal kembali.</li>
             <li><strong>Kode QR absensi:</strong> kamera atau foto hanya dipakai untuk membaca QR di perangkatmu. Gambarnya tidak disimpan dan tidak diunggah; yang dikirim hanya teks hasil pembacaan QR.</li>
-            <li><strong>Notebook AI:</strong> materi kuliah (dari arsip atau unggahanmu), teks hasil ekstraksinya, pertanyaanmu, dan jawaban AI. Lihat bagian 5 tentang Google Gemini.</li>
+            <li><strong>Notebook AI:</strong> materi kuliah (dari arsip atau unggahanmu), teks hasil ekstraksinya, pertanyaanmu, dan jawaban AI. Lihat bagian 5 tentang {{ $notebookAi['label'] }}.</li>
             <li><strong>Ganti password portal:</strong> password lama dan baru hanya diteruskan ke portal.</li>
         </ul>
 
@@ -123,11 +123,22 @@
                     <x-table.td class="align-top">NIM, password, kode QR absensi, berkas tugas dan ujian, permintaan ganti password</x-table.td>
                     <x-table.td class="align-top">Menjalankan perintahmu di portal</x-table.td>
                 </x-table.tr>
-                <x-table.tr>
-                    <x-table.td class="align-top font-medium text-ink">Google (Gemini API)</x-table.td>
-                    <x-table.td class="align-top">Pertanyaan Notebook AI, teks materi, berkas PDF atau gambar materi</x-table.td>
-                    <x-table.td class="align-top">Menjawab pertanyaan, membaca dan meringkas materi</x-table.td>
-                </x-table.tr>
+                {{-- The AI provider(s) the server uses (`$notebookAi`, NotebookAiProviders::forPages()). --}}
+                @foreach ($notebookAi['processors'] as $processor)
+                    <x-table.tr>
+                        <x-table.td class="align-top font-medium text-ink">{{ match ($processor['driver']) { 'gemini' => 'Google (Gemini API)', 'anthropic' => 'Anthropic (Claude API)', default => $processor['label'] } }}</x-table.td>
+                        <x-table.td class="align-top">Pertanyaan Notebook AI, teks materi, berkas PDF atau gambar materi</x-table.td>
+                        <x-table.td class="align-top">Menjawab pertanyaan, membaca dan meringkas materi</x-table.td>
+                    </x-table.tr>
+                @endforeach
+                {{-- Providers that received Notebook content before (NotebookAiProviders::pastRecipients()): what was sent stays with them. --}}
+                @foreach ($notebookAi['past_processors'] as $pastProcessor)
+                    <x-table.tr>
+                        <x-table.td class="align-top font-medium text-ink">{{ $pastProcessor }} (sebelumnya)</x-table.td>
+                        <x-table.td class="align-top">Isi Notebook AI yang dikirim selama penyedia ini dipakai</x-table.td>
+                        <x-table.td class="align-top">Tidak menerima data baru; data yang sudah dikirim tunduk pada kebijakan penyedianya</x-table.td>
+                    </x-table.tr>
+                @endforeach
                 <x-table.tr>
                     <x-table.td class="align-top font-medium text-ink">Expo, diteruskan ke Firebase Cloud Messaging (Google) atau Apple Push Notification service</x-table.td>
                     <x-table.td class="align-top">Token push, judul dan isi notifikasi</x-table.td>
@@ -146,10 +157,19 @@
             </tbody>
         </x-table>
 
-        <x-alert tone="info" icon title="Notebook AI dan Google Gemini">
+        <x-alert tone="info" icon title="Notebook AI dan {{ $notebookAi['label'] }}">
             <div class="mt-1 flex flex-col gap-2">
-                <p>Fitur AI di Notebook baru mengirim data ke Google Gemini <strong>setelah kamu memberi persetujuan di dalam aplikasi</strong>. Sebelum itu, tidak ada pertanyaan atau berkas yang dikirim ke Google. Persetujuan bisa ditarik kapan saja di <strong>Lainnya → Privasi → Izin Notebook AI</strong> di aplikasi, atau di halaman Notebook di web; setelah ditarik, fitur AI berhenti mengirim data.</p>
-                <p>WeCIC memakai <strong>Gemini API tingkat gratis</strong>. Pada tingkat ini, data yang dikirim <strong>dibagikan ke Google dan dapat disimpan serta dipakai Google untuk meningkatkan produknya</strong>, termasuk dibaca oleh peninjau manusia. Jangan masukkan data pribadi atau rahasia yang tidak perlu ke Notebook AI. Jawaban AI bisa keliru; periksa sebelum dipakai.</p>
+                <p>Fitur AI di Notebook baru mengirim data ke {{ $notebookAi['label'] }} <strong>setelah kamu memberi persetujuan di dalam aplikasi</strong>. Sebelum itu, tidak ada pertanyaan atau berkas yang dikirim ke penyedia AI. Persetujuan bisa ditarik kapan saja di <strong>Lainnya → Privasi → Izin Notebook AI</strong> di aplikasi, atau di halaman Notebook di web; setelah ditarik, fitur AI berhenti mengirim data. Jika WeCIC berganti penyedia AI, kamu diminta menyetujuinya lagi.</p>
+                @foreach ($notebookAi['processors'] as $processor)
+                    @if ($processor['free_tier'] && $processor['driver'] === 'gemini')
+                        <p>WeCIC memakai <strong>Gemini API tingkat gratis</strong>. Pada tingkat ini, data yang dikirim <strong>dibagikan ke Google dan dapat disimpan serta dipakai Google untuk meningkatkan produknya</strong>, termasuk dibaca oleh peninjau manusia.</p>
+                    @elseif ($processor['free_tier'])
+                        <p>WeCIC memakai <strong>{{ $processor['label'] }} tingkat gratis</strong>. Pada tingkat ini, data yang dikirim <strong>dapat disimpan dan dipakai penyedianya untuk meningkatkan produknya</strong>.</p>
+                    @else
+                        <p>Data yang dikirim ke {{ $processor['label'] }} diproses sesuai ketentuan layanan penyedianya untuk menjawab pertanyaan dan membaca materimu.</p>
+                    @endif
+                @endforeach
+                <p>Jangan masukkan data pribadi atau rahasia yang tidak perlu ke Notebook AI. Jawaban AI bisa keliru; periksa sebelum dipakai.</p>
             </div>
         </x-alert>
 
@@ -234,7 +254,19 @@
             <li><strong>Who we are:</strong> WeCIC is an <strong>unofficial</strong> app by an individual developer (the WeCIC developer), not affiliated with or endorsed by any university. Contact: <a href="mailto:developer@rizqis.com">developer@rizqis.com</a>.</li>
             <li><strong>How it works:</strong> the WeCIC server signs in to the campus academic portal on your behalf with your student ID (NIM) and password and shows your academic data in the app.</li>
             <li><strong>Passwords:</strong> the server keeps a bcrypt hash for offline sign-in (30 days). Background sync is <strong>opt-in and off by default</strong>; only when you turn it on is your password stored encrypted, until you turn sync off or sign out (at most 30 days after your last online sign-in).</li>
-            <li><strong>Notebook AI (Google Gemini):</strong> nothing is sent until you give in-app consent. WeCIC uses the <strong>free tier of the Gemini API</strong>, so your questions and notebook sources are <strong>shared with Google, which may store and use them to improve its products</strong>, including human review. You can withdraw consent at any time.</li>
+            <li>
+                <strong>Notebook AI ({{ $notebookAi['label_en'] }}):</strong> nothing is sent until you give in-app consent, and you are asked again if WeCIC switches AI provider.
+                @foreach ($notebookAi['processors'] as $processor)
+                    @if ($processor['free_tier'] && $processor['driver'] === 'gemini')
+                        WeCIC uses the <strong>free tier of the Gemini API</strong>, so your questions and notebook sources are <strong>shared with Google, which may store and use them to improve its products</strong>, including human review.
+                    @elseif ($processor['free_tier'])
+                        WeCIC uses the <strong>free tier of {{ $processor['label'] }}</strong>, so its provider <strong>may store and use what is sent to improve its products</strong>.
+                    @else
+                        What is sent to {{ $processor['label'] }} is processed under its provider's terms of service.
+                    @endif
+                @endforeach
+                You can withdraw consent at any time.
+            </li>
             <li><strong>Other recipients:</strong> the campus portal, Expo / Firebase Cloud Messaging / Apple Push Notification service (push tokens and notification text), Sentry in the EU region (crash and performance data without your name or NIM), and our hosting provider. We do not sell data, show ads or use analytics or tracking SDKs.</li>
             <li><strong>Retention:</strong> session tokens 30 days unused, push tokens 60 days inactive, notifications 90 days, logs 14 days, crash reports up to 90 days; archives and notebooks until you delete them or your account.</li>
             <li><strong>Deletion:</strong> in the app go to <strong>Lainnya (More) → Privasi (Privacy) → Hapus akun &amp; data WeCIC</strong> (on the website: <strong>Lainnya → Hapus akun</strong>), or email <a href="mailto:developer@rizqis.com">developer@rizqis.com</a>; we reply within 30 days. See <a href="{{ route('legal.data-deletion') }}">Delete account &amp; data</a>.</li>

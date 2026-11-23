@@ -111,6 +111,7 @@ export type NotebooksResponse = ApiEnvelope & {
     ai_status?: string | null;
     course_notebooks?: boolean;
     studio_kinds?: Record<string, string>;
+    ai_provider?: AiProvider;
     ai_consent?: AiConsent;
   };
 };
@@ -160,16 +161,42 @@ export type NotebookDetailResponse = ApiEnvelope & {
     ai_available?: boolean;
     ai_status?: string | null;
     studio_kinds?: Record<string, string>;
+    ai_provider?: AiProvider;
     ai_consent?: AiConsent;
   };
 };
 
-/** The student's consent to send Notebook content to the AI provider (Google Gemini); nothing is sent without it. */
+/** One AI provider Notebook content goes to, and whether the server uses its free tier. */
+export type AiProcessor = {
+  label: string;
+  free_tier: boolean;
+};
+
+/**
+ * The student's consent to send Notebook content to the AI provider(s) the server uses; nothing is sent without it.
+ * `provider` names them as students read them (e.g. "Google Gemini"); `free_tier` says whether one runs on its
+ * free tier, under which what is sent may be used to improve the provider's products, and `processors` says which.
+ * `consent_key` is what a consent given now is for, sent back with it; `past_processors` names providers that
+ * received Notebook content before and no longer do. Older servers send neither.
+ */
 export type AiConsent = {
   granted: boolean;
   granted_at: string | null;
   withdrawn_at: string | null;
   provider: string;
+  free_tier: boolean;
+  consent_key?: string;
+  processors?: AiProcessor[];
+  past_processors?: string[];
+};
+
+/** The AI provider the server uses (`ai_provider` of the notebook payloads). */
+export type AiProvider = {
+  driver: string;
+  label: string;
+  free_tier: boolean;
+  consent_key?: string;
+  processors?: AiProcessor[];
 };
 
 export type AiConsentResponse = ApiEnvelope & { data: { consent: AiConsent } };

@@ -172,7 +172,7 @@ Route::middleware($sessionMiddleware)->group(function () {
             Route::get('{dataset}', 'versions')->where('dataset', '[a-z_]+');
         });
 
-        // Consent to send Notebook content to Google Gemini: the AI parts of the
+        // Consent to send Notebook content to the AI provider: the AI parts of the
         // notebook refuse with `ai_consent_required` until it is given.
         Route::prefix('ai-consent')->controller(NotebookAiConsentController::class)->group(function (): void {
             Route::get('', 'show');

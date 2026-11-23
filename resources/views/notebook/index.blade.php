@@ -5,6 +5,12 @@
 @section('hide_sync_refresh', '1')
 
 @section('content')
+    {{-- `$notebookAi` names the AI provider the server uses (NotebookAiProviders::forPages()). --}}
+    @php
+        $aiChatLabel = $notebookAi['processors'][0]['label'] ?? $notebookAi['label'];
+        $aiModelSettings = $notebookAi['model_settings'];
+        $aiModelExample = count($aiModelSettings) > 1 ? $aiModelSettings[0].' atau '.$aiModelSettings[count($aiModelSettings) - 1] : ($aiModelSettings[0] ?? '');
+    @endphp
     <x-page-hero title="Notebook" subtitle="Tanya materi kuliahmu dan buat bahan belajar. Jawabannya hanya dari sumbermu.">
         <x-slot:actions>
             <x-button size="sm" href="#notebook-create">
@@ -20,13 +26,13 @@
             Fitur AI Notebook dimatikan di server WeCIC. Kamu tetap bisa memasukkan pertemuan dan sumber teks, DOCX, dan PPTX; tanya jawab aktif lagi setelah AI dinyalakan.
         </x-alert>
         <x-alert tone="warning" icon class="hidden" data-ai-status-banner="missing_key" role="status">
-            Fitur AI belum diaktifkan di server WeCIC (GEMINI_API_KEY kosong). Kamu tetap bisa memasukkan pertemuan dan sumber teks, DOCX, dan PPTX; tanya jawab aktif setelah AI dinyalakan.
+            Fitur AI belum diaktifkan di server WeCIC ({{ $notebookAi['key_setting'] }} kosong). Kamu tetap bisa memasukkan pertemuan dan sumber teks, DOCX, dan PPTX; tanya jawab aktif setelah AI dinyalakan.
         </x-alert>
         <x-alert tone="warning" icon class="hidden" data-ai-status-banner="invalid_key" role="status">
-            Fitur AI sedang tidak bisa dipakai karena kunci API Gemini di server WeCIC ditolak. Pengelola WeCIC perlu memperbarui GEMINI_API_KEY. Pertemuan dan sumber teks, DOCX, dan PPTX tetap bisa dimasukkan.
+            Fitur AI sedang tidak bisa dipakai karena kunci API {{ $aiChatLabel }} di server WeCIC ditolak. Pengelola WeCIC perlu memperbarui {{ $notebookAi['key_setting'] }}. Pertemuan dan sumber teks, DOCX, dan PPTX tetap bisa dimasukkan.
         </x-alert>
         <x-alert tone="warning" icon class="hidden" data-ai-status-banner="model_misconfigured" role="status">
-            Fitur AI sedang tidak bisa dipakai karena pengaturan model AI di server WeCIC ditolak (model tidak dikenali, sudah tidak tersedia, atau pengaturannya tidak cocok). Pengelola WeCIC perlu memeriksa pengaturan model AI, misalnya GEMINI_MODEL atau NOTEBOOK_THINKING_BUDGET. Pertemuan dan sumber teks, DOCX, dan PPTX tetap bisa dimasukkan.
+            Fitur AI sedang tidak bisa dipakai karena pengaturan model AI di server WeCIC ditolak (model tidak dikenali, sudah tidak tersedia, atau pengaturannya tidak cocok). Pengelola WeCIC perlu memeriksa pengaturan model AI, misalnya {{ $aiModelExample }}. Pertemuan dan sumber teks, DOCX, dan PPTX tetap bisa dimasukkan.
         </x-alert>
 
         <x-section title="Mata kuliah semester ini" title-id="notebook-courses-title" description="Dibuat otomatis dari daftar kelasmu. Pertemuan yang kamu buka masuk sendiri ke notebooknya.">

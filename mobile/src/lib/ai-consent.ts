@@ -1,16 +1,18 @@
 import { ApiError, type ApiClient } from '@/api/client';
-import type { AiConsent, AiConsentResponse } from '@/api/types/classes';
+import type { AiConsent, AiConsentResponse, AiProcessor } from '@/api/types/classes';
 
 /**
- * Notebook AI sends the student's questions and sources to Google Gemini,
- * which the server allows only after the student consented
+ * Notebook AI sends the student's questions and sources to the AI
+ * provider(s) the server uses (`provider` in the consent, e.g. Google
+ * Gemini), which the server allows only after the student consented
  * (`GET/POST/DELETE ai-consent`). The answer is shared by every screen
  * here, so a consent given on one screen unlocks the others at once.
  */
 
 export const AI_CONSENT_REQUIRED_REASON = 'ai_consent_required';
 
-export const AI_PROVIDER = 'Google Gemini';
+/** How the provider is named before the server said which one it uses. */
+export const AI_PROVIDER_FALLBACK = 'penyedia AI';
 
 /** What Notebook AI sends to the provider, as the consent screen lists it. */
 export const AI_CONSENT_SENT_ITEMS = [
@@ -19,8 +21,47 @@ export const AI_CONSENT_SENT_ITEMS = [
   'Berkas PDF dan gambar yang kamu tambahkan sebagai sumber',
 ] as const;
 
-export const AI_CONSENT_FREE_TIER =
-  'WeCIC memakai Gemini API tingkat gratis, sehingga data yang dikirim dibagikan ke Google dan dapat disimpan serta dipakai Google untuk meningkatkan produknya, termasuk ditinjau manusia. Jangan kirim data pribadi atau rahasia.';
+/** The provider(s) to name, as the server said (`provider`), or a generic name before it did. */
+export function aiProviderLabel(value: Partial<Pick<AiConsent, 'provider'>> | null | undefined): string {
+  const provider = value?.provider?.trim();
+
+  return provider ? provider : AI_PROVIDER_FALLBACK;
+}
+
+/**
+ * The free-tier warning, naming only the providers the server says run on
+ * their free tier (`processors`), or all of them when it says only that one
+ * does (`free_tier`, an older server); null when none does. A server that
+ * does not say at all (an older one) used the Gemini free tier, so the
+ * warning stays.
+ */
+export function aiConsentFreeTierNotice(
+  value: Partial<Pick<AiConsent, 'provider' | 'free_tier' | 'processors'>> | null | undefined,
+): string | null {
+  if (value?.free_tier === false) {
+    return null;
+  }
+
+  const freeTier = (value?.processors ?? []).filter((processor) => processor.free_tier).map((processor) => processor.label.trim()).filter(Boolean);
+
+  if (value?.processors !== undefined && value.processors.length > 0 && freeTier.length === 0) {
+    return null;
+  }
+
+  const providers = freeTier.length > 0 ? freeTier.join(' dan ') : aiProviderLabel(value);
+
+  return `WeCIC memakai ${providers} tingkat gratis, sehingga data yang dikirim ke sana dapat disimpan dan dipakai penyedianya untuk meningkatkan produknya, termasuk ditinjau manusia. Jangan kirim data pribadi atau rahasia.`;
+}
+
+function processorsOf(value: unknown): AiProcessor[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+
+  return value
+    .filter((item): item is { label: string; free_tier?: unknown } => typeof (item as { label?: unknown } | null)?.label === 'string')
+    .map((item) => ({ label: item.label, free_tier: item.free_tier === true }));
+}
 
 let consent: AiConsent | null = null;
 const listeners = new Set<() => void>();
@@ -61,12 +102,18 @@ export function aiConsentOf(body: unknown): AiConsent | null {
   }
 
   const value = candidate as Partial<AiConsent> & { granted: boolean };
+  const processors = processorsOf(value.processors);
+  const pastProcessors = Array.isArray(value.past_processors) ? value.past_processors.filter((label): label is string => typeof label === 'string' && label.trim() !== '') : undefined;
 
   return {
     granted: value.granted,
     granted_at: value.granted_at ?? null,
     withdrawn_at: value.withdrawn_at ?? null,
-    provider: value.provider ?? AI_PROVIDER,
+    provider: aiProviderLabel(value),
+    free_tier: typeof value.free_tier === 'boolean' ? value.free_tier : true,
+    ...(typeof value.consent_key === 'string' && value.consent_key !== '' ? { consent_key: value.consent_key } : {}),
+    ...(processors !== undefined ? { processors } : {}),
+    ...(pastProcessors !== undefined ? { past_processors: pastProcessors } : {}),
   };
 }
 
@@ -90,7 +137,14 @@ export function rememberAiConsentFrom(source: unknown): void {
   }
 
   if (isAiConsentRequired(source)) {
-    setAiConsent({ granted: false, granted_at: null, withdrawn_at: consent?.withdrawn_at ?? null, provider: consent?.provider ?? AI_PROVIDER });
+    setAiConsent({
+      ...consent,
+      granted: false,
+      granted_at: null,
+      withdrawn_at: consent?.withdrawn_at ?? null,
+      provider: aiProviderLabel(consent),
+      free_tier: consent?.free_tier ?? true,
+    });
   }
 }
 
@@ -111,12 +165,28 @@ export function fetchAiConsent(api: ApiClient): Promise<AiConsent> {
   return consentRequest(api.get<AiConsentResponse>('ai-consent'));
 }
 
-/** Agrees to send Notebook content to Google Gemini. */
-export function grantAiConsent(api: ApiClient): Promise<AiConsent> {
-  return consentRequest(api.post<AiConsentResponse>('ai-consent', { accept: true }));
+/**
+ * Agrees to send Notebook content to the AI provider(s) the student was
+ * shown: the consent the app knew carries what it is for (`consent_key`).
+ * When the server has switched providers since (409), the consent it sends
+ * back replaces the one shown, so the screen names the current providers
+ * before the student agrees again.
+ */
+export async function grantAiConsent(api: ApiClient): Promise<AiConsent> {
+  const shownKey = consent?.consent_key;
+
+  try {
+    return await consentRequest(api.post<AiConsentResponse>('ai-consent', shownKey ? { accept: true, consent_key: shownKey } : { accept: true }));
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 409) {
+      rememberAiConsentFrom(error);
+    }
+
+    throw error;
+  }
 }
 
-/** Withdraws the consent: from now on nothing is sent to Google Gemini. */
+/** Withdraws the consent: from now on nothing is sent to the AI provider. */
 export function withdrawAiConsent(api: ApiClient): Promise<AiConsent> {
   return consentRequest(api.delete<AiConsentResponse>('ai-consent'));
 }

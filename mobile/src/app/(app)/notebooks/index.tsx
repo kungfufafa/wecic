@@ -17,7 +17,7 @@ import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useApiResource } from '@/hooks/use-api-resource';
-import { rememberAiConsentFrom } from '@/lib/ai-consent';
+import { aiProviderLabel, rememberAiConsentFrom } from '@/lib/ai-consent';
 import { aiStatusMessage, coursesWithoutNotebook } from '@/lib/classes';
 
 export default function NotebooksScreen() {
@@ -74,7 +74,7 @@ export default function NotebooksScreen() {
           <Panel padded={false}>
             <ListRow
               icon="sparkles"
-              label="Setujui pengiriman ke Google Gemini"
+              label={`Setujui pengiriman ke ${aiProviderLabel(consent)}`}
               value="Diperlukan sebelum tanya jawab, Studio, dan pembacaan PDF"
               onPress={() => router.push('/ai-consent')}
             />

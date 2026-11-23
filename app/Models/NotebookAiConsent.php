@@ -10,11 +10,14 @@ use Illuminate\Database\Eloquent\Model;
 
 /**
  * A student's consent to send Notebook content (questions, source text,
- * PDFs and images) to Google Gemini. Without a `granted_at`, the Notebook
- * still keeps and shows sources but never sends anything to the model.
+ * PDFs and images) to the AI provider(s) in `provider`. Without a
+ * `granted_at`, or after the server switched to another provider, the
+ * Notebook still keeps and shows sources but never sends anything to the
+ * model.
  *
  * @property int $id
  * @property string $owner_hash
+ * @property string|null $provider NotebookAiProviders::consentKey() when granted; null for a consent given for Google Gemini before providers were stored.
  * @property \Illuminate\Support\Carbon|null $granted_at
  * @property \Illuminate\Support\Carbon|null $withdrawn_at
  * @property \Illuminate\Support\Carbon|null $created_at
@@ -27,6 +30,7 @@ class NotebookAiConsent extends Model
 
     protected $fillable = [
         'owner_hash',
+        'provider',
         'granted_at',
         'withdrawn_at',
     ];

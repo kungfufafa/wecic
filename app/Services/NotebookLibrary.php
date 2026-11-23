@@ -12,6 +12,8 @@ use App\Models\NotebookChunk;
 use App\Models\NotebookDismissal;
 use App\Models\NotebookSource;
 use App\Models\PortalArchivedFile;
+use App\Services\Ai\NotebookAiClient;
+use App\Support\Ai\AiRequest;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
@@ -71,16 +73,17 @@ class NotebookLibrary
 
     /**
      * A file that needs the model while the student has not agreed to send
-     * Notebook content to Google Gemini, or withdrew that consent.
+     * Notebook content to the provider that reads files (`%s`), or
+     * withdrew that consent.
      */
-    private const WAITING_FOR_CONSENT = 'Berkas ini perlu dibaca AI (Google Gemini). Setujui pengiriman data ke AI di Notebook dulu; berkas ini dibaca otomatis saat notebook dibuka lagi.';
+    private const WAITING_FOR_CONSENT = 'Berkas ini perlu dibaca AI (%s). Setujui pengiriman data ke AI di Notebook dulu; berkas ini dibaca otomatis saat notebook dibuka lagi.';
 
-    private const NEEDS_CONSENT = 'Berkas ini perlu dibaca AI (Google Gemini). Setujui pengiriman data ke AI di Notebook dulu, lalu ketuk "Baca ulang".';
+    private const NEEDS_CONSENT = 'Berkas ini perlu dibaca AI (%s). Setujui pengiriman data ke AI di Notebook dulu, lalu ketuk "Baca ulang".';
 
     public function __construct(
         private readonly NotebookSourceReader $reader,
         private readonly PortalArchivedFileStore $archivedFiles,
-        private readonly GeminiClient $gemini,
+        private readonly NotebookAiClient $ai,
         private readonly NotebookAiConsents $aiConsents
     ) {}
 
@@ -239,7 +242,10 @@ class NotebookLibrary
      * rest is spent, or the AI cannot be used, it waits to be queued again
      * instead of failing. A source the student asked for is never read that
      * way. A reading the model never did because the AI settings were
-     * rejected gives its read back.
+     * rejected gives its read back. A file the reading model cannot take
+     * (a scanned PDF or an image for a model without PDF or image input)
+     * fails at once, whichever way it came in. The model that reads files
+     * is NotebookSourceReader's (`notebook.ai.ingest_provider`).
      */
     public function ingest(NotebookSource $source, bool $automatic = false): void
     {
@@ -255,26 +261,32 @@ class NotebookLibrary
 
             [$contents, $filename] = $this->contents($source);
             $mime = (string) $source->mime;
-            $byModel = $this->reader->needsModel($mime, $filename);
+            $unreadable = $this->reader->unreadable($contents, $mime, $filename);
+
+            if ($unreadable !== null) {
+                throw new NotebookSourceException($unreadable);
+            }
+
+            $byModel = $this->reader->needsModel($mime, $filename, $contents);
             $consented = $this->aiConsents->granted($ownerHash);
 
             if ($byModel && ! $consented) {
                 if (! $automatic) {
-                    throw new NotebookSourceException(self::NEEDS_CONSENT);
+                    throw new NotebookSourceException(sprintf(self::NEEDS_CONSENT, $this->reader->modelLabel()));
                 }
 
-                $this->waitForTurn($source, self::WAITING_FOR_CONSENT);
+                $this->waitForTurn($source, sprintf(self::WAITING_FOR_CONSENT, $this->reader->modelLabel()));
 
                 return;
             }
 
-            if ($byModel && $automatic && ! $this->gemini->isUsable()) {
+            if ($byModel && $automatic && ! $this->reader->modelIsUsable()) {
                 $this->waitForTurn($source, self::WAITING_FOR_AI);
 
                 return;
             }
 
-            if ($byModel && $this->gemini->isUsable()) {
+            if ($byModel && $this->reader->modelIsUsable()) {
                 $spentRead = $this->spendRead($ownerHash, $automatic);
 
                 if (! $spentRead) {
@@ -291,7 +303,7 @@ class NotebookLibrary
             $read = $this->reader->read($contents, $mime, $filename);
 
             // A transcribed file's summary is part of the reading it paid for.
-            $this->index($source, $read['pages'], $read['truncated'], summarize: $consented && $this->gemini->isUsable() && ($byModel || $this->spendRead($ownerHash, $automatic)));
+            $this->index($source, $read['pages'], $read['truncated'], summarize: $consented && $this->ai->isUsable() && ($byModel || $this->spendRead($ownerHash, $automatic)));
         } catch (\Throwable $throwable) {
             $unusable = $throwable instanceof NotebookAiException && $throwable->concernsConfiguration();
 
@@ -349,7 +361,7 @@ class NotebookLibrary
             ->orderBy('id')
             ->get();
         $readElsewhere = $this->hashesReadElsewhere($waiting);
-        $usable = $this->gemini->isUsable();
+        $usable = $this->reader->modelIsUsable();
         $consented = $this->aiConsents->granted($notebook->owner_hash);
         $modelReads = $usable && $consented ? $this->automaticReadsLeft($notebook->owner_hash) : 0;
         $queued = 0;
@@ -368,7 +380,7 @@ class NotebookLibrary
                     // Say why it waits; past the share the student can read it now with their own reads.
                     $this->waitForTurn($source, match (true) {
                         ! $usable => self::WAITING_FOR_AI,
-                        ! $consented => self::WAITING_FOR_CONSENT,
+                        ! $consented => sprintf(self::WAITING_FOR_CONSENT, $this->reader->modelLabel()),
                         default => self::WAITING_FOR_READS,
                     });
 
@@ -490,11 +502,11 @@ class NotebookLibrary
 
     /**
      * The model can be used for this student's content: the AI works and
-     * they agreed to send Notebook content to Google Gemini.
+     * they agreed to send Notebook content to the AI provider(s).
      */
     private function modelUsableFor(string $ownerHash): bool
     {
-        return $this->gemini->isUsable() && $this->aiConsents->granted($ownerHash);
+        return $this->ai->isUsable() && $this->aiConsents->granted($ownerHash);
     }
 
     /**
@@ -798,30 +810,31 @@ class NotebookLibrary
 
     /**
      * A short summary of the source, or null when the model gave none: a
-     * summary cut at its output limit (even after GeminiClient's larger
+     * summary cut at its output limit (even after the client's larger
      * retry) says so, and one cut before any text is no summary at all.
      */
     private function summarize(string $text): ?string
     {
-        if (! $this->gemini->isUsable()) {
+        if (! $this->ai->isUsable()) {
             return null;
         }
 
         try {
             // The output limit leaves a thinking model room to reason before its 2–3 sentences.
-            $result = $this->gemini->generate([[
-                'role' => 'user',
-                'parts' => [['text' => mb_substr($text, 0, self::SUMMARY_INPUT_CHARS)."\n\n---\n".self::SUMMARY_PROMPT]],
-            ]], null, ['temperature' => 0.2, 'maxOutputTokens' => 2048]);
+            $result = $this->ai->generate(new AiRequest(
+                messages: [AiRequest::user([AiRequest::text(mb_substr($text, 0, self::SUMMARY_INPUT_CHARS)."\n\n---\n".self::SUMMARY_PROMPT)])],
+                maxOutputTokens: 2048,
+                temperature: 0.2,
+            ));
         } catch (\Throwable $throwable) {
             Log::info('Notebook source summary skipped', ['error' => $throwable->getMessage()]);
 
             return null;
         }
 
-        $note = $result['truncated'] ? "\n".self::TRUNCATED_SUMMARY_NOTE : '';
+        $note = $result->truncated ? "\n".self::TRUNCATED_SUMMARY_NOTE : '';
         $room = self::SUMMARY_MAX_CHARS - mb_strlen($note);
-        $summary = mb_strlen($result['text']) > $room ? rtrim(mb_substr($result['text'], 0, $room - 1)).'…' : $result['text'];
+        $summary = mb_strlen($result->text) > $room ? rtrim(mb_substr($result->text, 0, $room - 1)).'…' : $result->text;
 
         return $summary.$note;
     }

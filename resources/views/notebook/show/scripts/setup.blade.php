@@ -48,8 +48,13 @@
                 aiAvailable: true,
                 // ok, disabled, missing_key, invalid_key or model_misconfigured (NotebookAssistant::aiStatus()).
                 aiStatus: 'ok',
-                // Whether the student agreed to send Notebook content to Google Gemini (`ai_consent`); null until a response says.
+                // Whether the student agreed to send Notebook content to the AI provider(s) (`ai_consent`); null until a response says.
                 aiConsent: null,
+                // The AI provider(s) as students read them (`ai_consent.provider`).
+                aiProviderLabel: @json($notebookAi['label']),
+                // What the consent text rendered on this page is for (`consent_key`), sent with the consent so a
+                // provider switched since the page loaded is not agreed to unseen.
+                aiConsentKey: @json($notebookAi['consent_key']),
                 busy: false,
                 pollTimer: null,
                 pollStartedAt: null,
@@ -80,6 +85,10 @@
             const setAiConsent = (data) => {
                 if (data?.ai_consent && typeof data.ai_consent === 'object') {
                     state.aiConsent = Boolean(data.ai_consent.granted);
+
+                    if (typeof data.ai_consent.provider === 'string' && data.ai_consent.provider !== '') {
+                        state.aiProviderLabel = data.ai_consent.provider;
+                    }
                 }
             };
 
@@ -103,7 +112,7 @@
                 }
 
                 showAiConsent();
-                app.showNotice('Setujui dulu pengiriman data ke Google Gemini untuk memakai AI Notebook.', 'warning');
+                app.showNotice(`Setujui dulu pengiriman data ke ${state.aiProviderLabel} untuk memakai AI Notebook.`, 'warning');
 
                 return true;
             };

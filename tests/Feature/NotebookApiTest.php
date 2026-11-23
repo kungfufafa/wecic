@@ -140,7 +140,7 @@ class NotebookApiTest extends TestCase
 
         $source = NotebookSource::query()->sole();
         $this->assertSame(NotebookSource::STATUS_FAILED, $source->status);
-        $this->assertStringContainsString('GEMINI_API_KEY', (string) $source->error);
+        $this->assertStringContainsString('kunci API Google Gemini belum diisi', (string) $source->error);
     }
 
     public function test_a_pdf_is_transcribed_once_with_page_numbers(): void
@@ -356,7 +356,7 @@ class NotebookApiTest extends TestCase
         $this->getAsStudent('/api/notebooks')->assertOk()->assertJsonPath('data.ai_status', 'missing_key')->assertJsonPath('data.ai_available', false);
         $this->sendAsStudent('POST', "/api/notebooks/{$notebook->id}/messages", ['question' => 'Apa isinya?'])
             ->assertStatus(503)
-            ->assertJsonPath('message', NotebookAiException::notConfigured()->getMessage())
+            ->assertJsonPath('message', NotebookAiException::notConfigured('Google Gemini')->getMessage())
             ->assertJsonPath('data.ai_status', 'missing_key');
 
         config(['services.gemini.key' => 'test-gemini-key', 'notebook.enabled' => false]);
@@ -408,7 +408,7 @@ class NotebookApiTest extends TestCase
 
         $this->sendAsStudent('POST', "/api/notebooks/{$notebook->id}/messages", ['question' => 'Apa isinya?'])
             ->assertStatus(503)
-            ->assertJsonPath('message', NotebookAiException::misconfigured(NotebookAiException::CAUSE_KEY)->getMessage())
+            ->assertJsonPath('message', NotebookAiException::misconfigured(NotebookAiException::CAUSE_KEY, 'Google Gemini')->getMessage())
             ->assertJsonPath('data.ai_status', 'invalid_key');
         $this->getAsStudent("/api/notebooks/{$notebook->id}")->assertOk()->assertJsonPath('data.ai_status', 'invalid_key');
 
@@ -492,13 +492,14 @@ class NotebookApiTest extends TestCase
     public function test_a_quiz_is_generated_as_structured_data_and_saved_to_notes(): void
     {
         $notebook = $this->notebookWithChunks([['page' => 4, 'content' => 'SQL JOIN menggabungkan tabel.']]);
-        $this->geminiAnswers(json_encode([[
+        // The schema's root is an object: the list comes wrapped in `items` and is saved bare.
+        $this->geminiAnswers(json_encode(['items' => [[
             'question' => 'Fungsi JOIN?',
             'options' => ['Menghapus', 'Menggabungkan tabel', 'Mengurutkan', 'Membuat indeks'],
             'answer_index' => 1,
             'explanation' => 'JOIN menggabungkan tabel.',
             'citations' => [1],
-        ]]));
+        ]]]));
 
         $this->sendAsStudent('POST', "/api/notebooks/{$notebook->id}/studio", ['kind' => 'quiz'])
             ->assertCreated()
@@ -507,7 +508,50 @@ class NotebookApiTest extends TestCase
             ->assertJsonPath('data.message.pinned', true)
             ->assertJsonPath('data.message.data.0.answer_index', 1)
             ->assertJsonPath('data.message.citations.0.page', 4);
-        Http::assertSent(fn (Request $request): bool => ($request['generationConfig']['responseMimeType'] ?? null) === 'application/json');
+        Http::assertSent(fn (Request $request): bool => ($request['generationConfig']['responseMimeType'] ?? null) === 'application/json'
+            && ($request['generationConfig']['responseSchema']['type'] ?? null) === 'OBJECT'
+            && ($request['generationConfig']['responseSchema']['properties']['items']['type'] ?? null) === 'ARRAY');
+        $this->assertSame(1, json_decode((string) NotebookMessage::query()->where('kind', 'quiz')->value('content'), true)[0]['answer_index']);
+    }
+
+    public function test_a_mind_map_cut_before_its_last_brace_is_too_long_not_a_list_of_its_branches(): void
+    {
+        $notebook = $this->notebookWithChunks([['page' => 4, 'content' => 'SQL JOIN menggabungkan tabel.']]);
+        $cut = '{"title":"T","children":[{"title":"A","children":[{"title":"a","children":[]}]}]';
+        Http::fake([self::GEMINI_URL => Http::response(['candidates' => [['content' => ['parts' => [['text' => $cut]]], 'finishReason' => 'MAX_TOKENS']]])]);
+
+        $this->sendAsStudent('POST', "/api/notebooks/{$notebook->id}/studio", ['kind' => 'mind_map'])
+            ->assertStatus(502)
+            ->assertJsonPath('message', NotebookAiException::tooLong()->getMessage());
+
+        $this->assertSame(0, NotebookMessage::query()->count());
+    }
+
+    public function test_a_list_output_is_unwrapped_from_items_and_a_wrapper_without_a_list_is_no_answer(): void
+    {
+        $notebook = $this->notebookWithChunks([['page' => 4, 'content' => 'SQL JOIN menggabungkan tabel.']]);
+        $card = ['front' => 'JOIN', 'back' => 'Menggabungkan tabel.', 'citations' => [1]];
+        Http::fake([self::GEMINI_URL => Http::sequence()
+            ->push(['candidates' => [['content' => ['parts' => [['text' => json_encode(['cards' => [$card]])]]], 'finishReason' => 'STOP']]])
+            ->push(['candidates' => [['content' => ['parts' => [['text' => json_encode([$card])]]], 'finishReason' => 'STOP']]])
+            ->push(['candidates' => [['content' => ['parts' => [['text' => json_encode(['items' => [$card]])]]], 'finishReason' => 'STOP']]])]);
+
+        $this->sendAsStudent('POST', "/api/notebooks/{$notebook->id}/studio", ['kind' => 'flashcards'])
+            ->assertStatus(502)
+            ->assertJsonPath('message', NotebookAiException::emptyAnswer()->getMessage());
+
+        // A bare list is kept as it is; a wrapped one is stored bare.
+        foreach (range(1, 2) as $attempt) {
+            $this->sendAsStudent('POST', "/api/notebooks/{$notebook->id}/studio", ['kind' => 'flashcards'])
+                ->assertCreated()
+                ->assertJsonPath('data.message.data.0.front', 'JOIN')
+                ->assertJsonPath('data.message.citations.0.page', 4);
+        }
+
+        $this->assertSame(
+            [[$card], [$card]],
+            NotebookMessage::query()->where('kind', 'flashcards')->orderBy('id')->pluck('content')->map(fn (string $content): mixed => json_decode($content, true))->all()
+        );
     }
 
     public function test_questions_need_the_model_and_a_ready_source(): void
@@ -725,7 +769,7 @@ class NotebookApiTest extends TestCase
                 ->assertSee('data-ai-status-banner="missing_key"', false)
                 ->assertSee('(GEMINI_API_KEY kosong)')
                 ->assertSee('data-ai-status-banner="invalid_key"', false)
-                ->assertSee('kunci API Gemini di server WeCIC ditolak')
+                ->assertSee('kunci API Google Gemini di server WeCIC ditolak')
                 ->assertSee('data-ai-status-banner="model_misconfigured"', false)
                 ->assertSee('pengaturan model AI di server WeCIC ditolak (model tidak dikenali, sudah tidak tersedia, atau pengaturannya tidak cocok)')
                 // Not only the model id: a thinking budget the model does not take is rejected the same way.
@@ -742,6 +786,94 @@ class NotebookApiTest extends TestCase
             ->assertSee('error?.payload?.data?.ai_status', false)
             // A file waiting for the AI to work again offers no "Baca sekarang" that would only fail.
             ->assertSee('source.waiting && Boolean(source.error) && state.aiAvailable', false);
+    }
+
+    public function test_answers_and_studio_outputs_record_the_provider_model_and_tokens_spent(): void
+    {
+        $notebook = $this->notebookWithChunks([['page' => 1, 'content' => 'Normalisasi mengurangi redundansi data.']]);
+        Http::fake([self::GEMINI_URL => Http::response([
+            'candidates' => [['content' => ['parts' => [['text' => 'Normalisasi mengurangi redundansi [1].']]], 'finishReason' => 'STOP']],
+            'usageMetadata' => ['promptTokenCount' => 640, 'candidatesTokenCount' => 42, 'thoughtsTokenCount' => 128],
+        ])]);
+
+        $this->sendAsStudent('POST', "/api/notebooks/{$notebook->id}/messages", ['question' => 'Apa itu normalisasi?'])
+            ->assertCreated()
+            ->assertJsonPath('data.answer.context.provider', 'gemini')
+            ->assertJsonPath('data.answer.context.model', 'gemini-test-flash')
+            ->assertJsonPath('data.answer.context.usage', ['input_tokens' => 640, 'output_tokens' => 42, 'thoughts_tokens' => 128])
+            ->assertJsonPath('data.answer.context.truncated', false);
+        $this->sendAsStudent('POST', "/api/notebooks/{$notebook->id}/studio", ['kind' => 'summary'])
+            ->assertCreated()
+            ->assertJsonPath('data.message.context.provider', 'gemini')
+            ->assertJsonPath('data.message.context.model', 'gemini-test-flash')
+            ->assertJsonPath('data.message.context.usage.input_tokens', 640);
+
+        $stored = NotebookMessage::query()->where('kind', 'summary')->sole()->context;
+        $this->assertSame(['input_tokens' => 640, 'output_tokens' => 42, 'thoughts_tokens' => 128], $stored['usage']);
+        $this->assertSame(1, $stored['excerpts']);
+    }
+
+    public function test_the_notebook_payloads_name_the_ai_provider(): void
+    {
+        $notebook = $this->notebook();
+        $gemini = ['driver' => 'gemini', 'label' => 'Google Gemini', 'free_tier' => true, 'consent_key' => 'gemini:free', 'processors' => [['label' => 'Google Gemini', 'free_tier' => true]]];
+
+        $this->getAsStudent('/api/notebooks')->assertOk()->assertJsonPath('data.ai_provider', $gemini);
+        $this->getAsStudent("/api/notebooks/{$notebook->id}")->assertOk()->assertJsonPath('data.ai_provider', $gemini);
+
+        // A paid Gemini key drops the free-tier warning.
+        config(['services.gemini.free_tier' => false]);
+        $this->getAsStudent("/api/notebooks/{$notebook->id}")
+            ->assertOk()
+            ->assertJsonPath('data.ai_provider.free_tier', false)
+            ->assertJsonPath('data.ai_consent.free_tier', false);
+
+        config(['notebook.ai.provider' => 'anthropic']);
+        $this->getAsStudent("/api/notebooks/{$notebook->id}")
+            ->assertOk()
+            ->assertJsonPath('data.ai_provider.driver', 'anthropic')
+            ->assertJsonPath('data.ai_provider.label', 'Anthropic Claude')
+            ->assertJsonPath('data.ai_provider.consent_key', 'anthropic')
+            ->assertJsonPath('data.ai_consent.provider', 'Anthropic Claude');
+    }
+
+    public function test_notebook_pages_name_the_settings_of_the_provider_the_server_uses(): void
+    {
+        config(['notebook.ai.provider' => 'anthropic']);
+        $notebook = $this->notebook();
+        $pages = [
+            $this->withSession(['campus_session_token' => self::TOKEN])->get('/notebook')->assertOk(),
+            $this->withSession(['campus_session_token' => self::TOKEN])->get('/notebook/'.$notebook->id)->assertOk(),
+        ];
+
+        foreach ($pages as $page) {
+            $page->assertSee('(ANTHROPIC_API_KEY kosong)')
+                ->assertSee('kunci API Anthropic Claude di server WeCIC ditolak')
+                ->assertSee('misalnya ANTHROPIC_MODEL atau ANTHROPIC_EFFORT')
+                ->assertDontSee('GEMINI_API_KEY')
+                ->assertDontSee('GEMINI_MODEL')
+                ->assertDontSee('Gemini');
+        }
+
+        $pages[1]->assertSee('memakai Anthropic Claude')
+            ->assertSee('AI aktif: pertanyaan dan isi sumber dikirim ke Anthropic Claude.')
+            ->assertDontSee('tingkat gratis')
+            ->assertSee('aiProviderLabel: "Anthropic Claude"', false)
+            ->assertSee('aiConsentKey: "anthropic"', false);
+    }
+
+    public function test_the_consent_step_on_the_notebook_page_tells_about_the_gemini_free_tier(): void
+    {
+        $page = $this->withSession(['campus_session_token' => self::TOKEN])->get('/notebook/'.$this->notebook()->id)->assertOk();
+
+        $page->assertSee('memakai Google Gemini')
+            ->assertSee('WeCIC memakai layanan Gemini tingkat gratis, sehingga Google dapat menyimpan dan memakai data itu untuk meningkatkan produknya.');
+
+        config(['services.gemini.free_tier' => false]);
+        $this->withSession(['campus_session_token' => self::TOKEN])->get('/notebook/'.$this->notebook()->id)
+            ->assertOk()
+            ->assertSee('memakai Google Gemini')
+            ->assertDontSee('tingkat gratis');
     }
 
     private function notebook(): Notebook

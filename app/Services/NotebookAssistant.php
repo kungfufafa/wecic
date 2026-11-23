@@ -9,6 +9,10 @@ use App\Models\Notebook;
 use App\Models\NotebookChunk;
 use App\Models\NotebookMessage;
 use App\Models\NotebookSource;
+use App\Services\Ai\NotebookAiClient;
+use App\Support\Ai\AiCapabilities;
+use App\Support\Ai\AiRequest;
+use App\Support\Ai\AiResult;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\RateLimiter;
@@ -83,6 +87,12 @@ class NotebookAssistant
 
     private const TRUNCATED_ANSWER_NOTE = '*Jawaban terpotong karena terlalu panjang. Minta lanjutannya, atau persempit pertanyaanmu.*';
 
+    /**
+     * Studio outputs that are a list of items, wrapped as `{items: [...]}`
+     * for the model (schema()) and stored as the bare list.
+     */
+    private const LIST_KINDS = ['glossary', 'quiz', 'flashcards'];
+
     private const TRUNCATED_STUDIO_NOTE = '*Hasil ini terpotong karena terlalu panjang. Centang lebih sedikit sumber, lalu buat ulang.*';
 
     private const STOPWORDS = [
@@ -92,7 +102,7 @@ class NotebookAssistant
         'what', 'how', 'why', 'is', 'are', 'of', 'to', 'in', 'materi', 'contoh', 'maksud', 'arti',
     ];
 
-    public function __construct(private readonly GeminiClient $gemini) {}
+    public function __construct(private readonly NotebookAiClient $ai) {}
 
     public function isAvailable(): bool
     {
@@ -101,8 +111,8 @@ class NotebookAssistant
 
     /**
      * Whether the AI can answer: switched off (`notebook.enabled`), no key
-     * (`services.gemini.key`), a key or model settings the API rejected
-     * lately (GeminiClient::misconfiguration()), or ok.
+     * (NotebookAiClient::isConfigured()), a key or model settings the API
+     * rejected lately (NotebookAiClient::misconfiguration()), or ok.
      *
      * @return self::AI_*
      */
@@ -110,8 +120,8 @@ class NotebookAssistant
     {
         return match (true) {
             ! (bool) config('notebook.enabled', true) => self::AI_DISABLED,
-            ! $this->gemini->isConfigured() => self::AI_MISSING_KEY,
-            default => match ($this->gemini->misconfiguration()) {
+            ! $this->ai->isConfigured() => self::AI_MISSING_KEY,
+            default => match ($this->ai->misconfiguration()) {
                 NotebookAiException::CAUSE_KEY => self::AI_INVALID_KEY,
                 NotebookAiException::CAUSE_MODEL => self::AI_MODEL_MISCONFIGURED,
                 default => self::AI_OK,
@@ -137,21 +147,23 @@ class NotebookAssistant
             ->values();
 
         // Earlier answers lose their [n]: those numbered other excerpts than this request's.
-        $contents = $history->map(fn (NotebookMessage $message): array => [
-            'role' => $message->role === NotebookMessage::ROLE_USER ? 'user' : 'model',
-            'parts' => [['text' => $message->role === NotebookMessage::ROLE_USER ? $message->content : $this->withoutCitations($message->content)]],
-        ])->all();
-        $contents[] = [
-            'role' => 'user',
-            'parts' => [['text' => $this->contextBlock($excerpts)."\n\n---\nPertanyaan: ".$question]],
-        ];
+        $messages = $history->map(fn (NotebookMessage $message): array => $message->role === NotebookMessage::ROLE_USER
+            ? AiRequest::user([AiRequest::text($message->content)])
+            : AiRequest::assistant($this->withoutCitations($message->content))
+        )->all();
+        $messages[] = AiRequest::user([AiRequest::text($this->contextBlock($excerpts)."\n\n---\nPertanyaan: ".$question)]);
 
-        // Cut even with the larger limit GeminiClient asks for once: kept, but marked as cut.
-        $result = $this->charged($budgetKey, fn (): array => $this->gemini->generate($contents, self::SYSTEM_INSTRUCTION, ['temperature' => 0.3, 'maxOutputTokens' => 8192]));
-        [$text, $citations] = $this->citeText($result['text'], $excerpts);
-        $context['truncated'] = $result['truncated'];
+        // Cut even with the larger limit the client asks for once: kept, but marked as cut.
+        $result = $this->charged($budgetKey, fn (): AiResult => $this->ai->generate(new AiRequest(
+            messages: $messages,
+            system: self::SYSTEM_INSTRUCTION,
+            maxOutputTokens: 8192,
+            temperature: 0.3,
+        )));
+        [$text, $citations] = $this->citeText($result->text, $excerpts);
+        $context = [...$context, 'truncated' => $result->truncated, ...$this->usageOf($result)];
 
-        if ($result['truncated']) {
+        if ($result->truncated) {
             $text .= "\n\n".self::TRUNCATED_ANSWER_NOTE;
         }
 
@@ -185,39 +197,37 @@ class NotebookAssistant
         $budgetKey = $this->guard($notebook, $sourceIds);
         $excerpts = $this->excerpts($notebook, $focus, $sourceIds);
         $context = $this->contextOf($notebook, $excerpts, $sourceIds, $focus);
-        $schema = $this->schema($kind);
+        $schema = self::schema($kind);
         $task = self::STUDIO_PROMPTS[$kind];
 
         if ($focus !== null) {
             $task .= ($kind === 'assignment_plan' ? "\n\nInstruksi/fokus tugas dari mahasiswa: " : "\n\nFokus yang diminta mahasiswa: ").$focus;
         }
 
-        [$content, $citations, $truncated] = $this->charged($budgetKey, function () use ($excerpts, $task, $kind, $schema): array {
-            $result = $this->gemini->generate([[
-                'role' => 'user',
-                'parts' => [['text' => $this->contextBlock($excerpts)."\n\n---\nTugas: ".$task]],
-            ]], self::SYSTEM_INSTRUCTION, array_filter([
-                'temperature' => $kind === 'quiz' || $kind === 'flashcards' ? 0.5 : 0.3,
-                'maxOutputTokens' => 16384,
-                'responseMimeType' => $schema !== null ? 'application/json' : null,
-                'responseSchema' => $schema,
-            ], static fn (mixed $value): bool => $value !== null));
+        [$content, $citations, $truncated, $usage] = $this->charged($budgetKey, function () use ($excerpts, $task, $kind, $schema): array {
+            $result = $this->ai->generate(new AiRequest(
+                messages: [AiRequest::user([AiRequest::text($this->contextBlock($excerpts)."\n\n---\nTugas: ".$task)])],
+                system: self::SYSTEM_INSTRUCTION,
+                maxOutputTokens: 16384,
+                temperature: $kind === 'quiz' || $kind === 'flashcards' ? 0.5 : 0.3,
+                jsonSchema: $schema,
+            ));
 
-            $truncated = $result['truncated'];
+            $truncated = $result->truncated;
 
             if ($schema === null) {
-                [$content, $citations] = $this->citeText($result['text'], $excerpts);
+                [$content, $citations] = $this->citeText($result->text, $excerpts);
 
-                return [$truncated ? $content."\n\n".self::TRUNCATED_STUDIO_NOTE : $content, $citations, $truncated];
+                return [$truncated ? $content."\n\n".self::TRUNCATED_STUDIO_NOTE : $content, $citations, $truncated, $this->usageOf($result)];
             }
 
-            $data = json_decode($result['text'], true);
+            $data = $this->shaped($kind, $this->unwrapItems($kind, $this->decodeJson($result->text)));
 
-            if (! is_array($data)) {
+            if ($data === null) {
                 throw $truncated ? NotebookAiException::tooLong() : NotebookAiException::emptyAnswer();
             }
 
-            return [(string) json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), $this->citeNumbers($this->numbersIn($data), $excerpts), $truncated];
+            return [(string) json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), $this->citeNumbers($this->numbersIn($data), $excerpts), $truncated, $this->usageOf($result)];
         });
 
         $message = $notebook->messages()->create([
@@ -225,12 +235,31 @@ class NotebookAssistant
             'kind' => $kind,
             'content' => $content,
             'citations' => $citations,
-            'context' => [...$context, 'truncated' => $truncated],
+            'context' => [...$context, 'truncated' => $truncated, ...$usage],
             'pinned' => true,
         ]);
         $notebook->touch();
 
         return $message;
+    }
+
+    /**
+     * Who answered and what it spent, kept in the answer's context so a
+     * budget can later count tokens instead of requests.
+     *
+     * @return array{provider: string, model: string, usage: array{input_tokens: int|null, output_tokens: int|null, thoughts_tokens: int|null}}
+     */
+    private function usageOf(AiResult $result): array
+    {
+        return [
+            'provider' => $this->ai->driver(),
+            'model' => $result->model,
+            'usage' => [
+                'input_tokens' => $result->inputTokens,
+                'output_tokens' => $result->outputTokens,
+                'thoughts_tokens' => $result->thoughtsTokens,
+            ],
+        ];
     }
 
     /**
@@ -276,8 +305,9 @@ class NotebookAssistant
      *
      * @param  list<array{n: int, chunk: NotebookChunk, source: NotebookSource}>  $excerpts
      * @param  list<int>  $sourceIds
-     *                                `truncated` (whether the output was cut at its length limit) is added
-     *                                once the model has answered.
+     *                                `truncated` (whether the output was cut at its length limit), and
+     *                                who answered and what it spent (usageOf()), are added once the
+     *                                model has answered.
      * @return array{source_ids: list<int>, sources: list<array{id: int, title: string, meeting_number: int|null}>, total_sources: int, excerpts: int, chars: int, partial: bool, focus: string|null}
      */
     private function contextOf(Notebook $notebook, array $excerpts, array $sourceIds, ?string $focus): array
@@ -583,9 +613,9 @@ class NotebookAssistant
     {
         match ($this->aiStatus()) {
             self::AI_DISABLED => throw NotebookAiException::disabled(),
-            self::AI_MISSING_KEY => throw NotebookAiException::notConfigured(),
-            self::AI_INVALID_KEY => throw NotebookAiException::misconfigured(NotebookAiException::CAUSE_KEY),
-            self::AI_MODEL_MISCONFIGURED => throw NotebookAiException::misconfigured(NotebookAiException::CAUSE_MODEL),
+            self::AI_MISSING_KEY => throw NotebookAiException::notConfigured($this->ai->label()),
+            self::AI_INVALID_KEY => throw NotebookAiException::misconfigured(NotebookAiException::CAUSE_KEY, $this->ai->label()),
+            self::AI_MODEL_MISCONFIGURED => throw NotebookAiException::misconfigured(NotebookAiException::CAUSE_MODEL, $this->ai->label()),
             default => null,
         };
 
@@ -607,72 +637,120 @@ class NotebookAssistant
     }
 
     /**
+     * The JSON Schema a structured studio output follows, or null for one
+     * written as prose. Lowercase JSON Schema with an object root, so every
+     * provider's structured output takes it: a list comes wrapped as
+     * `{items: [...]}`, which studio() unwraps before it is stored. Every
+     * object takes no other properties and needs all of its own; citations
+     * may be an empty list.
+     *
      * @return array<string, mixed>|null
      */
-    private function schema(string $kind): ?array
+    public static function schema(string $kind): ?array
     {
-        $citations = ['type' => 'ARRAY', 'items' => ['type' => 'INTEGER'], 'description' => 'Nomor kutipan sumber yang dipakai.'];
+        $string = ['type' => 'string'];
+        $citations = ['type' => 'array', 'items' => ['type' => 'integer'], 'description' => 'Nomor kutipan sumber yang dipakai.'];
+        $list = static fn (array $properties): array => self::objectSchema([
+            'items' => ['type' => 'array', 'items' => self::objectSchema($properties)],
+        ]);
+        $children = static fn (array $node): array => ['type' => 'array', 'items' => $node];
+        $leaf = self::objectSchema(['title' => $string]);
+        $branch = self::objectSchema(['title' => $string, 'children' => $children($leaf)]);
+        $topic = self::objectSchema(['title' => $string, 'children' => $children($branch)]);
 
         return match ($kind) {
-            'glossary' => [
-                'type' => 'ARRAY',
-                'items' => [
-                    'type' => 'OBJECT',
-                    'properties' => ['term' => ['type' => 'STRING'], 'definition' => ['type' => 'STRING'], 'citations' => $citations],
-                    'required' => ['term', 'definition'],
-                ],
-            ],
-            'quiz' => [
-                'type' => 'ARRAY',
-                'items' => [
-                    'type' => 'OBJECT',
-                    'properties' => [
-                        'question' => ['type' => 'STRING'],
-                        'options' => ['type' => 'ARRAY', 'items' => ['type' => 'STRING']],
-                        'answer_index' => ['type' => 'INTEGER', 'description' => 'Indeks (mulai 0) pilihan yang benar.'],
-                        'explanation' => ['type' => 'STRING'],
-                        'citations' => $citations,
-                    ],
-                    'required' => ['question', 'options', 'answer_index', 'explanation'],
-                ],
-            ],
-            'flashcards' => [
-                'type' => 'ARRAY',
-                'items' => [
-                    'type' => 'OBJECT',
-                    'properties' => ['front' => ['type' => 'STRING'], 'back' => ['type' => 'STRING'], 'citations' => $citations],
-                    'required' => ['front', 'back'],
-                ],
-            ],
-            'mind_map' => [
-                'type' => 'OBJECT',
-                'properties' => [
-                    'title' => ['type' => 'STRING'],
-                    'children' => [
-                        'type' => 'ARRAY',
-                        'items' => [
-                            'type' => 'OBJECT',
-                            'properties' => [
-                                'title' => ['type' => 'STRING'],
-                                'children' => [
-                                    'type' => 'ARRAY',
-                                    'items' => [
-                                        'type' => 'OBJECT',
-                                        'properties' => [
-                                            'title' => ['type' => 'STRING'],
-                                            'children' => ['type' => 'ARRAY', 'items' => ['type' => 'OBJECT', 'properties' => ['title' => ['type' => 'STRING']], 'required' => ['title']]],
-                                        ],
-                                        'required' => ['title'],
-                                    ],
-                                ],
-                            ],
-                            'required' => ['title'],
-                        ],
-                    ],
-                ],
-                'required' => ['title', 'children'],
-            ],
+            'glossary' => $list(['term' => $string, 'definition' => $string, 'citations' => $citations]),
+            'quiz' => $list([
+                'question' => $string,
+                'options' => ['type' => 'array', 'items' => $string],
+                'answer_index' => ['type' => 'integer', 'description' => 'Indeks (mulai 0) pilihan yang benar.'],
+                'explanation' => $string,
+                'citations' => $citations,
+            ]),
+            'flashcards' => $list(['front' => $string, 'back' => $string, 'citations' => $citations]),
+            'mind_map' => self::objectSchema(['title' => $string, 'children' => $children($topic)]),
             default => null,
         };
+    }
+
+    /**
+     * An object that needs every property it lists and takes no others.
+     *
+     * @param  array<string, array<string, mixed>>  $properties
+     * @return array<string, mixed>
+     */
+    private static function objectSchema(array $properties): array
+    {
+        return [
+            'type' => 'object',
+            'properties' => $properties,
+            'required' => array_keys($properties),
+            'additionalProperties' => false,
+        ];
+    }
+
+    /**
+     * The JSON a structured answer holds. A model that follows the schema
+     * natively answers bare JSON, read as it is: one cut short is no JSON.
+     * One that only has the schema in its prompt (OpenAI-compatible
+     * `json_object` or `none`) may wrap it in a code block or a sentence,
+     * so the outermost `{...}` (or `[...]`) is tried next. Null when there
+     * is no JSON to read.
+     */
+    private function decodeJson(string $text): mixed
+    {
+        $data = json_decode($text, true);
+
+        if ($data !== null || $this->ai->capabilities()->structuredOutput === AiCapabilities::STRUCTURED_JSON_SCHEMA) {
+            return $data;
+        }
+
+        foreach (['{' => '}', '[' => ']'] as $open => $close) {
+            $start = strpos($text, $open);
+            $end = strrpos($text, $close);
+
+            if ($start !== false && $end !== false && $end > $start) {
+                $data = json_decode(substr($text, $start, $end - $start + 1), true);
+
+                if ($data !== null) {
+                    return $data;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * The output when it has its kind's shape, else null: a mind map is an
+     * object with a title, any other kind a list (unwrapItems()).
+     *
+     * @return array<int|string, mixed>|null
+     */
+    private function shaped(string $kind, mixed $data): ?array
+    {
+        if (! is_array($data)) {
+            return null;
+        }
+
+        if (in_array($kind, self::LIST_KINDS, true)) {
+            return array_is_list($data) ? $data : null;
+        }
+
+        return ! array_is_list($data) && is_string($data['title'] ?? null) ? $data : null;
+    }
+
+    /**
+     * A list output as it is stored: the bare list from its `{items: [...]}`
+     * wrapper (schema()). A bare list is taken as it is; a wrapper without
+     * a list is no answer (null).
+     */
+    private function unwrapItems(string $kind, mixed $data): mixed
+    {
+        if (! in_array($kind, self::LIST_KINDS, true) || ! is_array($data) || array_is_list($data)) {
+            return $data;
+        }
+
+        return is_array($data['items'] ?? null) && array_is_list($data['items']) ? $data['items'] : null;
     }
 }

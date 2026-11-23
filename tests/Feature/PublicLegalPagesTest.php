@@ -31,6 +31,7 @@ class PublicLegalPagesTest extends TestCase
                 'sampai kamu mematikan sinkronisasi atau keluar',
                 'setelah kamu memberi persetujuan di dalam aplikasi',
                 '20 November 2026',
+                'Terakhir diperbarui 23 November 2026',
                 'wecic.rizqis.com',
                 'unofficial',
                 'Lainnya → Hapus akun',

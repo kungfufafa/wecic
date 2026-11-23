@@ -1,0 +1,51 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [4 0 R 6 0 R] /Count 2 >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+4 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 5 0 R >>
+endobj
+5 0 obj
+<< /Length 606 >>
+stream
+BT /F1 12 Tf 72 760 Td 16 TL
+(Mata) Tj 32 0 Td (kuliah) Tj 46 0 Td (ini) Tj 25 0 Td (membekali) Tj 67 0 Td (mahasiswa) Tj 67 0 Td (dengan) Tj 46 0 Td (konsep) Tj 46 0 Td (pemrosesan) Tj 74 0 Td (bahasa) Tj 46 0 Td (alami) Tj 39 0 Td T*
+(Mahasiswa) Tj 67 0 Td (mempelajari) Tj 81 0 Td (tokenisasi) Tj 74 0 Td (stemming) Tj 60 0 Td (dan) Tj 25 0 Td (representasi) Tj 88 0 Td (kata) Tj 32 0 Td T*
+(Setiap) Tj 46 0 Td (pertemuan) Tj 67 0 Td (membahas) Tj 60 0 Td (satu) Tj 32 0 Td (topik) Tj 39 0 Td (dengan) Tj 46 0 Td (contoh) Tj 46 0 Td (kasus) Tj 39 0 Td (berbahasa) Tj 67 0 Td (Indonesia) Tj 67 0 Td T*
+ET
+endstream
+endobj
+6 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 7 0 R >>
+endobj
+7 0 obj
+<< /Length 530 >>
+stream
+BT /F1 12 Tf 72 760 Td 16 TL
+(Model) Tj 39 0 Td (bahasa) Tj 46 0 Td (memprediksi) Tj 81 0 Td (kata) Tj 32 0 Td (berikutnya) Tj 74 0 Td (dari) Tj 32 0 Td (konteks) Tj 53 0 Td (sebelumnya) Tj 74 0 Td T*
+(Evaluasi) Tj 60 0 Td (memakai) Tj 53 0 Td (akurasi) Tj 53 0 Td (presisi) Tj 53 0 Td (dan) Tj 25 0 Td (recall) Tj 46 0 Td (pada) Tj 32 0 Td (data) Tj 32 0 Td (uji) Tj 25 0 Td T*
+(Tugas) Tj 39 0 Td (akhir) Tj 39 0 Td (berupa) Tj 46 0 Td (aplikasi) Tj 60 0 Td (klasifikasi) Tj 81 0 Td (teks) Tj 32 0 Td (sederhana) Tj 67 0 Td T*
+ET
+endstream
+endobj
+xref
+0 8
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000121 00000 n 
+0000000218 00000 n 
+0000000344 00000 n 
+0000001001 00000 n 
+0000001127 00000 n 
+trailer
+<< /Size 8 /Root 1 0 R >>
+startxref
+1708
+%%EOF

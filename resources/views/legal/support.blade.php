@@ -6,6 +6,16 @@
 @section('summary', 'Jawaban untuk pertanyaan yang sering muncul, dan cara menghubungi pengembang.')
 
 @section('legal_content')
+    {{-- The AI provider(s) the server uses (`$notebookAi`, NotebookAiProviders::forPages()); the free-tier note names those on a free tier. --}}
+    @php
+        $aiFreeTiers = collect($notebookAi['processors'])->where('free_tier', true);
+        $aiFreeTierNote = $aiFreeTiers->isEmpty() ? '' : ' ('.$aiFreeTiers->map(fn (array $processor): string => $processor['driver'] === 'gemini'
+            ? 'Gemini tingkat gratis; Google dapat memakainya untuk meningkatkan produknya'
+            : $processor['label'].' tingkat gratis; penyedianya dapat memakainya untuk meningkatkan produknya')->implode(', ').')';
+        $aiFreeTierNoteEn = $aiFreeTiers->isEmpty() ? '' : ' ('.$aiFreeTiers->map(fn (array $processor): string => $processor['driver'] === 'gemini'
+            ? 'Gemini free tier, Google may use them to improve its products'
+            : $processor['label'].' free tier, its provider may use them to improve its products')->implode('; ').')';
+    @endphp
     <section aria-labelledby="support-contact-title" class="flex flex-col gap-3">
         <h2 id="support-contact-title">Hubungi kami</h2>
         <p>Email: <a href="mailto:developer@rizqis.com">developer@rizqis.com</a>. Balasan biasanya dalam 1–3 hari kerja.</p>
@@ -42,7 +52,7 @@
 
         <div class="flex flex-col gap-2">
             <h3>Apakah Notebook AI mengirim dataku ke pihak lain?</h3>
-            <p>Ya, tetapi hanya setelah kamu menyetujuinya di aplikasi. Pertanyaan dan isi sumber notebook dikirim ke Google Gemini (tingkat gratis), dan Google dapat memakainya untuk meningkatkan produknya. Persetujuan bisa ditarik kapan saja di <strong>Lainnya → Privasi → Izin Notebook AI</strong> di aplikasi, atau di halaman Notebook di web. Rinciannya ada di <a href="{{ route('legal.privacy') }}#penerima">kebijakan privasi</a>.</p>
+            <p>Ya, tetapi hanya setelah kamu menyetujuinya di aplikasi. Pertanyaan dan isi sumber notebook dikirim ke {{ $notebookAi['label'] }}{{ $aiFreeTierNote }}. Persetujuan bisa ditarik kapan saja di <strong>Lainnya → Privasi → Izin Notebook AI</strong> di aplikasi, atau di halaman Notebook di web. Rinciannya ada di <a href="{{ route('legal.privacy') }}#penerima">kebijakan privasi</a>.</p>
         </div>
 
         <div class="flex flex-col gap-2">
@@ -71,7 +81,7 @@
             <li><strong>Contact:</strong> <a href="mailto:developer@rizqis.com">developer@rizqis.com</a> (we usually reply within 1–3 business days). For wrong grades, study plans or bills on the portal itself, contact your campus academic office.</li>
             <li><strong>Sign-in problems:</strong> check that you can sign in to the portal in a browser; when the portal is down, archived data still opens.</li>
             <li><strong>Background sync</strong> is optional and off by default. Turning it off, or signing out, deletes the encrypted password stored on the server.</li>
-            <li><strong>Notebook AI</strong> sends your questions and sources to Google Gemini (free tier, Google may use them to improve its products) only after you consent in the app.</li>
+            <li><strong>Notebook AI</strong> sends your questions and sources to {{ $notebookAi['label_en'] }}{{ $aiFreeTierNoteEn }} only after you consent in the app.</li>
             <li><strong>Delete your account and data:</strong> in the app open <strong>Lainnya (More) → Hapus akun (Delete account)</strong>, or see <a href="{{ route('legal.data-deletion') }}">Delete account &amp; data</a>.</li>
             <li><a href="{{ route('legal.privacy') }}">Privacy policy</a></li>
         </ul>

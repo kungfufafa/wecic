@@ -11,9 +11,10 @@ import { Panel, Section } from '@/components/section';
 import { SettingsRow } from '@/components/settings-row';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
+import { useAiConsent } from '@/hooks/use-ai-consent';
 import { clearKnownUser } from '@/hooks/use-known-user';
 import { useTheme } from '@/hooks/use-theme';
-import { ACCOUNT_DELETION_ITEMS, ACCOUNT_DELETION_UNAFFECTED, legalPageUrl } from '@/lib/privacy';
+import { ACCOUNT_DELETION_ITEMS, accountDeletionUnaffected, legalPageUrl } from '@/lib/privacy';
 
 /**
  * Deletes the student's WeCIC account and every piece of data the WeCIC
@@ -25,6 +26,7 @@ import { ACCOUNT_DELETION_ITEMS, ACCOUNT_DELETION_UNAFFECTED, legalPageUrl } fro
 export default function DeleteAccountScreen() {
   const theme = useTheme();
   const { state, deleteAccount } = useSession();
+  const { consent: aiConsent } = useAiConsent();
   const [understood, setUnderstood] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -91,7 +93,7 @@ export default function DeleteAccountScreen() {
           <View style={styles.item}>
             <Icon name="check" size={16} color={theme.success} />
             <ThemedText type="small" themeColor="textSecondary" style={styles.flex}>
-              {ACCOUNT_DELETION_UNAFFECTED}
+              {accountDeletionUnaffected(aiConsent?.provider, aiConsent?.past_processors)}
             </ThemedText>
           </View>
         </Panel>

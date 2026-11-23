@@ -21,7 +21,7 @@ import { Radius, Spacing } from '@/constants/theme';
 import { useAiConsent } from '@/hooks/use-ai-consent';
 import { useApiResource } from '@/hooks/use-api-resource';
 import { useTheme } from '@/hooks/use-theme';
-import { isAiConsentRequired, rememberAiConsentFrom } from '@/lib/ai-consent';
+import { aiProviderLabel, isAiConsentRequired, rememberAiConsentFrom } from '@/lib/ai-consent';
 import { aiStatusMessage, sourceStatus } from '@/lib/classes';
 import { formatDateTime } from '@/lib/format';
 
@@ -156,7 +156,7 @@ export default function NotebookScreen() {
         <Section label="Izin Notebook AI">
           <Panel style={styles.consent}>
             <ThemedText type="small" themeColor="textSecondary">
-              Tanya jawab, Studio, dan pembacaan PDF atau gambar mengirim isi notebook ke Google Gemini. Setujui dulu sebelum memakai AI. Tanpa izin, notebook tetap bisa dibuka dan dihapus.
+              {`Tanya jawab, Studio, dan pembacaan PDF atau gambar mengirim isi notebook ke ${aiProviderLabel(consent)}. Setujui dulu sebelum memakai AI. Tanpa izin, notebook tetap bisa dibuka dan dihapus.`}
             </ThemedText>
             <Button size="small" variant="secondary" icon="sparkles" label="Tinjau dan setujui" onPress={openConsent} />
           </Panel>

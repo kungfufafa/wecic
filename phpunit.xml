@@ -39,6 +39,26 @@
         <env name="PORTAL_DEMO" value="false" force="true"/>
         <!-- No real Gemini key: a test that needs one sets services.gemini.key and fakes the HTTP calls. -->
         <env name="GEMINI_API_KEY" value="" force="true"/>
+        <env name="GEMINI_FREE_TIER" value="true" force="true"/>
+        <!-- The default notebook AI provider and its budgets, whatever the checkout's .env chose. -->
+        <env name="NOTEBOOK_AI_PROVIDER" value="gemini" force="true"/>
+        <env name="NOTEBOOK_AI_INGEST_PROVIDER" value="" force="true"/>
+        <env name="NOTEBOOK_AI_REQUEST_BUDGET" value="" force="true"/>
+        <env name="NOTEBOOK_AI_INGEST_BUDGET" value="" force="true"/>
+        <env name="NOTEBOOK_PDF_TEXT_LAYER" value="true" force="true"/>
+        <!-- No real Anthropic or OpenAI-compatible key either; a test sets services.anthropic.key / services.openai_compatible.key and fakes the calls. -->
+        <env name="ANTHROPIC_API_KEY" value="" force="true"/>
+        <env name="ANTHROPIC_MODEL" value="" force="true"/>
+        <env name="ANTHROPIC_FALLBACK_MODEL" value="" force="true"/>
+        <env name="ANTHROPIC_BASE_URL" value="" force="true"/>
+        <env name="ANTHROPIC_VERSION" value="" force="true"/>
+        <env name="ANTHROPIC_EFFORT" value="" force="true"/>
+        <env name="ANTHROPIC_MAX_OUTPUT_TOKENS" value="" force="true"/>
+        <env name="ANTHROPIC_THINKING_HEADROOM" value="" force="true"/>
+        <env name="OPENAI_COMPATIBLE_API_KEY" value="" force="true"/>
+        <env name="OPENAI_COMPATIBLE_BASE_URL" value="" force="true"/>
+        <env name="OPENAI_COMPATIBLE_MODEL" value="" force="true"/>
+        <env name="OPENAI_COMPATIBLE_FREE_TIER" value="false" force="true"/>
         <!-- Tests never report to Sentry, whatever DSN the checkout's .env has. -->
         <env name="SENTRY_LARAVEL_DSN" value="null" force="true"/>
         <!-- Broadcasts go nowhere (quoted, like LOG_CHANNEL); PortalBroadcastingTest boots with the reverb broadcaster it tests. -->
