@@ -23,7 +23,7 @@ return new class extends Migration
             $table->json('citations')->nullable();
             $table->string('topic', 120)->nullable();
             $table->unsignedSmallInteger('meeting_number')->nullable();
-            $table->timestamp('due_at');
+            $table->timestamp('due_at')->useCurrent();
             $table->unsignedSmallInteger('interval_days')->default(0);
             $table->decimal('ease', 4, 2)->default(2.5);
             $table->unsignedInteger('reps')->default(0);
