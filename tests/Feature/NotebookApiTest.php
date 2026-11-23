@@ -1222,9 +1222,9 @@ class NotebookApiTest extends TestCase
             ->assertSee("notesHost.addEventListener('toggle'", false)
             ->assertSee('practice: {},', false)
             ->assertSee('state.practice[messageId] ??=', false)
-            // Answers, verdicts in words, citations on explanations, and a way out for a wrong item.
+            // Answers, verdicts in words, citations on explanations (never twice for a number the text shows), and a way out for a wrong item.
             ->assertSee('Pilihanmu, salah')
-            ->assertSee('itemCitations(question)', false)
+            ->assertSee('itemCitations(question, question.explanation)', false)
             ->assertSee('Soal ini salah?')
             ->assertSee('Ditandai salah, tidak dihitung dalam skor.')
             // After the last answer: score, local retry, review, and a charged practice set with the budget shown first.
