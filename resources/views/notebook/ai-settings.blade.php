@@ -14,9 +14,9 @@
 --}}
 @php
     $providers = [
-        'gemini' => ['label' => \App\Models\NotebookAiSetting::LABELS['gemini'], 'description' => 'Model AI dari Google.', 'source' => 'Buat di Google AI Studio (aistudio.google.com).'],
-        'anthropic' => ['label' => \App\Models\NotebookAiSetting::LABELS['anthropic'], 'description' => 'Model AI dari Anthropic.', 'source' => 'Buat di Claude Console (platform.claude.com).'],
-        'openai' => ['label' => \App\Models\NotebookAiSetting::LABELS['openai'], 'description' => 'OpenAI, OpenRouter, atau layanan lain berformat Chat Completions.', 'source' => 'Dari layanan yang kamu pakai, mis. OpenAI atau OpenRouter.'],
+        'gemini' => ['label' => \App\Models\NotebookAiSetting::LABELS['gemini'], 'description' => 'Google', 'source' => 'Dari Google AI Studio (aistudio.google.com).'],
+        'anthropic' => ['label' => \App\Models\NotebookAiSetting::LABELS['anthropic'], 'description' => 'Anthropic', 'source' => 'Dari Claude Console (platform.claude.com).'],
+        'openai' => ['label' => \App\Models\NotebookAiSetting::LABELS['openai'], 'description' => 'OpenAI, OpenRouter, atau layanan sejenis', 'source' => 'Dari layanan yang dipakai.'],
     ];
     $providerLabels = array_map(static fn (array $provider): string => $provider['label'], $providers);
     $optionClass = 'flex min-h-11 cursor-pointer flex-col gap-1 rounded-lg border border-border bg-panel p-4 transition-colors hover:bg-surface/60 has-checked:border-brand has-checked:ring-2 has-checked:ring-brand/20 has-focus-visible:ring-2 has-focus-visible:ring-brand/40 has-disabled:cursor-not-allowed has-disabled:opacity-60';
@@ -26,7 +26,7 @@
 @endphp
 
 @section('content')
-    <x-page-hero :back="route('notebook.index')" back-label="Notebook" title="Pengaturan AI" subtitle="Pilih AI yang menjawab Notebook-mu. Tanpa pengaturan apa pun, Notebook memakai AI dari server WeCIC." />
+    <x-page-hero :back="route('notebook.index')" back-label="Notebook" title="Pengaturan AI" />
 
     <x-split at="xl">
         {{-- Submitted only by the script below: a native submit must never put the keys in a URL. --}}
@@ -52,7 +52,7 @@
             </x-card>
 
             {{-- 2. The one decision. Only the chosen option's credentials panel is shown, right under it. --}}
-            <x-card as="section" title="Siapa yang menjawab Notebook-mu?" title-id="ai-provider-title" subtitle="Pilih satu. Hanya pilihan ini yang dipakai; kunci penyedia lain tetap tersimpan tapi tidak dipakai." aria-labelledby="ai-provider-title">
+            <x-card as="section" title="Siapa yang menjawab Notebook-mu?" title-id="ai-provider-title" aria-labelledby="ai-provider-title">
                 <x-card.body class="flex flex-col gap-3 sm:p-6">
                     <fieldset class="flex flex-col gap-3" id="ai-provider-options" inert aria-busy="true">
                         <legend class="sr-only">Penyedia AI Notebook</legend>
@@ -96,7 +96,7 @@
                                             <span class="mt-0.5 {{ $dotClass }}" aria-hidden="true"></span>
                                             <span class="flex flex-col gap-0.5">
                                                 <span class="text-sm font-medium text-ink">Layanan server WeCIC</span>
-                                                <span class="text-xs text-ink-muted" id="ai-openai-server-desc">Alamat dan model diatur pengelola WeCIC.</span>
+                                                <span class="text-xs text-ink-muted" id="ai-openai-server-desc">Alamat &amp; model dari server WeCIC.</span>
                                             </span>
                                         </label>
                                         <label class="group flex cursor-pointer items-start gap-3 rounded-lg border border-border bg-panel p-3 has-checked:border-brand has-checked:ring-2 has-checked:ring-brand/20 has-focus-visible:ring-2 has-focus-visible:ring-brand/40">
@@ -104,19 +104,19 @@
                                             <span class="mt-0.5 {{ $dotClass }}" aria-hidden="true"></span>
                                             <span class="flex flex-col gap-0.5">
                                                 <span class="text-sm font-medium text-ink">Layanan milikmu sendiri</span>
-                                                <span class="text-xs text-ink-muted" id="ai-openai-own-desc">Isi alamat, model, dan API key-mu. Unggah gambar dan PDF ke AI tidak tersedia di layanan sendiri.</span>
+                                                <span class="text-xs text-ink-muted" id="ai-openai-own-desc">Alamat, model &amp; API key sendiri (tanpa baca PDF/gambar).</span>
                                             </span>
                                         </label>
                                     </fieldset>
 
-                                    <x-field label="Alamat layanan (base URL)" for="openai_base_url" hint="Harus HTTPS dan bisa dijangkau dari internet, mis. https://api.openai.com/v1 atau https://openrouter.ai/api/v1." data-openai-own-only hidden>
+                                    <x-field label="Alamat layanan (base URL)" for="openai_base_url" hint="HTTPS, mis. https://api.openai.com/v1" data-openai-own-only hidden>
                                         <x-input type="url" name="openai_base_url" id="openai_base_url" inputmode="url" spellcheck="false" aria-describedby="openai_base_url-hint openai_base_url-error" />
                                         <p class="text-xs font-medium leading-relaxed text-danger" id="openai_base_url-error" data-field-error="openai_base_url" hidden></p>
                                     </x-field>
                                     <div class="flex flex-col gap-1.5">
                                         <label for="openai_model" class="text-sm font-medium text-ink" data-model-label>Model lain (opsional)</label>
                                         <x-input name="openai_model" id="openai_model" spellcheck="false" aria-describedby="openai_model-hint openai_model-error" />
-                                        <p class="text-xs leading-relaxed text-ink-subtle" id="openai_model-hint" data-model-hint>Kosongkan untuk memakai model server. Isi bila ingin model lain di layanan server, mis. gpt-5-mini.</p>
+                                        <p class="text-xs leading-relaxed text-ink-subtle" id="openai_model-hint" data-model-hint>Opsional · mis. gpt-5-mini</p>
                                         <p class="text-xs font-medium leading-relaxed text-danger" id="openai_model-error" data-field-error="openai_model" hidden></p>
                                     </div>
                                     <x-alert tone="info" icon data-openai-own-notice hidden>
@@ -165,33 +165,13 @@
             </x-card>
 
             {{-- 3. Saved keys that are not in use now. --}}
-            <x-card as="section" id="ai-other" hidden title="Kunci lain yang tersimpan" title-id="ai-other-title" subtitle="Tidak dipakai untuk menjawab pertanyaan saat ini. Tetap tersimpan terenkripsi bila nanti kamu berganti penyedia." aria-labelledby="ai-other-title">
+            <x-card as="section" id="ai-other" hidden title="Kunci lain yang tersimpan" title-id="ai-other-title" aria-labelledby="ai-other-title">
                 <ul class="flex flex-col divide-y divide-border-light" id="ai-other-list"></ul>
             </x-card>
         </form>
 
-        <x-slot:aside aria-label="Cara kerja pengaturan AI">
-            <x-card as="section" title="Cara kerjanya" title-id="ai-how-title" aria-labelledby="ai-how-title">
-                <x-card.body>
-                    <ol class="flex flex-col gap-3">
-                        @foreach ([
-                            'Hanya penyedia yang kamu pilih yang dipakai. Kunci penyedia lain disimpan, tapi tidak dipakai.',
-                            'Kunci disimpan terenkripsi dan tidak pernah ditampilkan utuh lagi, hanya empat karakter terakhirnya.',
-                            'Tanpa kunci milikmu, Notebook memakai kunci server WeCIC, bila server punya.',
-                            'Biaya pemakaian kunci milikmu ditagihkan penyedianya ke akunmu.',
-                            'Ganti penyedia atau layanan berarti kamu perlu menyetujui lagi pengiriman isi Notebook. Persetujuan diminta saat membuka notebook.',
-                            'Menghapus kunci di sini tidak mencabutnya di akun penyedia. Cabut juga di sana bila tidak dipakai lagi.',
-                        ] as $rule)
-                            <li class="flex gap-3 text-sm">
-                                <span class="w-4 shrink-0 text-end font-medium text-ink-subtle tabular-nums">{{ $loop->iteration }}.</span>
-                                <span class="text-ink-muted">{{ $rule }}</span>
-                            </li>
-                        @endforeach
-                    </ol>
-                </x-card.body>
-            </x-card>
-
-            <x-card as="section" title="Kembalikan ke pengaturan server" title-id="ai-reset-title" subtitle="Hapus pilihan penyedia, semua API key, dan layanan OpenAI-compatible milikmu." aria-labelledby="ai-reset-title">
+        <x-slot:aside aria-label="Pengaturan server">
+            <x-card as="section" title="Kembalikan ke pengaturan server" title-id="ai-reset-title" aria-labelledby="ai-reset-title">
                 <x-card.body>
                     <p class="text-sm text-ink-muted" id="ai-reset-empty">Belum ada pengaturan milikmu yang tersimpan.</p>
                     <x-button type="button" variant="secondary" class="text-danger! hover:bg-danger-soft!" id="btn-clear-ai-settings" hidden>Hapus semua pengaturan AI-ku</x-button>
@@ -451,7 +431,7 @@
                 const serverOption = optionOf('');
 
                 serverOption.querySelector('[data-option-description]').textContent = serverKnown
-                    ? `Server sekarang memakai ${s.server_provider_label}. Bila pengelola mengganti penyedia, Notebook-mu ikut berganti.`
+                    ? `Server sekarang memakai ${s.server_provider_label}.`
                     : 'Server WeCIC belum memilih penyedia.';
 
                 const serverState = serverKnown ? providerState(serverProvider) : {};
@@ -461,7 +441,7 @@
 
                 const extra = serverOption.querySelector('[data-option-extra]');
                 extra.textContent = serverKnown && serverState.has_key
-                    ? `Kunci ${s.server_provider_label} milikmu ${maskText(serverState.key_preview)} ikut dipakai selama server memakai ${s.server_provider_label}.`
+                    ? `Kunci ${s.server_provider_label} (${maskText(serverState.key_preview)}) ikut dipakai.`
                     : '';
                 extra.classList.toggle('hidden', !extra.textContent);
 
@@ -486,10 +466,10 @@
 
                 panel.querySelector('[data-panel-heading]').textContent = following && !keyRequired && !hasKey ? `API key ${label} (opsional)` : `API key ${label}`;
                 panel.querySelector('[data-panel-explainer]').textContent = hasKey
-                    ? `Notebook memakai kunci milikmu ini. Biayanya ditagihkan ${label} ke akunmu.`
+                    ? `Dipakai dari kunci milikmu (${label}).`
                     : (keyRequired
-                        ? (ownEndpoint ? 'Wajib. Layanan milikmu memakai kuncimu sendiri, tidak pernah kunci server WeCIC.' : `Wajib. Server WeCIC belum punya kunci ${label}, jadi penyedia ini hanya bisa dipakai dengan kuncimu.`)
-                        : 'Opsional. Kosongkan untuk memakai kunci server WeCIC.');
+                        ? (ownEndpoint ? 'Wajib memakai kuncimu sendiri.' : `Wajib. Server belum punya kunci ${label}.`)
+                        : 'Opsional. Kosongkan untuk kunci server.');
 
                 const savedRow = panel.querySelector('[data-saved-key-row]');
                 savedRow.classList.toggle('hidden', !hasKey);
@@ -510,14 +490,14 @@
                     const serverRadio = form.querySelector('input[name="openai_endpoint"][value="server"]');
                     serverRadio.disabled = !serverEndpoint;
                     document.getElementById('ai-openai-server-desc').textContent = serverEndpoint
-                        ? 'Alamat dan model diatur pengelola WeCIC.'
+                        ? 'Alamat & model dari server WeCIC.'
                         : 'Server WeCIC belum menyediakan layanan OpenAI-compatible.';
 
                     panel.querySelectorAll('[data-openai-own-only]').forEach((node) => { node.hidden = !ownEndpoint; });
                     panel.querySelector('[data-model-label]').textContent = ownEndpoint ? 'Model' : 'Model lain (opsional)';
                     panel.querySelector('[data-model-hint]').textContent = ownEndpoint
-                        ? 'Wajib. Nama model persis seperti di layanan itu, mis. gpt-5-mini.'
-                        : 'Kosongkan untuk memakai model server. Isi bila ingin model lain di layanan server, mis. gpt-5-mini.';
+                        ? 'Wajib · mis. gpt-5-mini'
+                        : 'Opsional · mis. gpt-5-mini';
 
                     const notice = panel.querySelector('[data-openai-own-notice]');
                     let host = '';
@@ -526,7 +506,7 @@
                     } catch {
                         host = '';
                     }
-                    panel.querySelector('[data-openai-own-notice-text]').textContent = `Isi Notebook akan dikirim langsung ke ${host || 'layananmu'}. Layanan selain api.openai.com dianggap bisa menyimpan isinya, jadi kamu akan diminta persetujuan lagi.`;
+                    panel.querySelector('[data-openai-own-notice-text]').textContent = `Isi Notebook dikirim ke ${host || 'layananmu'}. Selain api.openai.com butuh persetujuan ulang.`;
                     notice.hidden = !ownEndpoint;
                 }
             };
@@ -687,7 +667,6 @@
                 const card = document.getElementById('ai-other');
                 document.getElementById('ai-other-list').innerHTML = items.join('');
                 card.hidden = items.length === 0;
-                card.querySelector('[data-slot="card-header"] p')?.replaceChildren(document.createTextNode(`Tidak dipakai untuk menjawab pertanyaan selama kamu memakai ${s.effective.label}. Tetap tersimpan terenkripsi bila nanti kamu berganti penyedia.`));
             };
 
             const hasAnythingSaved = () => {

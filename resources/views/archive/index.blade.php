@@ -4,7 +4,7 @@
 @section('page_id', 'archive-index')
 
 @section('content')
-    <x-page-hero title="Arsip WeCIC" subtitle="Cadangan data portal kampus milikmu, tetap bisa dibuka saat portal bermasalah." />
+    <x-page-hero title="Arsip WeCIC" />
 
     <x-split :sticky="false">
         <x-section title="Perlu kamu cek" title-id="archive-attention-title" id="archive-attention" class="hidden">
@@ -30,10 +30,7 @@
 
         <x-card as="section" class="overflow-hidden" aria-labelledby="archive-files-title">
             <x-card.header>
-                <div class="min-w-0">
-                    <x-card.title id="archive-files-title">Materi kuliah</x-card.title>
-                    <x-card.subtitle>Modul, latihan, dan RPS tersimpan otomatis setiap kali kamu membuka pertemuan, dan sinkronisasi di background mengarsipkan semua kelasmu secara berkala. Bisa dibuka tanpa portal dan dijadikan sumber Notebook.</x-card.subtitle>
-                </div>
+                <x-card.title id="archive-files-title">Materi kuliah</x-card.title>
             </x-card.header>
             <form class="flex flex-wrap items-end gap-2 border-b border-border-light bg-surface/40 px-4 py-3 sm:px-5" id="archive-class-form">
                 <label class="flex min-w-0 flex-1 basis-56 flex-col gap-1.5">
@@ -53,19 +50,12 @@
             </x-card.body>
         </x-card>
 
-        <x-slot:aside aria-label="Privasi dan sinkronisasi arsip">
+        <x-slot:aside aria-label="Pengaturan dan privasi arsip">
             <x-card as="section" aria-labelledby="archive-privacy-title">
                 <x-card.header>
-                    <x-card.title id="archive-privacy-title">Privasi arsip</x-card.title>
+                    <x-card.title id="archive-privacy-title">Pengaturan arsip</x-card.title>
                 </x-card.header>
                 <x-card.body class="flex flex-col gap-4 text-[13px] text-ink-muted">
-                    <ul class="flex list-disc flex-col gap-2.5 ps-5 leading-relaxed marker:text-ink-subtle">
-                        <li>Data disimpan terenkripsi di server WeCIC dan hanya bisa dibuka lewat akunmu. Daftar teman sekelas tidak ikut diarsipkan.</li>
-                        <li>Saat portal mati, kamu tetap bisa masuk dengan password terakhir yang berhasil login (maks. {{ \App\Models\PortalOfflineAccount::offlineLoginDays() }} hari), dan WeCIC menyambung lagi otomatis begitu portal pulih selama sinkronisasi background menyala. Selama mati, password tidak disimpan: WeCIC hanya memberi tahu saat portal pulih dan kamu masuk lagi sendiri.</li>
-                        <li>Sinkronisasi di background mati sampai kamu menyalakannya. Kalau dinyalakan, password portalmu disimpan terenkripsi supaya WeCIC bisa masuk ke portal sendiri setiap {{ (int) config('portal.background_sync.interval', 180) }} menit dan memperbarui arsip saat kamu tidak membuka WeCIC, termasuk detail kelas, pertemuan, dan materi semua kelasmu. Mematikannya atau keluar dari WeCIC langsung menghapus password itu; yang tersisa hanya hash password.</li>
-                        <li>Semua itu tidak disimpan selamanya: {{ \App\Models\PortalOfflineAccount::credentialDays() }} hari setelah login online terakhirmu, password terenkripsi dihapus otomatis dan sinkronisasi di background berhenti; hash password dan data untuk masuk saat portal mati dihapus {{ \App\Models\PortalOfflineAccount::offlineLoginDays() }} hari sejak login itu. Password yang ditolak portal langsung dihapus. Arsipmu sendiri tetap tersimpan sampai kamu menghapusnya.</li>
-                        <li>Kalau data dari portal terlihat janggal (nilai hilang, presensi berubah jadi absen, riwayat bayar berkurang), WeCIC tetap menampilkan versi terakhir yang dipercaya sampai kamu memeriksanya.</li>
-                    </ul>
                     <x-alert tone="info" class="flex flex-wrap items-center justify-between gap-3" id="archive-background-sync" hidden>
                         <span class="min-w-0">
                             <span class="block font-medium text-ink">Sinkronisasi di background</span>
@@ -85,9 +75,20 @@
                             </span>
                         </form>
                     </x-alert>
+                    <details class="group rounded-lg bg-surface">
+                        <summary class="flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 sm:min-h-9 [&::-webkit-details-marker]:hidden">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="size-4 shrink-0 text-ink-subtle transition-transform group-open:rotate-90" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6l-6 6" /></svg>
+                            Detail privasi &amp; masa simpan
+                        </summary>
+                        <ul class="flex list-disc flex-col gap-2 px-3 pb-3 ps-7 text-xs leading-relaxed text-ink-muted marker:text-ink-subtle">
+                            <li>Data terenkripsi; hanya bisa dibuka lewat akunmu.</li>
+                            <li>Login offline berlaku maks. {{ \App\Models\PortalOfflineAccount::offlineLoginDays() }} hari. Jika sinkronisasi background menyala, password disimpan terenkripsi untuk pembaruan tiap {{ (int) config('portal.background_sync.interval', 180) }} menit dan dihapus otomatis setelah {{ \App\Models\PortalOfflineAccount::credentialDays() }} hari tanpa login online, saat dimatikan/keluar, atau jika ditolak portal.</li>
+                            <li>Perubahan janggal ditahan dengan versi terakhir yang dipercaya. <a class="font-medium text-brand-text underline-offset-4 hover:underline" href="{{ route('legal.privacy') }}">Kebijakan privasi</a></li>
+                        </ul>
+                    </details>
                 </x-card.body>
                 <x-card.footer>
-                    <x-button variant="destructive" size="sm" id="archive-delete">Hapus seluruh arsip saya</x-button>
+                    <x-button variant="destructive" size="sm" id="archive-delete">Hapus seluruh arsip</x-button>
                 </x-card.footer>
             </x-card>
         </x-slot:aside>
@@ -145,7 +146,7 @@
                     <a href="/archive/${encodeURIComponent(dataset.dataset)}" class="${app.ui.alert.warning} flex min-h-11 cursor-pointer items-center gap-3 transition-colors hover:border-warning/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40">
                         <span class="min-w-0 flex-1">
                             <span class="block font-medium">${app.escapeHtml(dataset.label)}: ${dataset.open_suspects} perubahan janggal</span>
-                            <span class="block text-xs text-ink-muted">WeCIC menahan data dari portal dan tetap menampilkan versi tersimpan. Buka untuk memeriksa.</span>
+                            <span class="block text-xs text-ink-muted">Data portal ditahan · buka untuk memeriksa.</span>
                         </span>
                         ${app.renderIcon('chevron-right', 'sm', app.ui.listRowChevron)}
                     </a>
@@ -158,7 +159,7 @@
                             dataset.groups > 1 ? `${dataset.groups} kelompok` : '',
                             dataset.last_seen_at ? `terakhir dicek ${app.formatTimeAgo(dataset.last_seen_at)}` : '',
                         ].filter(Boolean).join(' · ')
-                        : 'Belum ada arsip. Tersimpan saat halamannya dibuka.';
+                        : 'Belum ada arsip.';
                     const icon = DATASET_ICON[dataset.dataset] || 'archive';
 
                     return `
@@ -183,7 +184,7 @@
                     filesHost.innerHTML = app.renderEmptyState(
                         'Belum ada materi tersimpan.',
                         'secondary',
-                        'Buka pertemuan di halaman Kuliah, atau pilih kelas di atas untuk mengarsipkan semua materinya.',
+                        'Buka pertemuan di Kuliah atau pilih kelas di atas.',
                         { icon: 'folder' }
                     );
 
@@ -263,24 +264,24 @@
                     ? `terakhir ${app.formatTimeAgo(status.last_course_sync_at)}`
                     : 'belum pernah diarsipkan';
 
-                return ` Materi semua kelas ${last} · setiap ${describeInterval(status.courses_interval_minutes)}.`;
+                return ` · Materi ${last}.`;
             };
 
             const describeBackgroundSync = (status) => {
                 if (!status.enabled) {
-                    return 'Nonaktif. Password tidak disimpan; arsip hanya diperbarui saat kamu membuka WeCIC. Untuk menyalakannya, masukkan password portalmu.';
+                    return 'Nonaktif. Masukkan password portal untuk menyalakan.';
                 }
 
                 if (status.rejected) {
-                    return 'Portal menolak password yang tersimpan. Masuk lagi di WeCIC saat portal online untuk memperbaruinya.';
+                    return 'Password ditolak portal. Masuk ulang saat online.';
                 }
 
                 if (status.pending_login) {
-                    return 'Aktif sejak kamu masuk lagi saat portal online.';
+                    return 'Aktif saat kamu masuk lagi secara online.';
                 }
 
                 if (status.last_status === 'running') {
-                    return `Sedang berjalan, mulai ${app.formatTimeAgo(status.last_synced_at)} · setiap ${describeInterval(status.interval_minutes)}, sampai ${status.credential_days} hari setelah login terakhirmu.${describeCourseSync(status)}`;
+                    return `Sedang berjalan · setiap ${describeInterval(status.interval_minutes)}.${describeCourseSync(status)}`;
                 }
 
                 const lastSync = status.last_synced_at ? `Terakhir ${app.formatTimeAgo(status.last_synced_at)}` : 'Belum pernah berjalan';
@@ -292,7 +293,7 @@
                     rejected: 'password ditolak',
                 }[status.last_status] || '';
 
-                return `${lastSync}${outcome ? ` (${outcome})` : ''} · setiap ${describeInterval(status.interval_minutes)}, sampai ${status.credential_days} hari setelah login terakhirmu.${describeCourseSync(status)}`;
+                return `${lastSync}${outcome ? ` (${outcome})` : ''} · setiap ${describeInterval(status.interval_minutes)}.${describeCourseSync(status)}`;
             };
 
             const renderBackgroundSync = (status) => {
@@ -352,7 +353,7 @@
 
                 hideBackgroundSyncForm();
 
-                if (!enabled && !window.confirm('Matikan sinkronisasi di background? Password yang tersimpan langsung dihapus dan arsip hanya diperbarui saat kamu membuka WeCIC.')) {
+                if (!enabled && !window.confirm('Matikan sinkronisasi di background? Password tersimpan akan langsung dihapus.')) {
                     backgroundSyncToggle.checked = true;
 
                     return;
@@ -425,7 +426,7 @@
             });
 
             deleteButton.addEventListener('click', () => {
-                if (!window.confirm('Hapus seluruh arsip WeCIC kamu? Riwayat data, berkas materi, dan akses offline akan hilang dan tidak bisa dikembalikan.')) {
+                if (!window.confirm('Hapus seluruh arsip WeCIC kamu? Data dan akses offline tidak bisa dikembalikan.')) {
                     return;
                 }
 

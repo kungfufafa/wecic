@@ -69,13 +69,10 @@
 
             <x-card as="section" id="class-study" aria-labelledby="class-study-title">
                 <x-card.body class="flex flex-col gap-4">
-                    <div class="min-w-0">
-                        <h2 class="text-sm font-semibold text-ink" id="class-study-title">Arsip &amp; belajar</h2>
-                        <p class="mt-1 text-[13px] leading-relaxed text-ink-muted">Setiap mata kuliah punya notebook sendiri. Pertemuan yang kamu buka masuk otomatis; dari notebook kamu bisa belajar mandiri atau menyusun kerangka tugas dari materinya.</p>
-                    </div>
+                    <h2 class="text-sm font-semibold text-ink" id="class-study-title">Arsip &amp; belajar</h2>
                     <div class="flex flex-col gap-2">
-                        <x-button class="w-full" id="class-open-notebook">Buka notebook mata kuliah ini</x-button>
-                        <x-button variant="secondary" class="w-full" id="class-archive-materials" data-online-required>Arsipkan semua materi</x-button>
+                        <x-button class="w-full" id="class-open-notebook">Buka Notebook</x-button>
+                        <x-button variant="secondary" class="w-full" id="class-archive-materials" data-online-required>Arsipkan materi</x-button>
                     </div>
                 </x-card.body>
             </x-card>

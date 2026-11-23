@@ -140,6 +140,6 @@
                 announcementsHost.removeAttribute('aria-busy');
                 announcementsHost.innerHTML = items.length
                     ? `<ul class="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">${items.map((item) => renderAnnouncementCard(item, readIds)).join('')}</ul>`
-                    : app.renderEmptyState('Belum ada pengumuman.', 'secondary', 'Pengumuman baru dari portal kampus akan muncul di sini.', { icon: 'announcement' });
+                    : app.renderEmptyState('Belum ada pengumuman.', 'secondary', '', { icon: 'announcement' });
             };
 

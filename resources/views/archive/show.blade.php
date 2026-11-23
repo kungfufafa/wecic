@@ -9,7 +9,6 @@
 
 @section('content')
     <x-page-hero :back="route('archive.index')" back-label="Arsip WeCIC" :title="'Riwayat '.$label">
-        <x-slot:subtitle>Setiap versi berbeda yang pernah ditampilkan portal kampus, dari yang terbaru. Versi bertanda "Dipakai" adalah yang sedang ditampilkan WeCIC.</x-slot:subtitle>
         <div class="mt-4 hidden" id="archive-group-picker">
             <label class="flex max-w-md flex-col gap-1.5">
                 <span class="text-sm font-medium text-ink">Pilih data</span>
@@ -87,7 +86,7 @@
                 versionsCount.classList.toggle('hidden', state.versions.length === 0);
 
                 if (!state.versions.length) {
-                    versionsHost.innerHTML = `<li>${app.renderEmptyState('Belum ada versi tersimpan.', 'secondary', 'Arsip terisi otomatis saat halaman data ini dibuka dan disinkronkan dari portal.', { icon: 'history' })}</li>`;
+                    versionsHost.innerHTML = `<li>${app.renderEmptyState('Belum ada versi tersimpan.', 'secondary', '', { icon: 'history' })}</li>`;
 
                     return;
                 }
@@ -132,11 +131,11 @@
                 const total = Number(data.diff_total);
 
                 if (data.diff_truncated === true && total > shown) {
-                    return `Menampilkan ${shown} dari ${total} perubahan. Cetak bukti untuk daftar yang lebih panjang, atau unduh JSON untuk isi lengkap versi ini.`;
+                    return `Menampilkan ${shown} dari ${total} perubahan. Cetak bukti atau unduh JSON untuk lengkapnya.`;
                 }
 
                 if (data.diff_truncated === undefined && shown >= DIFF_LIMIT) {
-                    return `Menampilkan ${shown} perubahan pertama; mungkin masih ada yang lain. Cetak bukti untuk daftar yang lebih panjang, atau unduh JSON untuk isi lengkap versi ini.`;
+                    return `Menampilkan ${shown} perubahan pertama. Cetak bukti atau unduh JSON untuk lengkapnya.`;
                 }
 
                 return '';
@@ -201,14 +200,14 @@
                                 <div class="min-w-0 flex-1">
                                     <p class="font-medium">Kenapa ditahan</p>
                                     <ul class="mt-1 flex list-disc flex-col gap-1 ps-5">${version.findings.map((finding) => `<li>${app.escapeHtml(finding.message)}</li>`).join('')}</ul>
-                                    ${version.status === 'suspect' ? '<p class="mt-2 text-ink-muted">Kalau perubahan ini memang benar (misalnya nilai direvisi resmi), terima versinya. Kalau salah, tolak dan simpan bukti untuk dilaporkan ke kampus.</p>' : ''}
+                                    ${version.status === 'suspect' ? '<p class="mt-2 text-ink-muted">Terima jika revisi resmi, tolak jika keliru.</p>' : ''}
                                 </div>
                             </div>
                         ` : ''}
                         ${pending ? `
                             <div class="flex flex-wrap gap-2">
-                                <button type="button" class="${app.ui.button.primary}" data-archive-action="accept">Data portal benar, pakai versi ini</button>
-                                ${version.status === 'suspect' ? `<button type="button" class="${app.ui.button.secondary}" data-archive-action="reject">Data portal salah, tetap pakai yang lama</button>` : ''}
+                                <button type="button" class="${app.ui.button.primary}" data-archive-action="accept">Pakai versi ini</button>
+                                ${version.status === 'suspect' ? `<button type="button" class="${app.ui.button.secondary}" data-archive-action="reject">Tolak versi ini</button>` : ''}
                             </div>
                         ` : ''}
                         <div class="flex flex-wrap gap-2">
@@ -223,7 +222,7 @@
                         </div>
                         <section class="flex flex-col gap-3 border-t border-border-light pt-4">
                             <h3 class="${app.ui.cardTitle}">${data.baseline ? `Dibanding versi ${app.escapeHtml(formatMoment(data.baseline.first_seen_at))}` : 'Versi pertama'}</h3>
-                            ${data.baseline ? renderDiff(data) : `<div class="${app.ui.inset} text-sm text-ink-subtle">Ini versi pertama yang tersimpan, jadi belum ada pembanding.</div>`}
+                            ${data.baseline ? renderDiff(data) : `<div class="${app.ui.inset} text-sm text-ink-subtle">Versi pertama — belum ada pembanding.</div>`}
                         </section>
                     </div>
                 `;

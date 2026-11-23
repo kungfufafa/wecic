@@ -20,7 +20,6 @@
                 <x-slot:value class="truncate max-sm:text-lg" data-finance-metric="total">
                     <x-skeleton class="h-7 w-24" />
                 </x-slot:value>
-                <x-slot:note>total di histori portal</x-slot:note>
             </x-metric>
             <x-metric label="Transaksi">
                 <x-slot:value class="max-sm:text-lg" data-finance-metric="count">
@@ -55,10 +54,7 @@
             <section id="tahap-ukt" class="scroll-mt-20 lg:col-span-7 xl:col-span-8" aria-labelledby="finance-stages-title">
                 <x-card>
                     <x-card.header>
-                        <div class="min-w-0">
-                            <x-card.title id="finance-stages-title">Progres UKT</x-card.title>
-                            <p class="mt-0.5 text-[13px] text-ink-muted">Tahap pembayaran per tahun kuliah, dibaca dari histori dan tagihan portal.</p>
-                        </div>
+                        <x-card.title id="finance-stages-title">Progres UKT</x-card.title>
                     </x-card.header>
                     <x-card.body class="flex flex-col gap-4" id="finance-stages" aria-busy="true">
                         <span class="sr-only">Memuat tahap UKT…</span>
@@ -214,7 +210,7 @@
                 return `
                     <div class="${app.alertTone(tone)}" role="status" data-finance-deadline>
                         <p class="font-medium">Batas bayar ${deadline.stage ? `UKT tahap ${app.escapeHtml(deadline.stage)}` : 'kuliah'}: ${app.escapeHtml(app.formatIndonesianDate(deadline.date, { weekday: true }))}</p>
-                        <p class="mt-0.5 text-sm text-ink-muted">${app.escapeHtml(app.capitalize(app.formatRelativeDays(deadline.date)))}. Bayar sebelum tanggal ini supaya akses portal tidak terganggu.</p>
+                        <p class="mt-0.5 text-sm text-ink-muted">${app.escapeHtml(app.capitalize(app.formatRelativeDays(deadline.date)))}.</p>
                         ${deadline.text ? `
                             <details class="mt-2 text-xs">
                                 <summary class="cursor-pointer font-medium text-ink-muted">Lihat teks dari portal</summary>
@@ -249,7 +245,7 @@
                     parts.push(`
                         <div class="${app.alertTone('neutral')}" role="status" data-finance-bill-status="unknown">
                             <p class="font-medium text-ink">Status tagihan tidak terbaca</p>
-                            <p class="mt-1 text-sm">Tabel tagihan di portal tidak bisa dibaca, jadi WeCIC belum tahu ada tagihan atau tidak. Bukan berarti kamu tidak punya tagihan.</p>
+                            <p class="mt-1 text-sm">Tabel tagihan portal belum terbaca. Cek ulang atau buka portal.</p>
                             <div class="mt-3 flex flex-wrap gap-2">
                                 <button type="button" class="${app.buttonClass('secondary', { small: true })}" data-finance-retry data-online-required>Coba lagi</button>
                                 <a href="${app.escapeHtml(portalFinanceUrl)}" target="_blank" rel="noopener noreferrer" class="${app.buttonClass('ghost', { small: true })}">Buka di portal<span class="sr-only"> (tab baru, perlu masuk lagi)</span></a>
@@ -308,8 +304,8 @@
                 if (summary?.stage1_paid_for_current_year === false) {
                     parts.push(`
                         <p class="${app.alertTone('info')}">
-                            UKT tahap 1 tahun ini belum lunas. Pelunasan tahap 1 jadi syarat her-registrasi sebelum PIN KRS terbit.
-                            <a href="/krs" class="${app.ui.link}">Cek status KRS</a>
+                            UKT tahap 1 belum lunas (syarat her-registrasi KRS).
+                            <a href="/krs" class="${app.ui.link}">Cek KRS</a>
                         </p>
                     `);
                 }
@@ -480,8 +476,6 @@
                             <div class="pb-3 pt-1">${renderStepper(year, nextStage)}</div>
                         </details>
                     `).join('')}</div>` : ''}
-                    ${allStages.some((stage) => stage?.status === 'unknown') ? '<p class="text-xs text-ink-subtle"><span class="font-medium text-ink-muted">Belum pasti</span> berarti tahap itu tidak ada di histori maupun tagihan portal. Tahap yang dibayar saat pendaftaran (PMB) sering tidak tercatat di histori.</p>' : ''}
-                    ${allStages.some((stage) => stage?.is_partial) ? '<p class="text-xs text-ink-subtle"><span class="font-medium text-ink-muted">Sebagian</span> berarti nominal yang tercatat kurang dari nominal tahap.</p>' : ''}
                 `;
             };
 
@@ -510,7 +504,7 @@
                                 <span class="${partial ? app.ui.badge.warning : app.ui.badge.success}">${partial ? 'Dibayar sebagian' : 'Tercatat di histori portal'}</span>
                             </div>
                             ${app.renderKeyValueList(entries)}
-                            <p class="text-xs text-ink-subtle">Ringkasan dari histori portal, bukan kwitansi resmi.</p>
+                            <p class="text-xs text-ink-subtle">Bukan kwitansi resmi.</p>
                         </div>
                     `,
                 });
@@ -523,9 +517,9 @@
                     body: `
                         <div class="flex flex-col gap-3 text-sm text-ink-muted">
                             <ol class="flex list-decimal flex-col gap-2 ps-5">
-                                <li>Portal kampus tidak punya tombol bayar atau virtual account. Bayar di luar portal sesuai petunjuk resmi Bagian Keuangan.</li>
-                                <li>Pakai tombol <span class="font-medium text-ink">Salin nominal</span> supaya jumlah yang kamu bayar pas.</li>
-                                <li>Simpan bukti bayar. Tagihan baru hilang dari portal setelah Bagian Keuangan mencatat pembayaranmu, jadi bisa butuh beberapa hari.</li>
+                                <li>Bayar di luar portal sesuai petunjuk Bagian Keuangan.</li>
+                                <li>Gunakan <span class="font-medium text-ink">Salin nominal</span> agar jumlah sesuai.</li>
+                                <li>Simpan bukti bayar; status terbarui setelah diverifikasi Bagian Keuangan.</li>
                             </ol>
                             <a href="/announcement?kategori=pembayaran" class="${app.ui.sheetAction}">
                                 <span class="${app.ui.sheetActionIcon}">
@@ -581,7 +575,7 @@
                 if (filtered.length === 0) {
                     container.innerHTML = `
                         <div class="${app.ui.cardBody}">
-                            ${app.renderEmptyState(query ? 'Tidak ada hasil.' : 'Belum ada pembayaran tercatat.', 'secondary', query ? 'Coba kata kunci lain.' : 'Pembayaran yang sudah dicatat Bagian Keuangan akan muncul di sini.', { icon: query ? 'search' : 'receipt' })}
+                            ${app.renderEmptyState(query ? 'Tidak ada hasil.' : 'Belum ada pembayaran tercatat.', 'secondary', query ? 'Coba kata kunci lain.' : '', { icon: query ? 'search' : 'receipt' })}
                         </div>
                     `;
 

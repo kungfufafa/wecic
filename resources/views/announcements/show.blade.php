@@ -298,9 +298,6 @@
                                 `;
                             }).join('')}
                         </ol>
-                        <div class="${app.ui.cardFooter}">
-                            <p class="text-xs text-ink-subtle">Centang hanya tersimpan di perangkat ini sebagai pengingat pribadi.</p>
-                        </div>
                     </section>
                 `;
             };
@@ -425,7 +422,7 @@
 
             const linkAction = (link) => {
                 if (link.is_campus_file) {
-                    return { href: link.href, icon: ICONS.file, title: `Unduh ${link.label || 'berkas'}`, detail: 'Berkas kampus · dibuka lewat WeCIC', external: true, onlineRequired: true };
+                    return { href: link.href, icon: ICONS.file, title: `Unduh ${link.label || 'berkas'}`, detail: 'Berkas kampus', external: true, onlineRequired: true };
                 }
 
                 if (link.kind === 'form') {
@@ -461,7 +458,7 @@
                             <span class="${app.ui.iconTile.neutral} size-9" aria-hidden="true">${ICONS.calendar}</span>
                             <span class="min-w-0 flex-1">
                                 <span class="block font-medium text-ink">Tambah ke kalender</span>
-                                <span class="block truncate text-xs text-ink-subtle">${upcoming.length} tenggat · berkas .ics dengan pengingat H-1</span>
+                                <span class="block truncate text-xs text-ink-subtle">${upcoming.length} tenggat (.ics)</span>
                             </span>
                         </button>
                     ` : '',
@@ -475,7 +472,7 @@
                         <div class="${app.ui.cardHeader}">
                             ${cardHeading('announcement-actions-title', 'Tautan & tindakan')}
                         </div>
-                        ${rows.length ? `<div class="${app.ui.list}">${rows.join('')}</div>` : `<p class="${app.ui.cardBody} text-sm text-ink-subtle">Pengumuman ini tidak memuat tautan, berkas, atau email.</p>`}
+                        ${rows.length ? `<div class="${app.ui.list}">${rows.join('')}</div>` : `<p class="${app.ui.cardBody} text-sm text-ink-subtle">Tidak ada tautan.</p>`}
                         ${categoryLink ? `<div class="${app.ui.cardFooter}">${categoryLink}</div>` : ''}
                     </section>
                 `;

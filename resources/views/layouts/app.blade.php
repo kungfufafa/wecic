@@ -309,7 +309,7 @@
                             <x-alert tone="warning" class="mb-4 flex flex-wrap items-center justify-between gap-3 print:hidden" role="status" data-portal-offline-banner>
                                 <span class="min-w-0">
                                     <span class="block font-medium">Mode offline</span>
-                                    <span class="block text-sm">Portal kampus tidak bisa diakses saat kamu masuk. Data diambil dari arsip WeCIC. Absen dan upload yang kamu kirim disimpan dulu di antrean WeCIC (belum terkirim ke portal) dan dikirim otomatis begitu portal pulih, selama tenggatnya belum lewat; sinkronisasi menunggu. <span data-portal-offline-reconnect-text>{{ \App\Http\Controllers\API\PortalAuthController::offlineReconnectMessage(session('campus_offline_reconnect')) }}</span></span>
+                                    <span class="block text-sm">Portal kampus sedang offline. Data dari arsip WeCIC; absen &amp; upload masuk antrean dan belum terkirim ke portal. <span data-portal-offline-reconnect-text>{{ \App\Http\Controllers\API\PortalAuthController::offlineReconnectMessage(session('campus_offline_reconnect')) }}</span></span>
                                 </span>
                                 <x-button variant="secondary" size="sm" data-logout="">Masuk ulang</x-button>
                             </x-alert>

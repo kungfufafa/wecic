@@ -9,61 +9,61 @@
         [
             'title' => 'Kuliah',
             'tiles' => [
-                ['key' => 'class', 'label' => 'Jadwal & Kelas', 'caption' => 'Jadwal, materi, dan absensi', 'href' => route('class.index'), 'icon' => 'class'],
-                ['key' => 'exam', 'label' => 'Ujian', 'caption' => 'Jadwal UTS/UAS dan upload jawaban', 'href' => route('exam.index'), 'icon' => 'exam'],
+                ['key' => 'class', 'label' => 'Jadwal & Kelas', 'caption' => 'Jadwal & absensi', 'href' => route('class.index'), 'icon' => 'class'],
+                ['key' => 'exam', 'label' => 'Ujian', 'caption' => 'UTS/UAS & upload', 'href' => route('exam.index'), 'icon' => 'exam'],
             ],
         ],
         [
             'title' => 'Akademik',
             'tiles' => [
-                ['key' => 'krs', 'label' => 'KRS & Perwalian', 'caption' => 'Status KRS dan kontak DPA', 'href' => route('krs.index'), 'icon' => 'list-check'],
+                ['key' => 'krs', 'label' => 'KRS & Perwalian', 'caption' => 'Status & DPA', 'href' => route('krs.index'), 'icon' => 'list-check'],
                 ['key' => 'grades', 'label' => 'Nilai (KHS)', 'caption' => 'Nilai per semester', 'href' => route('grades.index'), 'icon' => 'chart'],
-                ['key' => 'transcript', 'label' => 'Transkrip', 'caption' => 'IPK dan progres studi', 'href' => route('transcript.index'), 'icon' => 'file'],
+                ['key' => 'transcript', 'label' => 'Transkrip', 'caption' => 'IPK & progres', 'href' => route('transcript.index'), 'icon' => 'file'],
             ],
         ],
         [
             'title' => 'Keuangan & kegiatan',
             'tiles' => [
-                ['key' => 'finance', 'label' => 'Keuangan', 'caption' => 'Tagihan dan riwayat bayar', 'href' => route('finance.index'), 'icon' => 'finance'],
-                ['key' => 'skkm', 'label' => 'SKKM', 'caption' => 'Poin kegiatan mahasiswa', 'href' => route('skkm.index'), 'icon' => 'skkm'],
-                ['key' => 'announcement', 'label' => 'Pengumuman', 'caption' => 'Info dan tenggat kampus', 'href' => route('announcement.index'), 'icon' => 'announcement'],
+                ['key' => 'finance', 'label' => 'Keuangan', 'caption' => 'Tagihan & riwayat', 'href' => route('finance.index'), 'icon' => 'finance'],
+                ['key' => 'skkm', 'label' => 'SKKM', 'caption' => 'Poin kegiatan', 'href' => route('skkm.index'), 'icon' => 'skkm'],
+                ['key' => 'announcement', 'label' => 'Pengumuman', 'caption' => 'Info & tenggat', 'href' => route('announcement.index'), 'icon' => 'announcement'],
             ],
         ],
         [
             'title' => 'Skripsi & pustaka',
             'tiles' => [
-                ['key' => 'thesis', 'label' => 'Skripsi', 'caption' => 'Syarat, status, dan kesiapan', 'href' => route('thesis.index'), 'icon' => 'thesis'],
-                ['key' => 'library', 'label' => 'Perpustakaan', 'caption' => 'Repositori skripsi dan e-Book', 'href' => route('library.index'), 'icon' => 'library'],
+                ['key' => 'thesis', 'label' => 'Skripsi', 'caption' => 'Syarat & status', 'href' => route('thesis.index'), 'icon' => 'thesis'],
+                ['key' => 'library', 'label' => 'Perpustakaan', 'caption' => 'Repositori & e-Book', 'href' => route('library.index'), 'icon' => 'library'],
             ],
         ],
         [
             // An extra feature of WeCIC, not a portal menu: the Notebook and its own settings.
             'title' => 'Notebook',
             'tiles' => [
-                ['key' => 'notebook', 'label' => 'Notebook', 'caption' => 'Tanya jawab dan ringkasan dari materi kuliah', 'href' => route('notebook.index'), 'icon' => 'notebook'],
-                ['key' => 'ai-settings', 'label' => 'Pengaturan AI', 'caption' => 'Penyedia dan API key Notebook', 'href' => route('notebook.ai-settings'), 'icon' => 'settings'],
+                ['key' => 'notebook', 'label' => 'Notebook', 'caption' => 'Tanya jawab materi', 'href' => route('notebook.index'), 'icon' => 'notebook'],
+                ['key' => 'ai-settings', 'label' => 'Pengaturan AI', 'caption' => 'Penyedia & API key', 'href' => route('notebook.ai-settings'), 'icon' => 'settings'],
             ],
         ],
         [
             'title' => 'Cadangan',
             'tiles' => [
-                ['key' => 'archive', 'label' => 'Arsip WeCIC', 'caption' => 'Cadangan data portal dan materi', 'href' => route('archive.index'), 'icon' => 'archive'],
+                ['key' => 'archive', 'label' => 'Arsip WeCIC', 'caption' => 'Cadangan & materi', 'href' => route('archive.index'), 'icon' => 'archive'],
             ],
         ],
         [
             'title' => 'Akun',
             'tiles' => [
-                ['key' => 'profile', 'label' => 'Profil', 'caption' => 'Data diri di portal', 'href' => route('profile'), 'icon' => 'user'],
-                ['key' => 'password', 'label' => 'Ubah password', 'caption' => 'Ganti password portal', 'href' => route('password.edit'), 'icon' => 'lock'],
-                ['key' => 'privacy', 'label' => 'Privasi & bantuan', 'caption' => 'Kebijakan privasi, bantuan, dan hapus data', 'href' => route('legal.privacy'), 'icon' => 'help'],
-                ['key' => 'portal', 'label' => 'Portal kampus', 'caption' => 'Buka situs resmi', 'href' => config('portal.base_url'), 'icon' => 'world', 'external' => true],
+                ['key' => 'profile', 'label' => 'Profil', 'caption' => 'Data diri', 'href' => route('profile'), 'icon' => 'user'],
+                ['key' => 'password', 'label' => 'Ubah password', 'caption' => 'Ganti password', 'href' => route('password.edit'), 'icon' => 'lock'],
+                ['key' => 'privacy', 'label' => 'Privasi & bantuan', 'caption' => 'Privasi & bantuan', 'href' => route('legal.privacy'), 'icon' => 'help'],
+                ['key' => 'portal', 'label' => 'Portal kampus', 'caption' => 'Situs resmi', 'href' => config('portal.base_url'), 'icon' => 'world', 'external' => true],
             ],
         ],
     ];
 @endphp
 
 @section('content')
-    <x-page-hero title="Lainnya" subtitle="Semua menu portal kampus di satu tempat. Angka merah atau kuning berarti ada yang perlu kamu urus." />
+    <x-page-hero title="Lainnya" />
 
     <x-split at="xl">
         {{-- Who is signed in (filled by session.js hydrateUser), with the way to the profile. --}}
@@ -113,7 +113,6 @@
                                     <x-icon name="logout" class="text-danger" />
                                     <span class="min-w-0 flex-1">
                                         <span class="block truncate text-sm font-medium text-danger">Keluar</span>
-                                        <span class="mt-0.5 block truncate text-xs text-ink-subtle">Keluar dari perangkat ini</span>
                                     </span>
                                 </button>
                             @endif
@@ -131,10 +130,7 @@
                 aria-labelledby="more-guides-title"
             >
                 <x-card.header>
-                    <div class="min-w-0">
-                        <h2 class="text-sm font-semibold tracking-tight text-ink" id="more-guides-title">Panduan</h2>
-                        <p class="mt-0.5 text-[13px] text-ink-muted">Panduan resmi dari portal kampus, dibuka lewat WeCIC.</p>
-                    </div>
+                    <h2 class="text-sm font-semibold tracking-tight text-ink" id="more-guides-title">Panduan</h2>
                 </x-card.header>
                 <x-card.body id="more-guides">
                     <div class="flex flex-col gap-3" aria-busy="true">
@@ -166,7 +162,7 @@
                     guidesHost.innerHTML = app.renderEmptyState(
                         'Panduan belum terbaca dari portal.',
                         'secondary',
-                        'Coba sinkronkan lagi nanti, atau buka langsung di Portal kampus.',
+                        'Coba sinkronkan lagi.',
                         { icon: 'help' }
                     );
                     guidesRendered = context !== undefined;
@@ -192,7 +188,7 @@
                                     ${app.renderIcon('file', 'md', 'text-ink-subtle')}
                                     <span class="${app.ui.listRowBody}">
                                         <span class="block ${app.ui.listRowTitle}">${app.escapeHtml(link.label || link.filename || 'Panduan')}</span>
-                                        <span class="block ${app.ui.listRowSubtitle}">PDF · butuh koneksi internet</span>
+                                        <span class="block ${app.ui.listRowSubtitle}">PDF</span>
                                     </span>
                                     ${app.renderIcon('external-link', 'sm', app.ui.listRowChevron)}
                                 </a>

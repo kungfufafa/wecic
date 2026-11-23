@@ -10,7 +10,7 @@
     the grade spread.
 --}}
 @section('content')
-    <x-page-hero title="Akademik" subtitle="IPK, progres SKS menuju lulus, dan apa yang bisa kamu perbaiki.">
+    <x-page-hero title="Akademik">
         <x-slot:meta><span class="text-ink-subtle" data-transcript-updated></span></x-slot:meta>
         <x-slot:tabs><x-academic-menu active="transcript" underline /></x-slot:tabs>
     </x-page-hero>
@@ -44,7 +44,6 @@
                 <x-card.header>
                     <div class="min-w-0">
                         <x-card.title id="transcript-sim-title">Simulasi target IPK</x-card.title>
-                        <x-card.subtitle>Berapa rata-rata IPS yang kamu butuhkan supaya IPK mencapai target.</x-card.subtitle>
                     </div>
                 </x-card.header>
                 <form class="flex flex-col gap-5 p-4 sm:p-5" id="transcript-sim-form" novalidate>
@@ -60,10 +59,10 @@
                                 min="0"
                                 max="4"
                                 step="0.01"
-                                aria-describedby="transcript-sim-target-hint transcript-sim-target-error"
+                                placeholder="3.50"
+                                aria-describedby="transcript-sim-target-error"
                                 disabled
                             />
-                            <p class="text-xs leading-relaxed text-ink-subtle" id="transcript-sim-target-hint">Antara 0 dan 4, dua angka di belakang koma.</p>
                             <p class="hidden text-xs font-medium leading-relaxed text-danger" id="transcript-sim-target-error"></p>
                         </div>
                         <div class="flex flex-col gap-1.5">
@@ -77,10 +76,10 @@
                                 min="1"
                                 max="200"
                                 step="1"
-                                aria-describedby="transcript-sim-sks-hint transcript-sim-sks-error"
+                                placeholder="20"
+                                aria-describedby="transcript-sim-sks-error"
                                 disabled
                             />
-                            <p class="text-xs leading-relaxed text-ink-subtle" id="transcript-sim-sks-hint">Satu semester biasanya 18–24 SKS.</p>
                             <p class="hidden text-xs font-medium leading-relaxed text-danger" id="transcript-sim-sks-error"></p>
                         </div>
                     </div>
@@ -88,7 +87,6 @@
                     <div id="transcript-sim-result" aria-live="polite">
                         <p class="text-sm text-ink-subtle">Simulasi siap setelah transkrip dimuat.</p>
                     </div>
-                    <p class="text-xs text-ink-subtle">Perkiraan dari IPK dan SKS saat ini. Perbaikan nilai MK yang diulang tidak ikut dihitung.</p>
                 </form>
             </x-card>
 
@@ -96,7 +94,7 @@
                 <x-card.header class="flex-col max-sm:items-stretch sm:flex-row">
                     <div class="min-w-0">
                         <x-card.title id="transcript-table-title">Daftar nilai</x-card.title>
-                        <x-card.subtitle id="transcript-table-caption" class="tabular-nums">Nilai terbaik tiap mata kuliah.</x-card.subtitle>
+                        <x-card.subtitle id="transcript-table-caption" class="tabular-nums empty:hidden"></x-card.subtitle>
                     </div>
                     <div class="relative flex w-full items-center sm:w-64">
                         <label for="transcript-search" class="sr-only">Cari mata kuliah, kode, atau nilai</label>
@@ -241,20 +239,20 @@
                 const fieldLabels = { ipk: 'IPK', sks_total: 'jumlah SKS', quality_points_total: 'total mutu' };
 
                 if (summary.source === 'computed') {
-                    alerts.push(`<div class="${app.alertTone('info')}">Ringkasan resmi portal belum terbaca. Angka di halaman ini <strong class="font-medium text-ink">dihitung WeCIC</strong> dari KHS.</div>`);
+                    alerts.push(`<div class="${app.alertTone('info')}">Ringkasan resmi portal belum terbaca; angka <strong class="font-medium text-ink">dihitung WeCIC</strong> dari KHS.</div>`);
                 } else if (summary.mismatch) {
                     const fields = (summary.mismatch_fields || []).map((field) => fieldLabels[field] || field).join(', ');
 
                     alerts.push(`
                         <div class="${app.alertTone('warning')}">
                             <div class="font-medium">Angka resmi portal berbeda dengan hitungan WeCIC</div>
-                            <p class="mt-1">Yang berbeda: ${esc(fields || 'ringkasan nilai')}. WeCIC memakai angka resmi portal. Kalau ragu, cocokkan dengan KHS di portal kampus.</p>
+                            <p class="mt-1">Yang berbeda: ${esc(fields || 'ringkasan nilai')}. Ditampilkan angka resmi portal.</p>
                         </div>
                     `);
                 }
 
                 if (data.is_partial) {
-                    alerts.push(`<div class="${app.alertTone('warning')}"><span class="me-1">${app.renderBadge('Data sebagian', 'warning')}</span> Halaman nilai SIPANDAI gagal dibaca, jadi WeCIC memakai nilai dari halaman KRS.</div>`);
+                    alerts.push(`<div class="${app.alertTone('warning')}"><span class="me-1">${app.renderBadge('Data sebagian', 'warning')}</span> Memakai nilai dari KRS (halaman nilai belum terbaca).</div>`);
                 }
 
                 hosts.alerts.innerHTML = alerts.join('');
@@ -298,11 +296,11 @@
                     },
                 ];
                 const caption = [
-                    progress.target_sks_source === 'config' ? 'Target SKS memakai standar 144 SKS karena portal belum menyebut sisa SKS.' : '',
-                    conversionSks > 0 ? `Termasuk ${conversionSks} SKS konversi (${conversion.course_count} MK di KRS semester T), tanpa nilai sehingga tidak masuk IPK.` : '',
-                    conversion.status === 'failed' ? 'KRS konversi (semester T) gagal dibaca, jadi sisa SKS belum dikurangi SKS konversi.' : '',
+                    progress.target_sks_source === 'config' ? 'Target standar 144 SKS.' : '',
+                    conversionSks > 0 ? `Termasuk ${conversionSks} SKS konversi.` : '',
+                    conversion.status === 'failed' ? 'KRS konversi gagal dibaca.' : '',
                     progress.target_sks_source !== 'config' && conversionSks === 0 && conversion.status !== 'failed' && data.excluded_semesters?.length
-                        ? `Semester ${data.excluded_semesters.join(', ')} (non-reguler) tidak dihitung.`
+                        ? `Semester ${data.excluded_semesters.join(', ')} tidak dihitung.`
                         : '',
                 ].filter(Boolean).join(' ');
 
@@ -370,7 +368,7 @@
                                 min: 0,
                                 max: 4,
                                 valueFormat: (value) => value.toFixed(2),
-                            }) : app.renderEmptyState('Belum ada semester yang dinilai.', 'secondary', 'Tren muncul setelah nilai semester pertama keluar.')}
+                            }) : app.renderEmptyState('Belum ada semester yang dinilai.', 'secondary')}
                             ${series.length ? `
                                 <ul class="flex flex-wrap gap-2" aria-label="IPS tiap semester">
                                     ${series.map((point) => `
@@ -433,7 +431,7 @@
                                 </span>
                                 <div class="min-w-0">
                                     <h2 class="text-sm font-medium leading-snug text-ink" id="transcript-low-title">Tidak ada nilai D atau E</h2>
-                                    <p class="mt-0.5 text-xs text-ink-subtle">${cCount ? `Ada ${esc(cCount)} MK bernilai C. Mengulangnya bisa menaikkan IPK.` : 'Pertahankan! Semua mata kuliah lulus dengan nilai minimal C.'}</p>
+                                    <p class="mt-0.5 text-xs text-ink-subtle">${cCount ? `${esc(cCount)} MK bernilai C.` : 'Semua MK minimal nilai C.'}</p>
                                 </div>
                             </div>
                         </section>
@@ -445,10 +443,7 @@
                 hosts.low.innerHTML = `
                     <section class="${app.ui.card}" data-slot="card" aria-labelledby="transcript-low-title">
                         <div class="${app.ui.cardHeader}">
-                            <div class="min-w-0">
-                                <h2 class="${app.ui.cardTitle}" id="transcript-low-title">Perlu diperbaiki</h2>
-                                <p class="${app.ui.cardSubtitle}">Nilai D dan E menurunkan IPK. Mengulang MK ini lewat KRS reguler atau Semester Pendek bisa menaikkannya.</p>
-                            </div>
+                            <h2 class="${app.ui.cardTitle}" id="transcript-low-title">Perlu diperbaiki</h2>
                         </div>
                         <ul class="${app.ui.list}" aria-label="Mata kuliah bernilai D atau E">
                             ${courses.map((course) => {
@@ -499,8 +494,8 @@
                 const totalSks = rows.reduce((sum, row) => sum + (Number(row.sks) || 0), 0);
 
                 hosts.tableCaption.textContent = rows.length
-                    ? `${rows.length} MK · ${totalSks} SKS · nilai terbaik bila MK diulang${state.query ? ` · ${shown.length} cocok` : ''}`
-                    : 'Nilai terbaik tiap mata kuliah.';
+                    ? `${rows.length} MK · ${totalSks} SKS${state.query ? ` · ${shown.length} cocok` : ''}`
+                    : '';
 
                 if (!rows.length) {
                     hosts.table.innerHTML = `<div class="${app.ui.cardBody}">${app.renderEmptyState('Belum ada nilai di transkrip.', 'secondary', 'Transkrip terisi setelah nilai semester pertama keluar.', { icon: 'file' })}</div>`;
@@ -676,7 +671,7 @@
                     hosts.simResult.innerHTML = `
                         <div class="${app.statusPanelClass('success')}" data-sim-outcome="safe">
                             <div class="text-sm font-medium leading-snug">Target aman</div>
-                            <p class="mt-0.5 text-sm text-ink">IPK kamu tetap minimal ${esc(target)} berapa pun nilai di ${esc(additionalSks)} SKS berikutnya.</p>
+                            <p class="mt-0.5 text-sm text-ink">IPK tetap minimal ${esc(target)} untuk ${esc(additionalSks)} SKS berikutnya.</p>
                         </div>
                     `;
 
@@ -687,7 +682,7 @@
                     hosts.simResult.innerHTML = `
                         <div class="${app.statusPanelClass('danger')}" data-sim-outcome="unreachable">
                             <div class="text-sm font-medium leading-snug text-danger">${oneSemester ? 'Tidak tercapai semester ini' : `Tidak tercapai dengan ${esc(additionalSks)} SKS`}</div>
-                            <p class="mt-0.5 text-sm text-ink">Butuh rata-rata IPS ${esc(result.required.toFixed(2))}, padahal nilai maksimal 4.00. Coba hitung dengan lebih banyak SKS atau turunkan target.</p>
+                            <p class="mt-0.5 text-sm text-ink">Butuh rata-rata IPS ${esc(result.required.toFixed(2))} (maks. 4.00).</p>
                         </div>
                     `;
 
@@ -695,11 +690,7 @@
                 }
 
                 const tone = result.required > best && best > 0 ? 'warning' : 'brand';
-                const context = best > 0
-                    ? (result.required > best
-                        ? `Lebih tinggi dari IPS terbaikmu sejauh ini (${best.toFixed(2)}), jadi perlu usaha ekstra.`
-                        : `Masih di bawah IPS terbaikmu sejauh ini (${best.toFixed(2)}).`)
-                    : '';
+                const context = best > 0 ? `IPS terbaikmu sejauh ini ${best.toFixed(2)}.` : '';
 
                 hosts.simResult.innerHTML = `
                     <div class="${app.statusPanelClass(tone)} flex items-center gap-4" data-sim-outcome="reachable">
@@ -708,8 +699,8 @@
                             <div class="mt-1 text-[11px] font-medium text-ink-subtle">IPS minimal</div>
                         </div>
                         <div class="min-w-0 text-sm text-ink">
-                            <p>Rata-rata IPS yang kamu butuhkan di ${esc(additionalSks)} SKS berikutnya supaya IPK jadi ${esc(target)}.</p>
-                            ${result.alreadyReached ? `<p class="mt-1 text-xs text-ink-muted">IPK kamu sekarang (${esc(formatIp(result.currentIpk))}) sudah di atas target; jaga rata-rata ini supaya tidak turun.</p>` : ''}
+                            <p>Rata-rata IPS yang dibutuhkan di ${esc(additionalSks)} SKS berikutnya untuk IPK ${esc(target)}.</p>
+                            ${result.alreadyReached ? `<p class="mt-1 text-xs text-ink-muted">IPK sekarang ${esc(formatIp(result.currentIpk))} (sudah di atas target).</p>` : ''}
                             ${context ? `<p class="mt-1 text-xs text-ink-muted">${esc(context)}</p>` : ''}
                         </div>
                     </div>

@@ -11,7 +11,7 @@
         $aiModelSettings = $notebookAi['model_settings'];
         $aiModelExample = count($aiModelSettings) > 1 ? $aiModelSettings[0].' atau '.$aiModelSettings[count($aiModelSettings) - 1] : ($aiModelSettings[0] ?? '');
     @endphp
-    <x-page-hero title="Notebook" subtitle="Tanya materi kuliahmu dan buat bahan belajar. Jawabannya hanya dari sumbermu.">
+    <x-page-hero title="Notebook">
         <x-slot:actions>
             {{-- Ulasan harian; the badge counts the cards waiting today (`review_due` of /api/notebooks). --}}
             <x-button variant="secondary" size="sm" :href="route('notebook.review')" id="notebook-review-link">
@@ -28,27 +28,27 @@
     <div class="flex min-w-0 flex-col gap-6">
         {{-- One banner per reason the AI cannot answer (`ai_status` of /api/notebooks). --}}
         <x-alert tone="warning" icon class="hidden" data-ai-status-banner="disabled" role="status">
-            Fitur AI Notebook dimatikan di server WeCIC. Kamu tetap bisa memasukkan pertemuan dan sumber teks, DOCX, dan PPTX; tanya jawab aktif lagi setelah AI dinyalakan.
+            Fitur AI Notebook dimatikan di server WeCIC. Pertemuan, teks, DOCX, dan PPTX tetap bisa ditambahkan.
         </x-alert>
         <x-alert tone="warning" icon class="hidden" data-ai-status-banner="missing_key" role="status">
-            Fitur AI belum diaktifkan di server WeCIC ({{ $notebookAi['key_setting'] }} kosong). Kamu tetap bisa memasukkan pertemuan dan sumber teks, DOCX, dan PPTX; tanya jawab aktif setelah AI dinyalakan. Kamu juga bisa memakai API key milikmu sendiri di <a class="font-medium underline underline-offset-2" href="{{ route('notebook.ai-settings') }}">Pengaturan AI</a>.
+            AI server belum aktif ({{ $notebookAi['key_setting'] }} kosong). Pertemuan, teks, DOCX, dan PPTX tetap bisa ditambahkan, atau pakai kunci sendiri di <a class="font-medium underline underline-offset-2" href="{{ route('notebook.ai-settings') }}">Pengaturan AI</a>.
         </x-alert>
         <x-alert tone="warning" icon class="hidden" data-ai-status-banner="invalid_key" role="status">
             @if ($notebookAi['own_settings'])
-                Fitur AI sedang tidak bisa dipakai karena kunci API {{ $aiChatLabel }} milikmu ditolak. Perbarui kuncinya di <a class="font-medium underline underline-offset-2" href="{{ route('notebook.ai-settings') }}">Pengaturan AI</a>.
+                Kunci API {{ $aiChatLabel }} milikmu ditolak. Perbarui di <a class="font-medium underline underline-offset-2" href="{{ route('notebook.ai-settings') }}">Pengaturan AI</a>.
             @else
-                Fitur AI sedang tidak bisa dipakai karena kunci API {{ $aiChatLabel }} di server WeCIC ditolak. Pengelola WeCIC perlu memperbarui {{ $notebookAi['key_setting'] }}. Pertemuan dan sumber teks, DOCX, dan PPTX tetap bisa dimasukkan.
+                Fitur AI tidak tersedia karena kunci API {{ $aiChatLabel }} di server WeCIC ditolak. Pengelola perlu memperbarui {{ $notebookAi['key_setting'] }}.
             @endif
         </x-alert>
         <x-alert tone="warning" icon class="hidden" data-ai-status-banner="model_misconfigured" role="status">
             @if ($notebookAi['own_settings'])
-                Fitur AI sedang tidak bisa dipakai karena pengaturan model atau alamat layanan AI milikmu ditolak. Periksa lagi di <a class="font-medium underline underline-offset-2" href="{{ route('notebook.ai-settings') }}">Pengaturan AI</a>.
+                Pengaturan model atau alamat AI milikmu ditolak. Periksa di <a class="font-medium underline underline-offset-2" href="{{ route('notebook.ai-settings') }}">Pengaturan AI</a>.
             @else
-                Fitur AI sedang tidak bisa dipakai karena pengaturan model AI di server WeCIC ditolak (model tidak dikenali, sudah tidak tersedia, atau pengaturannya tidak cocok). Pengelola WeCIC perlu memeriksa pengaturan model AI, misalnya {{ $aiModelExample }}. Pertemuan dan sumber teks, DOCX, dan PPTX tetap bisa dimasukkan.
+                Fitur AI tidak tersedia karena pengaturan model AI di server WeCIC ditolak (model tidak dikenali, sudah tidak tersedia, atau pengaturannya tidak cocok), misalnya {{ $aiModelExample }}.
             @endif
         </x-alert>
 
-        <x-section title="Mata kuliah semester ini" title-id="notebook-courses-title" description="Dibuat otomatis dari daftar kelasmu. Pertemuan yang kamu buka masuk sendiri ke notebooknya.">
+        <x-section title="Mata kuliah semester ini" title-id="notebook-courses-title">
             <x-slot:count id="notebook-courses-count"></x-slot:count>
             <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3" id="notebook-courses" aria-busy="true">
                 <span class="sr-only">Memuat notebook…</span>
@@ -71,9 +71,8 @@
 
         <section class="scroll-mt-20 rounded-xl border border-border bg-panel" id="notebook-create" aria-labelledby="notebook-create-title">
             <x-card.body class="flex flex-col gap-5 lg:flex-row lg:items-end lg:gap-8">
-                <div class="min-w-0 lg:w-72 lg:shrink-0 lg:self-center">
+                <div class="min-w-0 lg:w-52 lg:shrink-0 lg:self-center">
                     <h2 class="text-sm font-semibold tracking-tight text-ink" id="notebook-create-title">Notebook baru</h2>
-                    <p class="mt-0.5 text-[13px] text-ink-muted">Untuk topik lintas mata kuliah, persiapan ujian, atau kumpulan materi pilihanmu sendiri.</p>
                 </div>
                 <form class="grid min-w-0 flex-1 gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end sm:gap-3" id="notebook-create-form">
                     <label class="flex min-w-0 flex-col gap-1.5">
@@ -81,9 +80,9 @@
                         <x-input id="notebook-title" name="title" maxlength="120" required placeholder="Persiapan UTS Basis Data" />
                     </label>
                     <label class="flex min-w-0 flex-col gap-1.5">
-                        <span class="text-sm font-medium text-ink">Isi otomatis dengan materi (opsional)</span>
+                        <span class="text-sm font-medium text-ink">Materi kelas (opsional)</span>
                         <x-select id="notebook-course" name="course_key">
-                            <option value="">Tanpa materi, tambah sendiri nanti</option>
+                            <option value="">Kosong</option>
                         </x-select>
                     </label>
                     <x-button type="submit">Buat notebook</x-button>
@@ -168,7 +167,7 @@
                 if (!courses.length) {
                     coursesHost.innerHTML = `<div class="flex flex-col gap-3 sm:col-span-2 xl:col-span-3">${enabled === false
                         ? app.renderEmptyState('Notebook mata kuliah dimatikan di server.', 'secondary', '', { icon: 'notebook' })
-                        : app.renderEmptyState('Daftar kelasmu belum tersimpan.', 'secondary', 'Buka halaman Kuliah sekali, lalu notebook setiap mata kuliah muncul di sini.', { icon: 'class' })}
+                        : app.renderEmptyState('Daftar kelasmu belum tersimpan.', 'secondary', 'Buka halaman Kuliah agar notebook mata kuliah muncul di sini.', { icon: 'class' })}
                         ${enabled === false ? '' : `<div class="flex justify-center"><a href="/class" class="${app.ui.button.primary}">Buka halaman Kuliah</a></div>`}
                     </div>`;
 
@@ -183,7 +182,7 @@
                 const custom = notebooks.filter((notebook) => notebook.kind !== 'course');
 
                 if (!custom.length) {
-                    listHost.innerHTML = `<p class="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border px-4 py-6 text-center text-sm text-ink-subtle sm:col-span-2 xl:col-span-3"><span class="${app.ui.emptyIcon}" aria-hidden="true">${app.renderIcon('notebook', 'lg')}</span>Belum ada notebook buatan sendiri. Buat satu di bawah bila perlu.</p>`;
+                    listHost.innerHTML = `<p class="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border px-4 py-6 text-center text-sm text-ink-subtle sm:col-span-2 xl:col-span-3"><span class="${app.ui.emptyIcon}" aria-hidden="true">${app.renderIcon('notebook', 'lg')}</span>Belum ada notebook buatan sendiri.</p>`;
 
                     return;
                 }

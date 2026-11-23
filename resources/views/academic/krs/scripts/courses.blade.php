@@ -66,7 +66,7 @@
                                 ${app.renderEmptyState(
                                     krs.found === false ? 'Daftar mata kuliah belum terbaca.' : 'Belum ada mata kuliah di KRS semester ini.',
                                     'secondary',
-                                    'Isi KRS lewat portal kampus selama periode dibuka. Panduannya ada di menu Lainnya › Panduan.',
+                                    'Isi KRS lewat portal kampus.',
                                     { icon: 'list-check' }
                                 )}
                                 <div class="mt-3 flex justify-center"><a href="${esc(guideUrl)}" class="${app.buttonClass('secondary', { small: true })}">Buka panduan</a></div>
@@ -126,7 +126,7 @@
                             <div class="flex items-center justify-between gap-3">
                                 <div class="min-w-0 ps-2 lg:ps-0">
                                     <div class="text-sm font-semibold tabular-nums text-ink">${esc(courseCount)} MK · ${esc(sksTotal)} SKS</div>
-                                    ${totalsNote ? `<div class="text-xs text-ink-subtle">${esc(totalsNote)}</div>` : '<div class="text-xs text-ink-subtle">Total KRS semester ini</div>'}
+                                    ${totalsNote ? `<div class="text-xs text-ink-subtle">${esc(totalsNote)}</div>` : ''}
                                 </div>
                                 ${printable ? `<button type="button" class="${app.buttonClass('secondary', { small: true })} shrink-0 print:hidden" data-krs-print>${icons.print}Cetak KRS</button>` : ''}
                             </div>

@@ -4,7 +4,7 @@
 @section('page_id', 'notification-index')
 
 @section('content')
-    <x-page-hero title="Notifikasi" subtitle="Perubahan di portal kampus dan tenggat yang mendekat, tanpa perlu membuka portal." />
+    <x-page-hero title="Notifikasi" />
 
     <div class="flex flex-col gap-6">
         <section class="flex min-w-0 flex-col gap-3" aria-labelledby="notification-list-title">

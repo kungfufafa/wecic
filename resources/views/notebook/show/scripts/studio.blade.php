@@ -46,7 +46,6 @@
 
                 return `
                     <form class="flex flex-col gap-4" data-studio-options>
-                        <p class="text-sm text-ink-muted">${kind === 'quiz' ? 'Kuis latihan untuk menguji pemahamanmu, dengan penjelasan dan rujukan sumber di tiap soal.' : 'Flashcard untuk menghafal istilah dan konsep penting, satu kartu setiap kali.'} Disusun hanya dari ${focus ? 'sumber peta konsep ini' : 'sumber yang dicentang'}.</p>
                         ${focus ? `<p class="rounded-lg border border-border-light bg-surface/40 p-3 text-sm text-ink"><span class="font-medium">Fokus:</span> ${app.escapeHtml(focus)}</p>` : ''}
                         <fieldset class="flex flex-col gap-2">
                             <legend class="${app.ui.label} mb-2">Jumlah ${counts.unit}</legend>
@@ -68,7 +67,7 @@
                                 `).join('')}
                             </div>
                         </fieldset>
-                        <p class="text-xs text-ink-subtle">Konteks terukur: ${chosen.length} sumber${chosen.length !== readySources().length ? ` (dari ${readySources().length} yang siap)` : ''}. ${app.escapeHtml(budgetLine().replace('Membuat latihan', 'Membuat ini'))}</p>
+                        <p class="text-xs text-ink-subtle">${chosen.length} sumber · ${app.escapeHtml(budgetLine().replace('Membuat latihan', 'Membuat ini'))}</p>
                         <button type="submit" class="${app.ui.button.primary}">Buat ${app.escapeHtml((state.studioKinds[kind] || kind).toLowerCase())}</button>
                     </form>
                 `;
@@ -79,7 +78,7 @@
 
                 return `
                     <form class="flex flex-col gap-3" data-studio-options>
-                        <p class="text-sm text-ink-muted">Tulis instruksi tugas dari dosen (atau tempel dari portal). Kerangka, poin per bagian, konsep kunci bersitasi, langkah kerja, dan checklist disusun hanya dari sumber yang dicentang, agar kamu menulis sendiri dengan cepat dan rapi.</p>
+                        <p class="text-sm text-ink-muted">Tempel instruksi tugas untuk menyusun kerangka dari sumber yang dicentang.</p>
                         <label class="${app.ui.field}">
                             <span class="${app.ui.label}">Instruksi / fokus tugas</span>
                             <textarea class="${app.ui.textarea} min-h-32!" name="focus" maxlength="1500" placeholder="Contoh: Makalah 5 halaman tentang normalisasi basis data, sertakan contoh kasus, dikumpulkan pertemuan 7."></textarea>
@@ -89,7 +88,7 @@
                                 ${meetingsWithTasks.map((source) => `<button type="button" class="${app.ui.button.secondarySm}" data-focus-meeting="${source.id}">Tugas ${app.escapeHtml(source.meeting_number ? `pertemuan ${source.meeting_number}` : source.title)}</button>`).join('')}
                             </div>
                         ` : ''}
-                        <p class="text-xs text-ink-subtle">Konteks terukur: ${chosen.length} sumber${chosen.length !== readySources().length ? ` (dari ${readySources().length} yang siap)` : ''}. Ubah centang di panel Sumber bila perlu.</p>
+                        <p class="text-xs text-ink-subtle">${chosen.length} sumber dipilih.</p>
                         <button type="submit" class="${app.ui.button.primary}">Susun kerangka</button>
                     </form>
                 `;

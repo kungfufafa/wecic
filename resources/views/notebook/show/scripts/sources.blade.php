@@ -16,7 +16,7 @@
                     ? 'Centang minimal satu sumber untuk bertanya'
                     : (ready.length >= 2 && chosen.length < ready.length
                         ? `Hanya ${chosen.length} sumber yang dicentang dipakai`
-                        : 'Enter untuk kirim, Shift+Enter untuk baris baru');
+                        : 'Enter kirim · Shift+Enter baris baru');
 
                 const submit = askForm.querySelector('button[type="submit"]');
 
@@ -46,8 +46,8 @@
 
                 if (!state.sources.length) {
                     sourcesHost.innerHTML = `<li class="rounded-lg border border-dashed border-border px-3 py-6 text-center text-sm text-ink-subtle">${isCourseNotebook()
-                        ? 'Belum ada pertemuan. Buka pertemuan di menu Kuliah (masuk otomatis), atau pilih dari daftar lewat Tambah pertemuan.'
-                        : 'Belum ada sumber. Tambahkan materi dari arsip, unggah PDF/PPTX/DOCX, atau tempel teks.'}</li>`;
+                        ? 'Belum ada pertemuan. Buka di Kuliah atau klik Tambah pertemuan.'
+                        : 'Belum ada sumber. Tambah dari arsip, berkas, atau teks.'}</li>`;
                     renderContextBar();
 
                     return;
@@ -86,7 +86,7 @@
                             </div>
                             ${source.error ? `<p class="mt-2 text-xs ${source.status === 'failed' ? 'text-danger' : 'text-ink-muted'}">${app.escapeHtml(source.error)}</p>` : ''}
                             ${source.stalled ? `<p class="mt-2 text-xs text-ink-muted">${stalledHint}</p>` : ''}
-                            ${source.waiting && !source.error ? '<p class="mt-2 text-xs text-ink-muted">Menunggu giliran dibaca. Beberapa berkas dibaca sekaligus; sisanya menyusul otomatis.</p>' : ''}
+                            ${source.waiting && !source.error ? '<p class="mt-2 text-xs text-ink-muted">Menunggu giliran dibaca.</p>' : ''}
                             ${source.summary ? `<details class="mt-2"><summary class="cursor-pointer text-xs font-medium text-brand-text">Ringkasan sumber</summary><p class="mt-1 whitespace-pre-line text-xs leading-relaxed text-ink-muted">${app.escapeHtml(source.summary)}</p>${sourceGuide(source)}</details>` : ''}
                             <div class="mt-2 flex gap-1">
                                 ${ready ? `<button type="button" class="${app.ui.button.ghostSm}" data-view-source="${source.id}" aria-label="Lihat isi ${app.escapeHtml(source.title)}">Lihat isi</button>` : ''}

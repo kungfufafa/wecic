@@ -33,7 +33,7 @@
                             <button type="submit" class="${app.ui.button.primary}">Tambahkan</button>
                         </form>
                     `
-                    : app.renderEmptyState('Arsip materi masih kosong.', 'secondary', 'Buka pertemuan di halaman Kuliah atau arsipkan materi kelas di menu Arsip.');
+                    : app.renderEmptyState('Arsip materi masih kosong.', 'secondary', 'Buka pertemuan di Kuliah atau arsipkan di menu Arsip.');
                 const panel = app.openSheet({ title: 'Tambah dari arsip materi', body });
                 const picker = panel.querySelector('[data-archive-picker]');
 
@@ -100,7 +100,7 @@
                     body: `
                         <form class="flex flex-col gap-3" data-text-source>
                             <label class="${app.ui.field}"><span class="${app.ui.label}">Judul</span><input class="${app.ui.input}" name="title" maxlength="120" required></label>
-                            <label class="${app.ui.field}"><span class="${app.ui.label}">Isi</span><textarea class="${app.ui.textarea} min-h-48!" name="content" required placeholder="Tempel teks materi, catatan kuliah, atau ringkasan. Untuk menulis catatanmu sendiri, pakai + Catatan baru di Studio."></textarea></label>
+                            <label class="${app.ui.field}"><span class="${app.ui.label}">Isi</span><textarea class="${app.ui.textarea} min-h-48!" name="content" required placeholder="Tempel teks materi atau ringkasan."></textarea></label>
                             <button type="submit" class="${app.ui.button.primary}">Simpan sebagai sumber</button>
                         </form>
                     `,

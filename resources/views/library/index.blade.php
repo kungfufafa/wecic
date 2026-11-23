@@ -47,7 +47,7 @@
         </x-card>
 
         <x-slot:aside>
-            <x-card as="section" aria-labelledby="library-links-title" title="Perpustakaan digital" title-id="library-links-title" subtitle="Dibuka di situs masing-masing, di luar WeCIC.">
+            <x-card as="section" aria-labelledby="library-links-title" title="Perpustakaan digital" title-id="library-links-title">
                 <x-card.body class="has-[>ul]:p-0" id="library-links" aria-busy="true">
                     <div class="flex flex-col gap-3">
                         @for ($i = 0; $i < 4; $i++)

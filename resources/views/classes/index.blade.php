@@ -10,7 +10,7 @@
     The script is split into parts in resources/views/classes/index/scripts.
 --}}
 @section('content')
-    <x-page-hero title="Jadwal & Kelas" subtitle="Jadwal kuliah minggu ini, ruang, dan dosen tiap kelas.">
+    <x-page-hero title="Jadwal & Kelas">
         <x-slot:actions>
             <x-button :href="route('exam.index')" variant="secondary" size="sm" class="relative">
                 <x-icon name="exam" size="sm" />
@@ -38,7 +38,7 @@
     </x-stat-strip>
 
     <div class="flex flex-col gap-6">
-        <x-section title="Minggu ini" title-id="class-week-title" description="Pilih hari untuk menyaring jadwal, pilih lagi untuk semua hari.">
+        <x-section title="Minggu ini" title-id="class-week-title">
             {{-- The week strip (scripts/summary): one segment per day, today marked with a dot. --}}
             <div id="day-summary-strip" class="grid grid-cols-3 gap-1 rounded-xl bg-surface p-1 sm:grid-cols-6">
                 @for ($i = 0; $i < 6; $i++)

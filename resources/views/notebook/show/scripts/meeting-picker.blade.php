@@ -8,13 +8,13 @@
                 const render = (data) => {
                     const meetings = Array.isArray(data?.meetings) ? data.meetings : [];
                     const classUrl = state.notebook?.class_url;
-                    const syncButton = classUrl ? `<button type="button" class="${app.ui.button.secondary}" data-meeting-sync data-online-required>Masukkan semua pertemuan (background)</button>` : '';
+                    const syncButton = classUrl ? `<button type="button" class="${app.ui.button.secondary}" data-meeting-sync data-online-required>Sinkronkan semua pertemuan</button>` : '';
                     let body;
 
                     if (!meetings.length) {
                         body = `
                             <div class="flex flex-col gap-3">
-                                ${app.renderEmptyState(data?.available === false ? 'Daftar pertemuan belum tersimpan.' : 'Belum ada pertemuan di halaman kelas.', 'secondary', data?.available === false ? 'Buka halaman kelas ini sekali agar daftar pertemuannya tersimpan, atau buka pertemuan lalu pilih "Masukkan ke Notebook".' : 'Pertemuan muncul setelah dosen mengunggah materinya.')}
+                                ${app.renderEmptyState(data?.available === false ? 'Daftar pertemuan belum tersimpan.' : 'Belum ada pertemuan di halaman kelas.', 'secondary', data?.available === false ? 'Buka halaman kelas sekali agar daftar pertemuan tersimpan.' : 'Pertemuan muncul setelah dosen mengunggah materinya.')}
                                 ${classUrl ? `<a href="${app.escapeHtml(classUrl)}" class="${app.ui.button.primary}">Buka halaman kelas</a>` : ''}
                                 ${syncButton}
                             </div>
@@ -34,7 +34,7 @@
                                         </label>
                                     `).join('')}
                                 </div>
-                                <p class="text-xs text-ink-subtle">Pertemuan yang belum pernah dibuka diambil dari portal (butuh online). Berkasnya dibaca di background.</p>
+                                <p class="text-xs text-ink-subtle">Pertemuan baru diambil dari portal (butuh online).</p>
                                 <div class="flex flex-col gap-2 sm:flex-row">
                                     <button type="submit" class="${app.ui.button.primary}">Tambahkan yang dipilih</button>
                                     ${syncButton}

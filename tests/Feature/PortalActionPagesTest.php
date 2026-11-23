@@ -50,7 +50,7 @@ class PortalActionPagesTest extends TestCase
             ->assertSee('Cek ulang status')
             ->assertSee('data-assignment-closed', false)
             ->assertDontSee('data-assignment-override', false)
-            ->assertSee('Kirim langsung ke endpoint upload portal')
+            ->assertSee('Kirim langsung — portal menentukan hasilnya.')
             ->assertSee("if (assignmentForm.closest('[data-assignment-closed]')) {", false)
             ->assertSee("formData.append('allow_closed', '1');", false)
             ->assertSee('if (file.size > ASSIGNMENT_MAX_BYTES) {', false)
@@ -121,7 +121,7 @@ class PortalActionPagesTest extends TestCase
             ->assertSee("const payload = await app.request('/api/assignment/pending', { fresh: false, background });", false)
             ->assertSee("'announcements', 'exams', 'assignments'];", false)
             ->assertDontSee("app.request('/api/assignment/pending', { fresh: force })", false)
-            ->assertSee('${assignment.upload_status_text ? esc(assignment.upload_status_text) : \'Portal sedang tidak membuka upload tugas ini.', false);
+            ->assertSee('${assignment.upload_status_text ? esc(assignment.upload_status_text) : \'Upload ditutup di portal. Buka detail untuk melihat status.', false);
     }
 
     public function test_meeting_page_on_another_day_still_offers_the_attendance_form_directly(): void
@@ -146,7 +146,7 @@ class PortalActionPagesTest extends TestCase
             ->get('/meeting/445?courses_id=8861')
             ->assertOk()
             ->assertSee('const notebookLimitReached = payload?.meta?.notebook_limit_reached === true || detail.notebook_limit_reached === true;', false)
-            ->assertSee('Notebook mata kuliah ini sudah penuh; pertemuan ini belum dimasukkan. Hapus sumber yang tidak perlu di notebook.');
+            ->assertSee('Notebook penuh. Hapus sumber yang tidak perlu di notebook.');
     }
 
     public function test_dashboard_says_a_student_without_grades_has_no_ipk_yet(): void

@@ -8,7 +8,7 @@
                 const label = termLabel(state.krs?.academic_period);
 
                 if (hosts.period && label) {
-                    hosts.period.textContent = `${label} · status KRS, periode, dan kontak DPA kamu.`;
+                    hosts.period.textContent = label;
                 }
             };
 

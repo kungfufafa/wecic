@@ -184,11 +184,11 @@ class DashboardDecisionTest extends TestCase
     {
         $this->dashboardResponse()
             ->assertSee('Semua beres')
-            ->assertSee('Tidak ada tenggat atau kewajiban yang perlu kamu urus sekarang.')
-            ->assertSee('Belum ada yang perlu diurus')
+            ->assertSee('Tidak ada tenggat aktif.')
+            ->assertSee('Belum ada tindakan')
             ->assertSee('meta.pending_sources', false)
-            ->assertSee('sedang diperbarui dari portal. Daftar ini menyesuaikan sendiri setelah selesai.', false)
-            ->assertSee('tidak terbaca dari portal, jadi belum masuk daftar ini.', false)
+            ->assertSee('sedang diperbarui.', false)
+            ->assertSee('tidak terbaca dari portal.', false)
             ->assertSee("scheduleRecheck('actions',", false)
             ->assertSee('app.realtimeConnected', false);
     }
@@ -260,7 +260,7 @@ class DashboardDecisionTest extends TestCase
             ->assertSee("app.request('/api/attendance', {", false)
             ->assertSee("app.request('/api/assignment', {", false)
             ->assertSee("await app.trackOperation(operationId, 'Upload tugas');", false)
-            ->assertSee('Jadwal hari ini sedang diambil dari portal kampus.', false)
+            ->assertSee('Mengambil jadwal hari ini… menampilkan jadwal ', false)
             // Background syncs never re-render an unchanged schedule (a typed code survives).
             ->assertSee("if (!hasChanged('today', { date: classesSummary.date, day: classesSummary.day, todayClasses, snapshotIsToday })) {", false)
             ->assertSee('typedCodes.set(form.dataset.attendanceKey, typed);', false)
@@ -272,10 +272,10 @@ class DashboardDecisionTest extends TestCase
     {
         $this->dashboardResponse()
             ->assertSee(": attendance.state === 'checking' ? `", false)
-            ->assertSee('Mengecek status absensi di portal kampus...', false)
+            ->assertSee('Mengecek status absensi…', false)
             ->assertSee(": attendance.state === 'unavailable' ? `", false)
-            ->assertSee('Status absensi belum bisa dibaca dari portal. Buka kelasnya untuk absen.', false)
-            ->assertSee('Status absensi kelas hari ini masih dicek di portal kampus. Coba lagi sebentar lagi.', false)
+            ->assertSee('Status absensi tidak terbaca. Buka kelas untuk absen.', false)
+            ->assertSee('Status absensi masih dicek.', false)
             // Without realtime the schedule is re-read until the attendance is in.
             ->assertSee("scheduleRecheck('dashboard', pendingSources.length > 0 || attendanceChecking, (options) => loadDashboard(options));", false);
     }

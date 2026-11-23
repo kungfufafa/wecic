@@ -28,7 +28,7 @@
                 noticeNode.innerHTML = snapshotIsToday ? '' : `
                     <div class="${app.alertTone('info')} mb-3 flex items-center gap-3">
                         <span class="${app.ui.spinner} text-info" aria-hidden="true"></span>
-                        <span>Jadwal hari ini sedang diambil dari portal kampus. Yang tampil di bawah masih jadwal ${esc(dayLabel)}.</span>
+                        <span>Mengambil jadwal hari ini… menampilkan jadwal ${esc(dayLabel)}.</span>
                     </div>
                 `;
 
@@ -42,12 +42,12 @@
                 app.setQuickQrTarget(
                     scannable ? `${scannable.attendance.meeting_url}&qr=1` : null,
                     !snapshotIsToday
-                        ? 'Jadwal hari ini masih diambil dari portal kampus. Coba lagi sebentar lagi.'
+                        ? 'Jadwal hari ini masih dimuat.'
                         : (attendanceChecking
-                            ? 'Status absensi kelas hari ini masih dicek di portal kampus. Coba lagi sebentar lagi.'
+                            ? 'Status absensi masih dicek.'
                             : (todayClasses.length
-                                ? 'Absensi untuk kelas hari ini belum dibuka dosen. Coba lagi saat kelas berlangsung.'
-                                : `Tidak ada kelas ${dayLabel}, jadi tidak ada absensi yang perlu diisi.`))
+                                ? 'Absensi hari ini belum dibuka dosen.'
+                                : `Tidak ada kelas ${dayLabel}.`))
                 );
 
                 if (!hasChanged('today', { date: classesSummary.date, day: classesSummary.day, todayClasses, snapshotIsToday })) {
@@ -57,7 +57,7 @@
                 summaryHost.removeAttribute('aria-busy');
 
                 if (!todayClasses.length) {
-                    summaryHost.innerHTML = app.renderEmptyState(`Tidak ada jadwal ${dayLabel}.`, 'secondary', 'Selamat beristirahat.', { icon: 'calendar' });
+                    summaryHost.innerHTML = app.renderEmptyState(`Tidak ada kelas ${dayLabel}.`, 'secondary', '', { icon: 'calendar' });
 
                     return;
                 }
@@ -137,16 +137,16 @@
 
                         <div class="border-t border-border-light bg-surface/40 px-4 py-3 sm:px-5">
                             ${!snapshotIsToday && !attendance.status?.already_marked ? `
-                                <div class="text-sm text-ink-subtle">Absensi dibuka di sini setelah jadwal hari ini selesai dimuat.</div>
+                                <div class="text-sm text-ink-subtle">Menunggu jadwal hari ini.</div>
                             ` : attendance.state === 'checking' ? `
                                 <div class="flex items-center gap-2 text-sm text-ink-subtle" role="status">
                                     <span class="${app.ui.spinner}" aria-hidden="true"></span>
-                                    <span>Mengecek status absensi di portal kampus...</span>
+                                    <span>Mengecek status absensi…</span>
                                 </div>
                             ` : attendance.state === 'unavailable' ? `
-                                <div class="text-sm text-ink-subtle">Status absensi belum bisa dibaca dari portal. Buka kelasnya untuk absen.</div>
+                                <div class="text-sm text-ink-subtle">Status absensi tidak terbaca. Buka kelas untuk absen.</div>
                             ` : !targetReliable ? `
-                                <div class="text-sm text-ink-subtle">Materi hari ini belum diunggah dosen, jadi absensi belum bisa dibuka dari sini.</div>
+                                <div class="text-sm text-ink-subtle">Materi hari ini belum diunggah dosen.</div>
                             ` : attendanceNote && !actionable ? `
                                 <div class="text-sm font-medium ${textTone(statusColor)}">${esc(attendanceNote)}</div>
                             ` : actionable ? `

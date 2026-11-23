@@ -4,7 +4,7 @@
 @section('page_id', 'library-theses')
 
 @section('content')
-    <x-page-hero title="Repositori skripsi" subtitle="Semua skripsi di SiMASITA Repositori, bisa dicari dan disaring tanpa membuka halaman portal satu per satu." :back="route('library.index')" back-label="Perpustakaan">
+    <x-page-hero title="Repositori skripsi" :back="route('library.index')" back-label="Perpustakaan">
         <x-slot:meta><span data-theses-updated></span></x-slot:meta>
         <x-slot:tabs>
             <x-view-tabs as="div" underline role="group" aria-label="Mode repositori" id="theses-modes">
@@ -87,16 +87,16 @@
                         <x-card.title id="theses-check-title">Cek kemiripan rencana judul</x-card.title>
                     </x-card.header>
                     <x-card.body class="flex flex-col gap-4">
-                        <x-field label="Rencana judul" for="theses-check-input" hint="Judul ini hanya dibandingkan, tidak disimpan di server maupun di perangkat." hint-id="theses-check-hint">
-                            <x-textarea id="theses-check-input" rows="3" maxlength="200" placeholder="Contoh: Sistem informasi inventaris berbasis web pada koperasi" aria-describedby="theses-check-hint"></x-textarea>
+                        <x-field label="Rencana judul" for="theses-check-input">
+                            <x-textarea id="theses-check-input" rows="3" maxlength="200" placeholder="Contoh: Sistem informasi inventaris berbasis web pada koperasi"></x-textarea>
                         </x-field>
                         <x-button type="submit" class="self-start">Cek kemiripan</x-button>
                     </x-card.body>
                 </x-card>
-                <p class="text-xs text-ink-subtle">Bukan cek plagiasi resmi. Kemiripan dihitung dari kata dan susunan huruf judul saja.</p>
+                <p class="text-xs text-ink-subtle">Bukan cek plagiasi resmi.</p>
             </div>
             <div class="min-w-0" id="theses-check-results" aria-live="polite">
-                <x-empty-state title="Hasil kemiripan tampil di sini" subtitle="Tulis rencana judul, lalu bandingkan dengan judul-judul di repositori." icon="search" />
+                <x-empty-state title="Hasil kemiripan tampil di sini" icon="search" />
             </div>
         </div>
     </section>

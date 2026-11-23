@@ -54,7 +54,7 @@
                                     ${statusRepeatsBadge ? '' : `<div class="font-medium text-ink">${safeAttendanceStatus}</div>`}
                                     ${attendanceTimeLine
                                         ? `<div class="text-ink-muted tabular-nums">${attendanceTimeLine}</div>`
-                                        : (statusRepeatsBadge ? '<div class="text-ink-muted">Kehadiranmu sudah tercatat di portal.</div>' : '')}
+                                        : (statusRepeatsBadge ? '<div class="text-ink-muted">Tercatat di portal.</div>' : '')}
                                 </div>
                             </div>
                         </div>
@@ -73,8 +73,8 @@
                             <div class="${app.ui.cardBody}">
                                 <div class="${app.alertTone(isPast ? 'warning' : 'secondary')} mb-4">
                                     ${isPast
-                                        ? `Pertemuan ini dijadwalkan ${safeDate} dan kehadiranmu belum terlihat tercatat di portal. Absensi biasanya hanya diterima saat kelas berlangsung.`
-                                        : `Absensi biasanya dibuka saat kelas berlangsung (${safeDate}).`}
+                                        ? `Jadwal ${safeDate}, kehadiranmu belum terlihat tercatat di portal.`
+                                        : `Absensi biasanya dibuka ${safeDate}.`}
                                 </div>
                                 ${attendanceFormMarkup}
                             </div>
@@ -86,12 +86,12 @@
                             <svg xmlns="http://www.w3.org/2000/svg" class="${app.ui.alertIcon.danger}" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" /><path d="M12 8v4" /><path d="M12 16h.01" /></svg>
                             <div class="min-w-0">
                                 <div class="font-medium text-danger">Waktu absen telah berakhir</div>
-                                <div class="mt-0.5 text-xs leading-relaxed text-ink-muted">${app.escapeHtml(attendanceStatusText)}. Kode presensi yang dikirim kemungkinan akan ditolak oleh sistem kampus karena batas waktu sudah lewat.</div>
+                                <div class="mt-0.5 text-xs leading-relaxed text-ink-muted">${app.escapeHtml(attendanceStatusText)}.</div>
                             </div>
                         </div>
                     ` : (attendanceNotOpen ? `
                         <div class="${app.alertTone('secondary')} mb-4">
-                            Portal belum membuka absensi pertemuan ini${attendanceStatusText ? ` (${app.escapeHtml(attendanceStatusText)})` : ''}. Kirim kode saat dosen membukanya di kelas.
+                            Portal belum membuka absensi pertemuan ini${attendanceStatusText ? ` (${app.escapeHtml(attendanceStatusText)})` : ''}.
                         </div>
                     ` : '');
 
@@ -190,7 +190,7 @@
                             </div>
                             <div class="${app.ui.cardBody} flex flex-col gap-4"${assignmentParams ? ' data-assignment-closed' : ''}>
                                 <div class="${app.alertTone('secondary')}">
-                                    Pengumpulan tugas ini sudah ditutup di halaman portal${hasDeadline ? ` (deadline ${app.escapeHtml(deadlineText)})` : ''}. Kirim langsung ke endpoint upload portal — server portal yang menentukan diterima atau ditolak.
+                                    Upload ditutup di portal${hasDeadline ? ` (${app.escapeHtml(deadlineText)})` : ''}. Kirim langsung — portal menentukan hasilnya.
                                 </div>
                                 ${assignmentParams ? uploadFormMarkup : ''}
                             </div>
@@ -205,7 +205,7 @@
                             </div>
                             <div class="${app.ui.cardBody} flex flex-col gap-4">
                                 <div class="${app.alertTone('warning')}">
-                                    Status pengumpulan belum bisa dicek karena halaman kelas di portal tidak terbaca. Kalau kamu sudah mengirim tugas ini, cek ulang dulu supaya file tidak terkirim dua kali.
+                                    Status tugas belum terbaca. Cek ulang dulu agar tidak terkirim dua kali.
                                 </div>
                                 <button type="button" class="${app.buttonClass('secondary')} w-full" data-assignment-recheck>Cek ulang status</button>
                                 ${assignmentParams ? uploadFormMarkup : ''}
@@ -231,8 +231,8 @@
                             <div class="min-w-0">
                                 <h3 class="${app.ui.cardTitle}">Notebook</h3>
                                 ${notebookLimitReached
-                                    ? `<p class="mt-0.5 text-[13px] leading-normal text-warning">Notebook mata kuliah ini sudah penuh; pertemuan ini belum dimasukkan. Hapus sumber yang tidak perlu di notebook.</p>`
-                                    : `<p class="${app.ui.cardSubtitle}">Saat dibuka, catatan pertemuan ini dan berkas materinya masuk otomatis ke notebook ${app.escapeHtml(courseName)}: untuk belajar mandiri, tanya jawab bersitasi, dan kerangka tugas. Tombol ini memperbarui catatannya dan membuka notebooknya.</p>`}
+                                    ? `<p class="mt-0.5 text-[13px] leading-normal text-warning">Notebook penuh. Hapus sumber yang tidak perlu di notebook.</p>`
+                                    : ''}
                             </div>
                         </div>
                         <div class="${app.ui.cardBody} flex flex-col gap-2">

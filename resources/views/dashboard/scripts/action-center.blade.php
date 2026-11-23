@@ -102,7 +102,7 @@
                     notes.push(`
                         <p class="flex items-start gap-2 text-xs text-ink-subtle" data-action-pending>
                             <span class="${app.ui.spinner} mt-0.5 size-3!" aria-hidden="true"></span>
-                            <span>Data ${esc(joinSourceLabels(pending))} sedang diperbarui dari portal. Daftar ini menyesuaikan sendiri setelah selesai.</span>
+                            <span>Data ${esc(joinSourceLabels(pending))} sedang diperbarui.</span>
                         </p>
                     `);
                 }
@@ -111,13 +111,13 @@
                     notes.push(`
                         <p class="flex items-start gap-2 text-xs text-ink-muted" data-action-failed>
                             <span class="mt-0.5 shrink-0 text-warning">${ICONS.alert}</span>
-                            <span>Data ${esc(joinSourceLabels(failed))} tidak terbaca dari portal, jadi belum masuk daftar ini.</span>
+                            <span>Data ${esc(joinSourceLabels(failed))} tidak terbaca dari portal.</span>
                         </p>
                     `);
                 }
 
                 if (Number.isFinite(total) && total > shownCount && shownCount > 0) {
-                    notes.push(`<p class="text-xs text-ink-subtle">Menampilkan ${shownCount} dari ${total} hal yang paling mendesak.</p>`);
+                    notes.push(`<p class="text-xs text-ink-subtle">Menampilkan ${shownCount} dari ${total} tindakan.</p>`);
                 }
 
                 if (meta.cache_is_stale) {
@@ -136,9 +136,9 @@
 
                 if (!complete) {
                     return app.renderEmptyState(
-                        'Belum ada yang perlu diurus',
+                        'Belum ada tindakan',
                         'secondary',
-                        'Sebagian data masih diambil dari portal, jadi daftar ini bisa bertambah.',
+                        'Sebagian data masih dimuat.',
                         { icon: 'inbox' }
                     );
                 }
@@ -147,7 +147,7 @@
                     <div class="${app.ui.empty}" data-slot="empty" data-action-empty>
                         <span class="${app.ui.emptyIcon}" aria-hidden="true">${ICONS.check}</span>
                         <p class="${app.ui.emptyTitle}">Semua beres</p>
-                        <p class="${app.ui.emptySubtitle}">Tidak ada tenggat atau kewajiban yang perlu kamu urus sekarang.</p>
+                        <p class="${app.ui.emptySubtitle}">Tidak ada tenggat aktif.</p>
                     </div>
                 `;
             };

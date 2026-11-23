@@ -108,7 +108,7 @@ export class OutboxFeature {
             <section class="${ui.card}" aria-label="${this.escapeHtml(title)}">
                 <div class="${ui.cardHeader} flex-wrap">
                     <h3 class="${ui.cardTitle}">${this.escapeHtml(title)}</h3>
-                    <span class="text-xs text-ink-subtle">Disimpan di WeCIC, dikirim saat portal bisa diakses</span>
+                    <span class="text-xs text-ink-subtle">Terkirim otomatis saat portal online</span>
                 </div>
                 <div class="${ui.cardBody}">
                     ${items.map((item) => {
@@ -136,10 +136,10 @@ export class OutboxFeature {
                                         ? `<div class="mt-1 text-caption ${this.textToneClass(tone)}">${this.escapeHtml(item.last_error || statusLabel)}</div>`
                                         : ''}
                                     ${item.status === 'unverified'
-                                        ? '<div class="mt-1 text-caption text-ink-subtle">Cek halamannya di portal sebelum mengirim ulang, supaya file tidak terkirim dua kali.</div>'
+                                        ? '<div class="mt-1 text-caption text-ink-subtle">Cek di portal sebelum mengirim ulang.</div>'
                                         : ''}
                                     ${isQueued
-                                        ? `<div class="mt-1 text-caption text-ink-subtle">Portal belum menerima ini. WeCIC mengirimnya otomatis begitu portal bisa diakses${item.deadline_at ? ', selama tenggatnya belum lewat' : ''}.</div>`
+                                        ? `<div class="mt-1 text-caption text-ink-subtle">Belum terkirim ke portal; dikirim otomatis saat online${item.deadline_at ? ' sebelum tenggat' : ''}.</div>`
                                         : ''}
                                 </div>
                                 <div class="flex shrink-0 flex-col items-end gap-2">
@@ -155,14 +155,14 @@ export class OutboxFeature {
     }
 
     async cancelOutboxItem(id, button = null) {
-        if (!Number.isInteger(id) || !window.confirm('Batalkan item ini? Portal belum menerimanya, dan WeCIC tidak akan mengirimnya.')) {
+        if (!Number.isInteger(id) || !window.confirm('Batalkan item ini? Belum terkirim ke portal.')) {
             return;
         }
 
         const run = async () => {
             try {
                 await this.request(`/api/outbox/${id}`, { method: 'DELETE' });
-                this.showNotice('Item antrean dibatalkan. Tidak ada yang dikirim ke portal.', 'info');
+                this.showNotice('Item antrean dibatalkan.', 'info');
                 await this.loadOutbox({ force: true });
             } catch (error) {
                 this.showNotice(error.payload?.message || error.message, 'error');

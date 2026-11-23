@@ -116,7 +116,6 @@
                 }
 
                 return `
-                    <p class="${app.ui.hint}">Isian tambahan dari form portal (opsional).</p>
                     ${missingTipe ? `
                         <div class="${app.ui.field}">
                             <label class="${app.ui.label}" for="exam-field-tipe">${app.escapeHtml(FIELD_LABELS['data[tipe]'])}</label>
@@ -296,10 +295,12 @@
                         <h3 class="${app.ui.cardTitle}">Upload jawaban</h3>
                     </div>
                     <div class="${app.ui.cardBody} flex flex-col gap-4">
-                        <div class="${app.alertTone(uploadTone)}">
-                            <div class="font-medium leading-snug text-ink">${isPortalFormOpen ? 'Jawaban bisa dikirim dari sini.' : 'Kirim langsung ke endpoint upload portal.'}</div>
-                            <div class="mt-0.5 text-xs ${app.textToneClass(uploadTone)}">${app.escapeHtml(isPortalFormOpen ? statusBadge(detail.status)[0] : `${statusBadge(detail.status)[0]} · Halaman portal belum menampilkan form HTML, server portal yang menentukan.`)}</div>
-                        </div>
+                        ${!isPortalFormOpen ? `
+                            <div class="${app.alertTone('secondary')}">
+                                <div class="font-medium leading-snug text-ink">Form portal belum terbuka</div>
+                                <div class="mt-0.5 text-xs ${app.textToneClass('secondary')}">${app.escapeHtml(statusBadge(detail.status)[0])} · Kirim langsung — portal menentukan hasilnya.</div>
+                            </div>
+                        ` : ''}
                         ${isUploadReady ? `
                             <form id="exam-upload-form" class="flex flex-col gap-4">
                                 <div class="${app.ui.field}">
@@ -375,7 +376,7 @@
 
                 const heroTitle = course.name || (isGenericTitle ? 'Detail ujian' : portalTitle) || 'Detail ujian';
                 const heroEyebrow = course.code ? `Ujian · ${course.code}` : 'Detail ujian';
-                const heroDescription = course.lecturer || (isGenericTitle ? 'Soal, lampiran, dan pengumpulan jawaban ujian.' : (detail.description || 'Soal, lampiran, dan pengumpulan jawaban ujian.'));
+                const heroDescription = course.lecturer || (!isGenericTitle ? detail.description : '') || '';
                 const heroActions = [
                     primaryFile ? `<a href="${app.escapeHtml(app.buildCampusDownloadUrl(primaryFile.url, fileNameFromUrl(primaryFile.url)))}" class="${app.buttonClass('primary')}">${ICONS.download}Download soal</a>` : '',
                 ].filter(Boolean).join('');
@@ -387,16 +388,16 @@
                             <div class="min-w-0">
                                 <p class="${app.ui.pageEyebrow}">${app.escapeHtml(heroEyebrow)}</p>
                                 <h1 class="${app.ui.pageHeroTitle}">${app.escapeHtml(heroTitle)}</h1>
-                                <p class="${app.ui.pageHeroSubtitle}">${app.escapeHtml(heroDescription)}</p>
+                                ${heroDescription ? `<p class="${app.ui.pageHeroSubtitle}">${app.escapeHtml(heroDescription)}</p>` : ''}
                             </div>
                             ${heroActions ? `<div class="${app.ui.pageHeroActions}" data-slot="page-hero-actions">${heroActions}</div>` : ''}
                         </div>
                     </header>
                     <div class="${app.ui.statGridKpi} mb-6" data-slot="stat-strip">
-                        ${renderMetric({ label: 'Status', value: statusLabel, note: 'Dibaca dari halaman ujian di portal.', text: true })}
-                        ${renderMetric({ label: 'Soal', value: fileLinks.length || '0', note: fileLinks.length ? 'Soal atau lampiran tersedia.' : 'Belum ada soal yang diunggah dosen.' })}
-                        ${renderMetric({ label: 'Pengumpulan', value: isPortalFormOpen ? 'Dibuka' : 'Kirim langsung', note: isPortalFormOpen ? 'Kirim jawaban dari halaman ini.' : 'Form HTML portal belum terlihat; kirim langsung ke endpoint upload portal.', text: true })}
-                        ${renderMetric({ label: 'Jadwal', value: course.schedule || 'Belum ada', note: course.schedule ? 'Sesuai jadwal kelas.' : 'Jadwal ujian belum diumumkan.', text: true })}
+                        ${renderMetric({ label: 'Status', value: statusLabel, text: true })}
+                        ${renderMetric({ label: 'Soal', value: fileLinks.length || '0', note: fileLinks.length ? '' : 'Belum diunggah' })}
+                        ${renderMetric({ label: 'Pengumpulan', value: isPortalFormOpen ? 'Dibuka' : 'Kirim langsung', text: true })}
+                        ${renderMetric({ label: 'Jadwal', value: course.schedule || 'Belum ada', text: true })}
                     </div>
                 `;
 

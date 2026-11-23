@@ -193,10 +193,9 @@ class PortalOfflineAccountRetentionTest extends TestCase
         $this->withSession(['campus_session_token' => 'token-retention'])
             ->get('/archive')
             ->assertOk()
-            ->assertSee('14 hari setelah login online terakhirmu, password terenkripsi dihapus otomatis')
-            ->assertSee('45 hari sejak login itu')
-            ->assertSee('(maks. 45 hari)', false)
-            ->assertSee('Password yang ditolak portal langsung dihapus.');
+            ->assertSee('maks. 45 hari', false)
+            ->assertSee('14 hari tanpa login online')
+            ->assertSee('atau jika ditolak portal.');
     }
 
     public function test_updating_an_account_never_moves_its_last_online_login(): void

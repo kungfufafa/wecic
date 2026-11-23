@@ -4,7 +4,7 @@
 @section('page_id', 'announcement-index')
 
 @section('content')
-    <x-page-hero title="Pengumuman" subtitle="Info resmi kampus dari portal. Tenggat terdekat selalu ada di paling atas.">
+    <x-page-hero title="Pengumuman">
         <x-slot:meta>
             <span class="min-h-4" data-announcement-updated></span>
         </x-slot:meta>
@@ -509,7 +509,6 @@
                     <button type="button" class="${app.buttonClass('secondary')} w-full sm:w-auto" data-load-more ${state.loadingMore ? 'disabled aria-busy="true"' : ''}>
                         ${state.loadingMore ? `<span class="${app.ui.spinner}" aria-hidden="true"></span> Memuat pengumuman lama…` : 'Muat pengumuman lama'}
                     </button>
-                    <p class="text-xs text-ink-subtle">Diambil dari portal kampus, 3 pengumuman per halaman.</p>
                 `;
                 observeMore();
             };
@@ -526,7 +525,7 @@
                 markAllButton.textContent = `Tandai ${unreadCount} sudah dibaca`;
 
                 if (!items.length) {
-                    listHost.innerHTML = app.renderEmptyState('Belum ada pengumuman.', 'secondary', 'Pengumuman baru dari portal kampus akan muncul di sini.', { icon: 'announcement' });
+                    listHost.innerHTML = app.renderEmptyState('Belum ada pengumuman.', 'secondary', '', { icon: 'announcement' });
                     resultStatus.textContent = '';
                     renderMore();
 
@@ -539,7 +538,7 @@
                         <div class="${app.ui.empty}" data-slot="empty">
                             <span class="${app.ui.emptyIcon}">${ICONS.search}</span>
                             <p class="${app.ui.emptyTitle}">Tidak ada pengumuman yang cocok.</p>
-                            <p class="${app.ui.emptySubtitle}">${state.nextPage ? 'Coba kata kunci lain, atau muat pengumuman lama di bawah.' : 'Coba kata kunci lain atau pilih kategori Semua.'}</p>
+                            <p class="${app.ui.emptySubtitle}">Coba kata kunci atau kategori lain.</p>
                             <button type="button" class="${app.buttonClass('secondary', { small: true })} mt-2" data-reset-filters>Tampilkan semua</button>
                         </div>
                     `;

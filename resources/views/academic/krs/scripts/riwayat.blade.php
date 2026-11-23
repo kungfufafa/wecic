@@ -18,7 +18,7 @@
                         <section class="${app.ui.card}" data-slot="card" aria-labelledby="krs-dpa-title">
                             <div class="${app.ui.cardHeader}"><h2 class="${app.ui.cardTitle}" id="krs-dpa-title">Dosen Pembimbing Akademik</h2></div>
                             <div class="${app.ui.cardBody}">
-                                ${app.renderEmptyState('Data DPA belum terbaca dari portal.', 'secondary', 'Tanyakan nama DPA kamu lewat BAAK atau buka menu Perwalian di portal kampus.', { icon: 'user' })}
+                                ${app.renderEmptyState('Data DPA belum terbaca dari portal.', 'secondary', 'Cek menu Perwalian di portal kampus.', { icon: 'user' })}
                             </div>
                         </section>
                     `;
@@ -27,15 +27,11 @@
                 }
 
                 const initials = String(dpa.name || 'DPA').replace(/[^A-Za-z\s]/g, ' ').split(/\s+/).filter(Boolean).slice(0, 2).map((word) => word[0].toUpperCase()).join('') || 'D';
-                const source = state.advising?.dpa && hasContact(state.advising.dpa) ? 'menu Perwalian portal' : 'halaman KRS portal';
 
                 hosts.dpa.innerHTML = `
                     <section class="${app.ui.card}" data-slot="card" aria-labelledby="krs-dpa-title">
                         <div class="${app.ui.cardHeader}">
-                            <div class="min-w-0">
-                                <h2 class="${app.ui.cardTitle}" id="krs-dpa-title">Dosen Pembimbing Akademik</h2>
-                                <p class="${app.ui.cardSubtitle}">Sumber: ${esc(source)}</p>
-                            </div>
+                            <h2 class="${app.ui.cardTitle}" id="krs-dpa-title">Dosen Pembimbing Akademik</h2>
                         </div>
                         <div class="${app.ui.cardBody} flex flex-col gap-4">
                             <div class="flex min-w-0 items-center gap-3">
@@ -81,7 +77,7 @@
                 if (advising.found === false) {
                     hosts.history.innerHTML = `
                         <div class="${app.ui.card}" data-slot="card"><div class="${app.ui.cardBody}">
-                            ${app.renderEmptyState('Riwayat KRS belum terbaca dari portal.', 'secondary', 'Coba sinkronkan lagi nanti, atau buka menu Perwalian di portal kampus.')}
+                            ${app.renderEmptyState('Riwayat KRS belum terbaca dari portal.', 'secondary', 'Cek menu Perwalian di portal kampus.')}
                         </div></div>
                     `;
 
@@ -96,7 +92,7 @@
                     hosts.history.innerHTML = `
                         <section class="${app.ui.card}" data-slot="card" aria-labelledby="krs-history-title">
                             <div class="${app.ui.cardHeader}"><h2 class="${app.ui.cardTitle}" id="krs-history-title">Riwayat KRS</h2></div>
-                            <div class="${app.ui.cardBody}">${app.renderEmptyState('Belum ada riwayat KRS.', 'secondary', 'Riwayat muncul setelah KRS pertama kamu diajukan.', { icon: 'history' })}</div>
+                            <div class="${app.ui.cardBody}">${app.renderEmptyState('Belum ada riwayat KRS.', 'secondary', '', { icon: 'history' })}</div>
                         </section>
                     `;
 
@@ -153,7 +149,6 @@
                                 `;
                             }).join('')}
                         </ol>
-                        <p class="border-t border-border-light px-4 py-3 text-xs text-ink-subtle sm:px-5">Nilai tiap semester ada di halaman <a class="${app.ui.link}" href="${esc(gradesUrl)}">Nilai</a>. Semester T tidak dihitung sebagai beban studi.</p>
                     </section>
                 `;
             };

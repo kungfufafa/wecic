@@ -12,7 +12,7 @@
     No AI and no daily AI budget.
 --}}
 @section('content')
-    <x-page-hero :back="route('notebook.index')" back-label="Notebook" title="Ulasan harian" subtitle="Kartu dari flashcard dan soal yang salah di semua notebookmu, muncul lagi tepat sebelum lupa. Tanpa AI dan tanpa kuota." />
+    <x-page-hero :back="route('notebook.index')" back-label="Notebook" title="Ulasan harian" />
 
     <div class="mx-auto flex w-full max-w-2xl min-w-0 flex-col gap-4">
         <p class="text-sm text-ink-muted tabular-nums" id="review-progress" role="status" aria-live="polite">Memuat kartu…</p>
@@ -24,11 +24,11 @@
         </section>
 
         <div class="flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-surface/60 px-3 py-2 text-sm text-ink-muted" id="review-undo" role="status" hidden>
-            <span id="review-undo-text">Kartu ditahan dan tidak muncul di ulasan.</span>
+            <span id="review-undo-text">Kartu ditahan.</span>
             <x-button variant="secondary" size="sm" data-review-undo>Batalkan</x-button>
         </div>
 
-        <p class="hidden text-xs text-ink-subtle sm:block" id="review-keys">Tombol keyboard: Spasi untuk melihat jawaban, lalu 1 Lagi, 2 Sulit, 3 Bisa, 4 Mudah.</p>
+        <p class="hidden text-xs text-ink-subtle sm:block" id="review-keys">Spasi: lihat jawaban · 1 Lagi · 2 Sulit · 3 Bisa · 4 Mudah</p>
     </div>
 @endsection
 
@@ -107,10 +107,10 @@
                 const title = empty ? 'Belum ada kartu ulasan' : (allHeld ? 'Semua kartu sedang ditahan' : 'Selesai untuk sekarang');
                 const heldLine = held ? ` ${held} kartu sedang ditahan dan tidak muncul sampai diaktifkan lagi.` : '';
                 const body = empty
-                    ? 'Buka notebook, lalu pilih Simpan ke ulasan di flashcard atau Simpan yang salah ke ulasan setelah kuis.'
+                    ? 'Simpan kartu dari flashcard atau kuis di notebook.'
                     : app.escapeHtml(allHeld
-                        ? `${held} kartu sedang ditahan, jadi tidak ada yang muncul di ulasan.`
-                        : `${next ? `Kartu berikutnya muncul ${next}.` : 'Tidak ada kartu lain yang terjadwal.'}${heldLine}`);
+                        ? `${held} kartu sedang ditahan.`
+                        : `${next ? `Kartu berikutnya ${next}.` : ''}${heldLine}`);
 
                 cardHost.innerHTML = `
                     <div class="flex flex-col items-center gap-3 py-6 text-center focus:outline-none" id="review-done" tabindex="-1">

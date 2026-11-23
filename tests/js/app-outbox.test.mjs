@@ -27,7 +27,7 @@ describe('renderOutboxItems', () => {
     it('says a queued item has not reached the portal and lets the student cancel it', () => {
         const html = app.renderOutboxItems([{ ...queued, deadline_at: '2026-10-30T23:59:00+07:00' }]);
 
-        assert.match(html, /Portal belum menerima ini\. WeCIC mengirimnya otomatis begitu portal bisa diakses, selama tenggatnya belum lewat\./);
+        assert.match(html, /Belum terkirim ke portal; dikirim otomatis saat online sebelum tenggat\./);
         assert.match(html, /data-outbox-cancel="7">Batalkan<\/button>/);
         assert.ok(html.includes(`<span class="${ui.badge.warning}">Menunggu portal</span>`));
         assert.match(html, /aria-label="Antrean offline"/);
@@ -44,7 +44,7 @@ describe('renderOutboxItems', () => {
     it('asks to check the portal before sending an unverified upload again', () => {
         const html = app.renderOutboxItems([{ ...queued, status: 'unverified', status_label: 'Belum pasti', last_error: 'Portal tidak menjawab' }], { heading: 'Antrean <ujian>' });
 
-        assert.match(html, /Cek halamannya di portal sebelum mengirim ulang/);
+        assert.match(html, /Cek di portal sebelum mengirim ulang/);
         assert.match(html, /text-warning">Portal tidak menjawab<\/div>/);
         assert.doesNotMatch(html, /data-outbox-cancel/);
         assert.match(html, /aria-label="Antrean &lt;ujian&gt;"/);

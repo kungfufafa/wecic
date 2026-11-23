@@ -13,7 +13,7 @@
     aside with the IPS trend and the way to the transcript.
 --}}
 @section('content')
-    <x-page-hero title="Akademik" subtitle="Nilai tiap mata kuliah dan IPS per semester.">
+    <x-page-hero title="Akademik">
         <x-slot:meta><span class="text-ink-subtle" data-grades-updated></span></x-slot:meta>
         <x-slot:tabs><x-academic-menu active="grades" underline /></x-slot:tabs>
     </x-page-hero>
@@ -76,7 +76,7 @@
                 <x-card as="a" href="{{ route('transcript.index') }}" interactive class="flex min-h-11 items-center gap-3 p-4 sm:p-5">
                     <span class="min-w-0 flex-1">
                         <span class="block text-sm font-medium leading-snug text-ink">Transkrip & progres studi</span>
-                        <span class="block text-xs text-ink-subtle">IPK, sisa SKS, tren IPS, dan simulasi target IPK</span>
+                        <span class="block text-xs text-ink-subtle">IPK, sisa SKS & simulasi</span>
                     </span>
                     <x-icon name="chevron-right" size="sm" class="text-ink-subtle" />
                 </x-card>
@@ -198,8 +198,8 @@
                 if (data.sources?.is_partial) {
                     alerts.push(`
                         <div class="${app.alertTone('warning')}">
-                            <div class="flex flex-wrap items-center gap-2 font-medium">${app.renderBadge('Data sebagian', 'warning')} Halaman nilai SIPANDAI gagal dibaca</div>
-                            <p class="mt-1">WeCIC memakai nilai dari halaman KRS, jadi komponen absen dan tugas tidak tampil. Coba sinkronkan lagi nanti.</p>
+                            <div class="flex flex-wrap items-center gap-2 font-medium">${app.renderBadge('Data sebagian', 'warning')} Halaman nilai belum terbaca</div>
+                            <p class="mt-1">Komponen nilai tidak tampil (memakai data KRS).</p>
                         </div>
                     `);
                 }
@@ -207,7 +207,7 @@
                 if (data.summary?.mismatch) {
                     alerts.push(`
                         <div class="${app.alertTone('info')}">
-                            IPK resmi portal berbeda dengan hitungan WeCIC dari KHS. WeCIC menampilkan angka resmi portal; rinciannya ada di <a class="${app.ui.link}" href="/transcript">Transkrip</a>.
+                            IPK resmi portal berbeda dengan hitungan WeCIC. <a class="${app.ui.link}" href="/transcript">Lihat Transkrip</a>.
                         </div>
                     `);
                 }
@@ -292,13 +292,13 @@
                     return `
                         <div class="${app.alertTone('neutral')}">
                             <div class="font-medium text-ink">Semester T berisi mata kuliah konversi</div>
-                            <p class="mt-1">Portal tidak mencantumkan nilai MK konversi, jadi kartu nilai semester T selalu kosong dan tidak masuk IPK. SKS-nya tetap dihitung sebagai SKS lulus dari KRS semester T.</p>
+                            <p class="mt-1">Tidak masuk IPK; SKS tetap dihitung lulus.</p>
                         </div>
                     `;
                 }
 
                 if (semester.semester !== currentSemesterNumber()) {
-                    return app.renderEmptyState('Belum ada nilai di semester ini.', 'secondary', 'Kalau seharusnya ada, cek langsung di menu KHS portal kampus.');
+                    return app.renderEmptyState('Belum ada nilai di semester ini.', 'secondary');
                 }
 
                 const validation = state.data?.krs_validation?.code || null;
@@ -306,8 +306,8 @@
                 if (validation === 'pending_dpa') {
                     return `
                         <div class="${app.alertTone('warning')}" role="status">
-                            <div class="font-medium">Nilai belum bisa tampil: KRS kamu belum divalidasi DPA</div>
-                            <p class="mt-1">Nilai semester ini baru keluar setelah DPA memvalidasi KRS dan dosen mengisi nilai di SIPANDAI.</p>
+                            <div class="font-medium">KRS kamu belum divalidasi DPA</div>
+                            <p class="mt-1">Validasi KRS dulu agar nilai tampil setelah dosen mengisi nilai.</p>
                             <div class="mt-3"><a href="${esc(krsUrl)}" class="${app.buttonClass('secondary', { small: true })}">Cek KRS & hubungi DPA</a></div>
                         </div>
                     `;
@@ -317,7 +317,7 @@
                     return `
                         <div class="${app.alertTone('warning')}" role="status">
                             <div class="font-medium">KRS semester ini belum diajukan</div>
-                            <p class="mt-1">Tanpa KRS yang divalidasi DPA, nilai semester ini tidak akan keluar.</p>
+                            <p class="mt-1">Ajukan dan validasi KRS agar nilai keluar.</p>
                             <div class="mt-3"><a href="${esc(krsUrl)}" class="${app.buttonClass('secondary', { small: true })}">Lihat status KRS</a></div>
                         </div>
                     `;
@@ -327,7 +327,7 @@
                     return `
                         <div class="${app.alertTone('info')}" role="status">
                             <div class="font-medium">Nilai semester ini belum keluar</div>
-                            <p class="mt-1">KRS kamu sudah divalidasi DPA. Nilai muncul setelah dosen mengisi nilai di SIPANDAI, biasanya setelah UAS.</p>
+                            <p class="mt-1">Tampil setelah dosen mengisi nilai.</p>
                         </div>
                     `;
                 }
@@ -335,7 +335,7 @@
                 return `
                     <div class="${app.alertTone('info')}" role="status">
                         <div class="font-medium">Nilai semester ini belum keluar</div>
-                        <p class="mt-1">Nilai baru tampil setelah KRS divalidasi DPA dan dosen mengisi nilai di SIPANDAI.</p>
+                        <p class="mt-1">Tampil setelah KRS divalidasi dan dosen mengisi nilai.</p>
                         <div class="mt-3"><a href="${esc(krsUrl)}" class="${app.buttonClass('secondary', { small: true })}">Cek status KRS</a></div>
                     </div>
                 `;

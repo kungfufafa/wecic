@@ -11,7 +11,7 @@
 
 @section('content')
     {{-- The hero's isolate traps the floating Tambah bar below lg; z-29 keeps it above the content yet under the top bar (z-30). --}}
-    <x-page-hero class="max-lg:z-29" title="SKKM" subtitle="Poin kegiatan mahasiswa (SIREKA).">
+    <x-page-hero class="max-lg:z-29" title="SKKM">
         <x-slot:meta>
             <span class="min-h-4" data-skkm-updated></span>
         </x-slot:meta>
@@ -31,7 +31,7 @@
                     <x-icon name="external-link" size="sm" class="opacity-80" />
                     <span class="sr-only">(membuka portal kampus di tab baru)</span>
                 </x-button>
-                <p class="mt-1.5 text-center text-xs text-ink-subtle lg:text-end" id="skkm-add-hint">Dibuka di portal kampus. Kamu perlu masuk lagi di sana.</p>
+                <p class="mt-1.5 text-center text-xs text-ink-subtle lg:text-end" id="skkm-add-hint">Mungkin perlu masuk lagi di portal.</p>
             </x-sticky-action>
         </x-slot:actions>
         @endif
@@ -280,7 +280,7 @@
                                 <h2 class="sr-only" id="skkm-hero-title">Poin SKKM</h2>
                                 <div class="${app.alertTone('warning')}" role="status">
                                     <p class="font-medium">SIREKA tidak bisa diakses</p>
-                                    <p class="mt-1 text-sm text-ink-muted">Halaman SKKM di portal tidak terbaca, jadi poinmu belum bisa ditampilkan. Ini bukan berarti poinmu nol.</p>
+                                    <p class="mt-1 text-sm text-ink-muted">Halaman SKKM portal tidak terbaca. Ini bukan berarti poinmu nol.</p>
                                     <div class="mt-3 flex flex-wrap gap-2">
                                         <button type="button" class="${app.buttonClass('secondary', { small: true })}" data-skkm-retry data-online-required>Coba lagi</button>
                                         <a href="${app.escapeHtml(portalUrl)}" target="_blank" rel="noopener noreferrer" class="${app.buttonClass('ghost', { small: true })}">Buka portal kampus<span class="sr-only"> (tab baru)</span></a>
@@ -313,25 +313,11 @@
                     : (graduation.is_met === false
                         ? app.renderBadge('Belum memenuhi syarat kelulusan', 'warning')
                         : app.renderBadge('Status kelulusan tidak diketahui', 'secondary'));
-                const insights = [];
-
-                if (required !== null && remaining !== null) {
-                    insights.push(remaining > 0
-                        ? `Kurang <strong class="font-medium text-ink tabular-nums">${formatPoints(remaining)} poin</strong> lagi untuk mencapai target.`
-                        : 'Target poin sudah tercapai.');
-                }
-
-                if (isNumber(pending) && Number(pending) > 0) {
-                    insights.push(`Bisa jadi <strong class="font-medium text-ink tabular-nums">${formatPoints(Number(valid || 0) + Number(pending))} poin</strong> bila ${counts.pending || 'semua'} kegiatan yang menunggu disetujui DPA.`);
-                }
-
-                if (counts.invalid > 0) {
-                    insights.push(`${counts.invalid} kegiatan ditolak. Cek buktinya, lalu ajukan ulang lewat portal.`);
-                }
-
-                if (required === null) {
-                    insights.push('Target poin belum tercantum di portal, jadi ikuti status kelulusan dari portal.');
-                }
+                const summaryNotes = [
+                    required !== null && remaining !== null && remaining > 0 ? `Kurang ${formatPoints(remaining)} poin` : '',
+                    required === null ? 'Target poin belum tercantum di portal' : '',
+                    counts.invalid > 0 ? `${counts.invalid} ditolak (cek bukti di portal)` : '',
+                ].filter(Boolean);
 
                 const progress = required !== null
                     ? app.renderProgressBar({
@@ -358,8 +344,8 @@
                                 <div class="mt-3">${graduationBadge}</div>
                             </div>
                             ${progress}
-                            ${graduation.text ? `<p class="text-sm text-ink-muted">Status di portal: <span class="font-medium text-ink">“${app.escapeHtml(graduation.text)}”</span></p>` : ''}
-                            ${insights.length ? `<ul class="flex list-disc flex-col gap-1 ps-5 text-sm text-ink-muted">${insights.map((text) => `<li>${text}</li>`).join('')}</ul>` : ''}
+                            ${graduation.is_met == null && graduation.text ? `<p class="text-sm text-ink-muted">Status portal: <span class="font-medium text-ink">“${app.escapeHtml(graduation.text)}”</span></p>` : ''}
+                            ${summaryNotes.length ? `<p class="text-sm text-ink-muted">${summaryNotes.join(' · ')}</p>` : ''}
                         </div>
                     </div>
                 `;
@@ -381,26 +367,9 @@
                 }).join('');
             };
 
-            const actionHint = (entry) => {
-                const types = Array.isArray(entry.action_types) ? entry.action_types : [];
-                const canEdit = types.includes('edit');
-                const canDelete = types.includes('delete');
-
-                if (canEdit || canDelete) {
-                    return `${canEdit && canDelete ? 'Ubah atau hapus' : (canEdit ? 'Ubah' : 'Hapus')} lewat portal kampus.`;
-                }
-
-                if (entry.status === 'valid') {
-                    return 'Sudah divalidasi DPA, tidak bisa diubah lagi.';
-                }
-
-                return '';
-            };
-
             const statusHint = (entry) => ({
-                pending: 'Menunggu validasi DPA.',
-                invalid: 'Ditolak DPA. Perbaiki bukti lalu ajukan ulang lewat portal.',
-                unknown: entry.status_label ? `Status di portal: ${entry.status_label}.` : '',
+                invalid: 'Perbaiki di portal.',
+                unknown: entry.status_label || '',
             })[entry.status] || '';
 
             const renderEntry = (entry) => {
@@ -408,7 +377,7 @@
                 const attachmentName = entry.attachment_path ? String(entry.attachment_path).split('/').pop() : null;
                 const attachmentUrl = entry.attachment_path ? app.buildCampusDownloadUrl(entry.attachment_path, attachmentName) : null;
                 const category = [entry.activity, entry.level].filter(Boolean).join(' · ');
-                const hints = [statusHint(entry), actionHint(entry)].filter(Boolean).join(' ');
+                const hint = statusHint(entry);
 
                 return `
                     <li class="flex flex-col gap-2.5 border-b border-border-light px-4 py-3 last:border-b-0 sm:px-5">
@@ -423,12 +392,14 @@
                                 ${app.renderBadge(status.label, status.tone)}
                             </div>
                         </div>
-                        <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
-                            ${attachmentUrl
-                                ? `<a href="${app.escapeHtml(attachmentUrl)}" target="_blank" rel="noopener" class="${app.buttonClass('secondary', { small: true })}" data-online-required>Lihat bukti<span class="sr-only"> ${app.escapeHtml(entry.name || '')} (tab baru)</span></a>`
-                                : `<span class="text-xs text-ink-subtle">${entry.has_attachment ? 'Bukti hanya bisa dibuka di portal.' : 'Tanpa lampiran bukti.'}</span>`}
-                            ${hints ? `<span class="min-w-0 text-xs text-ink-subtle">${app.escapeHtml(hints)}</span>` : ''}
-                        </div>
+                        ${attachmentUrl || entry.has_attachment || hint ? `
+                            <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
+                                ${attachmentUrl
+                                    ? `<a href="${app.escapeHtml(attachmentUrl)}" target="_blank" rel="noopener" class="${app.buttonClass('secondary', { small: true })}" data-online-required>Lihat bukti<span class="sr-only"> ${app.escapeHtml(entry.name || '')} (tab baru)</span></a>`
+                                    : (entry.has_attachment ? '<span class="text-xs text-ink-subtle">Bukti hanya bisa dibuka di portal.</span>' : '')}
+                                ${hint ? `<span class="min-w-0 text-xs text-ink-subtle">${app.escapeHtml(hint)}</span>` : ''}
+                            </div>
+                        ` : ''}
                     </li>
                 `;
             };
@@ -438,7 +409,7 @@
 
                 if (!data || data.found === false) {
                     filterStatus.textContent = '';
-                    entriesHost.innerHTML = `<div class="${app.ui.cardBody}">${app.renderEmptyState('Daftar kegiatan belum bisa dibaca.', 'secondary', 'Coba sinkronkan lagi nanti, atau buka SIREKA di portal kampus.', { icon: 'skkm' })}</div>`;
+                    entriesHost.innerHTML = `<div class="${app.ui.cardBody}">${app.renderEmptyState('Daftar kegiatan belum bisa dibaca.', 'secondary', 'Buka SIREKA di portal kampus.', { icon: 'skkm' })}</div>`;
 
                     return;
                 }
@@ -450,7 +421,7 @@
 
                 if (!entries.length) {
                     filterStatus.textContent = '';
-                    entriesHost.innerHTML = `<div class="${app.ui.cardBody}">${app.renderEmptyState('Belum ada kegiatan SKKM.', 'secondary', 'Unggah bukti kegiatanmu lewat portal, lalu minta DPA memvalidasinya.', { icon: 'skkm' })}</div>`;
+                    entriesHost.innerHTML = `<div class="${app.ui.cardBody}">${app.renderEmptyState('Belum ada kegiatan SKKM.', 'secondary', 'Unggah kegiatan lewat portal.', { icon: 'skkm' })}</div>`;
 
                     return;
                 }
@@ -478,12 +449,11 @@
                             </span>
                             <span class="min-w-0 flex-1">
                                 <span class="block font-medium text-ink">Pedoman SKKM${data.guide_year ? ` ${app.escapeHtml(data.guide_year)}` : ''}</span>
-                                <span class="block text-xs text-ink-subtle">PDF · dibuka lewat WeCIC, butuh internet</span>
+                                <span class="block text-xs text-ink-subtle">PDF</span>
                             </span>
                         </a>
-                        <p class="text-xs text-ink-subtle">Baca dulu jenis kegiatan dan bukti yang diterima sebelum mengunggah.</p>
                     `
-                    : app.renderEmptyState('Pedoman belum terbaca dari portal.', 'secondary', 'Pedoman SKKM juga ada di halaman SIREKA portal kampus.', { icon: 'file' });
+                    : app.renderEmptyState('Pedoman belum terbaca dari portal.', 'secondary', '', { icon: 'file' });
                 app.refreshOnlineRequiredState();
             };
 
@@ -511,7 +481,7 @@
                     : 'Halo Bapak/Ibu, saya ingin bertanya tentang SKKM saya di SIREKA. Terima kasih.';
 
                 dpaHost.innerHTML = `
-                    <p class="text-sm text-ink-muted">Kegiatan yang kamu unggah divalidasi oleh Dosen Pembimbing Akademik (DPA).${pending > 0 ? ` Saat ini <strong class="font-medium text-ink">${pending} kegiatan</strong> masih menunggu.` : ''}</p>
+                    ${pending > 0 ? `<p class="text-sm text-ink-muted"><strong class="font-medium text-ink">${pending} kegiatan</strong> menunggu validasi.</p>` : ''}
                     ${dpa
                         ? `
                             <div class="flex flex-wrap items-center justify-between gap-3">

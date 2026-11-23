@@ -34,7 +34,7 @@
     </style>
 
     <x-page-hero title="Akademik" class="print:hidden">
-        <x-slot:subtitle id="krs-period-label">Status KRS, periode, dan kontak DPA kamu.</x-slot:subtitle>
+        <x-slot:subtitle id="krs-period-label"></x-slot:subtitle>
         <x-slot:meta><span class="text-ink-subtle" data-krs-updated></span></x-slot:meta>
         <x-slot:tabs><x-academic-menu active="krs" underline /></x-slot:tabs>
     </x-page-hero>

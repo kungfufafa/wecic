@@ -6,25 +6,24 @@
 @section('hide_sync_refresh', '1')
 
 @section('content')
-    <x-page-hero title="Hapus akun" subtitle="Hapus akun WeCIC dan semua data yang disimpan server WeCIC untukmu" />
+    <x-page-hero title="Hapus akun" />
 
-    <x-split at="xl">
+    <div class="max-w-xl">
         <x-card as="section" title="Yang ikut dihapus" title-id="account-delete-title" aria-labelledby="account-delete-title">
             <x-card.body class="flex flex-col gap-4 text-sm text-ink-muted">
-                <ul class="flex list-disc flex-col gap-2.5 ps-5 leading-relaxed marker:text-ink-subtle">
-                    <li>Arsip data portal dan semua riwayat versinya, termasuk berkas materi kuliah yang tersimpan.</li>
-                    <li>Notebook beserta sumber, berkas unggahan, dan percakapannya.</li>
-                    <li>Akses offline: hash password dan password terenkripsi untuk sinkronisasi di background.</li>
-                    <li>Notifikasi, token notifikasi push, antrean offline, dan catatan unggahan ujian.</li>
-                    <li>Data portal yang tersimpan sementara di server, serta semua sesi web dan login aplikasi di setiap perangkat.</li>
+                <ul class="flex list-disc flex-col gap-2 ps-5 leading-relaxed marker:text-ink-subtle">
+                    <li>Arsip data portal, riwayat versi, dan berkas materi.</li>
+                    <li>Notebook, sumber, unggahan, dan percakapan.</li>
+                    <li>Akses offline dan sinkronisasi di background.</li>
+                    <li>Notifikasi, antrean offline, dan semua sesi login.</li>
                 </ul>
-                <p class="leading-relaxed">Akun portal akademik kampusmu sendiri tidak tersentuh. Kamu bisa masuk lagi ke WeCIC kapan saja, tetapi data yang dihapus tidak bisa dikembalikan.</p>
+                <p class="leading-relaxed">Akun portal kampus tidak terpengaruh. Data yang dihapus tidak bisa dikembalikan.</p>
             </x-card.body>
             <x-card.footer>
-                <x-button variant="destructive" size="sm" id="account-delete">Hapus akun dan semua data saya</x-button>
+                <x-button variant="destructive" size="sm" id="account-delete">Hapus akun saya</x-button>
             </x-card.footer>
         </x-card>
-    </x-split>
+    </div>
 @endsection
 
 @push('scripts')

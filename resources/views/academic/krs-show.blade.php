@@ -16,7 +16,7 @@
 
     <x-page-hero :back="route('krs.index', ['tab' => 'riwayat'])" back-label="Riwayat KRS">
         <x-slot:title id="krs-show-title">Detail KRS</x-slot:title>
-        <x-slot:subtitle id="krs-show-subtitle">Rencana studi satu semester beserta nilainya bila sudah keluar.</x-slot:subtitle>
+        <x-slot:subtitle id="krs-show-subtitle"></x-slot:subtitle>
         <x-slot:meta>
             <span class="font-medium text-ink-muted" id="krs-show-pretitle">Kartu Rencana Studi</span>
             <span class="flex flex-wrap gap-2 empty:hidden" id="krs-show-chips"></span>
@@ -157,7 +157,7 @@
                 hosts.subtitle.textContent = [
                     header.academic_year ? `T.A ${header.academic_year}` : '',
                     header.date ? `diajukan ${app.formatIndonesianDate(header.date, { weekday: true })}` : '',
-                ].filter(Boolean).join(' · ') || 'Rencana studi satu semester.';
+                ].filter(Boolean).join(' · ') || '';
                 document.title = `KRS ${semesterTitle()}`;
 
                 if (detail.navigation?.is_latest) {
@@ -188,7 +188,7 @@
                     alerts.push(`
                         <div class="${app.alertTone('neutral')}">
                             <div class="font-medium text-ink">KRS semester T berisi mata kuliah konversi</div>
-                            <p class="mt-1">Mata kuliah ini diakui dari studi sebelumnya, misalnya D3 ke S1 lanjutan. SKS-nya dihitung sebagai SKS lulus dan mengurangi sisa SKS, tetapi bukan beban studi semester ini dan tidak masuk IPK karena portal tidak mencantumkan nilainya.</p>
+                            <p class="mt-1">Diakui sebagai SKS lulus; tidak masuk IPK karena tanpa nilai di portal.</p>
                         </div>
                     `);
                 }
@@ -197,11 +197,9 @@
                     alerts.push(`
                         <div class="${app.alertTone('warning')}">
                             <div class="font-medium">KRS ini belum divalidasi DPA</div>
-                            <p class="mt-1">Nilai semester ini tidak akan tampil sampai DPA memvalidasi KRS. <a class="${app.ui.link}" href="${esc(krsUrl)}">Lihat status & hubungi DPA</a></p>
+                            <p class="mt-1">Nilai baru tampil setelah validasi DPA. <a class="${app.ui.link}" href="${esc(krsUrl)}">Hubungi DPA</a></p>
                         </div>
                     `);
-                } else if (!detail.navigation?.is_latest && isRegular()) {
-                    alerts.push(`<p class="text-xs text-ink-subtle">KRS semester lalu. Status validasi hanya ditampilkan untuk KRS terbaru, karena portal menulis teks status yang sama di semua KRS.</p>`);
                 }
 
                 hosts.alerts.innerHTML = alerts.join('');
@@ -294,8 +292,8 @@
                     `;
                 } else {
                     const reason = status?.code === 'pending_dpa'
-                        ? 'Nilai baru tampil setelah DPA memvalidasi KRS dan dosen mengisi nilai.'
-                        : 'Nilai muncul setelah dosen mengisi nilai di SIPANDAI.';
+                        ? 'Menunggu validasi DPA dan nilai dosen.'
+                        : 'Menunggu dosen mengisi nilai.';
 
                     result = `<div class="${app.ui.inset}"><p class="text-sm font-medium leading-snug text-ink">Nilai semester ini belum keluar</p><p class="mt-0.5 text-xs text-ink-subtle">${esc(reason)}</p></div>`;
                 }
@@ -307,7 +305,7 @@
                         </div>
                         <div class="${app.ui.cardBody} flex flex-col gap-4">
                             ${result}
-                            ${retakes ? `<p class="text-xs text-ink-subtle">${esc(retakes)} MK di KRS ini adalah mata kuliah ulang.</p>` : ''}
+                            ${retakes ? `<p class="text-xs text-ink-subtle">${esc(retakes)} MK ulang.</p>` : ''}
                             <div class="flex flex-wrap gap-2">
                                 ${isRegular() ? `<a href="${esc(gradesUrl)}?semester=${esc(detail.header.semester)}" class="${app.buttonClass('secondary', { small: true })}">Lihat nilai lengkap</a>` : ''}
                                 ${printable ? `<button type="button" class="${app.buttonClass('secondary', { small: true })}" data-krs-print>${printIcon}Cetak KRS</button>` : ''}

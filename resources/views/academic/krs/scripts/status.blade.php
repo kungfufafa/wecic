@@ -4,8 +4,6 @@
     academic/krs.blade.php: it shares that scope (app, esc, hosts, state and
     the helpers in setup).
 --}}
-            const sourceLabel = (period) => (period.source === 'announcement' ? 'pengumuman her-registrasi' : 'halaman KRS portal');
-
             const statusBadge = (code, periodOpen) => {
                 const badges = {
                     pending_dpa: ['warning', 'Menunggu DPA'],
@@ -70,7 +68,7 @@
                             </div>
                             <div class="min-w-0 text-ink">
                                 <div class="text-sm font-medium leading-snug">${days === 0 ? 'Periode ditutup hari ini' : `${calm ? 'Masih bisa diperbaiki' : `Sisa ${esc(days)} hari`} · tutup ${esc(app.formatIndonesianDate(active.end, { weekday: true }))}`}</div>
-                                <div class="mt-0.5 text-xs text-ink-muted">${esc(active.label)} · ${esc(shortRange(active.start, active.end))} · sumber: ${esc(sourceLabel(active))}</div>
+                                <div class="mt-0.5 text-xs text-ink-muted">${esc(active.label)} · ${esc(shortRange(active.start, active.end))}</div>
                             </div>
                         </div>
                     `;
@@ -80,7 +78,7 @@
                     return `
                         <div class="${app.ui.alert.info}" data-krs-countdown>
                             <div class="text-sm font-medium leading-snug">${esc(upcoming.label)} dibuka ${esc(app.formatRelativeDays(upcoming.start))}</div>
-                            <div class="mt-0.5 text-xs text-ink-muted">${esc(app.formatIndonesianDate(upcoming.start, { weekday: true }))} s.d. ${esc(app.formatIndonesianDate(upcoming.end))} · sumber: ${esc(sourceLabel(upcoming))}</div>
+                            <div class="mt-0.5 text-xs text-ink-muted">${esc(app.formatIndonesianDate(upcoming.start, { weekday: true }))} s.d. ${esc(app.formatIndonesianDate(upcoming.end))}</div>
                         </div>
                     `;
                 }
@@ -97,7 +95,7 @@
                 return `
                     <div class="${app.ui.inset} text-ink-muted" data-krs-countdown>
                         <div class="text-sm font-medium leading-snug text-ink">Periode KRS belum terbaca dari portal</div>
-                        <div class="mt-0.5 text-xs">Cek pengumuman kampus untuk jadwal her-registrasi dan KRS.</div>
+                        <div class="mt-0.5 text-xs">Cek pengumuman kampus untuk jadwal KRS.</div>
                     </div>
                 `;
             };
@@ -111,35 +109,35 @@
                         return {
                             title: 'Menunggu validasi DPA',
                             body: active
-                                ? `KRS kamu sudah diajukan. Minta DPA memvalidasi sebelum ${closeDate}, karena nilai semester ini baru tampil setelah KRS divalidasi.`
-                                : 'KRS kamu sudah diajukan tapi belum divalidasi DPA. Segera hubungi DPA atau BAAK, karena nilai semester ini baru tampil setelah KRS divalidasi.',
+                                ? `Minta DPA validasi sebelum ${closeDate}.`
+                                : 'Hubungi DPA atau BAAK untuk validasi.',
                         };
                     case 'validated':
                         return {
                             title: 'KRS sudah divalidasi DPA',
-                            body: 'Mata kuliah di bawah sudah jadi rencana studi resmi semester ini. Jadwal dan kelasnya bisa kamu cek di menu Kuliah.',
+                            body: '',
                         };
                     case 'not_submitted':
                         if (active) {
-                            return { title: 'KRS belum diajukan', body: `Isi KRS di portal kampus sebelum ${closeDate}, lalu minta DPA memvalidasinya.` };
+                            return { title: 'KRS belum diajukan', body: `Isi di portal sebelum ${closeDate}.` };
                         }
 
                         if (upcoming) {
-                            return { title: 'KRS belum diajukan', body: `Periode pengisian dibuka ${app.formatIndonesianDate(upcoming.start)}. Siapkan rencana mata kuliahmu dari sekarang.` };
+                            return { title: 'KRS belum diajukan', body: `Pengisian dibuka ${app.formatIndonesianDate(upcoming.start)}.` };
                         }
 
                         return {
                             title: 'KRS belum diajukan',
                             body: past
-                                ? `Periode KRS sudah ditutup ${app.formatIndonesianDate(past.end)}. Hubungi DPA atau BAAK kalau kamu belum mengisi KRS.`
-                                : 'Isi KRS di portal kampus selama periode dibuka, lalu minta DPA memvalidasinya.',
+                                ? `Periode ditutup ${app.formatIndonesianDate(past.end)}. Hubungi DPA atau BAAK.`
+                                : 'Isi di portal kampus saat periode dibuka.',
                         };
                     default:
                         return {
                             title: 'Status KRS belum terbaca',
                             body: rawText
-                                ? `Portal menulis: “${rawText}”. Buka portal kampus kalau kamu ragu.`
-                                : 'WeCIC belum bisa membaca status KRS dari portal. Buka portal kampus untuk memastikan.',
+                                ? `Portal: “${rawText}”.`
+                                : 'Cek langsung di portal kampus.',
                         };
                 }
             };
@@ -158,7 +156,7 @@
                 const code = krs.found === false ? 'unknown' : (status.code || 'unknown');
                 const { active } = pickPeriods(code);
                 const copy = krs.found === false
-                    ? { title: 'KRS semester ini belum terbaca', body: 'Portal belum menampilkan halaman KRS. Coba sinkronkan lagi nanti, atau buka portal kampus.' }
+                    ? { title: 'KRS semester ini belum terbaca', body: 'Coba sinkronkan lagi atau buka portal kampus.' }
                     : statusCopy(code, status.raw_text);
                 const contact = dpaContact(code);
                 const latestId = latestKrsId();
@@ -190,11 +188,11 @@
                                     ${statusBadge(code, Boolean(active))}
                                 </div>
                                 <h2 class="mt-1.5 text-lg font-semibold tracking-tight text-ink" id="krs-status-title">${esc(copy.title)}</h2>
-                                <p class="mt-1 text-sm text-ink-muted">${esc(copy.body)}</p>
+                                ${copy.body ? `<p class="mt-1 text-sm text-ink-muted">${esc(copy.body)}</p>` : ''}
                             </div>
                             ${renderCountdown(code)}
                             ${krs.found === false ? '' : renderTracker(insights.tracker)}
-                            ${!contact && krs.found !== false ? `<p class="text-xs text-ink-subtle">Kontak DPA belum terbaca dari portal. Tanyakan lewat BAAK atau buka <a class="${app.ui.link}" href="${esc(portalUrl)}" target="_blank" rel="noopener noreferrer">portal kampus</a>.</p>` : ''}
+                            ${!contact && krs.found !== false ? `<p class="text-xs text-ink-subtle">Kontak DPA belum tersedia · cek <a class="${app.ui.link}" href="${esc(portalUrl)}" target="_blank" rel="noopener noreferrer">portal kampus</a>.</p>` : ''}
                             ${actions.length ? `<div class="flex flex-wrap gap-2">${actions.join('')}</div>` : ''}
                         </div>
                     </section>

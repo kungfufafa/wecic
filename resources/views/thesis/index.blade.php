@@ -39,7 +39,7 @@
             <x-card.header class="flex-wrap">
                 <div class="min-w-0">
                     <x-card.title id="thesis-readiness-title" tabindex="-1">Kesiapan skripsi</x-card.title>
-                    <x-card.subtitle id="thesis-readiness-caption">Dihitung dari nilai dan tagihan yang sudah tersinkron.</x-card.subtitle>
+                    <x-card.subtitle id="thesis-readiness-caption" class="empty:hidden"></x-card.subtitle>
                 </div>
                 <span id="thesis-readiness-badge"></span>
             </x-card.header>
@@ -63,7 +63,7 @@
                 <summary class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 rounded-xl px-4 py-3.5 transition-colors hover:bg-surface/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 group-open:rounded-b-none group-open:border-b group-open:border-border-light sm:px-5 sm:py-4 [&::-webkit-details-marker]:hidden">
                     <span class="min-w-0">
                         <span class="block text-sm font-semibold tracking-tight text-ink" id="thesis-prep-title">Persiapan ujian TA</span>
-                        <span class="mt-0.5 block text-[13px] text-ink-muted" id="thesis-prep-caption">Centang sendiri; tersimpan di perangkat ini saja.</span>
+                        <span class="mt-0.5 block text-[13px] text-ink-muted" id="thesis-prep-caption">Daftar pribadi</span>
                     </span>
                     <svg xmlns="http://www.w3.org/2000/svg" class="size-5 shrink-0 text-ink-subtle transition-transform group-open:rotate-180" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6l6 -6" /></svg>
                 </summary>
@@ -74,7 +74,7 @@
         </x-card>
 
         <x-slot:aside aria-label="Persyaratan dan SOP skripsi">
-            <x-card as="section" class="scroll-mt-20" id="persyaratan" aria-labelledby="thesis-requirements-title" title="Persyaratan & SOP" title-id="thesis-requirements-title" subtitle="Dari SiMASITA di Portal Kampus.">
+            <x-card as="section" class="scroll-mt-20" id="persyaratan" aria-labelledby="thesis-requirements-title" title="Persyaratan & SOP" title-id="thesis-requirements-title">
                 <x-card.body class="flex flex-col gap-5" id="thesis-requirements" aria-busy="true">
                     <x-skeleton class="h-4 w-2/3" />
                     <x-skeleton class="h-4 w-full" />
@@ -211,8 +211,8 @@
                 if (status.state === 'not_enrolled') {
                     badge = app.renderBadge('Belum mengambil skripsi', 'secondary');
                     body = `
-                        <p class="text-sm text-ink-muted">${app.escapeHtml(status.message || 'Portal mencatat kamu belum mengambil mata kuliah skripsi semester ini.')}</p>
-                        ${awaiting ? `<div class="${app.ui.alert.warning}" role="status">KRS-mu memuat <strong class="font-medium">${app.escapeHtml(courseName)}</strong>, tetapi status e-Skripsi belum aktif. Biasanya menunggu validasi KRS oleh DPA atau sinkron portal.</div>` : ''}
+                        <p class="text-sm text-ink-muted">${app.escapeHtml(status.message || 'Belum mengambil mata kuliah skripsi semester ini.')}</p>
+                        ${awaiting ? `<div class="${app.ui.alert.warning}" role="status">KRS memuat <strong class="font-medium">${app.escapeHtml(courseName)}</strong>, menunggu status e-Skripsi aktif.</div>` : ''}
                         <a href="#kesiapan" class="${app.ui.button.secondarySm} self-start" data-thesis-jump>Cek kesiapan kamu</a>
                     `;
                 } else if (status.state === 'active_unparsed') {
@@ -223,13 +223,13 @@
                     badge = app.renderBadge('Skripsi aktif', 'brand');
                     body = `
                         ${status.message ? `<p class="text-sm text-ink-muted">${app.escapeHtml(status.message)}</p>` : ''}
-                        ${fields.length ? app.renderKeyValueList(fields.map((field) => ({ label: field.label, value: field.value }))) : '<p class="text-sm text-ink-muted">Portal menampilkan data skripsi yang belum bisa dibaca WeCIC. Detailnya ada di Portal Kampus.</p>'}
+                        ${fields.length ? app.renderKeyValueList(fields.map((field) => ({ label: field.label, value: field.value }))) : '<p class="text-sm text-ink-muted">Data belum terbaca lengkap. Lihat di Portal Kampus.</p>'}
                         <a href="${app.escapeHtml(portalThesisUrl)}" target="_blank" rel="noopener noreferrer" class="${app.ui.button.secondarySm} self-start" data-online-required>Buka di Portal Kampus<span class="sr-only"> (tab baru)</span></a>
                     `;
                 } else {
                     badge = app.renderBadge('Status belum terbaca', 'secondary');
                     body = `
-                        <p class="text-sm text-ink-muted">${status.available === false ? 'Halaman e-Skripsi portal belum bisa dibuka. Syarat dan kesiapan di bawah tetap bisa dipakai.' : 'Halaman e-Skripsi portal kosong.'}</p>
+                        <p class="text-sm text-ink-muted">${status.available === false ? 'Halaman e-Skripsi portal belum bisa dibuka.' : 'Halaman e-Skripsi portal kosong.'}</p>
                     `;
                 }
 
@@ -272,7 +272,7 @@
                         <div class="rounded-lg bg-surface p-3">
                             <p class="text-xs font-medium text-ink-muted">Ambang untuk jenjang ${app.escapeHtml(jenjang || 'kamu')}</p>
                             <p class="mt-1 text-sm font-medium leading-snug text-ink">${app.escapeHtml(summary.join(' · '))}</p>
-                            ${isDefault ? '<p class="mt-1 text-xs text-ink-subtle">Sebagian ambang tidak tertulis di portal; WeCIC memakai nilai bawaan. Pastikan lagi di SOP.</p>' : ''}
+                            ${isDefault ? '<p class="mt-1 text-xs text-ink-subtle">Sebagian memakai nilai bawaan · cek SOP.</p>' : ''}
                         </div>
                     ` : ''}
                     ${thesisItems.length ? `
@@ -320,7 +320,7 @@
                                         <span class="${app.ui.iconTile.neutral} size-9" aria-hidden="true">${app.renderIcon('file', 'md')}</span>
                                         <span class="${app.ui.listRowBody}">
                                             <span class="block text-sm font-medium leading-snug text-ink wrap-break-word">${app.escapeHtml(documentItem.label || documentItem.filename || 'Dokumen')}</span>
-                                            <span class="mt-0.5 block text-xs text-ink-subtle">PDF · butuh koneksi internet</span>
+                                            <span class="mt-0.5 block text-xs text-ink-subtle">PDF</span>
                                         </span>
                                         ${app.renderIcon('external-link', 'sm', app.ui.listRowChevron)}
                                     </a>
@@ -414,9 +414,7 @@
                 readinessBadge.innerHTML = ready === true
                     ? app.renderBadge('Syarat akademik terpenuhi', 'success')
                     : (ready === false ? app.renderBadge(`${summary.failed || 0} syarat belum terpenuhi`, 'danger') : app.renderBadge('Belum lengkap', 'secondary'));
-                readinessCaption.textContent = data.threshold_source === 'portal'
-                    ? `Ambang jenjang ${data.jenjang} dari SiMASITA.`
-                    : `Ambang jenjang ${data.jenjang}${data.jenjang_source === 'default' ? ' (jenjang belum terbaca)' : ''}; sebagian memakai nilai bawaan WeCIC.`;
+                readinessCaption.textContent = `Jenjang ${data.jenjang}${data.threshold_source !== 'portal' ? ' · ambang bawaan' : ''}`;
 
                 const sksHint = sksItem?.status === 'passed'
                     ? 'SKS minimal sudah tercapai.'
@@ -468,7 +466,7 @@
                             <ul class="flex flex-col gap-1">${warnings.map((warning) => `<li>${app.escapeHtml(warning.message)}</li>`).join('')}</ul>
                         </div>
                     ` : ''}
-                    <p class="text-xs text-ink-subtle">Perkiraan dari data portal, bukan keputusan resmi program studi.</p>
+                    <p class="text-xs text-ink-subtle">Estimasi dari data portal.</p>
                 `;
                 renderPrep();
             };
@@ -496,7 +494,7 @@
                                 </li>
                             `).join('')}
                         </ul>
-                        <p class="mt-3 text-sm text-ink-muted">${isD ? 'Ulang di Semester Pendek atau semester berikutnya bila nilai D melebihi batas.' : 'Nilai E harus diulang sampai lulus sebelum mendaftar skripsi.'}</p>
+                        <p class="mt-3 text-sm text-ink-muted">${isD ? 'Ulang bila melebihi batas nilai D.' : 'Nilai E wajib diulang sebelum skripsi.'}</p>
                         <a href="/transcript" class="${app.ui.button.secondarySm} mt-4">Lihat transkrip</a>
                     `,
                 });
@@ -514,7 +512,7 @@
                 const checked = storage.read(`${CHECKLIST_PREFIX}${ownerKey}`) || {};
                 const done = items.filter((item) => checked[item.key] === true).length;
 
-                prepCaption.textContent = `${done} dari ${items.length} siap · tersimpan di perangkat ini saja.`;
+                prepCaption.textContent = `${done}/${items.length} siap`;
                 prepList.innerHTML = items.map((item) => `
                     <label class="-mx-2 flex min-h-11 cursor-pointer items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-surface/60">
                         <input type="checkbox" class="size-5 shrink-0 cursor-pointer rounded border-border accent-brand" data-thesis-prep="${app.escapeHtml(item.key)}" ${checked[item.key] === true ? 'checked' : ''}>
