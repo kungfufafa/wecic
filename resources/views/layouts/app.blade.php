@@ -26,6 +26,10 @@
                 theme = storedTheme === 'dark' || storedTheme === 'light'
                     ? storedTheme
                     : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+
+                if (localStorage.getItem('mycic-sidebar-collapsed') === '1') {
+                    document.documentElement.dataset.sidebarCollapsed = '1';
+                }
             } catch (error) {
             }
 
@@ -43,14 +47,35 @@
     $iconPaths = require resource_path('views/components/data/icons.php');
     $svg = static fn (string $name): string => '<svg xmlns="http://www.w3.org/2000/svg" class="size-[18px] shrink-0" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'.$iconPaths[$name].'</svg>';
     $icons = array_combine(
-        ['home', 'class', 'academic', 'finance', 'more', 'skkm', 'thesis', 'library', 'announcement', 'notebook', 'archive', 'settings'],
-        array_map($svg, ['home', 'class', 'academic', 'finance', 'more', 'skkm', 'thesis', 'library', 'announcement', 'notebook', 'archive', 'settings']),
+        ['home', 'class', 'academic', 'more'],
+        array_map($svg, ['home', 'class', 'academic', 'more']),
     );
 
     $isClassSection = request()->routeIs('class.*', 'meeting.show', 'exam.*');
     $isAcademicSection = request()->routeIs('krs.*', 'grades.*', 'transcript.*');
     $isFinanceSection = request()->routeIs('finance.*');
     $isMoreSection = request()->routeIs('skkm.*', 'announcement.*', 'thesis.*', 'library.*', 'profile', 'password.*', 'more', 'archive.*', 'notebook.*');
+    $isNotebookSection = request()->routeIs('notebook.*');
+    $isMoreHubSection = request()->routeIs('skkm.*', 'announcement.*', 'thesis.*', 'library.*', 'more', 'archive.*');
+    $isSettingsSection = request()->routeIs('profile', 'password.*', 'notifications.*', 'account.*');
+    $activeRailContext = match (true) {
+        $isClassSection => 'kuliah',
+        $isAcademicSection => 'akademik',
+        $isFinanceSection => 'keuangan',
+        $isNotebookSection => 'notebook',
+        $isMoreHubSection => 'more',
+        $isSettingsSection => 'settings',
+        default => 'beranda',
+    };
+    $hasSidebarTrail = in_array($activeRailContext, ['kuliah', 'akademik', 'notebook', 'more', 'settings'], true);
+    $sidebarContextTitle = match ($activeRailContext) {
+        'kuliah' => 'Kuliah',
+        'akademik' => 'Akademik',
+        'notebook' => 'Notebook',
+        'more' => 'Lainnya',
+        'settings' => 'Pengaturan',
+        default => 'WeCIC',
+    };
     $isPortalOffline = session('campus_offline') === true;
 
     $mobileNavigation = [
@@ -62,28 +87,6 @@
             ['href' => route('krs.index'), 'label' => 'Akademik', 'icon' => $icons['academic'], 'badge' => 'akademik', 'active' => $isAcademicSection],
             ['href' => route('more'), 'label' => 'Lainnya', 'icon' => $icons['more'], 'badge' => 'lainnya', 'active' => $isFinanceSection || $isMoreSection],
         ],
-    ];
-
-    $desktopNavigation = [
-        ['href' => route('dashboard'), 'label' => 'Beranda', 'icon' => $icons['home'], 'badge' => 'beranda', 'active' => request()->routeIs('dashboard')],
-        ['href' => route('class.index'), 'label' => 'Kuliah', 'icon' => $icons['class'], 'badge' => 'kuliah', 'active' => $isClassSection],
-        ['href' => route('krs.index'), 'label' => 'Akademik', 'icon' => $icons['academic'], 'badge' => 'akademik', 'active' => $isAcademicSection],
-        ['href' => route('finance.index'), 'label' => 'Keuangan', 'icon' => $icons['finance'], 'badge' => 'keuangan', 'active' => $isFinanceSection],
-    ];
-
-    // The sidebar's "Lainnya" group. Profil and Ubah password are in the account menu.
-    $moreMenu = [
-        ['href' => route('skkm.index'), 'label' => 'SKKM', 'icon' => $icons['skkm'], 'badge' => 'skkm', 'active' => request()->routeIs('skkm.*')],
-        ['href' => route('thesis.index'), 'label' => 'Skripsi', 'icon' => $icons['thesis'], 'badge' => 'thesis', 'active' => request()->routeIs('thesis.*')],
-        ['href' => route('library.index'), 'label' => 'Perpustakaan', 'icon' => $icons['library'], 'badge' => 'library', 'active' => request()->routeIs('library.*')],
-        ['href' => route('announcement.index'), 'label' => 'Pengumuman', 'icon' => $icons['announcement'], 'badge' => 'announcement', 'active' => request()->routeIs('announcement.*')],
-        ['href' => route('archive.index'), 'label' => 'Arsip', 'icon' => $icons['archive'], 'badge' => 'archive', 'active' => request()->routeIs('archive.*')],
-    ];
-
-    // The sidebar's "Notebook" group: an extra feature of WeCIC with its own settings.
-    $notebookMenu = [
-        ['href' => route('notebook.index'), 'label' => 'Notebook', 'icon' => $icons['notebook'], 'badge' => 'notebook', 'active' => request()->routeIs('notebook.*') && ! request()->routeIs('notebook.ai-settings')],
-        ['href' => route('notebook.ai-settings'), 'label' => 'Pengaturan AI', 'icon' => $icons['settings'], 'badge' => 'notebook-ai-settings', 'active' => request()->routeIs('notebook.ai-settings')],
     ];
 
     $refreshableDatasets = array_keys(array_filter(
@@ -127,80 +130,202 @@
     </x-modal>
 
     {{--
-        The signed-in shell. From lg up: the sidebar on the canvas and the page
-        in an inset panel, its top bar holding the sync status, the bell and the
-        theme toggle. Below lg: the same top bar with the logo and the avatar,
+        The signed-in shell. From lg up: a two-tier Devin-style sidebar (far-left
+        activity rail + collapsible contextual sidebar) on the canvas and the page
+        in an inset panel, its top bar holding the breadcrumb, sync status, bell
+        and theme toggle. Below lg: the same top bar with the logo and avatar,
         and the bottom navigation. The document scrolls (pull to refresh reads
         window.scrollY); [data-app-shell] leaves room for the bottom navigation.
     --}}
-    <div class="min-h-dvh max-lg:pb-[calc(5.5rem+env(safe-area-inset-bottom,0px))] lg:ps-60 print:p-0" data-app-shell>
-        <aside class="fixed inset-y-0 start-0 z-40 hidden w-60 flex-col lg:flex print:hidden">
-            <div class="flex h-14 shrink-0 items-center px-5">
-                <a href="{{ route('dashboard') }}" class="inline-flex items-center rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand" aria-label="WeCIC, beranda">
-                    <x-brand-logo class="h-7" />
-                </a>
-            </div>
+    <div @class(['min-h-dvh max-lg:pb-[calc(5.5rem+env(safe-area-inset-bottom,0px))] print:p-0', 'lg:ps-72' => $hasSidebarTrail, 'lg:ps-12' => ! $hasSidebarTrail]) data-app-shell data-has-trail="{{ $hasSidebarTrail ? '1' : '0' }}">
+        <aside class="fixed inset-y-0 start-0 z-[45] hidden lg:flex print:hidden">
+            {{-- Primary Activity Rail (48px) --}}
+            <div class="flex w-12 shrink-0 flex-col items-center justify-between border-e border-border-light bg-canvas py-2.5 dark:border-transparent" data-activity-rail>
+                <nav class="flex flex-col items-center gap-1" aria-label="Navigasi utama">
+                    <a
+                        href="{{ route('dashboard') }}"
+                        class="group relative flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-lg text-ink-subtle transition-colors hover:bg-black/5 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand aria-[current=page]:bg-black/[0.08] aria-[current=page]:text-ink data-[rail-selected=true]:bg-black/[0.08] data-[rail-selected=true]:text-ink dark:hover:bg-white/5 dark:aria-[current=page]:bg-surface dark:data-[rail-selected=true]:bg-surface"
+                        aria-label="WeCIC, beranda"
+                        title="Beranda"
+                        data-rail-slot="beranda"
+                        data-nav-slot="beranda"
+                        @if (request()->routeIs('dashboard')) aria-current="page" @endif
+                    >
+                        <x-brand-logo class="sr-only" />
+                        <x-icon name="home" />
+                    </a>
 
-            <nav class="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-3 pb-3 pt-1" aria-label="Navigasi utama">
-                @foreach ($desktopNavigation as $item)
-                    <x-nav.sidebar-item :href="$item['href']" :label="$item['label']" :icon="$item['icon']" :badge="$item['badge']" :active="$item['active']" />
-                @endforeach
+                    <x-nav.rail-item :href="route('class.index')" label="Kuliah" icon="class" rail-slot="kuliah" nav-slot="kuliah" badge="kuliah" data-rail-has-trail="1" :active="$isClassSection" />
+                    <x-nav.rail-item :href="route('krs.index')" label="Akademik" icon="academic" rail-slot="akademik" nav-slot="akademik" badge="akademik" data-rail-has-trail="1" :active="$isAcademicSection" />
+                    <x-nav.rail-item :href="route('finance.index')" label="Keuangan" icon="finance" rail-slot="keuangan" nav-slot="keuangan" badge="keuangan" :active="$isFinanceSection" />
+                    <x-nav.rail-item :href="route('notebook.index')" label="Notebook" icon="notebook" rail-slot="notebook" nav-slot="notebook" badge="notebook" data-rail-has-trail="1" :active="$isNotebookSection" />
+                    <x-nav.rail-item :href="route('more')" label="Lainnya" icon="dots" rail-slot="more" nav-slot="more" badge="lainnya-desktop" data-rail-has-trail="1" :active="$isMoreHubSection" />
+                </nav>
 
-                <div class="flex flex-col gap-0.5" role="group" aria-labelledby="sidebar-notebook-label">
-                    <p class="px-2.5 pb-1 pt-4 text-xs font-medium text-ink-subtle" id="sidebar-notebook-label">Notebook</p>
-                    @foreach ($notebookMenu as $item)
-                        <x-nav.sidebar-item :href="$item['href']" :label="$item['label']" :icon="$item['icon']" :badge="$item['badge']" :active="$item['active']" />
-                    @endforeach
-                </div>
-
-                <div class="flex flex-col gap-0.5" role="group" aria-labelledby="sidebar-more-label">
-                    <p class="px-2.5 pb-1 pt-4 text-xs font-medium text-ink-subtle" id="sidebar-more-label">Lainnya</p>
-                    @foreach ($moreMenu as $item)
-                        <x-nav.sidebar-item :href="$item['href']" :label="$item['label']" :icon="$item['icon']" :badge="$item['badge']" :active="$item['active']" />
-                    @endforeach
-                    {{-- Opens the /more hub; its badge (lainnya-desktop) sums what the hub lists. --}}
-                    <x-nav.sidebar-item :href="route('more')" label="Semua menu" :icon="$icons['more']" badge="lainnya-desktop" nav-slot="more" :active="request()->routeIs('more')" />
-                </div>
-            </nav>
-
-            <div class="shrink-0 p-3">
-                <div class="relative" data-account-menu>
+                <div class="flex flex-col items-center gap-1">
+                    <x-nav.rail-item :href="route('more') . '#panduan'" label="Panduan & Bantuan" icon="help" rail-slot="help" data-rail-has-trail="1" />
+                    <x-nav.rail-item :href="route('profile')" label="Pengaturan" icon="settings" rail-slot="settings" data-rail-has-trail="1" :active="$isSettingsSection" />
                     <button
                         type="button"
-                        class="flex w-full cursor-pointer items-center gap-2.5 rounded-lg p-2 text-start transition-colors hover:bg-black/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand aria-expanded:bg-black/5 dark:hover:bg-white/5 dark:aria-expanded:bg-white/5"
-                        data-account-menu-trigger
-                        aria-expanded="false"
-                        aria-haspopup="true"
-                        aria-label="Menu akun"
+                        class="flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-lg text-ink-subtle transition-colors hover:bg-black/5 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand dark:hover:bg-white/5"
+                        data-sidebar-toggle
+                        aria-label="{{ $hasSidebarTrail ? 'Ciutkan sidebar' : 'Perluas sidebar' }}"
+                        aria-expanded="{{ $hasSidebarTrail ? 'true' : 'false' }}"
+                        title="{{ $hasSidebarTrail ? 'Ciutkan sidebar' : 'Perluas sidebar' }}"
                     >
-                        <x-avatar data-user-avatar>M</x-avatar>
-                        <span class="min-w-0 flex-1">
-                            <span class="block truncate text-sm font-medium text-ink" data-user-name>Mahasiswa</span>
-                            <span class="block truncate text-xs text-ink-subtle" data-user-identity>Portal kampus</span>
-                        </span>
-                        <svg xmlns="http://www.w3.org/2000/svg" class="size-4 shrink-0 text-ink-subtle" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 9l4 -4l4 4" /><path d="M16 15l-4 4l-4 -4" /></svg>
+                        <x-icon name="sidebar-toggle" />
                     </button>
-                    <div class="absolute inset-x-0 bottom-full z-50 mb-1 rounded-xl border border-border bg-panel p-1 shadow-float hidden" data-account-menu-panel role="menu">
-                        <a href="{{ route('profile') }}" class="flex min-h-11 w-full cursor-pointer items-center gap-2 rounded-md px-2.5 py-2 text-start text-sm text-ink-muted transition-colors hover:bg-surface hover:text-ink focus-visible:bg-surface focus-visible:text-ink focus-visible:outline-none aria-[current=page]:font-medium aria-[current=page]:text-ink sm:min-h-9" role="menuitem" @if (request()->routeIs('profile')) aria-current="page" @endif>
-                            <span class="min-w-0 flex-1">Profil</span>
-                            <span class="ms-auto h-5 min-w-5 shrink-0 rounded-full bg-danger px-1.5 text-center text-[11px] font-medium leading-5 text-white tabular-nums data-[tone=brand]:bg-brand data-[tone=info]:bg-brand data-[tone=warning]:bg-warning data-[tone=warning]:text-amber-950 data-[variant=dot]:h-2 data-[variant=dot]:min-w-2 data-[variant=dot]:px-0 hidden" data-nav-badge="profile"></span>
-                        </a>
-                        <a href="{{ route('password.edit') }}" class="flex min-h-11 w-full cursor-pointer items-center gap-2 rounded-md px-2.5 py-2 text-start text-sm text-ink-muted transition-colors hover:bg-surface hover:text-ink focus-visible:bg-surface focus-visible:text-ink focus-visible:outline-none aria-[current=page]:font-medium aria-[current=page]:text-ink sm:min-h-9" role="menuitem" @if (request()->routeIs('password.*')) aria-current="page" @endif>
-                            <span class="min-w-0 flex-1">Ubah password</span>
-                            <span class="ms-auto h-5 min-w-5 shrink-0 rounded-full bg-danger px-1.5 text-center text-[11px] font-medium leading-5 text-white tabular-nums data-[tone=brand]:bg-brand data-[tone=info]:bg-brand data-[tone=warning]:bg-warning data-[tone=warning]:text-amber-950 data-[variant=dot]:h-2 data-[variant=dot]:min-w-2 data-[variant=dot]:px-0 hidden" data-nav-badge="password"></span>
-                        </a>
-                        <a href="{{ route('more') }}#panduan" class="flex min-h-11 w-full cursor-pointer items-center gap-2 rounded-md px-2.5 py-2 text-start text-sm text-ink-muted transition-colors hover:bg-surface hover:text-ink focus-visible:bg-surface focus-visible:text-ink focus-visible:outline-none aria-[current=page]:font-medium aria-[current=page]:text-ink sm:min-h-9" role="menuitem">Panduan</a>
-                        <a href="{{ config('portal.base_url') }}" target="_blank" rel="noopener noreferrer" class="flex min-h-11 w-full cursor-pointer items-center gap-2 rounded-md px-2.5 py-2 text-start text-sm text-ink-muted transition-colors hover:bg-surface hover:text-ink focus-visible:bg-surface focus-visible:text-ink focus-visible:outline-none aria-[current=page]:font-medium aria-[current=page]:text-ink sm:min-h-9" role="menuitem">Portal kampus</a>
-                        <div class="-mx-1 my-1 h-px bg-border-light" role="separator"></div>
-                        <button type="button" class="flex min-h-11 w-full cursor-pointer items-center gap-2 rounded-md px-2.5 py-2 text-start text-sm font-medium text-danger transition-colors hover:bg-danger-soft focus-visible:bg-danger-soft focus-visible:outline-none sm:min-h-9" data-logout role="menuitem">Keluar</button>
+                </div>
+            </div>
+
+            {{-- Contextual Trail Secondary Sidebar (240px; hidden by default on Beranda and Keuangan) --}}
+            <div @class(['w-60 min-w-0 flex-col bg-canvas', 'flex' => $hasSidebarTrail, 'hidden' => ! $hasSidebarTrail]) data-sidebar-panel data-sidebar-active-context="{{ $activeRailContext }}" data-sidebar-has-trail="{{ $hasSidebarTrail ? '1' : '0' }}">
+                <div class="flex h-11 shrink-0 items-center justify-between gap-2 px-3.5">
+                    <span class="truncate text-[13px] font-semibold tracking-tight text-ink" data-sidebar-context-title>{{ $sidebarContextTitle }}</span>
+
+                    <div class="relative" data-dropdown>
+                        <button
+                            type="button"
+                            class="inline-flex size-7 cursor-pointer items-center justify-center rounded-md text-ink-subtle transition-colors hover:bg-black/5 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand dark:hover:bg-white/5"
+                            data-dropdown-trigger
+                            aria-expanded="false"
+                            aria-haspopup="true"
+                            aria-label="Pintasan cepat"
+                        >
+                            <x-icon name="dots" size="sm" />
+                        </button>
+                        <div class="absolute end-0 top-full z-50 mt-2 min-w-52 rounded-xl border border-border bg-panel p-1.5 shadow-float hidden" data-dropdown-panel role="menu">
+                            <p class="px-2.5 py-1.5 text-xs font-medium text-ink-subtle">Pintasan</p>
+                            <a href="{{ route('more') }}" class="flex min-h-11 w-full cursor-pointer items-center gap-2 rounded-lg px-2.5 py-2 text-start text-sm text-ink-muted transition-colors hover:bg-surface hover:text-ink focus-visible:bg-surface focus-visible:text-ink focus-visible:outline-none sm:min-h-9" role="menuitem"><x-icon name="more" size="sm" class="text-ink-subtle" />Semua menu</a>
+                            <a href="{{ route('more') }}#panduan" class="flex min-h-11 w-full cursor-pointer items-center gap-2 rounded-lg px-2.5 py-2 text-start text-sm text-ink-muted transition-colors hover:bg-surface hover:text-ink focus-visible:bg-surface focus-visible:text-ink focus-visible:outline-none sm:min-h-9" role="menuitem"><x-icon name="help" size="sm" class="text-ink-subtle" />Panduan</a>
+                            <a href="{{ config('portal.base_url') }}" target="_blank" rel="noopener noreferrer" class="flex min-h-11 w-full cursor-pointer items-center gap-2 rounded-lg px-2.5 py-2 text-start text-sm text-ink-muted transition-colors hover:bg-surface hover:text-ink focus-visible:bg-surface focus-visible:text-ink focus-visible:outline-none sm:min-h-9" role="menuitem"><x-icon name="external-link" size="sm" class="text-ink-subtle" />Portal kampus</a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="px-3 pb-2 pt-1">
+                    <div class="relative flex items-center">
+                        <span class="pointer-events-none absolute start-2.5 top-1/2 z-10 -translate-y-1/2 text-ink-subtle">
+                            <x-icon name="search" class="size-3.5!" width="14" height="14" />
+                        </span>
+                        <input
+                            type="search"
+                            class="h-8 w-full min-w-0 rounded-lg border border-border bg-panel pe-7 ps-8 text-xs text-ink transition-[color,box-shadow,border-color,background-color] placeholder:text-ink-subtle focus-visible:border-brand focus-visible:bg-panel focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/20 dark:border-border/80 dark:bg-surface/60 dark:focus-visible:bg-surface"
+                            placeholder="Cari menu..."
+                            aria-label="Cari menu navigasi"
+                            autocomplete="off"
+                            data-sidebar-search
+                        >
+                        <kbd class="pointer-events-none absolute end-1.5 top-1/2 flex h-5 min-w-5 -translate-y-1/2 items-center justify-center rounded border border-border bg-panel/80 px-1 font-mono text-[10px] font-medium text-ink-subtle dark:bg-surface" aria-hidden="true" data-sidebar-search-kbd>/</kbd>
+                    </div>
+                </div>
+
+                <div class="min-h-0 flex-1 overflow-y-auto px-2.5 pb-3 pt-0.5">
+                    <nav @class(['flex-col gap-0.5', 'flex' => $activeRailContext === 'kuliah', 'hidden' => $activeRailContext !== 'kuliah']) aria-label="Menu Kuliah" data-sidebar-trail="kuliah">
+                        <x-nav.sidebar-subitem :href="route('class.index')" label="Jadwal & Kelas" icon="calendar" sub-slot="class" :active="request()->routeIs('class.*', 'meeting.show')" />
+                        <x-nav.sidebar-subitem :href="route('exam.index')" label="Ujian" icon="exam" sub-slot="exam" badge="exam" :active="request()->routeIs('exam.*')" />
+                    </nav>
+
+                    <nav @class(['flex-col gap-0.5', 'flex' => $activeRailContext === 'akademik', 'hidden' => $activeRailContext !== 'akademik']) aria-label="Menu Akademik" data-sidebar-trail="akademik">
+                        <x-nav.sidebar-subitem :href="route('krs.index')" label="KRS & Perwalian" icon="list-check" sub-slot="krs" badge="krs" :active="request()->routeIs('krs.*')" />
+                        <x-nav.sidebar-subitem :href="route('grades.index')" label="Nilai" icon="chart" sub-slot="grades" badge="grades" :active="request()->routeIs('grades.*')" />
+                        <x-nav.sidebar-subitem :href="route('transcript.index')" label="Transkrip" icon="file" sub-slot="transcript" badge="transcript" :active="request()->routeIs('transcript.*')" />
+                    </nav>
+
+                    <nav @class(['flex-col gap-0.5', 'flex' => $activeRailContext === 'notebook', 'hidden' => $activeRailContext !== 'notebook']) aria-label="Menu Notebook" data-sidebar-trail="notebook">
+                        <x-nav.sidebar-subitem :href="route('notebook.index')" label="Notebook" icon="notebook" sub-slot="notebook" :active="request()->routeIs('notebook.*') && ! request()->routeIs('notebook.ai-settings')" />
+                        <x-nav.sidebar-subitem :href="route('notebook.ai-settings')" label="Pengaturan AI" icon="settings" sub-slot="notebook-ai-settings" :active="request()->routeIs('notebook.ai-settings')" />
+                    </nav>
+
+                    <nav @class(['flex-col gap-0.5', 'flex' => $activeRailContext === 'more', 'hidden' => $activeRailContext !== 'more']) aria-label="Menu Lainnya" data-sidebar-trail="more">
+                        <x-nav.sidebar-subitem :href="route('skkm.index')" label="SKKM" icon="skkm" sub-slot="skkm" badge="skkm" :active="request()->routeIs('skkm.*')" />
+                        <x-nav.sidebar-subitem :href="route('thesis.index')" label="Skripsi" icon="thesis" sub-slot="thesis" :active="request()->routeIs('thesis.*')" />
+                        <x-nav.sidebar-subitem :href="route('library.index')" label="Perpustakaan" icon="library" sub-slot="library" :active="request()->routeIs('library.*')" />
+                        <x-nav.sidebar-subitem :href="route('announcement.index')" label="Pengumuman" icon="announcement" sub-slot="announcement" badge="announcement" :active="request()->routeIs('announcement.*')" />
+                        <x-nav.sidebar-subitem :href="route('archive.index')" label="Arsip" icon="archive" sub-slot="archive" :active="request()->routeIs('archive.*')" />
+                        <x-nav.sidebar-subitem :href="route('more')" label="Semua menu" icon="more" sub-slot="more" :active="request()->routeIs('more')" />
+                    </nav>
+
+                    {{-- Contextual Settings navigation when settings / account pages are active --}}
+                    <nav @class(['flex-col gap-0.5', 'flex' => $activeRailContext === 'settings', 'hidden' => $activeRailContext !== 'settings']) aria-label="Navigasi pengaturan" data-sidebar-trail="settings" data-sidebar-context-nav="settings">
+                        <div class="flex flex-col gap-0.5" role="group" aria-labelledby="settings-account-label">
+                            <p class="px-2.5 pb-1 pt-1 text-[11px] font-medium tracking-wide text-ink-subtle" id="settings-account-label">Akun &amp; Preferensi</p>
+                            <x-nav.sidebar-subitem :href="route('profile')" label="Profil" icon="user" sub-slot="profile" :active="request()->routeIs('profile')" />
+                            <x-nav.sidebar-subitem :href="route('password.edit')" label="Ubah password" icon="lock" sub-slot="password" :active="request()->routeIs('password.*')" />
+                            <x-nav.sidebar-subitem :href="route('notifications.index')" label="Notifikasi" icon="bell" sub-slot="notifications" :active="request()->routeIs('notifications.*')" />
+                        </div>
+
+                        <div class="flex flex-col gap-0.5" role="group" aria-labelledby="settings-privacy-label">
+                            <p class="px-2.5 pb-1 pt-3.5 text-[11px] font-medium tracking-wide text-ink-subtle" id="settings-privacy-label">Privasi &amp; Data</p>
+                            <x-nav.sidebar-subitem :href="route('account.delete')" label="Hapus akun" icon="alert" sub-slot="account-delete" :active="request()->routeIs('account.*')" />
+                        </div>
+                    </nav>
+
+                    <p class="px-2.5 py-4 text-center text-xs text-ink-subtle hidden" data-sidebar-search-empty>Menu tidak ditemukan.</p>
+                </div>
+
+                <div class="shrink-0 px-2.5 py-2">
+                    <div class="relative" data-account-menu>
+                        <button
+                            type="button"
+                            class="flex w-full cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-start transition-colors hover:bg-black/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand aria-expanded:bg-black/5 dark:hover:bg-white/5 dark:aria-expanded:bg-white/5"
+                            data-account-menu-trigger
+                            aria-expanded="false"
+                            aria-haspopup="true"
+                            aria-label="Menu akun"
+                        >
+                            <x-avatar class="size-5! rounded-md! text-[11px]!" data-user-avatar>M</x-avatar>
+                            <span class="min-w-0 flex-1 truncate text-[13px] font-medium text-ink" data-user-name>Mahasiswa</span>
+                            <span class="sr-only" data-user-identity>Portal kampus</span>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5 shrink-0 text-ink-subtle" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6l6 -6" /></svg>
+                        </button>
+                        <div class="absolute inset-x-0 bottom-full z-50 mb-1.5 min-w-56 rounded-lg border border-border bg-panel p-1.5 shadow-float hidden" data-account-menu-panel role="menu">
+                            <div class="flex items-center gap-3 px-2.5 pb-2.5 pt-2">
+                                <x-avatar class="size-9! rounded! text-sm! font-semibold! ring-0!" data-user-avatar>M</x-avatar>
+                                <div class="min-w-0 flex-1">
+                                    <span class="block truncate text-sm font-medium leading-tight text-ink" data-user-name>Mahasiswa</span>
+                                    <span class="mt-0.5 block truncate text-xs text-ink-subtle tabular-nums" data-user-identity>Portal kampus</span>
+                                </div>
+                            </div>
+                            <div class="mb-1.5 flex flex-wrap items-center gap-1.5 px-2.5 pb-1">
+                                <a
+                                    href="{{ route('profile') }}"
+                                    class="relative inline-flex h-7 cursor-pointer items-center gap-1.5 rounded border border-border bg-panel px-2.5 text-xs font-medium text-ink shadow-2xs transition-colors hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 aria-[current=page]:border-brand/40 aria-[current=page]:bg-surface-tint aria-[current=page]:text-brand-text"
+                                    role="menuitem"
+                                    @if (request()->routeIs('profile')) aria-current="page" @endif
+                                >
+                                    <span>Profil</span>
+                                    <span class="ms-auto h-4 min-w-4 shrink-0 rounded-full bg-danger px-1 text-center text-[10px] font-medium leading-4 text-white tabular-nums data-[tone=brand]:bg-brand data-[tone=info]:bg-brand data-[tone=warning]:bg-warning data-[tone=warning]:text-amber-950 data-[variant=dot]:h-2 data-[variant=dot]:min-w-2 data-[variant=dot]:px-0 hidden" data-nav-badge="profile"></span>
+                                </a>
+                                <a
+                                    href="{{ route('password.edit') }}"
+                                    class="relative inline-flex h-7 cursor-pointer items-center gap-1.5 rounded border border-border bg-panel px-2.5 text-xs font-medium text-ink shadow-2xs transition-colors hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 aria-[current=page]:border-brand/40 aria-[current=page]:bg-surface-tint aria-[current=page]:text-brand-text"
+                                    role="menuitem"
+                                    @if (request()->routeIs('password.*')) aria-current="page" @endif
+                                >
+                                    <span>Ubah password</span>
+                                    <span class="ms-auto h-4 min-w-4 shrink-0 rounded-full bg-danger px-1 text-center text-[10px] font-medium leading-4 text-white tabular-nums data-[tone=brand]:bg-brand data-[tone=info]:bg-brand data-[tone=warning]:bg-warning data-[tone=warning]:text-amber-950 data-[variant=dot]:h-2 data-[variant=dot]:min-w-2 data-[variant=dot]:px-0 hidden" data-nav-badge="password"></span>
+                                </a>
+                            </div>
+                            <a href="{{ route('notifications.index') }}" class="flex min-h-10 w-full cursor-pointer items-center justify-between gap-2 rounded px-2.5 py-2 text-start text-[13px] font-normal text-ink transition-colors hover:bg-surface focus-visible:bg-surface focus-visible:outline-none sm:min-h-8" role="menuitem">
+                                <span class="min-w-0 flex-1">Notifikasi</span>
+                                <x-icon name="chevron-right" size="sm" class="text-ink-subtle" />
+                            </a>
+                            <a href="{{ route('notebook.ai-settings') }}" class="flex min-h-10 w-full cursor-pointer items-center justify-between gap-2 rounded px-2.5 py-2 text-start text-[13px] font-normal text-ink transition-colors hover:bg-surface focus-visible:bg-surface focus-visible:outline-none sm:min-h-8" role="menuitem">
+                                <span class="min-w-0 flex-1">Pengaturan AI</span>
+                                <x-icon name="chevron-right" size="sm" class="text-ink-subtle" />
+                            </a>
+                            <div class="-mx-1.5 my-1 h-px bg-border-light" role="separator"></div>
+                            <button type="button" class="flex min-h-10 w-full cursor-pointer items-center gap-2 rounded px-2.5 py-2 text-start text-[13px] font-normal text-ink transition-colors hover:bg-surface focus-visible:bg-surface focus-visible:outline-none sm:min-h-8" data-logout role="menuitem">Keluar</button>
+                        </div>
                     </div>
                 </div>
             </div>
         </aside>
 
-        <div class="lg:p-2 print:p-0">
+        <div class="lg:py-2 lg:pe-2 lg:ps-0 print:p-0">
             <div class="flex min-h-dvh flex-col bg-panel lg:min-h-[calc(100dvh-1rem)] lg:rounded-xl lg:border lg:border-border lg:shadow-xs dark:lg:shadow-none print:min-h-0 print:rounded-none print:border-0 print:shadow-none">
-                <header class="sticky top-0 z-40 flex h-14 shrink-0 items-center gap-3 border-b border-border bg-panel px-4 md:px-6 lg:-mx-px lg:-mt-px lg:top-2 lg:rounded-t-xl lg:border lg:border-border lg:px-8 lg:shadow-[0_-0.5rem_0_0.5rem_var(--color-canvas)] print:hidden">
+                <header class="sticky top-0 z-40 flex h-14 shrink-0 items-center gap-3 border-b border-border bg-panel px-4 md:px-6 lg:-mx-px lg:-mt-px lg:top-2 lg:h-11 lg:rounded-t-xl lg:border lg:border-border lg:px-6 lg:shadow-[0_-0.5rem_0_0.5rem_var(--color-canvas)] print:hidden">
                     <a href="{{ route('dashboard') }}" class="inline-flex shrink-0 items-center rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand lg:hidden" aria-label="Beranda">
                         <x-brand-logo class="h-7" />
                     </a>
@@ -218,7 +343,6 @@
                         <div class="hidden min-w-0 max-w-md shrink lg:block">
                             <x-sync-strip :refresh="! $hideSyncRefresh" />
                         </div>
-                        <span class="hidden h-5 w-px shrink-0 bg-border lg:block" aria-hidden="true"></span>
                     @endunless
 
                     <div class="ms-auto flex shrink-0 items-center gap-1 lg:ms-0">
@@ -258,23 +382,44 @@
                             >
                                 <x-avatar data-user-avatar>M</x-avatar>
                             </button>
-                            <div class="absolute end-0 top-full z-50 mt-2 min-w-52 rounded-xl border border-border bg-panel p-1 shadow-float hidden" data-account-menu-panel role="menu">
-                                <div class="border-b border-border-light px-2.5 pb-2 pt-1.5 mb-1">
-                                    <span class="block truncate text-sm font-medium text-ink" data-user-name>Mahasiswa</span>
-                                    <span class="block truncate text-xs text-ink-subtle" data-user-identity>Portal kampus</span>
+                            <div class="absolute end-0 top-full z-50 mt-2 min-w-60 rounded-lg border border-border bg-panel p-1.5 shadow-float hidden" data-account-menu-panel role="menu">
+                                <div class="flex items-center gap-3 px-2.5 pb-2.5 pt-2">
+                                    <x-avatar class="size-9! rounded! text-sm! font-semibold! ring-0!" data-user-avatar>M</x-avatar>
+                                    <div class="min-w-0 flex-1">
+                                        <span class="block truncate text-sm font-medium leading-tight text-ink" data-user-name>Mahasiswa</span>
+                                        <span class="mt-0.5 block truncate text-xs text-ink-subtle tabular-nums" data-user-identity>Portal kampus</span>
+                                    </div>
                                 </div>
-                                <a href="{{ route('profile') }}" class="flex min-h-11 w-full cursor-pointer items-center gap-2 rounded-md px-2.5 py-2 text-start text-sm text-ink-muted transition-colors hover:bg-surface hover:text-ink focus-visible:bg-surface focus-visible:text-ink focus-visible:outline-none aria-[current=page]:font-medium aria-[current=page]:text-ink sm:min-h-9" role="menuitem" @if (request()->routeIs('profile')) aria-current="page" @endif>
-                                    <span class="min-w-0 flex-1">Profil</span>
-                                    <span class="ms-auto h-5 min-w-5 shrink-0 rounded-full bg-danger px-1.5 text-center text-[11px] font-medium leading-5 text-white tabular-nums data-[tone=brand]:bg-brand data-[tone=info]:bg-brand data-[tone=warning]:bg-warning data-[tone=warning]:text-amber-950 data-[variant=dot]:h-2 data-[variant=dot]:min-w-2 data-[variant=dot]:px-0 hidden" data-nav-badge="profile"></span>
+                                <div class="mb-1.5 flex flex-wrap items-center gap-1.5 px-2.5 pb-1">
+                                    <a
+                                        href="{{ route('profile') }}"
+                                        class="relative inline-flex h-7 cursor-pointer items-center gap-1.5 rounded border border-border bg-panel px-2.5 text-xs font-medium text-ink shadow-2xs transition-colors hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 aria-[current=page]:border-brand/40 aria-[current=page]:bg-surface-tint aria-[current=page]:text-brand-text"
+                                        role="menuitem"
+                                        @if (request()->routeIs('profile')) aria-current="page" @endif
+                                    >
+                                        <span>Profil</span>
+                                        <span class="ms-auto h-4 min-w-4 shrink-0 rounded-full bg-danger px-1 text-center text-[10px] font-medium leading-4 text-white tabular-nums data-[tone=brand]:bg-brand data-[tone=info]:bg-brand data-[tone=warning]:bg-warning data-[tone=warning]:text-amber-950 data-[variant=dot]:h-2 data-[variant=dot]:min-w-2 data-[variant=dot]:px-0 hidden" data-nav-badge="profile"></span>
+                                    </a>
+                                    <a
+                                        href="{{ route('password.edit') }}"
+                                        class="relative inline-flex h-7 cursor-pointer items-center gap-1.5 rounded border border-border bg-panel px-2.5 text-xs font-medium text-ink shadow-2xs transition-colors hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 aria-[current=page]:border-brand/40 aria-[current=page]:bg-surface-tint aria-[current=page]:text-brand-text"
+                                        role="menuitem"
+                                        @if (request()->routeIs('password.*')) aria-current="page" @endif
+                                    >
+                                        <span>Ubah password</span>
+                                        <span class="ms-auto h-4 min-w-4 shrink-0 rounded-full bg-danger px-1 text-center text-[10px] font-medium leading-4 text-white tabular-nums data-[tone=brand]:bg-brand data-[tone=info]:bg-brand data-[tone=warning]:bg-warning data-[tone=warning]:text-amber-950 data-[variant=dot]:h-2 data-[variant=dot]:min-w-2 data-[variant=dot]:px-0 hidden" data-nav-badge="password"></span>
+                                    </a>
+                                </div>
+                                <a href="{{ route('notifications.index') }}" class="flex min-h-10 w-full cursor-pointer items-center justify-between gap-2 rounded px-2.5 py-2 text-start text-[13px] font-normal text-ink transition-colors hover:bg-surface focus-visible:bg-surface focus-visible:outline-none sm:min-h-8" role="menuitem">
+                                    <span class="min-w-0 flex-1">Notifikasi</span>
+                                    <x-icon name="chevron-right" size="sm" class="text-ink-subtle" />
                                 </a>
-                                <a href="{{ route('password.edit') }}" class="flex min-h-11 w-full cursor-pointer items-center gap-2 rounded-md px-2.5 py-2 text-start text-sm text-ink-muted transition-colors hover:bg-surface hover:text-ink focus-visible:bg-surface focus-visible:text-ink focus-visible:outline-none aria-[current=page]:font-medium aria-[current=page]:text-ink sm:min-h-9" role="menuitem" @if (request()->routeIs('password.*')) aria-current="page" @endif>
-                                    <span class="min-w-0 flex-1">Ubah password</span>
-                                    <span class="ms-auto h-5 min-w-5 shrink-0 rounded-full bg-danger px-1.5 text-center text-[11px] font-medium leading-5 text-white tabular-nums data-[tone=brand]:bg-brand data-[tone=info]:bg-brand data-[tone=warning]:bg-warning data-[tone=warning]:text-amber-950 data-[variant=dot]:h-2 data-[variant=dot]:min-w-2 data-[variant=dot]:px-0 hidden" data-nav-badge="password"></span>
+                                <a href="{{ route('notebook.ai-settings') }}" class="flex min-h-10 w-full cursor-pointer items-center justify-between gap-2 rounded px-2.5 py-2 text-start text-[13px] font-normal text-ink transition-colors hover:bg-surface focus-visible:bg-surface focus-visible:outline-none sm:min-h-8" role="menuitem">
+                                    <span class="min-w-0 flex-1">Pengaturan AI</span>
+                                    <x-icon name="chevron-right" size="sm" class="text-ink-subtle" />
                                 </a>
-                                <a href="{{ route('more') }}#panduan" class="flex min-h-11 w-full cursor-pointer items-center gap-2 rounded-md px-2.5 py-2 text-start text-sm text-ink-muted transition-colors hover:bg-surface hover:text-ink focus-visible:bg-surface focus-visible:text-ink focus-visible:outline-none aria-[current=page]:font-medium aria-[current=page]:text-ink sm:min-h-9" role="menuitem">Panduan</a>
-                                <a href="{{ config('portal.base_url') }}" target="_blank" rel="noopener noreferrer" class="flex min-h-11 w-full cursor-pointer items-center gap-2 rounded-md px-2.5 py-2 text-start text-sm text-ink-muted transition-colors hover:bg-surface hover:text-ink focus-visible:bg-surface focus-visible:text-ink focus-visible:outline-none aria-[current=page]:font-medium aria-[current=page]:text-ink sm:min-h-9" role="menuitem">Portal kampus</a>
-                                <div class="-mx-1 my-1 h-px bg-border-light" role="separator"></div>
-                                <button type="button" class="flex min-h-11 w-full cursor-pointer items-center gap-2 rounded-md px-2.5 py-2 text-start text-sm font-medium text-danger transition-colors hover:bg-danger-soft focus-visible:bg-danger-soft focus-visible:outline-none sm:min-h-9" data-logout role="menuitem">Keluar</button>
+                                <div class="-mx-1.5 my-1 h-px bg-border-light" role="separator"></div>
+                                <button type="button" class="flex min-h-10 w-full cursor-pointer items-center gap-2 rounded px-2.5 py-2 text-start text-[13px] font-normal text-ink transition-colors hover:bg-surface focus-visible:bg-surface focus-visible:outline-none sm:min-h-8" data-logout role="menuitem">Keluar</button>
                             </div>
                         </div>
                     </div>
@@ -282,7 +427,7 @@
 
                 {{-- overflow-x-clip keeps anything too wide from scrolling the page sideways (it is no scroll container, so sticky asides still stick). --}}
                 <main class="flex-1 overflow-x-clip">
-                    <div class="mx-auto w-full max-w-6xl px-4 py-6 md:px-6 lg:px-8">
+                    <div class="mx-auto w-full max-w-6xl px-4 py-6 md:px-6 lg:px-8 lg:py-8">
                         <div class="rounded-lg border border-border bg-panel px-4 py-3 text-sm text-ink-muted text-center mb-3 hidden" data-pull-indicator aria-hidden="true">
                             <span class="flex items-center justify-center gap-2">
                                 <span class="block size-4 shrink-0 animate-spin rounded-full border-2 border-current border-t-transparent hidden" data-pull-spinner aria-hidden="true"></span>

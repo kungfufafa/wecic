@@ -40,17 +40,24 @@
              * The leading date tile (gray): month and day of the publication, or the
              * announcement icon in the same gray square when the date is unknown.
              */
-            const renderAnnouncementDate = (item) => {
+            const renderAnnouncementDate = (item, highlight = false) => {
                 const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(item.published_date || ''));
 
                 if (!match) {
-                    return `<span class="${app.ui.iconTile.neutral} size-11" aria-hidden="true">${app.renderIcon('announcement')}</span>`;
+                    const iconClass = highlight
+                        ? `${app.ui.iconTile.brand} size-11 ring-1 ring-inset ring-brand/20`
+                        : `${app.ui.iconTile.neutral} size-11 ring-1 ring-inset ring-border-light`;
+
+                    return `<span class="${iconClass}" aria-hidden="true">${app.renderIcon('announcement')}</span>`;
                 }
 
                 const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+                const tileClass = highlight
+                    ? 'flex size-11 shrink-0 flex-col items-center justify-center rounded-lg bg-surface-tint text-brand-text ring-1 ring-inset ring-brand/20'
+                    : `${app.ui.dateTile} ring-1 ring-inset ring-border-light`;
 
                 return `
-                    <span class="${app.ui.dateTile}" aria-hidden="true">
+                    <span class="${tileClass}" aria-hidden="true">
                         <span class="${app.ui.dateTileMonth}">${esc(date.toLocaleDateString('id-ID', { month: 'short' }).replace('.', ''))}</span>
                         <span class="${app.ui.dateTileDay}">${date.getDate()}</span>
                     </span>
@@ -98,19 +105,25 @@
                 // The date tile shows the date; the meta line names it only when the tile cannot.
                 const hasDateTile = /^\d{4}-\d{2}-\d{2}/.test(String(item.published_date || ''));
                 const meta = [hasDateTile ? '' : describePublished(item), item.category_label || 'Umum', item.publisher_unit_short || item.publisher_unit].filter(Boolean).join(' · ');
+                const highlight = isNew || Boolean(deadline && deadline.days <= 7);
 
                 return `
                     <li class="min-w-0">
-                        <a href="${esc(href)}" class="${app.ui.cardInteractive} h-full min-w-0 p-4" data-slot="card">
+                        <a href="${esc(href)}" class="${app.ui.cardInteractive} group h-full min-w-0 p-4" data-slot="card">
                             <span class="flex min-w-0 items-start gap-3">
-                            ${renderAnnouncementDate(item)}
-                            <span class="flex min-w-0 flex-1 flex-col gap-1.5">
-                                <span class="line-clamp-2 text-sm font-medium leading-snug text-ink">${esc(item.title || 'Pengumuman kampus')}</span>
-                                ${hasDateTile ? `<span class="sr-only">${esc(describePublished(item))}.</span>` : ''}
-                                ${meta ? `<span class="text-xs text-ink-muted">${esc(meta)}</span>` : ''}
-                                ${badge ? `<span class="flex">${badge}</span>` : ''}
-                                ${item.excerpt ? `<span class="line-clamp-2 text-[13px] text-ink-muted">${esc(item.excerpt)}</span>` : ''}
-                            </span>
+                                ${renderAnnouncementDate(item, highlight)}
+                                <span class="flex min-w-0 flex-1 flex-col gap-1">
+                                    ${meta || badge ? `
+                                        <span class="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+                                            ${meta ? `<span class="min-w-0 truncate text-xs font-medium text-ink-subtle">${esc(meta)}</span>` : '<span></span>'}
+                                            ${badge ? `<span class="shrink-0">${badge}</span>` : ''}
+                                        </span>
+                                    ` : ''}
+                                    <span class="line-clamp-2 text-sm font-semibold leading-snug text-ink">${esc(item.title || 'Pengumuman kampus')}</span>
+                                    ${hasDateTile ? `<span class="sr-only">${esc(describePublished(item))}.</span>` : ''}
+                                    ${item.excerpt ? `<span class="line-clamp-1 text-xs text-ink-muted">${esc(item.excerpt)}</span>` : ''}
+                                </span>
+                                ${app.renderIcon('chevron-right', 'sm', 'mt-1 text-ink-subtle transition-transform group-hover:translate-x-0.5')}
                             </span>
                         </a>
                     </li>

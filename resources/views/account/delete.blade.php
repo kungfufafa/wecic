@@ -6,9 +6,17 @@
 @section('hide_sync_refresh', '1')
 
 @section('content')
-    <x-page-hero title="Hapus akun" />
+    <div class="mx-auto w-full max-w-2xl">
+        <a
+            href="{{ route('profile') }}"
+            class="mb-3 inline-flex min-h-9 items-center gap-1.5 rounded-md text-xs font-medium text-ink-subtle transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+        >
+            <x-icon name="chevron-left" class="size-3.5!" width="14" height="14" />
+            <span>Kembali ke Profil</span>
+        </a>
 
-    <div class="max-w-xl">
+        <x-page-hero title="Hapus akun" />
+
         <x-card as="section" title="Yang ikut dihapus" title-id="account-delete-title" aria-labelledby="account-delete-title">
             <x-card.body class="flex flex-col gap-4 text-sm text-ink-muted">
                 <ul class="flex list-disc flex-col gap-2 ps-5 leading-relaxed marker:text-ink-subtle">

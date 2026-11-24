@@ -1,17 +1,15 @@
 {{--
-    Beranda script, the page header: the salutation and today's date, the
-    summary of the day (classes, pending tasks) and the academic period
-    (K1, K2), each a muted item of the line under the greeting. Part of the DOMContentLoaded handler opened in
+    Beranda script, the page header: the salutation, today's date, and the
+    academic period (K1, K2), each a muted item of the line under the
+    greeting. Part of the DOMContentLoaded handler opened in
     dashboard.blade.php: it shares that scope (app, esc, the constants and
     state in setup).
 --}}
-            // ---- Hero: greeting, summary of the day, academic period (K1, K2) ----------------
+            // ---- Hero: greeting and academic period (K1, K2) ----------------
 
             const periodHost = document.getElementById('dashboard-period');
             const heroSalutationNode = document.querySelector('[data-dashboard-salutation]');
             const heroDateNode = document.getElementById('dashboard-hero-date');
-            const heroSummaryNode = document.getElementById('dashboard-hero-summary');
-            // Plain muted items of the header's meta line, each after a dot.
             const HERO_PERIOD_ITEM = "before:me-1.5 before:content-['·'] max-sm:first:before:hidden";
             const HERO_SKELETON = 'h-4 w-40 animate-pulse rounded-md bg-surface';
 
@@ -32,28 +30,6 @@
             const renderHeroGreeting = () => {
                 heroSalutationNode.textContent = `Selamat ${partOfDay()}`;
                 heroDateNode.textContent = new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-            };
-
-            /**
-             * "2 kuliah hari ini · 3 tugas belum dikumpulkan", from the schedule and the
-             * task list last rendered. An older day's schedule says nothing about today.
-             */
-            const renderHeroSummary = () => {
-                const parts = [];
-                const summary = latestClassesSummary;
-
-                if (summary && (!summary.date || summary.date === todayIso())) {
-                    const classCount = (summary.today_classes || []).length;
-
-                    parts.push(classCount ? `${classCount} kuliah hari ini` : 'Tidak ada kuliah hari ini');
-                }
-
-                if (latestAssignmentsPayload) {
-                    parts.push(latestAssignments.length ? `${latestAssignments.length} tugas belum dikumpulkan` : 'Tidak ada tugas tertunda');
-                }
-
-                heroSummaryNode.textContent = parts.join(' · ');
-                heroSummaryNode.classList.toggle('hidden', !parts.length);
             };
 
             renderHeroGreeting();

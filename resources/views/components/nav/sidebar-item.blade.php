@@ -6,11 +6,15 @@
     `navSlot` names the item (data-nav-slot) and defaults to `badge`.
     `accent` is ignored.
 --}}
-@props(['href', 'label', 'icon' => null, 'badge', 'navSlot' => null, 'active' => false, 'accent' => null])
+@props(['href', 'label', 'icon' => null, 'badge', 'navSlot' => null, 'active' => false, 'accent' => null, 'compact' => false])
+
+@php
+    $sizeClasses = $compact ? 'h-7 items-center gap-2 rounded-md px-2 text-[13px]' : 'h-8 items-center gap-2.5 rounded-lg px-2.5 text-[13px]';
+@endphp
 
 <a
     href="{{ $href }}"
-    {{ $attributes->class('group relative flex h-9 items-center gap-2.5 rounded-lg px-2.5 text-sm font-medium text-ink-muted transition-colors hover:bg-black/5 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand aria-[current=page]:bg-panel aria-[current=page]:text-ink aria-[current=page]:shadow-xs aria-[current=page]:ring-1 aria-[current=page]:ring-border dark:hover:bg-white/5 dark:aria-[current=page]:shadow-none') }}
+    {{ $attributes->class('group relative flex '.$sizeClasses.' font-medium text-ink-muted transition-colors hover:bg-black/5 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand aria-[current=page]:bg-panel aria-[current=page]:text-ink aria-[current=page]:shadow-xs aria-[current=page]:ring-1 aria-[current=page]:ring-border dark:hover:bg-white/5 dark:aria-[current=page]:bg-surface dark:aria-[current=page]:ring-transparent dark:aria-[current=page]:shadow-none') }}
     data-nav-slot="{{ $navSlot ?? $badge }}"
     @if ($active) aria-current="page" @endif
 >

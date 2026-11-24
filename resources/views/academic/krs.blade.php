@@ -34,7 +34,7 @@
     </style>
 
     <x-page-hero title="Akademik" class="print:hidden">
-        <x-slot:tabs><x-academic-menu active="krs" underline /></x-slot:tabs>
+        <x-slot:tabs class="lg:hidden"><x-academic-menu active="krs" underline /></x-slot:tabs>
     </x-page-hero>
 
     <div class="hidden print:mb-4 print:block" id="krs-print-header"></div>

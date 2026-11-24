@@ -44,17 +44,23 @@
                         : '';
 
                     attendanceSectionMarkup = `
-                        <div class="${app.ui.card}" data-slot="card">
+                        <div class="${app.ui.card} border-s-[3px] border-s-success" data-slot="card">
                             <div class="${app.ui.cardHeader}">
-                                <h3 class="${app.ui.cardTitle}">Presensi</h3>
+                                <div class="flex items-center gap-2.5">
+                                    <span class="${app.ui.iconTile.success} size-8 rounded-lg" aria-hidden="true">${app.renderIcon('circle-check', 'sm')}</span>
+                                    <h3 class="${app.ui.cardTitle}">Presensi</h3>
+                                </div>
                                 ${app.renderBadge('Hadir', 'success')}
                             </div>
                             <div class="${app.ui.cardBody}">
-                                <div class="min-w-0 text-sm">
-                                    ${statusRepeatsBadge ? '' : `<div class="font-medium text-ink">${safeAttendanceStatus}</div>`}
-                                    ${attendanceTimeLine
-                                        ? `<div class="text-ink-muted tabular-nums">${attendanceTimeLine}</div>`
-                                        : (statusRepeatsBadge ? '<div class="text-ink-muted">Tercatat di portal.</div>' : '')}
+                                <div class="flex items-start gap-2.5 rounded-lg bg-success-soft/60 p-3 text-success">
+                                    ${app.renderIcon('circle-check', 'sm', 'mt-0.5 shrink-0')}
+                                    <div class="min-w-0 flex-1 text-sm">
+                                        ${statusRepeatsBadge ? '' : `<div class="font-medium">${safeAttendanceStatus}</div>`}
+                                        ${attendanceTimeLine
+                                            ? `<div class="font-medium tabular-nums">${attendanceTimeLine}</div>`
+                                            : (statusRepeatsBadge ? '<div class="font-medium">Tercatat di portal.</div>' : '')}
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -65,9 +71,12 @@
                     const isPast = attendanceState === 'past';
 
                     attendanceSectionMarkup = `
-                        <div class="${app.ui.card}" data-slot="card">
+                        <div class="${app.ui.card} ${isPast ? 'border-s-[3px] border-s-danger' : ''}" data-slot="card">
                             <div class="${app.ui.cardHeader}">
-                                <h3 class="${app.ui.cardTitle}">Presensi</h3>
+                                <div class="flex items-center gap-2.5">
+                                    <span class="${isPast ? app.ui.iconTile.danger : app.ui.iconTile.neutral} size-8 rounded-lg" aria-hidden="true">${app.renderIcon('clock', 'sm')}</span>
+                                    <h3 class="${app.ui.cardTitle}">Presensi</h3>
+                                </div>
                                 ${isPast ? app.renderBadge('Sudah lewat', 'danger') : app.renderBadge('Belum dibuka', 'neutral')}
                             </div>
                             <div class="${app.ui.cardBody}">
@@ -94,11 +103,21 @@
                             Portal belum membuka absensi pertemuan ini${attendanceStatusText ? ` (${app.escapeHtml(attendanceStatusText)})` : ''}.
                         </div>
                     ` : '');
+                    const attendanceCardAccent = attendanceExpired
+                        ? 'border-s-[3px] border-s-danger'
+                        : (attendanceNotOpen ? '' : 'border-s-[3px] border-s-brand');
+                    const attendanceHeaderTile = attendanceExpired
+                        ? `${app.ui.iconTile.danger} size-8 rounded-lg`
+                        : (attendanceNotOpen ? `${app.ui.iconTile.neutral} size-8 rounded-lg` : `${app.ui.iconTile.brand} size-8 rounded-lg`);
+                    const attendanceHeaderIcon = attendanceExpired || attendanceNotOpen ? 'clock' : 'qr';
 
                     attendanceSectionMarkup = `
-                        <div class="${app.ui.card}" data-slot="card">
+                        <div class="${app.ui.card} ${attendanceCardAccent}" data-slot="card">
                             <div class="${app.ui.cardHeader}">
-                                <h3 class="${app.ui.cardTitle}">Presensi</h3>
+                                <div class="flex items-center gap-2.5">
+                                    <span class="${attendanceHeaderTile}" aria-hidden="true">${app.renderIcon(attendanceHeaderIcon, 'sm')}</span>
+                                    <h3 class="${app.ui.cardTitle}">Presensi</h3>
+                                </div>
                                 ${attendanceExpired ? app.renderBadge('Ditutup', 'danger') : (attendanceNotOpen ? app.renderBadge('Belum dibuka', 'neutral') : app.renderBadge('Belum Absen', 'warning'))}
                             </div>
                             <div class="${app.ui.cardBody}">
@@ -141,9 +160,12 @@
                 let assignmentSectionMarkup = '';
                 if (assignmentAlreadyUploaded) {
                     assignmentSectionMarkup = `
-                        <div class="${app.ui.card}" data-slot="card">
+                        <div class="${app.ui.card} border-s-[3px] border-s-success" data-slot="card">
                             <div class="${app.ui.cardHeader}">
-                                <h3 class="${app.ui.cardTitle}">Tugas</h3>
+                                <div class="flex items-center gap-2.5">
+                                    <span class="${app.ui.iconTile.success} size-8 rounded-lg" aria-hidden="true">${app.renderIcon('circle-check', 'sm')}</span>
+                                    <h3 class="${app.ui.cardTitle}">Tugas</h3>
+                                </div>
                                 ${app.renderBadge('Terkirim', 'success')}
                             </div>
                             <div class="${app.ui.cardBody}">
@@ -183,9 +205,12 @@
                     // The meeting page no longer links the upload form: still keep
                     // direct POST upload visible so the portal endpoint decides.
                     assignmentSectionMarkup = `
-                        <div class="${app.ui.card}" data-slot="card">
+                        <div class="${app.ui.card} border-s-[3px] border-s-danger" data-slot="card">
                             <div class="${app.ui.cardHeader}">
-                                <h3 class="${app.ui.cardTitle}">Tugas</h3>
+                                <div class="flex items-center gap-2.5">
+                                    <span class="${app.ui.iconTile.danger} size-8 rounded-lg" aria-hidden="true">${app.renderIcon('notebook', 'sm')}</span>
+                                    <h3 class="${app.ui.cardTitle}">Tugas</h3>
+                                </div>
                                 ${app.renderBadge('Ditutup', 'danger')}
                             </div>
                             <div class="${app.ui.cardBody} flex flex-col gap-4"${assignmentParams ? ' data-assignment-closed' : ''}>
@@ -198,9 +223,12 @@
                     `;
                 } else if (assignmentStatus === 'unresolved') {
                     assignmentSectionMarkup = `
-                        <div class="${app.ui.card}" data-slot="card">
+                        <div class="${app.ui.card} border-s-[3px] border-s-warning" data-slot="card">
                             <div class="${app.ui.cardHeader}">
-                                <h3 class="${app.ui.cardTitle}">Upload tugas</h3>
+                                <div class="flex items-center gap-2.5">
+                                    <span class="${app.ui.iconTile.warning} size-8 rounded-lg" aria-hidden="true">${app.renderIcon('alert', 'sm')}</span>
+                                    <h3 class="${app.ui.cardTitle}">Upload tugas</h3>
+                                </div>
                                 ${app.renderBadge('Status belum diketahui', 'neutral')}
                             </div>
                             <div class="${app.ui.cardBody} flex flex-col gap-4">
@@ -214,9 +242,12 @@
                     `;
                 } else if (assignmentParams) {
                     assignmentSectionMarkup = `
-                        <div class="${app.ui.card}" data-slot="card">
+                        <div class="${app.ui.card} border-s-[3px] border-s-brand" data-slot="card">
                             <div class="${app.ui.cardHeader}">
-                                <h3 class="${app.ui.cardTitle}">Upload tugas</h3>
+                                <div class="flex items-center gap-2.5">
+                                    <span class="${app.ui.iconTile.brand} size-8 rounded-lg" aria-hidden="true">${app.renderIcon('notebook', 'sm')}</span>
+                                    <h3 class="${app.ui.cardTitle}">Upload tugas</h3>
+                                </div>
                             </div>
                             <div class="${app.ui.cardBody}">
                                 ${uploadFormMarkup}
@@ -226,13 +257,16 @@
                 }
 
                 const notebookSectionMarkup = `
-                    <div class="${app.ui.card}" data-slot="card">
+                    <div class="${app.ui.card} border-s-[3px] border-s-brand" data-slot="card">
                         <div class="${app.ui.cardHeader}">
-                            <div class="min-w-0">
-                                <h3 class="${app.ui.cardTitle}">Notebook</h3>
-                                ${notebookLimitReached
-                                    ? `<p class="mt-0.5 text-[13px] leading-normal text-warning">Notebook penuh. Hapus sumber yang tidak perlu di notebook.</p>`
-                                    : ''}
+                            <div class="flex min-w-0 items-center gap-2.5">
+                                <span class="${app.ui.iconTile.brand} size-8 rounded-lg" aria-hidden="true">${app.renderIcon('notebook', 'sm')}</span>
+                                <div class="min-w-0">
+                                    <h3 class="${app.ui.cardTitle}">Notebook</h3>
+                                    ${notebookLimitReached
+                                        ? `<p class="mt-0.5 text-[13px] leading-normal text-warning">Notebook penuh. Hapus sumber yang tidak perlu di notebook.</p>`
+                                        : ''}
+                                </div>
                             </div>
                         </div>
                         <div class="${app.ui.cardBody} flex flex-col gap-2">

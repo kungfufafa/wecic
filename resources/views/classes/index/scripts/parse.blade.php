@@ -1,16 +1,66 @@
 {{--
-    Jadwal & Kelas script, the one neutral look of a class block (an
-    opaque panel, so the grid lines stay hidden), the text and time
-    helpers, and GET /api/class parsed into classes grouped by day with
-    the free hours between them (parseClassItem, processDayGroups). Part
-    of the DOMContentLoaded handler opened in classes/index.blade.php: it shares
-    that scope (app, the elements, constants and state in setup).
+    Jadwal & Kelas script, the 4-tone course palette, text/time helpers,
+    live-class check, and GET /api/class parsed into classes grouped by day
+    with the free hours between them (parseClassItem, processDayGroups).
+    Part of the DOMContentLoaded handler opened in classes/index.blade.php:
+    it shares that scope (app, the elements, constants and state in setup).
 --}}
-            const COURSE_PALETTE = Object.freeze({
-                bg: 'bg-panel',
-                border: 'border-border',
-                dot: 'bg-ink-subtle',
-            });
+            const COURSE_PALETTES = Object.freeze([
+                Object.freeze({
+                    bg: 'bg-surface-tint/70 dark:bg-surface',
+                    border: 'border-brand/25',
+                    accentBorder: 'border-s-[3px] border-s-brand',
+                    dot: 'bg-brand',
+                    badge: app.ui.badge.brand,
+                }),
+                Object.freeze({
+                    bg: 'bg-info-soft/70 dark:bg-surface',
+                    border: 'border-info/25',
+                    accentBorder: 'border-s-[3px] border-s-info',
+                    dot: 'bg-info',
+                    badge: app.ui.badge.info,
+                }),
+                Object.freeze({
+                    bg: 'bg-success-soft/70 dark:bg-surface',
+                    border: 'border-success/25',
+                    accentBorder: 'border-s-[3px] border-s-success',
+                    dot: 'bg-success',
+                    badge: app.ui.badge.success,
+                }),
+                Object.freeze({
+                    bg: 'bg-warning-soft/70 dark:bg-surface',
+                    border: 'border-warning/25',
+                    accentBorder: 'border-s-[3px] border-s-warning',
+                    dot: 'bg-warning',
+                    badge: app.ui.badge.warning,
+                }),
+            ]);
+
+            const coursePaletteFor = (key, fallbackIndex = 0) => {
+                const text = String(key || '').trim();
+
+                if (!text) {
+                    return COURSE_PALETTES[fallbackIndex % COURSE_PALETTES.length];
+                }
+
+                let hash = 0;
+                for (let i = 0; i < text.length; i++) {
+                    hash = (hash * 31 + text.charCodeAt(i)) | 0;
+                }
+
+                return COURSE_PALETTES[Math.abs(hash) % COURSE_PALETTES.length];
+            };
+
+            const isClassOngoingNow = (c) => {
+                if (!c || c.day !== TODAY_DAY || c.startMin === null || c.endMin === null) {
+                    return false;
+                }
+
+                const now = new Date();
+                const minutesNow = now.getHours() * 60 + now.getMinutes();
+
+                return minutesNow >= c.startMin && minutesNow <= c.endMin;
+            };
 
             const cleanText = (str) => {
                 if (!str) return '';
@@ -118,7 +168,7 @@
                     formattedTime,
                     classUrl,
                     detailApiUrl,
-                    palette: COURSE_PALETTE,
+                    palette: coursePaletteFor(code || rawName, index),
                     original: klass,
                 };
             };

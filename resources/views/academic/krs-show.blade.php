@@ -21,7 +21,7 @@
             <span class="font-medium text-ink-muted" id="krs-show-pretitle">Kartu Rencana Studi</span>
             <span class="flex flex-wrap gap-2 empty:hidden" id="krs-show-chips"></span>
         </x-slot:meta>
-        <x-slot:tabs class="print:hidden"><x-academic-menu active="krs" underline /></x-slot:tabs>
+        <x-slot:tabs class="lg:hidden print:hidden"><x-academic-menu active="krs" underline /></x-slot:tabs>
     </x-page-hero>
 
     <div data-krs-id="{{ $id }}" id="krs-show-root">

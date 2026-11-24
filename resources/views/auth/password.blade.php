@@ -6,9 +6,17 @@
 @section('hide_sync_refresh', '1')
 
 @section('content')
-    <x-page-hero title="Ubah password" />
+    <div class="mx-auto w-full max-w-2xl">
+        <a
+            href="{{ route('profile') }}"
+            class="mb-3 inline-flex min-h-9 items-center gap-1.5 rounded-md text-xs font-medium text-ink-subtle transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+        >
+            <x-icon name="chevron-left" class="size-3.5!" width="14" height="14" />
+            <span>Kembali ke Profil</span>
+        </a>
 
-    <div class="max-w-xl">
+        <x-page-hero title="Ubah password" />
+
         <x-card as="section" title="Password portal" title-id="password-form-title" aria-labelledby="password-form-title">
             <x-card.body class="sm:p-6">
                 {{-- Submitted only by the script below: a native submit must never put the passwords in a URL. --}}

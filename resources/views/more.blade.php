@@ -3,7 +3,7 @@
 @section('title', 'Lainnya')
 @section('page_id', 'more-index')
 
-{{-- Each group is a divided list; a tile's icon names where it leads, as in the sidebar. --}}
+{{-- Groups follow the sidebar: Kuliah, Akademik, Keuangan, Notebook, Lainnya, Akun. --}}
 @php
     $tileGroups = [
         [
@@ -22,22 +22,12 @@
             ],
         ],
         [
-            'title' => 'Keuangan & kegiatan',
+            'title' => 'Keuangan',
             'tiles' => [
                 ['key' => 'finance', 'label' => 'Keuangan', 'caption' => 'Tagihan & riwayat', 'href' => route('finance.index'), 'icon' => 'finance'],
-                ['key' => 'skkm', 'label' => 'SKKM', 'caption' => 'Poin kegiatan', 'href' => route('skkm.index'), 'icon' => 'skkm'],
-                ['key' => 'announcement', 'label' => 'Pengumuman', 'caption' => 'Info & tenggat', 'href' => route('announcement.index'), 'icon' => 'announcement'],
             ],
         ],
         [
-            'title' => 'Skripsi & pustaka',
-            'tiles' => [
-                ['key' => 'thesis', 'label' => 'Skripsi', 'caption' => 'Syarat & status', 'href' => route('thesis.index'), 'icon' => 'thesis'],
-                ['key' => 'library', 'label' => 'Perpustakaan', 'caption' => 'Repositori & e-Book', 'href' => route('library.index'), 'icon' => 'library'],
-            ],
-        ],
-        [
-            // An extra feature of WeCIC, not a portal menu: the Notebook and its own settings.
             'title' => 'Notebook',
             'tiles' => [
                 ['key' => 'notebook', 'label' => 'Notebook', 'caption' => 'Tanya jawab materi', 'href' => route('notebook.index'), 'icon' => 'notebook'],
@@ -45,8 +35,12 @@
             ],
         ],
         [
-            'title' => 'Cadangan',
+            'title' => 'Lainnya',
             'tiles' => [
+                ['key' => 'skkm', 'label' => 'SKKM', 'caption' => 'Poin kegiatan', 'href' => route('skkm.index'), 'icon' => 'skkm'],
+                ['key' => 'thesis', 'label' => 'Skripsi', 'caption' => 'Syarat & status', 'href' => route('thesis.index'), 'icon' => 'thesis'],
+                ['key' => 'library', 'label' => 'Perpustakaan', 'caption' => 'Repositori & e-Book', 'href' => route('library.index'), 'icon' => 'library'],
+                ['key' => 'announcement', 'label' => 'Pengumuman', 'caption' => 'Info & tenggat', 'href' => route('announcement.index'), 'icon' => 'announcement'],
                 ['key' => 'archive', 'label' => 'Arsip WeCIC', 'caption' => 'Cadangan & materi', 'href' => route('archive.index'), 'icon' => 'archive'],
             ],
         ],
@@ -67,9 +61,9 @@
 
     <x-split at="xl">
         {{-- Who is signed in (filled by session.js hydrateUser), with the way to the profile. --}}
-        <x-card as="section" class="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5" aria-label="Akun kamu">
+        <x-card as="section" class="mb-6 flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5" aria-label="Akun kamu">
             <div class="flex min-w-0 items-center gap-3">
-                <span class="inline-flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-surface text-sm font-medium text-ink-muted ring-1 ring-border" aria-hidden="true" data-user-avatar>M</span>
+                <span class="inline-flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-surface text-sm font-medium text-ink-muted ring-1 ring-border" aria-hidden="true" data-user-avatar>M</span>
                 <div class="min-w-0">
                     <p class="truncate text-sm font-semibold text-ink" data-user-name>Mahasiswa</p>
                     <p class="truncate text-xs text-ink-muted tabular-nums" data-user-identity>Portal kampus</p>
@@ -78,7 +72,6 @@
             <div class="flex shrink-0 flex-wrap items-center gap-2">
                 <x-button variant="secondary" size="sm" :href="route('profile')"><x-icon name="user" size="sm" />Lihat profil</x-button>
                 <x-button variant="ghost" size="sm" href="#panduan"><x-icon name="help" size="sm" />Panduan</x-button>
-                <x-button variant="ghost" size="sm" :href="route('account.delete')"><x-icon name="trash" size="sm" />Hapus akun</x-button>
             </div>
         </x-card>
 
@@ -90,11 +83,13 @@
                             @foreach ($group['tiles'] as $tile)
                                 <a
                                     href="{{ $tile['href'] }}"
-                                    class="flex min-h-11 cursor-pointer items-center gap-3 px-4 py-3.5 transition-colors hover:bg-surface/60 focus-visible:bg-surface/60 focus-visible:outline-none sm:px-5"
+                                    class="flex min-h-11 cursor-pointer items-center gap-3 px-4 py-3 transition-colors hover:bg-surface/60 focus-visible:bg-surface/60 focus-visible:outline-none sm:px-5"
                                     data-more-tile="{{ $tile['key'] }}"
                                     @if (! empty($tile['external'])) target="_blank" rel="noopener noreferrer" @endif
                                 >
-                                    <x-icon :name="$tile['icon']" class="text-ink-subtle" />
+                                    <span class="flex size-8 shrink-0 items-center justify-center rounded-lg bg-surface text-ink-muted ring-1 ring-border/60">
+                                        <x-icon :name="$tile['icon']" size="sm" />
+                                    </span>
                                     <span class="min-w-0 flex-1">
                                         <span class="block truncate text-sm font-medium text-ink">{{ $tile['label'] }}</span>
                                         <span class="mt-0.5 line-clamp-2 text-xs text-ink-subtle" data-more-status="{{ $tile['key'] }}" data-default-caption="{{ $tile['caption'] }}">{{ $tile['caption'] }}</span>
@@ -107,10 +102,12 @@
                             @if ($loop->last)
                                 <button
                                     type="button"
-                                    class="flex min-h-11 w-full cursor-pointer items-center gap-3 px-4 py-3.5 text-start transition-colors hover:bg-danger-soft/40 focus-visible:bg-danger-soft/40 focus-visible:outline-none sm:px-5"
+                                    class="flex min-h-11 w-full cursor-pointer items-center gap-3 px-4 py-3 text-start transition-colors hover:bg-danger-soft/40 focus-visible:bg-danger-soft/40 focus-visible:outline-none sm:px-5"
                                     data-logout
                                 >
-                                    <x-icon name="logout" class="text-danger" />
+                                    <span class="flex size-8 shrink-0 items-center justify-center rounded-lg bg-danger-soft/70 text-danger">
+                                        <x-icon name="logout" size="sm" />
+                                    </span>
                                     <span class="min-w-0 flex-1">
                                         <span class="block truncate text-sm font-medium text-danger">Keluar</span>
                                     </span>

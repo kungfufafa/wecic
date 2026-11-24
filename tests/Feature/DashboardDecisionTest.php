@@ -37,6 +37,12 @@ class DashboardDecisionTest extends TestCase
         $this->assertCount(1, $period);
         $this->assertSame('Periode akademik', $period->attr('aria-label'));
         $this->assertSame('true', $period->attr('aria-busy'));
+
+        // The header is clean and borderless: greeting and meta on the left, quick actions on the right.
+        $this->assertNotContains('border', explode(' ', (string) $hero->attr('class')));
+        $this->assertCount(1, $hero->filter('#dashboard-hero-date'));
+        $this->assertCount(0, $hero->filter('#dashboard-hero-summary'));
+        $this->assertStringContainsString('bg-brand', (string) $hero->filter('[data-qr-quick]')->attr('class'));
     }
 
     public function test_widgets_follow_the_beranda_priority_order_on_mobile(): void
@@ -124,6 +130,11 @@ class DashboardDecisionTest extends TestCase
         $skkmClasses = explode(' ', (string) $strip->filter('[data-dashboard-metric="skkm"]')->attr('class'));
         $this->assertContains('col-span-2', $skkmClasses);
         $this->assertContains('xl:col-span-1', $skkmClasses);
+
+        // The two figures with a target carry a progress bar.
+        foreach (['sks_passed', 'skkm'] as $metric) {
+            $this->assertCount(1, $strip->filter('[data-dashboard-metric="'.$metric.'"] [data-metric-bar]'), $metric);
+        }
     }
 
     public function test_metrics_read_the_snapshot_values_and_never_show_fake_zeroes(): void

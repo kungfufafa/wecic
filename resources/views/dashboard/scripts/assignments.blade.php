@@ -11,7 +11,6 @@
                 const pendingAssignments = payload?.data?.assignments || [];
                 latestAssignments = pendingAssignments;
                 latestAssignmentsPayload = payload;
-                renderHeroSummary();
 
                 if (assignmentCountNode) {
                     assignmentCountNode.textContent = pendingAssignments.length ? String(pendingAssignments.length) : '';
@@ -29,37 +28,53 @@
                     return;
                 }
 
+                const compactDeadlineText = (raw) => {
+                    const cleaned = String(raw || '')
+                        .replace(/^Batas\s+waktu\s+upload\s+tugas\s*(?:Pertemuan\s+\d+\s*)?/i, '')
+                        .replace(/\bdan\s+Waktu\s+upload\s+tugas\s+sudah\s+berakhir\.?$/i, '')
+                        .replace(/^(?:S\.?d\.?|Sampai(?:\s+dengan)?)\s+/i, '')
+                        .replace(/^(?:Senin|Selasa|Rabu|Kamis|Jumat|Sabtu|Minggu),\s*/i, '')
+                        .trim();
+
+                    return cleaned || String(raw || '').trim();
+                };
+
                 const describeDeadline = (assignment) => {
+                    const compact = compactDeadlineText(assignment.deadline);
+
                     if (!assignment.deadline_date) {
-                        return { label: assignment.deadline || null, tone: 'neutral' };
+                        return { label: compact || null, tone: 'neutral', full: assignment.deadline || '' };
                     }
 
                     const daysLeft = app.daysUntil(assignment.deadline_date);
 
                     if (daysLeft === null) {
-                        return { label: assignment.deadline || null, tone: 'neutral' };
-                    }
-                    if (daysLeft < 0) {
-                        return { label: `Lewat ${Math.abs(daysLeft)} hari · ${assignment.deadline}`, tone: 'danger' };
-                    }
-                    if (daysLeft === 0) {
-                        return { label: `Hari ini · ${assignment.deadline}`, tone: 'danger' };
-                    }
-                    if (daysLeft === 1) {
-                        return { label: `Besok · ${assignment.deadline}`, tone: 'warning' };
-                    }
-                    if (daysLeft <= 3) {
-                        return { label: `${daysLeft} hari lagi · ${assignment.deadline}`, tone: 'warning' };
+                        return { label: compact || null, tone: 'neutral', full: assignment.deadline || '' };
                     }
 
-                    return { label: `${daysLeft} hari lagi · ${assignment.deadline}`, tone: 'neutral' };
+                    const shortDate = app.formatIndonesianDate(assignment.deadline_date, { month: 'short', year: false, fallback: '' }) || compact;
+                    const suffix = shortDate ? ` · ${shortDate}` : '';
+
+                    if (daysLeft < 0) {
+                        return { label: `Lewat ${Math.abs(daysLeft)} hari${suffix}`, tone: 'danger', full: assignment.deadline || '' };
+                    }
+                    if (daysLeft === 0) {
+                        return { label: `Hari ini${suffix}`, tone: 'danger', full: assignment.deadline || '' };
+                    }
+                    if (daysLeft === 1) {
+                        return { label: `Besok${suffix}`, tone: 'warning', full: assignment.deadline || '' };
+                    }
+                    if (daysLeft <= 3) {
+                        return { label: `${daysLeft} hari lagi${suffix}`, tone: 'warning', full: assignment.deadline || '' };
+                    }
+
+                    return { label: `${daysLeft} hari lagi${suffix}`, tone: 'neutral', full: assignment.deadline || '' };
                 };
 
                 const hiddenCount = Math.max(0, pendingAssignments.length - ASSIGNMENT_PREVIEW_LIMIT);
 
-                // One card, one row per task: the course with its deadline (the one badge,
-                // coloured only when it is close) and links, then the upload form (or why
-                // the portal holds it) in a gray well.
+                // One card, one row per task: icon tile, course with concise deadline badge,
+                // right-aligned actions, and inline upload form only when direct upload is open.
                 assignmentHost.innerHTML = `
                     <div class="${app.ui.card} overflow-hidden" data-slot="card">
                     <ul class="${app.ui.list}" id="dashboard-assignment-list">
@@ -67,47 +82,52 @@
                         const deadline = describeDeadline(assignment);
                         const statusColor = deadline.tone;
                         const isExtra = index >= ASSIGNMENT_PREVIEW_LIMIT;
+                        const title = assignment.course_name || assignment.material_title || assignment.course_code || 'Tugas';
 
                         return `
-                        <li class="px-4 py-3 sm:px-5${isExtra && !assignmentsExpanded ? ' hidden' : ''}"${isExtra ? ' data-assignment-extra' : ''}>
-                            <div class="min-w-0">
-                                <div class="flex flex-wrap items-start gap-x-3 gap-y-2">
-                                    <div class="me-auto flex min-w-0 flex-col gap-1">
-                                        ${assignment.course_code || assignment.lecturer_name ? `
-                                            <div class="flex flex-wrap items-center gap-x-2 text-xs text-ink-subtle">
-                                                ${assignment.course_code ? `<span class="font-mono font-medium">${esc(assignment.course_code)}</span>` : ''}
-                                                ${assignment.course_code && assignment.lecturer_name ? '<span aria-hidden="true">·</span>' : ''}
-                                                ${assignment.lecturer_name ? `<span>${esc(assignment.lecturer_name)}</span>` : ''}
+                        <li class="px-4 py-3.5 sm:px-5${isExtra && !assignmentsExpanded ? ' hidden' : ''}"${isExtra ? ' data-assignment-extra' : ''}>
+                            <div class="flex items-start gap-3">
+                                <span class="${app.ui.iconTile[statusColor] || app.ui.iconTile.neutral} mt-0.5 size-9 rounded-lg" aria-hidden="true">
+                                    ${app.renderIcon('notebook', 'sm')}
+                                </span>
+                                <div class="min-w-0 flex-1">
+                                    <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+                                        <div class="flex min-w-0 flex-1 flex-col gap-1">
+                                            ${assignment.course_code || assignment.lecturer_name ? `
+                                                <div class="flex flex-wrap items-center gap-x-2 text-xs text-ink-subtle">
+                                                    ${assignment.course_code ? `<span class="font-mono font-medium text-ink-muted">${esc(assignment.course_code)}</span>` : ''}
+                                                    ${assignment.course_code && assignment.lecturer_name ? '<span aria-hidden="true">·</span>' : ''}
+                                                    ${assignment.lecturer_name ? `<span>${esc(assignment.lecturer_name)}</span>` : ''}
+                                                </div>
+                                            ` : ''}
+                                            <h3 class="${app.ui.cardTitle}">${esc(title)}</h3>
+                                            ${assignment.material_title && assignment.material_title !== title ? `
+                                                <p class="text-xs text-ink-muted">${esc(assignment.material_title)}</p>
+                                            ` : ''}
+                                            <div class="mt-1 flex flex-wrap items-center gap-2 empty:hidden">
+                                                ${deadline.label ? `
+                                                    <span class="${app.ui.badge[statusColor] || app.ui.badge.neutral} tabular-nums"${deadline.full ? ` title="${esc(deadline.full)}"` : ''}>${ICONS.clock}${esc(deadline.label)}</span>
+                                                ` : ''}
+                                                ${!assignment.can_submit_directly ? `<span class="text-xs text-ink-subtle">${assignment.upload_status_text ? esc(assignment.upload_status_text) : 'Upload ditutup di portal. Buka detail untuk melihat status.'}</span>` : ''}
                                             </div>
-                                        ` : ''}
-                                        <h3 class="${app.ui.cardTitle}">${esc(assignment.course_name || 'Tugas')}</h3>
-                                        ${assignment.material_title && assignment.material_title !== assignment.course_name ? `
-                                            <p class="text-[13px] text-ink-muted">${esc(assignment.material_title)}</p>
-                                        ` : ''}
-                                        ${deadline.label ? `
-                                            <span class="${app.ui.badge[statusColor] || app.ui.badge.neutral} mt-1 max-w-full self-start whitespace-normal! tabular-nums">${ICONS.clock}${esc(deadline.label)}</span>
-                                        ` : ''}
+                                        </div>
+                                        <div class="flex shrink-0 flex-wrap items-center gap-2 self-start sm:self-center">
+                                            ${assignment.assignment_file_url
+                                                ? `<a href="${esc(app.absoluteCampusUrl(assignment.assignment_file_url))}" target="_blank" rel="noreferrer" class="${app.buttonClass('secondary', { small: true })}">Lampiran</a>`
+                                                : ''}
+                                            <a href="${esc(assignment.meeting_url)}" class="${app.buttonClass('secondary', { small: true })}">Detail</a>
+                                        </div>
                                     </div>
-                                    <div class="flex shrink-0 flex-wrap items-center gap-2">
-                                        ${assignment.assignment_file_url
-                                            ? `<a href="${esc(app.absoluteCampusUrl(assignment.assignment_file_url))}" target="_blank" rel="noreferrer" class="${app.buttonClass('secondary', { small: true })}">Lampiran</a>`
-                                            : ''}
-                                        <a href="${esc(assignment.meeting_url)}" class="${app.buttonClass('secondary', { small: true })}">Detail</a>
-                                    </div>
-                                </div>
 
-                                <div class="mt-3 rounded-lg bg-surface/60 p-3">
                                     ${assignment.can_submit_directly ? `
-                                        <form class="flex flex-col gap-2 sm:flex-row sm:items-center" data-assignment-card="${index}">
+                                        <form class="mt-3 flex flex-col gap-2 rounded-lg border border-border-light bg-surface/50 p-2.5 sm:flex-row sm:items-center" data-assignment-card="${index}">
                                             <div class="min-w-0 flex-1">
                                                 <label class="sr-only" for="dashboard-assignment-file-${index}">File tugas ${esc(assignment.course_name || '')} (PDF, maks. 10 MB)</label>
                                                 <input type="file" class="${app.ui.fileInput} min-h-11 sm:min-h-9" id="dashboard-assignment-file-${index}" data-field="attachment" accept=".pdf,application/pdf" required>
                                             </div>
                                             <button type="submit" class="${app.buttonClass('primary')}" data-online-required>Kirim</button>
                                         </form>
-                                    ` : `
-                                        <div class="text-sm text-ink-subtle">${assignment.upload_status_text ? esc(assignment.upload_status_text) : 'Upload ditutup di portal. Buka detail untuk melihat status.'}</div>
-                                    `}
+                                    ` : ''}
                                 </div>
                             </div>
                         </li>

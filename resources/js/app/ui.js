@@ -123,6 +123,8 @@ export const ui = Object.freeze({
         mail: '<path d="M3 7a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v10a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-10z" /><path d="M3 7l9 6l9 -6" />',
         eye: '<path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" /><path d="M21 12c-2.4 4 -5.4 6 -9 6c-3.6 0 -6.6 -2 -9 -6c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6" />',
         settings: '<path d="M10.325 4.317c.426 -1.756 2.924 -1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543 -.94 3.31 .826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756 .426 1.756 2.924 0 3.35a1.724 1.724 0 0 0 -1.066 2.573c.94 1.543 -.826 3.31 -2.37 2.37a1.724 1.724 0 0 0 -2.572 1.065c-.426 1.756 -2.924 1.756 -3.35 0a1.724 1.724 0 0 0 -2.573 -1.066c-1.543 .94 -3.31 -.826 -2.37 -2.37a1.724 1.724 0 0 0 -1.065 -2.572c-1.756 -.426 -1.756 -2.924 0 -3.35a1.724 1.724 0 0 0 1.066 -2.573c-.94 -1.543 .826 -3.31 2.37 -2.37c1 .608 2.296 .07 2.572 -1.065z" /><path d="M9 12a3 3 0 1 0 6 0a3 3 0 0 0 -6 0" />',
+        'sidebar-toggle': '<path d="M4 4m0 2a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2z" /><path d="M9 4v16" />',
+        dots: '<path d="M5 12m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /><path d="M12 12m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /><path d="M19 12m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" />',
     }),
 
     iconSize: Object.freeze({
@@ -145,8 +147,8 @@ export const ui = Object.freeze({
         iconSm: 'inline-flex size-8 shrink-0 cursor-pointer select-none items-center justify-center rounded-lg text-ink-muted ring-offset-panel transition-colors hover:bg-surface hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50',
     }),
 
-    card: 'rounded-xl border border-border bg-panel',
-    cardInteractive: 'block cursor-pointer rounded-xl border border-border bg-panel transition-colors hover:bg-surface/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40',
+    card: 'rounded-xl border border-border bg-panel dark:bg-surface/40',
+    cardInteractive: 'block cursor-pointer rounded-xl border border-border bg-panel transition-colors hover:bg-surface/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 dark:bg-surface/40 dark:hover:bg-surface/70',
     cardHeader: 'flex items-center justify-between gap-3 border-b border-border-light px-4 py-3.5 sm:px-5 sm:py-4',
     cardTitle: 'text-sm font-semibold tracking-tight text-ink',
     cardSubtitle: 'mt-0.5 text-[13px] text-ink-muted',
@@ -203,12 +205,12 @@ export const ui = Object.freeze({
     }),
 
     alert: Object.freeze({
-        neutral: 'rounded-lg border border-border bg-panel px-4 py-3 text-sm text-ink-muted',
-        brand: 'rounded-lg border border-brand/20 bg-surface-tint px-4 py-3 text-sm text-ink',
-        info: 'rounded-lg border border-info/20 bg-info-soft px-4 py-3 text-sm text-ink',
-        success: 'rounded-lg border border-success/25 bg-success-soft px-4 py-3 text-sm text-ink',
-        warning: 'rounded-lg border border-warning/25 bg-warning-soft px-4 py-3 text-sm text-ink',
-        danger: 'rounded-lg border border-danger/25 bg-danger-soft px-4 py-3 text-sm text-ink',
+        neutral: 'rounded-xl border border-border bg-panel px-4 py-3.5 text-sm text-ink-muted dark:bg-surface/40',
+        brand: 'rounded-xl border border-border border-s-[3px] border-s-brand bg-panel px-4 py-3.5 text-sm text-ink dark:bg-surface/40',
+        info: 'rounded-xl border border-border border-s-[3px] border-s-info bg-panel px-4 py-3.5 text-sm text-ink dark:bg-surface/40',
+        success: 'rounded-xl border border-border border-s-[3px] border-s-success bg-panel px-4 py-3.5 text-sm text-ink dark:bg-surface/40',
+        warning: 'rounded-xl border border-border border-s-[3px] border-s-warning bg-panel px-4 py-3.5 text-sm text-ink dark:bg-surface/40',
+        danger: 'rounded-xl border border-border border-s-[3px] border-s-danger bg-panel px-4 py-3.5 text-sm text-ink dark:bg-surface/40',
     }),
 
     alertIcon: Object.freeze({
@@ -316,16 +318,16 @@ export const ui = Object.freeze({
     splitAsideXl: 'flex min-w-0 flex-col gap-6 xl:sticky xl:top-20',
     splitAsideStatic: 'flex min-w-0 flex-col gap-6',
 
-    tabs: 'inline-flex max-w-full items-center gap-1 overflow-x-auto rounded-lg bg-surface p-1',
-    tab: 'inline-flex h-11 shrink-0 cursor-pointer select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-3 text-sm font-medium text-ink-muted transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 aria-selected:bg-panel aria-selected:text-ink aria-selected:shadow-xs aria-pressed:bg-panel aria-pressed:text-ink aria-pressed:shadow-xs aria-[current=page]:bg-panel aria-[current=page]:text-ink aria-[current=page]:shadow-xs sm:h-8 dark:aria-selected:bg-surface-tint dark:aria-pressed:bg-surface-tint dark:aria-[current=page]:bg-surface-tint',
-    tabActive: 'inline-flex h-11 shrink-0 cursor-pointer select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-md bg-panel px-3 text-sm font-medium text-ink shadow-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 sm:h-8 dark:bg-surface-tint',
+    tabs: 'inline-flex max-w-full items-center gap-1 overflow-x-auto',
+    tab: 'inline-flex h-11 shrink-0 cursor-pointer select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-3.5 text-sm font-medium text-ink-muted transition-colors hover:bg-black/[0.04] hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 aria-selected:bg-black/[0.06] aria-selected:text-ink aria-pressed:bg-black/[0.06] aria-pressed:text-ink aria-[current=page]:bg-black/[0.06] aria-[current=page]:text-ink sm:h-8 dark:hover:bg-white/[0.05] dark:aria-selected:bg-white/[0.08] dark:aria-pressed:bg-white/[0.08] dark:aria-[current=page]:bg-white/[0.08]',
+    tabActive: 'inline-flex h-11 shrink-0 cursor-pointer select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-black/[0.06] px-3.5 text-sm font-medium text-ink transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 sm:h-8 dark:bg-white/[0.08]',
     underlineTabs: 'flex max-w-full gap-4 overflow-x-auto shadow-[inset_0_-1px_0_var(--color-border)]',
     // The active one carries an ink underline (no colour).
     underlineTab: 'inline-flex min-h-11 shrink-0 cursor-pointer select-none items-center gap-1.5 whitespace-nowrap border-b-2 border-transparent px-1 text-sm font-medium text-ink-muted transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:ring-inset aria-selected:border-ink aria-selected:text-ink aria-pressed:border-ink aria-pressed:text-ink aria-[current=page]:border-ink aria-[current=page]:text-ink',
 
-    tableWrap: 'overflow-x-auto rounded-xl border border-border bg-panel',
+    tableWrap: 'overflow-x-auto rounded-xl border border-border bg-panel dark:bg-surface/40',
     table: 'w-full caption-bottom text-sm',
-    th: 'h-10 whitespace-nowrap border-b border-border bg-surface/40 px-4 text-start text-xs font-medium text-ink-muted',
+    th: 'h-10 whitespace-nowrap border-b border-border bg-surface/35 px-4 text-start text-xs font-medium text-ink-subtle',
     td: 'border-b border-border-light px-4 py-3 text-sm',
     tr: 'transition-colors hover:bg-surface/50 [&:last-child>td]:border-b-0',
 
@@ -344,11 +346,11 @@ export const ui = Object.freeze({
         danger: 'flex min-h-9 min-w-0 items-center rounded-lg border border-danger/25 bg-danger-soft px-3 py-1 text-xs text-ink',
     }),
 
-    dropdownPanel: 'absolute end-0 top-full z-50 mt-2 min-w-52 rounded-xl border border-border bg-panel p-1 shadow-float',
-    dropdownPanelUp: 'absolute inset-x-0 bottom-full z-50 mb-1 rounded-xl border border-border bg-panel p-1 shadow-float',
+    dropdownPanel: 'absolute end-0 top-full z-50 mt-2 min-w-52 rounded-xl border border-border bg-panel p-1.5 shadow-float',
+    dropdownPanelUp: 'absolute inset-x-0 bottom-full z-50 mb-1 rounded-xl border border-border bg-panel p-1.5 shadow-float',
     dropdownLabel: 'px-2.5 py-1.5 text-xs font-medium text-ink-subtle',
-    dropdownItem: 'flex min-h-11 w-full cursor-pointer items-center gap-2 rounded-md px-2.5 py-2 text-start text-sm text-ink-muted transition-colors hover:bg-surface hover:text-ink focus-visible:bg-surface focus-visible:text-ink focus-visible:outline-none aria-[current=page]:font-medium aria-[current=page]:text-ink sm:min-h-9',
-    dropdownItemDanger: 'flex min-h-11 w-full cursor-pointer items-center gap-2 rounded-md px-2.5 py-2 text-start text-sm font-medium text-danger transition-colors hover:bg-danger-soft focus-visible:bg-danger-soft focus-visible:outline-none sm:min-h-9',
+    dropdownItem: 'flex min-h-11 w-full cursor-pointer items-center gap-2 rounded-lg px-2.5 py-2 text-start text-sm text-ink-muted transition-colors hover:bg-surface hover:text-ink focus-visible:bg-surface focus-visible:text-ink focus-visible:outline-none aria-[current=page]:font-medium aria-[current=page]:text-ink sm:min-h-9',
+    dropdownItemDanger: 'flex min-h-11 w-full cursor-pointer items-center gap-2 rounded-lg px-2.5 py-2 text-start text-sm font-medium text-danger transition-colors hover:bg-danger-soft focus-visible:bg-danger-soft focus-visible:outline-none sm:min-h-9',
     dropdownDivider: '-mx-1 my-1 h-px bg-border-light',
 
     avatar: 'inline-flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-surface text-xs font-medium text-ink-muted ring-1 ring-border',
@@ -395,10 +397,16 @@ export const ui = Object.freeze({
     navBadge: 'pointer-events-none absolute -end-2 -top-1.5 h-4 min-w-4 rounded-full bg-danger px-1 text-center text-[11px] font-medium leading-4 text-white tabular-nums ring-2 ring-panel data-[tone=brand]:bg-brand data-[tone=info]:bg-brand data-[tone=warning]:bg-warning data-[tone=warning]:text-amber-950 data-[variant=dot]:h-2.5 data-[variant=dot]:min-w-2.5 data-[variant=dot]:px-0',
     navBadgeBottom: 'pointer-events-none absolute end-1.5 -top-0.5 h-4 min-w-4 rounded-full bg-danger px-1 text-center text-[11px] font-medium leading-4 text-white tabular-nums ring-2 ring-panel data-[tone=brand]:bg-brand data-[tone=info]:bg-brand data-[tone=warning]:bg-warning data-[tone=warning]:text-amber-950 data-[variant=dot]:h-2.5 data-[variant=dot]:min-w-2.5 data-[variant=dot]:px-0',
     navBadgeInline: 'ms-auto h-5 min-w-5 shrink-0 rounded-full bg-danger px-1.5 text-center text-[11px] font-medium leading-5 text-white tabular-nums data-[tone=brand]:bg-brand data-[tone=info]:bg-brand data-[tone=warning]:bg-warning data-[tone=warning]:text-amber-950 data-[variant=dot]:h-2 data-[variant=dot]:min-w-2 data-[variant=dot]:px-0',
-    sidebarItem: 'group relative flex h-9 items-center gap-2.5 rounded-lg px-2.5 text-sm font-medium text-ink-muted transition-colors hover:bg-black/5 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand aria-[current=page]:bg-panel aria-[current=page]:text-ink aria-[current=page]:shadow-xs aria-[current=page]:ring-1 aria-[current=page]:ring-border dark:hover:bg-white/5 dark:aria-[current=page]:shadow-none',
+    sidebarItem: 'group relative flex h-8 items-center gap-2.5 rounded-lg px-2.5 text-[13px] font-medium text-ink-muted transition-colors hover:bg-black/5 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand aria-[current=page]:bg-panel aria-[current=page]:text-ink aria-[current=page]:shadow-xs aria-[current=page]:ring-1 aria-[current=page]:ring-border dark:hover:bg-white/5 dark:aria-[current=page]:bg-surface dark:aria-[current=page]:ring-transparent dark:aria-[current=page]:shadow-none',
     sidebarItemIcon: 'flex shrink-0 text-ink-subtle transition-colors group-hover:text-ink-muted group-aria-[current=page]:text-ink',
+    railItem: 'group relative flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-lg text-ink-subtle transition-colors hover:bg-black/5 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand aria-[current=page]:bg-black/[0.08] aria-[current=page]:text-ink data-[rail-selected=true]:bg-black/[0.08] data-[rail-selected=true]:text-ink dark:hover:bg-white/5 dark:aria-[current=page]:bg-surface dark:data-[rail-selected=true]:bg-surface',
+    sidebarTree: 'relative ms-3.5 my-0.5 flex flex-col gap-0.5 border-s border-border ps-2.5',
+    sidebarSubItem: 'group relative flex h-8 items-center gap-2.5 rounded-lg px-2.5 text-[13px] font-medium text-ink-muted transition-colors hover:bg-black/5 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand aria-[current=location]:bg-black/[0.06] aria-[current=location]:text-ink dark:hover:bg-white/5 dark:aria-[current=location]:bg-surface',
+    sidebarSubItemIcon: 'flex shrink-0 text-ink-subtle transition-colors group-hover:text-ink-muted group-aria-[current=location]:text-ink',
+    sidebarSearchInput: 'h-7 w-full min-w-0 rounded-md border border-border/80 bg-surface/70 pe-6 ps-7 text-xs text-ink transition-[color,box-shadow,border-color,background-color] placeholder:text-ink-subtle focus-visible:border-brand focus-visible:bg-panel focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/20 dark:bg-surface/60 dark:focus-visible:bg-surface',
+    sidebarSearchKbd: 'pointer-events-none absolute end-1 top-1/2 flex h-4 min-w-4 -translate-y-1/2 items-center justify-center rounded border border-border bg-panel px-1 font-mono text-[10px] font-medium text-ink-subtle dark:bg-canvas',
     topBarCrumbs: 'hidden min-w-0 flex-1 items-center lg:flex',
-    sidebarGroupLabel: 'px-2.5 pb-1 pt-4 text-xs font-medium text-ink-subtle',
+    sidebarGroupLabel: 'px-2.5 pb-1 pt-3.5 text-[11px] font-medium tracking-wide text-ink-subtle',
     topNavLink: 'inline-flex min-h-9 shrink-0 cursor-pointer items-center gap-2 rounded-lg px-3 text-sm font-medium text-ink-muted transition-colors hover:bg-surface hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand aria-[current=page]:bg-surface aria-[current=page]:text-ink',
     bottomNavItem: 'group flex flex-1 flex-col items-center gap-1 rounded-lg px-1 py-1 text-[11px] font-medium text-ink-subtle transition-colors active:bg-surface aria-[current=page]:text-brand-text',
     bottomNavIcon: 'relative flex h-7 w-11 items-center justify-center rounded-lg transition-colors group-aria-[current=page]:bg-surface-tint group-aria-[current=page]:text-brand-text',

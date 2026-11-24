@@ -7,7 +7,7 @@
 --}}
 @props(['flush' => false, 'wrapClass' => null])
 
-<div class="{{ trim(($flush ? 'overflow-x-auto' : 'overflow-x-auto rounded-xl border border-border bg-panel').' '.$wrapClass) }}">
+<div class="{{ trim(($flush ? 'overflow-x-auto' : 'overflow-x-auto rounded-xl border border-border bg-panel dark:bg-surface/40').' '.$wrapClass) }}">
     <table {{ $attributes->class('w-full caption-bottom text-sm') }}>
         {{ $slot }}
     </table>

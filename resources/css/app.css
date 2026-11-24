@@ -49,8 +49,8 @@
     --color-danger-soft: #fef2f2;
     --color-info: #0369a1;
     --color-info-soft: #f0f7ff;
-    --color-border: #e4e4e7;
-    --color-border-light: #f0f0f2;
+    --color-border: #e8e8ec;
+    --color-border-light: #f2f2f4;
 
     --radius-control: 0.5rem;
     --radius-button: 0.5rem;
@@ -137,8 +137,8 @@ html[data-theme='dark'] {
     --color-danger-soft: #2b1517;
     --color-info: #5eb0ef;
     --color-info-soft: #122230;
-    --color-border: #27272a;
-    --color-border-light: #1f1f22;
+    --color-border: #252528;
+    --color-border-light: #1c1c1f;
 
     --shadow-card: none;
     --shadow-elevated: none;
@@ -173,8 +173,8 @@ html[data-theme='dark'] {
         --color-danger-soft: #fef2f2;
         --color-info: #0369a1;
         --color-info-soft: #f0f7ff;
-        --color-border: #e4e4e7;
-        --color-border-light: #f0f0f2;
+        --color-border: #e8e8ec;
+        --color-border-light: #f2f2f4;
     }
 }
 
@@ -245,5 +245,25 @@ html[data-theme='dark'] {
 @media (width < 64rem) {
     [data-app-shell]:has([data-sticky-action]) {
         padding-bottom: calc(10rem + env(safe-area-inset-bottom, 0px));
+    }
+}
+
+/*
+ * Desktop two-tier sidebar collapse: hide the contextual secondary sidebar and
+ * shrink the shell's start inset to the 3rem (48px) primary activity rail.
+ */
+@media (width >= 64rem) {
+    html[data-sidebar-collapsed='1'] [data-sidebar-panel] {
+        display: none;
+    }
+
+    html[data-sidebar-collapsed='1'] [data-app-shell] {
+        padding-inline-start: 3rem;
+    }
+}
+
+@media print {
+    html[data-sidebar-collapsed='1'] [data-app-shell] {
+        padding: 0;
     }
 }

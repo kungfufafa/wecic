@@ -374,6 +374,21 @@ class BladeComponentsTest extends TestCase
         $this->assertNull($top->attr('aria-current'));
         $this->assertSame('Akademik', $top->attr('title'));
         $this->assertSame('Akademik', $top->filter('span.sr-only')->text());
+
+        $rail = $this->render('<x-nav.rail-item href="/dashboard" label="Beranda" icon="home" rail-slot="beranda" :active="true" />')->filter('a');
+
+        $this->assertSame($this->ui('railItem'), $rail->attr('class'));
+        $this->assertSame('page', $rail->attr('aria-current'));
+        $this->assertSame('beranda', $rail->attr('data-rail-slot'));
+        $this->assertSame('Beranda', $rail->attr('aria-label'));
+        $this->assertSame('Beranda', $rail->attr('title'));
+
+        $sub = $this->render('<x-nav.sidebar-subitem href="/exam" label="Ujian" icon="exam" sub-slot="exam" :active="true" />')->filter('a');
+
+        $this->assertSame($this->ui('sidebarSubItem'), $sub->attr('class'));
+        $this->assertSame('location', $sub->attr('aria-current'));
+        $this->assertSame('exam', $sub->attr('data-sidebar-subitem'));
+        $this->assertSame($this->ui('sidebarSubItemIcon'), $sub->filter('[data-slot="sidebar-subicon"]')->attr('class'));
     }
 
     public function test_shell_pieces_use_the_script_classes(): void

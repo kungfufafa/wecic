@@ -46,6 +46,44 @@
 
             const hasContact = (contact) => Boolean(contact && (contact.whatsapp || contact.phone || contact.email));
 
+            const actionIcon = (item) => {
+                const context = `${item.type || ''} ${item.source || ''} ${item.cta_url || ''}`.toLowerCase();
+
+                if (/exam|ujian/.test(context)) {
+                    return 'exam';
+                }
+
+                if (/krs|advising|perwalian/.test(context)) {
+                    return 'list-check';
+                }
+
+                if (/payment|finance|bill|tagihan|ukt/.test(context)) {
+                    return 'credit-card';
+                }
+
+                if (/skkm/.test(context)) {
+                    return 'skkm';
+                }
+
+                if (/assignment|tugas/.test(context)) {
+                    return 'notebook';
+                }
+
+                return 'bell';
+            };
+
+            const compactActionDescription = (description) => {
+                const text = String(description || '').trim();
+
+                if (!text) {
+                    return '';
+                }
+
+                const stripped = text.replace(/\s*\([^)]*\)\s*\.?$/, '').trim();
+
+                return stripped || text;
+            };
+
             const renderActionRow = (item) => {
                 const tone = app.severityTone(item.severity);
                 const due = describeDue(item);
@@ -53,26 +91,37 @@
                 const title = due
                     ? String(item.title || '').replace(/\s·\s(?:\d+ hari lagi|hari terakhir)$/u, '')
                     : String(item.title || '');
+                const description = compactActionDescription(item.description);
                 const href = app.safeHref(item.cta_url);
                 const external = Boolean(href) && (item.cta_external === true || app.isExternalHref(href));
                 const contact = hasContact(item.contact) ? item.contact : null;
                 const ctaVariant = tone === 'danger' ? 'primary' : 'secondary';
+                const iconTileClass = app.ui.iconTile[tone] || app.ui.iconTile.neutral;
+                const iconName = actionIcon(item);
 
                 return `
-                    <li class="py-3 first:pt-0 last:pb-0" data-action-item="${esc(item.type || 'item')}">
-                        <div class="flex min-w-0 flex-col gap-1.5">
-                            <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
-                                ${app.renderSeverityBadge(item.severity)}
-                                ${due ? `
-                                    <span class="inline-flex items-center gap-1 text-xs font-medium tabular-nums ${due.tone}">
-                                        ${ICONS.clock}<span class="sr-only">Tenggat:</span> ${esc(due.label)}
-                                    </span>
-                                ` : ''}
+                    <li class="py-3.5 first:pt-0 last:pb-0" data-action-item="${esc(item.type || 'item')}">
+                        <div class="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+                            <div class="flex min-w-0 flex-1 items-start gap-3">
+                                <span class="${iconTileClass} mt-0.5 size-9 rounded-lg" aria-hidden="true">
+                                    ${app.renderIcon(iconName, 'sm')}
+                                </span>
+                                <div class="flex min-w-0 flex-1 flex-col gap-1">
+                                    <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+                                        ${app.renderSeverityBadge(item.severity)}
+                                        ${due ? `
+                                            <span class="inline-flex items-center gap-1 text-xs font-medium tabular-nums ${due.tone}">
+                                                <span class="size-1.5 rounded-full ${app.fillToneClass(tone)}" aria-hidden="true"></span>
+                                                ${ICONS.clock}<span class="sr-only">Tenggat:</span> ${esc(due.label)}
+                                            </span>
+                                        ` : ''}
+                                    </div>
+                                    <h3 class="text-sm font-semibold leading-snug text-ink">${esc(title || 'Perlu dicek')}</h3>
+                                    ${description ? `<p class="line-clamp-1 text-xs text-ink-muted" title="${esc(item.description)}">${esc(description)}</p>` : ''}
+                                </div>
                             </div>
-                            <h3 class="text-sm font-medium leading-snug text-ink">${esc(title || 'Perlu dicek')}</h3>
-                            ${item.description ? `<p class="line-clamp-2 text-[13px] text-ink-muted">${esc(item.description)}</p>` : ''}
                             ${href || contact ? `
-                                <div class="mt-1 flex flex-wrap gap-2">
+                                <div class="flex shrink-0 flex-wrap items-center gap-1.5 ps-12 sm:self-center sm:ps-0${href && contact ? ' sm:flex-col sm:items-end' : ''}">
                                     ${href ? `
                                         <a href="${esc(href)}" class="${app.buttonClass(ctaVariant, { small: true })}"${external ? ' target="_blank" rel="noopener noreferrer"' : ''}>
                                             ${esc(item.cta_label || 'Buka')}

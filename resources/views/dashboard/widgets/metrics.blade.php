@@ -31,7 +31,9 @@
                 <x-slot:note class="flex flex-col gap-2">
                     <span class="flex items-center gap-1.5" data-metric-note>Memuat…</span>
                     @if ($tile['bar'])
-                        <span class="block" data-metric-bar aria-hidden="true"></span>
+                        <span class="block" data-metric-bar aria-hidden="true">
+                            <span class="flex h-1.5 w-full overflow-hidden rounded-full bg-surface"></span>
+                        </span>
                     @endif
                 </x-slot:note>
             </x-metric>

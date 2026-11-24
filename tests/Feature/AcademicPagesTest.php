@@ -54,6 +54,8 @@ class AcademicPagesTest extends TestCase
 
         $this->assertCount(1, $current);
         $this->assertSame($activeMenu, parse_url((string) $current->attr('href'), PHP_URL_PATH));
+        // From lg up the sidebar trail lists these pages, so the in-page tabs show on phones only.
+        $this->assertContains('lg:hidden', explode(' ', (string) $crawler->filter('main [data-slot="page-hero-tabs"]')->attr('class')));
         $this->assertGreaterThan(0, $crawler->filter('main [aria-busy="true"]')->count(), 'A skeleton is shown before the data loads.');
         $this->assertSame(1, $crawler->filter('main h1')->count());
     }

@@ -4,65 +4,87 @@
 @section('page_id', 'profile')
 
 @section('content')
-    {{-- The page header: the photo, the name (the h1) with its status, the NIM and prodi; the account actions on the right. --}}
-    <header class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between" aria-label="Profil Mahasiswa" data-slot="page-hero">
-        <div class="flex min-w-0 items-center gap-4">
-            <x-avatar size="lg" id="profile-avatar" aria-hidden="true">M</x-avatar>
-            <div class="min-w-0">
-                <div class="flex flex-wrap items-center gap-2">
-                    <h1 id="profile-name" class="break-words text-2xl font-semibold tracking-tight text-ink">Memuat...</h1>
-                    {{-- The badge is inline-flex, which beats `hidden`: the script shows and hides this wrapper. --}}
-                    <span class="hidden" data-profile-status-wrap>
-                        <x-badge tone="success" id="profile-status"></x-badge>
-                    </span>
-                </div>
-                <div class="mt-1 flex flex-wrap items-center gap-x-1.5 text-sm text-ink-muted">
-                    <span class="inline-flex items-center gap-1">
-                        <span id="profile-nim-display" class="font-mono">-</span>
-                        <x-button variant="icon" id="copy-nim-btn" title="Salin NIM" aria-label="Salin NIM">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="size-4" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M8 8m0 2a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2z" /><path d="M16 8v-2a2 2 0 0 0 -2 -2h-8a2 2 0 0 0 -2 2v8a2 2 0 0 0 2 2h2" /></svg>
-                        </x-button>
-                    </span>
-                    <span id="profile-meta" class="break-words before:me-1.5 before:content-['·'] empty:hidden"></span>
+    <div class="mx-auto flex w-full max-w-2xl flex-col gap-6">
+        {{-- The page header: the photo, the name (the h1) with its status, the NIM and prodi; the account actions on the right. --}}
+        <header class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between" aria-label="Profil Mahasiswa" data-slot="page-hero">
+            <div class="flex min-w-0 items-center gap-4">
+                <x-avatar size="lg" id="profile-avatar" aria-hidden="true">M</x-avatar>
+                <div class="min-w-0">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <h1 id="profile-name" class="break-words text-xl font-semibold tracking-tight text-ink">Memuat...</h1>
+                        {{-- The badge is inline-flex, which beats `hidden`: the script shows and hides this wrapper. --}}
+                        <span class="hidden" data-profile-status-wrap>
+                            <x-badge tone="success" id="profile-status"></x-badge>
+                        </span>
+                    </div>
+                    <div class="mt-1 flex flex-wrap items-center gap-x-1.5 text-sm text-ink-muted">
+                        <span class="inline-flex items-center gap-1">
+                            <span id="profile-nim-display" class="font-mono">-</span>
+                            <x-button variant="icon" id="copy-nim-btn" title="Salin NIM" aria-label="Salin NIM">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="size-4" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M8 8m0 2a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2z" /><path d="M16 8v-2a2 2 0 0 0 -2 -2h-8a2 2 0 0 0 -2 2v8a2 2 0 0 0 2 2h2" /></svg>
+                            </x-button>
+                        </span>
+                        <span id="profile-meta" class="break-words before:me-1.5 before:content-['·'] empty:hidden"></span>
+                    </div>
                 </div>
             </div>
+            <div class="flex shrink-0 flex-wrap gap-2">
+                <x-button :href="route('password.edit')" variant="secondary" size="sm"><x-icon name="lock" size="sm" />Ubah password</x-button>
+                <x-button :href="config('portal.base_url')" target="_blank" rel="noopener noreferrer" variant="secondary" size="sm"><x-icon name="external-link" size="sm" />Portal kampus</x-button>
+            </div>
+        </header>
+
+        {{-- The details the header does not show, stacked in horizontal divided rows like Devin Preferences. --}}
+        <div class="flex flex-col gap-6">
+            <x-card as="section" title="Data pribadi" title-id="profile-personal-title" aria-labelledby="profile-personal-title">
+                <x-card.body id="profile-personal">
+                    <div class="flex flex-col divide-y divide-border-light">
+                        <div class="flex items-center justify-between gap-4 py-3.5 first:pt-0 last:pb-0">
+                            <x-skeleton class="h-4 w-24" />
+                            <x-skeleton class="h-4 w-36" />
+                        </div>
+                        <div class="flex items-center justify-between gap-4 py-3.5 first:pt-0 last:pb-0">
+                            <x-skeleton class="h-4 w-28" />
+                            <x-skeleton class="h-4 w-24" />
+                        </div>
+                        <div class="flex items-center justify-between gap-4 py-3.5 first:pt-0 last:pb-0">
+                            <x-skeleton class="h-4 w-20" />
+                            <x-skeleton class="h-4 w-32" />
+                        </div>
+                    </div>
+                </x-card.body>
+            </x-card>
+
+            <x-card as="section" title="Kontak" title-id="profile-contact-title" aria-labelledby="profile-contact-title">
+                <x-card.body id="profile-contact">
+                    <div class="flex flex-col divide-y divide-border-light">
+                        <div class="flex items-center justify-between gap-4 py-3.5 first:pt-0 last:pb-0">
+                            <x-skeleton class="h-4 w-20" />
+                            <x-skeleton class="h-4 w-44" />
+                        </div>
+                        <div class="flex items-center justify-between gap-4 py-3.5 first:pt-0 last:pb-0">
+                            <x-skeleton class="h-4 w-24" />
+                            <x-skeleton class="h-4 w-32" />
+                        </div>
+                    </div>
+                </x-card.body>
+            </x-card>
+
+            <x-card as="section" title="Pendidikan" title-id="profile-education-title" aria-labelledby="profile-education-title">
+                <x-card.body id="profile-education">
+                    <div class="flex flex-col divide-y divide-border-light">
+                        <div class="flex items-center justify-between gap-4 py-3.5 first:pt-0 last:pb-0">
+                            <x-skeleton class="h-4 w-24" />
+                            <x-skeleton class="h-4 w-40" />
+                        </div>
+                        <div class="flex items-center justify-between gap-4 py-3.5 first:pt-0 last:pb-0">
+                            <x-skeleton class="h-4 w-28" />
+                            <x-skeleton class="h-4 w-28" />
+                        </div>
+                    </div>
+                </x-card.body>
+            </x-card>
         </div>
-        <div class="flex shrink-0 flex-wrap gap-2">
-            <x-button :href="route('password.edit')" variant="secondary" size="sm"><x-icon name="lock" size="sm" />Ubah password</x-button>
-            <x-button :href="config('portal.base_url')" target="_blank" rel="noopener noreferrer" variant="secondary" size="sm"><x-icon name="external-link" size="sm" />Portal kampus</x-button>
-        </div>
-    </header>
-
-    {{-- The details the header does not show, in two columns from lg. --}}
-    <div class="grid items-start gap-6 lg:grid-cols-2">
-        <x-card as="section" title="Data pribadi" title-id="profile-personal-title" aria-labelledby="profile-personal-title">
-            <x-card.body id="profile-personal">
-                <div class="grid gap-x-6 gap-y-4 sm:grid-cols-2">
-                    <x-skeleton class="h-9 w-3/4" />
-                    <x-skeleton class="h-9 w-1/2" />
-                    <x-skeleton class="h-9 w-2/3" />
-                </div>
-            </x-card.body>
-        </x-card>
-
-        <x-card as="section" title="Kontak" title-id="profile-contact-title" aria-labelledby="profile-contact-title">
-            <x-card.body id="profile-contact">
-                <div class="grid gap-x-6 gap-y-4 sm:grid-cols-2">
-                    <x-skeleton class="h-9 w-3/4" />
-                    <x-skeleton class="h-9 w-1/2" />
-                    <x-skeleton class="h-9 w-2/3" />
-                </div>
-            </x-card.body>
-        </x-card>
-
-        <x-card as="section" title="Pendidikan" title-id="profile-education-title" aria-labelledby="profile-education-title">
-            <x-card.body id="profile-education">
-                <div class="grid gap-x-6 gap-y-4 sm:grid-cols-2">
-                    <x-skeleton class="h-9 w-3/4" />
-                    <x-skeleton class="h-9 w-1/2" />
-                </div>
-            </x-card.body>
-        </x-card>
     </div>
 @endsection
 
@@ -96,20 +118,20 @@
 
             let profileRendered = false;
 
-            // Labelled details in two columns; empty fields are left out, as app.renderKeyValueList does.
+            // Labelled details in Devin-style horizontal divided rows; empty fields are left out.
             const renderDetails = (entries = []) => {
                 const rows = entries
                     .filter((entry) => entry.value !== undefined && entry.value !== null && entry.value !== '')
                     .map((entry) => `
-                        <div class="min-w-0">
-                            <dt class="text-xs text-ink-subtle">${app.escapeHtml(entry.label)}</dt>
-                            <dd class="mt-1 break-words text-sm font-medium text-ink">${app.escapeHtml(entry.value)}</dd>
+                        <div class="flex flex-col gap-1 py-3.5 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
+                            <dt class="text-sm font-medium text-ink">${app.escapeHtml(entry.label)}</dt>
+                            <dd class="break-words text-sm text-ink-muted sm:text-end">${app.escapeHtml(entry.value)}</dd>
                         </div>
                     `)
                     .join('');
 
                 return rows
-                    ? `<dl class="grid gap-x-6 gap-y-4 sm:grid-cols-2">${rows}</dl>`
+                    ? `<dl class="flex flex-col divide-y divide-border-light">${rows}</dl>`
                     : app.renderEmptyState('Tidak ada data.', 'secondary');
             };
 

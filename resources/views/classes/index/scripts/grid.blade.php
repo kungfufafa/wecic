@@ -125,7 +125,7 @@
                                 const count = group.classes.length;
 
                                 return `
-                                    <div class="p-2 text-center border-r border-border bg-surface last:border-r-0" ${isToday ? 'data-day-column-header="today"' : ''}>
+                                    <div class="p-2 text-center border-r border-border ${isToday ? 'bg-surface-tint/60 dark:bg-surface' : 'bg-surface'} last:border-r-0" ${isToday ? 'data-day-column-header="today"' : ''}>
                                         <div class="flex items-center justify-center gap-2">
                                             <span class="text-xs sm:text-sm font-medium text-ink">${d}</span>
                                             ${isToday ? `<span class="${app.ui.badge.brand}">Hari ini</span>` : ''}
@@ -159,7 +159,7 @@
 
                                 return `
                                     <div class="relative border-r border-border last:border-r-0 ${
-                                        isToday ? 'bg-surface/40' : ''
+                                        isToday ? 'bg-surface-tint/25 dark:bg-surface/30' : ''
                                     }">
                                         <!-- Background Hour Lines -->
                                         ${hoursArray.map((_, i) => {
@@ -221,9 +221,10 @@
                                                 c.lecturerName.toLowerCase().includes(searchLower) ||
                                                 c.roomName.toLowerCase().includes(searchLower)
                                             );
+                                            const ongoing = isClassOngoingNow(c);
 
                                             return `
-                                                <div role="button" tabindex="0" aria-haspopup="dialog" aria-label="${app.escapeHtml(`${c.courseName}, ${c.day || ''} ${c.formattedTime}`)}" class="absolute rounded-lg border ${p.border} ${p.bg} p-2 cursor-pointer transition-colors duration-150 hover:bg-surface/80 hover:z-20 focus-visible:z-20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand flex flex-col justify-between overflow-hidden group ${
+                                                <div role="button" tabindex="0" aria-haspopup="dialog" aria-label="${app.escapeHtml(`${c.courseName}, ${c.day || ''} ${c.formattedTime}`)}" class="absolute rounded-lg border ${p.border} ${p.accentBorder} ${p.bg} p-2 cursor-pointer transition-all duration-150 hover:shadow-sm hover:z-20 focus-visible:z-20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand flex flex-col justify-between overflow-hidden group ${ongoing ? 'ring-2 ring-brand/35 shadow-xs z-10' : ''} ${
                                                     matchesSearch ? 'opacity-100' : 'opacity-30 hover:opacity-100'
                                                 }"
                                                      style="top: ${topPct}%; height: ${heightPct}%; left: calc(${leftPct}% + 4px); width: calc(${widthPct}% - 8px); min-height: 52px;"
@@ -235,13 +236,15 @@
                                                             </span>
                                                             ${hasConflict
                                                                 ? '<span class="shrink-0 rounded-md bg-danger-soft px-1.5 py-0.5 text-[11px] font-medium text-danger ring-1 ring-inset ring-danger/20" title="Jadwal bentrok dengan kelas lain">Bentrok</span>'
+                                                                : ongoing
+                                                                ? '<span class="shrink-0 rounded-md bg-brand px-1.5 py-0.5 text-[10px] font-semibold text-brand-ink">Berlangsung</span>'
                                                                 : (c.courseCode ? `<span class="min-w-0 truncate font-mono text-[11px] font-medium text-ink-subtle">${app.escapeHtml(c.courseCode)}</span>` : '')}
                                                         </div>
-                                                        <div class="text-xs font-medium text-ink line-clamp-2 leading-tight group-hover:text-brand-text" title="${app.escapeHtml(c.courseName)}">
+                                                        <div class="text-xs font-semibold text-ink line-clamp-2 leading-tight group-hover:text-brand-text" title="${app.escapeHtml(c.courseName)}">
                                                             ${app.escapeHtml(c.courseName)}
                                                         </div>
                                                     </div>
-                                                    <div class="mt-1 flex items-center justify-between gap-1 text-[11px] text-ink-subtle truncate pt-1 border-t border-border-light">
+                                                    <div class="mt-1 flex items-center justify-between gap-1 text-[11px] text-ink-subtle truncate pt-1 border-t border-border-light/80">
                                                         <span class="truncate font-medium">${app.escapeHtml(c.roomName)}</span>
                                                         <span class="truncate hidden sm:inline">${app.escapeHtml((c.lecturerName || '').split(',')[0])}</span>
                                                     </div>

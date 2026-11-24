@@ -12,17 +12,19 @@
 <div class="flex min-h-9 min-w-0 items-center text-xs text-ink-subtle" data-sync-alert role="status">
     <div class="flex w-full min-w-0 items-center justify-between gap-2">
         <div class="flex min-w-0 items-center gap-2.5 overflow-hidden">
-            <span class="inline-flex shrink-0 items-center gap-2 text-xs font-medium text-ink-muted before:size-1.5 before:shrink-0 before:rounded-full before:bg-success before:content-['']" data-connection-chip>
-                <span data-connection-label>Online</span>
+            <span class="lg:hidden">
+                <span class="inline-flex shrink-0 items-center gap-2 text-xs font-medium text-ink-muted before:size-1.5 before:shrink-0 before:rounded-full before:bg-success before:content-['']" data-connection-chip>
+                    <span data-connection-label>Online</span>
+                </span>
             </span>
-            <span class="hidden shrink-0 items-center gap-2.5 sm:flex">
+            <span class="hidden shrink-0 items-center gap-2.5 sm:flex lg:hidden">
                 <span class="h-3 w-px shrink-0 bg-border" aria-hidden="true"></span>
                 <span class="inline-flex shrink-0 items-center gap-2 text-xs font-medium text-ink-muted before:size-1.5 before:shrink-0 before:rounded-full before:bg-success before:content-['']" data-realtime-chip>
                     <span data-realtime-label>Pembaruan otomatis</span>
                 </span>
             </span>
-            <span class="hidden h-3 w-px shrink-0 bg-border sm:block" aria-hidden="true"></span>
-            <span data-sync-status class="line-clamp-2 min-w-0 text-xs text-ink-subtle sm:line-clamp-none sm:truncate">Data siap dipakai.</span>
+            <span class="hidden h-3 w-px shrink-0 bg-border sm:block lg:hidden" aria-hidden="true"></span>
+            <span data-sync-status class="line-clamp-2 min-w-0 text-xs text-ink-subtle sm:line-clamp-none sm:truncate lg:hidden data-[tone=warning]:lg:inline data-[tone=error]:lg:inline data-[tone=danger]:lg:inline">Data siap dipakai.</span>
         </div>
         @if ($refresh)
             <button

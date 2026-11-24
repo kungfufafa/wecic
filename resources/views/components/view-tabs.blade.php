@@ -9,6 +9,6 @@
 --}}
 @props(['as' => 'ul', 'underline' => false, 'accent' => null])
 
-<{{ $as }} {{ $attributes->class($underline ? 'flex max-w-full gap-4 overflow-x-auto shadow-[inset_0_-1px_0_var(--color-border)]' : 'inline-flex max-w-full items-center gap-1 overflow-x-auto rounded-lg bg-surface p-1') }}>
+<{{ $as }} {{ $attributes->class($underline ? 'flex max-w-full gap-4 overflow-x-auto shadow-[inset_0_-1px_0_var(--color-border)]' : 'inline-flex max-w-full items-center gap-1 overflow-x-auto') }}>
     {{ $slot }}
 </{{ $as }}>

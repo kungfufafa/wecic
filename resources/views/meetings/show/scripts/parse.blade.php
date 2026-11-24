@@ -77,7 +77,9 @@
                     return '';
                 }
 
-                return topic.replace(/^(?:Pokok\s+Bahasan|Materi|Topik)\s*:\s*/i, '').trim();
+                return String(topic)
+                    .replace(/^(?:Materi\s+Pertemuan\s+\d+\s*)?(?:(?:Pokok\s+Bahasan|Materi|Topik)\s*:\s*)?/i, '')
+                    .trim();
             };
 
             const parseOutlineItems = (text) => {

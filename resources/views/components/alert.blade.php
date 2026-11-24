@@ -9,12 +9,12 @@
 @php
     $alertTone = ['primary' => 'brand', 'secondary' => 'neutral', 'error' => 'danger'][$tone] ?? $tone;
     $alertClasses = [
-        'neutral' => 'rounded-lg border border-border bg-panel px-4 py-3 text-sm text-ink-muted',
-        'brand' => 'rounded-lg border border-brand/20 bg-surface-tint px-4 py-3 text-sm text-ink',
-        'info' => 'rounded-lg border border-info/20 bg-info-soft px-4 py-3 text-sm text-ink',
-        'success' => 'rounded-lg border border-success/25 bg-success-soft px-4 py-3 text-sm text-ink',
-        'warning' => 'rounded-lg border border-warning/25 bg-warning-soft px-4 py-3 text-sm text-ink',
-        'danger' => 'rounded-lg border border-danger/25 bg-danger-soft px-4 py-3 text-sm text-ink',
+        'neutral' => 'rounded-xl border border-border bg-panel px-4 py-3.5 text-sm text-ink-muted dark:bg-surface/40',
+        'brand' => 'rounded-xl border border-border border-s-[3px] border-s-brand bg-panel px-4 py-3.5 text-sm text-ink dark:bg-surface/40',
+        'info' => 'rounded-xl border border-border border-s-[3px] border-s-info bg-panel px-4 py-3.5 text-sm text-ink dark:bg-surface/40',
+        'success' => 'rounded-xl border border-border border-s-[3px] border-s-success bg-panel px-4 py-3.5 text-sm text-ink dark:bg-surface/40',
+        'warning' => 'rounded-xl border border-border border-s-[3px] border-s-warning bg-panel px-4 py-3.5 text-sm text-ink dark:bg-surface/40',
+        'danger' => 'rounded-xl border border-border border-s-[3px] border-s-danger bg-panel px-4 py-3.5 text-sm text-ink dark:bg-surface/40',
     ];
     $alertIconClasses = [
         'neutral' => 'mt-0.5 size-4 shrink-0 text-ink-subtle',

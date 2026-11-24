@@ -69,7 +69,13 @@
 
             <x-card as="section" id="class-study" aria-labelledby="class-study-title">
                 <x-card.body class="flex flex-col gap-4">
-                    <h2 class="text-sm font-semibold text-ink" id="class-study-title">Arsip &amp; belajar</h2>
+                    <div class="flex items-start gap-3">
+                        <x-icon-tile tone="brand" icon="notebook" class="size-9" />
+                        <div class="min-w-0 flex-1">
+                            <h2 class="text-sm font-semibold text-ink" id="class-study-title">Arsip &amp; belajar</h2>
+                            <p class="mt-0.5 text-xs text-ink-subtle">Simpan materi kelas atau buka catatan di Notebook.</p>
+                        </div>
+                    </div>
                     <div class="flex flex-col gap-2">
                         <x-button class="w-full" id="class-open-notebook">Buka Notebook</x-button>
                         <x-button variant="secondary" class="w-full" id="class-archive-materials" data-online-required>Arsipkan materi</x-button>
@@ -126,6 +132,20 @@
                 return `/api/class/${classId}${query.toString() ? `?${query.toString()}` : ''}`;
             };
 
+            const cleanMaterialTitle = (raw) => {
+                const text = String(raw || '').trim();
+
+                if (!text) {
+                    return 'Materi';
+                }
+
+                const cleaned = text
+                    .replace(/^(?:Materi\s+Pertemuan\s+\d+\s*)?(?:(?:Pokok\s+Bahasan|Materi|Topik)\s*:\s*)?/i, '')
+                    .trim();
+
+                return cleaned || text;
+            };
+
             const render = (payload) => {
                 const detail = payload.class_detail || {};
                 const courseInfo = detail.course_info || {};
@@ -138,31 +158,40 @@
                 const hero = document.getElementById('class-hero');
                 const attendanceMeetings = attendance.meetings || [];
                 const attendanceSummary = attendance.summary || {};
+                const totalMeetings = Number(attendanceSummary.total_meetings ?? attendanceMeetings.length ?? 0);
+                const upcomingMeetings = Number(attendanceSummary.upcoming ?? attendanceMeetings.filter((meeting) => meeting.status === 'upcoming').length);
+                const heldMeetings = Number(attendanceSummary.held_meetings ?? Math.max(0, totalMeetings - upcomingMeetings));
+                const presentMeetings = Number(attendanceSummary.present ?? 0);
+                const absentMeetings = Number(attendanceSummary.absent ?? 0);
+                const attendancePercent = heldMeetings > 0 ? Math.min(100, Math.round((presentMeetings / heldMeetings) * 100)) : null;
                 document.getElementById('class-study').classList.remove('hidden');
 
-                const heroDescription = [
-                    courseInfo.class_name,
-                    courseInfo.credits ? `${courseInfo.credits} SKS` : null,
-                    lecturerInfo.name,
-                ].filter(Boolean).join(' · ');
-
                 const submittedAssignments = (assignments.assignments || []).length;
-                const presentCount = Number(attendanceSummary.present ?? 0);
 
                 hero.innerHTML = `
                     <header class="${app.ui.pageHero}" data-slot="page-hero">
                         <div class="${app.ui.pageHeroRow}">
                             <div class="min-w-0">
+                                <div class="mb-1.5 flex flex-wrap items-center gap-1.5">
+                                    ${courseInfo.code ? `<span class="${app.ui.badge.brand} font-mono">${app.escapeHtml(courseInfo.code)}</span>` : ''}
+                                    ${courseInfo.class_name ? `<span class="${app.ui.badge.neutral}">${app.escapeHtml(courseInfo.class_name)}</span>` : ''}
+                                    ${courseInfo.credits ? `<span class="${app.ui.badge.neutral} tabular-nums">${app.escapeHtml(courseInfo.credits)} SKS</span>` : ''}
+                                </div>
                                 <h1 class="${app.ui.pageHeroTitle}">${app.escapeHtml(courseInfo.name || 'Kelas')}</h1>
-                                ${heroDescription ? `<p class="${app.ui.pageHeroSubtitle}">${app.escapeHtml(heroDescription)}</p>` : ''}
+                                ${(lecturerInfo.name || courseInfo.room) ? `
+                                    <div class="${app.ui.pageHeroMeta}" data-slot="page-hero-meta">
+                                        ${lecturerInfo.name ? `<span class="inline-flex items-center gap-1.5">${app.renderIcon('user', 'sm')}${app.escapeHtml(lecturerInfo.name)}</span>` : ''}
+                                        ${courseInfo.room ? `<span class="inline-flex items-center gap-1.5">${app.renderIcon('map-pin', 'sm')}${app.escapeHtml(courseInfo.room)}</span>` : ''}
+                                    </div>
+                                ` : ''}
                             </div>
                         </div>
                     </header>
                     <div class="${app.ui.statGridKpi} mb-6" data-slot="stat-strip">
-                        ${renderMetric('Materi', materials.length || '0')}
-                        ${renderMetric('Presensi', attendanceSummary.total_meetings ?? attendanceMeetings.length ?? 0, 'pertemuan')}
-                        ${renderMetric('Hadir', presentCount)}
-                        ${renderMetric('Tugas terkumpul', submittedAssignments)}
+                        ${renderMetric('Materi', materials.length || '0', materials.length ? 'pertemuan tercatat' : '')}
+                        ${renderMetric('Presensi', totalMeetings, heldMeetings ? `${heldMeetings} pertemuan selesai` : 'pertemuan')}
+                        ${renderMetric('Hadir', presentMeetings, attendancePercent !== null ? `${attendancePercent}% kehadiran` : '')}
+                        ${renderMetric('Tugas terkumpul', submittedAssignments, submittedAssignments ? 'sudah diupload' : '')}
                     </div>
                 `;
 
@@ -179,11 +208,16 @@
                                 ${materials.map((material, index) => {
                                     const meetingUrl = app.buildMeetingUrlFromHref(material.join_link?.href);
                                     const materialLabel = `P${material.meeting_number || index + 1}`;
+                                    const topicTitle = cleanMaterialTitle(material.title);
+                                    const tileClass = meetingUrl
+                                        ? 'flex size-9 shrink-0 items-center justify-center rounded-lg bg-surface-tint font-mono text-xs font-semibold text-brand-text ring-1 ring-inset ring-brand/20 tabular-nums'
+                                        : 'flex size-9 shrink-0 items-center justify-center rounded-lg bg-surface font-mono text-xs font-medium text-ink-subtle ring-1 ring-inset ring-border-light tabular-nums';
+                                    const dateLabel = [material.date, material.time].filter(Boolean).join(' · ');
                                     const rowBody = `
-                                        <span class="w-8 shrink-0 text-xs font-medium text-ink-subtle tabular-nums" aria-hidden="true">${app.escapeHtml(materialLabel)}</span>
+                                        <span class="${tileClass}" aria-hidden="true">${app.escapeHtml(materialLabel)}</span>
                                         <div class="${app.ui.listRowBody}">
-                                            <h3 class="text-sm font-medium leading-snug text-ink"><span class="sr-only">${app.escapeHtml(materialLabel)}: </span>${app.escapeHtml(material.title || 'Materi')}</h3>
-                                            <p class="${app.ui.listRowSubtitle} tabular-nums">${app.escapeHtml([material.date, material.time].filter(Boolean).join(' · ') || '-')}</p>
+                                            <h3 class="text-sm font-semibold leading-snug text-ink"><span class="sr-only">${app.escapeHtml(materialLabel)}: </span>${app.escapeHtml(topicTitle)}</h3>
+                                            <p class="${app.ui.listRowSubtitle} flex items-center gap-1.5 tabular-nums">${app.renderIcon('calendar', 'sm', 'size-3.5! shrink-0 text-ink-subtle')}<span>${app.escapeHtml(dateLabel || 'Jadwal belum tertera')}</span></p>
                                         </div>
                                     `;
 
@@ -199,13 +233,7 @@
                 }
 
                 if (attendance.summary || (attendance.meetings || []).length) {
-                    const summary = attendance.summary || {};
-                    const meetings = attendance.meetings || [];
-                    const totalMeetings = Number(summary.total_meetings ?? meetings.length ?? 0);
-                    const upcomingMeetings = Number(summary.upcoming ?? meetings.filter((meeting) => meeting.status === 'upcoming').length);
-                    const heldMeetings = Number(summary.held_meetings ?? (totalMeetings - upcomingMeetings));
-                    const presentMeetings = Number(summary.present ?? 0);
-                    const absentMeetings = Number(summary.absent ?? 0);
+                    const meetings = attendanceMeetings;
                     const STATUS_BADGES = {
                         present: ['Hadir', 'success'],
                         late: ['Terlambat', 'warning'],
@@ -220,8 +248,16 @@
                         <div class="${app.ui.card} overflow-hidden" data-slot="card">
                             <div class="${app.ui.cardHeader}">
                                 <h3 class="${app.ui.cardTitle}">Presensi</h3>
+                                ${attendancePercent !== null ? app.renderBadge(`${attendancePercent}% hadir`, attendancePercent >= 75 ? 'success' : 'warning') : ''}
                             </div>
                             <div class="${app.ui.cardBody}">
+                                ${heldMeetings > 0 ? `
+                                    <div class="mb-4">
+                                        <div class="${app.ui.progressTrack} h-2" aria-hidden="true">
+                                            <span class="${app.ui.progressFill} ${app.ui.fill.success}" style="width: ${Math.min(100, Math.round((presentMeetings / Math.max(heldMeetings, 1)) * 100))}%"></span>
+                                        </div>
+                                    </div>
+                                ` : ''}
                                 ${app.renderInlineStats([
                                     { label: 'Berjalan', value: `${heldMeetings}/${totalMeetings}` },
                                     { label: 'Hadir', value: presentMeetings },
@@ -268,7 +304,10 @@
                     document.getElementById('class-assignments').innerHTML = `
                         <div class="${app.ui.card}" data-slot="card">
                             <div class="${app.ui.cardHeader}">
-                                <h3 class="${app.ui.cardTitle}">Tugas terkumpul</h3>
+                                <div class="${app.ui.sectionTitleRow}">
+                                    <h3 class="${app.ui.cardTitle}">Tugas terkumpul</h3>
+                                    <span class="${app.ui.sectionCount}">${submittedAssignments}</span>
+                                </div>
                             </div>
                             <div class="${app.ui.cardBody}">
                                 ${(assignments.assignments || []).map((assignment) => {
@@ -280,14 +319,19 @@
 
                                     return `
                                         <div class="${app.ui.listRow}">
-                                            <div class="min-w-0 flex-1">
-                                                <div class="mb-1 text-xs text-ink-subtle tabular-nums">${app.escapeHtml(assignment.date || '-')}</div>
-                                                <div class="mb-2 text-sm font-medium leading-snug text-ink">${app.escapeHtml(assignment.meeting || `P${assignment.no}`)}</div>
-                                                <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
-                                                    ${isGraded
-                                                        ? app.renderBadge(`Nilai ${scoreText}`, 'success')
-                                                        : app.renderBadge('Belum dinilai', 'warning')}
-                                                    ${fileInfo.text ? `<span class="min-w-0 truncate text-xs text-ink-subtle">${app.escapeHtml(fileInfo.text)}</span>` : ''}
+                                            <div class="flex min-w-0 flex-1 items-start gap-3">
+                                                <span class="${isGraded ? app.ui.iconTile.success : app.ui.iconTile.warning} mt-0.5 size-9 rounded-lg" aria-hidden="true">
+                                                    ${app.renderIcon('notebook', 'sm')}
+                                                </span>
+                                                <div class="min-w-0 flex-1">
+                                                    <div class="mb-0.5 text-xs text-ink-subtle tabular-nums">${app.escapeHtml(assignment.date || '-')}</div>
+                                                    <div class="mb-1.5 text-sm font-semibold leading-snug text-ink">${app.escapeHtml(assignment.meeting || `P${assignment.no}`)}</div>
+                                                    <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+                                                        ${isGraded
+                                                            ? app.renderBadge(`Nilai ${scoreText}`, 'success')
+                                                            : app.renderBadge('Belum dinilai', 'warning')}
+                                                        ${fileInfo.text ? `<span class="min-w-0 truncate text-xs text-ink-subtle">${app.escapeHtml(fileInfo.text)}</span>` : ''}
+                                                    </div>
                                                 </div>
                                             </div>
                                             <div class="shrink-0">

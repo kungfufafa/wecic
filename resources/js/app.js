@@ -49,6 +49,7 @@ class PortalApp {
         // owner is a 32-character hex digest, so it never matches this.
         this.clearedCacheOwner = 'cleared';
         this.themeStorageKey = 'mycic-theme';
+        this.sidebarCollapsedKey = 'mycic-sidebar-collapsed';
         this.protectedPageCacheName = 'mycic-pages-v2';
         this.authRequest = null;
         this.pullRefreshState = {
@@ -126,6 +127,7 @@ class PortalApp {
         this.refreshOnlineRequiredState();
         this.bindQrScannerUi();
         this.bindAccountMenu();
+        this.bindSidebar();
         this.bindThemeToggle();
         this.bindQuickQrAction();
         this.bindContactSheetTriggers();

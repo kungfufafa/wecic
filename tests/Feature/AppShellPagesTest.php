@@ -153,60 +153,73 @@ class AppShellPagesTest extends TestCase
         $links = $crawler->filter('nav[aria-label="Navigasi utama"] > a[data-nav-slot]');
 
         $this->assertSame(
-            ['Beranda', 'Kuliah', 'Akademik', 'Keuangan'],
-            $links->each(fn (Crawler $link): string => trim($link->text()))
+            ['Beranda', 'Kuliah', 'Akademik', 'Keuangan', 'Notebook', 'Lainnya'],
+            $links->extract(['title'])
         );
-        $this->assertSame(['beranda', 'kuliah', 'akademik', 'keuangan'], $links->extract(['data-nav-slot']));
+        $this->assertSame(['beranda', 'kuliah', 'akademik', 'keuangan', 'notebook', 'more'], $links->extract(['data-nav-slot']));
 
-        // The sidebar lists the Notebook (an extra feature, with its settings) and the "Lainnya" menu as labelled groups.
-        $groups = $crawler->filter('nav[aria-label="Navigasi utama"] [role="group"]');
-        $this->assertCount(2, $groups);
-        $this->assertSame(['Notebook', 'Lainnya'], $groups->each(fn (Crawler $group): string => trim($crawler->filter('#'.$group->attr('aria-labelledby'))->text())));
+        $bottomRailLinks = $crawler->filter('aside [data-activity-rail] > div > a');
+        $this->assertSame(['Panduan & Bantuan', 'Pengaturan'], $bottomRailLinks->extract(['title']));
 
-        $paths = fn (Crawler $group): array => array_map(fn (string $href): string => (string) parse_url($href, PHP_URL_PATH), $group->filter('a')->extract(['href']));
+        // On Beranda (/dashboard), the secondary trail panel is hidden and shell inset is lg:ps-12 (48px).
+        $panel = $crawler->filter('aside [data-sidebar-panel]');
+        $this->assertCount(1, $crawler->filter('aside [data-activity-rail]'));
+        $this->assertCount(1, $panel);
+        $this->assertSame('0', $panel->attr('data-sidebar-has-trail'));
+        $this->assertContains('hidden', explode(' ', (string) $panel->attr('class')));
+        $this->assertContains('lg:ps-12', explode(' ', (string) $crawler->filter('[data-app-shell]')->attr('class')));
+        $this->assertCount(1, $crawler->filter('aside [data-sidebar-toggle]'));
+        $this->assertCount(1, $crawler->filter('aside [data-sidebar-search]'));
 
-        $this->assertSame(['/notebook', '/notebook/pengaturan-ai'], $paths($groups->eq(0)));
+        $trailPaths = fn (string $trail): array => array_map(
+            fn (string $href): string => (string) parse_url($href, PHP_URL_PATH),
+            $crawler->filter('aside [data-sidebar-trail="'.$trail.'"] a')->extract(['href'])
+        );
 
-        $group = $groups->eq(1);
-        $this->assertSame(['/skkm', '/thesis', '/library', '/announcement', '/archive', '/more'], $paths($group));
-        $this->assertSame('Semua menu', trim($group->filter('a[data-nav-slot="more"]')->text()));
+        $this->assertSame(['/class', '/exam'], $trailPaths('kuliah'));
+        $this->assertSame(['/krs', '/grades', '/transcript'], $trailPaths('akademik'));
+        $this->assertSame(['/notebook', '/notebook/pengaturan-ai'], $trailPaths('notebook'));
+        $this->assertSame(['/skkm', '/thesis', '/library', '/announcement', '/archive', '/more'], $trailPaths('more'));
+        $this->assertSame(['/profile', '/password', '/notifications', '/account/delete'], $trailPaths('settings'));
 
-        // Profil and Ubah password moved to the account menu at the foot of the sidebar.
+        // Profil and Ubah password live in the rail account menu as well as Pengaturan.
         $accountPaths = array_map(fn (string $href): string => (string) parse_url($href, PHP_URL_PATH), $crawler->filter('[data-account-menu-panel] a')->extract(['href']));
         $this->assertContains('/profile', $accountPaths);
         $this->assertContains('/password', $accountPaths);
     }
 
     /**
-     * The path, the mobile slot marked current, and the sidebar slot marked
-     * current (null: a page of the account menu, which marks its own link).
+     * The path, mobile slot, desktop rail slot, active trail name (null if none),
+     * and active trail sub-slot (null if none).
      *
-     * @return array<string, array{0: string, 1: string, 2: ?string}>
+     * @return array<string, array{0: string, 1: string, 2: ?string, 3: ?string, 4: ?string}>
      */
     public static function activeSections(): array
     {
         return [
-            'dashboard' => ['/dashboard', 'beranda', 'beranda'],
-            'class list' => ['/class', 'kuliah', 'kuliah'],
-            'meeting' => ['/meeting/445?courses_id=8861', 'kuliah', 'kuliah'],
-            'exam' => ['/exam', 'kuliah', 'kuliah'],
-            'krs' => ['/krs', 'akademik', 'akademik'],
-            'grades' => ['/grades', 'akademik', 'akademik'],
-            'transcript' => ['/transcript', 'akademik', 'akademik'],
-            'finance' => ['/finance', 'lainnya', 'keuangan'],
-            'skkm' => ['/skkm', 'lainnya', 'skkm'],
-            'announcement' => ['/announcement', 'lainnya', 'announcement'],
-            'thesis' => ['/thesis', 'lainnya', 'thesis'],
-            'library' => ['/library', 'lainnya', 'library'],
-            'library theses' => ['/library/theses', 'lainnya', 'library'],
-            'profile' => ['/profile', 'lainnya', null],
-            'password' => ['/password', 'lainnya', null],
-            'more' => ['/more', 'lainnya', 'more'],
+            'dashboard' => ['/dashboard', 'beranda', 'beranda', null, null],
+            'class list' => ['/class', 'kuliah', 'kuliah', 'kuliah', 'class'],
+            'meeting' => ['/meeting/445?courses_id=8861', 'kuliah', 'kuliah', 'kuliah', 'class'],
+            'exam' => ['/exam', 'kuliah', 'kuliah', 'kuliah', 'exam'],
+            'krs' => ['/krs', 'akademik', 'akademik', 'akademik', 'krs'],
+            'grades' => ['/grades', 'akademik', 'akademik', 'akademik', 'grades'],
+            'transcript' => ['/transcript', 'akademik', 'akademik', 'akademik', 'transcript'],
+            'finance' => ['/finance', 'lainnya', 'keuangan', null, null],
+            'skkm' => ['/skkm', 'lainnya', 'more', 'more', 'skkm'],
+            'announcement' => ['/announcement', 'lainnya', 'more', 'more', 'announcement'],
+            'thesis' => ['/thesis', 'lainnya', 'more', 'more', 'thesis'],
+            'library' => ['/library', 'lainnya', 'more', 'more', 'library'],
+            'library theses' => ['/library/theses', 'lainnya', 'more', 'more', 'library'],
+            'notebook' => ['/notebook', 'lainnya', 'notebook', 'notebook', 'notebook'],
+            'ai settings' => ['/notebook/pengaturan-ai', 'lainnya', 'notebook', 'notebook', 'notebook-ai-settings'],
+            'profile' => ['/profile', 'lainnya', null, 'settings', 'profile'],
+            'password' => ['/password', 'lainnya', null, 'settings', 'password'],
+            'more' => ['/more', 'lainnya', 'more', 'more', 'more'],
         ];
     }
 
     #[DataProvider('activeSections')]
-    public function test_the_current_section_is_marked_active(string $path, string $mobileSlot, ?string $desktopSlot): void
+    public function test_the_current_section_is_marked_active(string $path, string $mobileSlot, ?string $desktopSlot, ?string $expectedTrail, ?string $expectedSubSlot): void
     {
         $this->mockValidCampusSession('token-shell');
 
@@ -217,11 +230,34 @@ class AppShellPagesTest extends TestCase
         $this->assertSame($mobileSlot, $mobileActive->attr('data-nav-slot'));
 
         $desktopActive = $crawler->filter('nav[aria-label="Navigasi utama"] [aria-current="page"]');
+        $panel = $crawler->filter('aside [data-sidebar-panel]');
+        $panelClasses = explode(' ', (string) $panel->attr('class'));
+        $shellClasses = explode(' ', (string) $crawler->filter('[data-app-shell]')->attr('class'));
+
+        if ($expectedTrail === null) {
+            $this->assertSame('0', $panel->attr('data-sidebar-has-trail'));
+            $this->assertContains('hidden', $panelClasses);
+            $this->assertContains('lg:ps-12', $shellClasses);
+        } else {
+            $this->assertSame('1', $panel->attr('data-sidebar-has-trail'));
+            $this->assertContains('flex', $panelClasses);
+            $this->assertNotContains('hidden', $panelClasses);
+            $this->assertContains('lg:ps-72', $shellClasses);
+
+            $activeTrail = $crawler->filter('aside [data-sidebar-trail="'.$expectedTrail.'"]');
+            $this->assertContains('flex', explode(' ', (string) $activeTrail->attr('class')));
+            $this->assertNotContains('hidden', explode(' ', (string) $activeTrail->attr('class')));
+
+            $subActive = $activeTrail->filter('[aria-current="location"]');
+            $this->assertCount(1, $subActive);
+            $this->assertSame($expectedSubSlot, $subActive->attr('data-sidebar-subitem'));
+        }
 
         if ($desktopSlot === null) {
             $this->assertCount(0, $desktopActive);
+            $this->assertSame('Pengaturan', trim($crawler->filter('aside [data-sidebar-context-title]')->text()));
 
-            // Both copies of the account menu (sidebar and top bar) mark the page's link.
+            // Both copies of the account menu (rail and mobile top bar) mark the page's link.
             foreach (['aside', 'header'] as $container) {
                 $accountActive = $crawler->filter($container.' [data-account-menu-panel] a[aria-current="page"]');
                 $this->assertCount(1, $accountActive, $container);
@@ -288,7 +324,7 @@ class AppShellPagesTest extends TestCase
 
         $current = $crawler->filter('nav[aria-label="Navigasi utama"] a[aria-current="page"]');
         $this->assertSame(['akademik'], $current->each(fn (Crawler $item): ?string => $item->attr('data-nav-slot')));
-        $this->assertStringContainsString('aria-[current=page]:ring-border', (string) $current->attr('class'));
+        $this->assertStringContainsString('aria-[current=page]:bg-black/[0.08]', (string) $current->attr('class'));
         $this->assertStringContainsString('group-aria-[current=page]:text-ink', (string) $current->filter('[data-slot="sidebar-icon"]')->attr('class'));
 
         // Nothing wide scrolls the page sideways, and the panel is no scroll container (sticky asides still stick).
@@ -329,9 +365,13 @@ class AppShellPagesTest extends TestCase
             $this->assertCount(1, $crawler->filter('nav[aria-label="Navigasi mobile"] [data-nav-badge="'.$slot.'"]'), $slot);
         }
 
-        // The sidebar's "Semua menu" has its own key: Keuangan is a top-level link there.
-        foreach (['kuliah', 'akademik', 'keuangan', 'lainnya-desktop', 'skkm', 'announcement'] as $slot) {
+        // Primary rail badges sit on Navigasi utama, and secondary menu badges sit in aside trails.
+        foreach (['kuliah', 'akademik', 'keuangan', 'lainnya-desktop'] as $slot) {
             $this->assertCount(1, $crawler->filter('nav[aria-label="Navigasi utama"] [data-nav-badge="'.$slot.'"]'), $slot);
+        }
+
+        foreach (['skkm', 'announcement'] as $slot) {
+            $this->assertCount(1, $crawler->filter('aside [data-sidebar-trail="more"] [data-nav-badge="'.$slot.'"]'), $slot);
         }
 
         foreach (['profile', 'password'] as $slot) {
@@ -499,12 +539,15 @@ class AppShellPagesTest extends TestCase
 
         $crawler = $this->crawl('/dashboard');
         $menu = $crawler->filter('[data-account-menu]');
+        $paths = array_map(
+            fn (string $href): string => (string) parse_url($href, PHP_URL_PATH),
+            $menu->filter('[data-account-menu-panel] a')->extract(['href'])
+        );
 
         $this->assertGreaterThan(0, $menu->filter('[data-user-name]')->count());
-        $this->assertContains('/more#panduan', array_map(
-            fn (string $href): string => (string) parse_url($href, PHP_URL_PATH).'#'.parse_url($href, PHP_URL_FRAGMENT),
-            $menu->filter('[data-account-menu-panel] a')->extract(['href'])
-        ));
+        $this->assertContains('/notifications', $paths);
+        $this->assertContains('/notebook/pengaturan-ai', $paths);
+        $this->assertNotContains('/more', $paths);
     }
 
     public function test_service_worker_protects_every_signed_in_page(): void

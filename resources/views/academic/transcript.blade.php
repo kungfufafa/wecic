@@ -11,7 +11,7 @@
 --}}
 @section('content')
     <x-page-hero title="Akademik">
-        <x-slot:tabs><x-academic-menu active="transcript" underline /></x-slot:tabs>
+        <x-slot:tabs class="lg:hidden"><x-academic-menu active="transcript" underline /></x-slot:tabs>
     </x-page-hero>
 
     <div class="flex flex-col gap-6">

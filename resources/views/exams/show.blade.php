@@ -83,13 +83,19 @@
              * A KPI cell (app.ui.metric) of the divider strip (app.ui.statGridKpi).
              * `text` values (a status, a schedule) are set smaller than a number.
              */
-            const renderMetric = ({ label, value, note = '', text = false }) => `
-                <div class="${app.ui.metric}" data-slot="metric">
-                    <div class="${app.ui.metricLabel}" data-slot="metric-label">${app.escapeHtml(label)}</div>
-                    <div class="${app.ui.metricValue}${text ? ' text-base! sm:text-lg!' : ''}" data-slot="metric-value">${app.escapeHtml(value === null || value === '' ? '-' : value)}</div>
-                    ${note ? `<div class="${app.ui.metricNote}" data-slot="metric-note">${app.escapeHtml(note)}</div>` : ''}
-                </div>
-            `;
+            const renderMetric = ({ label, value, note = '', text = false, tone = null, badge = null }) => {
+                const toneClass = tone ? ` ${app.textToneClass(tone)}` : '';
+
+                return `
+                    <div class="${app.ui.metric}" data-slot="metric">
+                        <div class="${app.ui.metricLabel}" data-slot="metric-label">${app.escapeHtml(label)}</div>
+                        ${badge
+                            ? `<div class="mt-1" data-slot="metric-value">${badge}</div>`
+                            : `<div class="${app.ui.metricValue}${text ? ' text-base! sm:text-lg!' : ''}${toneClass}" data-slot="metric-value">${app.escapeHtml(value === null || value === '' ? '-' : value)}</div>`}
+                        ${note ? `<div class="${app.ui.metricNote}" data-slot="metric-note">${app.escapeHtml(note)}</div>` : ''}
+                    </div>
+                `;
+            };
             const statusBadge = (status) => STATUS_LABELS[String(status || '').toLowerCase()] || [status || 'Belum diketahui', 'neutral'];
             // The server takes PDF, ZIP or RAR up to 20 MB.
             const EXAM_FILE_TYPES = /\.(pdf|zip|rar)$/i;
@@ -182,8 +188,8 @@
             };
 
             /**
-             * The soal and attachments as rows of one card: its name, kind and
-             * link, and Buka / Download.
+             * The soal and attachments as rows of one card: leading icon tile,
+             * kind badge, inline PDF preview toggle, and Buka / Download.
              */
             const renderFileLinks = (links) => {
                 if (!links.length) {
@@ -204,21 +210,41 @@
                             const filename = fileNameFromUrl(link.url);
                             const title = linkLabel(link, filename);
                             const downloadUrl = app.buildCampusDownloadUrl(link.url, filename);
-                            const kind = /soal/i.test(`${link.url || ''} ${link.text || ''}`) ? 'Soal ujian' : `Lampiran ${index + 1}`;
+                            const isSoal = /soal/i.test(`${link.url || ''} ${link.text || ''}`);
+                            const kind = isSoal ? 'Soal ujian' : `Lampiran ${index + 1}`;
+                            const isPdf = /\.pdf($|[?#])/i.test(String(link.url || ''));
+                            const previewId = `exam-file-preview-${index}`;
 
                             return `
-                                <li class="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:px-5">
-                                    <div class="min-w-0 flex-1">
-                                        <h3 class="text-sm font-medium leading-snug text-ink">${app.escapeHtml(title)}</h3>
-                                        <div class="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-1.5 text-xs text-ink-muted">
-                                            <span>${app.escapeHtml(kind)}</span>
-                                            ${filename !== title ? `<span class="min-w-0 truncate before:me-1.5 before:content-['·']">${app.escapeHtml(filename)}</span>` : ''}
+                                <li class="px-4 py-3.5 sm:px-5">
+                                    <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
+                                        <div class="flex min-w-0 flex-1 items-start gap-3">
+                                            <span class="${isSoal ? app.ui.iconTile.brand : app.ui.iconTile.neutral} mt-0.5 size-10 rounded-lg" aria-hidden="true">
+                                                ${app.renderIcon('file', 'sm')}
+                                            </span>
+                                            <div class="min-w-0 flex-1">
+                                                <div class="flex flex-wrap items-center gap-2">
+                                                    <span class="${isSoal ? app.ui.badge.brand : app.ui.badge.neutral}">${app.escapeHtml(kind)}</span>
+                                                    ${filename !== title ? `<span class="min-w-0 truncate text-xs text-ink-subtle">${app.escapeHtml(filename)}</span>` : ''}
+                                                </div>
+                                                <h3 class="mt-1 text-sm font-semibold leading-snug text-ink">${app.escapeHtml(title)}</h3>
+                                            </div>
+                                        </div>
+                                        <div class="flex shrink-0 flex-wrap gap-2 ps-13 sm:justify-end sm:ps-0">
+                                            ${isPdf && absoluteUrl ? `<button type="button" class="${app.buttonClass('secondary', { small: true })}" data-toggle-exam-preview="${previewId}">Pratinjau</button>` : ''}
+                                            ${absoluteUrl ? `<a href="${app.escapeHtml(absoluteUrl)}" target="_blank" rel="noreferrer" class="${app.buttonClass('secondary', { small: true })}">${app.renderIcon('external-link', 'sm')}<span>Buka</span></a>` : ''}
+                                            ${downloadUrl ? `<a href="${app.escapeHtml(downloadUrl)}" class="${app.buttonClass('primary', { small: true })}">${ICONS.download}<span>Download</span></a>` : ''}
                                         </div>
                                     </div>
-                                    <div class="flex shrink-0 flex-wrap gap-2 sm:justify-end">
-                                        ${absoluteUrl ? `<a href="${app.escapeHtml(absoluteUrl)}" target="_blank" rel="noreferrer" class="${app.buttonClass('secondary', { small: true })}">Buka</a>` : ''}
-                                        ${downloadUrl ? `<a href="${app.escapeHtml(downloadUrl)}" class="${app.buttonClass('secondary', { small: true })}">Download</a>` : ''}
-                                    </div>
+                                    ${isPdf && absoluteUrl ? `
+                                        <div id="${previewId}" class="mt-3 hidden overflow-hidden rounded-lg border border-border bg-panel">
+                                            <div class="flex items-center justify-between border-b border-border-light bg-surface/60 px-3 py-1.5 text-xs">
+                                                <span class="font-medium text-ink-muted">Pratinjau PDF</span>
+                                                <button type="button" class="${app.ui.button.ghostSm}" data-close-exam-preview="${previewId}">Tutup</button>
+                                            </div>
+                                            <iframe data-src="${app.escapeHtml(absoluteUrl)}" class="h-[520px] w-full border-0" loading="lazy"></iframe>
+                                        </div>
+                                    ` : ''}
                                 </li>
                             `;
                         }).join('')}
@@ -229,8 +255,8 @@
 
             const renderNoticeList = (alerts, requirements) => {
                 const items = [
-                    ...(alerts || []).map((text) => ({ label: 'Alert', text, labelClass: app.ui.text.warning })),
-                    ...(requirements || []).map((text) => ({ label: 'Persyaratan', text, labelClass: app.ui.text.muted })),
+                    ...(alerts || []).map((text) => ({ label: 'Alert', text, icon: 'alert', tileClass: app.ui.iconTile.warning, labelClass: app.ui.text.warning })),
+                    ...(requirements || []).map((text) => ({ label: 'Persyaratan', text, icon: 'info', tileClass: app.ui.iconTile.info, labelClass: app.ui.text.info })),
                 ];
 
                 if (!items.length) {
@@ -244,7 +270,8 @@
                         </div>
                         <div class="${app.ui.cardBody}">
                             ${items.map((item) => `
-                                <div class="${app.ui.listRow}">
+                                <div class="${app.ui.listRow} justify-start!">
+                                    <span class="${item.tileClass} mt-0.5 size-8 rounded-lg" aria-hidden="true">${app.renderIcon(item.icon, 'sm')}</span>
                                     <div class="min-w-0 flex-1">
                                         <div class="mb-0.5 text-xs font-medium ${item.labelClass}">${app.escapeHtml(item.label)}</div>
                                         <div class="text-sm leading-relaxed text-ink">${app.escapeHtml(item.text)}</div>
@@ -286,12 +313,11 @@
             };
 
             const renderUploadPanel = (detail, form, isUploadReady, isPortalFormOpen) => {
-                const uploadTone = isPortalFormOpen ? 'success' : 'secondary';
-
                 return `
                 <div class="${app.ui.card}" data-slot="card">
                     <div class="${app.ui.cardHeader}">
                         <h3 class="${app.ui.cardTitle}">Upload jawaban</h3>
+                        ${isPortalFormOpen ? app.renderBadge('Form dibuka', 'success') : app.renderBadge('Mode langsung', 'brand')}
                     </div>
                     <div class="${app.ui.cardBody} flex flex-col gap-4">
                         ${!isPortalFormOpen ? `
@@ -302,7 +328,7 @@
                         ` : ''}
                         ${isUploadReady ? `
                             <form id="exam-upload-form" class="flex flex-col gap-4">
-                                <div class="${app.ui.field}">
+                                <div class="${app.ui.field} rounded-lg border border-border-light bg-surface/50 p-3">
                                     <label for="exam-file" class="${app.ui.label}">Lampiran jawaban</label>
                                     <input id="exam-file" type="file" class="${app.ui.fileInput}" accept=".pdf,.zip,.rar" aria-describedby="exam-file-hint" required>
                                     <p id="exam-file-hint" class="${app.ui.hint}">PDF, ZIP, atau RAR, maks. 20 MB.</p>
@@ -334,18 +360,24 @@
                 ].filter((item) => item.value);
 
                 return `
-                    <div class="${app.ui.card}" data-slot="card">
+                    <div class="${app.ui.card} border-s-[3px] border-s-success" data-slot="card">
                         <div class="${app.ui.cardHeader}">
                             <h3 class="${app.ui.cardTitle}">Jawaban terkirim</h3>
+                            ${app.renderBadge('Terkirim', 'success')}
                         </div>
                         <div class="${app.ui.cardBody}">
-                            <div class="flex flex-col gap-3">
-                                ${fields.map((item) => `
-                                    <div>
-                                        <div class="mb-1 text-xs font-medium text-ink-subtle">${app.escapeHtml(item.label)}</div>
-                                        <div class="break-all text-sm font-medium leading-snug text-ink">${app.escapeHtml(item.value)}</div>
-                                    </div>
-                                `).join('')}
+                            <div class="flex items-start gap-3">
+                                <span class="${app.ui.iconTile.success} mt-0.5 size-9 rounded-lg" aria-hidden="true">
+                                    ${app.renderIcon('circle-check', 'sm')}
+                                </span>
+                                <div class="flex min-w-0 flex-1 flex-col gap-3">
+                                    ${fields.map((item) => `
+                                        <div>
+                                            <div class="mb-0.5 text-xs font-medium text-ink-subtle">${app.escapeHtml(item.label)}</div>
+                                            <div class="break-all text-sm font-medium leading-snug text-ink">${app.escapeHtml(item.value)}</div>
+                                        </div>
+                                    `).join('')}
+                                </div>
                             </div>
                             ${latest?.submission_id && !hasLiveDeleteId ? `
                                 <div class="${app.alertTone('warning')} mt-3">
@@ -369,12 +401,11 @@
                 const hero = document.getElementById('exam-hero');
 
                 const course = detail.course || {};
-                const [statusLabel] = statusBadge(detail.status);
+                const [statusLabel, statusTone] = statusBadge(detail.status);
                 const portalTitle = String(detail.title || '');
                 const isGenericTitle = /sipandai|portal/i.test(portalTitle);
 
                 const heroTitle = course.name || (isGenericTitle ? 'Detail ujian' : portalTitle) || 'Detail ujian';
-                const heroEyebrow = course.code ? `Ujian · ${course.code}` : 'Detail ujian';
                 const heroDescription = course.lecturer || (!isGenericTitle ? detail.description : '') || '';
                 const heroActions = [
                     primaryFile ? `<a href="${app.escapeHtml(app.buildCampusDownloadUrl(primaryFile.url, fileNameFromUrl(primaryFile.url)))}" class="${app.buttonClass('primary')}">${ICONS.download}Download soal</a>` : '',
@@ -384,17 +415,26 @@
                     <header class="${app.ui.pageHero}" data-slot="page-hero">
                         <div class="${app.ui.pageHeroRow}">
                             <div class="min-w-0">
-                                <p class="${app.ui.pageEyebrow}">${app.escapeHtml(heroEyebrow)}</p>
+                                <div class="mb-1.5 flex flex-wrap items-center gap-2">
+                                    ${course.code ? `<span class="${app.ui.badge.brand} font-mono">${app.escapeHtml(course.code)}</span>` : `<span class="${app.ui.badge.neutral}">Ujian</span>`}
+                                    ${app.renderBadge(statusLabel, statusTone)}
+                                </div>
                                 <h1 class="${app.ui.pageHeroTitle}">${app.escapeHtml(heroTitle)}</h1>
-                                ${heroDescription ? `<p class="${app.ui.pageHeroSubtitle}">${app.escapeHtml(heroDescription)}</p>` : ''}
+                                ${(course.lecturer || course.schedule || heroDescription) ? `
+                                    <div class="${app.ui.pageHeroMeta}" data-slot="page-hero-meta">
+                                        ${course.lecturer ? `<span class="inline-flex items-center gap-1.5">${app.renderIcon('user', 'sm')}${app.escapeHtml(course.lecturer)}</span>` : ''}
+                                        ${course.schedule ? `<span class="inline-flex items-center gap-1.5 tabular-nums">${app.renderIcon('calendar', 'sm')}${app.escapeHtml(course.schedule)}</span>` : ''}
+                                        ${!course.lecturer && !course.schedule && heroDescription ? `<span>${app.escapeHtml(heroDescription)}</span>` : ''}
+                                    </div>
+                                ` : ''}
                             </div>
                             ${heroActions ? `<div class="${app.ui.pageHeroActions}" data-slot="page-hero-actions">${heroActions}</div>` : ''}
                         </div>
                     </header>
                     <div class="${app.ui.statGridKpi} mb-6" data-slot="stat-strip">
-                        ${renderMetric({ label: 'Status', value: statusLabel, text: true })}
-                        ${renderMetric({ label: 'Soal', value: fileLinks.length || '0', note: fileLinks.length ? '' : 'Belum diunggah' })}
-                        ${renderMetric({ label: 'Pengumpulan', value: isPortalFormOpen ? 'Dibuka' : 'Kirim langsung', text: true })}
+                        ${renderMetric({ label: 'Status', value: statusLabel, badge: app.renderBadge(statusLabel, statusTone) })}
+                        ${renderMetric({ label: 'Soal', value: fileLinks.length || '0', note: fileLinks.length ? `${fileLinks.length} berkas tersedia` : 'Belum diunggah' })}
+                        ${renderMetric({ label: 'Pengumpulan', value: isPortalFormOpen ? 'Dibuka' : 'Kirim langsung', text: true, tone: isPortalFormOpen ? 'success' : 'brand' })}
                         ${renderMetric({ label: 'Jadwal', value: course.schedule || 'Belum ada', text: true })}
                     </div>
                 `;
@@ -403,6 +443,25 @@
                     ${renderFileLinks(fileLinks)}
                     ${renderNoticeList(detail.alerts || [], detail.requirements || [])}
                 `;
+
+                document.querySelectorAll('[data-toggle-exam-preview]').forEach((btn) => {
+                    btn.addEventListener('click', () => {
+                        const target = document.getElementById(btn.getAttribute('data-toggle-exam-preview'));
+                        if (!target) return;
+
+                        const iframe = target.querySelector('iframe[data-src]');
+                        if (iframe && !iframe.getAttribute('src')) {
+                            iframe.setAttribute('src', iframe.getAttribute('data-src'));
+                        }
+                        target.classList.toggle('hidden');
+                    });
+                });
+
+                document.querySelectorAll('[data-close-exam-preview]').forEach((btn) => {
+                    btn.addEventListener('click', () => {
+                        document.getElementById(btn.getAttribute('data-close-exam-preview'))?.classList.add('hidden');
+                    });
+                });
 
                 document.getElementById('exam-actions').innerHTML = `
                     ${renderUploadPanel(detail, form, isUploadReady, isPortalFormOpen)}
