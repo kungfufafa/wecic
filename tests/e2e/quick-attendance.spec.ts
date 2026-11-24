@@ -72,7 +72,7 @@ test.describe('quick attendance from ?absen=1', () => {
 
         const navigations = trackNavigations(page);
 
-        await expect(page.getByText('Absensi untuk kelas hari ini belum dibuka dosen. Coba lagi saat kelas berlangsung.').first()).toBeVisible();
+        await expect(page.getByText('Absensi hari ini belum dibuka dosen.').first()).toBeVisible();
         await page.clock.runFor(31_000);
 
         await expect(page).toHaveURL(/\/dashboard$/);
