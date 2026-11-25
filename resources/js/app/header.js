@@ -424,10 +424,22 @@ export class HeaderFeature {
         panel.classList.add('flex');
 
         const matchesText = (element) => element.textContent.toLowerCase().includes(query);
+        const activeContext = panel.dataset.sidebarActiveContext || 'beranda';
         const trails = Array.from(panel.querySelectorAll('[data-sidebar-trail]'));
+        const activeTrail = trails.find((trail) => trail.dataset.sidebarTrail === activeContext)
+            || trails.find((trail) => trail.dataset.sidebarTrail === 'more')
+            || null;
         let visibleCount = 0;
 
         trails.forEach((trail) => {
+            if (trail !== activeTrail) {
+                trail.querySelectorAll('a').forEach((link) => link.removeAttribute('data-sidebar-match'));
+                trail.classList.add('hidden');
+                trail.classList.remove('flex');
+
+                return;
+            }
+
             const groups = Array.from(trail.querySelectorAll('[role="group"]'));
             const groupedLinks = new Set();
             const groupedLabels = new Set();

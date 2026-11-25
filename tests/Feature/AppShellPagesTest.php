@@ -284,7 +284,9 @@ class AppShellPagesTest extends TestCase
             'class list' => ['/class', ['Kuliah', 'Jadwal & Kelas']],
             'grades' => ['/grades', ['Akademik', 'Nilai']],
             'skkm' => ['/skkm', ['Lainnya', 'SKKM']],
-            'notifications' => ['/notifications', ['Notifikasi']],
+            'notebook' => ['/notebook', ['Notebook']],
+            'ai settings' => ['/notebook/pengaturan-ai', ['Notebook', 'Pengaturan AI']],
+            'notifications' => ['/notifications', ['Akun', 'Notifikasi']],
         ];
     }
 

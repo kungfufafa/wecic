@@ -5,7 +5,7 @@ import { createPortalApp } from './support/browser.mjs';
 /**
  * Two-tier desktop sidebar behaviour (resources/js/app/header.js):
  * collapsing/expanding contextual trails, `/` keyboard shortcut (including
- * on no-trail pages such as Beranda/Keuangan), and global search across trails.
+ * on no-trail pages such as Beranda/Keuangan), and active-trail search.
  */
 let browser;
 
@@ -226,11 +226,11 @@ describe('sidebar collapse and contextual trail search', () => {
         sheet.remove();
     });
 
-    it('shows only the active section trail by default, searches globally across all trails, activates on Enter, and restores on Escape', async () => {
-        const { panel, searchInput, kbd, empty, trails, links, groups } = await setupSidebar({ activeContext: 'kuliah', url: '/class' });
+    it('shows only the active section trail by default, searches only within the active rail trail, activates on Enter, and restores on Escape', async () => {
+        const { app, panel, searchInput, kbd, empty, trails, links, groups } = await setupSidebar({ activeContext: 'kuliah', url: '/class' });
         let clicked = 0;
 
-        links.subKrs.addEventListener('click', () => {
+        links.subExam.addEventListener('click', () => {
             clicked += 1;
         });
 
@@ -241,17 +241,20 @@ describe('sidebar collapse and contextual trail search', () => {
         assert.equal(trails.moreTrail.classList.contains('hidden'), true);
         assert.equal(trails.settingsTrail.classList.contains('hidden'), true);
 
-        // Search finds matches in Akademik while on Kuliah.
-        searchInput.value = 'krs';
+        // Search finds matching item inside the active Kuliah trail and activates it on Enter.
+        searchInput.value = 'ujian';
         searchInput.dispatchEvent(new Event('input'));
 
         assert.equal(kbd.classList.contains('hidden'), true);
         assert.equal(empty.classList.contains('hidden'), true);
-        assert.equal(trails.akademikTrail.classList.contains('hidden'), false);
-        assert.equal(links.subKrs.classList.contains('hidden'), false);
-        assert.equal(links.subKrs.getAttribute('data-sidebar-match'), '1');
-        assert.equal(links.subGrades.classList.contains('hidden'), true);
-        assert.equal(trails.kuliahTrail.classList.contains('hidden'), true);
+        assert.equal(trails.kuliahTrail.classList.contains('hidden'), false);
+        assert.equal(links.subExam.classList.contains('hidden'), false);
+        assert.equal(links.subExam.getAttribute('data-sidebar-match'), '1');
+        assert.equal(links.subClass.classList.contains('hidden'), true);
+        assert.equal(trails.akademikTrail.classList.contains('hidden'), true);
+        assert.equal(trails.notebookTrail.classList.contains('hidden'), true);
+        assert.equal(trails.moreTrail.classList.contains('hidden'), true);
+        assert.equal(trails.settingsTrail.classList.contains('hidden'), true);
 
         const enter = keyEvent('Enter');
 
@@ -260,20 +263,14 @@ describe('sidebar collapse and contextual trail search', () => {
         assert.equal(enter.defaultPrevented, true);
         assert.equal(clicked, 1);
 
-        // Searching grouped settings trail hides non-matching groups.
-        searchInput.value = 'password';
-        searchInput.dispatchEvent(new Event('input'));
-
-        assert.equal(trails.settingsTrail.classList.contains('hidden'), false);
-        assert.equal(links.settingsPassword.classList.contains('hidden'), false);
-        assert.equal(groups.settingsAccountGroup.classList.contains('hidden'), false);
-        assert.equal(groups.settingsPrivacyGroup.classList.contains('hidden'), true);
-
-        // No matches shows the empty state.
-        searchInput.value = 'tidak-ada-menu';
+        // Items from another rail (e.g. KRS in Akademik) do not appear while Kuliah is active.
+        searchInput.value = 'krs';
         searchInput.dispatchEvent(new Event('input'));
 
         assert.equal(empty.classList.contains('hidden'), false);
+        assert.equal(trails.kuliahTrail.classList.contains('hidden'), true);
+        assert.equal(trails.akademikTrail.classList.contains('hidden'), true);
+        assert.equal(links.subKrs.getAttribute('data-sidebar-match'), null);
 
         // Escape clears the query and restores only Kuliah trail.
         searchInput.dispatchEvent(keyEvent('Escape'));
@@ -285,5 +282,22 @@ describe('sidebar collapse and contextual trail search', () => {
         assert.equal(trails.kuliahTrail.classList.contains('hidden'), false);
         assert.equal(trails.akademikTrail.classList.contains('hidden'), true);
         assert.equal(trails.settingsTrail.classList.contains('hidden'), true);
+
+        // Searching grouped settings trail when Pengaturan is active hides non-matching groups and other trails.
+        panel.dataset.sidebarActiveContext = 'settings';
+        app.applySidebarContext('settings');
+        searchInput.value = 'password';
+        searchInput.dispatchEvent(new Event('input'));
+
+        assert.equal(empty.classList.contains('hidden'), true);
+        assert.equal(trails.settingsTrail.classList.contains('hidden'), false);
+        assert.equal(links.settingsPassword.classList.contains('hidden'), false);
+        assert.equal(links.settingsPassword.getAttribute('data-sidebar-match'), '1');
+        assert.equal(groups.settingsAccountGroup.classList.contains('hidden'), false);
+        assert.equal(groups.settingsPrivacyGroup.classList.contains('hidden'), true);
+        assert.equal(trails.kuliahTrail.classList.contains('hidden'), true);
+        assert.equal(trails.akademikTrail.classList.contains('hidden'), true);
+        assert.equal(trails.notebookTrail.classList.contains('hidden'), true);
+        assert.equal(trails.moreTrail.classList.contains('hidden'), true);
     });
 });
