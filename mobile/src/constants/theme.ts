@@ -101,8 +101,6 @@ export const Elevation = {
   },
 } as const satisfies Record<ColorSchemeName, Record<string, string>>;
 
-export type ElevationLevel = keyof (typeof Elevation)['light'];
-
 /**
  * The tile colors a course can get (lib/format.ts picks one from its code),
  * so a course keeps its color on every screen, in either mode.
