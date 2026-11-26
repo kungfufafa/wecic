@@ -112,7 +112,6 @@ export const ui = Object.freeze({
 
     metric: 'flex min-w-0 flex-col gap-1 bg-panel p-4 sm:p-5',
     metricInteractive: 'flex min-w-0 cursor-pointer flex-col gap-1 bg-panel p-4 transition-colors hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand/40 sm:p-5',
-    metricHead: 'flex items-start justify-between gap-3',
     metricLabel: 'truncate text-xs font-medium text-ink-muted',
     metricValue: 'text-2xl font-semibold tracking-tight text-ink tabular-nums',
     metricNote: 'text-xs text-ink-subtle',
@@ -250,7 +249,6 @@ export const ui = Object.freeze({
     emptySubtitle: 'max-w-sm text-xs leading-relaxed text-ink-subtle',
 
     listRow: 'flex items-start justify-between gap-3 border-b border-border-light py-3 first:pt-0 last:border-b-0 last:pb-0',
-    listRowInteractive: '-mx-2 cursor-pointer rounded-lg px-2 transition-colors hover:bg-surface/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40',
     listRowDivided: 'flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0',
     list: 'divide-y divide-border-light',
     listRowFlush: 'flex items-center gap-3 px-4 py-3.5 sm:px-5',
@@ -262,7 +260,6 @@ export const ui = Object.freeze({
     listRowChevron: 'size-4 shrink-0 text-ink-subtle',
 
     dateTile: 'flex size-11 shrink-0 flex-col items-center justify-center rounded-lg bg-surface text-ink',
-    dateTileBase: 'flex size-11 shrink-0 flex-col items-center justify-center rounded-lg',
     dateTileMonth: 'text-[10px] font-medium uppercase leading-none tracking-wide opacity-80',
     dateTileDay: 'mt-0.5 text-base font-semibold leading-none tabular-nums',
 
@@ -275,7 +272,6 @@ export const ui = Object.freeze({
 
     tabs: 'inline-flex max-w-full items-center gap-1 overflow-x-auto',
     tab: 'inline-flex h-11 shrink-0 cursor-pointer select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-3.5 text-sm font-medium text-ink-muted transition-colors hover:bg-black/[0.04] hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 aria-selected:bg-black/[0.06] aria-selected:text-ink aria-pressed:bg-black/[0.06] aria-pressed:text-ink aria-[current=page]:bg-black/[0.06] aria-[current=page]:text-ink sm:h-8 dark:hover:bg-white/[0.05] dark:aria-selected:bg-white/[0.08] dark:aria-pressed:bg-white/[0.08] dark:aria-[current=page]:bg-white/[0.08]',
-    tabActive: 'inline-flex h-11 shrink-0 cursor-pointer select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-black/[0.06] px-3.5 text-sm font-medium text-ink transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 sm:h-8 dark:bg-white/[0.08]',
     underlineTabs: 'flex max-w-full gap-4 overflow-x-auto shadow-[inset_0_-1px_0_var(--color-border)]',
     // The active one carries an ink underline (no colour).
     underlineTab: 'inline-flex min-h-11 shrink-0 cursor-pointer select-none items-center gap-1.5 whitespace-nowrap border-b-2 border-transparent px-1 text-sm font-medium text-ink-muted transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:ring-inset aria-selected:border-ink aria-selected:text-ink aria-pressed:border-ink aria-pressed:text-ink aria-[current=page]:border-ink aria-[current=page]:text-ink',
@@ -341,10 +337,6 @@ export const ui = Object.freeze({
 
     stickyAction: 'fixed inset-x-3 bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))] z-30 rounded-xl border border-border bg-panel p-2.5 shadow-float lg:static lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none',
 
-    tile: 'flex cursor-pointer flex-col items-center gap-2 rounded-lg p-2 text-center transition-colors hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40',
-    tileIcon: 'flex size-12 items-center justify-center rounded-lg bg-surface text-ink-muted',
-    tileLabel: 'text-[11px] font-medium leading-tight text-ink-muted',
-    outlineItem: 'flex items-start gap-3 rounded-lg border border-border-light bg-surface/40 p-4 transition-colors hover:bg-surface/80',
     outlineBadge: 'flex size-6 shrink-0 items-center justify-center rounded-full bg-surface-tint text-xs font-medium text-brand-text tabular-nums',
     noScrollbar: '[scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
 
@@ -352,7 +344,6 @@ export const ui = Object.freeze({
     navBadgeBottom: 'pointer-events-none absolute end-1.5 -top-0.5 h-4 min-w-4 rounded-full bg-danger px-1 text-center text-[11px] font-medium leading-4 text-white tabular-nums ring-2 ring-panel data-[tone=brand]:bg-brand data-[tone=info]:bg-brand data-[tone=warning]:bg-warning data-[tone=warning]:text-amber-950 data-[variant=dot]:h-2.5 data-[variant=dot]:min-w-2.5 data-[variant=dot]:px-0',
     navBadgeInline: 'ms-auto h-5 min-w-5 shrink-0 rounded-full bg-danger px-1.5 text-center text-[11px] font-medium leading-5 text-white tabular-nums data-[tone=brand]:bg-brand data-[tone=info]:bg-brand data-[tone=warning]:bg-warning data-[tone=warning]:text-amber-950 data-[variant=dot]:h-2 data-[variant=dot]:min-w-2 data-[variant=dot]:px-0',
     railItem: 'group relative flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-lg text-ink-subtle transition-colors hover:bg-black/5 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand aria-[current=page]:bg-black/[0.08] aria-[current=page]:text-ink data-[rail-selected=true]:bg-black/[0.08] data-[rail-selected=true]:text-ink dark:hover:bg-white/5 dark:aria-[current=page]:bg-surface dark:data-[rail-selected=true]:bg-surface',
-    sidebarTree: 'relative ms-3.5 my-0.5 flex flex-col gap-0.5 border-s border-border ps-2.5',
     sidebarSubItem: 'group relative flex h-8 items-center gap-2.5 rounded-lg px-2.5 text-[13px] font-medium text-ink-muted transition-colors hover:bg-black/5 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand aria-[current=location]:bg-black/[0.06] aria-[current=location]:text-ink dark:hover:bg-white/5 dark:aria-[current=location]:bg-surface',
     sidebarSubItemIcon: 'flex shrink-0 text-ink-subtle transition-colors group-hover:text-ink-muted group-aria-[current=location]:text-ink',
     sidebarSearchInput: 'h-7 w-full min-w-0 rounded-md border border-border/80 bg-surface/70 pe-6 ps-7 text-xs text-ink transition-[color,box-shadow,border-color,background-color] placeholder:text-ink-subtle focus-visible:border-brand focus-visible:bg-panel focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/20 dark:bg-surface/60 dark:focus-visible:bg-surface',
