@@ -163,20 +163,6 @@ export function sessionNoticeAction(status: unknown): SessionNoticeAction {
   }
 }
 
-/** The connection's state in the student's words, for the Lainnya tab. */
-export function realtimeStatusLabel(status: RealtimeStatus): string {
-  switch (status) {
-    case 'connected':
-      return 'Aktif: perubahan dari portal langsung muncul';
-    case 'connecting':
-      return 'Menyambung ke server…';
-    case 'unavailable':
-      return 'Tidak tersedia; layar diperbarui saat dibuka';
-    default:
-      return 'Belum aktif di server ini';
-  }
-}
-
 function stringList(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === 'string') : [];
 }

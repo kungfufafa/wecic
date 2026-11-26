@@ -1,7 +1,6 @@
 import {
   attendanceSummary,
   attendedCount,
-  classMeta,
   courseColorIndex,
   courseInitials,
   firstName,
@@ -12,7 +11,6 @@ import {
   groupClassesByDay,
   initials,
   matchesClassQuery,
-  nextClass,
   normalizeDay,
   shortTime,
   studentNumber,
@@ -39,16 +37,6 @@ describe('attendanceSummary', () => {
 });
 
 describe('class details', () => {
-  it('joins the day, time and room that exist', () => {
-    expect(
-      classMeta({
-        schedule: { day: 'Senin', start_time: '08:00', end_time: '09:40' },
-        class_room_info: { room: 'Lab 1' },
-      }),
-    ).toBe('Senin · 08:00–09:40 · Lab 1');
-    expect(classMeta({ schedule: { day: 'Selasa' }, class_room_info: { room: ' ' } })).toBe('Selasa');
-  });
-
   it('drops the seconds the portal adds to start and end times', () => {
     expect(timeRange({ start_time: '14:30:00', end_time: '16:00:00' })).toBe('14:30–16:00');
     expect(shortTime('8.05')).toBe('08:05');
@@ -150,30 +138,6 @@ describe('attendedCount', () => {
         {},
       ]),
     ).toBe(1);
-  });
-});
-
-describe('nextClass', () => {
-  const morning = { course_name: 'Pagi', schedule: { start_time: '08:00:00' } };
-  const afternoon = { course_name: 'Siang', schedule: { start_time: '14:30:00' } };
-  const evening = { course_name: 'Malam', schedule: { start_time: '18:30' } };
-
-  it('puts the class in progress first', () => {
-    expect(nextClass([morning, { ...afternoon, active_now: true }], new Date(2026, 10, 2, 15))).toEqual({
-      todayClass: { ...afternoon, active_now: true },
-      inProgress: true,
-    });
-  });
-
-  it('otherwise picks the earliest class still to start', () => {
-    expect(nextClass([evening, morning, afternoon], new Date(2026, 10, 2, 9))?.todayClass).toBe(afternoon);
-    expect(nextClass([evening, morning, afternoon], new Date(2026, 10, 2, 9))?.inProgress).toBe(false);
-  });
-
-  it('has nothing once every class has started or has no time', () => {
-    expect(nextClass([morning, afternoon], new Date(2026, 10, 2, 20))).toBeNull();
-    expect(nextClass([{ course_name: 'Tanpa jam' }], new Date(2026, 10, 2, 7))).toBeNull();
-    expect(nextClass([])).toBeNull();
   });
 });
 

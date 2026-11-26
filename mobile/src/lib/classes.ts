@@ -46,13 +46,6 @@ export function meetingTargetFromHref(href: string | null | undefined): { id: st
   return id && /^\d+$/.test(id) ? { id, courses_id: queryParam(href, 'courses_id') } : null;
 }
 
-/** The class a MyCIC link opens: `/class/2265?dosen_id=5240&course_id=8810`. */
-export function classTargetFromUrl(url: string | null | undefined): { id: string; dosen_id: string | null; course_id: string | null } | null {
-  const match = url?.match(/\/class\/(\d+)/);
-
-  return match ? { id: match[1], dosen_id: queryParam(url, 'dosen_id'), course_id: queryParam(url, 'course_id') } : null;
-}
-
 /** Calendar days from `now` to a `YYYY-MM-DD` date: 0 today, negative once passed; null when it does not parse. */
 export function daysUntil(date: string | null | undefined, now: Date = new Date()): number | null {
   const match = date?.match(/^(\d{4})-(\d{2})-(\d{2})/);

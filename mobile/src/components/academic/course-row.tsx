@@ -43,9 +43,6 @@ export function CourseRow({ code, name, detail, note, trailing, showTile = true 
   );
 }
 
-/** Where a course row's text starts, for the hairline between rows. */
-export const CourseRowInset = 0;
-
 const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',

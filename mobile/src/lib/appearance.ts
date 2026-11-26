@@ -22,7 +22,3 @@ export function resolveColorScheme(preference: AppearancePreference, device: str
 
   return device === 'dark' ? 'dark' : 'light';
 }
-
-export function appearanceLabel(preference: AppearancePreference): string {
-  return AppearanceOptions.find((option) => option.value === preference)?.label ?? 'Otomatis';
-}

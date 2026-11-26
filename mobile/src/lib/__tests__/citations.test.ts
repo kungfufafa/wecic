@@ -6,8 +6,8 @@ import {
   citationTokens,
   citedPosition,
   findCitation,
+  markdownText,
   pagedSourceParams,
-  plainText,
   sourceChunksPath,
 } from '@/lib/citations';
 
@@ -51,17 +51,11 @@ describe('citation tokens', () => {
   });
 });
 
-describe('plain text', () => {
-  it('no longer leaks citation numbers', () => {
-    expect(plainText('3NF menghapus ketergantungan transitif [2]. Tujuannya mengurangi redundansi [1][3].')).toBe(
-      '3NF menghapus ketergantungan transitif. Tujuannya mengurangi redundansi.',
-    );
-    expect(plainText('a [1] b')).toBe('a b');
-    expect(plainText('**Penting** [1]')).toBe('Penting');
-  });
-
-  it('keeps markdown cleanup and brackets that are code', () => {
-    expect(plainText('## Judul\n- satu [1]\n- arr[0]')).toBe('Judul\n• satu\n• arr[0]');
+describe('markdownText', () => {
+  it('strips markdown markers while keeping citations and code brackets intact', () => {
+    expect(markdownText('**Penting** [1]')).toBe('Penting [1]');
+    expect(markdownText('## Judul\n- satu [1]\n- arr[0]')).toBe('Judul\n• satu [1]\n• arr[0]');
+    expect(markdownText(null)).toBe('');
   });
 });
 

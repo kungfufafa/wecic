@@ -13,11 +13,9 @@ export type OfflineReason = 'device' | 'server' | null;
 
 let reachable = true;
 let deviceOnline: boolean | null = null;
-let lastChange = 0;
 const listeners = new Set<() => void>();
 
 function notify(): void {
-  lastChange = Date.now();
   listeners.forEach((listener) => listener());
 }
 
@@ -74,11 +72,6 @@ export function deviceOnlineFrom(state: { isConnected?: boolean; isInternetReach
   }
 
   return state.isConnected !== false && state.isInternetReachable !== false;
-}
-
-/** When the connection last changed, for a "since" line; 0 before any change. */
-export function lastConnectivityChange(): number {
-  return lastChange;
 }
 
 export function subscribeConnectivity(listener: () => void): () => void {

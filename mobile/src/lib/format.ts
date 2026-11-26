@@ -55,13 +55,6 @@ export function timeRange(schedule: { time?: string | null; formatted_time?: str
   return schedule.time ?? schedule.formatted_time ?? shortTime(schedule.start_time) ?? null;
 }
 
-/** "Senin · 08:00–09:40 · Lab 1" from what the class lists. */
-export function classMeta(portalClass: PortalClass): string {
-  return [portalClass.schedule?.day, timeRange(portalClass.schedule), portalClass.class_room_info?.room]
-    .filter((part): part is string => typeof part === 'string' && part.trim() !== '')
-    .join(' · ');
-}
-
 export function studentNumber(user: UserInfo | null | undefined): string | null {
   return user?.nim ?? user?.student_id ?? null;
 }
@@ -215,26 +208,6 @@ export function groupClassesByDay(classes: PortalClass[]): ClassesByDay[] {
 /** How many of today's classes already have attendance recorded. */
 export function attendedCount(classes: TodayClass[]): number {
   return classes.filter((todayClass) => todayClass.attendance?.status?.already_marked === true).length;
-}
-
-/**
- * The class to put first today: the one in progress, else the next to
- * start; null once every class has started.
- */
-export function nextClass(classes: TodayClass[], now: Date = new Date()): { todayClass: TodayClass; inProgress: boolean } | null {
-  const active = classes.find((todayClass) => todayClass.active_now === true);
-
-  if (active) {
-    return { todayClass: active, inProgress: true };
-  }
-
-  const clock = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-  const upcoming = classes
-    .map((todayClass) => ({ todayClass, start: shortTime(todayClass.schedule?.start_time) }))
-    .filter((entry): entry is { todayClass: TodayClass; start: string } => entry.start !== null && /^\d{2}:\d{2}$/.test(entry.start) && entry.start > clock)
-    .sort((a, b) => a.start.localeCompare(b.start));
-
-  return upcoming.length > 0 ? { todayClass: upcoming[0].todayClass, inProgress: false } : null;
 }
 
 /** Whether a class's name, code, lecturer or room contains what the student typed. */
