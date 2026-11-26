@@ -1,11 +1,8 @@
-import { ui } from './ui.js';
-
 import * as actionItemRules from '../lib/action-items.js';
 
 /**
- * The action centre (`GET /api/action-items`): reading the items, the row
- * each becomes, and the badges they light on the navigation (rules in
- * lib/action-items.js).
+ * The action centre (`GET /api/action-items`): reading the items and the
+ * badges they light on the navigation (rules in lib/action-items.js).
  *
  * Methods of PortalApp (resources/js/app.js mixes them in): `this` is the
  * app, and every field they use is set in its constructor.
@@ -34,48 +31,6 @@ export class ActionItemFeature {
         };
 
         return this.renderBadge(label || defaults[tone], tone === 'neutral' ? 'secondary' : tone);
-    }
-
-    /**
-     * One row of the action centre, as served by `GET /api/action-items`:
-     * `{type, title, description, due_at, days_left, severity, cta_label, cta_url, cta_external, source}`.
-     */
-    renderActionItem(item = {}) {
-        const days = Number.isInteger(item.days_left) ? item.days_left : (item.due_at ? this.daysUntil(item.due_at) : null);
-        let dueText = '';
-
-        if (days !== null) {
-            const dateText = item.due_at ? ` · ${this.formatIndonesianDate(item.due_at, { month: 'short', year: false })}` : '';
-            const relative = days === 0 ? 'hari ini' : (days === 1 ? 'besok' : `${days} hari lagi`);
-
-            dueText = days < 0
-                ? `Lewat ${Math.abs(days)} hari${dateText}`
-                : `Tenggat ${relative}${dateText}`;
-        }
-
-        const dueTone = days !== null && days <= 1 ? 'text-danger' : (days !== null && days <= 3 ? 'text-warning' : 'text-ink-subtle');
-        const href = this.safeHref(item.cta_url);
-        const external = href && (item.cta_external === true || this.isExternalHref(href)) ? ' target="_blank" rel="noopener noreferrer"' : '';
-        const content = `
-            <span class="flex min-w-0 flex-1 flex-col gap-1">
-                <span class="flex flex-wrap items-center gap-2">
-                    ${this.renderSeverityBadge(item.severity)}
-                    ${dueText ? `<span class="text-caption font-medium ${dueTone}">${this.escapeHtml(dueText)}</span>` : ''}
-                </span>
-                <span class="text-sm font-medium leading-snug text-ink">${this.escapeHtml(item.title || 'Perlu dicek')}</span>
-                ${item.description ? `<span class="line-clamp-2 text-caption text-ink-subtle">${this.escapeHtml(item.description)}</span>` : ''}
-            </span>
-            ${href ? `
-                <span class="inline-flex shrink-0 items-center gap-1 self-center text-xs font-medium text-brand-text">
-                    ${this.escapeHtml(item.cta_label || 'Buka')}
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6l-6 6" /></svg>
-                </span>
-            ` : ''}
-        `;
-
-        return href
-            ? `<a href="${this.escapeHtml(href)}" class="${ui.listRow} ${ui.listRowInteractive} min-h-11"${external}>${content}</a>`
-            : `<div class="${ui.listRow}">${content}</div>`;
     }
 
     /**

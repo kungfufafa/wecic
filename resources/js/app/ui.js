@@ -15,53 +15,8 @@
  *   therefore complete on its own; pick another key instead of appending a
  *   conflicting class.
  */
-const neutralAccent = Object.freeze({
-    tile: 'bg-surface text-ink-muted',
-    soft: 'bg-surface',
-    text: 'text-ink',
-    ring: 'ring-border',
-    dot: 'bg-ink-subtle',
-    glow: '',
-    border: 'border-border',
-    navIcon: 'group-aria-[current=page]:text-ink',
-    tabMarker: 'aria-selected:border-ink aria-pressed:border-ink aria-[current=page]:border-ink',
-});
-
 export const ui = Object.freeze({
     container: 'mx-auto w-full max-w-6xl px-4 md:px-6 lg:px-8',
-
-    // The accents (resources/views/components/data/accents.php): `brand`, the
-    // one colour, for selection and data highlights, and `neutral`, gray. Each
-    // has tile, soft, text, ring, dot, glow (always empty: no gradients),
-    // border, navIcon and tabMarker. The old section names (violet, emerald,
-    // amber…) are deprecated aliases of neutral, so an unconverted script
-    // renders gray; delete them at the call sites. app.accentClass(accent, key)
-    // reads one with a fallback to neutral.
-    accents: Object.freeze({
-        brand: Object.freeze({
-            tile: 'bg-surface-tint text-brand-text',
-            soft: 'bg-surface-tint',
-            text: 'text-brand-text',
-            ring: 'ring-brand/20 dark:ring-brand/30',
-            dot: 'bg-brand',
-            glow: '',
-            border: 'border-brand/30',
-            navIcon: 'group-aria-[current=page]:text-brand-text',
-            tabMarker: 'aria-selected:border-brand aria-pressed:border-brand aria-[current=page]:border-brand',
-        }),
-        neutral: neutralAccent,
-        violet: neutralAccent,
-        emerald: neutralAccent,
-        amber: neutralAccent,
-        rose: neutralAccent,
-        indigo: neutralAccent,
-        teal: neutralAccent,
-        orange: neutralAccent,
-        sky: neutralAccent,
-        fuchsia: neutralAccent,
-        slate: neutralAccent,
-        zinc: neutralAccent,
-    }),
 
     // The inner <path>s of each icon (resources/views/components/data/icons.php);
     // app.renderIcon(name, size) draws one as <x-icon> does.
@@ -363,7 +318,6 @@ export const ui = Object.freeze({
     modalHeader: 'flex items-start justify-between gap-3 border-b border-border-light px-4 py-4 sm:px-5',
     modalTitle: 'text-base font-semibold tracking-tight text-ink',
     modalBody: 'px-4 py-4 sm:px-5',
-    modalFooter: 'flex flex-col-reverse gap-2 border-t border-border-light px-4 py-3 sm:flex-row sm:justify-end sm:px-5',
     modalClose: 'inline-flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-lg text-ink-subtle transition-colors hover:bg-surface hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40',
 
     sheet: 'fixed inset-0 z-[55]',
@@ -397,8 +351,6 @@ export const ui = Object.freeze({
     navBadge: 'pointer-events-none absolute -end-2 -top-1.5 h-4 min-w-4 rounded-full bg-danger px-1 text-center text-[11px] font-medium leading-4 text-white tabular-nums ring-2 ring-panel data-[tone=brand]:bg-brand data-[tone=info]:bg-brand data-[tone=warning]:bg-warning data-[tone=warning]:text-amber-950 data-[variant=dot]:h-2.5 data-[variant=dot]:min-w-2.5 data-[variant=dot]:px-0',
     navBadgeBottom: 'pointer-events-none absolute end-1.5 -top-0.5 h-4 min-w-4 rounded-full bg-danger px-1 text-center text-[11px] font-medium leading-4 text-white tabular-nums ring-2 ring-panel data-[tone=brand]:bg-brand data-[tone=info]:bg-brand data-[tone=warning]:bg-warning data-[tone=warning]:text-amber-950 data-[variant=dot]:h-2.5 data-[variant=dot]:min-w-2.5 data-[variant=dot]:px-0',
     navBadgeInline: 'ms-auto h-5 min-w-5 shrink-0 rounded-full bg-danger px-1.5 text-center text-[11px] font-medium leading-5 text-white tabular-nums data-[tone=brand]:bg-brand data-[tone=info]:bg-brand data-[tone=warning]:bg-warning data-[tone=warning]:text-amber-950 data-[variant=dot]:h-2 data-[variant=dot]:min-w-2 data-[variant=dot]:px-0',
-    sidebarItem: 'group relative flex h-8 items-center gap-2.5 rounded-lg px-2.5 text-[13px] font-medium text-ink-muted transition-colors hover:bg-black/5 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand aria-[current=page]:bg-panel aria-[current=page]:text-ink aria-[current=page]:shadow-xs aria-[current=page]:ring-1 aria-[current=page]:ring-border dark:hover:bg-white/5 dark:aria-[current=page]:bg-surface dark:aria-[current=page]:ring-transparent dark:aria-[current=page]:shadow-none',
-    sidebarItemIcon: 'flex shrink-0 text-ink-subtle transition-colors group-hover:text-ink-muted group-aria-[current=page]:text-ink',
     railItem: 'group relative flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-lg text-ink-subtle transition-colors hover:bg-black/5 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand aria-[current=page]:bg-black/[0.08] aria-[current=page]:text-ink data-[rail-selected=true]:bg-black/[0.08] data-[rail-selected=true]:text-ink dark:hover:bg-white/5 dark:aria-[current=page]:bg-surface dark:data-[rail-selected=true]:bg-surface',
     sidebarTree: 'relative ms-3.5 my-0.5 flex flex-col gap-0.5 border-s border-border ps-2.5',
     sidebarSubItem: 'group relative flex h-8 items-center gap-2.5 rounded-lg px-2.5 text-[13px] font-medium text-ink-muted transition-colors hover:bg-black/5 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand aria-[current=location]:bg-black/[0.06] aria-[current=location]:text-ink dark:hover:bg-white/5 dark:aria-[current=location]:bg-surface',
@@ -407,23 +359,9 @@ export const ui = Object.freeze({
     sidebarSearchKbd: 'pointer-events-none absolute end-1 top-1/2 flex h-4 min-w-4 -translate-y-1/2 items-center justify-center rounded border border-border bg-panel px-1 font-mono text-[10px] font-medium text-ink-subtle dark:bg-canvas',
     topBarCrumbs: 'hidden min-w-0 flex-1 items-center lg:flex',
     sidebarGroupLabel: 'px-2.5 pb-1 pt-3.5 text-[11px] font-medium tracking-wide text-ink-subtle',
-    topNavLink: 'inline-flex min-h-9 shrink-0 cursor-pointer items-center gap-2 rounded-lg px-3 text-sm font-medium text-ink-muted transition-colors hover:bg-surface hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand aria-[current=page]:bg-surface aria-[current=page]:text-ink',
     bottomNavItem: 'group flex flex-1 flex-col items-center gap-1 rounded-lg px-1 py-1 text-[11px] font-medium text-ink-subtle transition-colors active:bg-surface aria-[current=page]:text-brand-text',
     bottomNavIcon: 'relative flex h-7 w-11 items-center justify-center rounded-lg transition-colors group-aria-[current=page]:bg-surface-tint group-aria-[current=page]:text-brand-text',
     bottomNavAction: 'flex h-8 w-11 cursor-pointer items-center justify-center rounded-lg bg-brand text-brand-ink shadow-xs transition-colors hover:bg-brand-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand active:bg-brand-pressed',
-
-    // Deprecated: the round-2 decoration (accent bands, icon tiles beside
-    // headings and metrics, tinted empty chips). Each now draws nothing or
-    // the plain look, so a script not yet converted degrades instead of
-    // breaking. Delete the elements that use them; these keys will go.
-    pageHeroTabbed: 'mb-6',
-    pageHeroBand: 'hidden',
-    pageHeroLead: 'min-w-0',
-    pageHeroIcon: 'hidden',
-    metricIcon: 'hidden',
-    metricIconBase: 'hidden',
-    sectionIconBase: 'hidden',
-    emptyIconBase: 'hidden',
 });
 
 export default ui;

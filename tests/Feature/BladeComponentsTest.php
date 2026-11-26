@@ -266,7 +266,7 @@ class BladeComponentsTest extends TestCase
         $this->assertSame($this->ui($key), $this->render($template)->filter('button')->attr('class'));
     }
 
-    public function test_badge_alert_and_status_panel_classes_are_the_ones_scripts_use(): void
+    public function test_badge_and_alert_classes_are_the_ones_scripts_use(): void
     {
         foreach (['neutral', 'brand', 'accent', 'success', 'warning', 'danger', 'info'] as $tone) {
             $badge = $this->render('<x-badge tone="'.$tone.'">Lulus</x-badge>')->filter('span');
@@ -280,7 +280,6 @@ class BladeComponentsTest extends TestCase
 
         foreach (['neutral', 'brand', 'info', 'success', 'warning', 'danger'] as $tone) {
             $this->assertSame($this->ui("alert.{$tone}"), $this->render('<x-alert tone="'.$tone.'">Pesan</x-alert>')->filter('div')->attr('class'), "alert {$tone}");
-            $this->assertSame($this->ui("panel.{$tone}"), $this->render('<x-status-panel tone="'.$tone.'">Pesan</x-status-panel>')->filter('div')->attr('class'), "panel {$tone}");
         }
 
         $alert = $this->render('<x-alert tone="error" icon title="Gagal dimuat." role="alert">Coba lagi.</x-alert>')->filter('[role="alert"]');
@@ -354,27 +353,6 @@ class BladeComponentsTest extends TestCase
         $this->assertCount(1, $bottom->filter('[data-nav-icon] > svg + span.hidden[data-nav-badge="kuliah"]'));
         $this->assertSame($this->ui('navBadgeBottom').' hidden', $bottom->filter('[data-nav-badge]')->attr('class'));
 
-        $side = $this->render('<x-nav.sidebar-item href="/krs" label="Akademik" :icon="$icon" badge="akademik" />', ['icon' => $icon])->filter('a');
-
-        $this->assertSame($this->ui('sidebarItem'), $side->attr('class'));
-        $this->assertNull($side->attr('aria-current'));
-        $this->assertSame('akademik', $side->attr('data-nav-slot'));
-        $this->assertSame('Akademik', trim($side->text()));
-        $this->assertSame($this->ui('navBadgeInline').' hidden', $side->filter('[data-nav-badge="akademik"]')->attr('class'));
-
-        $more = $this->render('<x-nav.sidebar-item href="/more" label="Semua menu" badge="lainnya-desktop" nav-slot="more" :active="true" />')->filter('a');
-
-        $this->assertSame('more', $more->attr('data-nav-slot'));
-        $this->assertSame('page', $more->attr('aria-current'));
-        $this->assertCount(1, $more->filter('[data-nav-badge="lainnya-desktop"]'));
-
-        $top = $this->render('<x-nav.top-link href="/krs" label="Akademik" :icon="$icon" badge="akademik" />', ['icon' => $icon])->filter('a');
-
-        $this->assertSame($this->ui('topNavLink'), $top->attr('class'));
-        $this->assertNull($top->attr('aria-current'));
-        $this->assertSame('Akademik', $top->attr('title'));
-        $this->assertSame('Akademik', $top->filter('span.sr-only')->text());
-
         $rail = $this->render('<x-nav.rail-item href="/dashboard" label="Beranda" icon="home" rail-slot="beranda" :active="true" />')->filter('a');
 
         $this->assertSame($this->ui('railItem'), $rail->attr('class'));
@@ -412,24 +390,12 @@ class BladeComponentsTest extends TestCase
         $this->assertCount(0, $this->render('<x-sync-strip :refresh="false" />')->filter('[data-sync-refresh]'));
     }
 
-    public function test_accents_icons_and_sections_are_the_ones_scripts_use(): void
+    public function test_icons_and_sections_are_the_ones_scripts_use(): void
     {
-        $accents = require resource_path('views/components/data/accents.php');
         $icons = require resource_path('views/components/data/icons.php');
         $sections = require resource_path('views/components/data/sections.php');
 
-        $this->assertSame($this->uiArray('accents'), $accents);
         $this->assertSame($this->uiArray('icons'), $icons);
-
-        // One colour and gray: the old section names are aliases of neutral.
-        $this->assertSame(['brand', 'neutral'], array_keys(array_unique($accents, SORT_REGULAR)));
-        foreach (['violet', 'emerald', 'amber', 'rose', 'indigo', 'teal', 'orange', 'sky', 'fuchsia', 'slate', 'zinc'] as $legacy) {
-            $this->assertSame($accents['neutral'], $accents[$legacy], $legacy);
-        }
-        foreach ($accents as $name => $accent) {
-            $this->assertSame('', $accent['glow'], $name);
-            $this->assertDoesNotMatchRegularExpression('/\b(violet|emerald|amber|rose|indigo|teal|orange|sky|fuchsia|slate|zinc)-\d/', implode(' ', $accent), $name);
-        }
 
         foreach ($sections['sections'] as $key => $section) {
             $this->assertSame(['label', 'icon'], array_keys($section), $key);
@@ -556,7 +522,7 @@ class BladeComponentsTest extends TestCase
         $this->assertCount(0, $crumbs->filter('svg'));
     }
 
-    public function test_metric_empty_state_icon_tile_and_date_tile_ignore_a_legacy_accent(): void
+    public function test_metric_empty_state_and_icon_tile_ignore_a_legacy_accent(): void
     {
         $metric = $this->render('<x-metric label="IPK" icon="trending-up" accent="emerald"><x-slot:value id="ipk">3,80</x-slot:value></x-metric>')->filter('[data-slot="metric"]');
 
@@ -577,10 +543,8 @@ class BladeComponentsTest extends TestCase
 
         $this->assertSame($this->ui('iconTile.neutral').' size-10', $tile->attr('class'));
         $this->assertSame('library', $tile->filter('svg')->attr('data-icon'));
-        $this->assertSame($this->ui('iconTileBaseFull').' '.$this->ui('accents.neutral.tile'), $this->render('<x-icon-tile accent="rose" shape="full">A</x-icon-tile>')->filter('span')->attr('class'));
+        $this->assertSame($this->ui('iconTileBaseFull').' bg-surface text-ink-muted', $this->render('<x-icon-tile accent="rose" shape="full">A</x-icon-tile>')->filter('span')->attr('class'));
         $this->assertSame($this->ui('iconTile.brand'), $this->render('<x-icon-tile tone="brand" accent="teal">A</x-icon-tile>')->filter('span')->attr('class'));
-
-        $this->assertSame($this->ui('dateTile'), $this->render('<x-date-tile month="Nov" day="20" accent="orange" />')->filter('[data-slot="date-tile"]')->attr('class'));
     }
 
     public function test_section_heading_takes_a_count_a_description_and_a_link(): void
@@ -621,11 +585,11 @@ class BladeComponentsTest extends TestCase
         $list = $this->render(<<<'BLADE'
             <x-list id="l">
                 <x-list-row flush href="/announcement/1">
-                    <x-slot:leading><x-date-tile month="Nov" day="20" accent="orange" /></x-slot:leading>
+                    <x-slot:leading><x-icon-tile icon="announcement" class="size-10" data-slot="leading-tile" /></x-slot:leading>
                     <p class="truncate text-sm font-medium text-ink">Libur</p>
                     <x-slot:trailing><x-badge>Akademik</x-badge></x-slot:trailing>
                 </x-list-row>
-                <x-list-row flush><x-date-tile month="Des" day="1" />Rapat</x-list-row>
+                <x-list-row flush>Rapat</x-list-row>
             </x-list>
             BLADE)->filter('#l');
 
@@ -634,17 +598,14 @@ class BladeComponentsTest extends TestCase
         $link = $list->filter('a[data-slot="list-row"]');
         $this->assertSame('/announcement/1', $link->attr('href'));
         $this->assertSame($this->ui('listRowFlushInteractive'), $link->attr('class'));
-        $this->assertSame($this->ui('dateTile'), $link->filter('[data-slot="date-tile"]')->attr('class'));
-        $this->assertSame(['Nov', '20'], $link->filter('[data-slot="date-tile"] > span')->each(fn (Crawler $part): string => $part->text()));
-        $this->assertSame($this->ui('dateTileMonth'), $link->filter('[data-slot="date-tile"] > span')->first()->attr('class'));
-        $this->assertSame($this->ui('dateTileDay'), $link->filter('[data-slot="date-tile"] > span')->last()->attr('class'));
-        $this->assertSame($this->ui('listRowBody'), $link->filter('[data-slot="date-tile"] + div')->attr('class'));
-        $this->assertSame($this->ui('listRowTrailing'), $link->filter('[data-slot="date-tile"] + div + div')->attr('class'));
+        $this->assertSame($this->ui('iconTile.neutral').' size-10', $link->filter('[data-slot="leading-tile"]')->attr('class'));
+        $this->assertSame('announcement', $link->filter('[data-slot="leading-tile"] svg')->attr('data-icon'));
+        $this->assertSame($this->ui('listRowBody'), $link->filter('[data-slot="leading-tile"] + div')->attr('class'));
+        $this->assertSame($this->ui('listRowTrailing'), $link->filter('[data-slot="leading-tile"] + div + div')->attr('class'));
         $this->assertSame($this->ui('listRowChevron'), $link->filter('svg[data-icon="chevron-right"]')->attr('class'));
 
         $plain = $list->filter('div[data-slot="list-row"]');
         $this->assertSame($this->ui('listRowFlush'), $plain->attr('class'));
-        $this->assertSame($this->ui('dateTile'), $plain->filter('[data-slot="date-tile"]')->attr('class'));
         $this->assertCount(0, $plain->filter('svg'));
     }
 
@@ -704,24 +665,24 @@ class BladeComponentsTest extends TestCase
         $this->assertNull(data_get(self::$ui, 'brandCard'));
         $this->assertNull(data_get(self::$ui, 'button.onBrand'));
         $this->assertNull(data_get(self::$ui, 'sectionAccents'));
-    }
 
-    public function test_sidebar_item_marks_the_current_page_without_a_colour(): void
-    {
-        $icon = '<svg class="size-[18px]"></svg>';
-        $item = $this->render('<x-nav.sidebar-item href="/krs" label="Akademik" :icon="$icon" badge="akademik" accent="emerald" :active="true" />', ['icon' => $icon])->filter('a');
-
-        $this->assertSame($this->ui('sidebarItem'), $item->attr('class'));
-        $this->assertSame('page', $item->attr('aria-current'));
-        $this->assertCount(0, $item->filter('[data-slot="sidebar-marker"]'));
-        $this->assertSame($this->ui('sidebarItemIcon'), $item->filter('[data-slot="sidebar-icon"]')->attr('class'));
-        $this->assertNull($item->attr('accent'));
-        $this->assertSame('Akademik', trim($item->text()));
-
-        // Raised on the panel with a ring; the icon turns ink.
-        $this->assertStringContainsString('aria-[current=page]:bg-panel', $this->ui('sidebarItem'));
-        $this->assertStringContainsString('aria-[current=page]:ring-border', $this->ui('sidebarItem'));
-        $this->assertStringContainsString('group-aria-[current=page]:text-ink', $this->ui('sidebarItemIcon'));
+        foreach ([
+            'accents',
+            'topNavLink',
+            'sidebarItem',
+            'sidebarItemIcon',
+            'modalFooter',
+            'pageHeroTabbed',
+            'pageHeroBand',
+            'pageHeroLead',
+            'pageHeroIcon',
+            'metricIcon',
+            'metricIconBase',
+            'sectionIconBase',
+            'emptyIconBase',
+        ] as $removedKey) {
+            $this->assertNull(data_get(self::$ui, $removedKey), $removedKey);
+        }
     }
 
     public function test_the_class_map_has_no_old_component_classes_and_no_built_names(): void
@@ -755,7 +716,7 @@ class BladeComponentsTest extends TestCase
     }
 
     /**
-     * A map from resources/js/app/ui.js by its dotted key (`accents`).
+     * A map from resources/js/app/ui.js by its dotted key (`icons`).
      *
      * @return array<string, mixed>
      */

@@ -5,7 +5,7 @@ import { ui } from '../../resources/js/app/ui.js';
 
 /**
  * The shared HTML the pages render with (resources/js/app/render.js): tone
- * to class maps, badges, empty and error states, stat cards and key/value
+ * to class maps, badges, empty and error states, inline stats and key/value
  * lists. Every text a page passes in is escaped.
  */
 let browser;
@@ -96,40 +96,7 @@ describe('renderEmptyState', () => {
     });
 });
 
-describe('accents and icons', () => {
-    it('has one colour and gray, each a complete set of class strings', () => {
-        const keys = ['tile', 'soft', 'text', 'ring', 'dot', 'glow', 'border', 'navIcon', 'tabMarker'];
-
-        for (const [name, accent] of Object.entries(ui.accents)) {
-            assert.deepEqual(Object.keys(accent), keys, name);
-            assert.ok(Object.isFrozen(accent), name);
-            assert.equal(accent.glow, '', name);
-
-            for (const value of Object.values(accent)) {
-                // Status colours stay for status: an accent never borrows them.
-                assert.doesNotMatch(value, /\b(success|warning|danger|info)\b/, name);
-                assert.doesNotMatch(value, /\b(violet|emerald|amber|rose|indigo|teal|orange|sky|fuchsia|slate|zinc)-\d/, name);
-            }
-        }
-
-        assert.deepEqual([...new Set(Object.values(ui.accents))].length, 2);
-        assert.equal(ui.sectionAccents, undefined);
-    });
-
-    it('reads the old section names as neutral', () => {
-        for (const name of ['violet', 'emerald', 'amber', 'rose', 'indigo', 'teal', 'orange', 'sky', 'fuchsia', 'slate', 'zinc']) {
-            assert.equal(ui.accents[name], ui.accents.neutral, name);
-        }
-    });
-
-    it('reads an accent class with a fallback to neutral', () => {
-        assert.equal(app.accentClass('brand'), ui.accents.brand.tile);
-        assert.equal(app.accentClass('teal'), ui.accents.neutral.tile);
-        assert.equal(app.accentClass('teal', 'dot'), ui.accents.neutral.dot);
-        assert.equal(app.accentClass('nope', 'tabMarker'), ui.accents.neutral.tabMarker);
-        assert.equal(app.accentClass('brand', 'nope'), '');
-    });
-
+describe('icons', () => {
     it('draws an icon as <x-icon> does, and nothing for an unknown name', () => {
         const icon = app.renderIcon('calendar', 'sm', 'text-ink-subtle');
 
@@ -150,14 +117,15 @@ describe('renderErrorState', () => {
     });
 });
 
-describe('renderStatCards and renderInlineStats', () => {
-    it('leave out items without a value and show a dash for an empty one', () => {
-        const html = app.renderStatCards([{ label: 'IPK', value: '' }, { label: 'SKS' }, null, { label: 'MK', value: 7, note: 'semester ini' }]);
+describe('renderInlineStats', () => {
+    it('leaves out items without a value and shows a dash for an empty one', () => {
+        const html = app.renderInlineStats([{ label: 'IPK', value: '' }, { label: 'SKS' }, null, { label: 'MK', value: 7, note: 'semester ini' }]);
 
-        assert.equal(html.split(`class="${ui.metric}"`).length - 1, 2);
-        assert.ok(html.includes(`<div class="${ui.metricValue}">-</div>`));
-        assert.ok(html.includes(`<div class="${ui.metricNote}">semester ini</div>`));
-        assert.equal(app.renderStatCards([]), '');
+        assert.equal(html.split('tabular-nums').length - 1, 2);
+        assert.ok(html.includes('<div class="font-medium text-ink tabular-nums">-</div>'));
+        assert.ok(html.includes('<div class="font-medium text-ink tabular-nums">7</div>'));
+        assert.ok(html.includes('<div class="mt-1 text-xs text-ink-subtle">semester ini</div>'));
+        assert.equal(app.renderInlineStats([]), '');
         assert.equal(app.renderInlineStats([{ label: 'x' }]), '');
     });
 });
@@ -170,20 +138,5 @@ describe('renderKeyValueList', () => {
         assert.match(html, /Angkatan/);
         assert.doesNotMatch(html, /Email|HP/);
         assert.match(app.renderKeyValueList([{ label: 'Email', value: '' }]), /Tidak ada data\./);
-    });
-});
-
-describe('renderPageHeader', () => {
-    it('shows only the parts a page passes', () => {
-        const html = app.renderPageHeader({ title: 'KRS <2026>', badges: [app.renderBadge('Aktif', 'success'), ''] });
-
-        assert.match(html, /KRS &lt;2026&gt;/);
-        assert.ok(html.includes(`<h2 class="${ui.pageTitle}">KRS &lt;2026&gt;</h2>`));
-        assert.ok(html.includes(ui.badge.success));
-        assert.ok(!html.includes(ui.pageSubtitle));
-        assert.doesNotMatch(html, /shrink-0 flex-wrap gap-2 print:hidden/);
-
-        const withDescription = app.renderPageHeader({ title: 'Kelas', description: 'Semester ganjil' });
-        assert.ok(withDescription.includes(`<div class="${ui.pageSubtitle}">Semester ganjil</div>`));
     });
 });
