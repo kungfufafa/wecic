@@ -18,7 +18,6 @@ $studentFinanceUrl = env('CAMPUS_STUDENT_FINANCE_URL', "{$mahasiswaBase}/?mod=st
 
 $sipandaiDashboardUrl = env('CAMPUS_SIPANDAI_DASHBOARD_URL', "{$sipandaiBase}/?mod=sipandai&act=dashboardmahasiswa");
 $sipandaiLogoutUrl = env('CAMPUS_SIPANDAI_LOGOUT_URL', "{$sipandaiBase}/controllers/logout.php");
-$classesUrl = env('CAMPUS_CLASSES_URL', $sipandaiDashboardUrl);
 $classDetailUrl = env('CAMPUS_CLASS_DETAIL_URL', "{$sipandaiBase}/?mod=sipandai&act=download");
 $sipandaiAssignmentUrl = env('CAMPUS_SIPANDAI_ASSIGNMENT_URL', "{$sipandaiBase}/?mod=sipandai&act=send");
 $sipandaiAttendanceUrl = env('CAMPUS_SIPANDAI_ATTENDANCE_URL', "{$sipandaiViewsBase}/validasi/demo.php?mod=sipandai&act=discuss");
@@ -42,21 +41,7 @@ return [
     'base_url' => $baseUrl,
     'login_url' => $loginPageUrl,
     'login_action' => $loginActionUrl,
-    'logout_url' => $logoutUrl,
-    'dashboard_url' => $dashboardUrl,
-    'profile_url' => $profileUrl,
-    'password_url' => $passwordUrl,
-    'password_action_url' => $passwordActionUrl,
-    'classes_url' => $classesUrl,
-    'class_detail_url' => $classDetailUrl,
-    'sipandai_dashboard_url' => $sipandaiDashboardUrl,
-    'sipandai_logout_url' => $sipandaiLogoutUrl,
-    'student_course_url' => $studentCourseUrl,
     'student_credit_url' => $studentCreditUrl,
-    'student_finance_url' => $studentFinanceUrl,
-    'sipandai_assignment_url' => $sipandaiAssignmentUrl,
-    'sipandai_attendance_url' => $sipandaiAttendanceUrl,
-    'sipandai_assignment_delete_url' => $assignmentDeleteUrl,
 
     /*
     |--------------------------------------------------------------------------
@@ -81,7 +66,6 @@ return [
 
     'session_prefix' => env('CAMPUS_SESSION_PREFIX', 'cic_session_'),
     'auto_relogin' => (bool) env('CAMPUS_AUTO_RELOGIN', false),
-    'auto_relogin_credential_ttl' => (int) env('CAMPUS_AUTO_RELOGIN_CREDENTIAL_TTL', 900),
     // Seconds between upstream keep-alive pings; must stay below the portal's PHP session lifetime.
     'session_refresh_interval' => (int) env('CAMPUS_SESSION_REFRESH_INTERVAL', 1200),
     // Seconds of user inactivity after which the campus session is ended and keep-alive stops.
@@ -710,7 +694,6 @@ return [
     */
 
     'security' => [
-        'encrypt_credentials' => true,
         'login_rate_limit_attempts' => (int) env('CAMPUS_LOGIN_RATE_LIMIT_ATTEMPTS', 5),
         'login_rate_limit_decay' => (int) env('CAMPUS_LOGIN_RATE_LIMIT_DECAY', 300),
         // Failed logins allowed per IP within login_rate_limit_decay, counting
