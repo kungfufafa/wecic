@@ -5,8 +5,8 @@
       an action on the right, no padding above the first row or below the
       last; for a list inside a padded <x-card.body>.
     - `flush` (app.ui.listRowFlush): a full-width row in a card without body
-      padding, inside an <x-list>. A `leading` slot (an <x-icon-tile> or
-      <x-date-tile>) sits first, the default slot fills the middle
+      padding, inside an <x-list>. A `leading` slot (e.g. an <x-icon-tile>)
+      sits first, the default slot fills the middle
       (app.ui.listRowTitle / listRowSubtitle for its lines), and a
       `trailing` slot holds the right-aligned meta. With `href` the row is a
       link with a hover tint (app.ui.listRowFlushInteractive) and, unless

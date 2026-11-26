@@ -4,7 +4,7 @@ import { createPortalApp } from './support/browser.mjs';
 import { ui } from '../../resources/js/app/ui.js';
 
 /**
- * Action-centre rows and navigation badges (resources/js/app/action-items.js).
+ * Action-centre navigation badges (resources/js/app/action-items.js).
  * The browser stand-in has no CSS.escape, so the badge tests lend one.
  */
 let browser;
@@ -25,32 +25,6 @@ afterEach(() => {
     }
 
     browser?.dispose();
-});
-
-describe('renderActionItem', () => {
-    it('reads the deadline in words, red from tomorrow on', () => {
-        assert.match(app.renderActionItem({ title: 'Isi KRS', days_left: 0 }), /text-danger">Tenggat hari ini<\/span>/);
-        assert.match(app.renderActionItem({ title: 'Isi KRS', days_left: 1 }), /text-danger">Tenggat besok<\/span>/);
-        assert.match(app.renderActionItem({ title: 'Isi KRS', days_left: 3 }), /text-warning">Tenggat 3 hari lagi<\/span>/);
-        assert.match(app.renderActionItem({ title: 'Isi KRS', days_left: -2 }), /Lewat 2 hari<\/span>/);
-        assert.doesNotMatch(app.renderActionItem({ title: 'Isi KRS' }), /Tenggat|Lewat/);
-    });
-
-    it('links a safe target, in a new tab when it leaves MyCIC', () => {
-        const html = app.renderActionItem({ title: 'Bayar', cta_url: '/finance', cta_label: 'Lihat' });
-
-        assert.ok(html.startsWith(`<a href="/finance" class="${ui.listRow} ${ui.listRowInteractive}`));
-        assert.doesNotMatch(html, /font-semibold/);
-        assert.match(app.renderActionItem({ title: 'Portal', cta_url: 'https://portal.invalid/x' }), /target="_blank" rel="noopener noreferrer"/);
-    });
-
-    it('never links a script URL', () => {
-        const html = app.renderActionItem({ title: '<Hack>', cta_url: 'javascript:alert(1)' });
-
-        assert.ok(html.startsWith(`<div class="${ui.listRow}">`));
-        assert.match(html, /&lt;Hack&gt;/);
-        assert.doesNotMatch(html, /javascript:/);
-    });
 });
 
 describe('paintNavBadge', () => {

@@ -1,8 +1,8 @@
 import { ui } from './ui.js';
 
 /**
- * Shared HTML the pages render with: tone → class maps, badges, page
- * headers, stat cards, empty and error states.
+ * Shared HTML the pages render with: tone → class maps, badges, inline
+ * stats, empty and error states.
  *
  * Methods of PortalApp (resources/js/app.js mixes them in): `this` is the
  * app, and every field they use is set in its constructor.
@@ -111,49 +111,6 @@ export class RenderFeature {
         return `<span class="${this.badgeTone(type)}">${this.escapeHtml(label)}</span>`;
     }
 
-    renderPageHeader({ pretitle = '', title = '', description = '', badges = [], actions = [] } = {}) {
-        const safeBadges = badges.filter(Boolean).join('');
-        const safeActions = actions.filter(Boolean).join('');
-
-        return `
-            <div class="mb-6 print:hidden">
-                <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                    <div class="min-w-0 flex-1">
-                        ${pretitle ? `<div class="${ui.pageEyebrow}">${this.escapeHtml(pretitle)}</div>` : ''}
-                        <h2 class="${ui.pageTitle}">${this.escapeHtml(title)}</h2>
-                        ${description ? `<div class="${ui.pageSubtitle}">${this.escapeHtml(description)}</div>` : ''}
-                        ${safeBadges ? `<div class="mt-3 flex flex-wrap gap-2">${safeBadges}</div>` : ''}
-                    </div>
-                    ${safeActions ? `
-                        <div class="flex shrink-0 flex-wrap gap-2 print:hidden">
-                            ${safeActions}
-                        </div>
-                    ` : ''}
-                </div>
-            </div>
-        `;
-    }
-
-    renderStatCards(items = [], _colClass = null) {
-        const safeItems = items.filter((item) => item && item.value !== undefined);
-
-        if (!safeItems.length) {
-            return '';
-        }
-
-        return `
-            <div class="mb-4 ${ui.statGrid} grid-cols-2 xl:grid-cols-4">
-                ${safeItems.map((item) => `
-                    <div class="${ui.metric}">
-                        <div class="${ui.metricLabel}">${this.escapeHtml(item.label || '')}</div>
-                        <div class="${ui.metricValue}">${this.escapeHtml(item.value === null || item.value === '' ? '-' : item.value)}</div>
-                        ${item.note ? `<div class="${ui.metricNote}">${this.escapeHtml(item.note)}</div>` : ''}
-                    </div>
-                `).join('')}
-            </div>
-        `;
-    }
-
     renderInlineStats(items = [], _colClass = null) {
         const safeItems = items.filter((item) => item && item.value !== undefined);
 
@@ -202,15 +159,6 @@ export class RenderFeature {
             host.innerHTML = this.renderEmptyState('Memuat ulang...', 'secondary');
             void onRetry();
         });
-    }
-
-    /**
-     * An accent's class string (app.ui.accents): `accent` is brand or neutral
-     * (an old section name reads neutral), `key` is tile, soft, text, ring,
-     * dot, glow, border, navIcon or tabMarker. An unknown accent reads neutral.
-     */
-    accentClass(accent, key = 'tile') {
-        return (ui.accents[accent] || ui.accents.neutral)[key] || '';
     }
 
     /**
