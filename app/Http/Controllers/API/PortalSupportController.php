@@ -8,7 +8,6 @@ use App\Exceptions\PortalScrapingException;
 use App\Http\Requests\PortalFileDownloadRequest;
 use App\Http\Requests\PortalParameterValidationRequest;
 use App\Services\PortalEndpointRegistry;
-use App\Services\PortalSessionManager;
 use App\Services\SipandaiSubmissionService;
 use Dedoc\Scramble\Attributes\Group;
 use Dedoc\Scramble\Attributes\QueryParameter;
@@ -38,7 +37,6 @@ class PortalSupportController extends CampusApiController
     private const DOWNLOAD_CHUNK_BYTES = 8192;
 
     public function __construct(
-        private readonly PortalSessionManager $sessionManager,
         private readonly SipandaiSubmissionService $submissionService
     ) {}
 

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Tests\Unit;
 
 use App\Services\DashboardTodayClassesBuilder;
-use App\Services\Extractors\ClassesExtractor;
 use App\Services\Extractors\DashboardExtractor;
 use App\Services\Extractors\ProfileExtractor;
 use App\Services\Extractors\SipandaiClassesExtractor;
@@ -143,11 +142,6 @@ class DashboardExtractorTest extends TestCase
                 ->andReturn(['user_info' => ['nama' => 'Mahasiswa Uji']]);
         });
 
-        $classesExtractor = Mockery::mock(ClassesExtractor::class, function (MockInterface $mock): void {
-            $mock->shouldNotReceive('extractClassDetail');
-            $mock->shouldNotReceive('extractMeetingDetail');
-        });
-
         $sipandaiClassesExtractor = Mockery::mock(SipandaiClassesExtractor::class, function (MockInterface $mock) use ($sipandaiClasses): void {
             $mock->shouldReceive('extractSipandaiClassesData')
                 ->once()
@@ -171,7 +165,6 @@ class DashboardExtractorTest extends TestCase
         $extractor = Mockery::mock(DashboardExtractor::class, [
             $sessionManager,
             $profileExtractor,
-            $classesExtractor,
             $sipandaiClassesExtractor,
             $studentCourseExtractor,
             new DashboardTodayClassesBuilder,

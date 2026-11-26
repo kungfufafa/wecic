@@ -19,7 +19,6 @@ class DashboardExtractor extends PortalScrapingService
     public function __construct(
         PortalSessionManager $sessionManager,
         private readonly ProfileExtractor $profileExtractor,
-        private readonly ClassesExtractor $classesExtractor,
         private readonly SipandaiClassesExtractor $sipandaiClassesExtractor,
         private readonly StudentCourseExtractor $studentCourseExtractor,
         private readonly DashboardTodayClassesBuilder $dashboardTodayClassesBuilder

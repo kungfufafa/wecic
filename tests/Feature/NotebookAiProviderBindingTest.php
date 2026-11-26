@@ -10,7 +10,6 @@ use App\Services\Ai\LazyNotebookAiClient;
 use App\Services\Ai\NotebookAiClient;
 use App\Services\Ai\NotebookAiOwnerSettings;
 use App\Services\Ai\OpenAiCompatibleDriver;
-use App\Services\GeminiClient;
 use App\Services\NotebookAssistant;
 use App\Services\NotebookLibrary;
 use App\Services\NotebookSourceReader;
@@ -130,12 +129,6 @@ class NotebookAiProviderBindingTest extends TestCase
         $this->assertInstanceOf(NotebookAiClient::class, $client);
 
         return $client;
-    }
-
-    public function test_the_deprecated_gemini_client_is_still_the_gemini_driver(): void
-    {
-        $this->assertInstanceOf(GeminiDriver::class, app(GeminiClient::class));
-        $this->assertSame('gemini', app(GeminiClient::class)->driver());
     }
 
     public function test_the_budgets_fall_back_to_the_older_gemini_settings(): void
