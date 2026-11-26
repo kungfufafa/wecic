@@ -101,14 +101,6 @@ class PortalSnapshotStore
     /**
      * @param  array<string, mixed>  $params
      */
-    public function has(string $sessionToken, string $domain, array $params = []): bool
-    {
-        return $this->get($sessionToken, $domain, $params) !== null;
-    }
-
-    /**
-     * @param  array<string, mixed>  $params
-     */
     public function markSyncing(string $sessionToken, string $domain, array $params = []): void
     {
         $this->updateState($sessionToken, $domain, $params, ['status' => 'syncing', 'syncing_since' => now()->toISOString()]);

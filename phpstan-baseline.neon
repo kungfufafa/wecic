@@ -169,30 +169,6 @@ parameters:
 			path: app/Exceptions/NotebookAiException.php
 
 		-
-			message: '#^Public method "App\\Exceptions\\PortalAuthenticationException\:\:csrfTokenMissing\(\)" is never used$#'
-			identifier: public.method.unused
-			count: 1
-			path: app/Exceptions/PortalAuthenticationException.php
-
-		-
-			message: '#^Public method "App\\Exceptions\\PortalAuthenticationException\:\:loginRequired\(\)" is never used$#'
-			identifier: public.method.unused
-			count: 1
-			path: app/Exceptions/PortalAuthenticationException.php
-
-		-
-			message: '#^Public method "App\\Exceptions\\PortalConnectionException\:\:connectionTimeout\(\)" is never used$#'
-			identifier: public.method.unused
-			count: 1
-			path: app/Exceptions/PortalConnectionException.php
-
-		-
-			message: '#^Public method "App\\Exceptions\\PortalConnectionException\:\:invalidResponse\(\)" is never used$#'
-			identifier: public.method.unused
-			count: 1
-			path: app/Exceptions/PortalConnectionException.php
-
-		-
 			message: '#^Offset ''status'' on array\{status\: ''not_uploaded''\|''unknown''\|''upload_unavailable''\|''uploaded'', delete_payload\: array\{id\: string, idx\: string, pertemuan\: string\}\|null, file_info\: array\{href\: string, text\: string\}\|null\} on left side of \?\? always exists and is not nullable\.$#'
 			identifier: nullCoalesce.offset
 			count: 1
@@ -649,12 +625,6 @@ parameters:
 			path: app/Models/NotebookSource.php
 
 		-
-			message: '#^Public method "App\\Models\\PortalArchiveVersion\:\:isSuspect\(\)" is never used$#'
-			identifier: public.method.unused
-			count: 1
-			path: app/Models/PortalArchiveVersion.php
-
-		-
 			message: '#^Public method "App\\Models\\PortalArchiveVersion\:\:scopeForDataset\(\)" is never used$#'
 			identifier: public.method.unused
 			count: 1
@@ -781,12 +751,6 @@ parameters:
 			path: app/Models/PortalOutboxItem.php
 
 		-
-			message: '#^Public method "App\\Models\\PortalOutboxItem\:\:isQueued\(\)" is never used$#'
-			identifier: public.method.unused
-			count: 1
-			path: app/Models/PortalOutboxItem.php
-
-		-
 			message: '#^Public method "App\\Models\\PortalOutboxItem\:\:prunable\(\)" is never used$#'
 			identifier: public.method.unused
 			count: 1
@@ -865,18 +829,6 @@ parameters:
 			path: app/Services/AcademicProgressCalculator.php
 
 		-
-			message: '#^Public method "App\\Services\\AcademicProgressCalculator\:\:projectIpk\(\)" is never used$#'
-			identifier: public.method.unused
-			count: 1
-			path: app/Services/AcademicProgressCalculator.php
-
-		-
-			message: '#^Public method "App\\Services\\AcademicProgressCalculator\:\:semesterIps\(\)" is never used$#'
-			identifier: public.method.unused
-			count: 1
-			path: app/Services/AcademicProgressCalculator.php
-
-		-
 			message: '#^Offset ''critical''\|''info''\|''warning'' on array\{critical\: 0, warning\: 1, info\: 2\} on left side of \?\? always exists and is not nullable\.$#'
 			identifier: nullCoalesce.offset
 			count: 2
@@ -929,12 +881,6 @@ parameters:
 			identifier: public.method.unused
 			count: 1
 			path: app/Services/Ai/LazyNotebookAiClient.php
-
-		-
-			message: '#^Public method "App\\Services\\AttendanceShortcutService\:\:getPendingAssignments\(\)" is never used$#'
-			identifier: public.method.unused
-			count: 1
-			path: app/Services/AttendanceShortcutService.php
 
 		-
 			message: '#^Using nullsafe property access "\?\-\>timestamp" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
@@ -1471,12 +1417,6 @@ parameters:
 			path: app/Services/PortalDataArchive.php
 
 		-
-			message: '#^Public method "App\\Services\\PortalDataArchive\:\:diff\(\)" is never used$#'
-			identifier: public.method.unused
-			count: 1
-			path: app/Services/PortalDataArchive.php
-
-		-
 			message: '#^Public method "App\\Services\\PortalDataArchive\:\:integrity\(\)" is used only locally and should be turned protected/private$#'
 			identifier: public.method.unused
 			count: 1
@@ -1514,12 +1454,6 @@ parameters:
 
 		-
 			message: '#^Public method "App\\Services\\PortalEndpointRegistry\:\:definition\(\)" is never used$#'
-			identifier: public.method.unused
-			count: 1
-			path: app/Services/PortalEndpointRegistry.php
-
-		-
-			message: '#^Public method "App\\Services\\PortalEndpointRegistry\:\:ensureRequiredParams\(\)" is never used$#'
 			identifier: public.method.unused
 			count: 1
 			path: app/Services/PortalEndpointRegistry.php
@@ -1579,12 +1513,6 @@ parameters:
 			path: app/Services/PortalHttpClientOptions.php
 
 		-
-			message: '#^Public method "App\\Services\\PortalHttpClientOptions\:\:shared\(\)" is never used$#'
-			identifier: public.method.unused
-			count: 1
-			path: app/Services/PortalHttpClientOptions.php
-
-		-
 			message: '#^Public constant "App\\Services\\PortalKrsResolver\:\:PERIOD_LABELS" is never used$#'
 			identifier: public.classConstant.unused
 			count: 1
@@ -1613,12 +1541,6 @@ parameters:
 			identifier: public.classConstant.unused
 			count: 1
 			path: app/Services/PortalNotificationCenter.php
-
-		-
-			message: '#^Public method "App\\Services\\PortalOfflineAccess\:\:attempt\(\)" is never used$#'
-			identifier: public.method.unused
-			count: 1
-			path: app/Services/PortalOfflineAccess.php
 
 		-
 			message: '#^Public method "App\\Services\\PortalOfflineAccess\:\:enabled\(\)" is used only locally and should be turned protected/private$#'
@@ -1783,12 +1705,6 @@ parameters:
 			path: app/Services/PortalScrapingService.php
 
 		-
-			message: '#^Public method "App\\Services\\PortalSessionContext\:\:forget\(\)" is never used$#'
-			identifier: public.method.unused
-			count: 1
-			path: app/Services/PortalSessionContext.php
-
-		-
 			message: '#^Call to function is_array\(\) with array will always evaluate to true\.$#'
 			identifier: function.alreadyNarrowedType
 			count: 1
@@ -1851,12 +1767,6 @@ parameters:
 		-
 			message: '#^Offset ''status'' on array\{data\: array\<string, mixed\>, synced_at\: string, status\: string, source\: string, updated_at\?\: string, syncing_since\?\: string, failed_at\?\: string, error\?\: string\|null, \.\.\.\} on left side of \?\? always exists and is not nullable\.$#'
 			identifier: nullCoalesce.offset
-			count: 1
-			path: app/Services/PortalSnapshotStore.php
-
-		-
-			message: '#^Public method "App\\Services\\PortalSnapshotStore\:\:has\(\)" is never used$#'
-			identifier: public.method.unused
 			count: 1
 			path: app/Services/PortalSnapshotStore.php
 

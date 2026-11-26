@@ -295,7 +295,7 @@ class PortalSessionPasswordCopyTest extends TestCase
         $this->changePasswordFrom($laptop)->assertOk()->assertJsonPath('success', true);
 
         $this->assertArrayNotHasKey('encrypted_credentials', $this->storedSession($phone));
-        $this->assertNotNull(app(PortalOfflineAccess::class)->attempt(self::USERNAME, 'password-baru'));
+        $this->assertNotNull(app(PortalOfflineAccess::class)->verify(self::USERNAME, 'password-baru')['user_info']);
     }
 
     public function test_the_reconnect_mode_follows_what_the_offline_session_keeps(): void

@@ -162,21 +162,13 @@ class PortalOfflineAccess
     }
 
     /**
-     * @return array<string, mixed>|null The user info of the last online login,
-     *                                   or null when offline login is not possible.
-     */
-    public function attempt(string $username, string $password): ?array
-    {
-        return $this->verify($username, $password)['user_info'];
-    }
-
-    /**
-     * attempt(), also telling whether a stored offline password was checked
-     * and did not match: a failed login, counted like one the portal refused
-     * (only an account that can log in offline is checked at all). A match
-     * also gives the hash it matched, which the offline session keeps: what
-     * it queues is only sent once the portal accepts that same password
-     * (PortalOutbox::confirmWithPassword).
+     * Check a password for offline login, returning the user info of the last
+     * online login (or null when offline login is not possible) and telling
+     * whether a stored offline password was checked and did not match: a failed
+     * login, counted like one the portal refused (only an account that can log
+     * in offline is checked at all). A match also gives the hash it matched,
+     * which the offline session keeps: what it queues is only sent once the
+     * portal accepts that same password (PortalOutbox::confirmWithPassword).
      *
      * @return array{user_info: array<string, mixed>|null, wrong_password: bool, password_hash: string|null}
      */

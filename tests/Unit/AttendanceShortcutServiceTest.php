@@ -388,7 +388,7 @@ class AttendanceShortcutServiceTest extends TestCase
             'token-789',
             CarbonImmutable::create(2026, 4, 13, 10, 0, 0, 'Asia/Jakarta')
         );
-        $pendingAssignments = $service->getPendingAssignments('token-789');
+        $pendingAssignments = $service->getPendingAssignmentsSnapshot('token-789')['assignments'];
 
         $this->assertCount(1, $attendanceResult['classes']);
         $this->assertCount(1, $pendingAssignments);
@@ -481,7 +481,7 @@ class AttendanceShortcutServiceTest extends TestCase
             }),
         );
 
-        $pendingAssignments = $service->getPendingAssignments('token-101');
+        $pendingAssignments = $service->getPendingAssignmentsSnapshot('token-101')['assignments'];
 
         $this->assertCount(1, $pendingAssignments);
         $this->assertSame('Teknologi dan trend E-commerce', $pendingAssignments[0]['course_name']);
@@ -970,7 +970,7 @@ class AttendanceShortcutServiceTest extends TestCase
             }),
         );
 
-        $pendingAssignments = $service->getPendingAssignments('token-multi', 10);
+        $pendingAssignments = $service->getPendingAssignmentsSnapshot('token-multi', 10)['assignments'];
 
         // Soonest deadline first, whatever order the portal lists them in.
         $this->assertCount(2, $pendingAssignments);
@@ -1058,7 +1058,7 @@ class AttendanceShortcutServiceTest extends TestCase
 
         $service = new AttendanceShortcutService($classesExtractor, $sipandaiClassesExtractor);
 
-        $pendingAssignments = $service->getPendingAssignments('token-scan-all', 10);
+        $pendingAssignments = $service->getPendingAssignmentsSnapshot('token-scan-all', 10)['assignments'];
 
         $this->assertCount(5, $pendingAssignments);
         $this->assertSame(['Kelas 1', 'Kelas 2', 'Kelas 3', 'Kelas 4', 'Kelas 5'], array_column($pendingAssignments, 'course_name'));

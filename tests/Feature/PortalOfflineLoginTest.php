@@ -172,7 +172,7 @@ class PortalOfflineLoginTest extends TestCase
         $account = PortalOfflineAccount::query()->sole();
         $this->assertSame(['name' => 'Mahasiswa Arsip'], $account->user_info);
         $this->assertSame(['username' => self::USERNAME, 'password' => 'password-baru'], $account->credentials);
-        $this->assertSame(['name' => 'Mahasiswa Arsip'], app(PortalOfflineAccess::class)->attempt(self::USERNAME, 'password-baru'));
+        $this->assertSame(['name' => 'Mahasiswa Arsip'], app(PortalOfflineAccess::class)->verify(self::USERNAME, 'password-baru')['user_info']);
 
         // An unreadable value that is not replaced is cleared rather than kept.
         config(['portal.background_sync.enabled' => false]);
@@ -278,11 +278,11 @@ class PortalOfflineLoginTest extends TestCase
         app(PortalBackgroundSync::class)->disable(app(PortalDataOwner::class)->keyForUsername(self::USERNAME));
 
         $this->assertNull(PortalOfflineAccount::query()->sole()->credentials_rejected_at);
-        $this->assertNull($offlineAccess->attempt(self::USERNAME, self::PASSWORD));
+        $this->assertNull($offlineAccess->verify(self::USERNAME, self::PASSWORD)['user_info']);
 
         // Only a new online login stores a password that opens MyCIC offline again.
         $this->rememberOnlineLogin();
-        $this->assertNotNull($offlineAccess->attempt(self::USERNAME, self::PASSWORD));
+        $this->assertNotNull($offlineAccess->verify(self::USERNAME, self::PASSWORD)['user_info']);
     }
 
     public function test_a_password_change_through_mycic_replaces_the_offline_password(): void

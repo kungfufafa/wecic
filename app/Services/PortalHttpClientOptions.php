@@ -23,22 +23,12 @@ class PortalHttpClientOptions
     public const HANDLER_BINDING = 'portal.http.handler';
 
     /**
-     * Everything a portal client shares: secure DNS resolution and the
-     * handler bound as HANDLER_BINDING.
-     *
-     * @return array{curl?: array<int, string>, handler?: callable}
-     */
-    public static function shared(): array
-    {
-        return [...self::dnsOverHttps(), ...self::boundHandler()];
-    }
-
-    /**
-     * What a portal client merges into its defaults: shared(), with the
-     * handler always a stack topped by the store reviewer's fixture layer
-     * (PortalReviewerAccount::middleware()). The bound handler's own stack
-     * gets the layer (once, by name); a bound plain handler, or the network
-     * when nothing is bound, gets a stack of its own around it.
+     * What a portal client merges into its defaults: secure DNS resolution and
+     * the handler bound as HANDLER_BINDING, always as a stack topped by the
+     * store reviewer's fixture layer (PortalReviewerAccount::middleware()). The
+     * bound handler's own stack gets the layer (once, by name); a bound plain
+     * handler, or the network when nothing is bound, gets a stack of its own
+     * around it.
      *
      * @return array{curl?: array<int, string>, handler: HandlerStack}
      */

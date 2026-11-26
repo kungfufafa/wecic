@@ -265,24 +265,6 @@ class AcademicProgressCalculator
     }
 
     /**
-     * IPS of one semester from its graded courses, or null when nothing is graded
-     *
-     * @param  array<string, mixed>  $semester
-     */
-    public function semesterIps(array $semester): ?float
-    {
-        $sks = 0;
-        $qualityPoints = 0.0;
-
-        foreach ($this->gradedCourses($semester) as $course) {
-            $sks += $course['sks'];
-            $qualityPoints += $course['sks'] * $course['weight'];
-        }
-
-        return $sks > 0 ? round($qualityPoints / $sks, 2) : null;
-    }
-
-    /**
      * Study progress towards graduation
      *
      * `remainingSks` is the portal's "Sisa SKS yang harus ditempuh" when
@@ -491,22 +473,6 @@ class AcademicProgressCalculator
         }
 
         return $targets;
-    }
-
-    /**
-     * IPK after `additionalSks` more SKS at an assumed average
-     */
-    public function projectIpk(float $qualityPoints, int $sks, float $assumedIps, int $additionalSks): ?float
-    {
-        $totalSks = $sks + max(0, $additionalSks);
-
-        if ($totalSks <= 0) {
-            return null;
-        }
-
-        $assumed = max(0.0, min(self::MAX_GRADE_WEIGHT, $assumedIps));
-
-        return round(($qualityPoints + $assumed * max(0, $additionalSks)) / $totalSks, 2);
     }
 
     /**

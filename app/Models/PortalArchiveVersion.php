@@ -119,11 +119,6 @@ class PortalArchiveVersion extends Model
         return $query->where('status', self::STATUS_TRUSTED)->whereNotNull('trusted_at');
     }
 
-    public function isSuspect(): bool
-    {
-        return $this->status === self::STATUS_SUSPECT;
-    }
-
     /**
      * Metadata only; the payload is served by the version detail endpoint.
      *
