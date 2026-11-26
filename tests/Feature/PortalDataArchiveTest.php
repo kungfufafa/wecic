@@ -225,9 +225,9 @@ class PortalDataArchiveTest extends TestCase
         $this->assertCount(5, $current->payload['semesters'][0]['courses']);
     }
 
-    public function test_diff_lists_changed_leaves_with_readable_paths(): void
+    public function test_compare_lists_changed_leaves_with_readable_paths(): void
     {
-        $diff = app(PortalDataArchive::class)->diff(
+        $comparison = app(PortalDataArchive::class)->compare(
             ['summary' => ['ipk' => 3.5], 'extracted_at' => 'a', 'items' => [['name' => 'A']]],
             ['summary' => ['ipk' => 3.25], 'extracted_at' => 'b', 'items' => [['name' => 'A'], ['name' => 'B']]]
         );
@@ -235,7 +235,7 @@ class PortalDataArchiveTest extends TestCase
         $this->assertSame([
             ['path' => 'summary › ipk', 'kind' => 'changed', 'old' => '3.5', 'new' => '3.25'],
             ['path' => 'items › #2 (baru) › name', 'kind' => 'added', 'old' => null, 'new' => 'B'],
-        ], $diff);
+        ], $comparison['changes']);
     }
 
     public function test_the_moment_a_build_began_is_stored_in_the_application_timezone(): void
@@ -265,8 +265,8 @@ class PortalDataArchiveTest extends TestCase
             ['path' => 'payment history › #2 › amount', 'kind' => 'removed', 'old' => '200', 'new' => null],
         ];
 
-        $this->assertSame($expected, app(PortalDataArchive::class)->diff($old, $new, dataset: 'payments'));
-        $this->assertSame($expected, app(PortalDataArchive::class)->diff($old, $new));
+        $this->assertSame($expected, app(PortalDataArchive::class)->compare($old, $new, dataset: 'payments')['changes']);
+        $this->assertSame($expected, app(PortalDataArchive::class)->compare($old, $new)['changes']);
     }
 
     public function test_a_removed_row_next_to_a_changed_one_keeps_both_apart(): void
@@ -280,8 +280,8 @@ class PortalDataArchiveTest extends TestCase
             ['path' => 'payment history › #3 › amount', 'kind' => 'changed', 'old' => '300', 'new' => '350'],
         ];
 
-        $this->assertSame($expected, app(PortalDataArchive::class)->diff($old, $new, dataset: 'payments'));
-        $this->assertSame($expected, app(PortalDataArchive::class)->diff($old, $new));
+        $this->assertSame($expected, app(PortalDataArchive::class)->compare($old, $new, dataset: 'payments')['changes']);
+        $this->assertSame($expected, app(PortalDataArchive::class)->compare($old, $new)['changes']);
     }
 
     public function test_a_course_lost_from_the_middle_of_a_semester_is_the_only_difference(): void
@@ -310,8 +310,8 @@ class PortalDataArchiveTest extends TestCase
             ['path' => 'semesters › #1 › ips', 'kind' => 'changed', 'old' => '3.38', 'new' => '3.57'],
         ];
 
-        $this->assertSame($expected, app(PortalDataArchive::class)->diff($old, $new, dataset: 'grades'));
-        $this->assertSame($expected, app(PortalDataArchive::class)->diff($old, $new));
+        $this->assertSame($expected, app(PortalDataArchive::class)->compare($old, $new, dataset: 'grades')['changes']);
+        $this->assertSame($expected, app(PortalDataArchive::class)->compare($old, $new)['changes']);
     }
 
     public function test_a_list_the_portal_only_sorted_differently_shows_no_removed_or_added_rows(): void
@@ -321,7 +321,7 @@ class PortalDataArchiveTest extends TestCase
 
         $this->assertSame([
             ['path' => 'payment history › #2 › amount', 'kind' => 'changed', 'old' => '200', 'new' => '250'],
-        ], app(PortalDataArchive::class)->diff($old, $new, dataset: 'payments'));
+        ], app(PortalDataArchive::class)->compare($old, $new, dataset: 'payments')['changes']);
     }
 
     public function test_a_row_only_the_newer_version_has_is_marked_as_new_instead_of_reusing_an_old_number(): void
@@ -335,8 +335,8 @@ class PortalDataArchiveTest extends TestCase
             ['path' => 'payment history › #1 (baru) › amount', 'kind' => 'added', 'old' => null, 'new' => '50'],
         ];
 
-        $this->assertSame($expected, app(PortalDataArchive::class)->diff($old, $new, dataset: 'payments'));
-        $this->assertSame($expected, app(PortalDataArchive::class)->diff($old, $new));
+        $this->assertSame($expected, app(PortalDataArchive::class)->compare($old, $new, dataset: 'payments')['changes']);
+        $this->assertSame($expected, app(PortalDataArchive::class)->compare($old, $new)['changes']);
     }
 
     public function test_one_unkeyed_row_changed_in_place_reads_as_changed_fields(): void
@@ -350,7 +350,7 @@ class PortalDataArchiveTest extends TestCase
             ['path' => 'series › #2 › sks', 'kind' => 'changed', 'old' => '24', 'new' => '21'],
             ['path' => 'series › #2 › course count', 'kind' => 'changed', 'old' => '8', 'new' => '7'],
             ['path' => 'series › #2 › graded count', 'kind' => 'changed', 'old' => '8', 'new' => '7'],
-        ], app(PortalDataArchive::class)->diff($old, $new));
+        ], app(PortalDataArchive::class)->compare($old, $new)['changes']);
     }
 
     public function test_a_comparison_says_how_many_differences_it_did_not_list(): void
@@ -365,7 +365,6 @@ class PortalDataArchiveTest extends TestCase
         $this->assertTrue($limited['truncated']);
         $this->assertCount(3, $complete['changes']);
         $this->assertFalse($complete['truncated']);
-        $this->assertSame($limited['changes'], app(PortalDataArchive::class)->diff($old, ['entries' => []], 2));
     }
 
     public function test_a_held_back_version_is_compared_with_the_trusted_version_it_was_judged_against(): void
@@ -405,7 +404,7 @@ class PortalDataArchiveTest extends TestCase
 
         $this->assertTrue($baseline->is($current));
         $removedCodes = array_column(array_filter(
-            app(PortalDataArchive::class)->diff($baseline->payload, $glitch->payload, dataset: 'grades'),
+            app(PortalDataArchive::class)->compare($baseline->payload, $glitch->payload, dataset: 'grades')['changes'],
             static fn (array $change): bool => $change['kind'] === 'removed' && str_ends_with($change['path'], '› code')
         ), 'old');
         $this->assertSame(['IF102', 'IF103'], $removedCodes);

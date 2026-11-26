@@ -120,7 +120,7 @@ class PortalOfflineAccountRetentionTest extends TestCase
         $this->assertNull($account->credentials);
         $this->assertNull(PortalOfflineAccount::query()->toBase()->value('credentials'));
         $this->assertTrue(Hash::check(self::PASSWORD, $account->password_hash));
-        $this->assertSame(['name' => 'Mahasiswa Arsip'], app(PortalOfflineAccess::class)->attempt(self::USERNAME, self::PASSWORD));
+        $this->assertSame(['name' => 'Mahasiswa Arsip'], app(PortalOfflineAccess::class)->verify(self::USERNAME, self::PASSWORD)['user_info']);
         $this->assertCount(0, app(PortalBackgroundSync::class)->dueAccounts());
     }
 

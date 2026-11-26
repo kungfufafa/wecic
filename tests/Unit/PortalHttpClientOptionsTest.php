@@ -19,7 +19,7 @@ class PortalHttpClientOptionsTest extends TestCase
     {
         config(['portal.scraping.secure_dns_url' => 'https://chrome.cloudflare-dns.com/dns-query']);
 
-        $options = PortalHttpClientOptions::shared();
+        $options = PortalHttpClientOptions::forClient();
 
         if (! defined('CURLOPT_DOH_URL')) {
             $this->assertArrayNotHasKey('curl', $options);
@@ -36,17 +36,24 @@ class PortalHttpClientOptionsTest extends TestCase
     public function test_secure_dns_ignores_empty_or_invalid_urls(): void
     {
         config(['portal.scraping.secure_dns_url' => '']);
-        $this->assertArrayNotHasKey('curl', PortalHttpClientOptions::shared());
+        $this->assertArrayNotHasKey('curl', PortalHttpClientOptions::forClient());
 
         config(['portal.scraping.secure_dns_url' => 'not-a-url']);
-        $this->assertArrayNotHasKey('curl', PortalHttpClientOptions::shared());
+        $this->assertArrayNotHasKey('curl', PortalHttpClientOptions::forClient());
     }
 
     public function test_without_the_binding_a_portal_client_keeps_guzzles_own_handler(): void
     {
         $this->app->offsetUnset(PortalHttpClientOptions::HANDLER_BINDING);
 
-        $this->assertSame([], PortalHttpClientOptions::shared());
+        $this->assertSame([], PortalHttpClientOptions::boundHandler());
+
+        $first = PortalHttpClientOptions::forClient();
+        $second = PortalHttpClientOptions::forClient();
+
+        $this->assertSame(['handler'], array_keys($first));
+        $this->assertTrue($first['handler']->hasHandler());
+        $this->assertNotSame($first['handler'], $second['handler']);
     }
 
     public function test_every_portal_client_sends_through_the_bound_handler(): void
@@ -56,7 +63,7 @@ class PortalHttpClientOptionsTest extends TestCase
             return $guards[] = HandlerStack::create();
         });
 
-        $this->assertSame(PortalHttpClientOptions::shared()['handler'], end($guards));
+        $this->assertSame(PortalHttpClientOptions::forClient()['handler'], end($guards));
 
         $clients = [
             $this->clientOf(new PortalAuthService, PortalAuthService::class),

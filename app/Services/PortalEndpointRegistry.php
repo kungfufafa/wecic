@@ -143,15 +143,6 @@ class PortalEndpointRegistry
         return $grouped;
     }
 
-    /**
-     * Ensure the caller provided all required parameters for the endpoint.
-     */
-    public static function ensureRequiredParams(string $key, array $parameters): void
-    {
-        $definition = self::definition($key);
-        self::guardRequiredParams($key, $definition, $parameters);
-    }
-
     private static function splitUrl(string $url): array
     {
         $parts = parse_url($url);

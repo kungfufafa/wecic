@@ -81,7 +81,7 @@ class PortalDataOwnerTest extends TestCase
         $this->rotateAppKey();
         $this->assertNull(PortalOfflineAccount::query()->where('owner_hash', $this->keyMadeWith(self::NEW_APP_KEY))->first());
 
-        $this->assertNotNull(app(PortalOfflineAccess::class)->attempt(self::USERNAME, 'rahasia'));
+        $this->assertNotNull(app(PortalOfflineAccess::class)->verify(self::USERNAME, 'rahasia')['user_info']);
 
         $current = $this->keyMadeWith(self::NEW_APP_KEY);
         $this->assertNotSame($earlier, $current);

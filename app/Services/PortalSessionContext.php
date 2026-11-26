@@ -67,9 +67,4 @@ class PortalSessionContext
     {
         unset($this->pages[$sessionToken]);
     }
-
-    public function forget(string $sessionToken): void
-    {
-        unset($this->cookieJars[$sessionToken], $this->pages[$sessionToken]);
-    }
 }

@@ -373,12 +373,14 @@ class AcademicProgressCalculatorTest extends TestCase
         $this->assertTrue($series[0]['ips_mismatch']);
     }
 
-    public function test_semester_ips_is_null_without_graded_courses(): void
+    public function test_ips_series_omits_semesters_without_graded_courses_and_computes_semester_ips(): void
     {
         $calculator = $this->calculator();
 
-        $this->assertNull($calculator->semesterIps($this->semester(3, [])));
-        $this->assertSame(2.3, $calculator->semesterIps($this->studentSemesters()[2]));
+        $this->assertSame([], $calculator->ipsSeries([$this->semester(3, [])]));
+        $series = $calculator->ipsSeries([$this->studentSemesters()[2]]);
+        $this->assertCount(1, $series);
+        $this->assertSame(2.3, $series[0]['ips_computed']);
     }
 
     public function test_progress_projects_the_remaining_semesters(): void
@@ -486,15 +488,6 @@ class AcademicProgressCalculatorTest extends TestCase
         $this->assertSame([true, true, true], array_column($targets, 'achievable'));
     }
 
-    public function test_project_ipk_clamps_the_assumed_ips(): void
-    {
-        $calculator = $this->calculator();
-
-        $this->assertSame(3.32, $calculator->projectIpk(62.0, 20, 3.5, 24));
-        $this->assertSame($calculator->projectIpk(62.0, 20, 4.0, 24), $calculator->projectIpk(62.0, 20, 9.0, 24));
-        $this->assertNull($calculator->projectIpk(0.0, 0, 3.0, 0));
-    }
-
     public function test_predicate_estimate_thresholds(): void
     {
         $calculator = $this->calculator();
@@ -535,12 +528,10 @@ class AcademicProgressCalculatorTest extends TestCase
             $this->assertSame($semester['ips'], $point['ips_computed']);
             $this->assertSame($semester['total_sks'], $point['sks']);
             $this->assertSame($semester['total_quality_points'], $point['quality_points']);
-            $this->assertSame($semester['ips'], $calculator->semesterIps($semester));
         }
 
         $this->assertSame([1, 2], array_column($summary['ips_series'], 'semester'));
-        $this->assertNull($calculator->semesterIps($semesters[0]));
-        $this->assertNull($calculator->semesterIps($semesters[3]));
+        $this->assertSame([], $calculator->ipsSeries([$semesters[0], $semesters[3]]));
         $this->assertSame(5, $calculator->progress(42, 144, $summary['average_sks_per_semester'], 102)['projected_semesters_remaining']);
     }
 

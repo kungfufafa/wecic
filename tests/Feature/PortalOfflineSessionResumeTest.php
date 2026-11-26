@@ -252,7 +252,7 @@ class PortalOfflineSessionResumeTest extends TestCase
 
         $this->assertFalse(app(PortalSessionManager::class)->isSessionUsable($token));
         $this->assertNull(PortalOfflineAccount::query()->sole()->credentials_rejected_at);
-        $this->assertNotNull(app(PortalOfflineAccess::class)->attempt(self::USERNAME, 'password-baru'));
+        $this->assertNotNull(app(PortalOfflineAccess::class)->verify(self::USERNAME, 'password-baru')['user_info']);
     }
 
     public function test_a_session_without_a_stored_password_stays_offline_and_says_so(): void

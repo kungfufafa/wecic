@@ -243,7 +243,7 @@ class PortalArchiveApiTest extends TestCase
 
         $this->assertSame(0, PortalOfflineAccount::query()->count());
         // Offline access itself is gone.
-        $this->assertNull(app(PortalOfflineAccess::class)->attempt(self::USERNAME, 'rahasia-portal'));
+        $this->assertNull(app(PortalOfflineAccess::class)->verify(self::USERNAME, 'rahasia-portal')['user_info']);
         $this->getAsStudent('/api/archive')
             ->assertOk()
             ->assertJsonPath('data.background_sync.enabled', false)

@@ -284,19 +284,6 @@ class PortalDataArchive
     }
 
     /**
-     * Leaf-level differences between two payloads, as readable paths: the
-     * first `$limit` of compare().
-     *
-     * @param  array<string, mixed>  $old
-     * @param  array<string, mixed>  $new
-     * @return list<Change>
-     */
-    public function diff(array $old, array $new, int $limit = 200, ?string $dataset = null): array
-    {
-        return $this->compare($old, $new, $limit, $dataset)['changes'];
-    }
-
-    /**
      * Leaf-level differences between two payloads, as readable paths.
      *
      * List items are paired by the dataset's record key (the `key` of its

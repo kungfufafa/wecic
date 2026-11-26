@@ -15,14 +15,4 @@ class PortalAuthenticationException extends PortalException
     {
         return new self('Campus session has expired', 401);
     }
-
-    public static function loginRequired(): self
-    {
-        return new self('Login required to access campus resources', 401);
-    }
-
-    public static function csrfTokenMissing(): self
-    {
-        return new self('CSRF token is missing or invalid', 419);
-    }
 }

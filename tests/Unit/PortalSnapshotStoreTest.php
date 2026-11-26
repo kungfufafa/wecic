@@ -24,11 +24,9 @@ class PortalSnapshotStoreTest extends TestCase
         $data = ['user_info' => ['name' => 'John Doe'], 'status' => 'success'];
 
         $this->assertNull($this->store->get($token, $domain));
-        $this->assertFalse($this->store->has($token, $domain));
 
         $this->store->put($token, $domain, $data);
 
-        $this->assertTrue($this->store->has($token, $domain));
         $snapshot = $this->store->get($token, $domain);
 
         $this->assertNotNull($snapshot);
@@ -104,8 +102,8 @@ class PortalSnapshotStoreTest extends TestCase
         $domain = 'classes';
         $this->store->put($token, $domain, ['classes' => []]);
 
-        $this->assertTrue($this->store->has($token, $domain));
+        $this->assertNotNull($this->store->get($token, $domain));
         $this->store->forget($token, $domain);
-        $this->assertFalse($this->store->has($token, $domain));
+        $this->assertNull($this->store->get($token, $domain));
     }
 }

@@ -33,11 +33,6 @@ class AttendanceShortcutService
         return $this->collectTodayShortcuts($sessionToken, $reference, $classes);
     }
 
-    public function getPendingAssignments(string $sessionToken, int $limit = 20): array
-    {
-        return $this->collectPendingAssignments($sessionToken, $limit);
-    }
-
     /**
      * @return array{
      *     date: string,

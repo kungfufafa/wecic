@@ -155,11 +155,6 @@ class PortalOutboxItem extends Model
         return $query->whereIn('status', self::PENDING_STATUSES);
     }
 
-    public function isQueued(): bool
-    {
-        return $this->status === self::STATUS_QUEUED;
-    }
-
     public function isConfirmed(): bool
     {
         return $this->confirmed_at !== null;
