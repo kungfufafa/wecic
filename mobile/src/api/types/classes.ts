@@ -267,14 +267,8 @@ export type NotebookDetailResponse = ApiEnvelope & {
   };
 };
 
-/** PATCH notebooks/{id}: the notebook and the saved context choice. */
-export type NotebookUpdateResponse = ApiEnvelope & { data: { notebook: NotebookItem; context_source_ids?: number[] | null } };
-
 /** POST notebooks/{id}/notes and PATCH of a note's content: the student's own note (`kind: note`). */
 export type NotebookNoteResponse = ApiEnvelope & { data: { message: NotebookMessage } };
-
-/** "Jadikan sumber": the new text source and the note that records it (`context.note_source`). */
-export type NotebookNoteSourceResponse = ApiEnvelope & { data: { source: NotebookSource; message: NotebookMessage } };
 
 /** One AI provider Notebook content goes to, and whether the server uses its free tier. */
 export type AiProcessor = {
@@ -311,8 +305,6 @@ export type AiProvider = {
 
 export type AiConsentResponse = ApiEnvelope & { data: { consent: AiConsent } };
 
-export type NotebookAskResponse = ApiEnvelope & { data: { question: NotebookMessage; answer: NotebookMessage } };
-export type NotebookStudioResponse = ApiEnvelope & { data: { message: NotebookMessage; ai_budget?: NotebookAiBudget } };
 /** What "Cek pemahamanku" checks (NotebookAssistant::FEEDBACK_MODES). */
 export type NotebookFeedbackMode = 'practice_answer' | 'explain_concept' | 'outline_check';
 
