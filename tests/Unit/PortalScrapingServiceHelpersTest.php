@@ -87,7 +87,7 @@ class PortalScrapingServiceHelpersTest extends TestCase
     public function test_it_returns_null_for_text_without_a_valid_date(string $text): void
     {
         $this->assertNull($this->service()->call('parseIndonesianDate', $text));
-        $this->assertNull($this->service()->call('parseIndonesianDateRange', $text));
+        $this->assertSame([], $this->service()->call('extractIndonesianDateRanges', $text));
         $this->assertSame([], $this->service()->call('extractIndonesianDates', $text));
     }
 
@@ -122,35 +122,35 @@ class PortalScrapingServiceHelpersTest extends TestCase
     #[DataProvider('dateRangeProvider')]
     public function test_it_parses_indonesian_date_ranges(string $text, string $start, string $end): void
     {
-        $range = $this->service()->call('parseIndonesianDateRange', $text);
+        $ranges = $this->service()->call('extractIndonesianDateRanges', $text);
 
-        $this->assertIsArray($range);
-        $this->assertSame($start, $range['start']->toDateString());
-        $this->assertSame($end, $range['end']->toDateString());
-        $this->assertSame('Asia/Jakarta', $range['start']->getTimezone()->getName());
-        $this->assertSame('Asia/Jakarta', $range['end']->getTimezone()->getName());
+        $this->assertCount(1, $ranges);
+        $this->assertSame($start, $ranges[0]['start']->toDateString());
+        $this->assertSame($end, $ranges[0]['end']->toDateString());
+        $this->assertSame('Asia/Jakarta', $ranges[0]['start']->getTimezone()->getName());
+        $this->assertSame('Asia/Jakarta', $ranges[0]['end']->getTimezone()->getName());
     }
 
     public function test_a_single_date_is_not_a_range(): void
     {
-        $this->assertNull($this->service()->call('parseIndonesianDateRange', 'Kamis, 17 September 2026'));
+        $this->assertSame([], $this->service()->call('extractIndonesianDateRanges', 'Kamis, 17 September 2026'));
     }
 
     public function test_ordinals_and_times_before_a_date_do_not_start_a_range(): void
     {
         $service = $this->service();
 
-        $this->assertNull($service->call('parseIndonesianDateRange', 'Pembayaran Tahap 4 - 24 Juni 2024'));
+        $this->assertSame([], $service->call('extractIndonesianDateRanges', 'Pembayaran Tahap 4 - 24 Juni 2024'));
         $this->assertSame('2024-06-24', $service->call('parseIndonesianDate', 'Pembayaran Tahap 4 - 24 Juni 2024')->toDateString());
-        $this->assertNull($service->call('parseIndonesianDateRange', 'Pukul 08.30 - 12 Oktober 2026'));
-        $this->assertNull($service->call('parseIndonesianDateRange', 'Pertemuan ke 3 - 12 Oktober 2026'));
+        $this->assertSame([], $service->call('extractIndonesianDateRanges', 'Pukul 08.30 - 12 Oktober 2026'));
+        $this->assertSame([], $service->call('extractIndonesianDateRanges', 'Pertemuan ke 3 - 12 Oktober 2026'));
     }
 
     public function test_an_impossible_inherited_start_date_drops_the_range(): void
     {
         $service = $this->service();
 
-        $this->assertNull($service->call('parseIndonesianDateRange', '31 s/d 5 Oktober 2026'));
+        $this->assertSame([], $service->call('extractIndonesianDateRanges', '31 s/d 5 Oktober 2026'));
         $this->assertSame('2026-10-05', $service->call('parseIndonesianDate', '31 s/d 5 Oktober 2026')->toDateString());
     }
 
