@@ -133,15 +133,6 @@ export function meetingAttendanceView(
 }
 
 /**
- * Whether a meeting page offers the code form: on the meeting's day, until
- * the portal records the student. "Tidak hadir" (`closed`) still takes a
- * code, since the server may yet accept it.
- */
-export function meetingTakesAttendanceCode(view: MeetingAttendanceView): boolean {
-  return view === 'open' || view === 'closed';
-}
-
-/**
  * Whether a class on the Absen tab offers the code form: it has a meeting to
  * send to and the portal has not recorded the student. Its window, even
  * `closed` ("Tidak hadir"), is not read: the server decides.

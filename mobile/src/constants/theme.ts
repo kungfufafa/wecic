@@ -103,9 +103,6 @@ export const Elevation = {
 
 export type ElevationLevel = keyof (typeof Elevation)['light'];
 
-/** The class card on Beranda: CIC royal blue, deepening to the corner. */
-export const BrandGradient = 'linear-gradient(135deg, #3A8BE0 0%, #0352A1 48%, #022B57 100%)';
-
 /**
  * The tile colors a course can get (lib/format.ts picks one from its code),
  * so a course keeps its color on every screen, in either mode.

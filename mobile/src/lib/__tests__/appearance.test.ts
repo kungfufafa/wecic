@@ -1,4 +1,4 @@
-import { appearanceLabel, AppearanceOptions, parseAppearancePreference, resolveColorScheme } from '@/lib/appearance';
+import { parseAppearancePreference, resolveColorScheme } from '@/lib/appearance';
 
 describe('parseAppearancePreference', () => {
   it('keeps the three known picks', () => {
@@ -30,11 +30,5 @@ describe('resolveColorScheme', () => {
     expect(resolveColorScheme('system', null)).toBe('light');
     expect(resolveColorScheme('system', undefined)).toBe('light');
     expect(resolveColorScheme('system', 'unspecified')).toBe('light');
-  });
-});
-
-describe('appearanceLabel', () => {
-  it('names each pick in Indonesian', () => {
-    expect(AppearanceOptions.map((option) => appearanceLabel(option.value))).toEqual(['Otomatis', 'Terang', 'Gelap']);
   });
 });

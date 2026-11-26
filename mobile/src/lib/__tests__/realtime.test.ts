@@ -2,7 +2,6 @@ import {
   invalidatedPaths,
   operationFromProgress,
   pathIsInvalidated,
-  realtimeStatusLabel,
   realtimeTargetFrom,
   sessionNoticeAction,
 } from '@/lib/realtime';
@@ -106,14 +105,5 @@ describe('sessionNoticeAction', () => {
     expect(sessionNoticeAction('session_refreshed')).toBe('notice');
     expect(sessionNoticeAction('auto_relogin_succeeded')).toBe('notice');
     expect(sessionNoticeAction(undefined)).toBe('notice');
-  });
-});
-
-describe('realtimeStatusLabel', () => {
-  it('has words for every state', () => {
-    expect(realtimeStatusLabel('connected')).toMatch(/^Aktif/);
-    expect(realtimeStatusLabel('connecting')).toMatch(/^Menyambung/);
-    expect(realtimeStatusLabel('unavailable')).toMatch(/^Tidak tersedia/);
-    expect(realtimeStatusLabel('off')).toMatch(/^Belum aktif/);
   });
 });

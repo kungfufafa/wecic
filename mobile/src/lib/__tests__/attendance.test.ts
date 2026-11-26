@@ -3,7 +3,6 @@ import {
   meetingAttendanceState,
   markedAttendanceStatus,
   meetingAttendanceView,
-  meetingTakesAttendanceCode,
   parseIndonesianDate,
   todayClassTakesAttendanceCode,
   todayIso,
@@ -51,15 +50,6 @@ describe('meeting attendance', () => {
     expect(meetingAttendanceView({ status: 'Absensi sudah ditutup' }, null, '2026-11-02')).toBe('closed');
     expect(meetingAttendanceView({ status: 'Belum dibuka' }, null, '2026-11-02')).toBe('not_open');
     expect(meetingAttendanceView({ state: 'open' }, '2026-11-02', '2026-11-02')).toBe('open');
-  });
-
-  it('still takes a code on a meeting page the portal marks "Tidak hadir"', () => {
-    expect(meetingTakesAttendanceCode('open')).toBe(true);
-    expect(meetingTakesAttendanceCode('closed')).toBe(true);
-    expect(meetingTakesAttendanceCode('recorded')).toBe(false);
-    expect(meetingTakesAttendanceCode('past')).toBe(false);
-    expect(meetingTakesAttendanceCode('upcoming')).toBe(false);
-    expect(meetingTakesAttendanceCode('not_open')).toBe(false);
   });
 });
 

@@ -13,7 +13,6 @@ import {
   studioCounts,
   askModeOf,
   NotebookAskModes,
-  classTargetFromUrl,
   coursesWithoutNotebook,
   daysUntil,
   deadlineLabel,
@@ -63,12 +62,6 @@ describe('portal links', () => {
     expect(meetingTargetFromHref('?mod=sipandai&act=discuss&id=30061')).toEqual({ id: '30061', courses_id: null });
     expect(meetingTargetFromHref('?mod=sipandai&id=abc')).toBeNull();
     expect(meetingTargetFromHref(undefined)).toBeNull();
-  });
-
-  it('finds the class a MyCIC class link opens', () => {
-    expect(classTargetFromUrl('/class/2265?dosen_id=5240&course_id=8810')).toEqual({ id: '2265', dosen_id: '5240', course_id: '8810' });
-    expect(classTargetFromUrl('/class/2265')).toEqual({ id: '2265', dosen_id: null, course_id: null });
-    expect(classTargetFromUrl('/notebook/3')).toBeNull();
   });
 });
 

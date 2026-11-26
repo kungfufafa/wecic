@@ -81,33 +81,6 @@ export function markdownText(content: string | null | undefined): string {
     .trim();
 }
 
-/** Markdown the assistant writes, readable as plain text: no `**`, `#` or `[n]` markers left (code is kept as written). */
-export function plainText(content: string | null | undefined): string {
-  let text = '';
-  let dropped = false;
-
-  for (const token of citationTokens(markdownText(content))) {
-    if (token.type === 'cite') {
-      dropped = true;
-      continue;
-    }
-
-    let next = token.text;
-
-    if (dropped && /^(?:[.,;:!?\n]|$)/.test(next)) {
-      // "transitif [2]." reads "transitif.", as the server words earlier answers (withoutCitations).
-      text = text.replace(/[ \t]+$/, '');
-    } else if (dropped && /[ \t]$/.test(text)) {
-      next = next.replace(/^[ \t]+/, '');
-    }
-
-    text += next;
-    dropped = false;
-  }
-
-  return (dropped ? text.replace(/[ \t]+$/, '') : text).trim();
-}
-
 /** The citation `[n]` of an output, or null when the output does not list it. */
 export function findCitation(citations: NotebookCitation[] | null | undefined, n: number): NotebookCitation | null {
   return (citations ?? []).find((citation) => citation.n === n) ?? null;
