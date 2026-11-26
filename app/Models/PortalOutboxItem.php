@@ -43,8 +43,6 @@ class PortalOutboxItem extends Model
 
     public const ACTION_ATTENDANCE = 'attendance';
 
-    public const ACTIONS = [self::ACTION_ASSIGNMENT_UPLOAD, self::ACTION_EXAM_UPLOAD, self::ACTION_ATTENDANCE];
-
     public const STATUS_QUEUED = 'queued';
 
     /**
@@ -63,8 +61,6 @@ class PortalOutboxItem extends Model
     public const STATUS_UNVERIFIED = 'unverified';
 
     public const STATUS_EXPIRED = 'expired';
-
-    public const STATUSES = [self::STATUS_QUEUED, self::STATUS_SENDING, self::STATUS_SENT, self::STATUS_FAILED, self::STATUS_UNVERIFIED, self::STATUS_EXPIRED];
 
     /**
      * Still waiting for the portal: shown as open, never pruned.

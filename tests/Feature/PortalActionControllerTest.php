@@ -1458,43 +1458,6 @@ class PortalActionControllerTest extends TestCase
         ];
     }
 
-    private function mockServiceExpectingSubmitAssignment(string $token, UploadedFile $expectedFile): void
-    {
-        $this->mockServiceExpectingSubmitAssignmentWithPayload($token, $expectedFile, 9000, 29833, 2);
-    }
-
-    private function mockServiceExpectingSubmitAssignmentWithPayload(
-        string $token,
-        UploadedFile $expectedFile,
-        int $courseId,
-        int $discussionId,
-        int $meetingNumber
-    ): void {
-        $this->instance(
-            SipandaiSubmissionService::class,
-            Mockery::mock(SipandaiSubmissionService::class, function (MockInterface $mock) use ($token, $expectedFile, $courseId, $discussionId, $meetingNumber): void {
-                $mock->shouldReceive('submitAssignment')
-                    ->once()
-                    ->withArgs(function ($sessionToken, $actualCourseId, $actualDiscussionId, $actualMeetingNumber, $file, $overrides) use ($token, $expectedFile, $courseId, $discussionId, $meetingNumber) {
-                        return $sessionToken === $token
-                            && $actualCourseId === $courseId
-                            && $actualDiscussionId === $discussionId
-                            && $actualMeetingNumber === $meetingNumber
-                            && $file instanceof UploadedFile
-                            && $file->getClientOriginalName() === $expectedFile->getClientOriginalName()
-                            && (isset($overrides['keterangan']) || $overrides === []);
-                    })
-                    ->andReturn([
-                        'success' => true,
-                        'message' => 'Uploaded',
-                        'data' => [
-                            'alerts' => ['Uploaded'],
-                        ],
-                    ]);
-            })
-        );
-    }
-
     private function mockServiceExpectingSubmitAttendance(string $token): void
     {
         $this->instance(
@@ -1732,32 +1695,6 @@ class PortalActionControllerTest extends TestCase
                         'status' => 'not_uploaded',
                         'form' => [
                             'file_field' => 'file',
-                        ],
-                    ]);
-            })
-        );
-    }
-
-    private function mockServiceExpectingSubmitExam(string $token, UploadedFile $expectedFile): void
-    {
-        $this->instance(
-            SipandaiSubmissionService::class,
-            Mockery::mock(SipandaiSubmissionService::class, function (MockInterface $mock) use ($token, $expectedFile): void {
-                $mock->shouldReceive('submitExam')
-                    ->once()
-                    ->withArgs(function ($sessionToken, $examId, $file, $overrides) use ($token, $expectedFile) {
-                        return $sessionToken === $token
-                            && $examId === 8833
-                            && $file instanceof UploadedFile
-                            && $file->getClientOriginalName() === $expectedFile->getClientOriginalName()
-                            && ($overrides['catatan'] ?? null) === 'Upload via test';
-                    })
-                    ->andReturn([
-                        'success' => true,
-                        'message' => 'Exam uploaded successfully.',
-                        'data' => [
-                            'status' => 'uploaded',
-                            'exam_id' => 8833,
                         ],
                     ]);
             })

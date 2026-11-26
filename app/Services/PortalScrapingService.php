@@ -568,56 +568,6 @@ abstract class PortalScrapingService
     }
 
     /**
-     * Extract attribute from element with fallback selectors
-     */
-    protected function extractAttribute(Crawler $crawler, array $selectors, string $attribute): ?string
-    {
-        foreach ($selectors as $selector) {
-            $element = $crawler->filter($selector);
-            if ($element->count() > 0) {
-                $value = $element->attr($attribute);
-                if (! empty($value)) {
-                    return $value;
-                }
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * Extract table data from a table element
-     */
-    protected function extractTableData(Crawler $table): array
-    {
-        $data = [];
-        $headers = [];
-
-        // Extract headers
-        $table->filter('thead tr th, tr:first-child td, tr:first-child th')->each(function (Crawler $cell) use (&$headers) {
-            $headers[] = trim($cell->text());
-        });
-
-        // Extract rows
-        $table->filter('tbody tr, tr')->each(function (Crawler $row) use (&$data, $headers) {
-            $rowData = [];
-            $row->filter('td, th')->each(function (Crawler $cell) use (&$rowData) {
-                $rowData[] = trim($cell->text());
-            });
-
-            if (! empty($rowData)) {
-                if (empty($headers)) {
-                    $data[] = $rowData;
-                } else {
-                    $data[] = array_combine(array_slice($headers, 0, count($rowData)), $rowData);
-                }
-            }
-        });
-
-        return $data;
-    }
-
-    /**
      * Rows of this table only, in document order
      *
      * The HTML5 parser repairs raw server HTML as a browser does: rows the
@@ -783,47 +733,6 @@ abstract class PortalScrapingService
     }
 
     /**
-     * Extract numeric value from text
-     */
-    protected function extractNumber(string $text): ?float
-    {
-        $cleaned = preg_replace('/[^0-9.,-]/', '', $text);
-        $cleaned = str_replace(',', '.', $cleaned);
-
-        return is_numeric($cleaned) ? (float) $cleaned : null;
-    }
-
-    /**
-     * Extract date from text
-     */
-    protected function extractDate(string $text): ?\DateTime
-    {
-        $text = $this->cleanText($text);
-
-        // Try common date formats
-        $formats = [
-            'Y-m-d',
-            'd-m-Y',
-            'd/m/Y',
-            'm/d/Y',
-            'Y/m/d',
-            'd M Y',
-            'M d, Y',
-            'd F Y',
-            'F d, Y',
-        ];
-
-        foreach ($formats as $format) {
-            $date = \DateTime::createFromFormat($format, $text);
-            if ($date !== false) {
-                return $date;
-            }
-        }
-
-        return null;
-    }
-
-    /**
      * The page's own content, without the sidebar, navbar and footer
      *
      * Every Portal Mahasiswa page carries the same sidebar (including the
@@ -870,25 +779,14 @@ abstract class PortalScrapingService
     }
 
     /**
-     * First date range written in the text (K3)
+     * Every date range written in the text, in reading order (K3)
      *
      * Ranges are joined by "sd", "s.d.", "s/d", "sampai (dengan)", "hingga"
      * or a dash. A start date without month and/or year inherits them from
      * the end date ("17 s/d 19 September 2026", "20 Juli - 16 Agustus 2026");
      * when that would put it after the end date, a start with only a day
      * moves back one month (and one year past January), and a start with a
-     * month but no year moves back one year. Returns null when the text has
-     * no range; parseIndonesianDate() then covers a single date.
-     *
-     * @return array{start: CarbonImmutable, end: CarbonImmutable}|null
-     */
-    protected function parseIndonesianDateRange(string $text): ?array
-    {
-        return $this->extractIndonesianDateRanges($text)[0] ?? null;
-    }
-
-    /**
-     * Every date range written in the text, in reading order
+     * month but no year moves back one year.
      *
      * @return list<array{start: CarbonImmutable, end: CarbonImmutable}>
      */

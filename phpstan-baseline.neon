@@ -727,18 +727,6 @@ parameters:
 			path: app/Models/PortalOutboxItem.php
 
 		-
-			message: '#^Public constant "App\\Models\\PortalOutboxItem\:\:ACTIONS" is never used$#'
-			identifier: public.classConstant.unused
-			count: 1
-			path: app/Models/PortalOutboxItem.php
-
-		-
-			message: '#^Public constant "App\\Models\\PortalOutboxItem\:\:STATUSES" is never used$#'
-			identifier: public.classConstant.unused
-			count: 1
-			path: app/Models/PortalOutboxItem.php
-
-		-
 			message: '#^Public method "App\\Models\\PortalOutboxItem\:\:fileName\(\)" is used only locally and should be turned protected/private$#'
 			identifier: public.method.unused
 			count: 1
@@ -2627,18 +2615,6 @@ parameters:
 			identifier: method.alreadyNarrowedType
 			count: 1
 			path: tests/Feature/NotebookApiTest.php
-
-		-
-			message: '#^Method Tests\\Feature\\PortalActionControllerTest\:\:mockServiceExpectingSubmitAssignment\(\) is unused\.$#'
-			identifier: method.unused
-			count: 1
-			path: tests/Feature/PortalActionControllerTest.php
-
-		-
-			message: '#^Method Tests\\Feature\\PortalActionControllerTest\:\:mockServiceExpectingSubmitExam\(\) is unused\.$#'
-			identifier: method.unused
-			count: 1
-			path: tests/Feature/PortalActionControllerTest.php
 
 		-
 			message: '#^Call to an undefined method Symfony\\Component\\HttpFoundation\\Response\:\:getFile\(\)\.$#'
